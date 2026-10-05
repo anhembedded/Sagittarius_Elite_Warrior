@@ -52,6 +52,10 @@ class RunResultViewModel(QObject):
 
     resultChanged = Signal()
     statCardsChanged = Signal()
+    #: The run the comparison and Monte Carlo panels read changed: a new
+    #: result, or none. The Monte Carlo panel stays open beside the run
+    #: (`EPIC-033L`), so it follows this instead of re-reading on open.
+    comparisonSnapshotChanged = Signal()
     resultWarningTextChanged = Signal()
     limitationsChanged = Signal()
     dataCoverageChanged = Signal()
@@ -188,6 +192,7 @@ class RunResultViewModel(QObject):
         `@Slot(object)` for the same `unprotected_mutators()` reason that
         method documents."""
         self._comparison_snapshot = snapshot
+        self.comparisonSnapshotChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Warning + limitations
@@ -297,8 +302,7 @@ class RunResultViewModel(QObject):
 
     def monte_carlo_result(self) -> MonteCarloSimulationResult | None:
         """Plain Python accessor (no `Property`), same shape as
-        `comparison_snapshot()` — only `MonteCarloDialog`'s composition
-        root reads it."""
+        `comparison_snapshot()` — only `MonteCarloPanel` reads it."""
         return self._monte_carlo_result
 
     def monte_carlo_error(self) -> str:
@@ -333,4 +337,5 @@ class RunResultViewModel(QObject):
         longer meaningful."""
         self._monte_carlo_result = None
         self._monte_carlo_error = ""
+        self.monteCarloResultChanged.emit()
         self.monteCarloResultChanged.emit()

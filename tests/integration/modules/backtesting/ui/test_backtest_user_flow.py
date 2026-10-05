@@ -7,13 +7,13 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
     RUN,
+    STOP,
     backtest_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
@@ -50,6 +50,14 @@ def _run_backtest(presenter: BackTestPresenter) -> None:
         presenter.view, backtest_commands(BACKTEST_ROUTE), presenter.bind_commands
     )
     actions.action(RUN).trigger()
+
+
+def _stop_backtest(presenter: BackTestPresenter) -> None:
+    """Tools → Stop backtest, the action bound as the window binds it."""
+    actions = bound_actions(
+        presenter.view, backtest_commands(BACKTEST_ROUTE), presenter.bind_commands
+    )
+    actions.action(STOP).trigger()
 
 
 def _resolve_runtime_symbol() -> str:
@@ -246,10 +254,8 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     assert view._last_klines == chart._raw_history
 
 
-def test_progress_banner_cancel_button_cancels_active_backtest_flow(
-    backtest_screen, qtbot
-):
-    presenter, view = backtest_screen
+def test_stop_backtest_cancels_an_active_run(backtest_screen, qtbot):
+    presenter, _view = backtest_screen
     view_model = presenter._view_model
     view_model.selectedTimeframe = _RUNTIME_INTERVAL
     view_model.time_range.preset = "custom"
@@ -259,21 +265,13 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     # Backtest → Run backtest (`EPIC-033D`).
     _run_backtest(presenter)
 
-    # The Cancel button belongs to the banner, not to this panel: it was
-    # inside `ProgressBanner.qml`'s scene until `EPIC-025` PR 4.3l and is
-    # `kit.ProgressBanner`'s own `QPushButton` now, so it is reached by
-    # `objectName` rather than as an attribute of the screen.
-    progress_widget = view.top_widget._progress_banner_widget
-    assert progress_widget is not None
-
-    # If the backtest is still running or syncing, clicking cancel on the progress banner must cooperatively cancel it
+    # Tools → Stop backtest, the action bound as the window binds it; the
+    # progress banner's own Cancel button went with the banner (`EPIC-033L`).
     if presenter.fsm.current_state in (
         BacktestUiState.RUNNING,
         BacktestUiState.SYNCING,
     ):
-        cancel_btn = progress_widget.findChild(QPushButton, "progressBannerCancel")
-        assert cancel_btn is not None
-        cancel_btn.click()
+        _stop_backtest(presenter)
 
     qtbot.waitUntil(
         lambda: (

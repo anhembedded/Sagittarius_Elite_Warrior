@@ -113,17 +113,6 @@ def test_top_panel_result_warning_line_does_not_affect_stat_cards_visibility(
     )
 
 
-def test_progress_banner_is_visible_while_backtest_runs(view, qapp):
-    v, vm = view
-    assert v.top_widget._progress_banner.isVisible() is False
-
-    vm.run_progress.set_backtest_progress(42.0, "Running full dataset: 42% · ETA ~8s")
-    vm.set_ui_mode("RUNNING")
-    qapp.processEvents()
-
-    assert v.top_widget._progress_banner.isVisible() is True
-
-
 def test_sync_progress_and_coverage_warning_are_visible(view, qapp):
     v, vm = view
 
@@ -133,7 +122,9 @@ def test_sync_progress_and_coverage_warning_are_visible(view, qapp):
     vm.set_ui_mode("SYNCING")
     qapp.processEvents()
 
-    assert v.top_widget._progress_banner.isVisible() is True
+    # The sync's progress is the status bar's (`EPIC-033L`); the coverage
+    # warning stays with the figures it qualifies.
+    assert not v.status_widgets()[0].isHidden()
     assert v.top_widget._coverage_banner.isVisible() is True
 
 

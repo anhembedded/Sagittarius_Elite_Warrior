@@ -62,6 +62,7 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(mode):
         "Trades": _AREA.BottomDockWidgetArea,
         "Drawdown": _AREA.BottomDockWidgetArea,
         "Monthly returns": _AREA.BottomDockWidgetArea,
+        "Monte Carlo": _AREA.BottomDockWidgetArea,
     }
 
 
@@ -152,3 +153,15 @@ def _ancestors(widget, stop):
     while parent is not None and parent is not stop:
         yield parent
         parent = parent.parentWidget()
+
+
+def test_monte_carlo_brings_its_panel_to_the_front(mode):
+    """Tools → Monte Carlo (`openMonteCarloRequested`) shows the panel, even
+    after the person closed its dock."""
+    view_model, view = mode
+    dock = view.dock_of(view.monte_carlo)
+    dock.close()
+
+    view_model.requestOpenMonteCarlo()
+
+    assert not dock.isHidden()
