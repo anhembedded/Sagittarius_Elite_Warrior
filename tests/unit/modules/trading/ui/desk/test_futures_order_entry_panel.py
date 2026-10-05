@@ -13,7 +13,6 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -128,5 +127,5 @@ def test_the_cost_and_the_liquidation_estimate_are_shown(qtbot) -> None:
     assert cost == "60.00"
     assert liquidation not in (None, "")
     # The estimate says what it leaves out, on its value.
-    value = figures.findChild(QLabel, "readout::liquidation")
+    value = figures.value_label("liquidation")
     assert "other positions" in value.toolTip()

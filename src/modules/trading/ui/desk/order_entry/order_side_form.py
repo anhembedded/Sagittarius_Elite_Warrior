@@ -185,7 +185,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
 
     def _show_figures(self, figures: SideFigures | None, units: SideUnits) -> None:
         self._figures.show_readout(side_readout(figures, units))
-        value = self._figures.findChild(QLabel, f"readout::{LIQUIDATION_KEY}")
+        value = self._figures.value_label(LIQUIDATION_KEY)
         if value is not None:
             value.setToolTip(_LIQUIDATION_TIP)
 

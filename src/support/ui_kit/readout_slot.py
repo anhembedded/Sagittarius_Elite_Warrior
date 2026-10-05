@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -69,9 +69,20 @@ class ReadoutSlot(QWidget):  # base-exempt: a container, not a surface
             return None
         return self._form.value_text(key)
 
+    def value_label(self, key: str) -> QLabel | None:
+        """The label showing row `key` in the current form, for a caller that
+        adds to it (a tooltip); `None` when there is no such row."""
+        if self._form is None or key not in self.keys:
+            return None
+        return self._form.findChild(QLabel, f"readout::{key}")
+
     def _replace_form(self, specs: tuple[ColumnSpec, ...]) -> None:
         if self._form is not None:
+            # Out of the slot now, deleted later: a lookup straight after the
+            # rows changed must find only the new form's labels (the review of
+            # PR #352 found a tooltip set on the old one).
             self._layout.removeWidget(self._form)
+            self._form.setParent(None)
             self._form.deleteLater()
             self._form = None
         self._specs = specs

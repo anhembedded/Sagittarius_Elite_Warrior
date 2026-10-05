@@ -75,3 +75,19 @@ def test_clear_removes_the_rows(qapp):
 
     assert slot.keys == ()
     assert slot.value_text("available") is None
+
+
+def test_a_rebuilt_slot_holds_only_the_new_form_at_once(qapp):
+    """Review of PR #352: the old form stayed a child until the event loop
+    deleted it, so a lookup straight after the rows changed found its labels
+    first — the order form's tooltip went onto a label nobody saw."""
+    slot = ReadoutSlot()
+    slot.show_readout(Readout(_USDT, {"available": 1.0}))
+
+    slot.show_readout(Readout(_USD, {"available": 3.0}))
+
+    (form,) = slot.findChildren(ReadoutForm)
+    label = slot.value_label("available")
+    assert label is not None
+    assert label.text() == "3.00"
+    assert form.isAncestorOf(label)
