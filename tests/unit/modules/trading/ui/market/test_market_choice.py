@@ -16,6 +16,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
+    LOAD_OLDER,
+    LOAD_RANGE,
     SHOW_FUTURES,
     SHOW_SPOT,
     VIEW_MENU,
@@ -138,14 +140,14 @@ def test_a_remembered_market_the_mode_does_not_offer_keeps_spot(build):
     assert presenter.choice.current is MarketType.SPOT
 
 
-def test_the_choices_take_no_access_key_of_the_view_menu():
-    """View → Spot market and Futures market sit beside the window's own View
-    items: one item per mode (keys assigned by the window), T&oolbars and
-    Stat&us bar. Their keys are none of those, and none of the mode keys HLD
-    §11.2.3 plans (T&rade, Back&test, De&veloper), so a mode renamed to its
-    planned title does not take one. A "Market" menu of their own was
-    dropped: every letter of the word is a menu-bar title's or a Backtest
-    panel's key."""
+def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
+    """View → Spot market, Futures market (`EPIC-033Q`), Load older candles
+    and Load range… (`EPIC-033S`) sit beside the window's own View items: one
+    item per mode (keys assigned by the window), T&oolbars and Stat&us bar.
+    Their keys are none of those, and none of the mode keys HLD §11.2.3 plans
+    (T&rade, Back&test, De&veloper), so a mode renamed to its planned title
+    does not take one. A "Market" menu of their own was dropped: every letter
+    of the word is a menu-bar title's or a Backtest panel's key."""
     own = (shell_menus.TOOLBARS_MENU, "Stat&us bar")
     reserved = [key for text in own for key in access_keys(text)]
     registry = real_screen_registry(Mock())
@@ -156,9 +158,14 @@ def test_the_choices_take_no_access_key_of_the_view_menu():
     choices = [c for c in market_commands(MARKET_ROUTE) if c.menu_path == VIEW_MENU]
     keys = [key for c in choices for key in access_keys(c.text)]
 
-    assert [c.command_id for c in choices] == [SHOW_SPOT, SHOW_FUTURES]
+    assert [c.command_id for c in choices] == [
+        SHOW_SPOT,
+        SHOW_FUTURES,
+        LOAD_OLDER,
+        LOAD_RANGE,
+    ]
     assert sorted(set(keys) & taken) == []
-    assert len(keys) == len(set(keys)) == 2
+    assert len(keys) == len(set(keys)) == len(choices)
 
 
 # -- what the mode shows ----------------------------------------------------------

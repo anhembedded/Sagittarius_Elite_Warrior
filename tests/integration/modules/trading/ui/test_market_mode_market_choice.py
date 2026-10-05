@@ -4,79 +4,31 @@ over in-memory market-data ports; the Spot candles never come back."""
 
 from __future__ import annotations
 
-import concurrent.futures
-from collections.abc import Callable
-from typing import Any
-
 import pytest
-from PySide6.QtCore import QCoreApplication, QEvent, QObject
+from PySide6.QtCore import QCoreApplication, QEvent
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
-    MarketDataCandleFeed,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
-    FakeMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
-    FakeMarketStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
-    FakeAccountSnapshot,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
     SHOW_FUTURES,
-    market_commands,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_dependencies import (
-    MARKETS,
-    MarketDependencies,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
     WATCHLIST_STREAM_OWNER,
     MarketPresenter,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
-    MARKET_ROUTE,
+from Sagittarius_Elite_Warrior.tests.integration.modules.trading.ui.market_mode_fixtures import (
+    market_mode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_view import (
-    MarketView,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
-from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
-    presenter_container,
-)
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 _SPOT_CLOSE = 105.0
 _FUTURES_CLOSE = 205.0
-
-
-class _InlineThreadManager(IThreadManager):
-    """Runs each task as it is submitted: the load lands before `submit`
-    returns, so the test waits on nothing."""
-
-    def submit(
-        self, task: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> concurrent.futures.Future[Any]:
-        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
-        future.set_result(task(*args, **kwargs))
-        return future
-
-    def shutdown(self, wait: bool = True) -> None:
-        return None
 
 
 @pytest.fixture
@@ -90,31 +42,8 @@ def mode(qapp):
             [candle("BTCUSDT", minute, close_price=close) for minute in range(30)],
             market,
         )
-    stream = FakeMarketStream()
-    sync = FakeMarketDataSync()
-    dependencies = MarketDependencies(
-        stream=stream,
-        candles={
-            market: MarketDataCandleFeed(sync, history, stream, market)
-            for market in MARKETS
-        },
-        thread_manager=_InlineThreadManager(),
-        scripts=IndicatorScriptRegistry(),
-        script_params=lambda _key: None,
-        account=FakeAccountSnapshot(),
-        symbols=("BTCUSDT",),
-        interval="1m",
-    )
-    presenter = MarketPresenter(
-        MarketView(), presenter_container(MemoryEventBus()), dependencies
-    )
-    owner = QObject()
-    registry = bound_actions(
-        owner, market_commands(MARKET_ROUTE), presenter.bind_commands
-    )
-    yield presenter, registry, history, stream
-    presenter.shutdown()
-    owner.deleteLater()
+    with market_mode(history) as built:
+        yield built.presenter, built.actions, history, built.stream
 
 
 def _drawn_closes(presenter: MarketPresenter) -> set[float]:
