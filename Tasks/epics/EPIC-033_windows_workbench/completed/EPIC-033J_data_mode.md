@@ -52,7 +52,7 @@ Integration: conformance suite for the mode, the SPEC journeys. Desktop E2E: ope
   - Scan → Scan status / Scan all shards
   - Repair Gap… → Repair gap. It takes no "…" because it asks nothing.
   - Compact Database → Optimize database
-  - Delete Data… → Delete data. It only confirms, so it takes no "…" (`ui-presentation-rule.md` §4, as Bots' Delete bot). The Engine's confirmation keeps Cancel as the default.
+  - Delete Data… → Delete data. It only confirms, so it takes no "…" (`ui-presentation-rule.md` §4, as Bots' Delete bot). Its question names the shard and keeps Cancel as the default.
 - **The status bar.** The view offers words through `IStatusSource` (`EPIC-033H`'s seam): `Records: …`, `Database: …`, and, while a task runs, its text and a `QProgressBar`. The progress banner and its Cancel button are gone; Data → Stop stops the task.
 - **The Gaps panel.** It replaces `GapInspectorDialog`, a modal overlay of hand-styled rows with a Repair button each. The gaps are now a table from its specs plus a one-line summary. The coverage bar is not rebuilt; the summary states the percentage.
 - **Deleted:** `gap_inspector_dialog.py`, `time_range_card.py`, `field_style.py`, the Storage Vault header, the stat tiles and the rail, and the tests that drove them (`test_gap_inspector_widget.py`, `test_data_management_view_pickers.py`, `test_data_management_time_range_picker.py`).
@@ -64,6 +64,13 @@ Integration: conformance suite for the mode, the SPEC journeys. Desktop E2E: ope
   - UI duplication 61 → 60.
   - Conformance: the `data_management` baseline row is removed.
   - The mode bar says "Data", as HLD §11.2.1 names the mode.
+- **Review of PR #354 (two blocking findings, both fixed):**
+  - **The selected shard had two owners.** Selecting a row wrote the view model's symbol and timeframe, and Sync history… and Import data… wrote them too. So after a dialog answered another shard and was cancelled, Delete data deleted that other shard while the table still showed the first selected.
+    - Now `DataSelection` is the one source. Scan status, Export and Delete data read it and write the coordinators' fields only as they act.
+    - Delete data asks the coverage table's own question, which names the shard and its candles, instead of a declared confirmation that could only say "the selected symbol".
+    - Regression test: `test_a_dialog_never_moves_what_a_shard_command_acts_on`.
+  - **Stop was enabled during CLEARING.** Delete, purge, import and export run as CLEARING, which has no cancel path, so a Stop there only orphaned the delete's completion. Stop now applies to SCANNING and SYNCING. Regression test: `test_stop_is_off_while_the_task_cannot_be_stopped`.
+  - **Answered:** after a repair, the gap coordinator re-runs Check gaps for the shard, so the Gaps panel shows the post-repair report.
 - **Still open, recorded rather than built:**
   - §5's Desktop E2E (open, use, rearrange, restart on a real display).
   - SPEC-008 is still unwritten (`Docs/SPEC/README.md` lists it as planned).

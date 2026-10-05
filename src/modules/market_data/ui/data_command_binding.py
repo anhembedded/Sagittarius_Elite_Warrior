@@ -43,7 +43,10 @@ if TYPE_CHECKING:
 
 _IDLE_MODE = "IDLE"
 #: A running task that Stop can still stop.
-_STOPPABLE_MODES = frozenset({"SCANNING", "SYNCING", "CLEARING"})
+#: A running task that Stop can still stop. Delete, purge, import and export
+#: run as CLEARING, which has no cancel path (`ui_mode_transitions.py`): a
+#: Stop there would only orphan the task's completion (review of PR #354).
+_STOPPABLE_MODES = frozenset({"SCANNING", "SYNCING"})
 
 
 class DataCommands:
@@ -66,7 +69,20 @@ class DataCommands:
         return [str(value) for value in self._vm.property(name)]
 
     def _current(self) -> ShardChoice:
+        """The shard a question opens on: the selected one, else the last
+        one acted on."""
+        shard = self._view.selection.shard
+        if shard is not None:
+            return ShardChoice(shard.symbol, shard.interval)
         return ShardChoice(self._text("selectedSymbol"), self._text("selectedInterval"))
+
+    def _selected(self) -> ShardChoice | None:
+        """The shard the table has selected — the one source of what a shard
+        command acts on. The view model's symbol and timeframe are only the
+        coordinators' input, written at the moment a command acts (review of
+        PR #354: a dialog that wrote them made Delete act on another shard)."""
+        shard = self._view.selection.shard
+        return None if shard is None else ShardChoice(shard.symbol, shard.interval)
 
     def _choose(self, shard: ShardChoice) -> None:
         self._vm.setProperty("selectedSymbol", shard.symbol)
@@ -95,6 +111,25 @@ class DataCommands:
             return
         self._choose(choice)
         self._vm.requestImport()
+
+    def scan_status(self) -> None:
+        shard = self._selected()
+        if shard is not None:
+            self._choose(shard)
+            self._vm.requestCheckStatus()
+
+    def export_data(self) -> None:
+        shard = self._selected()
+        if shard is not None:
+            self._choose(shard)
+            self._vm.requestExport()
+
+    def delete_data(self) -> None:
+        """Asks first, naming the shard and its candle count, then deletes
+        exactly the shard it named."""
+        row = self._view.selection.shard
+        if row is not None and self._view.confirm_delete(row):
+            self._vm.requestClearRow(row.symbol, row.interval)
 
     def check_gaps(self) -> None:
         shard = self._view.selection.shard
@@ -155,13 +190,13 @@ def bind_data_commands(
         REPAIR_ALL_GAPS: (commands.repair_all_gaps, gaps),
         INSPECT_CANDLES: (commands.inspect_candles, shard),
         STOP: (view_model.requestCancel, running),
-        SCAN_STATUS: (view_model.requestCheckStatus, shard),
+        SCAN_STATUS: (commands.scan_status, shard),
         SCAN_ALL: (view_model.requestCheckAllStatus, free),
         SYNC_ALL_GAPS: (view_model.requestSyncAllGaps, free),
-        EXPORT: (view_model.requestExport, shard),
+        EXPORT: (commands.export_data, shard),
         IMPORT: (commands.import_data, free),
         OPTIMIZE: (view_model.requestVacuum, free),
-        DELETE_SELECTED: (view_model.requestClearData, shard),
+        DELETE_SELECTED: (commands.delete_data, shard),
         PURGE_ALL: (view_model.requestPurgeAll, free),
     }
     for command_id, (request, enabled) in bindings.items():

@@ -285,9 +285,14 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
             return
         if action == INSPECT_GAPS and row.is_healthy:
             return
-        if action == CLEAR_SHARD and not self._confirm_clear(row):
+        if action == CLEAR_SHARD and not self.confirm_clear(row):
             return
         self.rowActionRequested.emit(action, row.symbol, row.interval)
+
+    def confirm_clear(self, row: DatabaseStatusRow) -> bool:
+        """The question before `row` is deleted, from the context menu or
+        Data → Delete data alike."""
+        return self._confirm_clear(row)
 
     def _ask_before_clearing(self, row: DatabaseStatusRow) -> bool:
         """Names the shard and the consequence, per `HLD §11.5` — deleting

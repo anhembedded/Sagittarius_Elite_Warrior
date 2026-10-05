@@ -60,7 +60,7 @@ _FREE = {
 _ON_SHARD = {
     SCAN_STATUS: "checkStatusRequested",
     EXPORT: "exportRequested",
-    DELETE_SELECTED: "clearDataRequested",
+    DELETE_SELECTED: "clearRowRequested",
     INSPECT_CANDLES: "inspectKlinesRequested",
 }
 _GAP = {
@@ -84,6 +84,8 @@ def mode(qapp):
         data_commands(DATABASE_ROUTE),
         lambda binder: bind_data_commands(binder, view_model, view),
     )
+    # Delete data's question is answered yes; `test_delete_data_*` say no.
+    view.status_panel._confirm_clear = lambda _row: True
     yield view_model, view, actions
     view.deleteLater()
 
@@ -132,11 +134,10 @@ def test_a_shard_command_acts_on_the_selected_row_and_waits_for_one(
     _select(view_model, view)
     actions.action(command_id).trigger()
 
-    assert len(heard) == 1
-    assert (view_model.selectedSymbol, view_model.selectedInterval) == (
-        "ETHUSDT",
-        "1h",
-    )
+    # The request names the shard, or the command wrote it into the fields
+    # the request reads as it acted.
+    named = heard[0] or (view_model.selectedSymbol, view_model.selectedInterval)
+    assert named == ("ETHUSDT", "1h")
 
 
 def test_check_gaps_applies_to_a_shard_with_gaps_only(mode) -> None:
@@ -220,6 +221,51 @@ def test_import_asks_which_shard_the_file_belongs_to(mode, monkeypatch) -> None:
         "ADAUSDT",
         "4h",
     )
+
+
+def test_a_dialog_never_moves_what_a_shard_command_acts_on(mode, monkeypatch) -> None:
+    """Review of PR #354: Import data… wrote the answer's shard into the view
+    model, and Delete data, reading it, deleted that shard while the table
+    still showed another selected. The selection is the one source."""
+    view_model, view, actions = mode
+    cleared = _heard(view_model.clearRowRequested)
+    _select(view_model, view)
+    monkeypatch.setattr(
+        view, "ask_import_shard", lambda *_args: ShardChoice("SOLUSDT", "15m")
+    )
+
+    actions.action(IMPORT).trigger()  # its file dialog is then cancelled
+    actions.action(DELETE_SELECTED).trigger()
+
+    assert cleared == [("ETHUSDT", "1h")]
+
+
+def test_delete_data_names_the_shard_and_a_no_deletes_nothing(mode) -> None:
+    view_model, view, actions = mode
+    cleared = _heard(view_model.clearRowRequested)
+    asked: list[str] = []
+
+    def decline(row) -> bool:
+        asked.append(f"{row.symbol} {row.interval} {row.total_candles}")
+        return False
+
+    view.status_panel._confirm_clear = decline
+    _select(view_model, view)
+    actions.action(DELETE_SELECTED).trigger()
+
+    assert asked == ["ETHUSDT 1h 120"]
+    assert cleared == []
+
+
+@pytest.mark.parametrize("busy", ["CLEARING", "CANCELLING"])
+def test_stop_is_off_while_the_task_cannot_be_stopped(mode, busy) -> None:
+    """Review of PR #354: delete, purge, import and export run as CLEARING,
+    which has no cancel path; a Stop there orphaned the delete's completion."""
+    view_model, _view, actions = mode
+
+    view_model.set_ui_mode(busy)
+
+    assert not actions.action(STOP).isEnabled()
 
 
 def test_a_running_task_disables_every_command_but_stop(mode) -> None:

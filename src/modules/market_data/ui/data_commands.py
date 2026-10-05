@@ -13,7 +13,9 @@ mode. The frequent ones are also on its toolbar.
   every one but Stop while a task runs.
 - **"…"** ends the commands that ask before acting (Sync history…, Export
   data…, Import data…). The two that delete ask first, naming what is lost
-  (`ui-presentation-rule.md` §10), and take no "…".
+  (`ui-presentation-rule.md` §10), and take no "…". Delete data asks with
+  the table's question, which names the shard; Purge all data with the
+  Engine's confirmation.
 - **Stop** stops the running task: an operation with side effects stops, it
   is not cancelled (§10).
 
@@ -92,18 +94,11 @@ def data_commands(route: str) -> tuple[CommandContribution, ...]:
         command(EXPORT, "&Export data…", needs_input=True),
         command(IMPORT, "I&mport data…", needs_input=True),
         command(OPTIMIZE, "Optimi&ze database"),
-        command(
-            DELETE_SELECTED,
-            "&Delete data",
-            confirm=CommandConfirmation(
-                title="Delete Data",
-                consequence=(
-                    "Every candle stored for the selected symbol and timeframe "
-                    "is deleted. This cannot be undone."
-                ),
-                accept_text="Delete",
-            ),
-        ),
+        # Delete data asks through the coverage table's own question, which
+        # names the shard and its candle count; a declared confirmation is
+        # fixed text and could only say "the selected symbol" (review of
+        # PR #354).
+        command(DELETE_SELECTED, "&Delete data"),
         command(
             PURGE_ALL,
             "&Purge all data",

@@ -16,9 +16,9 @@ rail of pickers and a date-range card every command read from, a progress
 banner with its own Cancel button, and a modal gap inspector. Each became the
 platform's part for its job; the view has no style of its own.
 
-The view shows and reports. Selecting a shard sets the view model's symbol
-and timeframe, which the scan, delete and export coordinators already read;
-`selection` tells the commands what is selected (`data_command_binding.py`).
+The view shows and reports. `selection` is the one record of what is
+selected; the commands read it and hand the shard to the coordinators as
+they act (`data_command_binding.py`).
 """
 
 from __future__ import annotations
@@ -206,10 +206,12 @@ class DataManagementView(OutputSourceView):
                 return dock
         raise LookupError("the surface placed no Gaps dock")
 
+    def confirm_delete(self, row: DatabaseStatusRow) -> bool:
+        """Data → Delete data's question: the coverage table's, which names
+        the shard and its candles."""
+        return self._status_panel is not None and self._status_panel.confirm_clear(row)
+
     def _on_shard_selected(self, row: DatabaseStatusRow | None) -> None:
-        if row is not None and self._view_model is not None:
-            self._view_model.selectedSymbol = row.symbol
-            self._view_model.selectedInterval = row.interval
         self.selection.select_shard(row)
 
     def _on_row_action(self, action: str, symbol: str, interval: str) -> None:

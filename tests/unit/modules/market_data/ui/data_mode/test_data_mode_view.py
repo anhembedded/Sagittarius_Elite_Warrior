@@ -54,20 +54,21 @@ def test_records_and_size_are_words_in_the_status_bar(mode):
     assert texts == ["Records: 1,250", "Database: 3.2 MB"]
 
 
-def test_selecting_a_shard_makes_it_the_view_models_symbol_and_timeframe(mode):
+def test_selecting_a_shard_is_recorded_in_the_selection(mode):
+    """The selection is the one record of what the commands act on; the
+    view model's symbol is written only when a command acts (review of
+    PR #354)."""
     view_model, view = mode
+    before = (view_model.selectedSymbol, view_model.selectedInterval)
     view_model.status_model.upsert_row("ETHUSDT", _AT, _AT, 10, "OK", "4h")
     seen: list[object] = []
     view.selection.changed.connect(lambda: seen.append(view.selection.shard))
 
     view.status_panel._table.selectRow(0)
 
-    assert (view_model.selectedSymbol, view_model.selectedInterval) == (
-        "ETHUSDT",
-        "4h",
-    )
     assert seen[-1] is not None
-    assert seen[-1].symbol == "ETHUSDT"
+    assert (seen[-1].symbol, seen[-1].interval) == ("ETHUSDT", "4h")
+    assert (view_model.selectedSymbol, view_model.selectedInterval) == before
 
 
 def test_a_gap_answer_raises_the_gaps_panel_and_marks_gaps_listed(mode):

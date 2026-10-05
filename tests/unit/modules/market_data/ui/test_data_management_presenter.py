@@ -400,6 +400,8 @@ def test_delete_and_purge_actions_ask_then_submit_their_workers(
     )
     view_model.status_model.upsert_row("BTCUSDT", None, None, 10, "OK", "5m")
     presenter.view.status_panel._table.selectRow(0)
+    asked: list[str] = []  # Delete asks the table's question; Purge the Engine's.
+    presenter.view.status_panel._confirm_clear = lambda r: [asked.append(r.symbol)]
 
     actions.action(DELETE_SELECTED).trigger()
 
@@ -415,10 +417,8 @@ def test_delete_and_purge_actions_ask_then_submit_their_workers(
     mock_thread_mgr.submit.assert_called_with(
         presenter._vault_maintenance_coordinator.run_purge_all
     )
-    assert [asked.title for asked in confirmer.asked] == [
-        "Delete Data",
-        "Purge All Data",
-    ]
+    assert asked == ["BTCUSDT"]
+    assert [question.title for question in confirmer.asked] == ["Purge All Data"]
 
 
 def test_on_clear_data_submits_clear_worker(presenter, view_model, mock_thread_mgr):
