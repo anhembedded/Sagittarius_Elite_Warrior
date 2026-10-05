@@ -214,7 +214,7 @@ def test_presenter_strategy_properties_save_updates_config(qapp, modal_presenter
 
 def test_strategy_properties_modal_content_and_controls(qapp, modal_presenter):
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -273,7 +273,7 @@ def test_editing_a_strategy_input_field_and_saving_uses_the_typed_value(
     modal_presenter._refresh_bot_params_schema()
 
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -311,7 +311,7 @@ def test_editing_volume_spike_flow_strategy_trailing_stop_and_saving_uses_the_ty
     modal_presenter._refresh_bot_params_schema()
 
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -371,7 +371,7 @@ def test_pressing_enter_in_order_size_field_commits_the_typed_value(
     at all).
     """
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -412,7 +412,7 @@ def test_tabbing_away_from_a_field_without_pressing_enter_also_commits_it(
     focus alone, with no Enter keypress at all, since that's how a user
     tabbing (or clicking) between fields actually interacts with a form."""
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -462,7 +462,7 @@ def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
     modal_presenter._refresh_bot_params_schema()
 
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -501,7 +501,7 @@ def test_clicking_save_closes_the_dialog_without_starting_a_run(qapp, modal_pres
     button closes the dialog, and — BUG-064 — does NOT start a backtest.
     Running is the user's decision, made with the Run button."""
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -531,7 +531,7 @@ def test_non_text_widgets_also_commit_on_change(qapp, modal_presenter):
     `kit.widget_value.connect_value_committed()` covers every input kind,
     each on the signal Qt itself considers a commit for that widget."""
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -569,7 +569,7 @@ def test_reset_to_defaults_restores_every_broker_property(qapp, modal_presenter)
     it cannot silently miss a property the way twelve hand-written setters
     could."""
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -608,7 +608,7 @@ def test_pressing_enter_does_not_trigger_the_reset_button(qapp, modal_presenter)
     from PySide6.QtTest import QTest
 
     view = modal_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties

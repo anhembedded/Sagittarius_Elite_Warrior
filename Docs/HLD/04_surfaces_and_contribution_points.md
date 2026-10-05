@@ -146,7 +146,7 @@ place. The list is deliberately short, and adding a place is an HLD change, not 
 
 In one sentence each, so this section reads on its own: `SCREEN` is a navigation entry; inside a
 page, `HEADER` holds page-wide actions and status tiles, `CONTEXT_BAR` the current symbol and
-connection, `WORKSPACE` the one big thing, `RAIL` the column of panels, `CONSOLE` the log, `MODAL` a
+connection, `WORKSPACE` the one big thing, `NAVIGATOR` the left panels the centre is picked or set up from, `RAIL` the column of panels, `CONSOLE` the log, `MODAL` a
 dialog the page opens; `STATUS_TILE` and `DEV_PROBE` are the two places outside the page shell, and a
 page of Tools → Options is a contribution of its own, not a place (`EPIC-033E`). Two things are **not** places, on purpose: a free-form docking area (a
 module never asks for it, even if the Engine adopts docking in Phase 5) and "the sidebar"

@@ -57,6 +57,7 @@ _FILL_ORDER: tuple[Place, ...] = (
     Place.HEADER,
     Place.CONTEXT_BAR,
     Place.WORKSPACE,
+    Place.NAVIGATOR,
     Place.RAIL,
     Place.CONSOLE,
     Place.DEV_PROBE,

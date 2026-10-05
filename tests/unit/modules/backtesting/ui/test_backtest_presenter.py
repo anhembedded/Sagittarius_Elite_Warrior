@@ -2480,7 +2480,7 @@ def test_bot_params_button_is_enabled(presenter, qapp):
     strategy-driven form, so the button no longer needs to stay locked."""
     qapp.processEvents()
 
-    assert presenter.view.top_widget._btn_bot_params.isEnabled() is True
+    assert presenter.view.run_setup.strategy_parameters.isEnabled() is True
 
 
 def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(

@@ -93,7 +93,7 @@ def test_a_place_the_surface_does_not_accept_raises(
     registry: ContributionRegistry,
 ) -> None:
     with pytest.raises(ContributionError) as failure:
-        registry.contribute(_descriptor(surface_id="backtest", place=Place.CONSOLE))
+        registry.contribute(_descriptor(surface_id="backtest", place=Place.MODAL))
     assert "backtest" in str(failure.value)
     assert "rail" in str(failure.value)
 

@@ -51,7 +51,11 @@ SURFACES: tuple[Surface, ...] = (
         gated_by=DEV_MODE_GATE,
     ),
     Surface(
-        "backtest", owner="backtesting", accepts=frozenset({Place.RAIL, Place.MODAL})
+        "backtest",
+        owner="backtesting",
+        accepts=frozenset(
+            {Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}
+        ),
     ),
     Surface("bots", owner="bots", accepts=frozenset({Place.WORKSPACE})),
     Surface(

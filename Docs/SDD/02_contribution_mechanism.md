@@ -22,7 +22,7 @@ if TYPE_CHECKING:                       # core/ is Qt-free at runtime; the guard
 
 class Place(Enum):            # canonical list: Docs/VOCABULARY/README.md §2 — adding a member is an HLD change
     SCREEN = "screen"; HEADER = "header"; CONTEXT_BAR = "context_bar"; WORKSPACE = "workspace"
-    RAIL = "rail"; CONSOLE = "console"; MODAL = "modal"
+    NAVIGATOR = "navigator"; RAIL = "rail"; CONSOLE = "console"; MODAL = "modal"
     STATUS_TILE = "status_tile"; DEV_PROBE = "dev_probe"
     # SETTINGS_SECTION was deleted by EPIC-033E: an Options page is an
     # OptionsPageContribution (contribute_options_page), not a place.
@@ -123,6 +123,6 @@ runs a command, not what its arguments are.
 | `welcome` | shell | `HEADER`, `WORKSPACE` |
 | `trading` | shell | `HEADER`, `CONTEXT_BAR`, `WORKSPACE`, `RAIL`, `CONSOLE`, `MODAL`, `STATUS_TILE` |
 | `dev_board` (gated) | shell | the same plus `DEV_PROBE`; system controls are a `HEADER` contribution at `order = 20` |
-| `backtest` | `backtesting` | `RAIL`, `MODAL` (its own widgets are not contributions) |
+| `backtest` | `backtesting` | `WORKSPACE`, `NAVIGATOR`, `RAIL`, `CONSOLE` (the places its own view fills, `EPIC-033L`) |
 | `data_management` | `market_data` | `RAIL`, `MODAL` |
 

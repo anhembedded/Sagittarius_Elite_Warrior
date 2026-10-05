@@ -130,6 +130,20 @@ class TestTheParts:
         assert trading.dockWidgetArea(rail) == Qt.DockWidgetArea.RightDockWidgetArea
         assert trading.dockWidgetArea(console) == Qt.DockWidgetArea.BottomDockWidgetArea
 
+    def test_a_navigator_panel_goes_to_the_left(self, qapp) -> None:
+        """HLD §11.2.1: Backtest's Run setup (and Bots' list) is a left dock,
+        the side the centre is picked or set up from."""
+        backtest = WorkbenchSurface(surfaces_by_id()["backtest"])
+        backtest.place_widget(Place.NAVIGATOR, QLabel("setup"), title="Run setup")
+        backtest.place_widget(Place.RAIL, QLabel("metrics"), title="Metrics")
+
+        setup = backtest.findChild(
+            QWidget, f"{backtest.objectName()}::navigator::Run setup"
+        )
+        metrics = backtest.findChild(QWidget, f"{backtest.objectName()}::rail::Metrics")
+        assert backtest.dockWidgetArea(setup) == Qt.DockWidgetArea.LeftDockWidgetArea
+        assert backtest.dockWidgetArea(metrics) == Qt.DockWidgetArea.RightDockWidgetArea
+
     def test_two_rail_panels_are_tabbed_not_stacked(
         self, trading: WorkbenchSurface
     ) -> None:

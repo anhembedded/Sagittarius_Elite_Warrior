@@ -153,7 +153,7 @@ def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view):
     """BUG-004's exact symptom — header/tabs/pagination all rendered, table
     body empty — was the splitter squeezing the pane below what the table
     needs. `set_view_model()` applies `minimum_usable_height()` via
-    `setMinimumHeight()`, so the splitter can never go below it."""
+    `setMinimumHeight()`, so the Trades dock can never go below it."""
     v, _vm = view
 
     assert v.bottom_widget.minimumHeight() >= v.bottom_widget.minimum_usable_height()

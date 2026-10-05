@@ -103,7 +103,7 @@ def bot_params_presenter(qapp, request):
 
 def test_opening_bot_params_dialog_loads_real_content(qapp, bot_params_presenter):
     view = bot_params_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -117,7 +117,7 @@ def test_opening_bot_params_dialog_keeps_strategy_schema_live(
     qapp, bot_params_presenter
 ):
     view = bot_params_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -130,7 +130,7 @@ def test_bot_params_dialog_materializes_schema_rows_for_the_open_modal(
 ):
     assert bot_params_presenter._view_model.strategy_params.botParamsGroups
     view = bot_params_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -148,7 +148,7 @@ def test_up_key_steps_a_visible_numeric_parameter_through_the_view_model(
     `step_bot_param_value()`), not JS math — `_NumericStepLineEdit`'s port
     of `BotParamField.qml`'s `Keys.onPressed`/`WheelHandler`."""
     view = bot_params_presenter.view
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties

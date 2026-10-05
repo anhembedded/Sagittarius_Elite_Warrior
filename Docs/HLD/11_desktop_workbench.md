@@ -162,6 +162,7 @@ The mechanism of §4 is unchanged: a module contributes to places, the host rend
 | `HEADER` | a `QToolBar` of `QAction`s — one action carries its menu entry, toolbar button, shortcut and enabled state | Consistency |
 | `CONTEXT_BAR` | a second toolbar (symbol, timeframe, venue) | Simple by default |
 | `WORKSPACE` | the mode's central widget | Familiarity |
+| `NAVIGATOR` | a `QDockWidget` in the left dock area: what the centre is picked or set up from (Bots list, Run setup) | Simple by default |
 | `RAIL` | `QDockWidget`s — **panels** the user can move, tab, float and hide; the layout persists | Remember the user |
 | `CONSOLE` | the one Output dock in the bottom area (`EPIC-033F`) | Familiarity |
 | `MODAL` | a `QDialog` with a `QDialogButtonBox`, a title naming the command, validation before OK enables | Prevention over confirmation |

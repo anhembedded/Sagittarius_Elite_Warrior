@@ -145,7 +145,7 @@ _EXPECTED_LOCK_STATE = {
 
 
 def _open_order_execution_modal(qapp, view):
-    view.top_widget._btn_order_exec.click()
+    view.run_setup.execution.click()
     qapp.processEvents()
 
     dialog = view._modals_host._order_execution
