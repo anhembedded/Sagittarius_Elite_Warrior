@@ -108,8 +108,15 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     assert _shown(panel, "entry_time") == "2026-08-17 04:00:00"
     assert _shown(panel, "exit_time") == "2026-08-17 08:00:00"
 
+    # The table writes times in the zone it reads as it paints, so a zone
+    # change must make it paint again: the rows are replaced, which resets
+    # the model (review of PR #356).
+    resets = MagicMock()
+    panel.table.model.modelReset.connect(resets)
+
     # Change display timezone to Asia/Ho_Chi_Minh (+7h)
     presenter._view_model.setDisplayTimezone("Asia/Ho_Chi_Minh")
+    resets.assert_called_once()
 
     # Assert view.set_display_timezone was called
     view.set_display_timezone.assert_called_with("Asia/Ho_Chi_Minh")

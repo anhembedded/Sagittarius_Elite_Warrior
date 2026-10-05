@@ -107,8 +107,11 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
 
         self.filter.currentIndexChanged.connect(self._on_filter_chosen)
         self.search.textEdited.connect(self._on_search_edited)
+        #: While the rows are replaced, the selection is put back by hand and
+        #: announced once, after.
+        self._replacing_rows = False
         self.table.view.selectionModel().selectionChanged.connect(
-            lambda *_args: self._show_selected_trade()
+            lambda *_args: self._on_trade_selection_changed()
         )
         self._wire_view_model()
         self._sync_filters()
@@ -159,8 +162,23 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
         self._vm.trade_log.searchText = text
 
     def _sync_rows(self) -> None:
-        self.table.model.set_rows(self._vm.trade_log.rows)
+        """New rows on every query (a filter, a search keystroke, a time zone
+        change): the trade the person selected stays selected while it
+        still matches, with its chart line and its journal (review of
+        PR #356)."""
+        kept = self.selected_trade
+        self._replacing_rows = True
+        try:
+            self.table.model.set_rows(self._vm.trade_log.rows)
+            if kept is not None:
+                self.table.select_first(lambda trade: trade.index == kept.index)
+        finally:
+            self._replacing_rows = False
         self._show_selected_trade()
+
+    def _on_trade_selection_changed(self) -> None:
+        if not self._replacing_rows:
+            self._show_selected_trade()
 
     def _show_selected_trade(self) -> None:
         trade = self.selected_trade

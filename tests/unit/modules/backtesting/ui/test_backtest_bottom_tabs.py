@@ -249,3 +249,36 @@ def test_selecting_a_different_trade_selects_that_one(qapp) -> None:
     panel.table.view.selectRow(1)
 
     spy.assert_called_with(2)
+
+
+def test_the_selected_trade_stays_selected_when_the_rows_are_replaced(qapp) -> None:
+    """Review of PR #356: every query (a filter, a search keystroke, a time
+    zone change) replaces the rows, which reset the selection and dropped
+    the trade's chart line and journal. The trade stays selected while it
+    still matches, and is announced once."""
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+    vm.trade_log.set_rows([_trade_row(index) for index in (1, 2, 3)])
+    panel.table.view.selectRow(1)
+    spy = MagicMock()
+    panel.selectedTradeChanged.connect(spy)
+
+    vm.trade_log.set_rows([_trade_row(index) for index in (2, 3)])
+
+    assert panel.selected_trade is not None
+    assert panel.selected_trade.index == 2
+    spy.assert_called_once_with(2)
+
+
+def test_a_selected_trade_the_query_no_longer_matches_is_deselected(qapp) -> None:
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+    vm.trade_log.set_rows([_trade_row(index) for index in (1, 2)])
+    panel.table.view.selectRow(0)
+    spy = MagicMock()
+    panel.selectedTradeChanged.connect(spy)
+
+    vm.trade_log.set_rows([_trade_row(2)])
+
+    assert panel.selected_trade is None
+    spy.assert_called_once_with(-1)

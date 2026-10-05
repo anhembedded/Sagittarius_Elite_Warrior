@@ -1,7 +1,7 @@
 """`EPIC-003F1` — first slice of `BackTestViewModel`'s decomposition
-(`EPIC-003F` §4, hướng C — facade chuyển tiếp). Owns exactly the 6
-trade-log properties/signals `backtest_view_model.py` used to hold
-directly (BOT-057 §2.1); `BackTestViewModel` now forwards to this
+(`EPIC-003F` §4, hướng C — facade chuyển tiếp). Owns the trade-log
+state `backtest_view_model.py` used to hold directly (BOT-057 §2.1) —
+rows, filter and search since `EPIC-033L` dropped the page; `BackTestViewModel` now forwards to this
 instance instead of duplicating the state.
 
 @details Deliberately a plain `QObject`, not `BaseQmlViewModel` — this
@@ -48,8 +48,8 @@ class TradeLogViewModel(QObject):
 
     filterChanged = Signal()
     searchTextChanged = Signal()
-    #: Covers `rows` and `totalCount` together — the Presenter always
-    #: recomputes and sets both in one call.
+    #: Covers `rows` and `totalCount`, which is derived from them; the trade
+    #: log coordinator sets the rows in one call.
     rowsChanged = Signal()
     #: Emitted whenever the filter or the search text changes — distinct from
     #: those properties' own notify signals because the Presenter needs ONE

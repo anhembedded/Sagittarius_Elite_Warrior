@@ -15,6 +15,8 @@ the order book's three panels, and slightly different in each.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -89,6 +91,18 @@ class SpecTable[TRow]:
     def selected_row(self) -> TRow | None:
         rows = self.selected_rows()
         return rows[0] if rows else None
+
+    def select_first(self, matches: Callable[[TRow], bool]) -> bool:
+        """Selects the first row, as the view orders them, that `matches`;
+        `False` when none does. A model reset clears the selection; a panel
+        whose rows are replaced on every query calls this to keep the row
+        the person had selected, by its identity rather than its position."""
+        for proxy_row in range(self.proxy.rowCount()):
+            row = self.row_at(self.proxy.index(proxy_row, 0))
+            if row is not None and matches(row):
+                self.view.selectRow(proxy_row)
+                return True
+        return False
 
     def text(self, row: int, column: int) -> str:
         """What the view shows at `row` (as sorted) and `column`."""
