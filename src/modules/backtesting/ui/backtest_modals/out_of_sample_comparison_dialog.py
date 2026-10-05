@@ -17,14 +17,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QHeaderView,
     QLabel,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -36,35 +32,21 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.out_of_sample_co
     build_overfit_warning,
     build_split_description,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_rules import (
-    MetricComparisonRow,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Tone,
-    semantic_colour,
-)
+
+from ..metric_comparison_model import OutOfSampleComparisonModel, comparison_table
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
 _TITLE = "In-Sample vs Out-of-Sample"
-_METRIC_COLUMN = 0
-_IN_SAMPLE_COLUMN = 1
-_OUT_OF_SAMPLE_COLUMN = 2
-_DELTA_COLUMN = 3
-_COLUMNS = ("Metric", "In-Sample", "Out-of-Sample", "Δ (OOS − IS)")
 _NO_DATA_TEXT = (
     "Out-of-sample validation was not computed for this run "
     "(too little data to split, or an older run)."
 )
 
-
-def _tone_colour(tone: Tone) -> QColor | None:
-    if tone is Tone.POSITIVE:
-        return QColor(semantic_colour("success"))
-    if tone is Tone.NEGATIVE:
-        return QColor(semantic_colour("danger"))
-    return None
+#: The empty table's text (review of PR #364): short, and true whichever
+#: side is missing.
+_NO_FIGURES_TEXT = "No out-of-sample figures."
 
 
 class OutOfSampleComparisonDialog(QDialog):
@@ -105,18 +87,10 @@ class OutOfSampleComparisonDialog(QDialog):
         self.body_layout.addWidget(self._warning_label)
 
     def _build_metrics_tree(self) -> None:
-        self._tree = QTreeWidget()
-        self._tree.setObjectName("outOfSampleMetricsTree")
-        self._tree.setColumnCount(len(_COLUMNS))
-        self._tree.setHeaderLabels(list(_COLUMNS))
-        self._tree.setRootIsDecorated(False)
-        self._tree.setUniformRowHeights(True)
-        self._tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
-        header = self._tree.header()
-        header.setSectionResizeMode(_METRIC_COLUMN, QHeaderView.ResizeMode.Stretch)
-        for column in (_IN_SAMPLE_COLUMN, _OUT_OF_SAMPLE_COLUMN, _DELTA_COLUMN):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        self.body_layout.addWidget(self._tree, 1)
+        self._table = comparison_table(
+            OutOfSampleComparisonModel(self), "outOfSampleMetricsTree", _NO_FIGURES_TEXT
+        )
+        self.body_layout.addWidget(self._table.body, 1)
 
     def _build_buttons(self) -> QDialogButtonBox:
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -143,7 +117,7 @@ class OutOfSampleComparisonDialog(QDialog):
         if validation is None:
             self._description_label.setText(_NO_DATA_TEXT)
             self._warning_label.setVisible(False)
-            self._tree.clear()
+            self._table.model.clear()
             return
 
         self._description_label.setText(build_split_description(validation))
@@ -152,13 +126,4 @@ class OutOfSampleComparisonDialog(QDialog):
         self._warning_label.setVisible(bool(warning))
 
         rows = build_out_of_sample_metric_rows(validation)
-        self._fill_tree(rows)
-
-    def _fill_tree(self, rows: list[MetricComparisonRow]) -> None:
-        self._tree.clear()
-        for row in rows:
-            item = QTreeWidgetItem([row.label, row.value_a, row.value_b, row.delta])
-            colour = _tone_colour(row.tone)
-            if colour is not None:
-                item.setForeground(_DELTA_COLUMN, colour)
-            self._tree.addTopLevelItem(item)
+        self._table.model.set_rows(rows)

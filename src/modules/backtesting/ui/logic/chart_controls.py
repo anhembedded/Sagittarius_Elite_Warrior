@@ -68,14 +68,14 @@ class BacktestChartControls(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        self._mode_buttons: dict[ChartDisplayMode, QtWidgets.QPushButton] = {}
+        # One chart mode at a time is a state, so radio buttons
+        # (`ui-presentation-rule.md` §6), not checkable push buttons.
+        self._mode_buttons: dict[ChartDisplayMode, QtWidgets.QRadioButton] = {}
         self._mode_group = QtWidgets.QButtonGroup(self)
         self._mode_group.setExclusive(True)
         for mode in ChartDisplayMode:
-            btn = QtWidgets.QPushButton(_MODE_LABELS[mode])
+            btn = QtWidgets.QRadioButton(_MODE_LABELS[mode])
             btn.setObjectName(f"btnChartMode_{mode.value}")
-            btn.setCheckable(True)
-            btn.setCursor(QtCore.Qt.PointingHandCursor)
             self._mode_group.addButton(btn)
             self._mode_buttons[mode] = btn
             layout.addWidget(btn)

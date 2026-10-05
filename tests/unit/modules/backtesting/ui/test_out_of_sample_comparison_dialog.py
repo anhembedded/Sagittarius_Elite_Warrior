@@ -112,7 +112,10 @@ def test_no_run_yet_shows_the_no_data_message_without_crashing(qapp):
 
     assert dialog.isVisible() is True
     assert "not computed" in dialog._description_label.text()
-    assert dialog._tree.topLevelItemCount() == 0
+    assert dialog._table.model.rowCount() == 0
+    # Said once, by the description; the empty table is short (review of
+    # PR #364).
+    assert dialog._table.body.instruction == "No out-of-sample figures."
     dialog.close()
 
 
@@ -146,7 +149,7 @@ def test_a_validated_run_renders_the_split_and_metrics_table(qapp):
     qapp.processEvents()
 
     assert "70%" in dialog._description_label.text()
-    assert dialog._tree.topLevelItemCount() > 0
+    assert dialog._table.model.rowCount() > 0
     dialog.close()
 
 

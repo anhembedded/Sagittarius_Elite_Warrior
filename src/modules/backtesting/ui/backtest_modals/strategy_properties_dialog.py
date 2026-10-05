@@ -2,7 +2,7 @@
 broker's properties, in two tabs (BOT-104).
 
 `EPIC-033L` makes it a stock `QDialog` titled after its command, Strategy
-Parameters, with Save, Cancel and Restore Defaults in a `QDialogButtonBox`.
+Parameters, with Save, Close and Restore Defaults in a `QDialogButtonBox`.
 The Properties tab is `BrokerPropertiesTab`. The two "Coming soon" tabs,
 Style and Visibility, are gone: a tab holding only a promise is a page to
 open and find nothing on.
@@ -141,12 +141,16 @@ class StrategyPropertiesDialog(QDialog):
 
     def _build_buttons(self) -> QDialogButtonBox:
         standard = QDialogButtonBox.StandardButton
+        # Close, not Cancel: both tabs apply as they are edited (the
+        # Properties tab is bound, the Inputs tab commits on each field), so
+        # there is nothing a Cancel could take back. Esc closes the same way
+        # (review of PR #362).
         buttons = QDialogButtonBox(
-            standard.Save | standard.Cancel | standard.RestoreDefaults
+            standard.Save | standard.Close | standard.RestoreDefaults
         )
         named = {
             standard.Save: "btnBotParamsSave",
-            standard.Cancel: "btnBotParamsCancel",
+            standard.Close: "btnBotParamsClose",
             standard.RestoreDefaults: "btnResetBotParams",
         }
         for which, object_name in named.items():

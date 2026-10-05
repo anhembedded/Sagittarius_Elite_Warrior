@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from unittest.mock import MagicMock
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel, QWidget
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_top_panel import (
     BackTestTopPanel,
 )
@@ -87,7 +87,7 @@ def test_top_panel_with_cards_shows_header_cards_and_expand_button(
     assert panel._stat_cards_row.isVisible()
     assert panel._metrics_header.isVisible()
     assert panel._btn_expand_metrics.isVisible()
-    assert panel._btn_expand_metrics.text() == "Expand"
+    assert panel._btn_expand_metrics.text() == "Details"
     assert panel._result_warning_label.isVisible()
     assert (
         panel._result_warning_label.text()
@@ -122,7 +122,7 @@ def test_top_panel_imported_report_banner_shows_only_while_viewing(
     qapp.processEvents()
 
     assert panel._imported_report_banner.isVisible()
-    assert panel._imported_report_banner.message == (
+    assert panel._imported_report_banner.text == (
         "Viewing imported report — run.sagi-report.json"
     )
 
@@ -229,3 +229,39 @@ def test_session_run_history_combo_resets_to_placeholder_on_refresh(
 
     panel.close()
     panel.deleteLater()
+
+
+def test_a_failed_run_shows_as_an_error_notice(qapp: QApplication) -> None:
+    """`EPIC-033L` stage 4: a failure is the platform's error icon and its
+    words, not red text alone."""
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.show()
+
+    vm.run_result.set_result("Sync failed: timeout", is_error=True)
+    qapp.processEvents()
+
+    assert panel._result_error.isVisible()
+    assert panel._result_error.text == "Sync failed: timeout"
+    assert not panel._result_text.isVisible()
+
+    vm.run_result.set_result("Running...", is_error=False)
+    qapp.processEvents()
+
+    assert not panel._result_error.isVisible()
+    assert panel._result_text.toPlainText() == "Running..."
+    panel.close()
+    panel.deleteLater()
+
+
+def test_the_panel_has_no_style_sheet_and_no_second_heading(
+    qapp: QApplication,
+) -> None:
+    """A dock's content is its controls (`ui-presentation-rule.md` §8): no
+    card painted inside it, no heading above the dock's own title."""
+    panel = BackTestTopPanel(BackTestViewModel())
+
+    styled = [w for w in [panel, *panel.findChildren(QWidget)] if w.styleSheet()]
+    assert styled == []
+    texts = [label.text() for label in panel.findChildren(QLabel)]
+    assert not any("PERFORMANCE METRICS" in text.upper() for text in texts)
