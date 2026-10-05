@@ -1,4 +1,5 @@
-"""A desk's commands: Enable live trading and Emergency stop (`EPIC-033D`).
+"""A desk's commands: Enable live trading and Emergency stop (`EPIC-033D`),
+and New order… (`EPIC-033R`).
 
 Each is one `QAction` in the Trade menu and on its desk's toolbar, scoped to
 that desk's mode, so the Futures desk's F8 never stops Spot. The ids carry
@@ -10,6 +11,11 @@ Emergency stop asks first: it cancels and closes, and that cannot be undone
 catalogue (HLD §11.2.3) wants a confirmation on enable only, and the Engine's
 action confirms on every trigger, which would also ask before turning trading
 off. That is recorded in `EPIC-033D`'s notes.
+
+New order… (F9, as in MetaTrader) moves the keyboard focus to the order
+entry's first field and places nothing; the order is placed by the entry's own
+button, with its confirmation, so the command itself asks nothing. It ends
+with "…" because the order needs input before it is sent.
 """
 
 from __future__ import annotations
@@ -45,6 +51,10 @@ def emergency_stop_id(venue: TradingVenue) -> str:
     return f"trading.{venue.value}.emergency_stop"
 
 
+def new_order_id(venue: TradingVenue) -> str:
+    return f"trading.{venue.value}.new_order"
+
+
 def desk_commands(route: str, venue: TradingVenue) -> tuple[CommandContribution, ...]:
     """The commands of the desk at `route`, which trades `venue`."""
     profile = desk_profile_for(venue)
@@ -75,5 +85,15 @@ def desk_commands(route: str, venue: TradingVenue) -> tuple[CommandContribution,
                 ),
                 accept_text="Stop everything",
             ),
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=new_order_id(venue),
+            text="&New order…",
+            menu_path=TRADE_MENU,
+            mode=route,
+            on_toolbar=True,
+            shortcut="F9",
+            needs_input=True,
         ),
     )

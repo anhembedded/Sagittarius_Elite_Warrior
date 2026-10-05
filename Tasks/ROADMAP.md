@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 172 | 82.7% |
+| 🟢 **Completed** | 172 | 82.3% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 28 | 13.5% |
+| 🔴 **Backlog** | 29 | 13.9% |
 | ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **208** | **100%** |
+| 📈 **Tổng số Task** | **209** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`EPIC-033R` (each desk has Trade → New order… on F9)**: [Decision: the command moves the keyboard focus to the order entry's first field and places nothing; the order is still placed by the entry's own button and confirmation. It is enabled from the same state the fields are (`can_take_order`: the symbol's terms read, no order in flight), not from the live-trading toggle, and the first field follows the order type. F9 is per mode, so the Dev Board's F9 does not clash; it goes away with the Dev Board in `EPIC-033P`.]
 - [x] **[`BUG-149`](bug_report/completed/BUG-149_bots_screen_reads_after_shutdown.md) (the Bots screen read after it closed)**: [Root cause: a `BotChangedEvent` delivered queued after `BotsPresenter.shutdown()` restarted the coalesced re-read through a lambda that could not know the screen had closed, and `FencedReads.read()` never checked `drop_all()`, so the read was submitted into a pool that had shut down. Fixed at the read seam: `drop_all()` is final and later reads are refused; the change handler is a bound method that arms nothing after shutdown.]
 - [x] **`EPIC-033J` (the Data mode: keep history complete on one workbench)**: [Decision: the coverage table is central and a Gaps panel is docked below it; the Data menu's commands act on the selected shard or gap instead of on a rail of pickers, and the two that need input ask in a dialog (Sync history…, Import data…). Records, database size and a running task's progress are words and a bar in the status bar; Data → Stop replaced the banner's Cancel. "Symbol × timeframe" is one row per shard, because a row carries its range, count and health and a matrix would be mostly empty. The gap overlay, the date-range card and their style sheets are deleted, and the styling ratchets fall by 24 style sheets and 5 `apply_role` calls.]
 - [x] **`EPIC-033H` (the Market mode: watch the market on one workbench)**: [Decision: the mode lives in `trading/ui/market/` because Tools → Check connection asks `trading`'s account port and `market_data` may not depend on `trading`. Charts are tabs of `LiveCandleChart`s with their own stream owners and indicator runners; the Watchlist and Indicators are tabbed docks; a view offers status-bar words through `IStatusSource`, the shape `IOutputSource` gave the Output pane. The stream starts only on the user's open (`BUG-104`). The Watchlist screen is deleted; the Dev Board's market half goes with the Dev Board in `EPIC-033P`. The conformance suite found `ChartCard`'s kit style sheet, so every chart now sits on a stock `ChartFrame`.]
@@ -480,6 +481,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
+| **P3** | **[BOT-152](backlog/BOT-152_split_order_entry_view_model.md)** | **The order entry's view model splits what the presenter sets from what the view asks** | 🟢 **`S (Small)`** | — | *(added 05/10, PR #358 review)* `OrderEntryViewModel` holds 30 public members, over `PLR0904`'s 20; the ratchet counts the file, not the members. |
 | **P3** | **[BOT-151](backlog/BOT-151_grouped_trees_from_specs.md)** | **Grouped trees are built from column specs like every flat table** | 🟡 **`M (Standard)`** | Engine | *(added 05/10, PR #351 review)* Four grouped `QTreeWidget` dialogs still configure themselves; `configure_item_view` cannot take a `QTreeWidget`. The open criterion 1 of `EPIC-033N`. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |

@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
     emergency_stop_id,
     enable_trading_id,
+    new_order_id,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -44,6 +45,7 @@ class DisabledDeskPresenter(CommandPresenter):
         for command_id in (
             enable_trading_id(self._venue),
             emergency_stop_id(self._venue),
+            new_order_id(self._venue),
         ):
             binder.bind(command_id, self._unreachable, initially_enabled=False)
 
