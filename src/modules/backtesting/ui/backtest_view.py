@@ -20,7 +20,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 from .backtest_modals import BackTestModalsHost
-from .backtest_panels import build_panels, dock_of, place_panels
+from .backtest_panels import build_panels, place_panels
 from .backtest_top_panel import BackTestTopPanel
 from .backtest_trade_logs_panel import BackTestTradeLogsPanel
 from .logic.backtest_chart_host import BacktestChartHostFactory
@@ -152,7 +152,7 @@ class BackTestView(OutputSourceView):
 
     def dock_of(self, widget: QWidget) -> QDockWidget:
         """The panel `widget` is the content of."""
-        return dock_of(self._surface, widget)
+        return self._surface.dock_of(widget)
 
     def _show_monte_carlo(self) -> None:
         """Tools → Monte Carlo brings its panel to the front, opening it

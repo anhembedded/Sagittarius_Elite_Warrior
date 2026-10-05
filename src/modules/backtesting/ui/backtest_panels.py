@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QDockWidget, QWidget
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -79,12 +79,4 @@ def place_panels(surface: WorkbenchSurface, panels: BacktestPanels) -> None:
     for place, widget, title in panels.docked():
         surface.place_widget(place, widget, title=title)
     # The bottom docks are tabbed; the trades are what a run is read by.
-    dock_of(surface, panels.trades).raise_()
-
-
-def dock_of(surface: WorkbenchSurface, widget: QWidget) -> QDockWidget:
-    """The dock `widget` is the content of."""
-    for dock in surface.findChildren(QDockWidget):
-        if dock.widget() is widget:
-            return dock
-    raise LookupError(f"the surface placed no dock for {widget.objectName()!r}")
+    surface.dock_of(panels.trades).raise_()

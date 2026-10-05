@@ -223,8 +223,8 @@ def test_strategy_properties_modal_content_and_controls(qapp, modal_presenter):
     save_btn = dialog.findChild(object, "btnBotParamsSave")
     assert save_btn is not None
 
-    cancel_btn = dialog.findChild(object, "btnBotParamsCancel")
-    assert cancel_btn is not None
+    assert dialog.findChild(object, "btnBotParamsCancel") is None  # applies live
+    assert dialog.findChild(object, "btnBotParamsClose") is not None
 
     reset_btn = dialog.findChild(object, "btnResetBotParams")
     assert reset_btn is not None
@@ -616,7 +616,7 @@ def test_pressing_enter_does_not_trigger_the_reset_button(qapp, modal_presenter)
     dialog._tabs.setCurrentIndex(1)  # "Đặc tính"
     qapp.processEvents()
 
-    for name in ("btnResetBotParams", "btnBotParamsCancel", "btnBotParamsSave"):
+    for name in ("btnResetBotParams", "btnBotParamsClose", "btnBotParamsSave"):
         button = dialog.findChild(object, name)
         assert button.isDefault() is False, f"{name} must not answer Enter"
         assert button.autoDefault() is False, f"{name} must not answer Enter"

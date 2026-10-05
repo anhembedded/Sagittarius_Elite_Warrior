@@ -30,7 +30,6 @@ class _HeatmapCell(QLabel):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setMinimumSize(56, 28)
 
     def set_empty(self) -> None:
         """No data for this month (`YearlyReturn.months`'s "absent, not
