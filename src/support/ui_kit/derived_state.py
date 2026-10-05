@@ -37,7 +37,10 @@ class DerivedState(QObject):
         return self._read()
 
     def listen(self, notify: SignalInstance) -> None:
-        notify.connect(self._announce)
+        notify.connect(self.announce)
 
-    def _announce(self) -> None:
+    def announce(self) -> None:
+        """Emits the current answer: on each notification, and once by a
+        binding that starts after the state was set (a checked state has no
+        initial value of its own in `ICommandBinder.bind`)."""
         self.changed.emit(self._read())

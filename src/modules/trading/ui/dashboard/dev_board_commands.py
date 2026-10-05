@@ -1,8 +1,10 @@
-"""The Dev Board's commands (`EPIC-033D`): Reload history, Enable live
-trading, Emergency stop and New order.
+"""The Dev Board's commands (`EPIC-033D`): Load history, Start live, Stop
+live, Enable live trading, Emergency stop and New order.
 
 Each is one `QAction` in the Trade menu and on the Dev Board's toolbar, scoped
-to its mode. Enable live trading and Emergency stop reuse the desks' words,
+to its mode. Load history, Start live and Stop live were the Data and stream
+card's buttons (and a header Reload that repeated Load history); the card
+now holds only the fields they read. Enable live trading and Emergency stop reuse the desks' words,
 because they drive the same session controls (`DeskSessionControls`);
 Emergency stop asks first, Enable does not (`desk_commands.py` says why).
 New order ends with "…": it opens the order dialog before anything is sent.
@@ -25,7 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_comm
 _CONTRIBUTOR = "trading"
 _PREFIX = "trading.dev_board"
 
-RELOAD_HISTORY = f"{_PREFIX}.reload_history"
+LOAD_HISTORY = f"{_PREFIX}.load_history"
+START_LIVE = f"{_PREFIX}.start_live"
+STOP_LIVE = f"{_PREFIX}.stop_live"
 ENABLE_TRADING = f"{_PREFIX}.enable_trading"
 EMERGENCY_STOP = f"{_PREFIX}.emergency_stop"
 NEW_ORDER = f"{_PREFIX}.new_order"
@@ -36,8 +40,24 @@ def dev_board_commands(route: str) -> tuple[CommandContribution, ...]:
     return (
         CommandContribution(
             contributor_id=_CONTRIBUTOR,
-            command_id=RELOAD_HISTORY,
-            text="&Reload history",
+            command_id=LOAD_HISTORY,
+            text="&Load history",
+            menu_path=TRADE_MENU,
+            mode=route,
+            on_toolbar=True,
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=START_LIVE,
+            text="S&tart live",
+            menu_path=TRADE_MENU,
+            mode=route,
+            on_toolbar=True,
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=STOP_LIVE,
+            text="St&op live",
             menu_path=TRADE_MENU,
             mode=route,
             on_toolbar=True,

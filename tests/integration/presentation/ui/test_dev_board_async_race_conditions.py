@@ -57,8 +57,12 @@ script enablement lives on DashboardQmlViewModel.script_model
 import time
 from datetime import UTC, datetime, timedelta
 
+from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
+    LOAD_HISTORY,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 
@@ -68,7 +72,7 @@ def _open_dashboard(navigate):
 
 
 def _click_load_history(view, qml_item=None):
-    # Not view._panel._btn_load_history.click(): the button is legitimately
+    # Not the Load history command: it is legitimately
     # disabled while uiMode == "LIVE" (autostart already connected the
     # mocked stream by the time `navigate` returns) — same target the
     # button's own handler calls.
@@ -167,9 +171,7 @@ def _enable_script(view, key: str) -> None:
     model.setEnabled(row, True)
 
 
-def test_load_history_button_is_disabled_during_background_load(
-    qtbot, main_window, navigate
-):
+def test_load_history_is_disabled_during_background_load(qtbot, main_window, navigate):
     """
     TC-ASY-01 guard: a background history query owns a configuration snapshot,
     so the panel disables every incompatible Dev Board action until it
@@ -179,7 +181,8 @@ def test_load_history_button_is_disabled_during_background_load(
     _, view = _open_dashboard(navigate)
 
     _click_load_history(view)
-    assert view._panel._btn_load_history.isEnabled() is False
+    load = main_window.findChild(QAction, f"action::{LOAD_HISTORY}")
+    assert load.isEnabled() is False
 
 
 def test_concurrent_load_history_clicks_keep_indicator_series_correct(

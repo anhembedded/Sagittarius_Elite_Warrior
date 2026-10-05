@@ -88,9 +88,7 @@ class BotsView(BaseView):
     def apply_ui_mode(self, state: BotsUiState, section_key: str | None = None) -> None:
         """The presenter's FSM, made visible (`BasePresenter._bind_fsm_to_ui`)."""
         self._mode = state
-        busy = state is BotsUiState.ACTION_IN_FLIGHT
-        self.table.setEnabled(not busy)
-        self.model.set_action_in_flight(busy)
+        self.table.setEnabled(state is not BotsUiState.ACTION_IN_FLIGHT)
         if self._kind_panel is not None:
             self._kind_panel.set_editable(state is BotsUiState.EDITING_DRAFT)
 

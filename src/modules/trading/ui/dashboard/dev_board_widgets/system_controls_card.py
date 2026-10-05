@@ -12,11 +12,11 @@ from dataclasses import dataclass
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette, get_icon_loader
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Panel, ProgressBanner
 
 from ..dashboard_view_model import DashboardQmlViewModel
-from .layout_helpers import action_button_style, field_row, field_style, section_row
+from .layout_helpers import field_row, field_style, section_row
 
 
 @dataclass(frozen=True)
@@ -35,8 +35,9 @@ class SystemControlsCallbacks:
 
 class SystemControlsCard(Panel):
     """Everything else — the Market/Symbol fields, the date text fields, the
-    Load History/Start/Stop actions and the progress banner — is
-    self-contained on `view_model` alone. `_sync_controls_active()` stays on
+    the progress banner — is self-contained on `view_model` alone. Load
+    history, Start live and Stop live are the module's commands since
+    `EPIC-033D` (`dev_board_commands.py`). `_sync_controls_active()` stays on
     `DevBoardPanel`, reading these widgets through the pass-through aliases
     every existing test already keys off."""
 
@@ -100,35 +101,6 @@ class SystemControlsCard(Panel):
         self._btn_pick_range.clicked.connect(callbacks.on_pick_range)
         pick_row.addWidget(self._btn_pick_range)
         layout.addLayout(pick_row)
-
-        layout.addLayout(section_row("Actions"))
-
-        actions_row = QHBoxLayout()
-        actions_row.setSpacing(8)
-
-        self._btn_load_history = QPushButton()
-        self._btn_load_history.setObjectName("btnLoadHistory")
-        self._btn_load_history.setIcon(
-            get_icon_loader().get_icon("clock", Palette.MUTED, 14)
-        )
-        self._btn_load_history.clicked.connect(view_model.requestLoadHistory)
-        actions_row.addWidget(self._btn_load_history, 1)
-
-        self._btn_start = QPushButton("Start Live")
-        self._btn_start.setObjectName("btnStart")
-        self._btn_start.setIcon(get_icon_loader().get_icon("play", Palette.SUCCESS, 14))
-        self._btn_start.setStyleSheet(action_button_style(Palette.SUCCESS))
-        self._btn_start.clicked.connect(view_model.requestStartStream)
-        actions_row.addWidget(self._btn_start, 1)
-
-        self._btn_stop = QPushButton("Stop")
-        self._btn_stop.setObjectName("btnStop")
-        self._btn_stop.setIcon(get_icon_loader().get_icon("square", Palette.DANGER, 14))
-        self._btn_stop.setStyleSheet(action_button_style(Palette.DANGER))
-        self._btn_stop.clicked.connect(view_model.requestStopStream)
-        actions_row.addWidget(self._btn_stop, 1)
-
-        layout.addLayout(actions_row)
 
         self._progress_banner = ProgressBanner()
         self._progress_banner.setObjectName("devBoardProgressBanner")

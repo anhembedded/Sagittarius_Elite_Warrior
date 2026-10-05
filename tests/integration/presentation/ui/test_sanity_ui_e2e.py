@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QPushButton
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputPane
 
 # Force offscreen rendering for headless CI environments
@@ -15,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
     SYNC_TIMEFRAME,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
+    STOP_LIVE,
 )
 
 # app_engine/main_window come from conftest.py — this file used to define
@@ -118,11 +122,10 @@ def test_sanity_dev_board_full_feature_walkthrough(
     dashboard_cfg = navigate("dashboard")
     presenter = dashboard_cfg["presenter_instance"]
     view = dashboard_cfg["view_instance"]
-    panel = view._panel
     assert presenter.fsm.current_state.value == "LIVE"
 
     # --- 1. Load History (manual re-load, on top of auto-start's own) ----
-    # Not panel._btn_load_history.click(): legitimately disabled while
+    # Not the Load history command: legitimately disabled while
     # uiMode == "LIVE" (see test_dev_board_*.py's own note on this) — same
     # target the button's own handler calls.
     with qtbot.waitSignal(presenter.ui_history_reloaded_signal, timeout=2000):
@@ -139,7 +142,8 @@ def test_sanity_dev_board_full_feature_walkthrough(
 
     # --- 2. Start Stream — already running via auto-start ----------------
     assert presenter.fsm.current_state.value == "LIVE"
-    assert panel._btn_stop.isEnabled() is True
+    stop_live = main_window.findChild(QAction, f"action::{STOP_LIVE}")
+    assert stop_live.isEnabled() is True
 
     # --- 3. Live tick -> chart update (simulates the WebSocket adapter) --
     history_before = len(chart_card._raw_history)
@@ -177,7 +181,7 @@ def test_sanity_dev_board_full_feature_walkthrough(
     assert view._view_model.log_model.entries == []
 
     # --- 5. Stop Stream ------------------------------------------------
-    panel._btn_stop.click()
+    stop_live.trigger()
     assert presenter.fsm.current_state.value == "IDLE"
 
 
@@ -208,9 +212,9 @@ def test_sanity_dev_mode_click_logging_does_not_yet_reach_the_dev_board_panel(
     because they lived inside a `QQuickWidget`'s QML scene graph
     (invisible to `QWidget.findChildren()`). EPIC-006D moved
     `DevBoardPanel` to plain QtWidgets, so that specific reason is gone —
-    but clicking a real, enabled `DevBoardPanel` button (`_btn_stop`, the
-    one guaranteed enabled at this point: uiMode == "LIVE" post
-    auto-start) still produces no "User clicked" log line, verified
+    but clicking a real, enabled push button on the Dev Board (its Stop
+    button until `EPIC-033D` made Stop live a command; now the first enabled
+    one) still produces no "User clicked" log line, verified
     empirically. `BasePresenter.__init__` calls
     `view.enable_dev_click_logging()` before `DashboardPresenter` ever
     calls `view.set_view_model()` (which is what actually constructs
@@ -224,7 +228,7 @@ def test_sanity_dev_mode_click_logging_does_not_yet_reach_the_dev_board_panel(
     qtbot.addWidget(main_window)
 
     view = navigate("dashboard")["view_instance"]
-    view._panel._btn_stop.click()
+    next(b for b in view.findChildren(QPushButton) if b.isEnabled()).click()
 
     assert not any(
         "User clicked" in entry.message for entry in view._view_model.log_model.entries

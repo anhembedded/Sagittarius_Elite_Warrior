@@ -78,3 +78,12 @@ def test_emergency_stop_says_what_it_closes_on_each_market(qtbot) -> None:
     assert "every position is closed" in futures_asked.consequence
     assert "sold at market" in spot_asked.consequence
     assert futures_asked.accept_text == spot_asked.accept_text == "Stop everything"
+
+
+def test_a_desk_built_while_trading_is_on_shows_enable_checked(qtbot) -> None:
+    """The presenter announces the session's state in `__init__`, before the
+    window binds its commands; `bind_commands` says it again (the PR #350
+    review)."""
+    desk = build_desk(qtbot, SPOT, trading_on=True)
+
+    assert desk.actions.enable_trading.isChecked()

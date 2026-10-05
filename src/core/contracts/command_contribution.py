@@ -11,7 +11,10 @@ handler once it is built (`support/ui_kit/command_binding.py`).
 Plain data, with no Qt and no Engine type: `core/contracts` imports nothing
 from the Engine but the Shared Kernel. The shortcut is Qt's portable text
 ("F8", "Ctrl+L"); the Engine's shortcut policy refuses a key the platform
-reserves, at the window's build time.
+reserves, at the window's build time. A command that *is* one of those
+platform commands, such as Save bot (Save, Ctrl+S on Windows), names it in
+`standard_shortcut` instead: the name of a `QKeySequence.StandardKey` member,
+which the window resolves, so the platform decides the key.
 
 The catalogue of commands, with their menus, shortcuts and confirmations, is
 HLD §11.2.3.
@@ -53,6 +56,16 @@ class CommandContribution:
     #: Also a button on its mode's toolbar.
     on_toolbar: bool = False
     shortcut: str | None = None
+    #: A `QKeySequence.StandardKey` member's name ("Save"), for a command that
+    #: is that platform command; never together with `shortcut`.
+    standard_shortcut: str | None = None
     checkable: bool = False
     needs_input: bool = False
     confirm: CommandConfirmation | None = None
+
+    def __post_init__(self) -> None:
+        if self.shortcut is not None and self.standard_shortcut is not None:
+            raise ValueError(
+                f"command {self.command_id!r} names both a shortcut and a "
+                "standard shortcut; a command has one key"
+            )

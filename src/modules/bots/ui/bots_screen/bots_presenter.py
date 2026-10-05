@@ -1,9 +1,11 @@
 """`EPIC-029F` — the Bots screen's presenter.
 
-Reads the bots through the queries, never the store (`BotChangedEvent`,
-coalesced, says when); judges the selected bot through its kind on every
-edit; sends one command at a time through `BotActionsCoordinator`, locking
-the screen while it runs. A late answer is dropped and logged, never shown.
+Reads the bots through the bots queries, never the store (`BotChangedEvent`
+says when to read again, coalesced so a burst of fills is one read); judges
+the selected bot's parameters through its kind on every edit; and sends one
+command at a time through `BotActionsCoordinator`, locking the screen while
+it runs (`async-ui-action-rule.md`). A late answer to an action or a read
+that is no longer current is dropped and logged, never shown.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
-from functools import partial
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
@@ -60,9 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_log_feed import (
     BotLogFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_command_binding import (
-    bind_bots_commands,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
     dialogs_for,
@@ -86,18 +84,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests im
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
-    IMarketStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
-    MarketDataCandleFeed,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -117,6 +103,9 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .bots_command_binding import bind_bots_commands
+from .spot_candle_feed import spot_candle_feed
+
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -131,13 +120,17 @@ _COALESCE_MS = 150
 _REJUDGE_MS = 150
 #: The running time ticks in minutes.
 _CLOCK_MS = 30_000
-_UTC_NOW = partial(datetime.now, UTC)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class BotsPresenter(CommandPresenter):
     """@brief Orchestrates the Bots screen."""
 
-    # The engine types both as `None`, so any value is an override to mypy.
+    # The engine declares both as plain `None` defaults, untyped, so any real
+    # value is an "incompatible override" to mypy; the FSM reads them as-is.
     INITIAL_STATE = BotsUiState.NO_SELECTION  # type: ignore[assignment]
     UI_TRANSITION_MATRIX = BOTS_UI_TRANSITIONS  # type: ignore[assignment]
 
@@ -147,7 +140,7 @@ class BotsPresenter(CommandPresenter):
         container: IContainer,
         *,
         dialogs: BotsDialogs | None = None,
-        now: Callable[[], datetime] = _UTC_NOW,
+        now: Callable[[], datetime] = _utc_now,
     ) -> None:
         super().__init__(view, container)
         threads = container.resolve(IThreadManager)
@@ -157,13 +150,7 @@ class BotsPresenter(CommandPresenter):
         self._catalog = container.resolve(IBotKindCatalog)
         self._venues = container.resolve(IVenueTradingPorts)
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
-        sync = container.resolve(IMarketDataSync)
-        feed = MarketDataCandleFeed(
-            sync,
-            container.resolve(IHistoricalKlines),
-            container.resolve(IMarketStream),
-            MarketType.SPOT,
-        )
+        sync, feed = spot_candle_feed(container)
         self._charts = BotChartHost(BotChartPorts(threads, feed, self._ticks))
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
@@ -385,6 +372,7 @@ class BotsPresenter(CommandPresenter):
         fsm = self.fsm
         if isinstance(fsm, DeclarativeStateMachine) and fsm.can_dispatch(event):
             fsm.dispatch(event)
+        self._model.set_action_in_flight(self._busy())
 
     def shutdown(self) -> None:
         """Answers in flight are dropped; the chart's stream and the log

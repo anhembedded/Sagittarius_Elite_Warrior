@@ -35,11 +35,20 @@ def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> Non
         enabled=idle.changed,
         initially_enabled=idle.value,
     )
+    # The fills belong to the selected bot: with none selected the read has
+    # nothing to fetch, so the command waits for a selection, as it did in
+    # the selected bot's Fills tab.
+    fills = DerivedState(
+        view_model.selection_changed,
+        lambda: view_model.selected is not None and not view_model.action_in_flight,
+        view_model,
+    )
+    fills.listen(view_model.action_in_flight_changed)
     binder.bind(
         REFRESH_FILLS,
         lambda _checked: view_model.refresh_fills_requested.emit(),
-        enabled=idle.changed,
-        initially_enabled=idle.value,
+        enabled=fills.changed,
+        initially_enabled=fills.value,
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)

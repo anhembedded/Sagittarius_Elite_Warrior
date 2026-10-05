@@ -9,14 +9,23 @@ from collections.abc import Callable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
 from .dashboard_view_model import DashboardQmlViewModel
 from .dev_board_commands import (
     EMERGENCY_STOP,
     ENABLE_TRADING,
+    LOAD_HISTORY,
     NEW_ORDER,
-    RELOAD_HISTORY,
+    START_LIVE,
+    STOP_LIVE,
 )
+
+#: BOT-123: Start live spends its first phase in LOCKED, syncing from Binance
+#: before the websocket opens, sometimes for many seconds. Stop live is how
+#: the user cancels that sync (`StreamLifecycleController._on_stop_stream`
+#: cancels the token the sync reads), so it applies in LOCKED as well as LIVE.
+_STOPPABLE_MODES = frozenset({"LIVE", "LOCKED"})
 
 
 def bind_dev_board_commands(
@@ -25,18 +34,59 @@ def bind_dev_board_commands(
     open_new_order: Callable[[], None],
 ) -> None:
     """What `DashboardPresenter.bind_commands` binds, each enabled from the
-    view model's state."""
-    binder.bind(
-        RELOAD_HISTORY,
-        lambda _checked: view_model.requestLoadHistory(),
-        enabled=view_model.reloadAvailable,
-        initially_enabled=view_model.reload_is_available,
+    view model's existing notifications."""
+    loadable = DerivedState(
+        view_model.uiModeChanged,
+        lambda: bool(view_model.controlsEnabled) and not view_model.historyLoading,
+        view_model,
+    )
+    loadable.listen(view_model.historyLoadingChanged)
+    for command_id, request in (
+        (LOAD_HISTORY, view_model.requestLoadHistory),
+        (START_LIVE, view_model.requestStartStream),
+    ):
+        _bind(binder, command_id, request, loadable)
+    stoppable = DerivedState(
+        view_model.uiModeChanged,
+        lambda: view_model.uiMode in _STOPPABLE_MODES,
+        view_model,
+    )
+    _bind(binder, STOP_LIVE, view_model.requestStopStream, stoppable)
+    toggle_available = DerivedState(
+        view_model.tradingStateChanged, lambda: not view_model.toggleBusy, view_model
+    )
+    trading_on = DerivedState(
+        view_model.tradingStateChanged, lambda: bool(view_model.enabled), view_model
     )
     binder.bind(
         ENABLE_TRADING,
         lambda _checked: view_model.requestToggle(),
-        enabled=view_model.toggleAvailable,
-        checked=view_model.tradingEnabled,
+        enabled=toggle_available.changed,
+        checked=trading_on.changed,
+        initially_enabled=toggle_available.value,
     )
+    # The session's state was set before this binding existed.
+    trading_on.announce()
     binder.bind(EMERGENCY_STOP, lambda _checked: view_model.requestEmergencyStop())
     binder.bind(NEW_ORDER, lambda _checked: open_new_order())
+
+
+def _bind(
+    binder: ICommandBinder,
+    command_id: str,
+    request: Callable[[], None],
+    state: DerivedState,
+) -> None:
+    binder.bind(
+        command_id,
+        _ignoring_checked(request),
+        enabled=state.changed,
+        initially_enabled=state.value,
+    )
+
+
+def _ignoring_checked(request: Callable[[], None]) -> Callable[[bool], None]:
+    def run(_checked: bool) -> None:
+        request()
+
+    return run

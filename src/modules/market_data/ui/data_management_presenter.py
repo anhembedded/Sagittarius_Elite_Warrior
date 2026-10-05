@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
@@ -74,11 +72,7 @@ from .data_command_binding import bind_data_commands
 from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .logic.coordinator_factory import build_coordinators
-from .logic.export_paths import (
-    export_file_filter,
-    resolve_default_exports_dir,
-    suggest_export_filename,
-)
+from .logic.data_file_dialogs import DataFileDialogs
 from .logic.stats import database_size_text
 from .logic.ui_mode_transitions import install_transitions
 
@@ -147,8 +141,12 @@ class DataManagementPresenter(CommandPresenter):
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
-        # EPIC-010H, middle tier: the configured defaults; `restore_state()`
-        # overrides them with remembered values, the top tier.
+        self._file_dialogs = DataFileDialogs(view, self.config)
+        # EPIC-010H, middle tier: this screen used to ignore Settings entirely,
+        # so editing DEFAULT_SYMBOLS/DEFAULT_INTERVAL changed the Backtest
+        # screen and silently left this one on its own hardcoded list.
+        # `restore_state()` later overrides these with remembered values if
+        # there are any, which is the top tier.
         config_values = container.resolve(IConfig).get_all()
         # This screen's own floors, unchanged: its picker has always started on
         # the first of its five symbols and on the first supported interval.
@@ -186,8 +184,10 @@ class DataManagementPresenter(CommandPresenter):
             # middle of a composition root.
             install_transitions(self.fsm)
 
-        # Coordinators (EPIC-003B), built by a Factory (BOT-144,
-        # `code/quality.md` §9): a multi-step construction.
+        # Coordinators (EPIC-003B) — construction moved to a Factory
+        # (BOT-144, `code/quality.md` §9): six of them, each wired to this
+        # Presenter's own signals/FSM callbacks, is exactly the multi-step
+        # construction sequence that rule routes out of a constructor.
         coordinators = build_coordinators(
             self, container, self._view_model, self._thread_manager, market_data_repo
         )
@@ -201,8 +201,10 @@ class DataManagementPresenter(CommandPresenter):
         self._connect_ui_signals()
         self._connect_engine_events()
 
-        # EPIC-010E — restore, then track changes (`_mark_state_dirty` after
-        # restoring, so a restore is not written back out as a user edit).
+        # EPIC-010E — restore the remembered selection, then start tracking
+        # changes, before the first show's auto-discover (never waiting on it).
+        # `_mark_state_dirty` is connected only after restoring, so a restore
+        # does not write itself straight back out as a fresh user edit.
         self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
             container
         )
@@ -211,7 +213,10 @@ class DataManagementPresenter(CommandPresenter):
         self._view_model.selectedSymbolChanged.connect(self._mark_state_dirty)
         self._view_model.selectedIntervalChanged.connect(self._mark_state_dirty)
 
-        # EPIC-014 — the shared favourites store; optional, like the coordinator.
+        # EPIC-014 — the shared symbol favourites/recents store. Optional in
+        # the same way as the coordinator above: a presenter built against a
+        # container that does not know about it keeps the view's own
+        # unpersisted store and still works.
         view.set_symbol_preferences(
             find_symbol_preferences(container) or SymbolPreferences()
         )
@@ -574,48 +579,17 @@ class DataManagementPresenter(CommandPresenter):
             self._kline_inspector_coordinator.run_audit, symbol, interval
         )
 
-    def _ask_export_path(self, file_format: ExportFileFormat) -> str:
-        """Where to write the export, or "" if the user cancelled.
-
-        Kept on the presenter rather than in `ExportImportCoordinator`: the
-        dialog needs `self.view` as its parent, and a coordinator that opens
-        Qt dialogs cannot be unit-tested without one (mirrors
-        `backtest_presenter._ask_report_export_path`).
-        """
-        exports_dir = resolve_default_exports_dir(
-            self.config.get(ConfigKeys.MARKET_DATA_EXPORTS_DIR.value)
-        )
-        suggested_name = suggest_export_filename(
-            self._view_model.selectedSymbol,
-            self._view_model.selectedInterval,
-            file_format,
-            datetime.now(UTC),
-        )
-        path, _selected_filter = QFileDialog.getSaveFileName(
-            self.view,
-            "Export Market Data",
-            f"{exports_dir}/{suggested_name}",
-            export_file_filter(file_format),
-        )
-        return path
-
-    def _ask_import_path(self) -> str:
-        """Where to read the import from, or "" if the user cancelled."""
-        path, _selected_filter = QFileDialog.getOpenFileName(
-            self.view,
-            "Import Market Data",
-            "",
-            "CSV Files (*.csv)",
-        )
-        return path
-
     @Slot()
     @safe_ui_action
     def _on_export_requested(self) -> None:
         if self._shutdown_requested:
             return
         file_format = ExportFileFormat(self._view_model.selectedExportFormat)
-        path = self._ask_export_path(file_format)
+        path = self._file_dialogs.export_path(
+            self._view_model.selectedSymbol,
+            self._view_model.selectedInterval,
+            file_format,
+        )
         if not path:
             return
         symbol = self._view_model.selectedSymbol.strip()
@@ -629,7 +603,7 @@ class DataManagementPresenter(CommandPresenter):
     def _on_import_requested(self) -> None:
         if self._shutdown_requested:
             return
-        path = self._ask_import_path()
+        path = self._file_dialogs.import_path()
         if not path:
             return
         symbol = self._view_model.selectedSymbol.strip()

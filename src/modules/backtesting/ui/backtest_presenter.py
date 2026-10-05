@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
-from PySide6.QtWidgets import QFileDialog
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -158,11 +157,10 @@ from .logic.performance_charts import (
 from .logic.report_comparison_snapshot import ReportComparisonSnapshot
 from .logic.report_export import (
     build_backtest_report,
-    resolve_default_reports_dir,
     resolve_engine_version,
-    suggest_report_filename,
     write_backtest_report,
 )
+from .logic.report_file_dialogs import ReportFileDialogs
 from .logic.report_import import (
     backtest_report_to_run_config,
     build_imported_report_banner_text,
@@ -226,14 +224,6 @@ _ZERO_TRADES_MESSAGE = (
     "Backtest completed but there were no trades in the selected time range."
 )
 
-_EXPORT_DIALOG_TITLE = "Export Trade Logs"
-_EXPORT_DEFAULT_FILENAME = "trade_logs.csv"
-_EXPORT_FILE_FILTER = "CSV Files (*.csv)"
-_REPORT_EXPORT_DIALOG_TITLE = "Save Backtest Report"
-_REPORT_EXPORT_FILE_FILTER = (
-    "Sagittarius Report (*.sagi-report.json *.sagi-report.json.gz)"
-)
-_REPORT_IMPORT_DIALOG_TITLE = "Import Backtest Report"
 _UNKNOWN_APP_VERSION = "unknown"
 
 
@@ -367,6 +357,7 @@ class BackTestPresenter(CommandPresenter):
         # BOT-095B: Snapshot of the last executed backtest run configuration.
         # Used for Dirty Tracking to compare against active toolbar inputs.
         self._last_run_config: BacktestRunConfig | None = None
+        self._file_dialogs = ReportFileDialogs(view, self.config)
         # BOT-115B: the full BacktestResult behind that same snapshot — kept
         # in lockstep with _last_run_config (set at the same line, in
         # _on_backtest_succeeded) so "Save report" always exports the run
@@ -475,10 +466,23 @@ class BackTestPresenter(CommandPresenter):
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
         self._chart_klines_fetch_limit = self._screen_config.chart_klines_fetch_limit
-        # `BUG-127` — a plain resolve, deliberately with no fallback: the old
-        # `except` built a private empty cache, so every symbol read "not
-        # verified". A missing binding fails loudly here instead, and
-        # `test_every_resolved_type_is_bound.py` keeps the binding there.
+        # `BUG-127` — a plain resolve, because the port is bound now.
+        #
+        # This was a `try` whose body resolved the port, an `isinstance` check on
+        # the answer, and an `except Exception` that constructed
+        # `InMemorySymbolMarketMetadataCache()` — this module's own import of
+        # another module's *adapter*, which is what the boundary allowlist
+        # carried. Measured: the port was bound nowhere, so the `resolve()`
+        # raised on every construction and the `except` was the **only** path.
+        # The screen therefore held a private empty cache that nothing would
+        # ever write to, and the exchange-rule check answered "not verified"
+        # for every symbol from the day `BOT-095E1` shipped.
+        #
+        # Deliberately no fallback now. A missing binding must fail loudly at
+        # construction rather than degrade into a permanently negative answer:
+        # that silence is the whole defect, and
+        # `tests/unit/architecture/test_every_resolved_type_is_bound.py` is the
+        # check that keeps the binding there.
         self._market_metadata_cache: ISymbolMarketMetadataCache = container.resolve(
             ISymbolMarketMetadataCache
         )
@@ -1924,22 +1928,10 @@ class BackTestPresenter(CommandPresenter):
             self.fsm.dispatch(BacktestUiEvent.SYNC_FAILED)
         self._view_model.run_result.set_result(f"Sync failed: {message}", is_error=True)
 
-    @Slot()
-    @safe_ui_action
     def _ask_trade_log_export_path(self) -> str:
-        """Where to write the CSV, or "" if the user cancelled.
-
-        Kept on the presenter rather than in `TradeLogCoordinator`: the dialog
-        needs `self.view` as its parent, and a coordinator that opens Qt
-        dialogs cannot be unit-tested without one.
-        """
-        path, _selected_filter = QFileDialog.getSaveFileName(
-            self.view,
-            _EXPORT_DIALOG_TITLE,
-            _EXPORT_DEFAULT_FILENAME,
-            _EXPORT_FILE_FILTER,
-        )
-        return path
+        """Where to write the CSV, or "" if the user cancelled
+        (`ReportFileDialogs`, which says why it is not a coordinator's)."""
+        return self._file_dialogs.trade_log_export_path()
 
     def _on_trade_log_query_changed(self) -> None:
         self._trade_log.on_query_changed()
@@ -1956,26 +1948,6 @@ class BackTestPresenter(CommandPresenter):
 
     @Slot()
     @safe_ui_action
-    def _ask_report_export_path(self) -> str:
-        """Where to write the report, or "" if the user cancelled — same
-        reasoning as `_ask_trade_log_export_path` for staying on the
-        presenter (the dialog needs `self.view` as its parent)."""
-        reports_dir = resolve_default_reports_dir(
-            self.config.get(ConfigKeys.BACKTEST_REPORTS_DIR.value)
-        )
-        suggested_name = suggest_report_filename(
-            self._last_run_config, datetime.now(UTC)
-        )
-        path, _selected_filter = QFileDialog.getSaveFileName(
-            self.view,
-            _REPORT_EXPORT_DIALOG_TITLE,
-            f"{reports_dir}/{suggested_name}",
-            _REPORT_EXPORT_FILE_FILTER,
-        )
-        return path
-
-    @Slot()
-    @safe_ui_action
     def _on_report_export_requested(self) -> None:
         """BOT-115B — exports the run behind what's currently on screen,
         never the toolbar's current (possibly dirty) values: `_last_result`/
@@ -1983,7 +1955,7 @@ class BackTestPresenter(CommandPresenter):
         `_on_backtest_succeeded`, so they always describe the same run."""
         if self._last_result is None or self._last_run_config is None:
             return
-        path = self._ask_report_export_path()
+        path = self._file_dialogs.report_export_path(self._last_run_config)
         if not path:
             return
         report = build_backtest_report(
@@ -2000,23 +1972,6 @@ class BackTestPresenter(CommandPresenter):
             f"[report-export] Wrote {path} "
             f"({len(report.result.trades)} trades, {size_bytes:,} bytes)"
         )
-
-    @Slot()
-    @safe_ui_action
-    def _ask_report_import_path(self) -> str:
-        """Where to read the report from, or "" if the user cancelled —
-        same reasoning as `_ask_report_export_path` for staying on the
-        presenter (`BOT-115C`)."""
-        reports_dir = resolve_default_reports_dir(
-            self.config.get(ConfigKeys.BACKTEST_REPORTS_DIR.value)
-        )
-        path, _selected_filter = QFileDialog.getOpenFileName(
-            self.view,
-            _REPORT_IMPORT_DIALOG_TITLE,
-            reports_dir,
-            _REPORT_EXPORT_FILE_FILTER,
-        )
-        return path
 
     @Slot()
     @safe_ui_action
@@ -2043,7 +1998,7 @@ class BackTestPresenter(CommandPresenter):
         afterwards uses whatever the toolbar currently shows, exactly as
         the task's own §2 describes.
         """
-        path = self._ask_report_import_path()
+        path = self._file_dialogs.report_import_path()
         if not path:
             return
         if self.fsm is None or not self.fsm.can_dispatch(

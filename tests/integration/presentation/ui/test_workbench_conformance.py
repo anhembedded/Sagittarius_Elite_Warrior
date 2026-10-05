@@ -166,7 +166,11 @@ def duplicate_button_problems(window: QMainWindow, page: QWidget) -> list[str]:
     second way (`EPIC-033D`, HLD §11.5): one `QAction` per command (MS
     `cmd-menus`). This mode's commands are the actions the shell keeps live
     on the window for it (`WorkbenchShell._sync_live_actions`), less the
-    shell's own (`action::workbench.`)."""
+    shell's own (`action::workbench.`).
+
+    It matches names only. A button that triggers a command's request under
+    another name (the Dev Board's Load History beside Reload history, found
+    in the PR #350 review) passes it; that case is review's (H3)."""
     commands = {
         _command_name(action.text())
         for action in window.actions()

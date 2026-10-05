@@ -1,13 +1,16 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions and Refresh fills.
 
-Each is one `QAction` in the Bots menu ("B&ots": Backtest holds B), scoped to
-the mode; New bot…, Start, Pause and Stop… are also on its toolbar. The
+Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
+as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
+its toolbar, and Save bot is the platform's Save (Ctrl+S on Windows).
+Refresh fills is not in the catalogue yet (`EPIC-033K` designs the mode). The
 lifecycle commands act on the selected bot and follow its availability
 (`bot_action_rules.py`). Stop… and Delete ask through the presenter's own
 dialogs (`command_for`), because Stop asks how to stop; so neither carries
 the Engine's confirmation. New bot… and Stop… ask for input, so they end
-with "…".
+with "…"; Delete bot only confirms, so it takes none (`ui-presentation-rule.md`
+§4), where the catalogue wrote "Delete bot…".
 
 Qt-free, because `BotsModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`); the presenter's side is
@@ -22,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 
 from .bot_action_rules import BotAction
 
-BOTS_MENU = ("B&ots",)
+BOTS_MENU = ("&Bots",)
 _CONTRIBUTOR = "bots"
 _PREFIX = "bots.bots"
 
@@ -31,13 +34,13 @@ REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
-    (BotAction.START, "&Start", True),
+    (BotAction.SAVE, "&Save bot", True),
+    (BotAction.START, "S&tart", True),
     (BotAction.PAUSE, "&Pause", True),
-    (BotAction.RESUME, "&Resume", False),
-    (BotAction.CONFIRM_RESUME, "&Confirm resume", False),
-    (BotAction.STOP, "S&top…", True),
-    (BotAction.SAVE, "Sa&ve", False),
-    (BotAction.DELETE, "&Delete", False),
+    (BotAction.RESUME, "&Resume", True),
+    (BotAction.CONFIRM_RESUME, "&Confirm resume", True),
+    (BotAction.STOP, "St&op…", True),
+    (BotAction.DELETE, "&Delete bot", False),
 )
 
 
@@ -49,7 +52,12 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
     """The commands of the Bots mode at `route`, in menu order."""
 
     def command(
-        command_id: str, text: str, *, on_toolbar: bool, needs_input: bool = False
+        command_id: str,
+        text: str,
+        *,
+        on_toolbar: bool,
+        needs_input: bool = False,
+        standard_shortcut: str | None = None,
     ) -> CommandContribution:
         return CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -59,6 +67,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             on_toolbar=on_toolbar,
             needs_input=needs_input,
+            standard_shortcut=standard_shortcut,
         )
 
     return (
@@ -69,6 +78,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
                 text,
                 on_toolbar=on_toolbar,
                 needs_input=text.endswith("…"),
+                standard_shortcut="Save" if action is BotAction.SAVE else None,
             )
             for action, text, on_toolbar in _LIFECYCLE
         ),

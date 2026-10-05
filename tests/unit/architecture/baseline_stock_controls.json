@@ -19,7 +19,7 @@
       "src/modules/trading/ui/dashboard/dev_board_widgets/layout_helpers.py": 2,
       "src/modules/trading/ui/dashboard/dev_board_widgets/session_card.py": 2,
       "src/modules/trading/ui/dashboard/dev_board_widgets/strategy_card.py": 8,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/system_controls_card.py": 7,
+      "src/modules/trading/ui/dashboard/dev_board_widgets/system_controls_card.py": 5,
       "src/modules/trading/ui/settings/trading_settings_view.py": 7,
       "src/support/charting/chart_card/fps_overlay.py": 1,
       "src/support/ui_kit/kit/controls/badge.py": 1,

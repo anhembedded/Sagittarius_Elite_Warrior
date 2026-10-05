@@ -8,6 +8,7 @@ build with the command's id in the message.
 
 from __future__ import annotations
 
+from PySide6.QtGui import QKeySequence
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
 )
@@ -22,12 +23,16 @@ COMMANDS_TOOLBAR = "commands"
 
 def action_descriptor(command: CommandContribution) -> ActionDescriptor:
     confirm = command.confirm
+    shortcut: str | QKeySequence.StandardKey | None = command.shortcut
+    if command.standard_shortcut is not None:
+        # An unknown name raises AttributeError naming it, at build time.
+        shortcut = getattr(QKeySequence.StandardKey, command.standard_shortcut)
     return ActionDescriptor(
         action_id=command.command_id,
         text=command.text,
         menu_path=command.menu_path,
         toolbar=COMMANDS_TOOLBAR if command.on_toolbar else None,
-        shortcut=command.shortcut,
+        shortcut=shortcut,
         checkable=command.checkable,
         needs_input=command.needs_input,
         confirm=(

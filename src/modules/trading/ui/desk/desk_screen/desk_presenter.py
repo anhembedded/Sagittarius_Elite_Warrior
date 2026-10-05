@@ -86,6 +86,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import IComman
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
     CommandPresenter,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -191,16 +192,25 @@ class DeskPresenter(CommandPresenter):
 
     def bind_commands(self, binder: ICommandBinder) -> None:
         """Enable live trading and Emergency stop (`desk_commands.py`)."""
-        venue = self._profile.venue
-        binder.bind(
-            enable_trading_id(venue),
-            lambda _checked: self.desk.requestToggle(),
-            enabled=self.desk.toggleAvailable,
-            checked=self.desk.tradingEnabled,
+        desk, venue = self.desk, self._profile.venue
+        available = DerivedState(
+            desk.tradingStateChanged, lambda: not desk.toggleBusy, desk
+        )
+        trading_on = DerivedState(
+            desk.tradingStateChanged, lambda: bool(desk.enabled), desk
         )
         binder.bind(
-            emergency_stop_id(venue),
-            lambda _checked: self.desk.requestEmergencyStop(),
+            enable_trading_id(venue),
+            lambda _checked: desk.requestToggle(),
+            enabled=available.changed,
+            checked=trading_on.changed,
+            initially_enabled=available.value,
+        )
+        # `__init__` set the session's state before this binding existed, so a
+        # desk built while trading is on would otherwise show it unchecked.
+        trading_on.announce()
+        binder.bind(
+            emergency_stop_id(venue), lambda _checked: desk.requestEmergencyStop()
         )
 
     def _on_last_price(self, price: Decimal) -> None:

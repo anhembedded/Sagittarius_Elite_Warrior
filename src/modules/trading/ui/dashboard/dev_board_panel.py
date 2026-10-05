@@ -124,7 +124,7 @@ class DevBoardPanel(QObject):
     to be the region the cards sat on (painting the app background with its
     own stylesheet, `Palette.BG`); a `QObject` paints nothing.
 
-    Every private attribute stays where it was — `panel._btn_start`,
+    Every private attribute stays where it was — `panel._btn_symbol`,
     `panel._txt_start_date`, `panel._script_checkboxes` — because that is
     what tests and the Presenter key off. New: the public read side,
     `dock_panels`/`status_tiles`. Reload, Enable live trading, Emergency stop
@@ -189,7 +189,7 @@ class DevBoardPanel(QObject):
     # ------------------------------------------------------------------ #
     # System Controls card pass-through — the card owns these widgets;
     # `_sync_controls_active()` below and every existing test still read them
-    # as `panel._btn_start` etc.
+    # as `panel._btn_symbol` etc.
     # ------------------------------------------------------------------ #
 
     @property
@@ -211,18 +211,6 @@ class DevBoardPanel(QObject):
     @property
     def _btn_pick_range(self) -> QWidget:
         return self._system_controls_card._btn_pick_range
-
-    @property
-    def _btn_load_history(self) -> QWidget:
-        return self._system_controls_card._btn_load_history
-
-    @property
-    def _btn_start(self) -> QWidget:
-        return self._system_controls_card._btn_start
-
-    @property
-    def _btn_stop(self) -> QWidget:
-        return self._system_controls_card._btn_stop
 
     @property
     def _progress_banner(self) -> QWidget:
@@ -544,20 +532,6 @@ class DevBoardPanel(QObject):
     def _sync_controls_active(self) -> None:
         vm = self._view_model
         controls_active = vm.controlsEnabled and not vm.historyLoading
-        self._btn_load_history.setText(
-            "Loading…" if vm.historyLoading else "Load History"
-        )
-        self._btn_load_history.setEnabled(controls_active)
-        self._btn_start.setEnabled(controls_active)
-        # BOT-123 (was `vm.uiMode == "LIVE"` only): Start Live spends its
-        # first several seconds — sometimes much longer, see the sync log
-        # this was reported against — in LOCKED, syncing from Binance before
-        # the websocket ever opens. Stop is how the user cancels that sync
-        # (StreamLifecycleController._on_stop_stream cancels the same
-        # CancellationToken the sync's cancellation_requested reads); leaving
-        # it disabled through the one phase a user would most want to cancel
-        # left LOCKED syncs with no way to stop short of killing the app.
-        self._btn_stop.setEnabled(vm.uiMode in ("LIVE", "LOCKED"))
         self._cbo_market.setEnabled(controls_active)
         self._btn_symbol.setEnabled(controls_active)
         self._txt_start_date.setEnabled(controls_active)
