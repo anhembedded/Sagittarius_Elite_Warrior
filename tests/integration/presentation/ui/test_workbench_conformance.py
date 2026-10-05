@@ -157,6 +157,29 @@ def toolbar_problems(window: QMainWindow, page: QWidget) -> list[str]:
     ]
 
 
+def _command_name(text: str) -> str:
+    return _plain(text).rstrip("…").strip().casefold()
+
+
+def duplicate_button_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """A push button named like one of this mode's commands performs it a
+    second way (`EPIC-033D`, HLD §11.5): one `QAction` per command (MS
+    `cmd-menus`). This mode's commands are the actions the shell keeps live
+    on the window for it (`WorkbenchShell._sync_live_actions`), less the
+    shell's own (`action::workbench.`)."""
+    commands = {
+        _command_name(action.text())
+        for action in window.actions()
+        if action.objectName().startswith("action::")
+        and not action.objectName().startswith("action::workbench.")
+    }
+    return [
+        f"button {button.text()!r} duplicates the command of the same name"
+        for button in page.findChildren(QPushButton)
+        if _command_name(button.text()) in commands
+    ]
+
+
 def item_view_problems(window: QMainWindow, page: QWidget) -> list[str]:
     found = []
     for view in page.findChildren(QAbstractItemView):
@@ -204,6 +227,7 @@ MODE_CHECKS: dict[str, Check] = {
     "control_height": control_height_problems,
     "no_nested_scroll": nested_scroll_problems,
     "toolbar_actions_only": toolbar_problems,
+    "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
     "mnemonics_escaped": mnemonic_problems,
     "perspective_round_trip": perspective_problems,
@@ -300,3 +324,25 @@ def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:
     assert toolbar_problems(window, window)
     assert style_sheet_problems(window, window)
     assert control_height_problems(window, window)
+
+
+def test_a_button_named_like_a_contributed_command_is_seen(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    for text, name in (
+        ("&Run backtest", "action::backtesting.backtest.run"),
+        ("&Options", "action::workbench.options"),
+    ):
+        live = QAction(text, window)
+        live.setObjectName(name)
+        window.addAction(live)
+    QAction("S&top", window).setObjectName("action::other.mode.stop")
+    page = QWidget(window)
+    QPushButton("Stop", page)
+    QPushButton("Run backtest", page)
+    QPushButton("Options", page)
+    QPushButton("Pick dates", page)
+
+    assert duplicate_button_problems(window, page) == [
+        "button 'Run backtest' duplicates the command of the same name"
+    ]
