@@ -1,13 +1,9 @@
-"""The Backtest run/sync progress banner and its Cancel button.
+"""The Backtest run/sync progress, in the status bar (`EPIC-033L`).
 
-Was `test_backtest_progress_cancel_qml.py` until `EPIC-025` PR 4.3l: the
-Cancel button lived inside `ProgressBanner.qml` and had to be reached through
-`qml_item(widget.root_object, ...)` and clicked at scene coordinates. It is a
-`QPushButton` inside `kit.ProgressBanner` now (ADR D21), so the same three
-promises are asserted against widgets — and the click is
-`QPushButton.click()`, which is what a test of a *wiring* should use anyway:
-the scene-coordinate `QTest.mouseClick` passed whether or not the banner was
-laid out where it was aimed.
+It was a banner at the top of the results with its own Cancel button: a
+second way to Tools → Stop backtest, which `test_backtest_commands.py`
+proves applies while a run or its sync can stop. The status bar shows the
+words and the bar; stopping is the command's.
 """
 
 from __future__ import annotations
@@ -107,116 +103,67 @@ def backtest_screen(qapp, request):
     return view, presenter
 
 
-def _cancel_button(banner):
-    """The `QPushButton` inside the banner, by `objectName` rather than by
-    the private attribute, so this test sees what a screenshot would."""
-    from PySide6.QtWidgets import QPushButton
-
-    button = banner.findChild(QPushButton, "progressBannerCancel")
-    assert button is not None
-    return button
-
-
-def test_progress_banner_cancel_button_in_running_and_syncing_modes(
+def test_the_progress_shows_in_the_status_bar_only_while_a_run_or_sync_goes(
     qapp, backtest_screen
 ):
-    """`CANCELLING` disables the button; `kit.ProgressBanner` deliberately
-    does not relabel it, so the word the user reads is the panel's own
-    (`_sync_banners()` puts "Cancelling safely..." in the caption instead of
-    on the button, which is what it already did through the `.qml`)."""
     view, presenter = backtest_screen
-    banner = view.top_widget._progress_banner
-    widget = view.top_widget._progress_banner_widget
     view_model = presenter._view_model
+    text, bar = view.status_widgets()
+    assert text.isHidden() and bar.isHidden()
 
-    # 1. In IDLE mode, progress banner is hidden
-    assert banner.isVisible() is False
+    for mode in ("SYNCING", "RUNNING", "CANCELLING"):
+        view_model.set_ui_mode(mode)
+        assert not text.isHidden(), mode
+        assert not bar.isHidden(), mode
 
-    # 2. In SYNCING mode, banner and cancel button are visible and enabled
-    view_model.set_ui_mode("SYNCING")
-    qapp.processEvents()
-
-    assert banner.isVisible() is True
-    button = _cancel_button(widget)
-    assert button.isEnabled() is True
-    assert button.text() == "Cancel"
-
-    # Click Cancel on progress banner
-    cancel_signal_called = False
-
-    def on_cancel():
-        nonlocal cancel_signal_called
-        cancel_signal_called = True
-
-    view_model.cancelBacktestRequested.connect(on_cancel)
-    button.click()
-    qapp.processEvents()
-
-    assert cancel_signal_called is True
-
-    # 3. In CANCELLING mode the button is disabled, and the caption — not the
-    #    button — carries the word.
-    view_model.set_ui_mode("CANCELLING")
-    qapp.processEvents()
-
-    assert banner.isVisible() is True
-    assert _cancel_button(widget).isEnabled() is False
-    assert widget._status.text() == CANCELLING_CAPTION
-
-    # 4. In RUNNING mode, button is enabled and text is "Cancel"
-    view_model.set_ui_mode("RUNNING")
-    qapp.processEvents()
-
-    assert banner.isVisible() is True
-    button = _cancel_button(widget)
-    assert button.isEnabled() is True
-    assert button.text() == "Cancel"
+    view_model.set_ui_mode("IDLE")
+    assert text.isHidden() and bar.isHidden()
 
 
-def test_progress_banner_status_text_and_percent_are_wired(qapp, backtest_screen):
-    """Both progress sources (`syncProgressText`/`Percent` and
-    `backtestProgressText`/`Percent`) reach the banner through the same two
-    setters — `_sync_banners()` picks the source, the widget itself is
-    source-agnostic."""
+def test_stopping_says_so_and_has_no_measure(qapp, backtest_screen):
     view, presenter = backtest_screen
-    widget = view.top_widget._progress_banner_widget
+    text, bar = view.status_widgets()
+
+    presenter._view_model.set_ui_mode("CANCELLING")
+
+    assert text.text() == CANCELLING_CAPTION
+    assert bar.maximum() == 0  # Qt's busy indicator
+
+
+def test_progress_status_text_and_percent_are_wired(qapp, backtest_screen):
+    """Both progress sources (`syncProgressText`/`Percent` and
+    `backtestProgressText`/`Percent`) reach the same two widgets; the mode
+    picks the source."""
+    view, presenter = backtest_screen
+    text, bar = view.status_widgets()
     view_model = presenter._view_model
 
     view_model.run_progress.set_sync_progress(45.0, "Syncing candles: 45/100 (45%)")
     view_model.set_ui_mode("SYNCING")
-    qapp.processEvents()
 
-    assert widget._status.text() == "Syncing candles: 45/100 (45%)"
-    assert widget._bar.text() == "45%"
+    assert text.text() == "Syncing candles: 45/100 (45%)"
+    assert bar.value() == 45
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(80.0, "Running full dataset: 80%")
     view_model.set_ui_mode("RUNNING")
-    qapp.processEvents()
 
-    assert widget._status.text() == "Running full dataset: 80%"
-    assert widget._bar.text() == "80%"
+    assert text.text() == "Running full dataset: 80%"
+    assert bar.value() == 80
 
 
-def test_progress_banner_clamps_an_out_of_range_percent(qapp, backtest_screen):
-    """`BackTestViewModel.backtestProgressPercent`/`syncProgressPercent` are
-    not clamped at the property getter the way
-    `DataManagementViewModel.progressPercent` is — every real call site
-    clamps before storing, but `_sync_banners()` still defends against a
-    value that is not, so a future caller cannot silently show "150%"."""
+def test_progress_status_clamps_an_out_of_range_percent(qapp, backtest_screen):
+    """`backtestProgressPercent`/`syncProgressPercent` are not clamped at the
+    getter; the status clamps, so a future caller cannot show "150%"."""
     view, presenter = backtest_screen
-    widget = view.top_widget._progress_banner_widget
+    _text, bar = view.status_widgets()
     view_model = presenter._view_model
 
     view_model.run_progress.set_backtest_progress(150.0, "over")
     view_model.set_ui_mode("RUNNING")
-    qapp.processEvents()
-
-    assert widget._bar.text() == "100%"
+    assert bar.value() == 100
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(-10.0, "under")
     view_model.set_ui_mode("RUNNING")
-    qapp.processEvents()
-
-    assert widget._bar.text() == "0%"
+    assert bar.value() == 0

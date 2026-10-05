@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QDockWidget, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
@@ -18,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 from .backtest_modals import BackTestModalsHost
+from .backtest_panels import build_panels, dock_of, place_panels
 from .backtest_top_panel import BackTestTopPanel
 from .backtest_trade_logs_panel import BackTestTradeLogsPanel
 from .logic.backtest_chart_host import BacktestChartHostFactory
@@ -30,8 +33,9 @@ from .logic.chart_canvas_view import (
     trade_marker_badges_for_trades,
 )
 from .logic.chart_controls import BacktestChartControls
+from .monte_carlo_panel import MonteCarloPanel
 from .ports.i_backtest_chart_host import IBacktestChartHost
-from .result_panels import drawdown_panel, monthly_returns_panel
+from .run_progress_status import RunProgressStatus
 from .run_setup_panel import RunSetupPanel
 
 _EQUITY_SUBPLOT_KEY = "equity"
@@ -48,12 +52,6 @@ BACKTEST_SURFACE = Surface(
     owner="backtesting",
     accepts=frozenset({Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}),
 )
-#: The panels HLD §11.2.1 lists for this mode, by their dock titles.
-RUN_SETUP_DOCK = "Run setup"
-METRICS_DOCK = "Metrics"
-TRADES_DOCK = "Trades"
-DRAWDOWN_DOCK = "Drawdown"
-MONTHLY_RETURNS_DOCK = "Monthly returns"
 
 
 class BackTestView(OutputSourceView):
@@ -61,8 +59,9 @@ class BackTestView(OutputSourceView):
     @brief The Backtest mode (`EPIC-033L`), laid out as HLD §11.2.1 lists it:
     the result chart in the centre; Run setup (`RunSetupPanel`) on the left;
     Metrics (`BackTestTopPanel`: banners and figures) on the right; Trades
-    (`BackTestTradeLogsPanel`) at the bottom, tabbed with Drawdown and
-    Monthly returns. The run log is the Output
+    (`BackTestTradeLogsPanel`) at the bottom, tabbed with Drawdown, Monthly
+    returns and Monte Carlo (`backtest_panels.py`); a run's progress in the
+    status bar (`run_progress_status.py`). The run log is the Output
     pane's "Backtest" channel (`EPIC-033F`).
 
     @details Before `EPIC-033L` the same parts were stacked in a `QSplitter`
@@ -100,6 +99,7 @@ class BackTestView(OutputSourceView):
         self._last_result = None
         self._last_klines: list = []
         self._last_volume: list = []
+        self._progress = RunProgressStatus(self)
         self._setup_ui()
         # BackTestModalsHost (EPIC-006E3) owns all 11 modal QDialogs, built
         # lazily in set_view_model() below — replaces OverlayHost/QQuickWidget
@@ -119,11 +119,12 @@ class BackTestView(OutputSourceView):
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
         self._surface.place_widget(Place.WORKSPACE, self.charts_container)
 
-        # The three panels need the ViewModel at construction (`EPIC-006E`'s
+        # The panels need the ViewModel at construction (`EPIC-006E`'s
         # lazy-build contract): built and docked in `set_view_model()`.
         self.run_setup: RunSetupPanel | None = None
         self.top_widget: BackTestTopPanel | None = None
         self.bottom_widget: BackTestTradeLogsPanel | None = None
+        self.monte_carlo: MonteCarloPanel | None = None
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the ViewModel and builds every child that needs it
@@ -132,32 +133,35 @@ class BackTestView(OutputSourceView):
         self._view_model = view_model
         self._output = OutputChannel("backtest", "Backtest", view_model.log_model)
         view_model.broker_sim.marketChanged.connect(self._show_marker_sides)
-        self.run_setup = RunSetupPanel(view_model)
-        self.top_widget = BackTestTopPanel(view_model)
-        self.bottom_widget = BackTestTradeLogsPanel(view_model)
-        self.drawdown = drawdown_panel(view_model.run_result)
-        self.monthly_returns = monthly_returns_panel(view_model.run_result)
-        self._surface.place_widget(
-            Place.NAVIGATOR, self.run_setup, title=RUN_SETUP_DOCK
-        )
-        self._surface.place_widget(Place.RAIL, self.top_widget, title=METRICS_DOCK)
-        for widget, title in (
-            (self.bottom_widget, TRADES_DOCK),
-            (self.drawdown, DRAWDOWN_DOCK),
-            (self.monthly_returns, MONTHLY_RETURNS_DOCK),
-        ):
-            self._surface.place_widget(Place.CONSOLE, widget, title=title)
-        # The bottom docks are tabbed; the trades are what a run is read by.
-        self.dock_of(self.bottom_widget).raise_()
+        self._progress.track_run_of(view_model)
+        panels = build_panels(view_model)
+        place_panels(self._surface, panels)
+        self.run_setup = panels.run_setup
+        self.top_widget = panels.metrics
+        self.bottom_widget = panels.trades
+        self.drawdown = panels.drawdown
+        self.monthly_returns = panels.monthly_returns
+        self.monte_carlo = panels.monte_carlo
+        view_model.openMonteCarloRequested.connect(self._show_monte_carlo)
 
         self._modals_host = BackTestModalsHost(view_model, self)
 
+    def status_widgets(self) -> Sequence[QWidget]:
+        """`IStatusSource`: a run's progress, in the status bar."""
+        return self._progress.widgets
+
     def dock_of(self, widget: QWidget) -> QDockWidget:
         """The panel `widget` is the content of."""
-        for dock in self._surface.findChildren(QDockWidget):
-            if dock.widget() is widget:
-                return dock
-        raise LookupError(f"the surface placed no dock for {widget.objectName()!r}")
+        return dock_of(self._surface, widget)
+
+    def _show_monte_carlo(self) -> None:
+        """Tools → Monte Carlo brings its panel to the front, opening it
+        again if the person closed it."""
+        if self.monte_carlo is None:
+            return
+        dock = self.dock_of(self.monte_carlo)
+        dock.show()
+        dock.raise_()
 
     def _show_marker_sides(self) -> None:
         """EPIC-027D — the chart's side filter follows the screen's market."""
