@@ -4,6 +4,9 @@ action at a time with its stale answers dropped."""
 
 from __future__ import annotations
 
+import threading
+
+from PySide6.QtCore import QCoreApplication, QTimer
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
@@ -293,6 +296,28 @@ def test_a_write_by_anyone_else_is_read_again(open_bots_screen, qtbot) -> None:
     screen.settle()
 
     assert {bot.bot_id for bot in screen.view.model.bots} == {"a00001", "a00009"}
+
+
+def test_a_write_still_queued_when_the_screen_closes_arms_nothing(
+    open_bots_screen, qtbot
+) -> None:
+    """`BUG-149`: a bot's worker saves from its own thread, so the change
+    reaches the screen queued. Delivered after the screen closed, it must not
+    re-arm the coalesced re-read, which would submit into a pool that has shut
+    down by the time it fires."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    worker = threading.Thread(
+        target=screen.store.save, args=(stored("a00009", S.DRAFT),)
+    )
+    worker.start()
+    worker.join()
+
+    screen.presenter.dispose()
+    QCoreApplication.processEvents()
+
+    assert [t for t in screen.presenter.findChildren(QTimer) if t.isActive()] == []
+    assert screen.pool.pending == []
 
 
 def test_a_bot_deleted_while_an_action_is_in_flight_leaves_no_detail_behind(

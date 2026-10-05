@@ -6,6 +6,10 @@ one, whose answer is then dropped as stale (`async-ui-action-rule.md` §1):
 selecting another bot while the first one's fills load never shows the first
 one's fills. The presenter owns the trackers (one per kind) and hands them
 here; this coordinator only runs, marshals and checks.
+
+`drop_all()` is final: a read asked after it is refused here, never submitted,
+because by then the app's pool may have shut down and would raise
+(`BUG-149`).
 """
 
 from __future__ import annotations
@@ -62,14 +66,24 @@ class FencedReads(QObject):
         super().__init__()
         self._threads = thread_manager
         self._trackers = trackers
+        self._dropped = False
         self._done.connect(self._deliver)
 
     def read(self, kind: ReadKind, label: str, task: Callable[[], object]) -> None:
+        if self._dropped:
+            logger.debug(
+                "Bots screen read %s (%s) refused: the screen has shut down",
+                kind.value,
+                label,
+            )
+            return
         action = self._trackers[kind].begin_action(kind, label, None)
         self._threads.submit(self._read_on_pool, kind, action.action_id, label, task)
 
     def drop_all(self) -> None:
-        """Every read in flight is answered into nothing (shutdown)."""
+        """Every read in flight is answered into nothing, and every later
+        read is refused (shutdown)."""
+        self._dropped = True
         for tracker in self._trackers.values():
             tracker.invalidate_active()
 
