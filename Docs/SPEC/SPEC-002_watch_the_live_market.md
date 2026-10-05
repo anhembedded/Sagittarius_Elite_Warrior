@@ -9,7 +9,8 @@
   one `IMarketStream` owner, and each open chart tab streams its own symbol under its own owner,
   live from the user's own open of the mode until the tab or the app closes; View → Spot market or
   Futures market picks the market every one of them shows (`EPIC-033Q`), and View → Load older
-  candles or Load range… shows the chart in front beyond its first window (`EPIC-033S`) · Dev Board's
+  candles or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
+  Back to live draws its newest window again and follows the stream (`EPIC-033T`) · Dev Board's
   *Start Live* · a desk's chart · `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
@@ -112,6 +113,7 @@ consumer-facing port.
 | View → Spot market or Futures market is one exclusive, remembered choice; switching reopens the charts on the new market's candles and moves the Watchlist's stream; a tick of the other market reaches neither | `tests/unit/modules/trading/ui/market/test_market_choice.py` | unit |
 | Load older candles joins the window before the oldest drawn candle with neither a gap nor a duplicate; a range is exactly the candles that open in it (boundary values) | `tests/unit/modules/trading/ui/market/test_chart_history.py` | unit |
 | Both loads are off while one runs, while a first window loads and with no chart open; a closed tab, a new timeframe or a new first window drops a load asked before it, in either order; a window of a timeframe left behind is not drawn; a drawn range takes no live candle | `tests/unit/modules/trading/ui/market/test_market_chart_history.py` | unit |
+| Back to live, from a drawn range, draws the newest window and takes live candles again, restarting the stream once; it is off with no range, while its window loads and with no chart open | `tests/unit/modules/trading/ui/market/test_market_chart_back_to_live.py` | unit |
 | Load older candles twice reaches the start of a seeded store with one candle per minute; Load range… draws exactly its span | `tests/integration/modules/trading/ui/test_market_mode_chart_history.py` | integration |
 | View → Futures market reloads the open chart from the Futures store through the real candle feed | `tests/integration/modules/trading/ui/test_market_mode_market_choice.py` | integration |
 | A real socket against the real venue | **the user runs it**: `stream start --symbols BTCUSDT --interval 1m`, watch the chart advance for a minute, then `stream stop` and see it settle | human |

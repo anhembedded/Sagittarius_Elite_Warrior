@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
+    BACK_TO_LIVE,
     LOAD_OLDER,
     LOAD_RANGE,
     SHOW_FUTURES,
@@ -141,9 +142,10 @@ def test_a_remembered_market_the_mode_does_not_offer_keeps_spot(build):
 
 
 def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
-    """View → Spot market, Futures market (`EPIC-033Q`), Load older candles
-    and Load range… (`EPIC-033S`) sit beside the window's own View items: one
-    item per mode (keys assigned by the window), T&oolbars and Stat&us bar.
+    """View → Spot market, Futures market (`EPIC-033Q`), Load older candles,
+    Load range… (`EPIC-033S`) and Back to live (`EPIC-033T`) sit beside the
+    window's own View items: one item per mode (keys assigned by the window),
+    T&oolbars and Stat&us bar.
     Their keys are none of those, and none of the mode keys HLD §11.2.3 plans
     (T&rade, Back&test, De&veloper), so a mode renamed to its planned title
     does not take one. A "Market" menu of their own was dropped: every letter
@@ -163,6 +165,7 @@ def test_the_modes_view_items_take_no_access_key_of_the_view_menu():
         SHOW_FUTURES,
         LOAD_OLDER,
         LOAD_RANGE,
+        BACK_TO_LIVE,
     ]
     assert sorted(set(keys) & taken) == []
     assert len(keys) == len(set(keys)) == len(choices)

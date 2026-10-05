@@ -23,7 +23,8 @@ settles (drawn, empty or failed, `LiveCandleChart`'s two hooks), and while
 its own load runs; nothing is asked against it meanwhile, and
 `loadingChanged` says when. While a range is drawn the chart
 draws no live candle, which would land after a gap the range does not show;
-the next first window (a timeframe change) follows the stream again.
+the next first window (View → Back to live, `EPIC-033T`, or a timeframe
+change) follows the stream again, and `showingRangeChanged` says so.
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
+    report_unless_cancelled,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
@@ -102,6 +106,8 @@ class MarketChart(LiveCandleChart):
 
     #: Whether an older window or a range is loading.
     loadingChanged = Signal(bool)
+    #: Whether a range is drawn in place of the live window.
+    showingRangeChanged = Signal(bool)
     #: `(request, older candles | error)`, from the worker thread.
     _older_loaded = Signal(object, object)
     #: `(request, (span, RangeCandles) | error)`, from the worker thread.
@@ -252,9 +258,7 @@ class MarketChart(LiveCandleChart):
             result: object = load.read()
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is reported, not lost to a thread's traceback
             result = exc
-        if load.token.is_cancelled():
-            return
-        load.report.emit(load.request, result)
+        report_unless_cancelled(load.token, load.report.emit, load.request, result)
 
     def _on_older_loaded(self, request: _LoadRequest, result: object) -> None:
         if not self._finish_own_load(request, "older candles"):
@@ -348,7 +352,9 @@ class MarketChart(LiveCandleChart):
         # Any whole history drawn (a first window or a range) is a new base:
         # a load asked against the previous one no longer fits it.
         self._generation += 1
-        self._showing_range = self._drawing_range
+        if self._showing_range != self._drawing_range:
+            self._showing_range = self._drawing_range
+            self.showingRangeChanged.emit(self._showing_range)
         self._klines = list(klines)
         self._replay()
 
