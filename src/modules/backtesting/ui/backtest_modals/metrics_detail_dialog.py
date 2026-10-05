@@ -13,7 +13,7 @@ answer to "rows under headings" — which is all the sections ever were.
 Three things the QML version needed and this does not: a `QQuickWidget` host
 supplying modality that `kit/DialogShell.qml` had no way to provide, a
 `QObject` re-publishing every value as a `Property` for bindings to read, and a
-`Theme` install so the scene could colour itself. `Overlay` is modal, the rules
+`Theme` install so the scene could colour itself. `QDialog` is modal, the rules
 are plain functions in `logic/metrics_detail_rules.py`, and the two colours
 that carry meaning are written per item.
 
@@ -32,13 +32,15 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QProgressBar,
-    QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_rules import (
@@ -51,7 +53,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
     build_groups,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
     Tone,
     semantic_colour,
 )
@@ -61,7 +62,7 @@ from .backtest_metrics_detail_source import BacktestMetricsDetailSource
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "BACKTEST DETAIL METRICS"
+_TITLE = "Metrics Detail"
 _METRIC_COLUMN = 0
 _VALUE_COLUMN = 1
 _VERDICT_COLUMN = 2
@@ -87,7 +88,7 @@ def _tone_colour(tone: Tone) -> QColor | None:
     return None
 
 
-class MetricsDetailDialogWidget(Overlay):
+class MetricsDetailDialogWidget(QDialog):
     """
     @brief Backtest's extended-metrics readout: a profit-against-loss bar, the
     metrics in sections, and one button that copies the lot as plain text.
@@ -103,18 +104,22 @@ class MetricsDetailDialogWidget(Overlay):
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
         self._source = BacktestMetricsDetailSource(view_model)
         self._groups: tuple[MetricGroup, ...] = ()
         self._bar_data: GrossBar | None = None
         self._footer_value = ""
-        super().__init__(_TITLE, parent=parent)
+        self.setWindowTitle(_TITLE)
+        self.body_layout = QVBoxLayout(self)
         self.setObjectName("backtestMetricsDetailDialog")
         self.resize(660, 700)
 
         self._build_bar_row()
         self._build_tree()
         self._build_footer()
+
+        self.body_layout.addWidget(self._build_buttons())
 
         view_model.run_result.statCardsChanged.connect(self.refresh)
         self.refresh()
@@ -123,7 +128,7 @@ class MetricsDetailDialogWidget(Overlay):
 
     def _build_bar_row(self) -> None:
         row = QHBoxLayout()
-        caption = QLabel("GROSS PROFIT VS GROSS LOSS")
+        caption = QLabel("Gross profit vs gross loss")
         caption.setObjectName("lblGrossHeading")
         row.addWidget(caption)
         row.addStretch(1)
@@ -179,25 +184,24 @@ class MetricsDetailDialogWidget(Overlay):
         self._footer.setWordWrap(True)
         self.body_layout.addWidget(self._footer)
 
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        self._btn_copy = QPushButton("Copy all")
+    def _build_buttons(self) -> QDialogButtonBox:
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setObjectName(
+            "btnCloseMetrics"
+        )
+        self._btn_copy = buttons.addButton(
+            "&Copy all", QDialogButtonBox.ButtonRole.ActionRole
+        )
         self._btn_copy.setObjectName("btnCopyMetrics")
         self._btn_copy.clicked.connect(self._on_copy)
-        row.addWidget(self._btn_copy)
-        row.addStretch(1)
-        close = QPushButton("Close")
-        close.setObjectName("btnCloseMetrics")
-        close.clicked.connect(self.reject)
-        row.addWidget(close)
-        return row
+        buttons.rejected.connect(self.reject)
+        return buttons
 
     # -- host-facing -------------------------------------------------------
 
     def open_dialog(self) -> None:
         self.refresh()
-        self.show()
-        self.raise_()
+        self.open()
 
     def refresh(self) -> None:
         """Re-reads the run's retained snapshot and redraws everything."""

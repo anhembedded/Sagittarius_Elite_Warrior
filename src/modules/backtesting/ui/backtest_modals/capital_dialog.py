@@ -23,50 +23,48 @@ isn't one.
 to be disabled* — is kept here, in `_apply()`, for the reason that VM gave:
 a rule enforced only by a widget's enabled state stops existing the moment
 someone edits the widget.
+
+`EPIC-033L` makes it a stock `QDialog`: a form of the amount and the currency,
+the verdict under it, and OK and Cancel in a `QDialogButtonBox`, so the
+platform orders them and Esc cancels. OK is the one button the verdict
+disables.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator
 from PySide6.QtWidgets import (
     QComboBox,
-    QHBoxLayout,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
+    QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Overlay
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "SET INITIAL CAPITAL"
-#: A floor, not a cap (`ui-presentation-rule.md`): the currency combo holds
-#: **text**, so a fixed width is the clipped-at-another-DPI bug that rule names,
-#: traded for an overlap that was never there. 90px keeps it from collapsing
-#: beside the amount field, which is the only thing the number was ever for —
-#: found reviewing PR 4.3f, where this dialog was rebuilt.
-_CURRENCY_MIN_WIDTH = 90
+#: Names the command that opens it: the Run setup's Capital field.
+_TITLE = "Initial Capital"
 _MAX_DECIMALS = 8
 
 
-class CapitalDialogWidget(Overlay):
+class CapitalDialogWidget(QDialog):
     """@brief Initial capital and currency for the run."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
-        super().__init__(_TITLE, parent=parent)
         self.setObjectName("capitalDialog")
-        self.resize(360, 190)
+        self.setWindowTitle(_TITLE)
 
-        row = QHBoxLayout()
-        row.setSpacing(8)
         self._field = QLineEdit()
         self._field.setObjectName("txtBacktestCapital")
         validator = QDoubleValidator(bottom=0.0)
@@ -77,38 +75,37 @@ class CapitalDialogWidget(Overlay):
         # read as the user having typed, or every open would ask the presenter
         # to re-validate a value nobody touched.
         self._field.textEdited.connect(self._vm.requestCapitalValidation)
-        row.addWidget(self._field, 1)
 
         self._currency = QComboBox()
         self._currency.setObjectName("cboBacktestCurrency")
-        self._currency.setMinimumWidth(_CURRENCY_MIN_WIDTH)
         self._currency.addItems([str(code) for code in view_model.currencyOptions])
-        row.addWidget(self._currency)
-        self.body_layout.addLayout(row)
 
         self._message = QLabel()
         self._message.setObjectName("txtCapitalValidationMessage")
         self._message.setWordWrap(True)
-        self._message.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._message.setVisible(False)
-        self.body_layout.addWidget(self._message)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self._btn_apply = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._btn_apply.setObjectName("btnApplyCapital")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setObjectName(
+            "btnCancelCapital"
+        )
+        buttons.accepted.connect(self._apply)
+        buttons.rejected.connect(self.reject)
+
+        form = QFormLayout()
+        form.addRow("&Amount:", self._field)
+        form.addRow("C&urrency:", self._currency)
+        layout = QVBoxLayout(self)
+        layout.addLayout(form)
+        layout.addWidget(self._message)
+        layout.addWidget(buttons)
 
         view_model.capitalValidationMessageChanged.connect(self._render_verdict)
         self._render_verdict()
-
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.addStretch(1)
-        btn_cancel = QPushButton("Cancel")
-        btn_cancel.setObjectName("btnCancelCapital")
-        btn_cancel.clicked.connect(self.reject)
-        row.addWidget(btn_cancel)
-        self._btn_apply: QPushButton = QPushButton("Apply")
-        self._btn_apply.setObjectName("btnApplyCapital")
-        self._btn_apply.setDefault(True)
-        self._btn_apply.clicked.connect(self._apply)
-        row.addWidget(self._btn_apply)
-        return row
 
     def open_dialog(self) -> None:
         """Re-reads the screen's values and asks for a fresh verdict.
@@ -117,8 +114,7 @@ class CapitalDialogWidget(Overlay):
         once, and both the amount and the currency change between opens.
         """
         self.refresh()
-        self.show()
-        self.raise_()
+        self.open()
 
     def refresh(self) -> None:
         """Seeds both controls from the screen, then requests validation."""

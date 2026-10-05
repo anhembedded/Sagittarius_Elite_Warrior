@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.extended_metrics
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
     StatCardData,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.time_range_preset import (
+    TimeRangePreset,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -52,7 +55,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strat
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import SelectableCard, Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -271,57 +274,6 @@ def test_order_execution_menu_opens(qapp, backtest_screen):
     assert dialog.isVisible() is True
 
 
-def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
-    qapp, backtest_screen
-):
-    view, _ = backtest_screen
-
-    view.run_setup.strategy.click()
-    qapp.processEvents()
-
-    dialog = view._modals_host._strategy_picker
-    assert dialog is not None
-    assert dialog.objectName() == "strategyPickerModal"
-    assert dialog.isVisible() is True
-    # `EPIC-025` PR 4.3e: the shared `kit.PickerOverlay`, one `SelectableCard`
-    # per registered strategy.
-    cards = [
-        entry.widget()
-        for entry in (dialog._grid.itemAt(i) for i in range(dialog._grid.count()))
-        if entry is not None and isinstance(entry.widget(), SelectableCard)
-    ]
-    assert len(cards) == 1
-
-
-def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
-    qapp, backtest_screen
-):
-    """`EPIC-015` bậc 1: body is now the standalone `TimeframePicker.qml` —
-    its own grouped grid, not the QtWidgets `TimeframeCard` list this
-    replaces."""
-    view, presenter = backtest_screen
-
-    view.run_setup.timeframe.click()
-    qapp.processEvents()
-
-    dialog = view._modals_host._timeframe_picker
-    assert dialog is not None
-    assert dialog.objectName() == "timeframePickerDialog"
-    assert dialog.isVisible() is True
-    # `EPIC-025` PR 4.3k: a `QTreeWidget` of groups, so the count is the rows
-    # under the headings rather than delegates in a Quick scene.
-    rows = [
-        dialog._tree.topLevelItem(group).child(child)
-        for group in range(dialog._tree.topLevelItemCount())
-        for child in range(dialog._tree.topLevelItem(group).childCount())
-    ]
-    assert len(rows) == len(presenter._view_model.timeframeOptions)
-    # EPIC-014: the picker used to offer `DEFAULT_TIMEFRAMES` (5 of the
-    # domain's 16). Asserting the real number here, not just "same as the
-    # ViewModel", so a regression back to the toolbar tuple is a failure.
-    assert len(rows) == 16
-
-
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
     """`EPIC-015` put the standalone `TimeRangePicker.qml` here; `EPIC-025` PR
     4.3d replaced it with `support/ui_kit/time_range_picker`'s `QDialog`, and
@@ -334,7 +286,9 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
     to the six-row list is a failure rather than a coincidence."""
     view, presenter = backtest_screen
 
-    view.run_setup.time_range.click()
+    # "Custom…" in the Run setup's range field asks for the dates.
+    field = view.run_setup.time_range
+    field.activated.emit(field.findData(TimeRangePreset.CUSTOM.value))
     qapp.processEvents()
 
     dialog = view._modals_host._time_range_picker

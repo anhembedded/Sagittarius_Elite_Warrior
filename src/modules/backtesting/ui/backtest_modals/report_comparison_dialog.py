@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -27,6 +29,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
@@ -52,7 +55,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_import im
     read_backtest_report_bytes,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
     Tone,
     semantic_colour,
 )
@@ -60,7 +62,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "COMPARE BACKTEST REPORTS"
+_TITLE = "Compare Reports"
 _LOAD_DIALOG_TITLE = "Load report to compare"
 _REPORT_FILE_FILTER = "Backtest report (*.sagi-report.json *.sagi-report.json.gz)"
 _METRIC_COLUMN = 0
@@ -80,7 +82,7 @@ def _tone_colour(tone: Tone) -> QColor | None:
     return None
 
 
-class ReportComparisonDialog(Overlay):
+class ReportComparisonDialog(QDialog):
     """@brief Config-diff line + metrics side-by-side table + overlaid
     equity curves for the report currently on screen (Column A) against a
     report loaded from disk (Column B)."""
@@ -88,11 +90,13 @@ class ReportComparisonDialog(Overlay):
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
         self._loaded_b: ReportComparisonSnapshot | None = None
         self._loaded_b_label = ""
         self._load_error = ""
-        super().__init__(_TITLE, parent=parent)
+        self.setWindowTitle(_TITLE)
+        self.body_layout = QVBoxLayout(self)
         self.setObjectName("reportComparisonDialog")
         self.resize(780, 680)
 
@@ -100,6 +104,8 @@ class ReportComparisonDialog(Overlay):
         self._build_diff_and_warning_labels()
         self._build_metrics_tree()
         self._build_chart()
+
+        self.body_layout.addWidget(self._build_buttons())
 
         view_model.run_result.statCardsChanged.connect(self.refresh)
         self.refresh()
@@ -152,21 +158,19 @@ class ReportComparisonDialog(Overlay):
         self._chart = ReportComparisonChartWidget()
         self.body_layout.addWidget(self._chart, 1)
 
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.addStretch(1)
-        close = QPushButton("Close")
-        close.setObjectName("btnCloseComparison")
-        close.clicked.connect(self.reject)
-        row.addWidget(close)
-        return row
+    def _build_buttons(self) -> QDialogButtonBox:
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setObjectName(
+            "btnCloseComparison"
+        )
+        buttons.rejected.connect(self.reject)
+        return buttons
 
     # -- host-facing -------------------------------------------------------
 
     def open_dialog(self) -> None:
         self.refresh()
-        self.show()
-        self.raise_()
+        self.open()
 
     def refresh(self) -> None:
         """Re-reads Column A's retained snapshot and redraws everything —

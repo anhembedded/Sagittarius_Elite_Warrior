@@ -26,19 +26,11 @@ Truthful lock states now:
   "by design" the same way BOT-074's did — do not weaken the loop below to
   silently accept it.
 
-`EPIC-015` §4c moved the body to `CheckboxList.qml` and this file grew two
-paragraphs about reaching items inside a `Repeater`'s scene graph. `EPIC-025`
-PR 4.3f moved it back to QtWidgets, onto the shared `kit.ChecklistOverlay`, and
-both paragraphs are gone with their subject: the rows are real `QCheckBox`es
-again, reached through `ChecklistOverlay.checkbox_for(key)` rather than a
-`findChild` that silently finds nothing. That accessor is public for this
-reason — a consumer's test needs to click a row, and reaching through a private
-layout is how a test starts depending on the widget's internals.
-
-The one habit worth keeping from the QML era: look a row up **after** the state
-change being checked, never hold a reference across a refresh. It costs nothing
-and it is the difference between testing what is on screen and testing a stale
-Python handle.
+`EPIC-033L` gives the two exclusive triggers their stock shape, radio buttons
+(`ui-presentation-rule.md` §6): "On bar close" is no longer a locked box left
+only by checking its rival, it is a choice. "On order fill" is a check box,
+and the real-time row stays locked and checked, the failure "by design" the
+paragraph above asks for if it ever unlocks.
 """
 
 from __future__ import annotations
@@ -136,14 +128,6 @@ def backtest_screen(qapp, request):
 
 #: index -> expected (locked, initially checked). Index 2 is BOT-076's real
 #: mode; everything else is exactly BOT-074's original truthful lock state.
-_EXPECTED_LOCK_STATE = {
-    0: (True, True),  # On bar close — locked, mandatory default
-    1: (False, False),  # Khi lệnh được khớp — BOT-077, real
-    2: (False, False),  # Trên mỗi tick của thanh lịch sử — BOT-076, real
-    3: (True, False),  # Trên mỗi tick của thanh thời gian thực — live, not backtest
-}
-
-
 def _open_order_execution_modal(qapp, view):
     view.run_setup.execution.click()
     qapp.processEvents()
@@ -154,83 +138,79 @@ def _open_order_execution_modal(qapp, view):
     return dialog
 
 
-def _checkbox(dialog, index: int):
-    """A fresh lookup, by design — see this module's docstring."""
-    return dialog.checkbox_for(str(index))
-
-
-def test_order_execution_modal_lock_states_and_default_selection_are_truthful(
-    qapp, backtest_screen
-):
+def test_the_defaults_are_bar_close_without_order_fill(qapp, backtest_screen):
     dialog = _open_order_execution_modal(qapp, backtest_screen)
 
-    for index, (locked, checked) in _EXPECTED_LOCK_STATE.items():
-        checkbox = _checkbox(dialog, index)
-        assert checkbox is not None, f"chk_{index} not found"
-
-        assert checkbox.isChecked() is checked, (
-            f"Trigger {index} checked should be {checked}, was {checkbox.isChecked()}"
-        )
-        assert checkbox.isEnabled() is not locked, (
-            f"Trigger {index} enabled should be {not locked} "
-            f"(locked={locked}), was {checkbox.isEnabled()}"
-        )
+    assert dialog.bar_close.isChecked() is True
+    assert dialog.historical_tick.isChecked() is False
+    assert dialog.order_fill.isChecked() is False
+    assert all(
+        control.isEnabled()
+        for control in (dialog.bar_close, dialog.historical_tick, dialog.order_fill)
+    )
 
 
-def test_checking_historical_tick_mode_sets_view_model_execution_mode(
+def test_the_real_time_row_stays_locked_and_checked(qapp, backtest_screen):
+    """A live-trading fact the Backtest mode cannot change; if a later task
+    unlocks it, this fails by design (see the module docstring)."""
+    dialog = _open_order_execution_modal(qapp, backtest_screen)
+
+    assert dialog.realtime_tick.isChecked() is True
+    assert dialog.realtime_tick.isEnabled() is False
+
+
+def test_the_two_modes_exclude_each_other_and_reach_the_view_model(
     qapp, backtest_screen
 ):
-    """BOT-076: the one real interactive row must actually reach Python —
-    exactly the plumbing gap BOT-074 documented as its own reason for
-    leaving every row locked in the first place."""
+    """BOT-076: the choice must actually reach Python, in both directions of
+    the pair."""
     view = backtest_screen
     dialog = _open_order_execution_modal(qapp, view)
-
     view_model = view._view_model
     assert view_model.executionMode == "BAR_CLOSE"
 
-    _checkbox(dialog, 2).click()
+    dialog.historical_tick.click()
     qapp.processEvents()
     assert view_model.executionMode == "HISTORICAL_TICK"
+    assert dialog.bar_close.isChecked() is False
 
-    _checkbox(dialog, 2).click()
+    dialog.bar_close.click()
     qapp.processEvents()
     assert view_model.executionMode == "BAR_CLOSE"
+    assert dialog.historical_tick.isChecked() is False
 
 
-def test_setting_execution_mode_from_python_updates_the_modal_checkboxes(
-    qapp, backtest_screen
-):
+def test_setting_execution_mode_from_python_updates_the_modes(qapp, backtest_screen):
     """The reverse direction: an external reset (e.g. FSM going back to IDLE)
-    must not leave the modal showing a stale selection."""
+    must not leave the dialog showing a stale selection."""
     view = backtest_screen
     dialog = _open_order_execution_modal(qapp, view)
 
     view._view_model.executionMode = "HISTORICAL_TICK"
     qapp.processEvents()
 
-    assert _checkbox(dialog, 0).isChecked() is False
-    assert _checkbox(dialog, 2).isChecked() is True
+    assert dialog.bar_close.isChecked() is False
+    assert dialog.historical_tick.isChecked() is True
 
 
 def test_checking_calc_on_order_fills_sets_the_view_model_flag(qapp, backtest_screen):
-    """BOT-077: the second real interactive row must also reach Python."""
+    """BOT-077: the order-fill box must also reach Python."""
     view = backtest_screen
     dialog = _open_order_execution_modal(qapp, view)
 
     view_model = view._view_model
     assert view_model.calcOnOrderFills is False
 
-    _checkbox(dialog, 1).click()
+    dialog.order_fill.click()
     qapp.processEvents()
     assert view_model.calcOnOrderFills is True
 
-    _checkbox(dialog, 1).click()
+    dialog.order_fill.click()
     qapp.processEvents()
     assert view_model.calcOnOrderFills is False
 
 
-def test_setting_calc_on_order_fills_from_python_updates_the_modal_checkbox(
+def test_setting_calc_on_order_fills_from_python_updates_the_check_box(
     qapp, backtest_screen
 ):
     view = backtest_screen
@@ -239,4 +219,4 @@ def test_setting_calc_on_order_fills_from_python_updates_the_modal_checkbox(
     view._view_model.calcOnOrderFills = True
     qapp.processEvents()
 
-    assert _checkbox(dialog, 1).isChecked() is True
+    assert dialog.order_fill.isChecked() is True

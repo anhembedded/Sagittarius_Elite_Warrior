@@ -61,9 +61,6 @@ def test_view_model_timezone_properties_and_signals(qtbot) -> None:
     assert vm.time_range.displayTimezone == "Asia/Ho_Chi_Minh"
     assert vm.time_range.displayTimezoneLabel == "Asia/Ho_Chi_Minh"
 
-    with qtbot.waitSignal(vm.openTimezonePickerRequested):
-        vm.requestOpenTimezonePicker()
-
 
 def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     view = MagicMock()
