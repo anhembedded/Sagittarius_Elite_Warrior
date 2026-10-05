@@ -11,7 +11,11 @@ itself, placed against a venue, is proven in
 in the real app with a venue on in `test_dev_board_f9_against_fake_server.py`.
 """
 
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QPushButton
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
+    NEW_ORDER,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_panel import (
     MANUAL_ORDER_DIALOG,
 )
@@ -25,7 +29,7 @@ def test_f9_with_no_venue_enabled_says_so_and_holds_no_order_panel(
 ):
     view = navigate("dashboard")["view_instance"]
 
-    view._manual_order_action.trigger()
+    main_window.findChild(QAction, f"action::{NEW_ORDER}").trigger()
 
     dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
     assert dialog.isVisible()

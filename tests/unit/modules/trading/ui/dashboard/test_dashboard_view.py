@@ -2,13 +2,11 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
     QLabel,
     QScrollArea,
     QSplitter,
-    QToolBar,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
@@ -110,18 +108,13 @@ def test_the_screen_still_says_it_is_a_developer_testbed(qapp):
     assert "Developer Board (Live Testbed)" in identity.text()
 
 
-def test_the_buttons_go_to_the_toolbar_and_the_readouts_to_the_status_bar(qapp):
-    """HLD §11.2 splits them: a `QToolBar` carries what the user *does*, the
-    `QStatusBar` what the app *reports*. Before the workbench both sat in one
-    header row, so this is the wiring that could silently regress to it."""
+def test_the_readouts_go_to_the_status_bar(qapp):
+    """HLD §11.2: the `QStatusBar` carries what the app *reports*; what the
+    user *does* is the module's commands since `EPIC-033D`."""
     view = DashboardView()
     view.set_view_model(DashboardQmlViewModel())
     panel = view._panel
 
-    toolbar = view._surface.findChild(QToolBar, f"{view._surface.objectName()}::header")
-    assert toolbar is not None
-    for button in panel.header_actions:
-        assert toolbar.isAncestorOf(button)
     for tile in panel.status_tiles:
         assert view._surface.statusBar().isAncestorOf(tile)
 
@@ -267,14 +260,13 @@ def test_the_cards_are_tabbed_rather_than_stacked(qapp):
 def test_the_order_form_is_a_dialog_the_user_opens_not_a_panel_in_the_way(qapp):
     """Order entry (once `EPIC-024B`'s card in the scrolling column) is a
     dialog, not a panel permanently occupying the space of something done
-    occasionally (HLD §11.3), and the same `QAction` that raises it carries
-    `F9` — the key MetaTrader has used for "new order" for twenty years."""
+    occasionally (HLD §11.3). The command that raises it, on `F9`, is in
+    `test_dev_board_commands.py`."""
     view = DashboardView()
     view.set_view_model(DashboardQmlViewModel())
 
     assert view._surface.modal_titles() == (MANUAL_ORDER_DIALOG,)
     assert _dock(view, MANUAL_ORDER_DIALOG) is None
-    assert view._manual_order_action.shortcut() == QKeySequence("F9")
 
     dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
 
@@ -316,7 +308,7 @@ def test_the_action_opens_the_dialog_without_freezing_the_chart(qapp):
     view = DashboardView()
     view.set_view_model(DashboardQmlViewModel())
 
-    view._manual_order_action.trigger()
+    view.open_manual_order_dialog()
 
     dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
     assert dialog.isVisible() is True

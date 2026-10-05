@@ -18,7 +18,7 @@
  "tests/unit/modules/trading/adapters/binance/test_history_readers.py": 401,
  "tests/unit/modules/trading/application/account_control/test_account_control_commands.py": 454,
  "tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py": 3022,
- "tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py": 489,
+ "tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py": 487,
  "tests/unit/modules/trading/ui/settings/test_trading_settings_presenter.py": 422,
  "tests/unit/modules/trading/ui/test_strategy_arming_coordinator.py": 422,
  "tests/unit/presentation/ui/screens/test_performance_metrics_view.py": 402,

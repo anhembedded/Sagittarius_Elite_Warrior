@@ -36,8 +36,7 @@ class SystemControlsCallbacks:
 class SystemControlsCard(Panel):
     """Everything else — the Market/Symbol fields, the date text fields, the
     Load History/Start/Stop actions and the progress banner — is
-    self-contained on `view_model` alone. `_sync_controls_active()` (which
-    also enables/disables the header's own `_btn_reload`) stays on
+    self-contained on `view_model` alone. `_sync_controls_active()` stays on
     `DevBoardPanel`, reading these widgets through the pass-through aliases
     every existing test already keys off."""
 

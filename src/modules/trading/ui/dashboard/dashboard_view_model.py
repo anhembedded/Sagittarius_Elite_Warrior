@@ -47,12 +47,8 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     pattern: QML calls a `request*()` Slot, which emits a Signal the
     Presenter is the only thing connected to."""
 
-    #: Drives BaseQmlViewModel.controlsEnabled — matches this screen's
-    #: pre-existing `root.controlsActive` allow-list (uiMode === "IDLE" ||
-    #: uiMode === "ERROR") exactly, expressed as its complement. DevBoardPanel.qml
-    #: still ANDs this with `!historyLoading` locally — that's not FSM state,
-    #: so it isn't part of this list (see BaseQmlViewModel.DISABLED_UI_MODES'
-    #: own docstring).
+    #: Drives `controlsEnabled`; `historyLoading` is not FSM state, so readers
+    #: AND it in themselves (`reload_is_available`).
     DISABLED_UI_MODES = frozenset({"LOCKED", "LIVE"})
 
     priceTickerChanged = Signal()
@@ -71,10 +67,12 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     startStreamRequested = Signal()
     stopStreamRequested = Signal()
 
-    #: `EPIC-023D` — same shape `DeskViewModel` carries for its own
-    #: Enable/Disable toggle + session stats (duplicated for the same
-    #: Shiboken reason the strategy-card block above documents).
+    #: `EPIC-023D` — `DeskViewModel`'s toggle + session stats shape (the
+    #: Shiboken reason the strategy-card block gives); `EPIC-033D` commands.
     tradingStateChanged = Signal()
+    toggleAvailable = Signal(bool)
+    tradingEnabled = Signal(bool)
+    reloadAvailable = Signal(bool)
     sessionStatsChanged = Signal()
 
     toggleRequested = Signal()
@@ -104,9 +102,8 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._progress_text = ""
 
         self._symbol = _DEFAULT_SYMBOL
-        #: `EPIC-027O` — the chart's own market, independent of the fixed
-        #: trading venue (`TradingVenue.market_type`); read fresh at Load
-        #: History/Start Live click time, same as `symbol` above.
+        #: `EPIC-027O` — the chart's own market, not the trading venue's; read
+        #: fresh at Load History/Start Live click time, as `symbol` is.
         self._market = MarketType.SPOT.value
         self._symbol_options: list[str] = []
         now = datetime.now(UTC)
@@ -121,15 +118,23 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         #: file's docstring.
         self._strategy = StrategyCardViewModel(self)
 
-        # `EPIC-023D` — Enable/Disable toggle + session stats, same fields
-        # `DeskViewModel.__init__` carries.
+        # `EPIC-023D` — the fields `DeskViewModel.__init__` carries.
         self._enabled = False
         self._toggle_busy = False
         self._orders_sent_this_session = 0
         self._open_symbols_count = 0
+        self.uiModeChanged.connect(self._announce_reload)
+        self.historyLoadingChanged.connect(self._announce_reload)
 
-    # Log model — exposed to LogPanel.qml, mutated by the Presenter's
-    # ui_log_signal (main thread only, same contract as every other screen).
+    @property
+    def reload_is_available(self) -> bool:
+        """Reload history applies while the controls are on and no load runs."""
+        return bool(self.controlsEnabled) and not self._history_loading
+
+    def _announce_reload(self) -> None:
+        self.reloadAvailable.emit(self.reload_is_available)
+
+    # Log model — mutated by the Presenter's ui_log_signal, main thread only.
     @Property(QObject, constant=True)
     def logModel(self) -> LogListModel:
         return self._log_model
@@ -139,9 +144,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         """Pythonic accessor for the Presenter (mirrors DataManagementViewModel)."""
         return self._log_model
 
-    # Script model (BOT-032) — exposed to DevBoardPanel.qml's "CUSTOM
-    # SCRIPTS" checklist, populated by the Presenter from
-    # IndicatorScriptRegistry.available().
+    # Script model (BOT-032) — the Indicators checklist, filled by the Presenter.
     @Property(QObject, constant=True)
     def scriptModel(self) -> IndicatorScriptListModel:
         return self._script_model
@@ -300,11 +303,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     # exchange round trip. An empty list means "not fetched yet" or "fetch
     # failed" — the picker shows a loading state for either and does not need
     # to tell them apart.
-    #
-    # Before this, Dev Board had no picker at all: an editable `QComboBox`
-    # seeded with two hardcoded strings, so every other pair had to be typed
-    # from memory, with no validation and no way to see what the exchange
-    # actually lists.
     # ------------------------------------------------------------------ #
     def _get_symbol_options(self) -> list[str]:
         return self._symbol_options
@@ -359,6 +357,8 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._enabled = enabled
         self._toggle_busy = busy
         self.tradingStateChanged.emit()
+        self.toggleAvailable.emit(not busy)
+        self.tradingEnabled.emit(enabled)
 
     @Slot()
     def requestToggle(self) -> None:

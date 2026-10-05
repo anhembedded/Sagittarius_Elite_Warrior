@@ -48,7 +48,7 @@ def build_preview() -> QWidget:
 
     host = QWidget()
     column = QVBoxLayout(host)
-    for widget in (*panel.header_actions, *panel.status_tiles):
+    for widget in panel.status_tiles:
         column.addWidget(widget)
     for _title, card in panel.dock_panels:
         column.addWidget(card)

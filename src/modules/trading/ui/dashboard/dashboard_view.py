@@ -1,6 +1,5 @@
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QLabel, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -104,22 +103,6 @@ DEV_BOARD_SURFACE = Surface(
     ),
     gated_by="dev.mode",
 )
-
-
-def _action_button(action: QAction) -> QToolButton:
-    """A toolbar button for an action, so the header shows what `F9` does.
-
-    `QToolBar.addWidget` takes widgets and this View hands the host widgets
-    rather than actions (`IPlaceHost.place_widget` is a widget contract — a
-    module contributes a `QWidget`, not a `QAction`), so the action is wrapped
-    rather than added twice. The button keeps the action's text, shortcut hint
-    and enabled state, because that is what a `QToolButton` bound to a
-    `QAction` does.
-    """
-    button = QToolButton()
-    button.setDefaultAction(action)
-    button.setObjectName("btnManualOrder")
-    return button
 
 
 class DashboardView(OutputSourceView):
@@ -251,10 +234,9 @@ class DashboardView(OutputSourceView):
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Builds the right-hand `DevBoardPanel` against `view_model` and
-        places what it owns into the workbench: its three buttons in the
-        header toolbar, the price ticker and websocket pill in the status bar
-        (HLD §11.2 puts both there), the card column in a dock, and its log in
-        the bottom dock.
+        places what it owns into the workbench: the price ticker and websocket
+        pill in the status bar (HLD §11.2 puts both there) and each card in a
+        dock. Its commands are actions the window builds (`EPIC-033D`).
 
         Called once per View. `PageShell`'s setters replaced a band's content
         on every call; a workbench part is *placed*, not re-set — a second
@@ -268,8 +250,6 @@ class DashboardView(OutputSourceView):
         )
         self._panel = DevBoardPanel(view_model, market_type=self._market_type)
 
-        for action_widget in self._panel.header_actions:
-            self._surface.place_widget(Place.HEADER, action_widget)
         for tile in self._panel.status_tiles:
             self._surface.place_widget(Place.STATUS_TILE, tile)
         for title, card in self._panel.dock_panels:
@@ -278,7 +258,6 @@ class DashboardView(OutputSourceView):
         self._surface.place_widget(
             Place.MODAL, self._order_entry_host, title=MANUAL_ORDER_DIALOG
         )
-        self._add_manual_order_action()
         self._place_contributed_panels()
 
     def _place_contributed_panels(self) -> None:
@@ -298,26 +277,13 @@ class DashboardView(OutputSourceView):
             return
         fill_surface(self._surface, self._contributions, self._container)
 
-    def _add_manual_order_action(self) -> None:
-        """`F9` raises the order dialog; the same `QAction` sits in the header
-        toolbar, one `QAction` per user action (HLD §11.2). `F9` because
-        MetaTrader has used it for "new order" for twenty years."""
-        self._manual_order_action = QAction(MANUAL_ORDER_DIALOG, self)
-        self._manual_order_action.setObjectName("actManualOrder")
-        self._manual_order_action.setShortcut(QKeySequence("F9"))
-        self._manual_order_action.setToolTip(f"{MANUAL_ORDER_DIALOG} (F9)")
-        self._manual_order_action.triggered.connect(self.open_manual_order_dialog)
-        self.addAction(self._manual_order_action)
-        self._surface.place_widget(
-            Place.HEADER, _action_button(self._manual_order_action)
-        )
-
     @property
     def order_entry_host(self) -> OrderEntryHost:
         return self._order_entry_host
 
     def open_manual_order_dialog(self) -> None:
-        """Non-modal: a user placing an order by hand is watching the chart
+        """New order… (`F9`, `dev_board_commands.py`). Non-modal: a user
+        placing an order by hand is watching the chart
         behind it, and a modal `exec()` would freeze those ticks."""
         self._surface.show_modal(MANUAL_ORDER_DIALOG).show()
 

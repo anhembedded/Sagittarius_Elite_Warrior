@@ -44,6 +44,7 @@ from unittest.mock import patch
 import pytest
 from binance.client import Client
 from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QPushButton
 from pytestqt.qtbot import QtBot
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -71,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presenter import (
     DashboardPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
+    NEW_ORDER,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_panel import (
     MANUAL_ORDER_DIALOG,
@@ -240,7 +244,7 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
 
 def _open_f9(board: _Board):
     view = board.window.hosts["dashboard"].view
-    view._manual_order_action.trigger()
+    board.window.findChild(QAction, f"action::{NEW_ORDER}").trigger()
     return view._surface.show_modal(MANUAL_ORDER_DIALOG)
 
 

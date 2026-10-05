@@ -78,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
@@ -92,6 +95,7 @@ from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
 )
+from .dev_board_command_binding import bind_dev_board_commands
 from .logic.chart_zoom_limits import max_visible_x_range
 from .logic.presenter_factory import (
     build_dashboard_presenter_state,
@@ -386,8 +390,6 @@ class DashboardPresenter(BasePresenter):
     # Thăng cấp lên bus KHI consumer thứ hai xuất hiện thật, không thăng trước.
     #
     # Luật đầy đủ + số liệu đo thật: .claude/rules/architecture-rule.md §6.
-    # Lịch sử: EPIC-008G §2 từng đặt chỉ tiêu "xoá 48 signal cầu nối"; đo lại
-    # thấy 47/48 là cầu nối thread (không phải cầu nối bus) nên đã dừng.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_chart_update_signal = Signal(str, float, float, float, float, float, float, bool)
@@ -398,13 +400,9 @@ class DashboardPresenter(BasePresenter):
     ui_stream_success_signal = Signal(str)
     ui_stream_failed_signal = Signal(str)
 
-    # BOT-123 — Start Live's sync-from-Binance phase, forwarded straight to
-    # DashboardQmlViewModel.set_progress's own (int, int, bool, str) Slot
-    # overload (same shape/connect pattern as DataManagementPresenter's
-    # ui_single_sync_progress_signal). StreamLifecycleController.on_sync_progress
-    # is the only thing that calls this — see that method's docstring for the
-    # correlation_id filtering that makes cross-screen sync-progress fan-out
-    # (BOT-121/BOT-122) safe here too.
+    # BOT-123 — Start Live's sync phase into `DashboardQmlViewModel.set_progress`;
+    # only `StreamLifecycleController.on_sync_progress` emits it (its docstring
+    # explains the correlation_id filter, BOT-121/BOT-122).
     ui_sync_progress_signal = Signal(int, int, bool, str)
 
     # BOT-035 — load-more-on-scroll. Separate from ui_history_reloaded_signal/
@@ -644,6 +642,11 @@ class DashboardPresenter(BasePresenter):
     # BasePresenter contract implementations
     # ================================================================== #
 
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_dev_board_commands(
+            binder, self._view_model, self.view.open_manual_order_dialog
+        )
+
     def _connect_ui_signals(self) -> None:
         """Kết nối các thao tác bấm nút từ ViewModel vào Presenter."""
         view_model = self._view_model
@@ -668,14 +671,8 @@ class DashboardPresenter(BasePresenter):
         view_model.strategy.armRequested.connect(self._on_arm_requested)
         view_model.strategy.disarmRequested.connect(self._on_disarm_requested)
 
-        # `EPIC-023D` — Enable/Disable trading + Emergency Stop, through the
-        # desks' own `DeskSessionControls` since `EPIC-028M`: one copy of
-        # that behaviour, not one per screen. Unlike a desk, enabling here
-        # never puts the chart live (`tradingEnabled` is not connected): the
-        # Dev Board's chart is governed by its own Load History/Start Live
-        # buttons and `DEV_BOARD_AUTOSTART_ENABLED`. Its tables are kept from
-        # events and the session's confirmed answers (`accountReconciled`),
-        # not re-read.
+        # `EPIC-023D` — the desks' `DeskSessionControls`. Enabling never puts
+        # this chart live; its tables follow events and `accountReconciled`.
         session = self._session_controls
         view_model.toggleRequested.connect(session.toggle)
         view_model.emergencyStopRequested.connect(session.emergency_stop)

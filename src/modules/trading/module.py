@@ -99,7 +99,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
     IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen import (
+    DASHBOARD_ROUTE,
     dashboard_screen,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
+    dev_board_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
     desk_commands,
@@ -248,8 +252,9 @@ class TradingModule(BoundedContextModule):
         # single Trading screen they replace.
         registry.contribute_screen(futures_desk_screen(self._container))
         registry.contribute_screen(spot_desk_screen(self._container))
-        # `EPIC-033D` — each desk's Enable live trading and Emergency stop.
+        # `EPIC-033D` — each screen's commands.
         for command in (
+            *dev_board_commands(DASHBOARD_ROUTE),
             *desk_commands(FUTURES_DESK_ROUTE, TradingVenue.FUTURES_TESTNET),
             *desk_commands(SPOT_DESK_ROUTE, TradingVenue.SPOT_TESTNET),
         ):

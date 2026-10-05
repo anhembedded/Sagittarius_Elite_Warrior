@@ -7,8 +7,7 @@
     "dashboard": [
       "control_height",
       "mnemonics_escaped",
-      "no_style_sheet",
-      "toolbar_actions_only"
+      "no_style_sheet"
     ],
     "trading.futures": [
       "no_style_sheet"
