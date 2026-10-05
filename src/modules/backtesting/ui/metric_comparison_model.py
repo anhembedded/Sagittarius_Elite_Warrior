@@ -24,8 +24,6 @@ from __future__ import annotations
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -35,14 +33,10 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 )
 
 from .logic.report_comparison_rules import MetricComparisonRow
+from .readout_table import SORT_ROLE, readout_table, tone_colour
 
 _METRIC_COLUMN = 0
 _DELTA_COLUMN = 3
-#: What the table sorts on, in place of the formatted text.
-SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-#: The semantic colours a tone reads; `semantic_colour` is the app's one
-#: table of meanings (`ui-presentation-rule.md` §1).
-_TONE_COLOURS = {Tone.POSITIVE: "success", Tone.NEGATIVE: "danger"}
 
 
 def _columns(left: str, right: str, delta: str) -> tuple[ColumnSpec, ...]:
@@ -71,8 +65,7 @@ class MetricComparisonModel(RowTableModel[MetricComparisonRow]):
             return row.label if column == _METRIC_COLUMN else self.rows.index(row)
         if role != Qt.ItemDataRole.ForegroundRole or column != _DELTA_COLUMN:
             return None
-        name = _TONE_COLOURS.get(row.tone)
-        return QColor(semantic_colour(name)) if name is not None else None
+        return tone_colour(row.tone)
 
 
 class OutOfSampleComparisonModel(MetricComparisonModel):
@@ -91,6 +84,4 @@ def comparison_table(
     model: MetricComparisonModel, object_name: str, empty_text: str
 ) -> SpecTable[MetricComparisonRow]:
     """A comparison dialog's table, sorting on `SORT_ROLE`."""
-    table = SpecTable(model, object_name=object_name, empty_text=empty_text)
-    table.proxy.setSortRole(SORT_ROLE)
-    return table
+    return readout_table(model, object_name, empty_text)

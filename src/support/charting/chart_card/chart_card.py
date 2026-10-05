@@ -134,8 +134,7 @@ class ChartCard(ChartFrame):
         @details Kept as a method after `EPIC-007E` moved this class onto a
         card that exposes the header as a `header_actions` layout instead
         (`ChartFrame` since `EPIC-033H`). This class calls it for its toolbar
-        and its frame-rate label; one test reaches it through `patch.object`,
-        which raises at patch time if the attribute is gone. The Backtest
+        and its frame-rate label. The Backtest
         mode's chart controls left the header in `EPIC-033L` stage 5: beside
         the toolbar they pushed it into its overflow button.
 

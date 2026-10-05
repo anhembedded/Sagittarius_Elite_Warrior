@@ -21,8 +21,6 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -32,14 +30,11 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 )
 
 from .logic.metrics_detail_rules import MetricGroup, MetricRow
+from .readout_table import SORT_ROLE, readout_table, tone_colour
 
 _METRIC_COLUMN = 1
 _VALUE_COLUMN = 2
 _VERDICT_COLUMN = 3
-#: What the table sorts on, in place of the formatted text.
-SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-#: The semantic colours a tone reads (`ui-presentation-rule.md` §1).
-_TONE_COLOURS = {Tone.POSITIVE: "success", Tone.NEGATIVE: "danger"}
 
 
 @dataclass(frozen=True)
@@ -58,11 +53,6 @@ def detail_rows(groups: Iterable[MetricGroup]) -> list[DetailRow]:
         for metric in group.rows:
             rows.append(DetailRow(group.label, metric, len(rows)))
     return rows
-
-
-def _colour(tone: Tone) -> QColor | None:
-    name = _TONE_COLOURS.get(tone)
-    return QColor(semantic_colour(name)) if name is not None else None
 
 
 class MetricsDetailModel(RowTableModel[DetailRow]):
@@ -91,18 +81,12 @@ class MetricsDetailModel(RowTableModel[DetailRow]):
         if role != Qt.ItemDataRole.ForegroundRole:
             return None
         if column == _VALUE_COLUMN:
-            return _colour(row.metric.tone)
+            return tone_colour(row.metric.tone)
         if column == _VERDICT_COLUMN and row.metric.badge_text:
-            return _colour(row.metric.badge_tone)
+            return tone_colour(row.metric.badge_tone)
         return None
 
 
 def metrics_detail_table(empty_text: str) -> SpecTable[DetailRow]:
     """The dialog's table, sorting on `SORT_ROLE`."""
-    table = SpecTable(
-        MetricsDetailModel(),
-        object_name="metricsDetailTree",
-        empty_text=empty_text,
-    )
-    table.proxy.setSortRole(SORT_ROLE)
-    return table
+    return readout_table(MetricsDetailModel(), "metricsDetailTree", empty_text)

@@ -44,8 +44,8 @@ class BacktestChartControls(QtWidgets.QWidget):
 
     @details Native `QtWidgets`, on its own row above the chart since
     `EPIC-033L`: beside the chart's `ChartToolbar` in the header it squeezed
-    that toolbar into its overflow button at 1366×768. Rather than QML — this is purely "how do I
-    look at data BackTestView already has", with no config to validate or
+    that toolbar into its overflow button at 1366×768. Rather than QML —
+    this is purely "how do I look at data BackTestView already has", with no config to validate or
     dispatch, so it doesn't need the ViewModel/Presenter round-trip the rest
     of this screen uses for anything that reaches the engine. Dumb component,
     same rule `ChartToolbar` itself documents: emits signals, decides nothing.

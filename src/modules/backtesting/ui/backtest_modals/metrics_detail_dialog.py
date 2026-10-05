@@ -7,8 +7,10 @@ replaced that with `MetricsDetailPanel.qml` + `MetricsDetailVM` behind a
 hand-written modal host, because the design wanted sections, verdict badges and
 a profit-against-loss bar that the grid could not express. `EPIC-025` PR 4.3j
 keeps every one of those and deletes the `.qml`: HLD §11.3 maps a readout like
-this to *a dialog with a table*, and a `QTreeWidget` is the platform's own
-answer to "rows under headings" — which is all the sections ever were.
+this to *a dialog with a table*. It was a `QTreeWidget`, the platform's
+answer to "rows under headings"; since `EPIC-033L` stage 5 it is a
+`SpecTable` built from column specs (`metrics_detail_model.py`), the section
+its first column, until trees from column specs exist (`BOT-151`).
 
 Three things the QML version needed and this does not: a `QQuickWidget` host
 supplying modality that `kit/DialogShell.qml` had no way to provide, a
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -49,10 +51,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Tone,
-    semantic_colour,
 )
 
 from ..metrics_detail_model import detail_rows, metrics_detail_table
+from ..readout_table import tone_colour
 from .backtest_metrics_detail_source import BacktestMetricsDetailSource
 
 if TYPE_CHECKING:
@@ -64,21 +66,6 @@ _NO_METRICS_TEXT = "Run a backtest to see its metrics."
 #: The bar is drawn in permille rather than percent so a share of, say, 3.7%
 #: does not collapse to 4 — the caption under it quotes two decimals.
 _BAR_SCALE = 1000
-
-#: The two semantic colours this file reads. Named `_COLOUR`, not `_TOKEN`,
-#: because ruff's `S105` reads any `*_TOKEN = "..."` as a credential.
-_GAIN_COLOUR = "success"
-_LOSS_COLOUR = "danger"
-
-
-def _tone_colour(tone: Tone) -> QColor | None:
-    """A tone's colour, or `None` for "no verdict" — which leaves the row on
-    the platform's own text colour."""
-    if tone is Tone.POSITIVE:
-        return QColor(semantic_colour(_GAIN_COLOUR))
-    if tone is Tone.NEGATIVE:
-        return QColor(semantic_colour(_LOSS_COLOUR))
-    return None
 
 
 class MetricsDetailDialogWidget(QDialog):
@@ -208,7 +195,7 @@ class MetricsDetailDialogWidget(QDialog):
 
     @staticmethod
     def _paint(label: QLabel, tone: Tone) -> None:
-        colour = _tone_colour(tone)
+        colour = tone_colour(tone)
         if colour is None:
             return
         palette = label.palette()
