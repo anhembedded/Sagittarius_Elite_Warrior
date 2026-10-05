@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 139 |
-| 📈 **Tổng** | **141** |
+| ✅ **Đã sửa / đã đóng** | 140 |
+| 📈 **Tổng** | **142** |
 
 ---
 
@@ -87,6 +87,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-149](completed/BUG-149_bots_screen_reads_after_shutdown.md)** | A bot write queued from another thread when the Bots screen closed re-armed its coalesced re-read, which then submitted into the app's pool after it had shut down (`RuntimeError: cannot schedule new futures after shutdown`, CI run 37282507866 on PR #356). Fixed: `FencedReads` refuses every read after `drop_all()`, and the presenter's change handler arms nothing after `shutdown()`. | 🟢 P3 | 2026-10-05 | ✅ 2026-10-05 |
 | **[BUG-148](completed/BUG-148_local_runs_use_an_engine_ci_never_built.md)** | `run-ui.ps1` installed the engine's moving `main` and `ci-local.ps1`'s mypy read a sibling engine checkout, so a machine could run and type-check against an engine CI never built. Only CI followed `engine.ref`. Fixed by one installer, `scripts/engine_pin.py`, used by CI and both launchers, and an Engine Pin step that fails the gate when the engine in use is not `engine.ref`'s. | 🟢 P3 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-147](completed/BUG-147_grid_start_faults_on_percent_price_by_side.md)** | A Grid whose ladder reached far below the market (a BUY at 2 222 on BTCUSDT at ~85 000) passed every check and faulted at Start with `-1013 Filter failure: PERCENT_PRICE_BY_SIDE`: the Spot parser never read that filter, so the bot could not know the price band Binance accepts. Fixed by parsing the band into the symbol's rules and the bot's terms, and refusing a level outside it before Start (`LEVEL_OUTSIDE_PRICE_BAND`, naming the level and the accepted range). | 🟡 P2 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-146](completed/BUG-146_run_ui_launcher_exits_without_a_window.md)** | `.\scripts\run-ui.ps1` printed its start line and exited with no window: it ran `main_window.py` as a script, which reached `app_bootstrapper.main()` only through a legacy `__main__` block that `EPIC-033C` dropped. The sanity tier starts the app with `-m ...app_bootstrapper`, so nothing exercised the launcher's path. Fixed by launching `app_bootstrapper.py`; the regression test reads the launcher's entry and was red first. | 🔴 P1 | 2026-10-04 | ✅ 2026-10-04 |

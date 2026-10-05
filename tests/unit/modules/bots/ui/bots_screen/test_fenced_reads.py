@@ -61,3 +61,17 @@ def test_a_failed_read_is_named_in_words_and_dropped_reads_say_nothing(qapp) -> 
     pool.run_all()
 
     assert heard == [(ReadKind.FILLS, "a00001", "venue slow")]
+
+
+def test_a_read_asked_after_drop_all_never_reaches_the_pool(qapp) -> None:
+    """`BUG-149`: after shutdown the app's pool refuses new work with
+    `RuntimeError: cannot schedule new futures after shutdown`; a read asked
+    then must be refused here, before the pool is touched."""
+    pool = HeldPool()
+    reads, heard = _reads(pool)
+    reads.drop_all()
+
+    reads.read(ReadKind.LIST, "", lambda: "after shutdown")
+
+    assert pool.pending == []
+    assert heard == []
