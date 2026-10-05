@@ -153,8 +153,9 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
         self._commands: dict[str, CommandContribution] = {}
         self._default_route: str | None = None
         self._dropped = 0
-        #: Routes a gate dropped this run: their commands are dropped too.
-        self._gated_off_routes: set[str] = set()
+        #: Routes a gate dropped this run, and who contributed each: their
+        #: commands are dropped too, and the route stays taken.
+        self._gated_off_routes: dict[str, str] = {}
 
     # -- the module-facing side (IContributionRegistry) --------------------
 
@@ -189,13 +190,17 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             raise ContributionError(str(exc)) from exc
 
     def contribute_screen(self, contribution: ScreenContribution) -> None:
+        """Checks the screen against every rule first, whatever this run's
+        gate says, then drops it if its gate is off: a mistake in a gated
+        screen fails every run, not only a developer's (the PR #367 review)."""
+        self._check_screen(contribution)
         if not gate_is_open(
             contribution.gated_by,
             dev_mode=self._dev_mode,
             subject=f"screen {contribution.route}",
         ):
             self._dropped += 1
-            self._gated_off_routes.add(contribution.route)
+            self._gated_off_routes[contribution.route] = contribution.contributor_id
             logger.info(
                 "Dropped the screen %r from %r and its commands: gated off for "
                 "this run (%s).",
@@ -204,20 +209,35 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
                 contribution.gated_by,
             )
             return
-        if contribution.route in self._screens:
-            claimed_by = self._screens[contribution.route].contributor_id
+        if contribution.is_default:
+            self._default_route = contribution.route
+        self._screens[contribution.route] = contribution
+
+    def _check_screen(self, contribution: ScreenContribution) -> None:
+        claimed_by = self._route_claimant(contribution.route)
+        if claimed_by is not None:
             raise ContributionError(
                 f"route {contribution.route!r} is contributed twice: by "
                 f"{claimed_by!r} and by {contribution.contributor_id!r}."
+            )
+        if contribution.is_default and contribution.gated_by is not None:
+            raise ContributionError(
+                f"the screen {contribution.route!r} from "
+                f"{contribution.contributor_id!r} is gated by "
+                f"{contribution.gated_by!r}, so it cannot be the default: a run "
+                "with the gate off would have no window to open."
             )
         if contribution.is_default and self._default_route is not None:
             raise ContributionError(
                 f"two default screens: {self._default_route!r} and "
                 f"{contribution.route!r} (from {contribution.contributor_id!r})."
             )
-        if contribution.is_default:
-            self._default_route = contribution.route
-        self._screens[contribution.route] = contribution
+
+    def _route_claimant(self, route: str) -> str | None:
+        """Who already contributed `route`, gated off or not."""
+        if route in self._screens:
+            return self._screens[route].contributor_id
+        return self._gated_off_routes.get(route)
 
     def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
         if contribution.contributor_id in self._options_pages:

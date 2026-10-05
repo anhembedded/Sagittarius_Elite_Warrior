@@ -356,3 +356,41 @@ def test_a_screen_with_an_unknown_gate_fails_loudly() -> None:
     )
     with pytest.raises(ValueError, match="beta.features"):
         registry.contribute_screen(screen)
+
+
+def test_a_gated_screen_on_a_taken_route_fails_in_a_normal_run_too() -> None:
+    """The registry's checks do not depend on the run: a gated screen that
+    reuses another mode's route is a wiring mistake found at boot, not one
+    that silently strips that mode's commands whenever developer mode is off
+    (the PR #367 review)."""
+    registry = ContributionRegistry(dev_mode=False)
+    registry.contribute_screen(_screen("data_management"))
+    registry.contribute_command(_mode_command("data.sync", "data_management"))
+
+    with pytest.raises(ContributionError, match="contributed twice"):
+        registry.contribute_screen(_gated_screen("data_management"))
+    assert [command.command_id for command in registry.commands()] == ["data.sync"]
+
+
+def test_a_gated_screen_contributed_twice_fails_in_a_normal_run_too() -> None:
+    registry = ContributionRegistry(dev_mode=False)
+    registry.contribute_screen(_gated_screen("developer"))
+
+    with pytest.raises(ContributionError, match="contributed twice"):
+        registry.contribute_screen(_gated_screen("developer"))
+
+
+def test_a_gated_screen_cannot_be_the_default() -> None:
+    """A default that exists only in some runs leaves the others with no
+    window to open (SPEC-011 §5); refused whatever this run's gate says."""
+    gated_default = ScreenContribution(
+        contributor_id="shell",
+        route="developer",
+        view_factory=lambda: None,  # type: ignore[return-value]
+        presenter_factory=lambda _view, _container: None,  # type: ignore[return-value]
+        is_default=True,
+        gated_by=DEV_MODE_GATE,
+    )
+    for dev_mode in (False, True):
+        with pytest.raises(ContributionError, match="cannot be the default"):
+            ContributionRegistry(dev_mode=dev_mode).contribute_screen(gated_default)
