@@ -1,9 +1,9 @@
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
     qt_platform_name,
@@ -12,6 +12,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_serv
     DEFAULT_TIMEZONE,
     get_utc_offset_seconds,
 )
+
+from .chart_chrome import GRID_ALPHA, ChartChrome, PaletteChangeWatcher
 
 # Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
 logger = logging.getLogger("App.ChartPlotLayout")
@@ -52,23 +54,16 @@ class ChartPlotLayout:
         self.widget = pg.GraphicsLayoutWidget()
         self.widget.setAntialiasing(antialias_mode is ChartAntialiasMode.GLOBAL)
         self._configure_render_backend()
-        self.widget.setBackground("default")
+        self.chrome = ChartChrome.from_palette(self.widget.palette())
+        self._chrome_listeners: list[Callable[[ChartChrome], None]] = []
 
-        self.crosshair_label = self.widget.addLabel(
-            f"<span style=f'color: {Palette.MUTED}; font-size: 11px;'>Hover to see data</span>",
-            row=0,
-            col=0,
-            justify="right",
+        # The header row holds only custom indicator scripts' status panels
+        # (BOT-032 — Pine's `table.cell`); empty by default, so it takes no
+        # visible space until a script calls self.info(...). The hover readout
+        # that shared this row went to the status bar (`EPIC-033G`).
+        self.script_info_label = self.widget.addLabel(
+            "", row=0, col=0, colspan=2, justify="left"
         )
-
-        # A second header-row label for custom indicator scripts' status
-        # panels (BOT-032 — Pine's `table.cell`). Its own column rather than
-        # sharing crosshair_label's, so script status and hover data never
-        # overwrite each other; empty by default, so it takes no visible
-        # space until a script actually calls self.info(...). Every plot row
-        # below it uses colspan=2 (see main_plot/add_subplot) so this extra
-        # column's own width never narrows the chart.
-        self.script_info_label = self.widget.addLabel("", row=0, col=1, justify="left")
 
         utc_offset = get_utc_offset_seconds(
             datetime.now(UTC).timestamp(), self._display_timezone
@@ -80,7 +75,7 @@ class ChartPlotLayout:
             colspan=2,
             axisItems={"bottom": date_axis},
         )
-        self.main_plot.showGrid(x=True, y=True, alpha=0.2)
+        self.main_plot.showGrid(x=True, y=True, alpha=GRID_ALPHA)
 
         # Enable TradingView style: Scroll zooms X, Y auto-scales to visible X
         self.main_plot.setMouseEnabled(x=True, y=True)
@@ -93,6 +88,31 @@ class ChartPlotLayout:
         self.sub_plots: list[pg.PlotItem] = []
         self.plots: list[pg.PlotItem] = [self.main_plot]
         self._next_row = self.MAIN_PLOT_ROW + 1
+        self._apply_chrome(self.chrome)
+        self._palette_watcher = PaletteChangeWatcher(self.widget, self._apply_chrome)
+
+    def add_chrome_listener(self, listener: Callable[[ChartChrome], None]) -> None:
+        """Calls `listener` with the current chrome now and on every palette
+        change — for the chart's parts that draw chrome of their own."""
+        self._chrome_listeners.append(listener)
+        listener(self.chrome)
+
+    def _apply_chrome(self, chrome: ChartChrome) -> None:
+        """Paints the background, axes and grid in `chrome`'s colours."""
+        self.chrome = chrome
+        self.widget.setBackground(chrome.background)
+        self.script_info_label.setAttr("color", chrome.foreground)
+        self.script_info_label.setText(self.script_info_label.text)
+        for plot in self.plots:
+            self._paint_axes(plot)
+        for listener in self._chrome_listeners:
+            listener(chrome)
+
+    def _paint_axes(self, plot: pg.PlotItem) -> None:
+        for axis_name in ("left", "bottom", "right", "top"):
+            axis = plot.getAxis(axis_name)
+            axis.setPen(self.chrome.foreground)
+            axis.setTextPen(self.chrome.foreground)
 
     @property
     def render_backend(self) -> str:
@@ -176,7 +196,8 @@ class ChartPlotLayout:
             colspan=2,
             axisItems={"bottom": date_axis},
         )
-        sub_plot.showGrid(x=True, y=True, alpha=0.2)
+        sub_plot.showGrid(x=True, y=True, alpha=GRID_ALPHA)
+        self._paint_axes(sub_plot)
         sub_plot.setXLink(self.main_plot)
         sub_plot.setMouseEnabled(x=True, y=True)
         sub_plot.vb.setAutoVisible(y=True)

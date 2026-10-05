@@ -30,7 +30,10 @@ count reaches zero when EPIC-033M closes, and this file becomes a ban.
   ``QColor(r, g, b)`` with integers and ``QFont(family=…)`` by keyword are not
   seen; review row H1 holds them.
 * ``checkable_button`` — ``setCheckable`` (state belongs in check boxes and
-  radio buttons; Microsoft and KDE both say so).
+  radio buttons; Microsoft and KDE both say so). A checkable ``QAction`` is
+  the rule's own third option (§6: "a checkable action"), so a call on a name
+  the same module assigned from ``QAction(...)``, or from one of its own
+  functions annotated ``-> QAction``, is not counted.
 
 **Held at zero, not ratcheted:** ``BUG-008``'s unscoped container style sheet
 (a bare property list on a widget that owns children, which Qt reads as the
@@ -129,14 +132,57 @@ def _docstrings(tree: ast.Module) -> set[int]:
     }
 
 
+def _target_name(node: ast.expr) -> str | None:
+    """`action` for `action`, `box_zoom` for `self.box_zoom`."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _action_names(tree: ast.Module) -> set[str]:
+    """Every name this module assigns a `QAction` to: from `QAction(...)` or
+    from one of its own functions annotated `-> QAction`."""
+    makers = {"QAction"} | {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and isinstance(node.returns, ast.Name)
+        and node.returns.id == "QAction"
+    }
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and _called_name(node.value) in makers
+        ):
+            names.update(
+                name for target in node.targets if (name := _target_name(target))
+            )
+    return names
+
+
+def _is_checkable_action(node: ast.Call, action_names: set[str]) -> bool:
+    return (
+        _called_name(node) == "setCheckable"
+        and isinstance(node.func, ast.Attribute)
+        and _target_name(node.func.value) in action_names
+    )
+
+
 def findings(source: str) -> Counter[str]:
     """How many times each rule is broken in one module's source."""
     found: Counter[str] = Counter()
     tree = ast.parse(source)
     docstrings = _docstrings(tree)
+    action_names = _action_names(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             name = _called_name(node)
+            if _is_checkable_action(node, action_names):
+                continue
             for rule, names in _CALLS.items():
                 if name in names:
                     found[rule] += 1
@@ -247,6 +293,17 @@ def test_each_rule_is_seen() -> None:
             "checkable_button": 1,
         }
     )
+
+
+def test_a_checkable_action_is_not_a_checkable_button() -> None:
+    source = (
+        "action = QAction('&Box zoom', self)\naction.setCheckable(True)\n"
+        "self.box = QAction('&Box', self)\nself.box.setCheckable(True)\n"
+        "def _make(text) -> QAction:\n    return QAction(text)\n"
+        "self.made = self._make('&Made')\nself.made.setCheckable(True)\n"
+        "button = QPushButton('&Box')\nbutton.setCheckable(True)\n"
+    )
+    assert findings(source) == Counter({"checkable_button": 1})
 
 
 def test_stock_code_is_not_counted() -> None:

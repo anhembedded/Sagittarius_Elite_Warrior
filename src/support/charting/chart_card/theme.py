@@ -30,7 +30,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.palette import Palette
 
 BULL_COLOR = "#26a69a"  # token-exempt: candle/indicator series colour, not chrome
 BEAR_COLOR = "#ef5350"  # token-exempt: candle/indicator series colour, not chrome
-CROSSHAIR_COLOR = Palette.MUTED
+#: A series that means "neither up nor down": the out-of-sample divider, the
+#: Monte Carlo paths. It was `CROSSHAIR_COLOR` until `EPIC-033G` moved the
+#: crosshair, which is chrome, to `QPalette` roles (`chart_chrome.py`).
+NEUTRAL_SERIES_COLOR = Palette.MUTED
 #: BOT-111 — take-profit exit markers get their own color, distinct from the
 #: plain bull/bear entry/exit scheme, so a broker-level TP fill reads
 #: differently from a strategy-decided exit at a glance. The domain name is

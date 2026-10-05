@@ -3,13 +3,11 @@ from unittest.mock import call, patch
 
 import pyqtgraph as pg
 import pytest
-from PySide6 import QtCore
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
-    _PRICE_BAND_MIN_VIEW_FRACTION,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer import (
     TriangleMarkerItem,
@@ -17,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer impo
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout import (
     ChartAntialiasMode,
     ChartPlotLayout,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.squashed_price_band_report import (
+    _PRICE_BAND_MIN_VIEW_FRACTION,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
@@ -764,40 +765,56 @@ def test_chart_card_indicator_toggle_and_remove(qapp):
     assert "SMA_20" not in card.indicators._legend_labels
 
 
-def test_chart_card_zoom_buttons_are_wide_enough_for_their_labels(qapp):
-    """
-    Regression test: the app's global dark theme applies QToolButton { padding: 3px }
-    on all sides. At the previous _BUTTON_SIZE (24px), "H+"/"H-"/"V+"/"V-" (24px wide
-    under that theme's font) didn't fit in the remaining ~18px and got elided to "...".
-    Assert every button's label fits within its size minus a safety padding allowance,
-    so a future size/label change can't silently reintroduce this.
-    """
-    from PySide6.QtGui import QFontMetrics
-
+def test_zoom_is_actions_on_the_toolbar_and_in_the_context_menu_not_widgets_on_the_plot(
+    qapp,
+):
+    """`EPIC-033G`: `ZoomControls` placed six buttons over the plot with
+    `move()`; nothing is positioned over the plot now (`ui-presentation-rule.md`
+    §3), and every zoom action is in the plot's context menu (MS
+    `cmd-toolbars`: every toolbar action is also in a menu)."""
     card = ChartCard("BTCUSDT")
-    zc = card.zoom_controls
-    padding_allowance = 8  # >= the real theme's 3px-per-side (6px) + a small margin
 
-    buttons = [
-        zc._h_in_btn,
-        zc._h_out_btn,
-        zc._v_in_btn,
-        zc._v_out_btn,
-        zc._box_btn,
-        zc._reset_btn,
-    ]
-    for btn in buttons:
-        text_width = QFontMetrics(btn.font()).horizontalAdvance(btn.text())
-        available_width = zc._BUTTON_SIZE - padding_allowance
-        assert text_width <= available_width, (
-            f"Button {btn.text()!r} needs {text_width}px but only has "
-            f"{available_width}px after padding — would be elided to '...'."
-        )
+    assert card.plot_layout.widget.findChildren(QtWidgets.QAbstractButton) == []
+    toolbar_actions = card.toolbar.actions()
+    for action in card.zoom.toolbar_actions:
+        assert action in toolbar_actions
+    menu_actions = card.plot_layout.main_plot.vb.menu.actions()
+    for action in card.zoom.all_actions:
+        assert action in menu_actions
 
 
-def test_chart_card_zoom_controls_horizontal(qapp):
+def test_a_double_click_on_the_plot_resets_the_zoom(qapp):
+    """`EPIC-033G` criterion 2: reset by double-click, through the real mouse."""
+    card = ChartCard("BTCUSDT")
+    card.resize(900, 600)
+    card.show()
+    card.render_historical_data(
+        [(1000.0 + i * 60, 100 + i, 105 + i, 95 + i, 102 + i) for i in range(50)]
+    )
+    qapp.processEvents()
+    resets = []
+    card.zoom.reset_zoom.triggered.connect(lambda: resets.append(True))
+    canvas = card.plot_layout.widget
+    centre = canvas.mapFromScene(
+        card.plot_layout.main_plot.vb.sceneBoundingRect().center()
+    )
+
+    # What a real mouse delivers: press, release, double-click, release.
+    # (`QTest.mouseDClick` sends the double-click event alone, and pyqtgraph
+    # reports a click on the release that follows it.)
+    left = QtCore.Qt.MouseButton.LeftButton
+    viewport = canvas.viewport()
+    QTest.mouseClick(viewport, left, pos=centre)
+    QTest.mouseDClick(viewport, left, pos=centre)
+    QTest.mouseRelease(viewport, left, pos=centre)
+
+    assert resets == [True]
+    card.cleanup()
+
+
+def test_chart_card_zoom_actions_horizontal(qapp):
     """
-    Test that H+/H-/reset work via click alone — no scroll wheel needed — narrowing/
+    Test that Zoom in/out/Reset work without a scroll wheel — narrowing/
     widening the visible X range (Y untouched), and that reset restores the full view.
     """
     card = ChartCard("BTCUSDT")
@@ -808,18 +825,18 @@ def test_chart_card_zoom_controls_horizontal(qapp):
         card.plot_layout.main_plot.vb.viewRange()
     )
 
-    card.zoom_controls._h_in_btn.click()
+    card.zoom.zoom_in.trigger()
     (x_min_in, x_max_in), (y_min_in, y_max_in) = (
         card.plot_layout.main_plot.vb.viewRange()
     )
     assert (x_max_in - x_min_in) < (x_max_before - x_min_before)
     assert (y_min_in, y_max_in) == (y_min_before, y_max_before)  # Y untouched
 
-    card.zoom_controls._h_out_btn.click()
+    card.zoom.zoom_out.trigger()
     (x_min_out, x_max_out), _ = card.plot_layout.main_plot.vb.viewRange()
     assert (x_max_out - x_min_out) > (x_max_in - x_min_in)
 
-    card.zoom_controls._reset_btn.click()
+    card.zoom.reset_zoom.trigger()
     (x_min_reset, x_max_reset), _ = card.plot_layout.main_plot.vb.viewRange()
     # Reset must show the full data range again — wider than the zoomed-in view and
     # covering every candle (not pinned to the exact pre-zoom pixel padding, which
@@ -829,9 +846,9 @@ def test_chart_card_zoom_controls_horizontal(qapp):
     assert x_max_reset >= data[-1][0]
 
 
-def test_chart_card_zoom_controls_vertical(qapp):
+def test_chart_card_zoom_actions_vertical(qapp):
     """
-    Test that V+/V- scale the Y axis only (X untouched), disabling Y auto-range as a
+    Test that the vertical zooms scale the Y axis only (X untouched), disabling Y auto-range as a
     side effect, and that reset re-enables Y auto-range afterwards.
     """
     card = ChartCard("BTCUSDT")
@@ -841,138 +858,63 @@ def test_chart_card_zoom_controls_vertical(qapp):
 
     (x_min_before, x_max_before), (y_min_before, y_max_before) = vb.viewRange()
 
-    card.zoom_controls._v_in_btn.click()
+    card.zoom.zoom_in_vertically.trigger()
     (x_min_in, x_max_in), (y_min_in, y_max_in) = vb.viewRange()
     assert (x_min_in, x_max_in) == (x_min_before, x_max_before)  # X untouched
     assert (y_max_in - y_min_in) < (y_max_before - y_min_before)
     assert vb.state["autoRange"][1] is False  # Manual Y zoom disables Y auto-range
 
-    card.zoom_controls._v_out_btn.click()
+    card.zoom.zoom_out_vertically.trigger()
     (_, _), (y_min_out, y_max_out) = vb.viewRange()
     assert (y_max_out - y_min_out) > (y_max_in - y_min_in)
 
-    card.zoom_controls._reset_btn.click()
+    card.zoom.reset_zoom.trigger()
     assert vb.state["autoRange"][1]  # Reset restores continuous Y auto-range
 
 
-def test_chart_card_zoom_controls_box_zoom_toggle(qapp):
+def test_chart_card_zoom_actions_box_zoom_toggle(qapp):
     """
-    Test that the box-zoom button toggles the ViewBox into RectMode, and that it
+    Test that Box zoom toggles the ViewBox into RectMode, and that it
     auto-reverts to normal pan mode once the user finishes a drag (one-shot tool).
     """
     card = ChartCard("BTCUSDT")
     vb = card.plot_layout.main_plot.vb
     assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
-    card.zoom_controls._box_btn.setChecked(True)
+    card.zoom.box_zoom.setChecked(True)
     assert vb.state["mouseMode"] == pg.ViewBox.RectMode
 
     # A completed drag (of any kind) emits sigRangeChangedManually — box zoom should
     # treat that as "the one drag it was armed for" and revert itself.
     vb.sigRangeChangedManually.emit([True, True])
-    assert card.zoom_controls._box_btn.isChecked() is False
+    assert card.zoom.box_zoom.isChecked() is False
     assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
 
-_ZOOM_CONTROLS_BUTTON_NAMES = (
-    "_h_in_btn",
-    "_h_out_btn",
-    "_v_in_btn",
-    "_v_out_btn",
-    "_box_btn",
-    "_reset_btn",
-)
-
-
-def test_zoom_controls_are_hidden_on_a_canvas_too_short_to_fit_them_anywhere(qapp):
-    """UI-overlap fix: on the Trading screen's equity mini-chart (~170px
-    tall), `ChartPlotLayout`'s row-0 crosshair label, the main plot, and
-    the volume subplot + its own X-axis together leave no 104px-tall span
-    anywhere free of text — measured directly, not assumed (every
-    candidate corner was checked). Rather than pick a corner that still
-    collides with something, `ZoomControls` hides its whole cluster below
-    `_MIN_CANVAS_HEIGHT_FOR_CONTROLS`; wheel/right-drag zoom stays
-    available regardless (this class's own docstring)."""
-    card = ChartCard("ETHUSDT")
-    card.resize(1400, 220)  # -> ~173px canvas, the real reported size
-    card.show()
-    for _ in range(3):
-        QApplication.processEvents()
-
-    for name in _ZOOM_CONTROLS_BUTTON_NAMES:
-        assert getattr(card.zoom_controls, name).isVisible() is False, name
-
-
-def test_zoom_controls_do_not_overlap_the_crosshair_label_or_the_bottom_axis(qapp):
-    """On a chart tall enough to show the cluster, it must not land on
-    either text region: `crosshair_label` (row 0, right-justified — its
-    rendered width grows leftward, unbounded, with whatever text the
-    hovered point needs) or the bottom-most plot's own X-axis (date
-    labels). An earlier attempt anchored the cluster to the bottom-left
-    instead of clearing row 0 — that traded the label collision for an
-    axis collision, because the volume subplot (and its axis) grows
-    proportionally with canvas height rather than staying a fixed-size
-    strip near the bottom, the same way `crosshair_label`'s row does.
-    `_TOP_CLEARANCE` anchors below row 0 instead, landing on the
-    candlestick plot area (floating over plotted data, not text — the
-    normal trade-off this kind of control makes)."""
-    card = ChartCard("ETHUSDT")
-    card.resize(1400, 700)  # -> comfortably above _MIN_CANVAS_HEIGHT_FOR_CONTROLS
-    card.show()
-    for _ in range(3):
-        QApplication.processEvents()
-
-    label = card.plot_layout.crosshair_label
-    label.setText(
-        "<span style='color:#888;'>Time: 2026-09-03 02:16:12 | Value: 133.3801</span>"
-    )
-    axis = card.plot_layout.plots[-1].getAxis("bottom")
-    for _ in range(3):
-        QApplication.processEvents()
-
-    label_rect = card.plot_layout.widget.mapFromScene(
-        label.mapRectToScene(label.boundingRect())
-    ).boundingRect()
-    axis_rect = card.plot_layout.widget.mapFromScene(
-        axis.mapRectToScene(axis.boundingRect())
-    ).boundingRect()
-
-    for name in _ZOOM_CONTROLS_BUTTON_NAMES:
-        button = getattr(card.zoom_controls, name)
-        assert button.isVisible() is True, name
-        button_geometry = button.geometry()
-        assert not label_rect.intersects(button_geometry), (
-            f"{name} at {button_geometry} overlaps the crosshair label at {label_rect}"
-        )
-        assert not axis_rect.intersects(button_geometry), (
-            f"{name} at {button_geometry} overlaps the bottom axis at {axis_rect}"
-        )
-
-
-def test_chart_card_viewport_follow_and_jump_to_live(qapp):
+def test_chart_card_viewport_follow_and_go_live(qapp):
     """
-    Test that a user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and
-    reveals the "Jump to Live" button, and that resume_follow() restores it.
+    A user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and enables
+    the "Go live" action; triggering it resumes following and disables it again.
     """
     card = ChartCard("BTCUSDT")
-    card.show()  # QWidget.isVisible() requires a shown top-level ancestor
-    QApplication.processEvents()
-    assert card.viewport._following is True
-    assert card.viewport._button.isVisible() is False
+    go_live = card.viewport.go_live
+    assert card.viewport.following is True
+    assert go_live.isEnabled() is False
+    assert go_live in card.toolbar.actions()
+    assert go_live in card.plot_layout.main_plot.vb.menu.actions()
 
     # Simulate the user dragging/zooming the main plot.
     card.plot_layout.main_plot.vb.sigRangeChangedManually.emit(None)
-    assert card.viewport._following is False
-    assert card.viewport._button.isVisible() is True
+    assert card.viewport.following is False
+    assert go_live.isEnabled() is True
 
     # A programmatic data update must NOT silently resume following.
     card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
-    assert card.viewport._following is False
+    assert card.viewport.following is False
 
-    # Clicking "Jump to Live" (or calling its handler) resumes auto-follow.
-    card.viewport.resume_follow()
-    assert card.viewport._following is True
-    assert card.viewport._button.isVisible() is False
+    go_live.trigger()
+    assert card.viewport.following is True
+    assert go_live.isEnabled() is False
 
 
 def test_chart_card_chart_type_switch_line_and_area(qapp):
@@ -1111,14 +1053,12 @@ def test_crosshair_reuses_html_while_mouse_stays_on_the_same_candle(qapp):
     second = card.plot_layout.main_plot.vb.mapViewToScene(QtCore.QPointF(1000.2, 101.0))
 
     with patch.object(
-        card.plot_layout.crosshair_label,
-        "setText",
-        wraps=card.plot_layout.crosshair_label.setText,
-    ) as set_info_text:
+        card.crosshair, "_on_readout", wraps=card.crosshair._on_readout
+    ) as show_readout:
         card.crosshair.handle_mouse_moved((first,))
         card.crosshair.handle_mouse_moved((second,))
 
-    assert set_info_text.call_count == 1
+    assert show_readout.call_count == 1
 
 
 def test_crosshair_burst_ends_at_the_final_mouse_position_and_candle(qapp):
@@ -1133,6 +1073,8 @@ def test_crosshair_burst_ends_at_the_final_mouse_position_and_candle(qapp):
     card.render_historical_data(candles)
     QApplication.processEvents()
 
+    readouts: list[str] = []
+    card.crosshair._on_readout = readouts.append
     for x_value in (1000.0, 1060.0, 1120.0):
         scene_pos = card.plot_layout.main_plot.vb.mapViewToScene(
             QtCore.QPointF(x_value, 106.0)
@@ -1142,7 +1084,21 @@ def test_crosshair_burst_ends_at_the_final_mouse_position_and_candle(qapp):
     assert all(
         line.value() == pytest.approx(1120.0) for line in card.crosshair._v_lines
     )
-    assert "1970-01-01 00:18:40" in card.plot_layout.crosshair_label.text
+    assert "1970-01-01 00:18:40" in readouts[-1]
+
+
+def test_the_hover_readout_reaches_the_window_status_bar(qapp):
+    """`EPIC-033G`: no row above the plot; the readout is a status tip, which
+    Qt carries up to the nearest window with a status bar."""
+    window = QtWidgets.QMainWindow()
+    window.statusBar()
+    card = ChartCard("BTCUSDT")
+    window.setCentralWidget(card)
+
+    card._show_readout("O 100.0000   C 102.0000   (+2.00%)")
+
+    assert window.statusBar().currentMessage() == "O 100.0000   C 102.0000   (+2.00%)"
+    window.deleteLater()
 
 
 def test_crosshair_does_not_reset_static_label_anchors_on_mouse_move(qapp):
@@ -1505,18 +1461,21 @@ def test_marker_refresh_does_not_rebuild_items_when_visible_slice_is_unchanged(q
     assert [id(item) for item in layer._items["signals"]] == item_ids_before
 
 
-def test_chart_fps_overlay_is_hidden_until_dev_mode_is_enabled(qapp):
+def test_chart_fps_meter_is_hidden_until_dev_mode_is_enabled(qapp):
     card = ChartCard("BTCUSDT")
 
-    assert card.fps_overlay.is_enabled is False
-    assert card.fps_overlay.label.isHidden() is True
+    assert card.fps_meter.is_enabled is False
+    assert card.fps_meter.label.isHidden() is True
 
     card.set_dev_mode(True)
 
-    assert card.fps_overlay.is_enabled is True
-    assert card.fps_overlay.label.isHidden() is False
-    assert card.fps_overlay.label.objectName() == "chartFpsOverlay"
-    assert card.fps_overlay.label.text().startswith("FPS ")
+    assert card.fps_meter.is_enabled is True
+    assert card.fps_meter.label.isHidden() is False
+    assert card.fps_meter.label.objectName() == "chartFpsMeter"
+    assert card.fps_meter.label.text().startswith("FPS ")
+    # In the header row, not moved over the plot (`EPIC-033G`).
+    assert card.header_actions.indexOf(card.fps_meter.label) >= 0
+    assert card.fps_meter.label.styleSheet() == ""
 
 
 # ---------------------------------------------------------------------------

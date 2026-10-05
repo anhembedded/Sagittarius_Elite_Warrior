@@ -25,11 +25,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
+    TimeframeActions,
     TimeframePickerDialog,
-    TimeframePillRow,
     TimeframeSelection,
 )
 
@@ -228,37 +227,33 @@ def row(qapp, seed, pinned):
         set_pinned=pinned.set,
     )
     selection.refresh()
-    built = TimeframePillRow(selection)
+    built = TimeframeActions(selection)
     built._selection_for_test = selection
     yield built
     built.deleteLater()
 
 
-def test_the_row_shows_one_pill_per_pinned_code_in_order(row):
-    assert [
-        button.text()
-        for button in row.findChildren(QPushButton)
-        if button.objectName().startswith("timeframePill_")
-    ] == ["1m", "1h"]
+def test_the_row_shows_one_action_per_pinned_code_in_order(row):
+    assert [action.text() for action in row.timeframe_actions()] == ["1m", "1h"]
 
 
-def test_the_current_pill_is_the_checked_one(row):
-    assert row.button_for("1h").isChecked() is True
-    assert row.button_for("1m").isChecked() is False
+def test_the_current_timeframe_is_the_checked_action(row):
+    assert row.action_for("1h").isChecked() is True
+    assert row.action_for("1m").isChecked() is False
 
 
-def test_clicking_a_pill_chooses_that_code(qapp, row):
+def test_triggering_an_action_chooses_that_code(qapp, row):
     heard: list[str] = []
     row._selection_for_test.chosen.connect(heard.append)
 
-    row.button_for("1m").click()
+    row.action_for("1m").trigger()
     qapp.processEvents()
 
     assert heard == ["1m"]
 
 
-def test_seeding_the_current_pill_is_not_a_click(qapp, seed, pinned):
-    """The checked pill is written at build time, and a check that read as a
+def test_seeding_the_current_action_is_not_a_trigger(qapp, seed, pinned):
+    """The checked action is written at build time, and a check that read as a
     click would choose an interval nobody picked."""
     selection = TimeframeSelection(
         get_codes=lambda: seed.codes,
@@ -270,31 +265,39 @@ def test_seeding_the_current_pill_is_not_a_click(qapp, seed, pinned):
     heard: list[str] = []
     selection.chosen.connect(heard.append)
 
-    built = TimeframePillRow(selection)
+    built = TimeframeActions(selection)
 
-    assert built.button_for("1h").isChecked() is True
+    assert built.action_for("1h").isChecked() is True
     assert heard == []
     built.deleteLater()
 
 
-def test_pinning_adds_a_pill_and_unpinning_removes_it(qapp, row):
+def test_pinning_adds_an_action_and_unpinning_removes_it(qapp, row):
     row._selection_for_test.toggle_pinned("4h")
     qapp.processEvents()
-    assert row.button_for("4h") is not None
+    assert row.action_for("4h") is not None
 
     row._selection_for_test.toggle_pinned("4h")
     qapp.processEvents()
-    assert row.button_for("4h") is None
+    assert row.action_for("4h") is None
 
 
-def test_the_more_button_only_asks_its_host_to_open_something(qapp, row):
+def test_more_timeframes_only_asks_its_host_to_open_something(qapp, row):
     """Opening the full picker is a composition decision: this row emits and
     the host decides, because the host owns the dialog whose pinned set the
     row also reads."""
     heard: list[int] = []
     row.more_requested.connect(lambda: heard.append(1))
 
-    row.findChild(QPushButton, "btnTimeframeMore").click()
+    row.more_action.trigger()
     qapp.processEvents()
 
     assert heard == [1]
+
+
+def test_the_timeframe_actions_are_exclusive(qapp, row):
+    """`EPIC-033G`: one exclusive action group, so one timeframe is checked."""
+    row.action_for("1m").trigger()
+    qapp.processEvents()
+
+    assert [a.text() for a in row.timeframe_actions() if a.isChecked()] == ["1m"]

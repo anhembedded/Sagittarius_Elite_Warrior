@@ -860,11 +860,11 @@ def test_selecting_a_symbol_marks_the_config_dirty_with_a_truthful_diff(
     assert f"Symbol ({original_symbol} → {new_symbol})" in view_model.configDiffSummary
 
 
-def test_dev_mode_enables_fps_overlay_on_the_real_backtest_chart(presenter):
+def test_dev_mode_enables_fps_meter_on_the_real_backtest_chart(presenter):
     card = presenter.view.chart_cards[0]
 
-    assert card.chart_card.fps_overlay.is_enabled is True
-    assert card.chart_card.fps_overlay.label.isHidden() is False
+    assert card.chart_card.fps_meter.is_enabled is True
+    assert card.chart_card.fps_meter.label.isHidden() is False
 
 
 def test_backtest_opengl_can_be_disabled_by_config(

@@ -1,4 +1,5 @@
-"""Tests for `ChartToolbar` — the pill row, and the picker it opens on "…".
+"""Tests for `ChartToolbar` — the pinned timeframes (actions since
+`EPIC-033G`), and the picker "More timeframes…" opens.
 
 This widget has been QtWidgets buttons, then a `QQuickWidget` embedding
 `TimeframeToolbar.qml` (`EPIC-015` Phase 4), and is buttons again since
@@ -23,7 +24,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QHBoxLayout, QToolButton, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
     ChartToolbar,
@@ -34,16 +35,15 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
 
 
 def _click_pill(toolbar: ChartToolbar, code: str, qapp) -> None:
-    button = toolbar._row.button_for(code)
-    assert button is not None, code
-    button.click()
+    """Triggers a pinned timeframe's action (`EPIC-033G`: actions, not pills)."""
+    action = toolbar.timeframes.action_for(code)
+    assert action is not None, code
+    action.trigger()
     qapp.processEvents()
 
 
 def _open_picker(toolbar: ChartToolbar, qapp):
-    more = toolbar._row.findChild(QPushButton, "btnTimeframeMore")
-    assert more is not None
-    more.click()
+    toolbar.timeframes.more_action.trigger()
     qapp.processEvents()
     return toolbar._picker
 
@@ -144,10 +144,11 @@ def test_pinning_from_the_picker_updates_the_toolbars_own_pills(qapp):
     qapp.processEvents()
     picker = _open_picker(toolbar, qapp)
 
-    assert toolbar._row.button_for("4h") is None
+    assert toolbar.timeframes.action_for("4h") is None
     _pin_in_picker(picker, "4h", qapp)
 
-    assert toolbar._row.button_for("4h") is not None
+    assert toolbar.timeframes.action_for("4h") is not None
+    assert toolbar.timeframes.action_for("4h") in toolbar.actions()
     picker.close()
     toolbar.close()
 
@@ -239,3 +240,23 @@ def test_no_symbol_or_store_falls_back_to_the_unpersisted_shape(qapp):
     )
     store_only.close()
     symbol_only.close()
+
+
+def test_a_narrow_toolbar_overflows_into_its_extension_button(qapp):
+    """`EPIC-033G` criterion 3: too narrow for its actions, the toolbar shows
+    the style's extension button instead of clipping them."""
+    host = QWidget()
+    layout = QHBoxLayout(host)
+    toolbar = ChartToolbar()
+    layout.addWidget(toolbar)
+    extension = toolbar.findChild(QToolButton, "qt_toolbar_ext_button")
+    host.resize(toolbar.sizeHint().width() * 2, 60)
+    host.show()
+    qapp.processEvents()
+    assert extension.isVisible() is False
+
+    host.resize(toolbar.sizeHint().width() // 3, 60)
+    qapp.processEvents()
+
+    assert extension.isVisible() is True
+    host.close()

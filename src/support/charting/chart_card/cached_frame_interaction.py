@@ -18,7 +18,8 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import QGraphicsView, QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+
+from .chart_chrome import ChartChrome
 
 # Must live under "App": StdLogger attaches every handler to the "App" logger
 # and sets `propagate = False` on it, so a `__name__`-based logger here has no
@@ -26,8 +27,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 # would emit it — INFO diagnostics would vanish silently.
 logger = logging.getLogger("App.CachedFrameInteraction")
 
-_BACKGROUND_COLOR = QColor(Palette.BG)
-_CROSSHAIR_COLOR = QColor(Palette.MUTED)
 _CROSSHAIR_WIDTH = 1.0
 _WHEEL_COMMIT_INTERVAL_MS = 80
 _WHEEL_DELTA_UNIT = 120.0
@@ -185,7 +184,8 @@ class _CachedFrameOverlay(QWidget):
         del event
         started_at = time.perf_counter()
         painter = QPainter(self)
-        painter.fillRect(self.rect(), _BACKGROUND_COLOR)
+        chrome = ChartChrome.from_palette(self.palette())
+        painter.fillRect(self.rect(), chrome.uncovered)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
         # Chrome first, untransformed: the axes, tick labels and headers stay
         # pinned exactly where they were grabbed. Applying the pan/zoom to the
@@ -193,8 +193,8 @@ class _CachedFrameOverlay(QWidget):
         # widget sliding out of its own frame (BUG-009).
         painter.drawPixmap(0, 0, self._frame)
         for region in self._regions:
-            self._paint_transformed_region(painter, region)
-        self._paint_crosshair(painter)
+            self._paint_transformed_region(painter, region, chrome.uncovered)
+        self._paint_crosshair(painter, chrome.crosshair)
         painter.end()
         elapsed_ms = (time.perf_counter() - started_at) * 1000.0
         self._paint_count += 1
@@ -202,12 +202,12 @@ class _CachedFrameOverlay(QWidget):
         self._paint_max_ms = max(self._paint_max_ms, elapsed_ms)
 
     def _paint_transformed_region(
-        self, painter: QPainter, region: _PannableRegion
+        self, painter: QPainter, region: _PannableRegion, uncovered: QColor
     ) -> None:
         """Redraws one region of the frame with the live pan/zoom applied."""
         painter.save()
         painter.setClipRect(region.rect)
-        painter.fillRect(region.rect, _BACKGROUND_COLOR)
+        painter.fillRect(region.rect, uncovered)
         anchor_y = self._anchor.y() if region.follows_y else 0.0
         painter.translate(self._anchor.x() + self._pan_x, anchor_y)
         painter.scale(self._scale, self._scale if region.follows_y else 1.0)
@@ -221,7 +221,7 @@ class _CachedFrameOverlay(QWidget):
         painter.drawPixmap(0, 0, self._frame)
         painter.restore()
 
-    def _paint_crosshair(self, painter: QPainter) -> None:
+    def _paint_crosshair(self, painter: QPainter, color: QColor) -> None:
         """Draws crosshair lines clipped to the plot areas.
 
         The real chart's crosshair is a pair of `pg.InfiniteLine` items living
@@ -236,7 +236,7 @@ class _CachedFrameOverlay(QWidget):
         for region in plot_areas:
             clip_region = clip_region.united(QRegion(region.rect.toRect()))
         painter.setClipRegion(clip_region)
-        painter.setPen(QPen(_CROSSHAIR_COLOR, _CROSSHAIR_WIDTH, Qt.PenStyle.DashLine))
+        painter.setPen(QPen(color, _CROSSHAIR_WIDTH, Qt.PenStyle.DashLine))
         painter.drawLine(
             QPointF(self._cursor.x(), 0.0),
             QPointF(self._cursor.x(), self.height()),
@@ -464,7 +464,7 @@ class CachedFrameInteractionController(QObject):
             # layout reflow) invalidates the cached pixmap `begin()` grabbed
             # at the old viewport size — it never gets re-grabbed, so
             # stretching it across a now-larger overlay would leave most of
-            # the overlay painted with `_BACKGROUND_COLOR` around a small,
+            # the overlay painted in `ChartChrome.uncovered` around a small,
             # stale surviving patch (BUG-009). Commit immediately instead:
             # this hides the overlay and applies the exact in-progress
             # pan/zoom to the live plot, which then resizes correctly on its

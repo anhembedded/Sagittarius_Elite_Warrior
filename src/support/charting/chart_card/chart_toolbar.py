@@ -1,23 +1,30 @@
-"""`ChartToolbar` — a chart header's compact timeframe pill row, plus the
-full picker it opens. Embedded (not modal) in `ChartCard`'s header via
-`ChartCard.add_to_header` — shared by both Backtest's and Dev Board's chart
-headers, since both build their chart area from `ChartCard`.
+"""`ChartToolbar` — a chart's toolbar: its pinned timeframes as a checkable
+action group, "More timeframes…" (the full picker it opens), and the chart's
+own actions (zoom, `chart_zoom_actions.py`). Embedded in `ChartCard`'s header
+via `ChartCard.add_to_header` — shared by every chart, since every chart area
+is a `ChartCard`.
 
-@par Three versions, and the public surface never moved
+@par A `QToolBar` since `EPIC-033G`
+It was a row of pills, checkable `QPushButton`s, which clipped at 1366 px and
+broke `ui-presentation-rule.md` §6 (a toolbar holds actions; no checkable push
+button). As a `QToolBar` of actions, the style lays it out and the actions
+that do not fit move into its extension menu.
+
+@par Four versions, and the public surface never moved
 It began as a QtWidgets pill row (fixed `DEFAULT_TIMEFRAMES` buttons plus
 `TimeframePickerOverlay` behind "…"). `EPIC-015` Phase 4 replaced that with
 `TimeframeToolbar.qml` embedded in a `QQuickWidget`, and `EPIC-025` PR 4.3k
 brings it back to widgets (ADR D21) as `TimeframePillRow` — a checkable
-`QPushButton` per pinned code, which is what a pill is. Through all three,
+`QPushButton` per pinned code; `EPIC-033G` makes them actions. Through all four,
 `sig_timeframe_changed` and `set_active()` are unchanged, so
 `ChartCard._setup_layout()`, `backtest_chart_host.py`'s
 `PythonBacktestChartHost` and `dashboard_presenter.py` need no changes at all.
 
 @par The one hard requirement: one selection, not two
-The pinned pills here and the pin boxes in the full picker must agree
+The pinned timeframes here and the pin boxes in the full picker must agree
 instantly, without a second refresh — the user's own instruction (*"2 widget,
 common nếu reuse được"*). So this class builds exactly one
-`TimeframeSelection` and hands the SAME instance to both `TimeframePillRow`
+`TimeframeSelection` and hands the SAME instance to both `TimeframeActions`
 and the `TimeframePickerDialog` it lazily opens. Pinning in the picker updates
 the very `pinned_rows` this row reads; choosing a row there or a pill here both
 travel through the same `selection.chosen`, which this class listens to exactly
@@ -80,11 +87,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QWidget
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QToolBar, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
+    TimeframeActions,
     TimeframePickerDialog,
-    TimeframePillRow,
     TimeframeSelection,
     all_options,
 )
@@ -118,13 +126,13 @@ class _ActiveTimeframe:
         self.code = code
 
 
-class ChartToolbar(QWidget):  # base-exempt: a container, not a surface
+class ChartToolbar(QToolBar):
     """
-    @brief Compact timeframe pill row for a `ChartCard` header, plus the
-    full picker its "…" affordance opens.
+    @brief A `ChartCard`'s toolbar: the pinned timeframes, the full picker
+    "More timeframes…" opens, and the chart's own actions.
 
     @details Public surface unchanged from the QtWidgets original it
-    replaces: emits `sig_timeframe_changed(interval)` when a pill (here or
+    replaces: emits `sig_timeframe_changed(interval)` when a timeframe (here or
     in the full picker) is chosen, and `set_active()` lets an external
     caller (`EPIC-010D`'s restored interval, a Presenter's own change
     already handled elsewhere) sync the highlight without re-triggering the
@@ -183,6 +191,7 @@ class ChartToolbar(QWidget):  # base-exempt: a container, not a surface
 
         super().__init__(parent)
         self.setObjectName("chartToolbar")
+        self.setWindowTitle("Chart")
         self._active_state = active_state
         self._symbol = symbol
         self._pin_preferences = pin_preferences
@@ -190,17 +199,29 @@ class ChartToolbar(QWidget):  # base-exempt: a container, not a surface
         self._selection.chosen.connect(self._on_chosen)
         self._picker: TimeframePickerDialog | None = None
 
-        # A compact row hugs its pills rather than stretching across whatever
-        # space `ChartCard`'s header leaves; `TimeframePillRow` carries that
-        # size policy, and this layout only has to not fight it.
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        self._row = TimeframePillRow(selection)
-        self._row.more_requested.connect(self._open_picker)
-        layout.addWidget(self._row)
+        self.timeframes = TimeframeActions(selection, parent=self)
+        self.timeframes.more_requested.connect(self._open_picker)
+        self.timeframes.rebuilt.connect(self._place_timeframes)
+        #: Where the timeframes end: they are re-placed before it on a rebuild,
+        #: and the chart's own actions follow it.
+        self._timeframes_end = self.addSeparator()
+        self.insertAction(self._timeframes_end, self.timeframes.more_action)
+        self._place_timeframes()
+
+    def add_chart_actions(self, actions: Sequence[QAction]) -> None:
+        """Appends the chart's own actions (zoom) after the timeframes."""
+        self.addActions(list(actions))
+
+    def _place_timeframes(self) -> None:
+        for action in self.actions():
+            if action.objectName().startswith("actTimeframe_"):
+                self.removeAction(action)
+        self.insertActions(
+            self.timeframes.more_action, self.timeframes.timeframe_actions()
+        )
 
     def _on_chosen(self, code: str) -> None:
-        """`selection.chosen` fires from either view — a pill clicked here, or
+        """`selection.chosen` fires from either view — a timeframe triggered here, or
         a row chosen in the picker — so connecting once here, rather than also
         connecting to `self._picker.chosen`, is what keeps a picker choice from
         re-emitting `sig_timeframe_changed` twice."""

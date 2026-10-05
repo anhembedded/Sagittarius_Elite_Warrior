@@ -171,20 +171,20 @@ def test_trade_log_rows_are_visible_by_default(view, qapp):
     assert first_row._summary_btn.objectName() == "rowTradeLog_1"
 
 
-def test_backtest_chart_fps_overlay_follows_dev_mode(qapp, request):
+def test_backtest_chart_fps_meter_follows_dev_mode(qapp, request):
     v = BackTestView()
     request.addfinalizer(v.deleteLater)
 
     v.set_chart_dev_mode(True)
     cards = v.render_symbol_cards(["BTCUSDT"])
 
-    assert cards[0].chart_card.fps_overlay.is_enabled is True
-    assert cards[0].chart_card.fps_overlay.label.isHidden() is False
+    assert cards[0].chart_card.fps_meter.is_enabled is True
+    assert cards[0].chart_card.fps_meter.label.isHidden() is False
 
     v.set_chart_dev_mode(False)
 
-    assert cards[0].chart_card.fps_overlay.is_enabled is False
-    assert cards[0].chart_card.fps_overlay.label.isHidden() is True
+    assert cards[0].chart_card.fps_meter.is_enabled is False
+    assert cards[0].chart_card.fps_meter.label.isHidden() is True
 
 
 def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, request):

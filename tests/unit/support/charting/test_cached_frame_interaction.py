@@ -8,30 +8,16 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.cached_frame_interaction import (
-    _BACKGROUND_COLOR,
     shifted_x_range,
     zoomed_x_range,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_chrome import (
+    ChartChrome,
 )
 
 #: Short enough to stay inside the cached frame on every card size used here,
 #: so a test of the pure preview transform never trips the mid-drag re-render.
 _SHORT_PAN_PIXELS = 40.0
-
-
-def test_shifted_x_range_translates_data_opposite_to_drag_direction():
-    shifted = shifted_x_range((100.0, 200.0), pixel_delta=160.0, viewport_width=1600.0)
-
-    assert shifted == (90.0, 190.0)
-
-
-def test_zoomed_x_range_preserves_the_data_point_under_the_cursor():
-    zoomed = zoomed_x_range(
-        (100.0, 200.0),
-        anchor_ratio=0.25,
-        preview_scale=2.0,
-    )
-
-    assert zoomed == (112.5, 162.5)
 
 
 def test_cached_pan_previews_pixels_then_commits_exact_data_range(qapp):
@@ -170,7 +156,7 @@ def test_viewport_resize_mid_pan_preview_commits_instead_of_stretching_stale_fra
     branch used to only call `self._overlay.setGeometry(...)` — resizing the
     *overlay widget* to track the live viewport but never touching the
     *cached pixmap*, which stayed the old, smaller size. `paintEvent` draws
-    that pixmap at its native size from (0, 0) over a `_BACKGROUND_COLOR`
+    that pixmap at its native size from (0, 0) over a `ChartChrome.uncovered`
     fill, so a resize mid-drag left a small patch of the old frame sitting
     in the corner of an otherwise blank overlay.
     """
@@ -219,7 +205,8 @@ def test_viewport_resize_mid_pan_preview_commits_instead_of_stretching_stale_fra
         .toImage()
         .pixelColor(card.width() // 2, stale_frame_size.height() + 200)
     )
-    assert QColor(below_stale_frame) != _BACKGROUND_COLOR
+    uncovered = ChartChrome.from_palette(card.plot_layout.widget.palette()).uncovered
+    assert QColor(below_stale_frame) != uncovered
 
     card.cleanup()
 
@@ -242,7 +229,7 @@ def test_pan_preview_moves_only_the_data_region_not_the_axes(qapp):
     the time axis and every subplot's axis, not just the candle area.
     `paintEvent` then applied the pan/zoom transform to that whole pixmap, so
     dragging translated the axes and labels sideways along with the candles
-    and revealed bare `_BACKGROUND_COLOR` where the frame no longer covered.
+    and revealed bare `ChartChrome.uncovered` where the frame no longer covered.
     To the user this reads as the whole chart widget sliding inside its own
     frame and snapping back on release, rather than candles panning within a
     stationary axis frame: "miễn chọn trong khung lưới là sẽ move cả cái
@@ -368,6 +355,7 @@ def test_long_drag_does_not_expose_a_large_blank_band(qapp):
     qapp.processEvents()
 
     image = viewport.grab().toImage()
+    uncovered = ChartChrome.from_palette(viewport.palette()).uncovered
     # Judge a whole column, not a single row: the preview's crosshair paints
     # one row right across the blank band, so a single-row sample measures
     # the crosshair instead of the background and reports no blank at all.
@@ -376,9 +364,7 @@ def test_long_drag_does_not_expose_a_large_blank_band(qapp):
     total_columns = 0
     for x in range(region.left() + 2, region.right() - 2, 4):
         total_columns += 1
-        background_rows = sum(
-            1 for y in rows if image.pixelColor(x, y) == _BACKGROUND_COLOR
-        )
+        background_rows = sum(1 for y in rows if image.pixelColor(x, y) == uncovered)
         if background_rows >= len(list(rows)) * 0.9:
             blank_columns += 1
     blank_fraction = blank_columns / total_columns

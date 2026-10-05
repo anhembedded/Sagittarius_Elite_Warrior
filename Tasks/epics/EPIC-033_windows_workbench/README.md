@@ -47,7 +47,7 @@
 | [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
 | [EPIC-033E](completed/EPIC-033E_settings_dialog.md) | One Options dialog (Tools → Options) with sections, OK, Cancel and Apply | Elite | Engine W4; 033C | 🟡 | ✅ Done (2026-10-04) |
 | [EPIC-033F](completed/EPIC-033F_one_output_dock.md) | One Output dock with a channel per module replaces three log cards | Elite | Engine W4; 033C | 🟢 | ✅ Done (2026-10-04) |
-| [EPIC-033G](incomplete/EPIC-033G_stock_chart_controls.md) | The chart is a canvas; its controls are actions in the toolbar and the context menu | Elite | EPIC-033D | 🟡 | Planned |
+| [EPIC-033G](completed/EPIC-033G_stock_chart_controls.md) | The chart is a canvas; its controls are actions in the toolbar and the context menu | Elite | EPIC-033D | 🟡 | ✅ Done (2026-10-05) |
 | [EPIC-033H](incomplete/EPIC-033H_market_mode.md) | Market mode: watch the market, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟢 | Planned |
 | [EPIC-033I](incomplete/EPIC-033I_trade_mode.md) | Trade mode: one mode for both venues, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
 | [EPIC-033J](incomplete/EPIC-033J_data_mode.md) | Data mode: keep history complete, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |

@@ -32,8 +32,8 @@ from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.cached_frame_interaction import (
-    _BACKGROUND_COLOR,
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_chrome import (
+    ChartChrome,
 )
 
 #: Deliberately trending, not flat. Flat synthetic candles hide both defects
@@ -80,16 +80,14 @@ def _build_card() -> ChartCard:
     return card
 
 
-def _blank_column_fraction(image, region) -> float:
+def _blank_column_fraction(image, region, uncovered: QColor) -> float:
     """Fraction of plot columns painted with nothing but overlay background."""
     rows = list(range(region.top() + 6, region.bottom() - 6, 8))
     blank = 0
     total = 0
     for x in range(region.left() + 2, region.right() - 2, 4):
         total += 1
-        background = sum(
-            1 for y in rows if QColor(image.pixelColor(x, y)) == _BACKGROUND_COLOR
-        )
+        background = sum(1 for y in rows if QColor(image.pixelColor(x, y)) == uncovered)
         if background >= len(rows) * 0.9:
             blank += 1
     return blank / total if total else 0.0
@@ -109,6 +107,7 @@ def main() -> None:
     view_rect = plot.vb.sceneBoundingRect()
     region = canvas.mapFromScene(view_rect).boundingRect()
     axis_strip_width = canvas.mapFromScene(view_rect.topLeft()).x()
+    chrome = ChartChrome.from_palette(canvas.palette())
 
     def axis_ink(image) -> int:
         """Counts painted (non-background) pixels in the price-axis strip.
@@ -122,7 +121,7 @@ def main() -> None:
         ink = 0
         for x in range(axis_strip_width):
             for y in range(0, image.height(), 3):
-                if QColor(image.pixelColor(x, y)) != _BACKGROUND_COLOR:
+                if QColor(image.pixelColor(x, y)) != chrome.background:
                     ink += 1
         return ink
 
@@ -138,7 +137,9 @@ def main() -> None:
         QTest.mouseMove(viewport, start + QPoint(offset, 0))
         app.processEvents()
         mid_image = viewport.grab().toImage()
-        worst_blank = max(worst_blank, _blank_column_fraction(mid_image, region))
+        worst_blank = max(
+            worst_blank, _blank_column_fraction(mid_image, region, chrome.uncovered)
+        )
         ink = axis_ink(mid_image)
         if ink < before_axis * 0.5:
             raise RuntimeError(
