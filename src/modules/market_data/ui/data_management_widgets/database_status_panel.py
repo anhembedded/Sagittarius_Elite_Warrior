@@ -37,9 +37,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -47,6 +45,14 @@ from PySide6.QtWidgets import (
     QToolBar,
     QVBoxLayout,
     QWidget,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    configure_item_view,
 )
 
 from ..database_status_table_model import (
@@ -154,26 +160,17 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
     def _build_table(self) -> QTableView:
         table = QTableView()
         table.setObjectName("tblDatabaseStatus")
-        table.setModel(self._proxy)
-        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        table.setAlternatingRowColors(True)
-        table.setWordWrap(False)
-        table.setSortingEnabled(True)
-        table.sortByColumn(
-            DatabaseStatusTableModel.SYMBOL_COLUMN, Qt.SortOrder.AscendingOrder
+        # Columns, sorting and selection from the model's specs (`EPIC-033N`),
+        # over the search filter: the spec proxy sorts what the filter keeps.
+        self._spec_proxy = configure_item_view(
+            table,
+            self._proxy,
+            DatabaseStatusTableModel.COLUMNS,
+            formatter=APP_VALUE_FORMATTER,
         )
-        table.verticalHeader().setVisible(False)
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        # The two timestamp columns take the slack: they are the widest and
-        # the ones worth reading in full.
-        for column in (
-            DatabaseStatusTableModel.FIRST_RECORD_COLUMN,
-            DatabaseStatusTableModel.LAST_RECORD_COLUMN,
-        ):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+        table.sortByColumn(
+            DatabaseStatusTableModel.column("symbol"), Qt.SortOrder.AscendingOrder
+        )
         table.doubleClicked.connect(lambda _index: self._request(INSPECT_KLINES))
         table.selectionModel().selectionChanged.connect(
             lambda *_args: self._refresh_action_state()
@@ -251,7 +248,8 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         indexes = self._table.selectionModel().selectedRows()
         if not indexes:
             return None
-        return self._model.row_for(self._proxy.mapToSource(indexes[0]))
+        filtered = self._spec_proxy.mapToSource(indexes[0])
+        return self._model.row_for(self._proxy.mapToSource(filtered))
 
     def visible_row_count(self) -> int:
         """Rows the search leaves visible — what the count label reports."""
@@ -296,7 +294,8 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         answer = QMessageBox.question(
             self,
             "Clear local data",
-            f"Delete all {row.total_candles} locally stored candles for "
+            f"Delete all {write_value(ColumnKind.QUANTITY, row.total_candles)} "
+            "locally stored candles for "
             f"{row.symbol} ({row.interval})?\n\n"
             "The data can be downloaded again, but the local copy is removed "
             "now.",

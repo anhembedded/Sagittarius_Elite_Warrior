@@ -5,22 +5,16 @@ price, % change and volume.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSortFilterProxyModel, Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QHeaderView,
-    QLabel,
-    QTableView,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.page_shell import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import semantic_colour
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .watchlist_table_model import WatchlistTableModel
+
+_EMPTY_TEXT = "No symbols are tracked. Choose them in Tools → Options."
 
 
 def _apply_tone(label: QLabel, name: str) -> None:
@@ -40,11 +34,13 @@ class WatchlistView(BaseView):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.model = WatchlistTableModel(self)
-        self._proxy = QSortFilterProxyModel(self)
-        self._proxy.setSourceModel(self.model)
-        self._proxy.setSortRole(SORT_ROLE)
-
-        self.table = self._build_table()
+        # Columns, sorting and selection from the model's specs (`EPIC-033N`);
+        # symbol ascending is the order a user finds a symbol in.
+        self._spec_table = SpecTable(
+            self.model, object_name="tblWatchlist", empty_text=_EMPTY_TEXT
+        )
+        self._spec_table.sort_by(WatchlistTableModel.column("symbol"))
+        self.table = self._spec_table.view
         self._status_label = QLabel()
         self._status_label.setObjectName("lblWatchlistStatus")
         self._status_label.setWordWrap(True)
@@ -53,7 +49,7 @@ class WatchlistView(BaseView):
         self._shell.set_header(
             "Watchlist", "Live price, % change and volume for tracked symbols"
         )
-        self._shell.set_workspace(self.table)
+        self._shell.set_workspace(self._spec_table.body)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -71,24 +67,3 @@ class WatchlistView(BaseView):
         self._status_label.setText(message)
         _apply_tone(self._status_label, "danger" if is_error else "success")
         self._shell.set_context_bar(self._status_label)
-
-    def _build_table(self) -> QTableView:
-        table = QTableView()
-        table.setObjectName("tblWatchlist")
-        table.setModel(self._proxy)
-        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        table.setAlternatingRowColors(True)
-        table.setWordWrap(False)
-        table.setSortingEnabled(True)
-        table.sortByColumn(
-            WatchlistTableModel.SYMBOL_COLUMN, Qt.SortOrder.AscendingOrder
-        )
-        table.verticalHeader().setVisible(False)
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(
-            WatchlistTableModel.SYMBOL_COLUMN, QHeaderView.ResizeMode.Stretch
-        )
-        return table

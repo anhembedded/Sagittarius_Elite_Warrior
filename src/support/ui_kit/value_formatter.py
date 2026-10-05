@@ -1,0 +1,135 @@
+"""`AppValueFormatter` — how this application writes a value of each kind
+(`EPIC-033N`).
+
+The Engine decides *where* a value is formatted: one delegate for every table
+cell (`configure_item_view`) and one read-out form (`ReadoutForm`), both
+calling an `IValueFormatter`. This class decides *how*, once for the whole
+application, so a price prints the same on the Watchlist, a desk and a
+backtest report. Before it, each screen had its own helper
+(`kline_inspector_table_model._format_price`, `position_row`'s f-strings,
+`amount_text.format_amount`), and the same price printed with two decimals on
+one screen and four on another.
+
+| Kind | Written as | Example |
+| :--- | :--- | :--- |
+| price | decimals by magnitude: two from 1 000, four from 1, else up to eight with trailing zeros dropped | `64,250.10`, `3.1416`, `0.00001234` |
+| quantity | up to eight decimals, trailing zeros dropped | `1,250`, `0.0015` |
+| money | two decimals | `1,234.56`, `-9.00` |
+| percent | two decimals and `%` | `12.50%` |
+| timestamp | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
+| duration | `h:mm:ss` | `1:05:00` |
+| duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
+| text, side, status | as given | `LONG` |
+
+A timeframe is a duration — it sorts by length, so `1m` comes before `15m`
+before `1h` — but it reads as the code a trader knows; the column says so by
+its key, which is what `FormatContext` is for. Numbers are grouped by
+thousands. `None` is an empty cell: the value is
+unknown, and a blank says so without a glyph to mistake for a number.
+
+@par Precision per symbol is not here yet
+The magnitude rule matches the exchange's tick size for the common symbols but
+not for every one. Exact precision needs the row's symbol, and the Engine's
+`FormatContext` carries only the column key; widening it is an Engine change,
+recorded as the open criterion in `EPIC-033N`. The seam is this class: a
+symbol-aware rule replaces `_price_text` and no caller changes.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Final
+
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    format_display_datetime,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    DisplayValue,
+    FormatContext,
+    PlainValueFormatter,
+)
+
+#: The key of a column, or read-out row, that holds a timeframe as its length
+#: in seconds (`ColumnKind.DURATION`).
+TIMEFRAME_KEY: Final = "timeframe"
+
+_TIMEFRAME_CODES: Final = {frame.to_seconds(): frame.value for frame in TimeFrame}
+
+_LARGE_PRICE: Final = 1_000
+_UNIT_PRICE: Final = 1
+_MAX_DECIMALS: Final = 8
+
+
+def _without_trailing_zeros(text: str) -> str:
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def _price_text(value: float) -> str:
+    magnitude = abs(value)
+    if magnitude >= _LARGE_PRICE:
+        return f"{value:,.2f}"
+    if magnitude >= _UNIT_PRICE:
+        return f"{value:,.4f}"
+    return _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+
+
+def _quantity_text(value: float) -> str:
+    return _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+
+
+class AppValueFormatter:
+    """The application's `IValueFormatter`; see the module docstring."""
+
+    def __init__(self, time_zone: str = DEFAULT_TIMEZONE) -> None:
+        self._time_zone = time_zone
+        self._plain = PlainValueFormatter()
+
+    def format(
+        self, kind: ColumnKind, value: DisplayValue, context: FormatContext
+    ) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, datetime):
+            return format_display_datetime(value, tz_name=self._time_zone)
+        if (
+            kind is ColumnKind.DURATION
+            and context.key == TIMEFRAME_KEY
+            and isinstance(value, int | float)
+            and int(value) in _TIMEFRAME_CODES
+        ):
+            return _TIMEFRAME_CODES[int(value)]
+        if isinstance(value, str | timedelta) or not kind.is_numeric:
+            return self._plain.format(kind, value, context)
+        number = float(value)
+        if kind is ColumnKind.PRICE:
+            return _price_text(number)
+        if kind is ColumnKind.QUANTITY:
+            return _quantity_text(number)
+        if kind is ColumnKind.MONEY:
+            return f"{number:,.2f}"
+        return self._plain.format(kind, value, context)
+
+
+#: The one instance every table and read-out of this application writes with.
+APP_VALUE_FORMATTER: Final = AppValueFormatter()
+
+
+def display_number(value: Decimal | None) -> float | None:
+    """A domain `Decimal` as the float a table cell holds.
+
+    Qt compares a cell's value to sort it, and it can compare a float but not
+    a wrapped Python `Decimal`. A float holds every digit the formatter
+    writes; the `Decimal` stays the truth everywhere a value is computed.
+    """
+    return None if value is None else float(value)
+
+
+def write_value(kind: ColumnKind, value: DisplayValue, key: str = "") -> str:
+    """One value outside a table — a confirmation message, a status line —
+    written exactly as a cell of that kind (and, for a key that has a rule of
+    its own such as `TIMEFRAME_KEY`, that key) would write it."""
+    return APP_VALUE_FORMATTER.format(kind, value, FormatContext(key or kind.value))

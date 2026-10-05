@@ -48,8 +48,8 @@ def test_returns_dto_list_for_non_empty_databases(handler, mock_repo):
     assert isinstance(dto, DatabaseStatusDTO)
     assert dto.symbol == "BTCUSDT"
     assert dto.interval == "1h"
-    assert dto.total_candles == "500"
-    assert dto.gaps == "0"
+    assert dto.total_candles == 500
+    assert dto.gaps == 0
     assert dto.status_text == "OK"
 
 
@@ -81,7 +81,7 @@ def test_gap_detected_sets_correct_status_text(handler, mock_repo):
 
     assert len(results) == 1
     assert results[0].status_text == "3 gaps found!"
-    assert results[0].gaps == "3"
+    assert results[0].gaps == 3
 
 
 def test_one_repository_call_per_symbol_not_per_pair(handler, mock_repo):

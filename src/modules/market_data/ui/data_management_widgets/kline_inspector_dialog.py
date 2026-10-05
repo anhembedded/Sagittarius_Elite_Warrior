@@ -34,15 +34,17 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QDialog,
     QDialogButtonBox,
-    QHeaderView,
     QLabel,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 from ..kline_inspector_table_model import KLineInspectorTableModel
 
@@ -103,18 +105,15 @@ class KlineInspectorDialog(QDialog):  # base-exempt: ADR D22, a dialog is a QDia
     def _build_table(self, model: KLineInspectorTableModel) -> QTableView:
         table = QTableView()
         table.setObjectName("tblKlineInspector")
-        table.setModel(model)
-        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        table.setAlternatingRowColors(True)
-        table.setWordWrap(False)
-        table.setSortingEnabled(False)
-        table.verticalHeader().setVisible(False)
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(
-            KLineInspectorTableModel.TIME_COLUMN, QHeaderView.ResizeMode.Stretch
+        # Columns and selection from the model's specs (`EPIC-033N`). Candles
+        # arrive in time order and stay in it until the user sorts a column.
+        configure_item_view(
+            table,
+            model,
+            KLineInspectorTableModel.COLUMNS,
+            formatter=APP_VALUE_FORMATTER,
         )
+        table.setWordWrap(False)
         return table
 
     def refresh(self) -> None:

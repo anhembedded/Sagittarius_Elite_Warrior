@@ -135,7 +135,7 @@ def build_preview() -> QWidget:
                     locked=Decimal("0.0"),
                     dust_threshold=Decimal("0.0001"),
                 ),
-                {},  # no price known yet — renders "—"
+                {},  # no price known yet — an empty value cell
             ),
         ]
     )

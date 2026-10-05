@@ -39,8 +39,10 @@ def _running(progress: BotProgress | None = _HELD) -> BotSnapshot:
 def test_unrealised_pnl_is_what_the_held_base_gained_at_the_latest_price() -> None:
     facts = bot_facts(_running(), Decimal(65000), NOW)
 
-    assert facts.unrealised == "+10 at 65000"
-    assert bot_facts(_running(), Decimal(63000), NOW).unrealised == "-10 at 63000"
+    assert facts.unrealised == "10.00 at 65,000.00"
+    assert (
+        bot_facts(_running(), Decimal(63000), NOW).unrealised == "-10.00 at 63,000.00"
+    )
 
 
 def test_without_a_price_unrealised_pnl_says_so_and_without_base_shows_nothing() -> (
@@ -56,7 +58,7 @@ def test_the_state_carries_its_reason_and_capital_comes_from_the_kinds_key() -> 
 
     assert facts.state == "Halted — trading turned off"
     assert facts.capital == "1000"
-    assert facts.grid_profit == "+12.5"
+    assert facts.grid_profit == "12.50"
 
 
 def test_running_time_counts_from_the_run_start_and_stops_at_rest() -> None:

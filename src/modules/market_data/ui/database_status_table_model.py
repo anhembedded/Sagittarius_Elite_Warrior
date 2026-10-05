@@ -8,13 +8,12 @@ asks for `DisplayRole` per `(row, column)` and for `headerData()` — neither of
 which existed. So the six columns move out of the deleted delegate and into
 this model, where the platform's own table can render them (ADR D20).
 
-**Sorting comes for free, and had to be made correct.** `QSortFilterProxyModel`
-sorts on the role it is given, and `DisplayRole` here is display *text*:
-`"1,234"` sorts before `"9"`, and `"15m"` before `"1h"` before `"1m"`. So the
-model also serves `SortRole`, whose values are the comparable facts behind the
-text — an `int` candle count, an interval's length in seconds — and the panel
-points the proxy at it. This is the first column sorting this table has ever
-had; the QML `ListView` had none.
+**Sorting sorts the facts.** Since `EPIC-033N` the columns are specs and the
+cells raw values — a candle count is an `int`, a first record a `datetime`,
+an interval its length in seconds (written back as its code through
+`TIMEFRAME_KEY`) — so `"1,234"` sorts after `"9"` and `1m` before `15m` before
+`1h` because the values compare that way. Until then the cells were text and a
+`SORT_ROLE` stood beside them with the facts.
 
 **No colour.** The old delegate painted the status cell green or red from
 `Theme.success`/`Theme.danger`. ADR D21 leaves colour only where it carries
@@ -30,9 +29,8 @@ branches of `data()` — byte-for-byte identical to the two order-book models PR
 1.4b-2 wrote, which neither pair could see because
 `presentation/ui/components/` was never in the duplication metric's package set.
 They, `SORT_ROLE` and `_as_number()` are `support/ui_kit/table_model.py`'s now.
-What stays is what is actually this table's: its columns, the interval sort that
-puts `1m` before `15m` before `1h`, the unhealthy-first status sort, the bold
-status cell, and the **incremental** row API — `upsert_row()` re-scans one shard
+What stays is what is actually this table's: its columns, the bold status
+cell, and the **incremental** row API — `upsert_row()` re-scans one shard
 and emits `dataChanged` for that row alone, so the user keeps their selection
 and their scroll position, which a `set_rows()` reset would throw away. That is
 why the base class holds its rows in a list.
@@ -41,6 +39,7 @@ why the base class holds its rows in a list.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import ClassVar, Final
 
 from PySide6.QtCore import (
@@ -54,10 +53,14 @@ from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import (
-    SORT_ROLE,
-    RowTableModel,
-    as_number,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    TIMEFRAME_KEY,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
 )
 
 #: Statuses that mean "no gaps" — everything else is rendered as a problem.
@@ -79,9 +82,9 @@ class DatabaseStatusRow:
     """One symbol/interval line in the DB status table."""
 
     symbol: str
-    first_record: str
-    last_record: str
-    total_candles: str
+    first_record: datetime | None
+    last_record: datetime | None
+    total_candles: int
     status_text: str
     interval: str = TimeFrame.ONE_MINUTE.value
     market: str = _MARKET_LABEL_SPOT
@@ -95,14 +98,14 @@ class DatabaseStatusRow:
         return self.status_text in HEALTHY_STATUSES
 
 
-def _interval_seconds(interval: str) -> int:
-    """An interval's length, for sorting. `0` for a code the domain no longer
-    recognises — a stale value read back from disk sorts first rather than
-    raising in the middle of a `sort()`."""
+def _interval_seconds(interval: str) -> int | None:
+    """An interval's length, the value its cell holds. `None` — an empty cell
+    — for a code the domain no longer recognises, a stale value read back
+    from disk."""
     try:
         return TimeFrame(interval).to_seconds()
     except ValueError:
-        return 0
+        return None
 
 
 class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
@@ -116,25 +119,17 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
 
     SYMBOL_COLUMN: Final = 0
     INTERVAL_COLUMN: Final = 1
-    FIRST_RECORD_COLUMN: Final = 2
-    LAST_RECORD_COLUMN: Final = 3
-    TOTAL_CANDLES_COLUMN: Final = 4
     STATUS_COLUMN: Final = 5
-    MARKET_COLUMN: Final = 6
 
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Symbol",
-        "TF",
-        "First record",
-        "Last record",
-        "Candles",
-        "Status",
-        "Market",
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("symbol", "Symbol", ColumnKind.TEXT),
+        ColumnSpec(TIMEFRAME_KEY, "TF", ColumnKind.DURATION),
+        ColumnSpec("first_record", "First record", ColumnKind.TIMESTAMP),
+        ColumnSpec("last_record", "Last record", ColumnKind.TIMESTAMP),
+        ColumnSpec("candles", "Candles", ColumnKind.QUANTITY),
+        ColumnSpec("status", "Status", ColumnKind.STATUS, stretch=True),
+        ColumnSpec("market", "Market", ColumnKind.TEXT),
     )
-
-    #: Right-aligned because the eye compares a column of counts by its last
-    #: digit; every other column is text and stays left-aligned.
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({TOTAL_CANDLES_COLUMN})
 
     #: Emitted whenever the row set changes, so a header badge can show a live
     #: count without reaching into this model's internals.
@@ -146,31 +141,19 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
 
     # -- what this table decides (the rest is `RowTableModel`'s) -----------
 
-    def _display_text(self, row: DatabaseStatusRow, column: int) -> str:
-        return {
-            self.SYMBOL_COLUMN: row.symbol,
-            self.INTERVAL_COLUMN: row.interval,
-            self.FIRST_RECORD_COLUMN: row.first_record,
-            self.LAST_RECORD_COLUMN: row.last_record,
-            self.TOTAL_CANDLES_COLUMN: row.total_candles,
-            self.STATUS_COLUMN: row.status_text,
-            self.MARKET_COLUMN: row.market,
-        }.get(column, "")
-
-    def _sort_value(self, row: DatabaseStatusRow, column: int) -> object:
-        if column == self.INTERVAL_COLUMN:
-            return _interval_seconds(row.interval)
-        if column == self.TOTAL_CANDLES_COLUMN:
-            return as_number(row.total_candles)
-        if column == self.STATUS_COLUMN:
-            # Unhealthy first: the point of sorting by status is to bring the
-            # shards that need work to the top. Prefixed into one string
-            # rather than returned as a `(healthy, text)` tuple, because a
-            # tuple reaches `QSortFilterProxyModel.lessThan()` as an opaque
-            # `QVariant` it cannot order — the first version of this was a
-            # tuple and the sort silently did nothing.
-            return f"{1 if row.is_healthy else 0}{row.status_text}"
-        return self._display_text(row, column)
+    def _value(self, row: DatabaseStatusRow, column: int) -> DisplayValue:
+        # The status sorts unhealthy first on its own: "3 gaps found!" is
+        # before "OK" because a digit is before a letter.
+        values: tuple[DisplayValue, ...] = (
+            row.symbol,
+            _interval_seconds(row.interval),
+            row.first_record,
+            row.last_record,
+            row.total_candles,
+            row.status_text,
+            row.market,
+        )
+        return values[column]
 
     def _role_data(self, row: DatabaseStatusRow, column: int, role: int) -> object:
         """A shard with holes in it gets a bold status cell — the one emphasis
@@ -197,9 +180,9 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
     def upsert_row(
         self,
         symbol: str,
-        first_record: str,
-        last_record: str,
-        total_candles: str,
+        first_record: datetime | None,
+        last_record: datetime | None,
+        total_candles: int,
         status_text: str,
         interval: str = TimeFrame.ONE_MINUTE.value,
     ) -> None:
@@ -209,9 +192,9 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
         """
         row = DatabaseStatusRow(
             symbol=symbol,
-            first_record=str(first_record),
-            last_record=str(last_record),
-            total_candles=str(total_candles),
+            first_record=first_record,
+            last_record=last_record,
+            total_candles=total_candles,
             status_text=status_text,
             interval=interval,
         )
@@ -262,12 +245,14 @@ class DatabaseStatusFilterProxy(QSortFilterProxyModel):
     """
     @brief Client-side search over an already-loaded `DatabaseStatusTableModel`.
     Matches search text against symbol or interval, case-insensitively.
+
+    @details Filters only. The panel shows it through `configure_item_view`,
+    whose own proxy above this one sorts and aligns (`EPIC-033N`).
     """
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._needle = ""
-        self.setSortRole(SORT_ROLE)
 
     def set_search_text(self, text: str) -> None:
         needle = (text or "").strip().lower()
@@ -290,12 +275,12 @@ class DatabaseStatusFilterProxy(QSortFilterProxyModel):
 
         # Symbol and interval only, not every column: a search for "1m" must
         # not match a row because its *status text* happens to contain it.
-        for column in (
-            DatabaseStatusTableModel.SYMBOL_COLUMN,
-            DatabaseStatusTableModel.INTERVAL_COLUMN,
-        ):
-            index = model.index(source_row, column, source_parent)
-            text = str(model.data(index, Qt.ItemDataRole.DisplayRole) or "")
-            if self._needle in text.lower():
-                return True
-        return False
+        # The row, not the cells: the interval's cell holds seconds.
+        if not isinstance(model, DatabaseStatusTableModel):
+            return True
+        row = model.row_for(model.index(source_row, 0, source_parent))
+        if row is None:
+            return False
+        return (
+            self._needle in row.symbol.lower() or self._needle in row.interval.lower()
+        )

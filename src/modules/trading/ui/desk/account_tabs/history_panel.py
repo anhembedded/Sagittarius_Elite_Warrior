@@ -9,11 +9,9 @@ exactly the sentence that says some fills are missing.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPushButton,
     QStackedWidget,
@@ -24,10 +22,11 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
     HistoryView,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import (
-    SORT_ROLE,
-    RowTableModel,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 _LOADING_TEXT = "Reading the history..."
 
@@ -49,9 +48,6 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         self._model = model
         model.setParent(self)
         self._page = 0
-        proxy = QSortFilterProxyModel(self)
-        proxy.setSourceModel(model)
-        proxy.setSortRole(SORT_ROLE)
 
         self._scope = QLabel()
         self._scope.setObjectName(f"lbl{name}Scope")
@@ -63,16 +59,11 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
 
         self._table = QTableView()
         self._table.setObjectName(f"tbl{name}")
-        self._table.setModel(proxy)
-        # Newest first is the order the venue's page arrives in; sorting is
-        # off until a header is clicked, so that order is what shows.
-        self._table.setSortingEnabled(True)
-        self._table.horizontalHeader().setSortIndicatorShown(False)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setAlternatingRowColors(True)
-        self._table.verticalHeader().setVisible(False)
-        self._table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
+        # Columns, sorting and selection from the model's specs (`EPIC-033N`).
+        # Not `SpecTable`: this panel's empty page says three different
+        # things (reading, an error, no rows), not one instruction.
+        configure_item_view(
+            self._table, model, model.COLUMNS, formatter=APP_VALUE_FORMATTER
         )
 
         self._empty = QLabel(_LOADING_TEXT)

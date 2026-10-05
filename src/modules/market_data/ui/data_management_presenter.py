@@ -73,7 +73,7 @@ from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdat
 from .data_management_view_model import DataManagementViewModel
 from .logic.coordinator_factory import build_coordinators
 from .logic.data_file_dialogs import DataFileDialogs
-from .logic.stats import database_size_text
+from .logic.stats import database_size_text, stored_records_text
 from .logic.ui_mode_transitions import install_transitions
 
 if TYPE_CHECKING:
@@ -82,7 +82,6 @@ if TYPE_CHECKING:
     from .data_management_view import DataManagementView
 
 _DATABASE_DIR_CONFIG_KEY = "database.dir"
-_UNKNOWN_STAT = "—"
 
 # --- EPIC-010E — remembered selection ---------------------------------
 #: This slice's flat keys, named so `capture_state()`/`restore_state()`
@@ -625,13 +624,8 @@ class DataManagementPresenter(CommandPresenter):
 
     def _refresh_stats(self) -> None:
         """Recomputes stat tiles from rows and SQLite files on disk."""
-        total_records = 0
-        for row in self._view_model.status_model.rows:
-            try:
-                total_records += int(str(row.total_candles).replace(",", ""))
-            except ValueError:
-                continue
-
-        stored = f"{total_records:,}" if total_records else _UNKNOWN_STAT
+        stored = stored_records_text(
+            row.total_candles for row in self._view_model.status_model.rows
+        )
         raw_dir = self.config.get(_DATABASE_DIR_CONFIG_KEY, None)
         self._view_model.set_stats(stored, database_size_text(raw_dir))

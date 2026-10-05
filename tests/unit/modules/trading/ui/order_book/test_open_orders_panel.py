@@ -15,20 +15,24 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
     build_open_order_row,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
     OpenOrdersPanel,
+    cancel_question,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     OpenOrdersTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text
 
 from .test_order_book_rows import order
 
@@ -58,11 +62,12 @@ def _select_row(panel: OpenOrdersPanel, row: int) -> None:
     panel.table.selectRow(row)
 
 
-def _texts(panel: OpenOrdersPanel, column: int) -> list[str]:
-    model = panel.table.model()
+def _texts(panel: OpenOrdersPanel, key: str) -> list[str]:
+    """What the user reads down one column, as the view paints it."""
+    column = OpenOrdersTableModel.column(key)
     return [
-        str(model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole))
-        for row in range(model.rowCount())
+        displayed_text(panel.table, row, column)
+        for row in range(panel.table.model().rowCount())
     ]
 
 
@@ -72,7 +77,7 @@ class TestWhatTheUserSees:
             order(client_order_id="a"), order("ETHUSDT", client_order_id="b")
         )
 
-        assert _texts(panel, OpenOrdersTableModel.SYMBOL_COLUMN) == [
+        assert _texts(panel, "symbol") == [
             "BTCUSDT",
             "ETHUSDT",
         ]
@@ -101,12 +106,40 @@ class TestWhatTheUserSees:
         self, qapp
     ) -> None:
         panel = OpenOrdersPanel()
+        body = panel._table.body
 
-        assert panel._body.currentWidget() is panel._empty
+        assert body.currentWidget() is not panel.table
+        assert body.instruction == "No pending orders."
 
         panel.set_rows([build_open_order_row(order())])
 
-        assert panel._body.currentWidget() is panel.table
+        assert body.currentWidget() is panel.table
+
+    def test_every_value_is_written_by_its_kind(self, qapp) -> None:
+        moment = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
+        panel, _ = _panel(
+            order(order_time=moment),
+            order(
+                "ETHUSDT", order_type=OrderType.MARKET, price=None, client_order_id="b"
+            ),
+        )
+
+        assert _texts(panel, "quantity") == ["0.25", "0.25"]
+        assert _texts(panel, "price") == ["64,000.00", ""]
+        assert _texts(panel, "time") == ["2026-09-15 12:00:00", ""]
+
+    def test_the_cancel_question_names_the_order_as_the_table_writes_it(
+        self, qapp
+    ) -> None:
+        limit = build_open_order_row(order())
+        market = build_open_order_row(order(order_type=OrderType.MARKET, price=None))
+
+        assert cancel_question(limit) == (
+            "Cancel the BUY LIMIT order on BTCUSDT (0.25 @ 64,000.00)?"
+        )
+        assert cancel_question(market) == (
+            "Cancel the BUY MARKET order on BTCUSDT (0.25)?"
+        )
 
 
 class TestTheCancelAction:
@@ -176,7 +209,7 @@ class TestTheCancelAction:
             lambda symbol, order_id: emitted.append((symbol, order_id))
         )
         panel.table.sortByColumn(
-            OpenOrdersTableModel.SYMBOL_COLUMN, Qt.SortOrder.AscendingOrder
+            OpenOrdersTableModel.column("symbol"), Qt.SortOrder.AscendingOrder
         )
         _select_row(panel, 0)
 

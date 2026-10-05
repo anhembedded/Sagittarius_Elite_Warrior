@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holdings_panel 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     HoldingsTableModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text
 
 from .test_order_book_rows import holding
 
@@ -32,11 +32,12 @@ def _panel(qapp, *holdings) -> HoldingsPanel:
     return panel
 
 
-def _texts(panel: HoldingsPanel, column: int) -> list[str]:
-    model = panel.table.model()
+def _texts(panel: HoldingsPanel, key: str) -> list[str]:
+    """What the user reads down one column, as the view paints it."""
+    column = HoldingsTableModel.column(key)
     return [
-        str(model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole))
-        for row in range(model.rowCount())
+        displayed_text(panel.table, row, column)
+        for row in range(panel.table.model().rowCount())
     ]
 
 
@@ -44,7 +45,7 @@ class TestWhatTheUserSees:
     def test_one_row_per_holding(self, qapp) -> None:
         panel = _panel(qapp, holding("BTC"), holding("ETH"))
 
-        assert _texts(panel, HoldingsTableModel.ASSET_COLUMN) == ["BTC", "ETH"]
+        assert _texts(panel, "asset") == ["BTC", "ETH"]
 
     def test_every_column_has_a_header(self, qapp) -> None:
         panel = _panel(qapp, holding())
@@ -62,38 +63,42 @@ class TestWhatTheUserSees:
         self, qapp
     ) -> None:
         panel = HoldingsPanel()
+        body = panel._table.body
 
-        assert panel.findChild(type(panel._empty), "lblHoldingsEmpty") is not None
-        assert panel._body.currentWidget() is panel._empty
+        assert body.currentWidget() is not panel.table
+        assert body.instruction == "No holdings."
 
         panel.set_rows([build_holding_row(holding(), _PRICES)])
 
-        assert panel._body.currentWidget() is panel.table
+        assert body.currentWidget() is panel.table
 
     def test_set_rows_replaces_the_previous_set(self, qapp) -> None:
         panel = _panel(qapp, holding("BTC"))
 
         panel.set_rows([build_holding_row(holding("ETH"), _PRICES)])
 
-        assert _texts(panel, HoldingsTableModel.ASSET_COLUMN) == ["ETH"]
+        assert _texts(panel, "asset") == ["ETH"]
 
     def test_the_numbers_are_right_aligned(self, qapp) -> None:
         panel = _panel(qapp, holding())
         model = panel.table.model()
 
-        alignment = model.data(
-            model.index(0, HoldingsTableModel.VALUE_COLUMN),
-            Qt.ItemDataRole.TextAlignmentRole,
-        )
-        assert alignment is not None
-        assert int(alignment) & int(Qt.AlignmentFlag.AlignRight)
-        assert (
-            model.data(
-                model.index(0, HoldingsTableModel.ASSET_COLUMN),
-                Qt.ItemDataRole.TextAlignmentRole,
-            )
-            is None
-        )
+        def alignment(key: str) -> int:
+            index = model.index(0, HoldingsTableModel.column(key))
+            return int(model.data(index, Qt.ItemDataRole.TextAlignmentRole))
+
+        assert alignment("value") & int(Qt.AlignmentFlag.AlignRight)
+        assert alignment("asset") & int(Qt.AlignmentFlag.AlignLeft)
+
+    def test_balances_and_value_are_written_by_kind(self, qapp) -> None:
+        panel = _panel(qapp, holding("BTC", free="0.5", locked="0.25"))
+
+        assert _texts(panel, "free") == ["0.5"]
+        assert _texts(panel, "locked") == ["0.25"]
+        assert _texts(panel, "value") == ["48,000.00"]
+
+    def test_an_asset_without_a_price_has_an_empty_value(self, qapp) -> None:
+        assert _texts(_panel(qapp, holding("XRP")), "value") == [""]
 
 
 class TestSorting:
@@ -105,26 +110,25 @@ class TestSorting:
         )
 
         panel.table.sortByColumn(
-            HoldingsTableModel.VALUE_COLUMN, Qt.SortOrder.AscendingOrder
+            HoldingsTableModel.column("value"), Qt.SortOrder.AscendingOrder
         )
 
-        assert _texts(panel, HoldingsTableModel.ASSET_COLUMN) == ["BTC", "ETH"]
+        assert _texts(panel, "asset") == ["BTC", "ETH"]
 
-    def test_a_missing_price_sorts_below_every_real_value(self, qapp) -> None:
+    def test_a_missing_value_sorts_after_every_real_one(self, qapp) -> None:
+        """Qt's own order for an unknown value: last when ascending. It sorted
+        first while the model compared `-inf` for it (`as_number`)."""
         panel = _panel(qapp, holding("XRP", free="100"), holding("BTC", free="0.001"))
 
         panel.table.sortByColumn(
-            HoldingsTableModel.VALUE_COLUMN, Qt.SortOrder.AscendingOrder
+            HoldingsTableModel.column("value"), Qt.SortOrder.AscendingOrder
         )
 
-        assert _texts(panel, HoldingsTableModel.ASSET_COLUMN) == ["XRP", "BTC"]
+        assert _texts(panel, "asset") == ["BTC", "XRP"]
 
-    def test_the_sort_role_carries_the_comparable_fact(self, qapp) -> None:
+    def test_the_cell_holds_the_number_the_sort_compares(self, qapp) -> None:
         panel = _panel(qapp, holding("BTC", free="0.5"))
-        proxy = panel.table.model()
-        source = proxy.sourceModel()
+        source = panel.table.model().sourceModel()
+        index = source.index(0, HoldingsTableModel.column("value"))
 
-        assert (
-            source.data(source.index(0, HoldingsTableModel.VALUE_COLUMN), SORT_ROLE)
-            == 32000.0
-        )
+        assert source.data(index, Qt.ItemDataRole.DisplayRole) == 32000.0

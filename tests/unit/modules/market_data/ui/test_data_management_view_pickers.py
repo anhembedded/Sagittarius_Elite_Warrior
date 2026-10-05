@@ -42,7 +42,9 @@ def _click_cell(picker, symbol, column):
     """Click one cell of `symbol`'s row — the star column stars, any other
     column chooses."""
     row = _shown_symbols(picker).index(symbol)
-    picker._table.clicked.emit(picker._model.index(row, column))
+    picker._table.clicked.emit(
+        picker._proxy.mapFromSource(picker._model.index(row, column))
+    )
 
 
 @pytest.fixture

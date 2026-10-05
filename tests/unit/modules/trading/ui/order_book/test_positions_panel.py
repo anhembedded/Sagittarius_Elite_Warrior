@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     PositionsTableModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import displayed_text
 
 from .test_order_book_rows import position
 
@@ -37,11 +37,12 @@ def _panel(qapp, *positions) -> PositionsPanel:
     return panel
 
 
-def _texts(panel: PositionsPanel, column: int) -> list[str]:
-    model = panel.table.model()
+def _texts(panel: PositionsPanel, key: str) -> list[str]:
+    """What the user reads down one column, as the view paints it."""
+    column = PositionsTableModel.column(key)
     return [
-        str(model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole))
-        for row in range(model.rowCount())
+        displayed_text(panel.table, row, column)
+        for row in range(panel.table.model().rowCount())
     ]
 
 
@@ -49,7 +50,7 @@ class TestWhatTheUserSees:
     def test_one_row_per_position(self, qapp) -> None:
         panel = _panel(qapp, position("BTCUSDT"), position("ETHUSDT"))
 
-        assert _texts(panel, PositionsTableModel.SYMBOL_COLUMN) == [
+        assert _texts(panel, "symbol") == [
             "BTCUSDT",
             "ETHUSDT",
         ]
@@ -72,7 +73,7 @@ class TestWhatTheUserSees:
             "Size",
             "Entry",
             "Mark",
-            "Unrealized PnL",
+            "Unrealized PnL (USDT)",
             "Leverage",
             "Liquidation",
         ]
@@ -84,20 +85,21 @@ class TestWhatTheUserSees:
         its header and grid, which reads as "nothing loaded yet" when the
         truth is "the account holds nothing"."""
         panel = PositionsPanel()
+        body = panel._table.body
 
-        assert panel.findChild(type(panel._empty), "lblPositionsEmpty") is not None
-        assert panel._body.currentWidget() is panel._empty
+        assert body.currentWidget() is not panel.table
+        assert body.instruction == "No open positions."
 
         panel.set_rows([build_position_row(position())])
 
-        assert panel._body.currentWidget() is panel.table
+        assert body.currentWidget() is panel.table
 
     def test_set_rows_replaces_the_previous_set(self, qapp) -> None:
         panel = _panel(qapp, position("BTCUSDT"))
 
         panel.set_rows([build_position_row(position("ETHUSDT"))])
 
-        assert _texts(panel, PositionsTableModel.SYMBOL_COLUMN) == ["ETHUSDT"]
+        assert _texts(panel, "symbol") == ["ETHUSDT"]
 
     def test_a_losing_position_is_marked_without_a_colour(self, qapp) -> None:
         """ADR D21: colour comes from the OS palette, and Qt has no role
@@ -106,40 +108,52 @@ class TestWhatTheUserSees:
         with gaps."""
         panel = _panel(qapp, position(pnl="-10.0"), position("ETHUSDT", pnl="10.0"))
         model = panel.table.model()
+        pnl = PositionsTableModel.column("pnl")
 
-        losing = model.index(0, PositionsTableModel.PNL_COLUMN)
-        winning = model.index(1, PositionsTableModel.PNL_COLUMN)
+        losing = model.index(0, pnl)
+        winning = model.index(1, pnl)
 
-        assert str(model.data(losing, Qt.ItemDataRole.DisplayRole)) == "-10.00 USDT"
+        assert _texts(panel, "pnl") == ["-10.00", "10.00"]
         font = model.data(losing, Qt.ItemDataRole.FontRole)
         assert isinstance(font, QFont)
         assert font.bold() is True
         assert model.data(winning, Qt.ItemDataRole.FontRole) is None
 
-    def test_the_numbers_are_right_aligned(self, qapp) -> None:
+    def test_the_numbers_are_right_aligned_and_the_text_left(self, qapp) -> None:
         panel = _panel(qapp, position())
         model = panel.table.model()
 
-        alignment = model.data(
-            model.index(0, PositionsTableModel.PNL_COLUMN),
-            Qt.ItemDataRole.TextAlignmentRole,
+        def alignment(key: str) -> int:
+            index = model.index(0, PositionsTableModel.column(key))
+            return int(model.data(index, Qt.ItemDataRole.TextAlignmentRole))
+
+        assert alignment("pnl") & int(Qt.AlignmentFlag.AlignRight)
+        assert alignment("symbol") & int(Qt.AlignmentFlag.AlignLeft)
+
+    def test_every_value_is_written_by_its_kind(self, qapp) -> None:
+        """One formatter for every table (`EPIC-033N`): a price by its
+        magnitude, a size without trailing zeros, money to the cent."""
+        panel = _panel(
+            qapp,
+            position(
+                "PEPEUSDT", amt="-1250000", liquidation_price=Decimal("0.0000123")
+            ),
         )
-        assert alignment is not None
-        assert int(alignment) & int(Qt.AlignmentFlag.AlignRight)
-        assert (
-            model.data(
-                model.index(0, PositionsTableModel.SYMBOL_COLUMN),
-                Qt.ItemDataRole.TextAlignmentRole,
-            )
-            is None
-        )
+
+        assert _texts(panel, "side") == ["SHORT"]
+        assert _texts(panel, "size") == ["1,250,000"]
+        assert _texts(panel, "entry") == ["64,000.00"]
+        assert _texts(panel, "liquidation") == ["0.0000123"]
+        assert _texts(panel, "leverage") == ["10"]
+
+    def test_an_unreported_liquidation_price_is_an_empty_cell(self, qapp) -> None:
+        assert _texts(_panel(qapp, position()), "liquidation") == [""]
 
 
 class TestSorting:
     def test_pnl_sorts_by_the_number_not_by_its_text(self, qapp) -> None:
-        """The column sorting is new — neither QML `ListView` had any — and
-        this is the assertion that makes it worth having: on `DisplayRole`
-        text, `"-9.00 USDT"` sorts after `"+10.00 USDT"`."""
+        """The assertion that makes sorting worth having: on text, `"-9.00"`
+        sorts after `"10.00"` and `"120.00"` before `"9.00"`."""
         panel = _panel(
             qapp,
             position("BTCUSDT", pnl="10.0"),
@@ -148,23 +162,18 @@ class TestSorting:
         )
 
         panel.table.sortByColumn(
-            PositionsTableModel.PNL_COLUMN, Qt.SortOrder.AscendingOrder
+            PositionsTableModel.column("pnl"), Qt.SortOrder.AscendingOrder
         )
 
-        assert _texts(panel, PositionsTableModel.SYMBOL_COLUMN) == [
+        assert _texts(panel, "symbol") == [
             "ETHUSDT",
             "BTCUSDT",
             "SOLUSDT",
         ]
 
-    def test_the_sort_role_carries_the_comparable_fact(self, qapp) -> None:
+    def test_the_cell_holds_the_number_the_sort_compares(self, qapp) -> None:
         panel = _panel(qapp, position(liquidation_price=Decimal("32140.00")))
-        proxy = panel.table.model()
-        source = proxy.sourceModel()
+        source = panel.table.model().sourceModel()
+        index = source.index(0, PositionsTableModel.column("liquidation"))
 
-        assert (
-            source.data(
-                source.index(0, PositionsTableModel.LIQUIDATION_COLUMN), SORT_ROLE
-            )
-            == 32140.0
-        )
+        assert source.data(index, Qt.ItemDataRole.DisplayRole) == 32140.0

@@ -10,6 +10,7 @@ still gates every one of them, and `Clear` asks first.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 
 import pytest
 
@@ -54,8 +55,8 @@ def _upsert(
 ) -> None:
     model.upsert_row(
         symbol=symbol,
-        first_record="2024-01-01 00:00",
-        last_record="2024-01-02 00:00",
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 1, 2, tzinfo=UTC),
         total_candles=total,
         status_text=status,
         interval=interval,

@@ -110,10 +110,10 @@ def test_an_empty_history_has_no_pages() -> None:
 def test_an_order_with_nothing_filled_has_no_average_price() -> None:
     row = build_order_history_row(_record(None))
 
-    assert row.average_price_text == "—"
-    assert row.stop_price_text == "—"
-    assert row.filled_text == "0.0000"
-    assert row.status_text == "CANCELED"
+    assert row.average_price is None
+    assert row.stop_price is None
+    assert row.filled == Decimal(0)
+    assert row.status == "CANCELED"
 
 
 def test_a_spot_fill_has_no_realized_pnl_and_keeps_its_fee_asset() -> None:
@@ -132,5 +132,5 @@ def test_a_spot_fill_has_no_realized_pnl_and_keeps_its_fee_asset() -> None:
         )
     )
 
-    assert row.realized_pnl_text == "—"
-    assert row.fee_text == "0.00001000 BTC"
+    assert row.realized_pnl is None
+    assert (row.fee, row.fee_asset) == (Decimal("0.00001"), "BTC")

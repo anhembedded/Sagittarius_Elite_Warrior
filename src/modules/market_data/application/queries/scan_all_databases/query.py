@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     DatabaseStatusSnapshot,
@@ -14,16 +15,19 @@ _STATUS_OK = "OK"
 class DatabaseStatusDTO:
     """
     @brief Data Transfer Object for a single database scan result.
-    @details Carries pre-formatted, display-ready status for one symbol/interval pair.
-    Used as the result element type of ScanAllDatabasesQuery and GetDatabaseStatusQuery.
+    @details Carries one symbol/interval pair's status as values — the UI's
+    formatter writes the dates and the count (`EPIC-033N`); only the status
+    sentence is decided here. Used as the result element type of
+    ScanAllDatabasesQuery and GetDatabaseStatusQuery.
     """
 
     symbol: str
     interval: str
-    first_record: str
-    last_record: str
-    total_candles: str
-    gaps: str
+    #: `None` when the shard holds no candle.
+    first_record: datetime | None
+    last_record: datetime | None
+    total_candles: int
+    gaps: int
     status_text: str
 
     @classmethod
@@ -31,10 +35,10 @@ class DatabaseStatusDTO:
         cls, symbol: str, interval: str, snapshot: DatabaseStatusSnapshot
     ) -> DatabaseStatusDTO:
         """
-        @brief Builds a display-ready DTO from a raw repository snapshot.
-        @details Single source of truth for the "OK" vs "N gaps found!" status text and
-        string formatting, so GetDatabaseStatusQueryHandler and ScanAllDatabasesQueryHandler
-        can't drift apart on how a status is presented.
+        @brief Builds the DTO from a raw repository snapshot.
+        @details Single source of truth for the "OK" vs "N gaps found!" status text,
+        so GetDatabaseStatusQueryHandler and ScanAllDatabasesQueryHandler can't
+        drift apart on how a status is described.
         """
         status_text = (
             _STATUS_OK if snapshot.gaps == 0 else f"{snapshot.gaps} gaps found!"
@@ -42,10 +46,10 @@ class DatabaseStatusDTO:
         return cls(
             symbol=symbol,
             interval=interval,
-            first_record=str(snapshot.first_record or "N/A"),
-            last_record=str(snapshot.last_record or "N/A"),
-            total_candles=str(snapshot.total_candles),
-            gaps=str(snapshot.gaps),
+            first_record=snapshot.first_record,
+            last_record=snapshot.last_record,
+            total_candles=snapshot.total_candles,
+            gaps=snapshot.gaps,
             status_text=status_text,
         )
 

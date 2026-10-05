@@ -102,7 +102,9 @@ def _click_cell(dialog, qapp, symbol, column):
     starring and choosing.
     """
     row = _shown_symbols(dialog).index(symbol)
-    dialog._table.clicked.emit(dialog._model.index(row, column))
+    dialog._table.clicked.emit(
+        dialog._proxy.mapFromSource(dialog._model.index(row, column))
+    )
     qapp.processEvents()
 
 

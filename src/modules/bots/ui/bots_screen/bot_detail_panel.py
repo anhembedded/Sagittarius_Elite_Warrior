@@ -15,7 +15,6 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -35,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 EMPTY_TEXT = "Select a bot, or create one with New bot."
 NO_CHART_TEXT = "The bot's chart is not open."
@@ -209,13 +212,10 @@ class BotDetailPanel(QWidget):
 
 
 def _table(model: BotOrdersTableModel | BotFillsTableModel, name: str) -> QTableView:
+    """Columns, sorting and selection from the model's specs (`EPIC-033N`)."""
     table = QTableView()
     table.setObjectName(name)
-    table.setModel(model)
-    table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-    table.verticalHeader().setVisible(False)
-    table.horizontalHeader().setStretchLastSection(True)
+    configure_item_view(table, model, model.COLUMNS, formatter=APP_VALUE_FORMATTER)
     return table
 
 

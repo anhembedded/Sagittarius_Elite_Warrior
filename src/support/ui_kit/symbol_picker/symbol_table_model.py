@@ -29,12 +29,11 @@ one cell because a column is what the platform gives for free: `QTableView`
 reports the clicked index, so "did the user click the star or the row" is a
 column comparison rather than mouse arithmetic against a delegate's geometry.
 
-`_sort_value` returns display text for every column: this table is **not**
-sortable by the user. Its order is the picker's own — favourites first, then
-everything else, both in the order the filter produced — and that order is
-information (`partition_favourites`). The method is written out because
-`RowTableModel` declares it abstract instead of defaulting it, so a table that
-does need numeric sorting cannot get it wrong in silence.
+The order is the picker's own — favourites first, then everything else, both
+in the order the filter produced — and that order is information
+(`partition_favourites`). The overlay shows the table through
+`configure_item_view` like every other (`EPIC-033N`), but it hides the header,
+so no click re-sorts it and the proxy keeps the model's order.
 """
 
 from __future__ import annotations
@@ -44,6 +43,11 @@ from typing import ClassVar, Final
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
+)
 
 from .filtering import SymbolEntry
 
@@ -69,35 +73,26 @@ class SymbolTableModel(RowTableModel[SymbolEntry]):
     STATUS_COLUMN: Final = 1
     FAVOURITE_COLUMN: Final = 2
 
-    HEADERS: ClassVar[tuple[str, ...]] = ("Symbol", "", "")
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("symbol", "Symbol", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("status", "Status", ColumnKind.STATUS),
+        ColumnSpec("favourite", "Favourite", ColumnKind.TEXT),
+    )
 
-    #: The star column is centred rather than right-aligned; `RIGHT_ALIGNED`
-    #: stays empty and `_role_data()` answers the alignment, because the two
-    #: text columns are text and read left.
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset()
-
-    def _display_text(self, row: SymbolEntry, column: int) -> str:
+    def _value(self, row: SymbolEntry, column: int) -> DisplayValue:
         if column == self.SYMBOL_COLUMN:
             return row.symbol
         if column == self.STATUS_COLUMN:
             return self._status_text(row)
-        if column == self.FAVOURITE_COLUMN:
-            return _STAR_ON if row.is_favourite else _STAR_OFF
-        return ""
-
-    def _sort_value(self, row: SymbolEntry, column: int) -> object:
-        return self._display_text(row, column)
+        return _STAR_ON if row.is_favourite else _STAR_OFF
 
     def _role_data(self, row: SymbolEntry, column: int, role: int) -> object:
-        if column == self.FAVOURITE_COLUMN:
-            if role == Qt.ItemDataRole.TextAlignmentRole:
-                return int(Qt.AlignmentFlag.AlignCenter)
-            if role == Qt.ItemDataRole.ToolTipRole:
-                return (
-                    _REMOVE_FAVOURITE_TOOLTIP
-                    if row.is_favourite
-                    else _ADD_FAVOURITE_TOOLTIP
-                )
+        if column == self.FAVOURITE_COLUMN and role == Qt.ItemDataRole.ToolTipRole:
+            return (
+                _REMOVE_FAVOURITE_TOOLTIP
+                if row.is_favourite
+                else _ADD_FAVOURITE_TOOLTIP
+            )
         if (
             role == Qt.ItemDataRole.FontRole
             and column == self.SYMBOL_COLUMN

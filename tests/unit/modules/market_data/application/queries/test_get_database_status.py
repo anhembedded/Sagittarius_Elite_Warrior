@@ -43,8 +43,8 @@ def test_get_database_status_success(handler, mock_repo):
     assert isinstance(result, DatabaseStatusDTO)
     assert result.symbol == "BTCUSDT"
     assert result.interval == "1m"
-    assert result.total_candles == "100"
-    assert result.gaps == "0"
+    assert result.total_candles == 100
+    assert result.gaps == 0
     assert result.status_text == "OK"
     mock_repo.get_database_status.assert_called_once_with(
         market=MarketType.SPOT, symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE
@@ -64,8 +64,8 @@ def test_get_database_status_with_gaps(handler, mock_repo):
     result = handler.execute(query)
 
     assert result.status_text == "4 gaps found!"
-    assert result.first_record == "N/A"
-    assert result.last_record == "N/A"
+    assert result.first_record is None
+    assert result.last_record is None
 
 
 def test_get_database_status_invalid_interval(handler, mock_repo):

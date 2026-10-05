@@ -71,17 +71,7 @@
       "src/modules/backtesting/ui/backtest_modals/metrics_detail_dialog.py": 4,
       "src/modules/backtesting/ui/backtest_modals/out_of_sample_comparison_dialog.py": 3,
       "src/modules/backtesting/ui/backtest_modals/report_comparison_dialog.py": 3,
-      "src/modules/bots/ui/bots_screen/bot_detail_panel.py": 2,
-      "src/modules/bots/ui/bots_screen/bots_view.py": 5,
-      "src/modules/market_data/ui/data_management_widgets/database_status_panel.py": 7,
-      "src/modules/market_data/ui/data_management_widgets/kline_inspector_dialog.py": 6,
-      "src/modules/market_data/ui/watchlist/watchlist_view.py": 7,
-      "src/modules/trading/ui/desk/account_tabs/history_panel.py": 4,
-      "src/modules/trading/ui/order_book/holdings_panel.py": 6,
-      "src/modules/trading/ui/order_book/open_orders_panel.py": 6,
-      "src/modules/trading/ui/order_book/positions_panel.py": 6,
-      "src/support/charting/timeframe_picker/dialog.py": 3,
-      "src/support/ui_kit/symbol_picker/overlay.py": 7
+      "src/support/charting/timeframe_picker/dialog.py": 3
     },
     "checkable_button": {
       "src/modules/backtesting/ui/logic/chart_controls.py": 1,
@@ -90,7 +80,6 @@
       "src/support/ui_kit/time_range_picker/dialog.py": 1
     },
     "font_family": {
-      "src/modules/market_data/ui/kline_inspector_table_model.py": 1,
       "src/presentation/ui/components/critical_error_dialog.py": 1
     },
     "color_literal": {

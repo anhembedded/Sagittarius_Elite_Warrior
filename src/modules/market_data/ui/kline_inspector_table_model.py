@@ -26,16 +26,23 @@ The two values are **not** redeclared here: they are `chart_card`'s own
 candle body is green because it closed up". The same candle is green on the
 chart and in this table because it is the same constant, and this repository
 has been bitten enough times by a second copy of one value.
+
+**Values, not text (`EPIC-033N`).** A row holds the candle's numbers and the
+table writes them through the application's formatter, so a price reads here
+as it reads on every other screen. Until then this file had its own
+`_format_price` and `_format_volume` (a compact `1.23M`), and set a monospace
+font family on every cell, which `ui-presentation-rule.md` §1 now forbids.
+The table stays in time order: the candles arrive that way and the view is
+not sorted until the user clicks a header.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import ClassVar, Final
 
-from PySide6.QtCore import (
-    Qt,
-)
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
@@ -43,15 +50,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
+)
 
-_LARGE_PRICE_THRESHOLD = 100.0
-_THOUSAND = 1_000.0
-_MILLION = 1_000_000.0
-
-#: The two meaningful colours in this widget (ADR D21), as `QColor`s of the
-#: hex strings `chart_card/theme.py` already carries — imported, not copied,
-#: the same way `strategy_overlay` imports them. A `QColor` rather than the
-#: string because `ForegroundRole` wants a colour, not CSS.
 BULLISH_COLOR: Final = QColor(BULL_COLOR)
 BEARISH_COLOR: Final = QColor(BEAR_COLOR)
 
@@ -59,146 +63,79 @@ BEARISH_COLOR: Final = QColor(BEAR_COLOR)
 @dataclass(frozen=True)
 class KLineDisplayRow:
     """
-    @brief Immutable presentation row for one historical OHLCV candle.
+    @brief One historical OHLCV candle, as values the table writes by kind.
     """
 
-    timestamp_ms: int
-    formatted_time: str
-    open_str: str
-    high_str: str
-    low_str: str
-    close_str: str
-    volume_str: str
-    quote_volume_str: str
+    open_time: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
     trades: int
     is_bullish: bool
-    change_pct_str: str
-
-
-def _format_price(val: float) -> str:
-    if val >= _LARGE_PRICE_THRESHOLD:
-        return f"{val:,.2f}"
-    if val >= 1:
-        return f"{val:.4f}"
-    return f"{val:.8f}".rstrip("0").rstrip(".")
-
-
-def _format_volume(val: float) -> str:
-    if val >= _MILLION:
-        return f"{val / _MILLION:.2f}M"
-    if val >= _THOUSAND:
-        return f"{val / _THOUSAND:.2f}K"
-    return f"{val:.4f}".rstrip("0").rstrip(".")
+    #: Close against open, in percent.
+    change_percent: float
 
 
 def market_data_to_kline_row(k: MarketData) -> KLineDisplayRow:
     """Converts one domain candle to its display row."""
-    ts_ms = int(k.open_time.timestamp() * 1000)
-    is_bull = k.close_price >= k.open_price
-    chg = (
+    change = (
         (k.close_price - k.open_price) / k.open_price * 100 if k.open_price > 0 else 0.0
     )
     return KLineDisplayRow(
-        timestamp_ms=ts_ms,
-        formatted_time=k.open_time.strftime("%Y-%m-%d %H:%M:%S"),
-        open_str=_format_price(k.open_price),
-        high_str=_format_price(k.high_price),
-        low_str=_format_price(k.low_price),
-        close_str=_format_price(k.close_price),
-        volume_str=_format_volume(k.volume),
-        quote_volume_str=_format_volume(k.quote_asset_volume),
+        open_time=k.open_time,
+        open=k.open_price,
+        high=k.high_price,
+        low=k.low_price,
+        close=k.close_price,
+        volume=k.volume,
         trades=k.number_of_trades,
-        is_bullish=is_bull,
-        change_pct_str=f"{chg:+.2f}%",
+        is_bullish=k.close_price >= k.open_price,
+        change_percent=change,
     )
 
 
 class KLineInspectorTableModel(RowTableModel[KLineDisplayRow]):
     """
-    @brief Every stored candle for one symbol/interval shard, already
-    formatted for display.
+    @brief Every stored candle for one symbol/interval shard.
     """
 
-    TIME_COLUMN: Final = 0
-    OPEN_COLUMN: Final = 1
-    HIGH_COLUMN: Final = 2
-    LOW_COLUMN: Final = 3
-    CLOSE_COLUMN: Final = 4
-    VOLUME_COLUMN: Final = 5
-    CHANGE_COLUMN: Final = 6
-    TRADES_COLUMN: Final = 7
-
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Time (UTC)",
-        "Open",
-        "High",
-        "Low",
-        "Close",
-        "Volume",
-        "Change",
-        "Trades",
-    )
-
-    #: Every numeric column. A price column only lines up if its digits do.
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset(
-        {
-            OPEN_COLUMN,
-            HIGH_COLUMN,
-            LOW_COLUMN,
-            CLOSE_COLUMN,
-            VOLUME_COLUMN,
-            CHANGE_COLUMN,
-            TRADES_COLUMN,
-        }
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("time", "Time", ColumnKind.TIMESTAMP),
+        ColumnSpec("open", "Open", ColumnKind.PRICE),
+        ColumnSpec("high", "High", ColumnKind.PRICE),
+        ColumnSpec("low", "Low", ColumnKind.PRICE),
+        ColumnSpec("close", "Close", ColumnKind.PRICE),
+        ColumnSpec("volume", "Volume", ColumnKind.QUANTITY),
+        ColumnSpec("change", "Change", ColumnKind.PERCENT),
+        ColumnSpec("trades", "Trades", ColumnKind.QUANTITY),
     )
 
     #: The two cells that say which way the candle went.
-    _DIRECTIONAL_COLUMNS: ClassVar[frozenset[int]] = frozenset(
-        {CLOSE_COLUMN, CHANGE_COLUMN}
-    )
+    _DIRECTIONAL_KEYS: ClassVar[frozenset[str]] = frozenset({"close", "change"})
 
-    # -- what this table decides (the rest is `RowTableModel`'s) -----------
-    #
-    # No `__init__`: it did nothing but call `super()` once `_rows` moved to
-    # the base class.
-
-    def _display_text(self, row: KLineDisplayRow, column: int) -> str:
-        return {
-            self.TIME_COLUMN: row.formatted_time,
-            self.OPEN_COLUMN: row.open_str,
-            self.HIGH_COLUMN: row.high_str,
-            self.LOW_COLUMN: row.low_str,
-            self.CLOSE_COLUMN: row.close_str,
-            self.VOLUME_COLUMN: row.volume_str,
-            self.CHANGE_COLUMN: row.change_pct_str,
-            self.TRADES_COLUMN: str(row.trades),
-        }.get(column, "")
-
-    def _sort_value(self, row: KLineDisplayRow, column: int) -> object:
-        """Every column sorts by its display text, because this table is
-        **not sortable**: the candles arrive in time order, and that is the only
-        order a candle table has any business being in — a price column sorted
-        by price is a chart, not an inspector. It is written out rather than
-        inherited, because `RowTableModel` declares it abstract instead of
-        defaulting it precisely so that a table which *does* need numeric
-        sorting cannot get it wrong in silence (`SORT_ROLE`'s whole reason)."""
-        return self._display_text(row, column)
+    def _value(self, row: KLineDisplayRow, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
+            row.open_time,
+            row.open,
+            row.high,
+            row.low,
+            row.close,
+            row.volume,
+            row.change_percent,
+            row.trades,
+        )
+        return values[column]
 
     def _role_data(self, row: KLineDisplayRow, column: int, role: int) -> object:
-        if role == Qt.ItemDataRole.FontRole:
-            # Monospace on every cell: a column of prices is only comparable
-            # at a glance if every digit is the same width — the same reason
-            # `_KLineRowWidget` gave before any of this was QML.
+        key = self.COLUMNS[column].key
+        if role == Qt.ItemDataRole.FontRole and key == "close":
+            # The close is the price a candle is read by.
             font = QFont()
-            font.setStyleHint(QFont.StyleHint.Monospace)
-            font.setFamily("monospace")
-            if column == self.CLOSE_COLUMN:
-                font.setBold(True)
+            font.setBold(True)
             return font
-        if (
-            role == Qt.ItemDataRole.ForegroundRole
-            and column in self._DIRECTIONAL_COLUMNS
-        ):
+        if role == Qt.ItemDataRole.ForegroundRole and key in self._DIRECTIONAL_KEYS:
             return BULLISH_COLOR if row.is_bullish else BEARISH_COLOR
         return None
 
