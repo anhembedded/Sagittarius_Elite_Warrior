@@ -3,7 +3,7 @@ by side, each with its own price and amount (the Spot desk)."""
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
 )
@@ -27,3 +27,7 @@ class TwoColumnSides(QWidget):  # base-exempt: a container, not a surface
         layout.setContentsMargins(0, 0, 0, 0)
         for side in EntrySide:
             layout.addWidget(self.forms[side], 1)
+
+    def first_field(self) -> QLineEdit | None:
+        """The left column's first field: the Buy form's."""
+        return self.forms[EntrySide.BUY].first_field()

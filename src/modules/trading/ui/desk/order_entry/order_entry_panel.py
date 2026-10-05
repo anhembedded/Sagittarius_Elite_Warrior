@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QLabel,
@@ -46,7 +47,8 @@ _TAB_TEXT = {
     OrderType.STOP_LIMIT: "Stop-limit",
 }
 
-_SIDE_LAYOUTS: dict[SideLayout, Callable[[OrderEntryViewModel], QWidget]] = {
+#: Each layout offers `first_field`, where New order… (F9) puts the focus.
+_SIDE_LAYOUTS: dict[SideLayout, Callable[[OrderEntryViewModel], TwoColumnSides]] = {
     SideLayout.TWO_COLUMNS: TwoColumnSides,
 }
 
@@ -108,7 +110,14 @@ class OrderEntryPanel(QWidget):  # base-exempt: a container, not a surface
         layout.addWidget(self.sides, 1)
         layout.addWidget(self._status)
         view_model.changed.connect(self._sync)
+        view_model.focusRequested.connect(self._focus_first_field)
         self._sync()
+
+    def _focus_first_field(self) -> None:
+        field = self.sides.first_field()
+        if field is not None:
+            field.setFocus(Qt.FocusReason.ShortcutFocusReason)
+            field.selectAll()
 
     def _sync(self) -> None:
         vm = self._vm

@@ -183,6 +183,14 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         view_model.changed.connect(self.sync)
         self.sync()
 
+    def first_field(self) -> QLineEdit | None:
+        """The first field shown, top to bottom, that takes input now; `None`
+        while none does (`EPIC-033R`)."""
+        for field in (self._stop, self._price, self._quantity, self._spend):
+            if not field.isHidden() and field.isEnabled():
+                return field
+        return None
+
     def _show_figures(self, figures: SideFigures | None, units: SideUnits) -> None:
         self._figures.show_readout(side_readout(figures, units))
         value = self._figures.value_label(LIQUIDATION_KEY)
@@ -241,7 +249,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
             self._slider,
         )
         for field in editable:
-            field.setEnabled(not vm.busy and figures is not None)
+            field.setEnabled(vm.can_take_order)
 
 
 def _show_value(field: QLineEdit, value: Decimal | None) -> None:
