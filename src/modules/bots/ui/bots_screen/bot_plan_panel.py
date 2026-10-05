@@ -5,13 +5,19 @@ parameter editor and what the kind says about those parameters (HLD §11.2.1,
 "right: Plan (the kind's panel: parameters and verdicts)"). The panel names
 no kind: the editor arrives from the presenter. With no bot selected it holds
 the instruction to pick or create one.
+
+The plan scrolls once, at the panel (`ui-presentation-rule.md` §3): the
+read-out, a Grid's editor and its verdicts stand over 500 px, and without the
+scroll they set the whole mode's minimum height (the PR #361 review measured
+703 px). So the verdicts are word-wrapped text inside that one scroll area,
+not a list scrolling inside it.
 """
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QLabel,
-    QListWidget,
+    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -62,8 +68,9 @@ class BotPlanPanel(QStackedWidget):
         self.state.setWordWrap(True)
         self.facts = ReadoutForm(FACT_SPECS, APP_VALUE_FORMATTER)
         self.facts.setObjectName("roBotFacts")
-        self.verdicts = QListWidget()
-        self.verdicts.setObjectName("listBotVerdicts")
+        self.verdicts = QLabel()
+        self.verdicts.setObjectName("lblBotVerdicts")
+        self.verdicts.setWordWrap(True)
         self._panel_slot = QVBoxLayout()
         self._build()
         self._connect()
@@ -83,9 +90,14 @@ class BotPlanPanel(QStackedWidget):
         column.addWidget(self.facts)
         column.addLayout(self._panel_slot)
         column.addWidget(QLabel("What the kind says about these parameters:"))
-        column.addWidget(self.verdicts, 1)
+        column.addWidget(self.verdicts)
+        column.addStretch(1)
+        scroll = QScrollArea()
+        scroll.setObjectName("scrollBotPlan")
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(plan)
         self.addWidget(empty)
-        self.addWidget(plan)
+        self.addWidget(scroll)
 
     def _connect(self) -> None:
         model = self._model
@@ -107,7 +119,12 @@ class BotPlanPanel(QStackedWidget):
         )
 
     def _show_judgement(self) -> None:
-        self.verdicts.clear()
-        self.verdicts.addItems(list(self._model.verdict_lines))
+        lines = list(self._model.verdict_lines)
         if self._model.refusal:
-            self.verdicts.addItem(f"Start is blocked: {self._model.refusal}")
+            lines.append(f"Start is blocked: {self._model.refusal}")
+        self.verdicts.setText("\n".join(lines))
+
+    def verdict_lines(self) -> tuple[str, ...]:
+        """The verdicts as shown, one per line."""
+        text = self.verdicts.text()
+        return tuple(text.split("\n")) if text else ()

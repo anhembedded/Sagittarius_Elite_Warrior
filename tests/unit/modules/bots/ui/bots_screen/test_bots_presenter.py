@@ -312,7 +312,8 @@ def test_fit_levels_scales_the_selected_bots_chart_to_its_levels(
     card = screen.view.chart_area.findChild(ChartCard)
     assert card is not None
     axis = card.plot_layout.main_plot.vb
-    assert axis.viewRange()[1][1] < 60000
+    # Before Fit levels the price axis is pyqtgraph's empty default.
+    assert axis.viewRange()[1] == [0, 1]
 
     screen.actions.action(FIT_LEVELS).trigger()
 

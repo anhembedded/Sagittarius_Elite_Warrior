@@ -6,7 +6,7 @@ is in flight. The commands themselves are declared Qt-free in
 
 A disabled button used to say why in its tooltip; an action's tooltip is
 fixed by its declaration, so that reason is not shown on the action. The
-Start refusal still reads in the Parameters tab's verdicts. Recorded in
+Start refusal still reads in the Plan panel's verdicts. Recorded in
 `EPIC-033D`'s notes.
 """
 
