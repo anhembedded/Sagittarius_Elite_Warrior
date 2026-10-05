@@ -5,8 +5,9 @@
 - **Origin:** `EPIC-021D`. Its §2.2 is where the rule "an English string from the exchange is
   not a stable contract" was decided, which is why this use case answers with named failure
   kinds.
-- **Surfaces:** the connection check on Tools → Options → Trading · `exchange-status` on the command line and at
-  the interactive prompt.
+- **Surfaces:** Tools → Check connection in every mode, its answer a word in the status bar and,
+  on a failure, a message naming what to do (`EPIC-033H`) · the full report on Tools → Options →
+  Trading · `exchange-status` on the command line and at the interactive prompt.
 
 ## 1. Trigger
 
@@ -105,4 +106,5 @@ resolution and the error translation.
 | The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
 | The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
 | The Options page renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
+| Tools → Check connection: the status bar's word, the failure named where the user looks, and only the newest check writes | `tests/unit/modules/trading/ui/market/test_market_connection_check.py` | unit |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

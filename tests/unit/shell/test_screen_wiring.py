@@ -27,13 +27,14 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 
 _EXPECTED_ROUTES = (
+    # `EPIC-033H` — the Market mode, `trading`'s first contribution.
+    "market",
     "dashboard",
     # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
     # single Trading screen (`"trading"`) they replace.
     "trading.futures",
     "trading.spot",
     "data_management",
-    "watchlist",
     "backtest",
     # `EPIC-029F` — bots contribute last, `MODULES` order.
     "bots",
@@ -41,9 +42,9 @@ _EXPECTED_ROUTES = (
 
 
 def _real_modules(container: object) -> tuple[object, object, object, object]:
-    """The four module instances that own these seven screens (`BOT-019`
-    added `watchlist` as `market_data`'s second screen, `EPIC-029F` the
-    Bots tab), each with
+    """The four module instances that own these seven screens (`EPIC-029F`
+    added the Bots tab; `EPIC-033H` replaced `market_data`'s Watchlist screen
+    with `trading`'s Market mode), each with
     `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
     safe to skip straight to). Ordered to match `_EXPECTED_ROUTES` — the
@@ -78,11 +79,11 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
 
     by_route = {screen.route: screen.contributor_id for screen in registry.screens()}
     assert by_route == {
+        "market": "trading",
         "dashboard": "trading",
         "trading.futures": "trading",
         "trading.spot": "trading",
         "data_management": "market_data",
-        "watchlist": "market_data",
         "backtest": "backtesting",
         "bots": "bots",
     }
@@ -124,12 +125,12 @@ def test_the_modes_keep_the_sidebars_order() -> None:
     modes = build_screen_registry(registry).modes()
 
     assert [mode.route for mode in modes] == [
+        "market",
         "dashboard",
         "trading.futures",
         "trading.spot",
         "bots",
         "data_management",
-        "watchlist",
         "backtest",
     ]
 

@@ -95,9 +95,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import
     DATABASE_ROUTE,
     database_screen,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.watchlist.watchlist_screen import (
-    watchlist_screen,
-)
 
 logger = logging.getLogger("App.MarketDataModule")
 
@@ -132,7 +129,8 @@ class MarketDataModule(BoundedContextModule):
 
     def contribute(self, registry: IContributionRegistry) -> None:
         """This context's own venue and sync defaults, as a page of Tools →
-        Options, and the Database and Watchlist screens.
+        Options, and the Database screen. The Watchlist is a panel of the
+        Market mode (`EPIC-033H`), which `trading` contributes.
 
         `EPIC-025E` PR 4.4e: the old monolithic Settings screen knew every
         module's config keys; this section knows only this module's four
@@ -152,7 +150,6 @@ class MarketDataModule(BoundedContextModule):
             )
         )
         registry.contribute_screen(database_screen())
-        registry.contribute_screen(watchlist_screen())
         # `EPIC-033D` — the Data mode's commands.
         for command in data_commands(DATABASE_ROUTE):
             registry.contribute_command(command)

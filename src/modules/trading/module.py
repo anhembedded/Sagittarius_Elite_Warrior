@@ -116,6 +116,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk
     SPOT_DESK_ROUTE,
     spot_desk_screen,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
+    market_commands,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
+    MARKET_ROUTE,
+    market_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
 )
@@ -247,6 +254,8 @@ class TradingModule(BoundedContextModule):
                 factory=_OPTIONS_PAGE,
             )
         )
+        # `EPIC-033H` — the Market mode, first on the mode bar.
+        registry.contribute_screen(market_screen())
         registry.contribute_screen(dashboard_screen(self._container))
         # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
         # single Trading screen they replace.
@@ -254,6 +263,7 @@ class TradingModule(BoundedContextModule):
         registry.contribute_screen(spot_desk_screen(self._container))
         # `EPIC-033D` — each screen's commands.
         for command in (
+            *market_commands(MARKET_ROUTE),
             *dev_board_commands(DASHBOARD_ROUTE),
             *desk_commands(FUTURES_DESK_ROUTE, TradingVenue.FUTURES_TESTNET),
             *desk_commands(SPOT_DESK_ROUTE, TradingVenue.SPOT_TESTNET),

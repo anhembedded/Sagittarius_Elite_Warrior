@@ -39,7 +39,7 @@ class _ViewWithSurface(QWidget):
 
 @pytest.fixture
 def plain(qapp) -> ModeHost:
-    return ModeHost("watchlist", QLabel("a page"))
+    return ModeHost("market", QLabel("a page"))
 
 
 @pytest.fixture
@@ -52,8 +52,8 @@ def test_the_view_is_the_central_widget_and_the_host_is_named_for_the_mode(
     plain: ModeHost,
 ) -> None:
     assert plain.centralWidget() is plain.view
-    assert plain.surface_id == "mode::watchlist"
-    assert plain.objectName() == "workbench::mode::watchlist"
+    assert plain.surface_id == "mode::market"
+    assert plain.objectName() == "workbench::mode::market"
 
 
 def test_a_view_without_a_surface_lists_no_panels(plain: ModeHost) -> None:

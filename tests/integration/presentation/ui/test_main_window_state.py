@@ -164,12 +164,12 @@ def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
 
 
 _EVERY_MODE = (
+    "market",
     "dashboard",
     "trading.futures",
     "trading.spot",
     "bots",
     "data_management",
-    "watchlist",
     "backtest",
 )
 

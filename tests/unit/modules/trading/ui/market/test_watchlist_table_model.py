@@ -10,7 +10,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.watchlist.watchlist_table_model import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_table_model import (
     WatchlistTableModel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
