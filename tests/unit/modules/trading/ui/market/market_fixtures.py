@@ -117,6 +117,10 @@ class QueuedThreads(IThreadManager):
             task, args = self._tasks.pop(0)
             task(*args)
 
+    def run_first(self) -> None:
+        task, args = self._tasks.pop(0)
+        task(*args)
+
     def run_last(self) -> None:
         task, args = self._tasks.pop()
         task(*args)
