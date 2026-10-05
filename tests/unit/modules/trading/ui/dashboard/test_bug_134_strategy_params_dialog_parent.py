@@ -9,6 +9,8 @@ exercised the button end to end.
 strategy_card.py`), which parents to its own `self.window()` instead —
 still never the `DevBoardPanel`/`QObject` this regression was about, so the
 call site below follows the method, the assertion does not change.
+`EPIC-033P` moved the card to `desk/strategy_card/strategy_card.py`; the patch
+follows the dialog's name there.
 
 `StrategyParamsDialog` is patched here — its real `.exec()` is modal, and
 this suite runs under `QT_QPA_PLATFORM=offscreen` with no human to dismiss
@@ -33,8 +35,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_panel 
     DevBoardPanel,
 )
 
+#: Where the card reads the dialog: `EPIC-033P` moved the card to the desks
+#: and its import to the top of its module.
 _DIALOG_PATH = (
-    "Sagittarius_Elite_Warrior.src.support.ui_kit.param_form.StrategyParamsDialog"
+    "Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card."
+    "strategy_card.StrategyParamsDialog"
 )
 
 

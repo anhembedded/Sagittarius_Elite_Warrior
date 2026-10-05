@@ -85,13 +85,13 @@ def spot_panel(qapp, view_model, request):
 
 
 def test_strategy_card_shows_leverage_by_default(qapp, panel):
-    assert panel._strategy_card._row_leverage.isVisible() is True
+    assert panel._strategy_card._spn_leverage.isVisible() is True
 
 
 def test_strategy_card_hides_leverage_on_spot(qapp, spot_panel):
     """`EPIC-027O` AC3 — leverage is a Futures-only concept; Spot has no
     margin to lever."""
-    assert spot_panel._strategy_card._row_leverage.isVisible() is False
+    assert spot_panel._strategy_card._spn_leverage.isVisible() is False
 
 
 def test_price_ticker_reflects_the_view_model(qapp, panel, view_model):
