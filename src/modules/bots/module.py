@@ -77,7 +77,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings impor
     bind_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    bots_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
     bots_screen,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
@@ -141,6 +145,9 @@ class BotsModule(BoundedContextModule):
         """The Bots tab (`EPIC-029F`, ADR D19), lazy: no widget module is
         imported until the route opens."""
         registry.contribute_screen(bots_screen())
+        # `EPIC-033D` — the Bots mode's commands.
+        for command in bots_commands(BOTS_ROUTE):
+            registry.contribute_command(command)
 
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so

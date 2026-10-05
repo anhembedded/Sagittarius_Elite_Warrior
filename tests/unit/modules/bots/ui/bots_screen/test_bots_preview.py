@@ -21,4 +21,4 @@ def test_the_preview_lists_a_bot_in_every_state_and_selects_a_draft(qtbot) -> No
     assert {bot.state for bot in view.model.bots} == set(BotLifecycleState)
     assert view.model.selected is not None
     assert view.model.selected.state is BotLifecycleState.DRAFT
-    assert view.detail.action_buttons
+    assert view.model.availability

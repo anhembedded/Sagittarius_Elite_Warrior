@@ -1,11 +1,9 @@
 """`EPIC-029F` — the Bots screen's presenter.
 
-Reads the bots through the bots queries, never the store (`BotChangedEvent`
-says when to read again, coalesced so a burst of fills is one read); judges
-the selected bot's parameters through its kind on every edit; and sends one
-command at a time through `BotActionsCoordinator`, locking the screen while
-it runs (`async-ui-action-rule.md`). A late answer to an action or a read
-that is no longer current is dropped and logged, never shown.
+Reads the bots through the queries, never the store (`BotChangedEvent`,
+coalesced, says when); judges the selected bot through its kind on every
+edit; sends one command at a time through `BotActionsCoordinator`, locking
+the screen while it runs. A late answer is dropped and logged, never shown.
 """
 
 from __future__ import annotations
@@ -14,6 +12,7 @@ import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import partial
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
@@ -61,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands impo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_log_feed import (
     BotLogFeed,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_command_binding import (
+    bind_bots_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
     dialogs_for,
@@ -103,13 +105,16 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+    ICommandBinder,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.single_shot_timer import (
     single_shot_timer,
 )
 from sagittarius_engine.extensions.fsm.declarative_state_machine import (
     DeclarativeStateMachine,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 if TYPE_CHECKING:
@@ -126,17 +131,13 @@ _COALESCE_MS = 150
 _REJUDGE_MS = 150
 #: The running time ticks in minutes.
 _CLOCK_MS = 30_000
+_UTC_NOW = partial(datetime.now, UTC)
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
-class BotsPresenter(BasePresenter):
+class BotsPresenter(CommandPresenter):
     """@brief Orchestrates the Bots screen."""
 
-    # The engine declares both as plain `None` defaults, untyped, so any real
-    # value is an "incompatible override" to mypy; the FSM reads them as-is.
+    # The engine types both as `None`, so any value is an override to mypy.
     INITIAL_STATE = BotsUiState.NO_SELECTION  # type: ignore[assignment]
     UI_TRANSITION_MATRIX = BOTS_UI_TRANSITIONS  # type: ignore[assignment]
 
@@ -146,7 +147,7 @@ class BotsPresenter(BasePresenter):
         container: IContainer,
         *,
         dialogs: BotsDialogs | None = None,
-        now: Callable[[], datetime] = _utc_now,
+        now: Callable[[], datetime] = _UTC_NOW,
     ) -> None:
         super().__init__(view, container)
         threads = container.resolve(IThreadManager)
@@ -312,6 +313,9 @@ class BotsPresenter(BasePresenter):
         )
         if command is not None:
             self._begin(PendingAction(f"{value} {bot.name}", BotAction(value)), command)
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_bots_commands(binder, self._model)
 
     def _on_new_bot(self) -> None:
         if self._busy():

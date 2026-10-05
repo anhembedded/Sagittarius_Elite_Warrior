@@ -16,10 +16,8 @@ from __future__ import annotations
 from PySide6.QtCore import QItemSelectionModel, QSortFilterProxyModel, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QHBoxLayout,
     QHeaderView,
     QLabel,
-    QPushButton,
     QSplitter,
     QTableView,
     QVBoxLayout,
@@ -65,8 +63,6 @@ class BotsView(BaseView):
         self._proxy.setSourceModel(self.bots)
         self._proxy.setSortRole(SORT_ROLE)
         self.table = self._build_bots_table()
-        self.new_bot = QPushButton("New bot")
-        self.new_bot.setObjectName("btnNewBot")
         self.detail = BotDetailPanel(self.model)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
@@ -78,12 +74,8 @@ class BotsView(BaseView):
         splitter.addWidget(self.detail)
         splitter.setStretchFactor(1, 2)
         self._status.hide()
-        commands = QHBoxLayout()
-        commands.addWidget(self.new_bot)
-        commands.addStretch(1)
         workspace = QWidget()
         column = QVBoxLayout(workspace)
-        column.addLayout(commands)
         column.addWidget(self._status)
         column.addWidget(splitter, 1)
         self._surface = WorkbenchSurface(BOTS_SURFACE)
@@ -98,9 +90,7 @@ class BotsView(BaseView):
         self._mode = state
         busy = state is BotsUiState.ACTION_IN_FLIGHT
         self.table.setEnabled(not busy)
-        self.new_bot.setEnabled(not busy)
-        self.new_bot.setToolTip("Another action is still running." if busy else "")
-        self.detail.lock_actions(busy)
+        self.model.set_action_in_flight(busy)
         if self._kind_panel is not None:
             self._kind_panel.set_editable(state is BotsUiState.EDITING_DRAFT)
 
@@ -137,7 +127,6 @@ class BotsView(BaseView):
         self.model.bots_changed.connect(self._show_bots)
         self.model.selection_changed.connect(self._sync_selection)
         self.model.statusChanged.connect(self._show_status)
-        self.new_bot.clicked.connect(self.model.new_bot_requested)
         self.table.selectionModel().selectionChanged.connect(self._on_row_selected)
 
     def _show_bots(self) -> None:

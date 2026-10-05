@@ -30,6 +30,10 @@ from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 
 from .command_binding import ICommandBinder
 
+#: The binder type travels with the base: a presenter that subclasses this
+#: names both in its `bind_commands` signature.
+__all__ = ["CommandPresenter", "ICommandBinder"]
+
 
 class CommandPresenter(BasePresenter):
     """A `BasePresenter` that binds the commands its module contributed."""

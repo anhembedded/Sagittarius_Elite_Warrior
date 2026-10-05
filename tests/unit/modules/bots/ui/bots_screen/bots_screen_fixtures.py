@@ -58,11 +58,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    bots_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter import (
     BotsPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
@@ -123,6 +129,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
+from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
+    ActionRegistry,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -226,6 +236,8 @@ class BotsScreen:
     store: IBotStore
     answers: Answers
     bus: MemoryEventBus
+    #: The Bots commands, bound as the window binds them (`EPIC-033D`).
+    actions: ActionRegistry
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -322,4 +334,5 @@ def open_screen(
     presenter = BotsPresenter(
         view, container, dialogs=answers.dialogs(), now=lambda: NOW
     )
-    return BotsScreen(view, presenter, pool, store, answers, bus)
+    actions = bound_actions(view, bots_commands(BOTS_ROUTE), presenter.bind_commands)
+    return BotsScreen(view, presenter, pool, store, answers, bus, actions)

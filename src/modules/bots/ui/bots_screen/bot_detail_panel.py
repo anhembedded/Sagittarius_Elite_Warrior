@@ -1,13 +1,13 @@
 """`EPIC-029F` — the detail shell, the same for every kind.
 
-A header (name, state in words, the actions), the figures, and the tabs: the
+A header (name, state in words), the figures, and the tabs: the
 bot's chart, its parameters (the kind's own editor and the kind's verdicts),
 its resting orders, its fills, its log, and its kind's backtest (`EPIC-029D`,
 hidden for a kind without one). The shell names no kind: the editor, the
 chart and the backtest page arrive from the presenter.
 
-A disabled action says why in its tooltip (`bot_action_rules`); while an
-action is in flight every action is disabled, whatever its rule says.
+The bot's lifecycle actions and Refresh fills are the module's commands since
+`EPIC-033D` (`bots_commands.py`), in the Bots menu and toolbar.
 """
 
 from __future__ import annotations
@@ -27,9 +27,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
-    BotAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     BotFillsTableModel,
@@ -60,13 +57,11 @@ class BotDetailPanel(QWidget):
     def __init__(self, model: BotsViewModel, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._model = model
-        self._busy = False
         self.title = QLabel()
         self.title.setObjectName("lblBotName")
         self.state = QLabel()
         self.state.setObjectName("lblBotState")
         self.state.setWordWrap(True)
-        self.action_buttons = {action: _action_button(action) for action in BotAction}
         self.facts = {key: QLabel() for key, _ in _FACT_LABELS}
         self.orders = BotOrdersTableModel(self)
         self.fills = BotFillsTableModel(self)
@@ -74,8 +69,6 @@ class BotDetailPanel(QWidget):
         self.verdicts.setObjectName("listBotVerdicts")
         self.fills_note = QLabel()
         self.fills_note.setWordWrap(True)
-        self.refresh_fills = QPushButton("Refresh fills")
-        self.refresh_fills.setObjectName("btnRefreshFills")
         self.fit_levels = QPushButton("Fit levels")
         self.fit_levels.setObjectName("btnFitLevels")
         self.fit_levels.setToolTip("Scale the price axis to show every level.")
@@ -104,11 +97,6 @@ class BotDetailPanel(QWidget):
         _replace(self._backtest_slot, page)
         self.tabs.setTabVisible(self._backtest_tab, page is not None)
 
-    def lock_actions(self, busy: bool) -> None:
-        """An action is in flight: every action waits for it."""
-        self._busy = busy
-        self._show_actions()
-
     # -- building --------------------------------------------------------- #
 
     def _build(self) -> None:
@@ -117,8 +105,6 @@ class BotDetailPanel(QWidget):
         names.addWidget(self.title)
         names.addWidget(self.state)
         header.addLayout(names, 1)
-        for button in self.action_buttons.values():
-            header.addWidget(button)
         form = QFormLayout()
         for key, label in _FACT_LABELS:
             form.addRow(label, self.facts[key])
@@ -166,7 +152,6 @@ class BotDetailPanel(QWidget):
         layout = QVBoxLayout(page)
         tools = QHBoxLayout()
         tools.addWidget(self.fills_note, 1)
-        tools.addWidget(self.refresh_fills)
         layout.addLayout(tools)
         layout.addWidget(_table(self.fills, "tblBotFills"), 1)
         return page
@@ -176,14 +161,8 @@ class BotDetailPanel(QWidget):
         model.selection_changed.connect(self._show_selection)
         model.facts_changed.connect(self._show_facts)
         model.judgement_changed.connect(self._show_judgement)
-        model.actions_changed.connect(self._show_actions)
         model.fills_changed.connect(self._show_fills)
         model.log_changed.connect(self._show_log)
-        for action, button in self.action_buttons.items():
-            button.clicked.connect(
-                lambda _checked=False, a=action: model.action_requested.emit(a.value)
-            )
-        self.refresh_fills.clicked.connect(model.refresh_fills_requested)
         self.fit_levels.clicked.connect(self.fit_levels_requested)
 
     # -- showing ---------------------------------------------------------- #
@@ -210,13 +189,6 @@ class BotDetailPanel(QWidget):
         if self._model.refusal:
             self.verdicts.addItem(f"Start is blocked: {self._model.refusal}")
 
-    def _show_actions(self) -> None:
-        for action, button in self.action_buttons.items():
-            rule = self._model.availability.get(action)
-            button.setEnabled(rule is not None and rule.enabled and not self._busy)
-            tip = rule.reason if rule is not None else ""
-            button.setToolTip("Another action is still running." if self._busy else tip)
-
     def _show_fills(self) -> None:
         fills = self._model.fills
         self.fills.set_rows(fills.fills)
@@ -234,12 +206,6 @@ class BotDetailPanel(QWidget):
     def _show_log(self) -> None:
         self.log.setPlainText("\n".join(self._model.selected_log()))
         self.log.moveCursor(QTextCursor.MoveOperation.End)
-
-
-def _action_button(action: BotAction) -> QPushButton:
-    button = QPushButton(action.value)
-    button.setObjectName(f"btnBot{action.name.title().replace('_', '')}")
-    return button
 
 
 def _table(model: BotOrdersTableModel | BotFillsTableModel, name: str) -> QTableView:

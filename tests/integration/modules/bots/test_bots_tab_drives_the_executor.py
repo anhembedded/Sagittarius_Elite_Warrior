@@ -34,15 +34,23 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    bots_commands,
+    lifecycle_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter import (
     BotsPresenter,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
 )
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 
 from .grid_fake_exchange import (
     GRID,
@@ -77,6 +85,9 @@ class _Screen:
                 confirm_delete=lambda _bot: False,
             ),
         )
+        self.actions = bound_actions(
+            self.view, bots_commands(BOTS_ROUTE), self.presenter.bind_commands
+        )
 
     def _ask_stop(self, bot: BotSnapshot) -> BaseHandling:
         self.stops.append(bot.bot_id)
@@ -90,10 +101,11 @@ class _Screen:
         model.select_requested.emit(bot_id)
 
     def press(self, action: BotAction) -> None:
-        """Waits for the button to be enabled, as a person would, then clicks."""
-        button = self.view.detail.action_buttons[action]
-        self.qtbot.waitUntil(button.isEnabled, timeout=_WAIT_MS)
-        button.click()
+        """Waits for the command to be enabled, as a person would, then
+        triggers it (`EPIC-033D`: the Bots menu's action)."""
+        command = self.actions.action(lifecycle_id(action))
+        self.qtbot.waitUntil(command.isEnabled, timeout=_WAIT_MS)
+        command.trigger()
 
     def wait_for(self, bot_id: str, state: BotLifecycleState) -> None:
         self.qtbot.waitUntil(
