@@ -61,6 +61,7 @@ class ModeHost(RegionHost):
         self.setObjectName(f"workbench::mode::{mode_id}")
         self._view = view
         self._inner = _surface_of(view)
+        self._own_default = b""
         self.place_widget(_SCREEN_PLACE, view)
 
     @property
@@ -89,15 +90,19 @@ class ModeHost(RegionHost):
         return super().layout_version
 
     def capture_default_perspective(self) -> None:
+        # The commands toolbar is this host's own, outside the view's
+        # surface: its default is captured, and reset, here as well.
+        self._own_default = RegionHost.save_perspective(self)
         if self._inner is not None:
             self._inner.capture_default_perspective()
-            return
-        super().capture_default_perspective()
 
     def reset_perspective(self) -> bool:
+        """Window → Reset layout: the commands toolbar and the surface's
+        panels both go back to the default (`EPIC-033C`)."""
+        own = RegionHost.restore_perspective(self, self._own_default)
         if self._inner is not None:
-            return self._inner.reset_perspective()
-        return super().reset_perspective()
+            return self._inner.reset_perspective() and own
+        return own
 
     def save_perspective(self) -> bytes:
         if self._inner is not None:
