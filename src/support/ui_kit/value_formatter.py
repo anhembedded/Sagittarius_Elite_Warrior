@@ -39,6 +39,7 @@ symbol-aware rule replaces `_price_text` and no caller changes.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Final
@@ -133,6 +134,24 @@ class AppValueFormatter:
 
 #: The one instance every table and read-out of this application writes with.
 APP_VALUE_FORMATTER: Final = AppValueFormatter()
+
+
+class ZonedValueFormatter:
+    """`AppValueFormatter` in a time zone its screen chooses and may change.
+
+    The Backtest mode shows its trades in the display time zone the person
+    picks (a view setting: data and runs are UTC). A table's delegate keeps
+    the formatter it was configured with, so the zone is asked each time a
+    value is written; the screen resets its model when the zone changes, and
+    every cell is written again in the new one."""
+
+    def __init__(self, time_zone: Callable[[], str]) -> None:
+        self._time_zone = time_zone
+
+    def format(
+        self, kind: ColumnKind, value: DisplayValue, context: FormatContext
+    ) -> str:
+        return AppValueFormatter(self._time_zone()).format(kind, value, context)
 
 
 def display_number(value: Decimal | None) -> float | None:

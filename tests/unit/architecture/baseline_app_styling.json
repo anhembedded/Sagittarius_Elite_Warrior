@@ -1,9 +1,9 @@
 {
- "apply_role_calls": 32,
- "apply_role_files": 17,
- "palette_files": 22,
+ "apply_role_calls": 31,
+ "apply_role_files": 16,
+ "palette_files": 19,
  "qml_files": 0,
  "qml_theme_refs": 0,
- "set_style_sheet_calls": 78,
- "set_style_sheet_files": 17
+ "set_style_sheet_calls": 52,
+ "set_style_sheet_files": 14
 }

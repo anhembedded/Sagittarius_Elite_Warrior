@@ -9,11 +9,17 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Tr
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_trade_logs_panel import (
+    BackTestTradeLogsPanel,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
     BacktestChartHostFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.trade_table_model import (
+    TradeTableModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
@@ -38,6 +44,12 @@ def dummy_trade() -> Trade:
         entry_reason="EMA Long",
         exit_reason=ExitReason.STRATEGY_SIGNAL,
     )
+
+
+def _shown(panel: BackTestTradeLogsPanel, key: str) -> str:
+    """What the Trades table shows in row 0's `key` column: the times are
+    written in the display time zone as they paint (`EPIC-033L`)."""
+    return panel.table.text(0, TradeTableModel.column(key))
 
 
 def test_backtest_timezone_integration_updates_trade_log_times(
@@ -77,12 +89,13 @@ def test_backtest_timezone_integration_updates_trade_log_times(
     # 2. Seed trade data
     presenter._all_trades = [dummy_trade]
     presenter._refresh_trade_log()
+    panel = BackTestTradeLogsPanel(presenter._view_model)
 
     # 3. Assert initial UTC state: entry at 03:30, exit at 07:45
     utc_rows = presenter._view_model.trade_log.rows
     assert len(utc_rows) == 1
-    assert utc_rows[0]["entryTimeText"] == "2026-08-17 03:30"
-    assert utc_rows[0]["exitTimeText"] == "2026-08-17 07:45"
+    assert _shown(panel, "entry_time") == "2026-08-17 03:30:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 07:45:00"
 
     # 4. Action: User changes timezone to Asia/Ho_Chi_Minh (+7 hours)
     presenter._view_model.setDisplayTimezone("Asia/Ho_Chi_Minh")
@@ -90,8 +103,8 @@ def test_backtest_timezone_integration_updates_trade_log_times(
     # 5. Assert: Table formatted times updated to 10:30 and 14:45
     vn_rows = presenter._view_model.trade_log.rows
     assert len(vn_rows) == 1
-    assert vn_rows[0]["entryTimeText"] == "2026-08-17 10:30"
-    assert vn_rows[0]["exitTimeText"] == "2026-08-17 14:45"
+    assert _shown(panel, "entry_time") == "2026-08-17 10:30:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 14:45:00"
 
     # 6. Domain Data Truth Invariant: Raw Trade object entry/exit times remain UTC
     assert dummy_trade.entry_time.tzinfo == UTC
@@ -102,11 +115,10 @@ def test_backtest_timezone_integration_updates_trade_log_times(
     presenter._view_model.setDisplayTimezone("America/New_York")
     ny_rows = presenter._view_model.trade_log.rows
     assert len(ny_rows) == 1
-    assert ny_rows[0]["entryTimeText"] == "2026-08-16 23:30"
-    assert ny_rows[0]["exitTimeText"] == "2026-08-17 03:45"
+    assert _shown(panel, "entry_time") == "2026-08-16 23:30:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 03:45:00"
 
     # 8. Clean switch back to UTC
     presenter._view_model.setDisplayTimezone("UTC")
-    restored_rows = presenter._view_model.trade_log.rows
-    assert restored_rows[0]["entryTimeText"] == "2026-08-17 03:30"
-    assert restored_rows[0]["exitTimeText"] == "2026-08-17 07:45"
+    assert _shown(panel, "entry_time") == "2026-08-17 03:30:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 07:45:00"

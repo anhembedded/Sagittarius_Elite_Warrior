@@ -396,10 +396,10 @@ class BackTestPresenter(CommandPresenter):
         # what makes that promise actually hold.
         self._restoring_state = False
 
-        # BOT-057: the single source of truth the Trade Logs table's
-        # filter/search/pagination all read from — the ViewModel only ever
-        # holds the CURRENT PAGE's already-formatted rows, never the full
-        # list, so it can't itself re-derive a different page/filter.
+        # BOT-057: the single source of truth the Trades table's filter and
+        # search read from — the ViewModel only ever holds the rows that
+        # currently match, never the full list, so it can't itself re-derive
+        # a different filter.
         self._all_trades: list[Trade] = []
 
         # BOT-047: values for the CURRENTLY SELECTED strategy's declared

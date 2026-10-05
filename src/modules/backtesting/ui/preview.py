@@ -29,7 +29,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     build_trade_log_rows,
-    trade_log_rows_to_qml,
 )
 
 #: This file's parent directory is `ui`, same as every other module's own
@@ -98,8 +97,7 @@ def build_preview() -> QWidget:
             mfe_percent=3.42,
         )
     ]
-    rows = trade_log_rows_to_qml(build_trade_log_rows(sample_trades))
-    view_model.trade_log.set_page_state(rows, total_count=len(rows), total_pages=1)
+    view_model.trade_log.set_rows(build_trade_log_rows(sample_trades))
 
     # BOT-106D — a synthetic year-long equity curve (peak, drawdown, partial
     # recovery) so the drawdown chart and returns heatmap have something to

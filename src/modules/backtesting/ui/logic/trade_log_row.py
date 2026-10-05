@@ -10,8 +10,14 @@ out, and PR 4.3c had already found it once, in `DateRangeOverlay`.
 
 What that package held that was **not** dead is this file and
 `trade_log_filter.py`: the pure shaping and filtering the live panel imports.
-They are `screens/backtest/logic/`'s now, beside `trade_log_pagination.py`,
-which had been importing across that boundary from the start.
+They are `screens/backtest/logic/`'s now.
+
+@par Raw values since `EPIC-033L`
+The table was a hand-built list of rows, each a dict of pre-formatted text
+(`trade_log_row_to_qml`, named for the QML it once fed), twenty to a page.
+It is a `QTableView` over these rows now: the formatter writes each value by
+its column's kind, a header click sorts, and the view scrolls instead of
+paging. What a row could expand to show is `trade_details()`.
 """
 
 from __future__ import annotations
@@ -28,29 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Tr
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
-    DEFAULT_TIMEZONE,
-    format_display_datetime,
-)
-
-#: Matches `BackTestPresenter`'s `_CUSTOM_TIME_FORMAT` — reused here instead
-#: of the mockup's Vietnamese "16 thg 7, 2026" cosmetic format, which has no
-#: existing formatter anywhere else in this codebase and would only ever be
-#: used in this one column.
-_THOUSAND = 1000.0
-
-#: BOT-050 — `Trade.side` now exists; label reads it instead of assuming
-#: every trade is a long ("vị thế mua"/"vị thế bán").
-_POSITION_LABEL: dict[PositionSide, str] = {
-    PositionSide.LONG: "long position",
-    PositionSide.SHORT: "short position",
-}
 
 #: `STOP_LOSS`/`TAKE_PROFIT`/`LIQUIDATION` are declared but unreachable until
 #: `BOT-041`/`BOT-049` — kept here anyway so the table never crashes on an
@@ -71,13 +55,13 @@ _EXIT_REASON_LABELS = EnumLabels(
 @dataclass(frozen=True)
 class TradeLogRow:
     """
-    @brief Everything one row of the Trade Logs table needs, computed here
-    so `BackTestTradeLogs.qml` stays a dumb renderer — same Presenter/View
-    split as `StatCardData` (`performance_metrics_view.py`).
+    @brief One finished trade, as the Trades table holds it: raw values,
+    written by the application's formatter by each column's kind
+    (`trade_table_model.py`, `EPIC-033L`).
 
     @details `index` is the trade's 1-based position in the FULL,
     unfiltered `BacktestResult.trades` list — stable identity across
-    filter/search/pagination, so "lệnh #12" always refers to the same trade
+    filter, search and sorting, so "lệnh #12" always refers to the same trade
     no matter what the user currently has selected.
     """
 
@@ -135,83 +119,33 @@ def _format_duration(entry_time: datetime, exit_time: datetime) -> str:
     return f"{hours}h {minutes:02d}m"
 
 
-def _format_metadata_items(metadata: Mapping[str, Any]) -> list[dict[str, str]]:
-    """@brief Renders whatever keys a strategy attached, in insertion order
-    — no hardcoded "QML Score" or any other fixed schema (`BOT-045`: "tùy
-    vào chiến thuật")."""
-    return [
-        {"label": key.replace("_", " ").title(), "value": str(value)}
-        for key, value in metadata.items()
-    ]
-
-
-def _format_datetime(value: datetime, tz_name: str = DEFAULT_TIMEZONE) -> str:
-    return format_display_datetime(value, tz_name=tz_name, fmt=DATETIME_FORMAT)
-
-
-def _format_compact_usd(value: float) -> str:
-    """@brief Mirrors the mockup's "0.96 K USD" compact notation for the
-    Quy mô (position size) column — full precision would make wide numbers
-    dominate a column meant to be scanned quickly, not read exactly."""
-    if abs(value) >= _THOUSAND:
-        return f"{value / _THOUSAND:,.2f} K USD"
-    return f"{value:,.2f} USD"
-
-
-def _signed_pnl(value: float, suffix: str) -> str:
+def _signed_percent(value: float) -> str:
     sign = "+" if value >= 0 else ""
-    return f"{sign}{value:,.2f}{suffix}"
+    return f"{sign}{value:,.2f}%"
 
 
-def trade_log_row_to_qml(
-    row: TradeLogRow, tz_name: str = DEFAULT_TIMEZONE
-) -> dict[str, Any]:
-    """Converts to the plain-dict shape QML's `Repeater`/`ListView` model
-    expects (camelCase keys, everything pre-formatted as display text —
-    same boundary convention as `stat_cards_to_qml`). `metadataItems` is the
-    one non-string value — a list of `{label, value}` dicts for the expand
-    row's `Repeater` (`BOT-045`), since metadata has no fixed set of keys."""
-    pnl_color = BULL_COLOR if row.pnl >= 0 else BEAR_COLOR
-    position_value = row.quantity * row.entry_price
-    price_diff = row.exit_price - row.entry_price
-    price_diff_color = BULL_COLOR if price_diff >= 0 else BEAR_COLOR
-    price_diff_icon = "▲" if price_diff >= 0 else "▼"
-    price_diff_icon_source = (
-        "image://icons/triangle-up/success"
-        if price_diff >= 0
-        else "image://icons/triangle-down/danger"
-    )
-    return {
-        "index": str(row.index),
-        "positionLabel": f"#{row.index} {_POSITION_LABEL[row.side]}",
-        # Added 2026-08-29 for a badge column the deleted QML rendering drew:
-        # `positionLabel` already names the side in prose, and a badge needs the
-        # bare word plus a colour. Kept because the live panel reads it too.
-        "sideLabel": row.side.value.upper(),
-        "sideIsLong": row.side is PositionSide.LONG,
-        "entryTimeText": _format_datetime(row.entry_time, tz_name=tz_name),
-        "exitTimeText": _format_datetime(row.exit_time, tz_name=tz_name),
-        "entryPriceText": f"{row.entry_price:,.2f} USD",
-        "exitPriceText": f"{row.exit_price:,.2f} USD",
-        "priceDiffText": _signed_pnl(price_diff, " USD"),
-        "priceDiffColor": price_diff_color,
-        "priceDiffIcon": price_diff_icon,
-        "priceDiffIconSource": price_diff_icon_source,
-        "positionSizeText": _format_compact_usd(position_value),
-        "quantityText": f"{row.quantity:,.4g}",
-        "pnlText": _signed_pnl(row.pnl, " USD"),
-        "pnlColor": pnl_color,
-        "returnText": _signed_pnl(row.pnl_percent, "%"),
-        "entryReasonText": row.entry_reason or "—",
-        "exitReasonText": _EXIT_REASON_LABELS[row.exit_reason],
-        "durationText": _format_duration(row.entry_time, row.exit_time),
-        "maeText": _signed_pnl(row.mae_percent, "%"),
-        "mfeText": _signed_pnl(row.mfe_percent, "%"),
-        "metadataItems": _format_metadata_items(row.metadata),
-    }
+def _metadata_label(key: str) -> str:
+    """A strategy's metadata key as a reader sees it: no fixed schema, the
+    keys are whatever the strategy attached (`BOT-045`: "tùy vào chiến
+    thuật")."""
+    return key.replace("_", " ").title()
 
 
-def trade_log_rows_to_qml(
-    rows: list[TradeLogRow], tz_name: str = DEFAULT_TIMEZONE
-) -> list[dict[str, Any]]:
-    return [trade_log_row_to_qml(row, tz_name=tz_name) for row in rows]
+def trade_details(row: TradeLogRow) -> tuple[tuple[str, str], ...]:
+    """@brief The selected trade's journal (`BOT-045`): why it opened and
+    closed, how long it ran, its worst and best excursion, then whatever
+    the strategy attached, in insertion order.
+
+    @details The Trades table holds the figures; these are the words the
+    table has no column for. Before `EPIC-033L` they were each row's
+    expandable section; now one read-out under the table shows them for
+    the selected trade."""
+    lines = [
+        ("Entry reason", row.entry_reason or "—"),
+        ("Exit reason", _EXIT_REASON_LABELS[row.exit_reason]),
+        ("Duration", _format_duration(row.entry_time, row.exit_time)),
+        ("Worst excursion (MAE)", _signed_percent(row.mae_percent)),
+        ("Best excursion (MFE)", _signed_percent(row.mfe_percent)),
+    ]
+    lines += [(_metadata_label(key), str(value)) for key, value in row.metadata.items()]
+    return tuple(lines)

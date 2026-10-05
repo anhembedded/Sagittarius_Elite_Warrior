@@ -7,15 +7,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Tr
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
-    trade_log_row_to_qml,
-    trade_log_rows_to_qml,
+    trade_details,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
 )
 
 _T0 = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
@@ -48,74 +43,6 @@ def test_build_trade_log_rows_indexes_from_1_in_order():
     assert rows[1].pnl == -5.0
 
 
-def test_trade_log_row_to_qml_formats_the_position_label_with_stable_index():
-    row = TradeLogRow(
-        index=216,
-        entry_time=_T0,
-        entry_price=1939.5,
-        exit_time=_T1,
-        exit_price=1908.5,
-        quantity=0.5,
-        pnl=34.66,
-        pnl_percent=3.61,
-    )
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["positionLabel"] == "#216 long position"
-    assert qml_row["index"] == "216"
-
-
-def test_trade_log_row_to_qml_labels_a_short_position_distinctly():
-    row = TradeLogRow(
-        index=7,
-        entry_time=_T0,
-        entry_price=1939.5,
-        exit_time=_T1,
-        exit_price=1908.5,
-        quantity=0.5,
-        pnl=34.66,
-        pnl_percent=3.61,
-        side=PositionSide.SHORT,
-    )
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["positionLabel"] == "#7 short position"
-
-
-def test_trade_log_row_to_qml_exposes_a_bare_side_badge_alongside_the_sentence():
-    """`positionLabel` already names the side in Vietnamese prose; the
-    QML port's LOẠI column needs the bare word plus a colour flag too."""
-    long_row = TradeLogRow(
-        index=1,
-        entry_time=_T0,
-        entry_price=100.0,
-        exit_time=_T1,
-        exit_price=110.0,
-        quantity=1.0,
-        pnl=10.0,
-        pnl_percent=10.0,
-        side=PositionSide.LONG,
-    )
-    short_row = TradeLogRow(
-        index=2,
-        entry_time=_T0,
-        entry_price=100.0,
-        exit_time=_T1,
-        exit_price=90.0,
-        quantity=1.0,
-        pnl=10.0,
-        pnl_percent=10.0,
-        side=PositionSide.SHORT,
-    )
-
-    assert trade_log_row_to_qml(long_row)["sideLabel"] == "LONG"
-    assert trade_log_row_to_qml(long_row)["sideIsLong"] is True
-    assert trade_log_row_to_qml(short_row)["sideLabel"] == "SHORT"
-    assert trade_log_row_to_qml(short_row)["sideIsLong"] is False
-
-
 def test_build_trade_log_rows_carries_the_trades_side_through():
     long_trade = _make_trade(10.0)
     short_trade = Trade(
@@ -137,64 +64,6 @@ def test_build_trade_log_rows_carries_the_trades_side_through():
     assert rows[1].side is PositionSide.SHORT
 
 
-def test_trade_log_row_to_qml_colors_winning_pnl_bull_and_losing_pnl_bear():
-    win_row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
-    loss_row = TradeLogRow(2, _T0, 100.0, _T1, 90.0, 1.0, -10.0, -10.0)
-
-    assert trade_log_row_to_qml(win_row)["pnlColor"] == BULL_COLOR
-    assert trade_log_row_to_qml(loss_row)["pnlColor"] == BEAR_COLOR
-
-
-def test_trade_log_row_to_qml_signs_pnl_and_return_text():
-    win_row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
-    loss_row = TradeLogRow(2, _T0, 100.0, _T1, 90.0, 1.0, -10.0, -10.0)
-
-    assert trade_log_row_to_qml(win_row)["pnlText"] == "+10.00 USD"
-    assert trade_log_row_to_qml(win_row)["returnText"] == "+10.00%"
-    assert trade_log_row_to_qml(loss_row)["pnlText"] == "-10.00 USD"
-    assert trade_log_row_to_qml(loss_row)["returnText"] == "-10.00%"
-
-
-def test_trade_log_row_to_qml_price_diff_and_icon():
-    win_row = TradeLogRow(1, _T0, 100.0, _T1, 115.5, 1.0, 15.5, 15.5)
-    loss_row = TradeLogRow(2, _T0, 100.0, _T1, 85.25, 1.0, -14.75, -14.75)
-
-    win_qml = trade_log_row_to_qml(win_row)
-    loss_qml = trade_log_row_to_qml(loss_row)
-
-    assert win_qml["priceDiffText"] == "+15.50 USD"
-    assert win_qml["priceDiffColor"] == BULL_COLOR
-    assert win_qml["priceDiffIcon"] == "▲"
-    assert win_qml["priceDiffIconSource"] == "image://icons/triangle-up/success"
-
-    assert loss_qml["priceDiffText"] == "-14.75 USD"
-    assert loss_qml["priceDiffColor"] == BEAR_COLOR
-    assert loss_qml["priceDiffIcon"] == "▼"
-    assert loss_qml["priceDiffIconSource"] == "image://icons/triangle-down/danger"
-
-
-def test_trade_log_row_to_qml_uses_compact_k_notation_above_1000():
-    big_row = TradeLogRow(
-        1, _T0, 2000.0, _T1, 2010.0, 1.0, 10.0, 0.5
-    )  # 2000 * 1 = 2000
-    small_row = TradeLogRow(2, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)  # 100 * 1 = 100
-
-    assert trade_log_row_to_qml(big_row)["positionSizeText"] == "2.00 K USD"
-    assert trade_log_row_to_qml(small_row)["positionSizeText"] == "100.00 USD"
-
-
-def test_trade_log_rows_to_qml_converts_every_row():
-    rows = [
-        TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0),
-        TradeLogRow(2, _T0, 100.0, _T1, 90.0, 1.0, -10.0, -10.0),
-    ]
-
-    qml_rows = trade_log_rows_to_qml(rows)
-
-    assert len(qml_rows) == 2
-    assert all(isinstance(row, dict) for row in qml_rows)
-
-
 # ================= BOT-045: Trade Journal Detail =================
 
 
@@ -206,81 +75,6 @@ def test_build_trade_log_rows_carries_entry_exit_reason_and_metadata():
     assert rows[0].entry_reason == "EMA Crossover 3/5 crossed above"
     assert rows[0].exit_reason is ExitReason.STRATEGY_SIGNAL
     assert rows[0].metadata == {"qml_score": 92}
-
-
-def test_trade_log_row_to_qml_falls_back_to_a_placeholder_for_a_blank_entry_reason():
-    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, entry_reason="")
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["entryReasonText"] == "—"
-
-
-def test_trade_log_row_to_qml_translates_exit_reason_to_readable_text():
-    row = TradeLogRow(
-        1,
-        _T0,
-        100.0,
-        _T1,
-        110.0,
-        1.0,
-        10.0,
-        10.0,
-        exit_reason=ExitReason.END_OF_BACKTEST,
-    )
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["exitReasonText"] == "End of backtest"
-
-
-def test_trade_log_row_to_qml_formats_duration_as_hours_and_minutes():
-    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)  # T0=06:00, T1=18:00
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["durationText"] == "12h 00m"
-
-
-def test_trade_log_row_to_qml_renders_metadata_items_with_humanized_labels():
-    row = TradeLogRow(
-        1,
-        _T0,
-        100.0,
-        _T1,
-        110.0,
-        1.0,
-        10.0,
-        10.0,
-        metadata={"qml_score": 92},
-    )
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["metadataItems"] == [{"label": "Qml Score", "value": "92"}]
-
-
-def test_trade_log_row_to_qml_renders_no_metadata_items_when_metadata_is_empty():
-    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, metadata={})
-
-    qml_row = trade_log_row_to_qml(row)
-
-    assert qml_row["metadataItems"] == []
-
-
-def test_trade_log_row_to_qml_formats_timestamps_with_display_timezone():
-    # _T0 is 2026-01-01 06:00 UTC, _T1 is 2026-01-01 18:00 UTC
-    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
-
-    # In UTC
-    utc_row = trade_log_row_to_qml(row, tz_name="UTC")
-    assert utc_row["entryTimeText"] == "2026-01-01 06:00"
-    assert utc_row["exitTimeText"] == "2026-01-01 18:00"
-
-    # In Asia/Ho_Chi_Minh (+7h)
-    vn_row = trade_log_row_to_qml(row, tz_name="Asia/Ho_Chi_Minh")
-    assert vn_row["entryTimeText"] == "2026-01-01 13:00"
-    assert vn_row["exitTimeText"] == "2026-01-02 01:00"
 
 
 # ================= BOT-106D: MAE/MFE =================
@@ -316,22 +110,74 @@ def test_build_trade_log_rows_defaults_mae_mfe_to_zero():
     assert rows[0].mfe_percent == 0.0
 
 
-def test_trade_log_row_to_qml_signs_mae_and_mfe_text():
+# ================= BOT-045: the selected trade's journal =================
+
+
+def test_a_blank_entry_reason_reads_as_a_dash():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, entry_reason="")
+
+    assert dict(trade_details(row))["Entry reason"] == "—"
+
+
+def test_the_exit_reason_reads_as_words():
+    row = TradeLogRow(
+        1,
+        _T0,
+        100.0,
+        _T1,
+        110.0,
+        1.0,
+        10.0,
+        10.0,
+        exit_reason=ExitReason.END_OF_BACKTEST,
+    )
+
+    assert dict(trade_details(row))["Exit reason"] == "End of backtest"
+
+
+def test_the_duration_reads_in_hours_and_minutes():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)  # 06:00 to 18:00
+
+    assert dict(trade_details(row))["Duration"] == "12h 00m"
+
+
+def test_excursions_are_signed_percentages():
     row = TradeLogRow(
         1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, mae_percent=-3.21, mfe_percent=5.67
     )
 
-    qml_row = trade_log_row_to_qml(row)
+    details = dict(trade_details(row))
 
-    assert qml_row["maeText"] == "-3.21%"
-    assert qml_row["mfeText"] == "+5.67%"
+    assert details["Worst excursion (MAE)"] == "-3.21%"
+    assert details["Best excursion (MFE)"] == "+5.67%"
 
 
-def test_trade_log_rows_to_qml_formats_all_rows_with_display_timezone():
-    row1 = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
-    row2 = TradeLogRow(2, _T1, 110.0, _T1, 120.0, 1.0, 10.0, 10.0)
+def test_a_strategys_metadata_follows_with_readable_labels_in_its_order():
+    row = TradeLogRow(
+        1,
+        _T0,
+        100.0,
+        _T1,
+        110.0,
+        1.0,
+        10.0,
+        10.0,
+        metadata={"qml_score": 92, "zone": "demand"},
+    )
 
-    qml_rows = trade_log_rows_to_qml([row1, row2], tz_name="Asia/Ho_Chi_Minh")
-    assert len(qml_rows) == 2
-    assert qml_rows[0]["entryTimeText"] == "2026-01-01 13:00"
-    assert qml_rows[1]["entryTimeText"] == "2026-01-02 01:00"
+    labels = [label for label, _text in trade_details(row)]
+
+    assert labels[-2:] == ["Qml Score", "Zone"]
+    assert dict(trade_details(row))["Qml Score"] == "92"
+
+
+def test_no_metadata_adds_no_line():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, metadata={})
+
+    assert [label for label, _text in trade_details(row)] == [
+        "Entry reason",
+        "Exit reason",
+        "Duration",
+        "Worst excursion (MAE)",
+        "Best excursion (MFE)",
+    ]

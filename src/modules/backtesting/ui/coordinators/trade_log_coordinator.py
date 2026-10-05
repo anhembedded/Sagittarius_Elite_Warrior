@@ -1,4 +1,4 @@
-"""Filtering, searching, paging and CSV export for the Backtest trade log."""
+"""Filtering, searching and CSV export for the Backtest trade log."""
 
 from __future__ import annotations
 
@@ -13,18 +13,16 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_filter
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
-    trade_log_rows_to_qml,
 )
 
 from ..logic.trade_log_export import export_trades_to_csv
-from ..logic.trade_log_pagination import paginate_trade_log_rows, total_pages
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 
 class TradeLogCoordinator:
     """Owns everything between "a run produced trades" and "the table shows
-    a page of them": filter tab, search text, pagination, display timezone,
-    and CSV export.
+    the ones that match": filter, search text, display timezone, and CSV
+    export.
 
     Reads the trade list through `get_all_trades` rather than being handed
     one at construction. The presenter replaces that list on every run, and
@@ -57,7 +55,8 @@ class TradeLogCoordinator:
 
     def on_display_timezone_changed(self) -> None:
         """Propagates display timezone change to the chart and re-renders the
-        trade log table without dirtying config."""
+        trade log table without dirtying config: the table writes its times
+        in the zone it reads when it paints, so a refresh repaints them."""
         self._set_chart_display_timezone(self._view_model.time_range.displayTimezone)
         self.refresh()
 
@@ -74,9 +73,8 @@ class TradeLogCoordinator:
         export_trades_to_csv(self.currently_filtered_trades(), path)
 
     def filtered_and_searched_rows(self) -> list[TradeLogRow]:
-        """The rows matching the CURRENT filter tab + search text, in full
-        (not yet paginated) — shared by `refresh` (which then paginates) and
-        CSV export (which doesn't)."""
+        """The rows matching the CURRENT filter + search text — shared by
+        `refresh` and CSV export."""
         view_model = self._view_model
         rows = build_trade_log_rows(self._state.all_trades)
         filter_ = TradeLogFilter(view_model.trade_log.filter)
@@ -95,17 +93,7 @@ class TradeLogCoordinator:
         ]
 
     def refresh(self) -> None:
-        """Recomputes the Trade Logs table from the current trade list —
-        called after every run (new data) and every filter/search/page change
-        from QML (`tradeLogQueryChanged`)."""
-        matched = self.filtered_and_searched_rows()
-        page_rows = paginate_trade_log_rows(
-            matched, self._view_model.trade_log.currentPage
-        )
-        self._view_model.trade_log.set_page_state(
-            trade_log_rows_to_qml(
-                page_rows, tz_name=self._view_model.time_range.displayTimezone
-            ),
-            len(matched),
-            total_pages(len(matched)),
-        )
+        """Recomputes the Trades table from the current trade list — called
+        after every run (new data), every filter or search change
+        (`queryChanged`) and every display time zone change."""
+        self._view_model.trade_log.set_rows(self.filtered_and_searched_rows())
