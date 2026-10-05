@@ -39,7 +39,6 @@
     "fixed_size": {
       "src/modules/backtesting/ui/_monthly_returns_heatmap_widget.py": 1,
       "src/modules/backtesting/ui/backtest_modals/_layout.py": 2,
-      "src/modules/backtesting/ui/backtest_modals/capital_dialog.py": 1,
       "src/modules/backtesting/ui/backtest_top_panel.py": 4,
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 3,
       "src/modules/trading/ui/dashboard/dashboard_view.py": 1,

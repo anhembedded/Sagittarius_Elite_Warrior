@@ -12,6 +12,9 @@ screen from it would mean a flag that turns off the component's only promise.
 
 One consumer, so it is built here rather than promoted into `kit/` — `base_feed`'s
 rule: a shape becomes shared when the *second* consumer for it appears.
+
+`EPIC-033L` makes it a stock `QDialog`: the list, and Close in a
+`QDialogButtonBox` (a notice has nothing to commit, so it has no OK).
 """
 
 from __future__ import annotations
@@ -19,18 +22,24 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Overlay
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QLabel,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "LIMITATIONS OF THIS RUN"
+_TITLE = "Limitations of This Run"
 _BULLET = "•"
 _EMPTY_TEXT = "This run reported no limitations."
 
 
-class LimitationsDialog(Overlay):
+class LimitationsDialog(QDialog):
     """
     @brief Plain-text caveats for the run that just finished — nothing here is
     clickable.
@@ -39,10 +48,10 @@ class LimitationsDialog(Overlay):
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
-        super().__init__(_TITLE, parent=parent)
         self.setObjectName("limitationsPopup")
-        self.resize(480, 420)
+        self.setWindowTitle(_TITLE)
 
         self._list_host = QWidget()
         self._list_layout = QVBoxLayout(self._list_host)
@@ -50,7 +59,11 @@ class LimitationsDialog(Overlay):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setWidget(self._list_host)
-        self.body_layout.addWidget(self._scroll, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._scroll, 1)
+        layout.addWidget(buttons)
 
         view_model.run_result.limitationsChanged.connect(self.refresh)
         self.refresh()

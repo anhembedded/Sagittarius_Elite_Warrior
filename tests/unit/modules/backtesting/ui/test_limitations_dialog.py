@@ -13,7 +13,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QDialogButtonBox, QLabel
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
     LimitationsDialog,
 )
@@ -90,3 +90,17 @@ def test_a_run_with_no_caveats_says_so_rather_than_showing_an_empty_box(
     ]
     assert texts == ["This run reported no limitations."]
     dialog.close()
+
+
+def test_close_closes_the_notice(qapp, view_model):
+    """A notice commits nothing: its one button is Close, and it closes."""
+    dialog = LimitationsDialog(view_model)
+    dialog.show()
+    qapp.processEvents()
+
+    buttons = dialog.findChild(QDialogButtonBox)
+    assert buttons.standardButtons() == QDialogButtonBox.StandardButton.Close
+    buttons.button(QDialogButtonBox.StandardButton.Close).click()
+    qapp.processEvents()
+
+    assert not dialog.isVisible()
