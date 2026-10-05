@@ -19,6 +19,9 @@ from collections.abc import Iterable, Sequence
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    ICandleFeed,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
 )
@@ -47,14 +50,17 @@ class MarketChart(LiveCandleChart):
         self,
         chart: ChartCard,
         dependencies: MarketDependencies,
+        feed: ICandleFeed,
         symbol: str,
         parent: QObject | None = None,
     ) -> None:
+        """`feed` is the candles of the market the mode shows (`EPIC-033Q`):
+        a chart lives in one market, and a new market is a new chart."""
         super().__init__(
             chart,
             LiveChartPorts(
                 thread_manager=dependencies.thread_manager,
-                feed=dependencies.candles,
+                feed=feed,
                 stream_owner=stream_owner_for(symbol),
                 interval=dependencies.interval,
             ),

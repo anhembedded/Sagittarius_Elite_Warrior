@@ -11,6 +11,10 @@
   chart opens from local history. The stream starts only on the user's own
   open of the mode (`BUG-104`, `BUG-107`): a restore at start says so in the
   status bar and waits; once live, each chart opened later goes live too.
+- **Market → Spot or Futures (`EPIC-033Q`):** the market is the mode's
+  state, remembered between runs. Choosing the other one reopens every open
+  chart on its candles, blanks the Watchlist and, once live, moves its
+  stream; a tick of the other market never reaches either.
 - **Tools → Check connection (SPEC-003):** asks the account in the
   background, fenced by an action id (`async-ui-action-rule.md` §1), and
   shows the answer as a word in the status bar; a failure also says what to
@@ -30,6 +34,7 @@ from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -60,8 +65,9 @@ from .connection_words import (
     failure_text,
 )
 from .market_chart import MarketChart
+from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
-from .market_dependencies import MARKET, MarketDependencies, market_dependencies_for
+from .market_dependencies import MarketDependencies, market_dependencies_for
 from .market_view import IndicatorChoice, MarketView
 
 logger = logging.getLogger("App.Trading.Market")
@@ -99,16 +105,20 @@ class MarketPresenter(CommandPresenter):
         self._opened = False
         self._live = False
         self._checks: ActionOwnershipTracker[str, None, None] = ActionOwnershipTracker()
+        self.choice = MarketChoice(dependencies.state, self)
         view.watchlist.set_symbols(list(dependencies.symbols))
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
         view.set_stream_text("Market data: not live")
-        self._ticks = market_tick_feed(self.event_bus, lambda: MARKET, self)
+        self._ticks = market_tick_feed(
+            self.event_bus, lambda: self.choice.current, self
+        )
         self._ticks.marketTick.connect(self._on_tick)
         view.symbol_opened.connect(self._open_chart)
         view.chart_closed.connect(self._close_chart)
         view.indicators_changed.connect(self._show_indicators)
         self.connectionChecked.connect(self._on_connection_checked)
+        self.choice.changed.connect(self._on_market_changed)
 
     # -- the mode ------------------------------------------------------------
 
@@ -124,6 +134,7 @@ class MarketPresenter(CommandPresenter):
             enabled=self.closeChartEnabled,
             initially_enabled=bool(self._charts),
         )
+        self.choice.bind_commands(binder)
 
     def on_mode_shown(self, source: NavigationSource) -> None:
         """`IShownAsMode`: the first showing opens a chart from local history;
@@ -151,6 +162,26 @@ class MarketPresenter(CommandPresenter):
             chart.shutdown()
             chart.release_stream()
         self._deps.stream.stop(WATCHLIST_STREAM_OWNER)
+
+    # -- Market → Spot, Futures (`EPIC-033Q`) ----------------------------------
+
+    def _on_market_changed(self, market: MarketType) -> None:
+        """Nothing of the previous market stays: its charts close (their loads
+        cancelled, their streams released) and reopen in tab order on the new
+        market's candles; the Watchlist starts blank and, once live, streams
+        the new market."""
+        symbols = self.view.open_symbols
+        current = self.view.current_symbol
+        for symbol in symbols:
+            self._close_chart(symbol)
+        self.view.watchlist.set_symbols(list(self._deps.symbols))
+        if self._live:
+            self._start_watchlist_stream()
+        for symbol in symbols:
+            self._open_chart(symbol)
+        if current:
+            self.view.show_chart(current)
+        self.view.log.append(f"Showing {MARKET_TEXT[market]} candles.")
 
     # -- Tools → Check connection (SPEC-003) ---------------------------------
 
@@ -211,7 +242,9 @@ class MarketPresenter(CommandPresenter):
             self.view.show_chart(symbol)
             return
         card = ChartCard(symbol)
-        chart = MarketChart(card, self._deps, symbol, self)
+        chart = MarketChart(
+            card, self._deps, self._deps.candles[self.choice.current], symbol, self
+        )
         chart.logged.connect(self.view.log.append)
         self._charts[symbol] = chart
         self.view.add_chart(symbol, card)
@@ -256,12 +289,17 @@ class MarketPresenter(CommandPresenter):
 
     def _go_live(self) -> None:
         self._live = True
-        symbols = list(self._deps.symbols)
-        outcome = self._deps.stream.start(
-            WATCHLIST_STREAM_OWNER, MARKET, symbols, WATCHLIST_INTERVAL
-        )
+        self._start_watchlist_stream()
         for chart in self._charts.values():
             chart.go_live()
+
+    def _start_watchlist_stream(self) -> None:
+        """Streams the chosen market's symbols; a second start replaces the
+        first (`IMarketStream.start`), so a new market needs no stop."""
+        symbols = list(self._deps.symbols)
+        outcome = self._deps.stream.start(
+            WATCHLIST_STREAM_OWNER, self.choice.current, symbols, WATCHLIST_INTERVAL
+        )
         if outcome.success:
             self.view.set_stream_text("Market data: live")
             self.view.log.append(f"Live for {', '.join(symbols)}.")
@@ -277,6 +315,10 @@ class MarketPresenter(CommandPresenter):
         self.view.log.append(f"Failed to start stream: {outcome.message}", "error")
 
     def _on_tick(self, event: MarketTickEvent) -> None:
+        if event.market_type is not self.choice.current:
+            # The Feed asks the market on the bus's thread; a tick queued to
+            # this thread before a switch lands after it (`EPIC-033Q`).
+            return
         candle = event.market_data
         chart = self._charts.get(candle.symbol)
         if chart is not None:

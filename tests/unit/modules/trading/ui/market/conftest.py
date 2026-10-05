@@ -4,6 +4,7 @@ real fakes of its ports (`market_fixtures.py`)."""
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
@@ -69,6 +70,12 @@ def threads():
 
 @pytest.fixture
 def feed():
+    """The Spot candles, the mode's default market."""
+    return RecordingCandleFeed()
+
+
+@pytest.fixture
+def futures_feed():
     return RecordingCandleFeed()
 
 
@@ -82,27 +89,30 @@ def scripts():
 
 def _deps(
     feed,
+    futures_feed,
     threads,
     scripts,
     *,
     stream: IMarketStream | None = None,
     account=None,
     symbols=SYMBOLS,
+    state=None,
 ) -> MarketDependencies:
     return MarketDependencies(
         stream=stream or FakeMarketStream(),
-        candles=feed,
+        candles={MarketType.SPOT: feed, MarketType.FUTURES_USD_M: futures_feed},
         thread_manager=threads,
         scripts=scripts,
         script_params=lambda _key: None,
         account=account or FakeAccountSnapshot(status=CONNECTED),
         symbols=symbols,
         interval="1m",
+        state=state,
     )
 
 
 @pytest.fixture
-def build(qapp, event_bus, feed, threads, scripts):
+def build(qapp, event_bus, feed, futures_feed, threads, scripts):
     made: list[MarketPresenter] = []
 
     def _build(**overrides) -> MarketPresenter:
@@ -110,7 +120,7 @@ def build(qapp, event_bus, feed, threads, scripts):
         presenter = MarketPresenter(
             view,
             presenter_container(event_bus),
-            _deps(feed, threads, scripts, **overrides),
+            _deps(feed, futures_feed, threads, scripts, **overrides),
         )
         made.append(presenter)
         return presenter
