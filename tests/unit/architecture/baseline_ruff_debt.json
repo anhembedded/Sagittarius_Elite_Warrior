@@ -82,7 +82,6 @@
       "src/modules/strategy/contracts/i_sizing_policy.py": 1,
       "src/modules/trading/ui/dashboard/dashboard_screen.py": 3,
       "src/modules/trading/ui/dashboard/dev_board_panel.py": 2,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/strategy_card.py": 1,
       "src/modules/trading/ui/desk/desk_screen/desk_factories.py": 7,
       "src/modules/trading/ui/probes.py": 2,
       "src/support/ui_kit/param_form/strategy_params_dialog.py": 1

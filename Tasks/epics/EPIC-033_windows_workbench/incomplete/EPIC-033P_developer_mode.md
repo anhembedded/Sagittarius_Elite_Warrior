@@ -1,6 +1,6 @@
 # EPIC-033P — Developer mode: the testbed, only when developer mode is on
 
-**Status:** 🔵 Backlog
+**Status:** 🟡 In progress (stage 1)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🟢 — developer-only
 **Complexity:** S
@@ -23,13 +23,28 @@ What only the Dev Board offers today, and where each goes when it is deleted:
 The Dev Board runs no strategy loop of its own: signals become orders in the `strategy` module, built at boot, whether or not the board exists.
 
 ## 2. Acceptance criteria
-- [ ] The mode exists only while developer mode is on (Tools → Options); it holds a chart central and the developer probes and script console as docks.
+- [ ] The mode exists only while developer mode is on (Tools → Options): its screen, its commands and its probes are all gated on `dev.mode`, where today only the probes are. HLD §11.2.1's Developer row lays it out: the event log central, the probes docked right. (This line said "a chart central" until 2026-10-05; the approved HLD row says the event log, and the Market mode already owns the chart.)
 - [ ] No trading command lives only here.
 - [ ] The Dev Board's market half is gone: its chart column, its Indicators panel and its "Data & stream" controls (Load history, Start live, Stop live), which the Market mode replaced (`EPIC-033H`). The Developer mode's own chart, if it keeps one, is a `MarketChart`-style tab, not the Dev Board's card stack.
 - [ ] The mode passes the conformance suite with no baseline row.
 
 ## 3. Design
-Per EPIC-033O's approved wireframe. It replaces the rest of Dev Board.
+Per EPIC-033O's approved wireframe (HLD §11.2.1, Developer row). It replaces the rest of Dev Board.
+
+What the survey of 2026-10-05 found:
+- `trading/ui/dashboard/` is 33 files, 5 761 lines; 252 unit tests in 16 files, 53 integration tests in 13 files; four god-file, mypy-exclude, ruff-debt, stock-controls and conformance baselines name its files.
+- Outside the package, only `trading/module.py` (the screen, the route and six commands) and the desks (`StrategyCard`, `StrategyCardBinding`) import it; the card imported the Dev Board's view model at runtime.
+- The Dev Board screen and its commands are not gated today; only contributions to the `dev_board` surface are (`src/shell/surfaces.py`, `ContributionRegistry`). Screens and commands have no `dev.mode` check (`contribute_screen`, `contribute_command`, `ScreenRegistry.modes()`).
+- The app has no event log: the Dev Board's "System monitor" is its own log lines. The Engine offers `IBusObserver` (`add_bus_observer`: the event's name and handler count, on the emitting thread) and `TraceRecorder` (a ring buffer).
+- One probe exists: `TradingSessionProbe` (`trading/ui/session_probe.py`).
+- The Spot/Futures combo and scroll-back "load more" exist only in the Dev Board until `EPIC-033Q` and `EPIC-033S` land in the Market mode.
+
+### Stages, one pull request each
+| Stage | What | Waits on |
+| :--- | :--- | :--- |
+| 1 | The strategy card moves to `trading/ui/desk/strategy_card/` and becomes stock controls (a `QGroupBox` over a `QFormLayout`); the Dev Board binds it through `dev_board_strategy_card()`. Nothing outside the Dev Board imports `trading/ui/dashboard/` but `module.py` | — |
+| 2 | The Developer mode: a screen of its own whose central widget is the event log (an `IBusObserver` feeding a bounded list model, marshalled to the UI thread), its probes docked right from the surface that today is `dev_board`; screens and commands gain the `dev.mode` gate descriptors already have, so the mode exists only under developer mode. The Dev Board stays beside it | stage 1 |
+| 3 | The Dev Board is deleted: the package, its route and six commands, its tests (the F9 tests re-homed on the desks, the `BUG-134` regression on the card), its baseline rows lowered, SPEC-001, 002, 004, 005, 011 and 012 and the HLD reworded | stage 2, `EPIC-033Q` and `EPIC-033S` merged |
 
 ## 4. Changes, per file
 | File | Change |
@@ -40,4 +55,4 @@ Per EPIC-033O's approved wireframe. It replaces the rest of Dev Board.
 Integration: conformance suite; dev-mode gating.
 
 ## Implementation notes (written when done)
-Not started.
+- **Stage 1 (2026-10-05).** `StrategyCard` and `StrategyCardBinding` live in `trading/ui/desk/strategy_card/`. The card is a stock `QGroupBox` titled "Strategy" over a `QFormLayout` with access keys; the kit `Panel`, eight styling calls (three `StyledButton`s, five style sheets), four fixed heights and the green/grey colour on the armed line are gone (the line's words already say whether a strategy is armed). The parameters dialog is imported at the top of the module, so the `BUG-134` regression patches it there. The Dev Board builds its copy through `dev_board_widgets/dev_board_strategy_card.py`. Ratchets lowered: stock controls (`strategy_card.py` −8 style sheet, −4 fixed size), app styling (style-sheet calls 51 → 46, files 14 → 13, palette files 19 → 18), ruff `PLC0415` (−1), god file `dev_board_panel.py` 548 → 547.

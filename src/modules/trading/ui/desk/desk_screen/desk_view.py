@@ -32,12 +32,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_widgets.strategy_card import (
-    StrategyCard,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_widgets.strategy_card_binding import (
-    StrategyCardBinding,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.account_summary_panel import (
     AccountSummaryPanel,
 )
@@ -58,6 +52,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card.strategy_card import (
+    StrategyCard,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card.strategy_card_binding import (
+    StrategyCardBinding,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL

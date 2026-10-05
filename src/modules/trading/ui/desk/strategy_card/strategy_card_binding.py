@@ -1,7 +1,8 @@
 """`EPIC-028K` — what a strategy card is bound to.
 
 @details The Dev Board and both desks host the same card. Each builds one of
-these from its own view model (`dev_board_card_binding`, `DeskView.attach`),
+these from its own view model (`dev_board_strategy_card`, `DeskView.attach`;
+`EPIC-033P` moved the card and this value to the desks),
 so the card names no screen's view model. A frozen value rather than a
 `Protocol` over the hosts: the hosts expose these as Qt `@Property`s, which
 `mypy` reads as the descriptor and not as the value it holds, so no host
