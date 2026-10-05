@@ -33,3 +33,7 @@ class ScreenContribution:
     nav: NavMetadata | None = None
     #: Exactly one screen in a run may be the default; the shell checks.
     is_default: bool = False
+    #: A run-time condition the mode exists under (`"dev.mode"`), as a
+    #: gated `Surface` has: off, the screen is dropped with a log line, and
+    #: so are the commands of its mode (`EPIC-033P`).
+    gated_by: str | None = None

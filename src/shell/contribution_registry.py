@@ -33,6 +33,12 @@ placement.
 **A gated-off surface drops its contributions.** `dev_board` when developer mode
 is off is the normal user run, not an error: every panel and probe aimed at it is
 dropped with one log line each, and the app boots.
+
+**A gated-off screen drops, and its mode's commands with it** (`EPIC-033P`).
+The Developer mode is a `ScreenContribution` with `gated_by="dev.mode"`; with
+developer mode off it is dropped with a log line, and `commands()` leaves out
+every command whose `mode` is its route, whichever was contributed first. The
+gate means what a surface's means (`gate_is_open`).
 """
 
 from __future__ import annotations
@@ -61,7 +67,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
-from Sagittarius_Elite_Warrior.src.shell.surfaces import surface_is_open, surfaces_by_id
+from Sagittarius_Elite_Warrior.src.shell.surfaces import (
+    gate_is_open,
+    surface_is_open,
+    surfaces_by_id,
+)
 from sagittarius_engine.extensions.pyside_mvc.runtime.contribution_descriptor import (
     ContributionDescriptor as EngineContributionDescriptor,
 )
@@ -143,6 +153,8 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
         self._commands: dict[str, CommandContribution] = {}
         self._default_route: str | None = None
         self._dropped = 0
+        #: Routes a gate dropped this run: their commands are dropped too.
+        self._gated_off_routes: set[str] = set()
 
     # -- the module-facing side (IContributionRegistry) --------------------
 
@@ -177,6 +189,21 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             raise ContributionError(str(exc)) from exc
 
     def contribute_screen(self, contribution: ScreenContribution) -> None:
+        if not gate_is_open(
+            contribution.gated_by,
+            dev_mode=self._dev_mode,
+            subject=f"screen {contribution.route}",
+        ):
+            self._dropped += 1
+            self._gated_off_routes.add(contribution.route)
+            logger.info(
+                "Dropped the screen %r from %r and its commands: gated off for "
+                "this run (%s).",
+                contribution.route,
+                contribution.contributor_id,
+                contribution.gated_by,
+            )
+            return
         if contribution.route in self._screens:
             claimed_by = self._screens[contribution.route].contributor_id
             raise ContributionError(
@@ -249,12 +276,18 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
         )
 
     def commands(self) -> tuple[CommandContribution, ...]:
-        """Every command, in contribution order: the order its menu lists it."""
-        return tuple(self._commands.values())
+        """Every command, in contribution order: the order its menu lists it;
+        a gated-off screen's commands are left out."""
+        return tuple(
+            command
+            for command in self._commands.values()
+            if command.mode not in self._gated_off_routes
+        )
 
     def default_route(self) -> str | None:
         return self._default_route
 
     def dropped_count(self) -> int:
-        """How many contributions a gated-off surface swallowed this run."""
+        """How many contributions a gate swallowed this run: panels and probes
+        aimed at a gated-off surface, and gated-off screens."""
         return self._dropped

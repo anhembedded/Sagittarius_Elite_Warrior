@@ -88,10 +88,17 @@ def surface_is_open(surface: Surface, *, dev_mode: bool) -> bool:
     open — a surface silently appearing in a normal user's app is the failure
     worth being loud about.
     """
-    if surface.gated_by is None:
+    return gate_is_open(surface.gated_by, dev_mode=dev_mode, subject=surface.surface_id)
+
+
+def gate_is_open(gate: str | None, *, dev_mode: bool, subject: str) -> bool:
+    """Is `gate` open in this run? One evaluation for a surface and a screen
+    (`EPIC-033P`), so the two can never disagree on what a key means.
+
+    @param subject What carries the gate, for the error naming an unknown one.
+    """
+    if gate is None:
         return True
-    if surface.gated_by == DEV_MODE_GATE:
+    if gate == DEV_MODE_GATE:
         return dev_mode
-    raise ValueError(
-        f"surface {surface.surface_id!r} has an unknown gate {surface.gated_by!r}"
-    )
+    raise ValueError(f"{subject!r} has an unknown gate {gate!r}")
