@@ -147,4 +147,4 @@ def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(
     qapp.processEvents()
 
     assert view_model.uiMode == UIMode.SYNCING.value
-    assert view._btn_vacuum.isEnabled() is False
+    assert view._btn_symbol.isEnabled() is False

@@ -11,7 +11,7 @@
       "src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py": 5,
       "src/modules/backtesting/ui/backtest_top_panel.py": 24,
       "src/modules/backtesting/ui/backtest_trade_logs_panel.py": 8,
-      "src/modules/market_data/ui/data_management_view.py": 14,
+      "src/modules/market_data/ui/data_management_view.py": 11,
       "src/modules/market_data/ui/data_management_widgets/gap_inspector_dialog.py": 14,
       "src/modules/market_data/ui/data_management_widgets/time_range_card.py": 4,
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 2,

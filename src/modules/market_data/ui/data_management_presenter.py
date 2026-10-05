@@ -42,6 +42,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.signal_log_handler import (
     SignalLogHandler,
@@ -60,10 +66,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
     find_symbol_preferences,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .data_command_binding import bind_data_commands
 from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .logic.coordinator_factory import build_coordinators
@@ -92,7 +99,7 @@ _INTERVAL_KEY = "interval"
 logger = logging.getLogger("App.DataManagement")
 
 
-class DataManagementPresenter(BasePresenter):
+class DataManagementPresenter(CommandPresenter):
     """
     @brief Orchestrator Presenter for the Database screen (Storage Vault — BOT-112A).
 
@@ -140,11 +147,8 @@ class DataManagementPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
-        # EPIC-010H, middle tier: this screen used to ignore Settings entirely,
-        # so editing DEFAULT_SYMBOLS/DEFAULT_INTERVAL changed the Backtest
-        # screen and silently left this one on its own hardcoded list.
-        # `restore_state()` later overrides these with remembered values if
-        # there are any, which is the top tier.
+        # EPIC-010H, middle tier: the configured defaults; `restore_state()`
+        # overrides them with remembered values, the top tier.
         config_values = container.resolve(IConfig).get_all()
         # This screen's own floors, unchanged: its picker has always started on
         # the first of its five symbols and on the first supported interval.
@@ -182,10 +186,8 @@ class DataManagementPresenter(BasePresenter):
             # middle of a composition root.
             install_transitions(self.fsm)
 
-        # Coordinators (EPIC-003B) — construction moved to a Factory
-        # (BOT-144, `code/quality.md` §9): six of them, each wired to this
-        # Presenter's own signals/FSM callbacks, is exactly the multi-step
-        # construction sequence that rule routes out of a constructor.
+        # Coordinators (EPIC-003B), built by a Factory (BOT-144,
+        # `code/quality.md` §9): a multi-step construction.
         coordinators = build_coordinators(
             self, container, self._view_model, self._thread_manager, market_data_repo
         )
@@ -199,10 +201,8 @@ class DataManagementPresenter(BasePresenter):
         self._connect_ui_signals()
         self._connect_engine_events()
 
-        # EPIC-010E — restore the remembered selection, then start tracking
-        # changes, before the first show's auto-discover (never waiting on it).
-        # `_mark_state_dirty` is connected only after restoring, so a restore
-        # does not write itself straight back out as a fresh user edit.
+        # EPIC-010E — restore, then track changes (`_mark_state_dirty` after
+        # restoring, so a restore is not written back out as a user edit).
         self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
             container
         )
@@ -211,10 +211,7 @@ class DataManagementPresenter(BasePresenter):
         self._view_model.selectedSymbolChanged.connect(self._mark_state_dirty)
         self._view_model.selectedIntervalChanged.connect(self._mark_state_dirty)
 
-        # EPIC-014 — the shared symbol favourites/recents store. Optional in
-        # the same way as the coordinator above: a presenter built against a
-        # container that does not know about it keeps the view's own
-        # unpersisted store and still works.
+        # EPIC-014 — the shared favourites store; optional, like the coordinator.
         view.set_symbol_preferences(
             find_symbol_preferences(container) or SymbolPreferences()
         )
@@ -280,6 +277,9 @@ class DataManagementPresenter(BasePresenter):
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_data_commands(binder, self._view_model)
 
     def _connect_ui_signals(self) -> None:
         """Connect view-model requests and internal signals to presenter slots."""

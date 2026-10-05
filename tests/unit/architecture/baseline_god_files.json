@@ -7,7 +7,7 @@
  "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 455,
  "src/modules/market_data/adapters/persistence/sqlalchemy_repository.py": 419,
  "src/modules/market_data/ui/data_management_presenter.py": 663,
- "src/modules/market_data/ui/data_management_view.py": 714,
+ "src/modules/market_data/ui/data_management_view.py": 576,
  "src/modules/market_data/ui/data_management_view_model.py": 525,
  "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1245,
  "src/modules/trading/ui/dashboard/dashboard_view_model.py": 406,

@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
+    SYNC_TIMEFRAME,
+)
 
 # app_engine/main_window come from conftest.py — this file used to define
 # its own near-duplicate copies (predating BOT-034), which meant the
@@ -67,7 +70,7 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate):
 def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp):
     """
     Database screen (QtWidgets, EPIC-005E). Loads through the router, and a
-    real "Sync Current" click drives the presenter's FSM into LOCKED.
+    real Sync timeframe drives the presenter's FSM into SYNCING.
     """
     qtbot.addWidget(main_window)
 
@@ -82,8 +85,8 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp):
     # Ensure starting mode is IDLE
     assert presenter.fsm.current_state.value == "IDLE"
 
-    # Simulate user clicking "Sync Current"
-    view._action_buttons["btnSyncData"].click()
+    # The user runs Data → Sync timeframe (`EPIC-033D`).
+    main_window.findChild(QAction, f"action::{SYNC_TIMEFRAME}").trigger()
 
     qtbot.waitUntil(
         lambda: presenter.fsm.current_state.value == "SYNCING", timeout=2000

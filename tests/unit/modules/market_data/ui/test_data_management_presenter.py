@@ -35,13 +35,25 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
+    DELETE_SELECTED,
+    PURGE_ALL,
+    data_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
+    DATABASE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.command_actions import (
+    RecordingConfirmer,
+    bound_actions,
+)
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -376,22 +388,20 @@ def test_sync_all_gaps_with_no_gaps_does_nothing(
 # row height" for a widget's real size to disagree with.
 
 
-def test_confirm_overlays_reach_the_view_model_after_it_is_attached(
+def test_delete_and_purge_actions_ask_then_submit_their_workers(
     presenter, view_model, mock_thread_mgr
 ):
-    """Both destructive confirms must still fire after `set_view_model()`.
-
-    `_build_dialogs()` runs from `__init__`, when `_view_model` is still
-    `None`. Connecting `self._view_model.requestClearData` directly there
-    binds `None` and raises on construction; connecting a bound method of
-    the view that reads `_view_model` at emit time is what makes the wiring
-    survive. This pins the emit-time behaviour, not just construction.
-    """
-    view = presenter.view
+    confirmer = RecordingConfirmer()
+    actions = bound_actions(
+        presenter.view,
+        data_commands(DATABASE_ROUTE),
+        presenter.bind_commands,
+        confirmer,
+    )
     view_model.selectedSymbol = "BTCUSDT"
     view_model.selectedInterval = "5m"
 
-    view._clear_dialog.confirm_button.click()
+    actions.action(DELETE_SELECTED).trigger()
 
     assert presenter.fsm.current_state == UIMode.CLEARING
     mock_thread_mgr.submit.assert_called_with(
@@ -399,26 +409,16 @@ def test_confirm_overlays_reach_the_view_model_after_it_is_attached(
     )
 
     presenter.fsm.transition_to(UIMode.IDLE)
-    view._purge_dialog.confirm_button.click()
+    actions.action(PURGE_ALL).trigger()
 
     assert presenter.fsm.current_state == UIMode.CLEARING
     mock_thread_mgr.submit.assert_called_with(
         presenter._vault_maintenance_coordinator.run_purge_all
     )
-
-
-def test_confirm_overlays_are_safe_before_a_view_model_is_attached(qapp, request):
-    """A view built but never given a view model must not raise on confirm.
-
-    The guard in the slots is not decoration: `DataManagementView()` is
-    constructed bare in several tests and in the dead-screen path, and a
-    stray confirm there used to be an `AttributeError` on `None`.
-    """
-    view = DataManagementView()
-    request.addfinalizer(view.deleteLater)
-
-    view._clear_dialog.confirm_button.click()
-    view._purge_dialog.confirm_button.click()
+    assert [asked.title for asked in confirmer.asked] == [
+        "Delete Data",
+        "Purge All Data",
+    ]
 
 
 def test_on_clear_data_submits_clear_worker(presenter, view_model, mock_thread_mgr):
