@@ -89,6 +89,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Find… | Ctrl+F | — | — |
 | &View | &Market, T&rade, &Bots, Back&test, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
+| | S&pot market, Futures mar&ket (Market mode: one exclusive choice of the market its Watchlist and charts show, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
 | T&rade | &Venue › Futures, Spot | — | Trade | — |

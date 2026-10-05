@@ -63,8 +63,10 @@ def candle(
     )
 
 
-def tick(market_data: MarketData) -> MarketTickEvent:
-    return MarketTickEvent(market_data=market_data, market_type=MarketType.SPOT)
+def tick(
+    market_data: MarketData, market: MarketType = MarketType.SPOT
+) -> MarketTickEvent:
+    return MarketTickEvent(market_data=market_data, market_type=market)
 
 
 class RecordingCandleFeed(ICandleFeed):

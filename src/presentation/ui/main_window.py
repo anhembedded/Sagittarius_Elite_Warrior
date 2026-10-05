@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
     action_descriptor,
+    exclusive_groups,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
     ModePerspectives,
@@ -162,6 +163,9 @@ class MainWindow(WorkbenchShell):
             (command, registry.contribute(action_descriptor(command)))
             for command in screen_registry.commands()
         )
+        # Before any presenter binds: a choice checked at bind time already
+        # unchecks its alternatives.
+        exclusive_groups(self._commands, action_owner)
         self._presenters: dict[str, BasePresenter] = {}
         self._hosts: dict[str, ModeHost] = {}
         self._output = OutputPane(self)

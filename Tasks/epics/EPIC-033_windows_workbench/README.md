@@ -54,7 +54,7 @@
 | [EPIC-033K](incomplete/EPIC-033K_bots_mode.md) | Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | 🟡 In progress (stage 1: the layout) |
 | [EPIC-033L](incomplete/EPIC-033L_backtest_mode.md) | Backtest mode: test a strategy on stored history, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | 🟡 In progress (stages 1, 2a merged; 2b: Monte Carlo dock, status-bar progress) |
 | [EPIC-033P](incomplete/EPIC-033P_developer_mode.md) | Developer mode: the testbed, only when developer mode is on | Elite | EPIC-033O, EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟢 | Planned |
-| [EPIC-033Q](incomplete/EPIC-033Q_market_spot_and_futures.md) | The Market mode shows Spot or Futures candles, as the person chooses | Elite | EPIC-033H | 🟢 | Planned |
+| [EPIC-033Q](completed/EPIC-033Q_market_spot_and_futures.md) | The Market mode shows Spot or Futures candles, as the person chooses | Elite | EPIC-033H | 🟢 | ✅ Done (2026-10-05) |
 | [EPIC-033R](completed/EPIC-033R_desk_new_order_f9.md) | Each trading desk has Trade → New order… (F9) | Elite | EPIC-033D | 🟢 | ✅ Done (2026-10-05) |
 | [EPIC-033S](incomplete/EPIC-033S_market_chart_history_range.md) | The Market mode's charts scroll back and load a chosen range | Elite | EPIC-033H | 🟡 | Planned |
 | [EPIC-033M](incomplete/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N, EPIC-033P, EPIC-033Q, EPIC-033R, EPIC-033S | 🟢 | Planned |
