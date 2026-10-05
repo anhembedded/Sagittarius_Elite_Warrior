@@ -5,10 +5,10 @@ import pyqtgraph as pg
 from PySide6.QtCore import QPointF, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QStatusTipEvent
 from PySide6.QtWidgets import QApplication, QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Card
 
 from .cached_frame_interaction import CachedFrameInteractionController
 from .candlestick_item import FastCandlestickItem
+from .chart_frame import ChartFrame
 from .chart_toolbar import ChartToolbar
 from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
 from .chart_zoom_actions import ChartZoomActions
@@ -49,7 +49,7 @@ _VIEW_EDGE_MARGIN_BARS = 30
 _FALLBACK_BAR_SECONDS = 60.0
 
 
-class ChartCard(Card):
+class ChartCard(ChartFrame):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
@@ -131,9 +131,9 @@ class ChartCard(Card):
         """
         @brief Appends a widget to this card's header row.
 
-        @details Kept as a method after `EPIC-007E` moved this class onto the
-        engine's `Card`, which exposes the header as a `header_actions`
-        layout instead. Four things call it by name — this class, the
+        @details Kept as a method after `EPIC-007E` moved this class onto a
+        card that exposes the header as a `header_actions` layout instead
+        (`ChartFrame` since `EPIC-033H`). Four things call it by name — this class, the
         `IBacktestChartHost` Protocol, that Protocol's adapter, and
         `backtest_view` injecting a second widget after construction — and
         one test reaches it through `patch.object`, which raises at patch
