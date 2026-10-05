@@ -104,6 +104,13 @@ class LiveCandleChart(QObject):
         if self._symbol:
             self._restart()
 
+    def show_newest_window(self) -> None:
+        """Draws the shown symbol's newest first window again at the shown
+        timeframe, live if the chart is (`EPIC-033T`): the way back from
+        whatever an owner drew in its place."""
+        if self._symbol:
+            self._restart()
+
     def shutdown(self) -> None:
         """Cancels the load in flight; the stream is left as it is."""
         self._token.cancel()

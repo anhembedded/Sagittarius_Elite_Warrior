@@ -23,7 +23,8 @@ settles (drawn, empty or failed, `LiveCandleChart`'s two hooks), and while
 its own load runs; nothing is asked against it meanwhile, and
 `loadingChanged` says when. While a range is drawn the chart
 draws no live candle, which would land after a gap the range does not show;
-the next first window (a timeframe change) follows the stream again.
+the next first window (View → Back to live, `EPIC-033T`, or a timeframe
+change) follows the stream again, and `showingRangeChanged` says so.
 """
 
 from __future__ import annotations
@@ -102,6 +103,8 @@ class MarketChart(LiveCandleChart):
 
     #: Whether an older window or a range is loading.
     loadingChanged = Signal(bool)
+    #: Whether a range is drawn in place of the live window.
+    showingRangeChanged = Signal(bool)
     #: `(request, older candles | error)`, from the worker thread.
     _older_loaded = Signal(object, object)
     #: `(request, (span, RangeCandles) | error)`, from the worker thread.
@@ -348,7 +351,9 @@ class MarketChart(LiveCandleChart):
         # Any whole history drawn (a first window or a range) is a new base:
         # a load asked against the previous one no longer fits it.
         self._generation += 1
-        self._showing_range = self._drawing_range
+        if self._showing_range != self._drawing_range:
+            self._showing_range = self._drawing_range
+            self.showingRangeChanged.emit(self._showing_range)
         self._klines = list(klines)
         self._replay()
 

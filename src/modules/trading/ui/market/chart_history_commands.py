@@ -1,11 +1,12 @@
-"""View → Load older candles and View → Load range… (`EPIC-033S`): two
-commands that act on the Market chart in front.
+"""View → Load older candles, Load range… (`EPIC-033S`) and Back to live
+(`EPIC-033T`): the commands that act on the Market chart in front.
 
 Presenter-owned (`async-ui-action-rule.md` §2): built and held by
 `MarketPresenter`, never registered. It owns no load bookkeeping either:
 each `MarketChart` fences its own loads by generation and says when it is
 loading; this object only routes the command to the chart in front and keeps
-both commands off while no chart is open or the one in front loads.
+the commands off while no chart is open or the one in front loads, and Back
+to live off while that chart shows no range.
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 
 from .chart_history import HistoryRange
 from .market_chart import MarketChart
-from .market_commands import LOAD_OLDER, LOAD_RANGE
+from .market_commands import BACK_TO_LIVE, LOAD_OLDER, LOAD_RANGE
 from .market_view import MarketView
 
 logger = logging.getLogger("App.Trading.Market")
@@ -32,10 +33,13 @@ _PROPOSED_SPAN = timedelta(days=7)
 
 
 class ChartHistoryCommands(QObject):
-    """@brief Load older candles and Load range…, for the chart in front."""
+    """@brief Load older candles, Load range… and Back to live, for the
+    chart in front."""
 
-    #: Whether the two commands may run now.
+    #: Whether Load older candles and Load range… may run now.
     enabledChanged = Signal(bool)
+    #: Whether Back to live may run now.
+    backToLiveEnabledChanged = Signal(bool)
 
     def __init__(
         self,
@@ -62,13 +66,21 @@ class ChartHistoryCommands(QObject):
             enabled=self.enabledChanged,
             initially_enabled=ready,
         )
+        binder.bind(
+            BACK_TO_LIVE,
+            self._on_back_to_live,
+            enabled=self.backToLiveEnabledChanged,
+            initially_enabled=self._front_shows_range(),
+        )
 
     def watch(self, chart: MarketChart) -> None:
-        """Keeps the commands in step with `chart`'s loads."""
+        """Keeps the commands in step with `chart`'s loads and range."""
         chart.loadingChanged.connect(lambda _loading: self.refresh())
+        chart.showingRangeChanged.connect(lambda _showing: self.refresh())
 
     def refresh(self) -> None:
         self.enabledChanged.emit(self._front_ready())
+        self.backToLiveEnabledChanged.emit(self._front_shows_range())
 
     def load_older(self) -> None:
         chart = self._front()
@@ -91,11 +103,20 @@ class ChartHistoryCommands(QObject):
         )
         chart.load_range(span)
 
+    def back_to_live(self) -> None:
+        chart = self._front()
+        if chart is not None and self._front_shows_range():
+            logger.info("[market] back to live: %s", chart.shown_symbol)
+            chart.show_newest_window()
+
     def _on_load_older(self, _checked: bool) -> None:
         self.load_older()
 
     def _on_load_range(self, _checked: bool) -> None:
         self.load_range()
+
+    def _on_back_to_live(self, _checked: bool) -> None:
+        self.back_to_live()
 
     def _front(self) -> MarketChart | None:
         return self._charts().get(self._view.current_symbol)
@@ -103,6 +124,10 @@ class ChartHistoryCommands(QObject):
     def _front_ready(self) -> bool:
         chart = self._front()
         return chart is not None and not chart.loading
+
+    def _front_shows_range(self) -> bool:
+        chart = self._front()
+        return chart is not None and not chart.loading and chart.showing_range
 
     @staticmethod
     def _proposal(chart: MarketChart) -> HistoryRange:
