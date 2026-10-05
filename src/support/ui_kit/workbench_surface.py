@@ -25,6 +25,7 @@ What stays here, and could not move:
 | `HEADER` | `TOP_TOOLBAR` | the top `QToolBar` |
 | `CONTEXT_BAR` | `SECONDARY_TOOLBAR` | a second `QToolBar`, on its own row under the first |
 | `WORKSPACE` | `CENTRAL` | the central widget — exactly one |
+| `NAVIGATOR` | `DOCK_LEFT` | a `QDockWidget` in the left dock area |
 | `RAIL` | `DOCK_RIGHT` | a `QDockWidget` in the right dock area |
 | `CONSOLE` | `DOCK_BOTTOM` | a `QDockWidget` in the bottom dock area |
 | `DEV_PROBE` | `DOCK_RIGHT` | a `QDockWidget` in the right dock area, tabbed with the rail |
@@ -68,6 +69,7 @@ _PLACE_TO_REGION: dict[Place, RegionKind] = {
     Place.HEADER: RegionKind.TOP_TOOLBAR,
     Place.CONTEXT_BAR: RegionKind.SECONDARY_TOOLBAR,
     Place.WORKSPACE: RegionKind.CENTRAL,
+    Place.NAVIGATOR: RegionKind.DOCK_LEFT,
     Place.RAIL: RegionKind.DOCK_RIGHT,
     Place.CONSOLE: RegionKind.DOCK_BOTTOM,
     Place.DEV_PROBE: RegionKind.DOCK_RIGHT,

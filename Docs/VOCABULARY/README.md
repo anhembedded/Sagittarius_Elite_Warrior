@@ -66,6 +66,7 @@ This table is the canonical definition of the `Place` enum (SDD-01).
 | `HEADER` | Actions that apply to the whole page (enable, reload, emergency stop): a `QToolBar` of `QAction`s. | the toolbar | ✅ (as `PageShell.set_header` today; `QToolBar` after HLD §11) |
 | `CONTEXT_BAR` | The current context the page works in (symbol, timeframe, connection): a second toolbar. | the toolbar | ✅ |
 | `WORKSPACE` | The one large thing the page is about (a chart, a table, a form): the mode's central widget. Only `market_data` and `charting` contribute here. | the central widget — takes the remaining space | ✅ |
+| `NAVIGATOR` | The left dock area: where the person picks or sets up what the mode's centre shows — the Bots list, Backtest's Run setup (HLD §11.2.1). A panel like any `RAIL` one, in the other dock area. | the left dock area; the user's saved perspective | ✅ (`EPIC-033L`) |
 | `RAIL` | The dock area of **panels** (`QDockWidget`s), initially ordered by `order`, then as the user arranged them. Where most module widgets go. | the dock area; the user's saved perspective | ✅ (a fixed column today; docks after HLD §11) |
 | `CONSOLE` | Log and diagnostics for that page: a bottom dock panel. | the bottom dock area | ✅ |
 | `MODAL` | A `QDialog` the page opens and closes: names its action, has Cancel, validates before OK. Never a permanent resident. | `QDialog` — sized by content, centred | ✅ (overlay today; `QDialog` after HLD §11) |

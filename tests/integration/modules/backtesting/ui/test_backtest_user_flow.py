@@ -156,7 +156,7 @@ def backtest_screen(qapp, qtbot, booted_backtest_app):
 def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     _, view = backtest_screen
 
-    view.top_widget._btn_capital.click()
+    view.run_setup.capital.click()
     qapp.processEvents()
     capital_dialog = view._modals_host._capital
     assert capital_dialog is not None
@@ -165,7 +165,7 @@ def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     assert capital_dialog._field.objectName() == "txtBacktestCapital"
     assert capital_dialog._field.isVisible() is True
 
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
     bot_params_dialog = view._modals_host._strategy_properties
     assert bot_params_dialog is not None

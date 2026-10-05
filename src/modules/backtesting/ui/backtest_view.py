@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    PageShell,
-    PreferredHeightScrollArea,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
@@ -30,23 +31,41 @@ from .logic.chart_canvas_view import (
 )
 from .logic.chart_controls import BacktestChartControls
 from .ports.i_backtest_chart_host import IBacktestChartHost
+from .run_setup_panel import RunSetupPanel
 
 _EQUITY_SUBPLOT_KEY = "equity"
 _EQUITY_SUBPLOT_COLOR = (
     Palette.ACCENT  # Theme.accent's hex — chart_card has no Qt theme singleton access
 )
 _TRADE_FLAGS_KEY = "backtest_trades"
-_CHART_MINIMUM_HEIGHT = 550
-_TRADE_LOGS_MINIMUM_HEIGHT = 450
-_MAIN_SPLITTER_MINIMUM_HEIGHT = 1000
+
+#: This mode's surface. Declared here because a module may not import
+#: `shell/`; `test_backtest_mode_layout.py` holds it equal to
+#: `shell/surfaces.py`'s `backtest` entry.
+BACKTEST_SURFACE = Surface(
+    "backtest",
+    owner="backtesting",
+    accepts=frozenset({Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}),
+)
+#: The panels HLD §11.2.1 lists for this mode, by their dock titles.
+RUN_SETUP_DOCK = "Run setup"
+METRICS_DOCK = "Metrics"
+TRADES_DOCK = "Trades"
 
 
 class BackTestView(OutputSourceView):
     """
-    @brief The Backtest screen (EPIC-006E): a top panel (`BackTestTopPanel`),
-    the chart, and the results panel (`BackTestTradeLogsPanel`) in a
-    `QSplitter` inside a `QScrollArea`; the run log is the Output pane's
-    "Backtest" channel (`EPIC-033F`).
+    @brief The Backtest mode (`EPIC-033L`), laid out as HLD §11.2.1 lists it:
+    the result chart in the centre; Run setup (`RunSetupPanel`) on the left;
+    Metrics (`BackTestTopPanel`: banners and figures) on the right; Trades
+    (`BackTestTradeLogsPanel`) at the bottom. The run log is the Output
+    pane's "Backtest" channel (`EPIC-033F`).
+
+    @details Before `EPIC-033L` the same parts were stacked in a `QSplitter`
+    with minimum heights adding up to 1000 px, inside a page scroll area,
+    under a `PageShell` header: the chart scrolled with the page and the
+    pickers' row scrolled sideways inside it. Docks size to the window, and
+    the person moves, tabs or hides them; the mode's perspective keeps it.
     """
 
     chartPreviewRendered = Signal()
@@ -88,50 +107,19 @@ class BackTestView(OutputSourceView):
     def _setup_ui(self) -> None:
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
-        outer_layout.setSpacing(0)
-
-        self._shell = PageShell()
-        outer_layout.addWidget(self._shell)
-        # Run and Stop are the module's commands (`backtest_commands.py`).
-        self._shell.set_header(
-            "Backtest Engine", "Test strategies against historical data"
-        )
-
-        self.scroll_area = PreferredHeightScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.scroll_area.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._shell.set_workspace(self.scroll_area)
-
-        self.scroll_content = QWidget()
-        self._scroll_content_layout = QVBoxLayout(self.scroll_content)
-        self._scroll_content_layout.setContentsMargins(10, 10, 10, 10)
-        self._scroll_content_layout.setSpacing(10)
-
-        # BackTestTopPanel (EPIC-006E) needs the ViewModel at construction
-        # time (same lazy-build contract as DevBoardPanel, EPIC-006D) — built
-        # in set_view_model() below, not here, and inserted at index 0.
-        self.top_widget: BackTestTopPanel | None = None
-
-        self._main_splitter = QSplitter(Qt.Orientation.Vertical)
-        self._main_splitter.setMinimumHeight(_MAIN_SPLITTER_MINIMUM_HEIGHT)
-        self._scroll_content_layout.addWidget(self._main_splitter, 1)
+        self._surface = WorkbenchSurface(BACKTEST_SURFACE)
+        outer_layout.addWidget(self._surface)
 
         self.charts_container = QWidget()
-        self.charts_container.setMinimumHeight(_CHART_MINIMUM_HEIGHT)
         self.charts_layout = QVBoxLayout(self.charts_container)
         self.charts_layout.setContentsMargins(0, 0, 0, 0)
-        self.charts_layout.setSpacing(0)
-        self._main_splitter.addWidget(self.charts_container)
+        self._surface.place_widget(Place.WORKSPACE, self.charts_container)
 
-        # BackTestTradeLogsPanel (EPIC-006E) also needs the ViewModel at
-        # construction — built in set_view_model() below, added as the
-        # splitter's 2nd child there.
+        # The three panels need the ViewModel at construction (`EPIC-006E`'s
+        # lazy-build contract): built and docked in `set_view_model()`.
+        self.run_setup: RunSetupPanel | None = None
+        self.top_widget: BackTestTopPanel | None = None
         self.bottom_widget: BackTestTradeLogsPanel | None = None
-
-        self.scroll_area.setWidget(self.scroll_content)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
         """Registers the ViewModel and builds every child that needs it
@@ -140,22 +128,19 @@ class BackTestView(OutputSourceView):
         self._view_model = view_model
         self._output = OutputChannel("backtest", "Backtest", view_model.log_model)
         view_model.broker_sim.marketChanged.connect(self._show_marker_sides)
+        self.run_setup = RunSetupPanel(view_model)
         self.top_widget = BackTestTopPanel(view_model)
-        self._scroll_content_layout.insertWidget(0, self.top_widget)
-        self._shell.set_header(
-            "Backtest Engine", "Test strategies against historical data"
-        )
-
         self.bottom_widget = BackTestTradeLogsPanel(view_model)
-        self.bottom_widget.setMinimumHeight(
-            max(_TRADE_LOGS_MINIMUM_HEIGHT, self.bottom_widget.minimum_usable_height())
+        # `BUG-004`: squeezed below this floor the hand-built row list shows
+        # its header and no row. Kept while the list is hand-built; the
+        # trades table built from its column specs (the next stage of
+        # `EPIC-033L`) scrolls at any height and needs none.
+        self.bottom_widget.setMinimumHeight(self.bottom_widget.minimum_usable_height())
+        self._surface.place_widget(
+            Place.NAVIGATOR, self.run_setup, title=RUN_SETUP_DOCK
         )
-        self._main_splitter.addWidget(self.bottom_widget)
-        self._main_splitter.setStretchFactor(0, 3)
-        self._main_splitter.setStretchFactor(1, 2)
-        self._main_splitter.setSizes(
-            [_CHART_MINIMUM_HEIGHT, _TRADE_LOGS_MINIMUM_HEIGHT]
-        )
+        self._surface.place_widget(Place.RAIL, self.top_widget, title=METRICS_DOCK)
+        self._surface.place_widget(Place.CONSOLE, self.bottom_widget, title=TRADES_DOCK)
 
         self._modals_host = BackTestModalsHost(view_model, self)
 

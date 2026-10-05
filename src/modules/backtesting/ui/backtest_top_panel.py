@@ -1,10 +1,10 @@
 """EPIC-006E: `BackTestTopPanel.qml` -> QtWidgets.
 
-Toolbar (symbol/strategy/timeframe/range/timezone/capital/order-exec/
-indicator pickers + bot-params + run button), progress/preview/stale/
-coverage banners, and the performance stat-cards row — everything above
-the chart. Behaviour-preserving port: every `objectName` from the QML
-carries over unchanged (tests/presenter both key off them).
+Progress/preview/stale/coverage banners and the performance figures: since
+`EPIC-033L` the content of the Backtest mode's Metrics dock. The toolbar of
+pickers that once sat on top of it is the Run setup dock
+(`run_setup_panel.py`). Every `objectName` from the QML port carries over
+unchanged (tests/presenter both key off them).
 
 `EPIC-015` Phase 4 replaced two pieces of that QtWidgets port with QML
 embeds: `ProgressBannerWidget` (`qml/kit/`) for the run/sync progress banner,
@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -49,7 +48,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 )
 
 from .backtest_stat_row import BacktestStatRow
-from .market_selector import MarketSelector
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -80,17 +78,6 @@ def _clamp_percent(value: float) -> float:
 #: `BOT-095G` — always index 0, never a real run; `itemData(0)` is `""`,
 #: which `_on_run_history_selected` reads as "nothing to restore".
 _RUN_HISTORY_PLACEHOLDER = "Previous runs…"
-
-
-def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
-    btn = QPushButton()
-    btn.setObjectName(object_name)
-    btn.setFlat(True)
-    btn.setCursor(Qt.CursorShape.PointingHandCursor)
-    btn.setFixedHeight(34)
-    if min_width:
-        btn.setMinimumWidth(min_width)
-    return btn
 
 
 class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
@@ -128,7 +115,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         card_layout.setSpacing(8)
         outer.addWidget(self._card)
 
-        card_layout.addWidget(self._build_toolbar())
         self._progress_banner = self._build_progress_banner()
         card_layout.addWidget(self._progress_banner)
         self._preview_banner = self._build_preview_banner()
@@ -150,200 +136,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
         self._wire_view_model()
         self._sync_all()
-
-    # ------------------------------------------------------------------ #
-    # Toolbar (Row 1)
-    # ------------------------------------------------------------------ #
-
-    def _build_toolbar(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setObjectName("toolbarScroll")
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setFixedHeight(52)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll.setStyleSheet(
-            f"QScrollArea {{ background: transparent; border: none; }}"
-            f"QScrollArea > QWidget > QWidget {{ background: transparent; }}"
-            f"QScrollBar:horizontal {{ height: 4px; background: transparent; border: none; margin: 0; }}"
-            f"QScrollBar::handle:horizontal {{ background: {Palette.BORDER}; border-radius: 2px; }}"
-            f"QScrollBar::handle:horizontal:hover {{ background: {Palette.STATE_NAV_BORDER}; }}"
-            f"QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; height: 0px; background: none; border: none; }}"
-        )
-        scroll.viewport().setStyleSheet("background: transparent;")
-
-        row_widget = QWidget()
-        row = QHBoxLayout(row_widget)
-        row.setObjectName("toolbarRow")
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(10)
-
-        self._btn_symbol = self._icon_text_button(
-            "btnBacktestSymbol", "dollar-sign", Palette.ACCENT, min_width=110
-        )
-        self._btn_symbol.clicked.connect(self._vm.requestOpenSymbolPicker)
-        self._combo_market = MarketSelector(self._vm.broker_sim)
-        row.addWidget(self._combo_market)
-        row.addWidget(self._btn_symbol)
-
-        self._btn_strategy = self._icon_text_button(
-            "btnBacktestStrategy",
-            "briefcase",
-            Palette.ACCENT,
-            min_width=260,
-            value_color=Palette.ACCENT,
-        )
-        self._btn_strategy.clicked.connect(self._vm.requestOpenStrategyPicker)
-        row.addWidget(self._btn_strategy)
-
-        self._btn_timeframe = self._icon_text_button(
-            "btnBacktestTimeframe", None, None, min_width=70
-        )
-        self._btn_timeframe.clicked.connect(self._vm.requestOpenTimeframePicker)
-        row.addWidget(self._btn_timeframe)
-
-        self._btn_range = self._icon_text_button(
-            "btnBacktestRange", "calendar", Palette.ACCENT, min_width=140
-        )
-        self._btn_range.clicked.connect(self._vm.requestOpenTimeRangePicker)
-        row.addWidget(self._btn_range)
-
-        self._btn_timezone = self._icon_text_button(
-            "btnBacktestTimezone", "clock", Palette.ACCENT, min_width=130
-        )
-        self._btn_timezone.setToolTip(
-            "Only changes the displayed time zone. Data and backtests are always computed in UTC."
-        )
-        self._btn_timezone.clicked.connect(self._vm.requestOpenTimezonePicker)
-        row.addWidget(self._btn_timezone)
-
-        self._btn_capital = self._icon_text_button(
-            "btnBacktestCapital", "dollar-sign", Palette.SUCCESS, min_width=110
-        )
-        self._btn_capital.clicked.connect(
-            lambda: self._vm.requestOpenCapital(*self._popup_pos(self._btn_capital))
-        )
-        row.addWidget(self._btn_capital)
-
-        self._btn_order_exec = _pill_button("btnBacktestOrderExecution", min_width=95)
-        self._btn_order_exec.setStyleSheet(self._field_button_style())
-        self._btn_order_exec.setLayout(
-            self._icon_label_row("briefcase", Palette.ACCENT, "Execution")
-        )
-        self._btn_order_exec.clicked.connect(
-            lambda: self._vm.requestOpenOrderExecution(
-                *self._popup_pos(self._btn_order_exec)
-            )
-        )
-        row.addWidget(self._btn_order_exec)
-
-        self._btn_indicator_picker = _pill_button(
-            "btnBacktestIndicatorPicker", min_width=90
-        )
-        self._btn_indicator_picker.setStyleSheet(self._field_button_style())
-        self._btn_indicator_picker.setLayout(
-            self._icon_label_row("sliders", Palette.ACCENT, "Indicators")
-        )
-        self._btn_indicator_picker.clicked.connect(
-            lambda: self._vm.requestOpenIndicatorPicker(
-                *self._popup_pos(self._btn_indicator_picker)
-            )
-        )
-        row.addWidget(self._btn_indicator_picker)
-
-        row.addStretch(1)
-
-        self._btn_bot_params = _pill_button("btnBacktestBotParams", min_width=175)
-        self._btn_bot_params.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD_HEADER}; "
-            f"border: 1px solid {Palette.STATE_NAV_BORDER}; "
-            f"border-radius: 6px; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-        self._btn_bot_params.setLayout(
-            self._icon_label_row("sliders", Palette.ACCENT, "Strategy Parameters")
-        )
-        self._btn_bot_params.clicked.connect(
-            lambda: self._vm.requestOpenBotParams(
-                self._vm.strategy_params.selectedStrategyName
-            )
-        )
-        row.addWidget(self._btn_bot_params)
-
-        scroll.setWidget(row_widget)
-        return scroll
-
-    def _icon_text_button(
-        self,
-        object_name: str,
-        icon_name: str | None,
-        icon_color: str | None,
-        *,
-        min_width: int = 0,
-        value_color: str | None = None,
-    ) -> QPushButton:
-        btn = _pill_button(object_name, min_width)
-        btn.setStyleSheet(self._field_button_style())
-        layout = QHBoxLayout()
-        layout.setContentsMargins(10, 0, 10, 0)
-        layout.setSpacing(8)
-        if icon_name:
-            icon_label = QLabel()
-            icon_label.setPixmap(
-                get_icon_loader().get_icon(icon_name, icon_color, 13).pixmap(13, 13)
-            )
-            icon_label.setStyleSheet("background: transparent; border: none;")
-            layout.addWidget(icon_label)
-        text_label = QLabel()
-        text_label.setObjectName("_valueLabel")
-        text_label.setStyleSheet(
-            f"color: {value_color or Palette.TEXT_PRIMARY}; font-size: 11px; "
-            f"font-weight: bold; background: transparent; border: none;"
-        )
-        layout.addWidget(text_label, 1)
-        chevron = QLabel()
-        chevron.setPixmap(
-            get_icon_loader().get_icon("chevron-down", Palette.MUTED, 11).pixmap(11, 11)
-        )
-        chevron.setStyleSheet("background: transparent; border: none;")
-        layout.addWidget(chevron)
-        btn.setLayout(layout)
-        btn._value_label = text_label  # type: ignore[attr-defined]
-        return btn
-
-    def _icon_label_row(
-        self, icon_name: str, icon_color: str, text: str
-    ) -> QHBoxLayout:
-        layout = QHBoxLayout()
-        layout.setContentsMargins(10, 0, 10, 0)
-        layout.setSpacing(6)
-        icon_label = QLabel()
-        icon_label.setPixmap(
-            get_icon_loader().get_icon(icon_name, icon_color, 13).pixmap(13, 13)
-        )
-        icon_label.setStyleSheet("background: transparent; border: none;")
-        layout.addWidget(icon_label)
-        text_label = QLabel(text)
-        text_label.setStyleSheet(
-            f"color: {Palette.TEXT_PRIMARY}; font-size: 11px; font-weight: bold; "
-            f"background: transparent; border: none;"
-        )
-        layout.addWidget(text_label)
-        return layout
-
-    @staticmethod
-    def _field_button_style() -> str:
-        return (
-            f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; border: 1px solid "
-            f"{Palette.STATE_NAV_BORDER}; border-radius: 6px; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-
-    @staticmethod
-    def _popup_pos(button: QPushButton) -> tuple[float, float]:
-        global_pos = button.mapToGlobal(button.rect().bottomLeft())
-        return float(global_pos.x()), float(global_pos.y() + 4)
 
     # ------------------------------------------------------------------ #
     # Banners
@@ -429,10 +221,12 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     # ------------------------------------------------------------------ #
 
     def _build_metrics_header(self) -> QWidget:
+        """The title on one line, Expand and the run history on the next:
+        one line of all three was the panel's widest row once it became a
+        side dock (`EPIC-033L`, review of PR #355)."""
         row_widget = QWidget()
-        row = QHBoxLayout(row_widget)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(10)
+        column = QVBoxLayout(row_widget)
+        column.setContentsMargins(0, 0, 0, 0)
         self._metrics_header = row_widget
 
         title_row = QHBoxLayout()
@@ -463,14 +257,14 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         self._btn_limitations.clicked.connect(self._vm.requestOpenLimitations)
         title_row.addWidget(self._btn_limitations)
-        row.addLayout(title_row)
-
-        row.addStretch(1)
+        title_row.addStretch(1)
+        column.addLayout(title_row)
+        row = QHBoxLayout()
+        column.addLayout(row)
 
         self._btn_expand_metrics = QPushButton("Expand")
         self._btn_expand_metrics.setObjectName("lnkExpandMetrics")
         self._btn_expand_metrics.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_expand_metrics.setFixedHeight(26)
         self._btn_expand_metrics.setStyleSheet(
             f"QPushButton {{"
             f"  background-color: {Palette.BG_CARD};"
@@ -492,8 +286,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         # BOT-095G — no `setStyleSheet()` here: the styling ratchet only falls.
         self._combo_run_history = QComboBox()
         self._combo_run_history.setObjectName("comboSessionRunHistory")
-        self._combo_run_history.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._combo_run_history.setFixedHeight(26)
         self._combo_run_history.setToolTip(
             "Redisplay an earlier run from this session, without re-running it"
         )
@@ -554,13 +346,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
     def _wire_view_model(self) -> None:
         vm = self._vm
-        vm.selectedSymbolChanged.connect(self._sync_toolbar_labels)
-        vm.strategy_params.selectedStrategyKeyChanged.connect(self._sync_toolbar_labels)
-        vm.selectedTimeframeChanged.connect(self._sync_toolbar_labels)
-        vm.time_range.presetChanged.connect(self._sync_toolbar_labels)
-        vm.time_range.displayTimezoneChanged.connect(self._sync_toolbar_labels)
-        vm.initialCapitalTextChanged.connect(self._sync_toolbar_labels)
-        vm.selectedCurrencyChanged.connect(self._sync_toolbar_labels)
         vm.controlsEnabledChanged.connect(self._sync_controls_enabled)
         vm.uiModeChanged.connect(self._sync_controls_enabled)
         vm.isConfigDirtyChanged.connect(self._sync_banners)
@@ -580,7 +365,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.sessionRunHistoryChanged.connect(self._sync_session_run_history)
 
     def _sync_all(self) -> None:
-        self._sync_toolbar_labels()
         self._sync_controls_enabled()
         self._sync_banners()
         self._sync_stat_cards()
@@ -588,34 +372,13 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._sync_result_box()
         self._sync_session_run_history()
 
-    def _sync_toolbar_labels(self) -> None:
-        vm = self._vm
-        self._btn_symbol._value_label.setText(vm.selectedSymbol or "Symbol")  # type: ignore[attr-defined]
-        self._btn_strategy._value_label.setText(vm.strategy_params.selectedStrategyName)  # type: ignore[attr-defined]
-        self._btn_timeframe._value_label.setText(vm.selectedTimeframe or "1m")  # type: ignore[attr-defined]
-        self._btn_range._value_label.setText(vm.time_range.selectedPresetLabel)  # type: ignore[attr-defined]
-        self._btn_timezone._value_label.setText(vm.time_range.displayTimezoneLabel)  # type: ignore[attr-defined]
-        capital = vm.initialCapitalText or "0"
-        self._btn_capital._value_label.setText(f"{capital} {vm.selectedCurrency}")  # type: ignore[attr-defined]
-
     def _sync_controls_enabled(self) -> None:
-        enabled = bool(self._vm.controlsEnabled)
-        for btn in (
-            self._combo_market,
-            self._btn_symbol,
-            self._btn_strategy,
-            self._btn_timeframe,
-            self._btn_range,
-            self._btn_timezone,
-            self._btn_capital,
-            self._btn_bot_params,
-        ):
-            btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns
-        # every other toolbar control; `and` rather than an outright
+        # the Run setup (`run_setup_panel.py`); `and` rather than an outright
         # `setEnabled(enabled)` so an empty history still shows disabled
         # once a run finishes, instead of springing back on with only the
         # placeholder to pick.
+        enabled = bool(self._vm.controlsEnabled)
         self._combo_run_history.setEnabled(
             enabled and self._combo_run_history.count() > 1
         )

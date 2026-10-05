@@ -9,9 +9,6 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals.strategy_properties_dialog import (
     StrategyPropertiesDialog,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_top_panel import (
-    BackTestTopPanel,
-)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_trade_logs_panel import (
     BackTestTradeLogsPanel,
 )
@@ -29,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_controls i
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.market_selector import (
     MarketSelector,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.run_setup_panel import (
+    RunSetupPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.view_models.broker_sim_view_model import (
     BrokerSimViewModel,
@@ -63,10 +63,10 @@ def test_a_pick_writes_the_view_model_and_a_view_model_change_moves_the_pick(qap
     assert selector.currentData() == _FUTURES
 
 
-def test_the_top_panel_places_the_selector_in_the_toolbar(qapp):
-    panel = BackTestTopPanel(BackTestViewModel())
+def test_the_run_setup_offers_the_market_selector(qapp):
+    panel = RunSetupPanel(BackTestViewModel())
 
-    assert panel.findChild(QComboBox, "comboBacktestMarket") is not None
+    assert panel.findChild(QComboBox, "comboBacktestMarket") is panel.market
 
 
 def test_the_leverage_section_is_hidden_not_disabled_in_spot(qapp):

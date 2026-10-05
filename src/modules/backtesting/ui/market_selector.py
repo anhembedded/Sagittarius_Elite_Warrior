@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QWidget
 
 from .logic.backtest_market import BACKTEST_MARKETS, market_label
@@ -28,8 +27,6 @@ class MarketSelector(QComboBox):
     ) -> None:
         super().__init__(parent)
         self.setObjectName("comboBacktestMarket")
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(26)
         self.setToolTip(
             "Which market this backtest simulates: its candles, symbols and "
             "exchange rules"

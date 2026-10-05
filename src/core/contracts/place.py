@@ -42,6 +42,9 @@ class Place(str, Enum):
     CONTEXT_BAR = "context_bar"
     #: The centre of the surface — its subject.
     WORKSPACE = "workspace"
+    #: The left dock: where the person picks or sets up what the centre shows —
+    #: the list of bots, a backtest's run setup (HLD §11.2.1).
+    NAVIGATOR = "navigator"
     #: A side dock: lists, inspectors, checklists.
     RAIL = "rail"
     #: The bottom dock: logs, progress, anything append-only.

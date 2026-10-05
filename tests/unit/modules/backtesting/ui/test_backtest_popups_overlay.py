@@ -120,7 +120,7 @@ def test_bot_params_dialog_opens_with_the_strategys_declared_params(
 ):
     view, _ = backtest_screen
 
-    view.top_widget._btn_bot_params.click()
+    view.run_setup.strategy_parameters.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_properties
@@ -205,7 +205,7 @@ def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
 def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_screen):
     view, _ = backtest_screen
 
-    view.top_widget._btn_capital.click()
+    view.run_setup.capital.click()
     qapp.processEvents()
 
     dialog = view._modals_host._capital
@@ -234,7 +234,7 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     that disables the button."""
     view, _ = backtest_screen
 
-    view.top_widget._btn_capital.click()
+    view.run_setup.capital.click()
     qapp.processEvents()
 
     dialog = view._modals_host._capital
@@ -250,7 +250,7 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
 def test_indicator_picker_menu_opens(qapp, backtest_screen):
     view, _ = backtest_screen
 
-    view.top_widget._btn_indicator_picker.click()
+    view.run_setup.indicators.click()
     qapp.processEvents()
 
     dialog = view._modals_host._indicator_picker
@@ -262,7 +262,7 @@ def test_indicator_picker_menu_opens(qapp, backtest_screen):
 def test_order_execution_menu_opens(qapp, backtest_screen):
     view, _ = backtest_screen
 
-    view.top_widget._btn_order_exec.click()
+    view.run_setup.execution.click()
     qapp.processEvents()
 
     dialog = view._modals_host._order_execution
@@ -276,7 +276,7 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
 ):
     view, _ = backtest_screen
 
-    view.top_widget._btn_strategy.click()
+    view.run_setup.strategy.click()
     qapp.processEvents()
 
     dialog = view._modals_host._strategy_picker
@@ -301,7 +301,7 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
     replaces."""
     view, presenter = backtest_screen
 
-    view.top_widget._btn_timeframe.click()
+    view.run_setup.timeframe.click()
     qapp.processEvents()
 
     dialog = view._modals_host._timeframe_picker
@@ -334,7 +334,7 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
     to the six-row list is a failure rather than a coincidence."""
     view, presenter = backtest_screen
 
-    view.top_widget._btn_range.click()
+    view.run_setup.time_range.click()
     qapp.processEvents()
 
     dialog = view._modals_host._time_range_picker
