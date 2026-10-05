@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
 from .order_entry_fixtures import SYMBOL, spot_context
 
@@ -77,9 +78,10 @@ def test_typing_updates_the_side_and_its_figures(qtbot) -> None:
 
     assert vm.entry(EntrySide.BUY).price == 100
     assert vm.entry(EntrySide.BUY).quantity == 2
-    assert _child(panel, QLabel, "lblTotalBuy").text() == "200 USDT"
-    assert _child(panel, QLabel, "lblFeeBuy").text() == "0.2 USDT"
-    assert _child(panel, QLabel, "lblAvailableBuy").text() == "1,000 USDT"
+    figures = _child(panel, ReadoutSlot, "roFiguresBuy")
+    assert figures.value_text("total") == "200.00"
+    assert figures.value_text("fee") == "0.2"
+    assert figures.value_text("available") == "1,000.00"
     assert _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
 
 
@@ -170,7 +172,9 @@ def test_a_market_buy_takes_a_total_and_a_market_sell_an_amount(qtbot) -> None:
     assert _child(panel, QLineEdit, "txtAmountSell").isVisibleTo(panel)
     assert not _child(panel, QLineEdit, "txtTotalSell").isVisibleTo(panel)
     assert vm.entry(EntrySide.BUY).total == 500
-    assert _child(panel, QLabel, "lblMaxBuy").text() == "1,000 USDT"
+    assert _child(panel, ReadoutSlot, "roFiguresBuy").value_text("maximum") == (
+        "1,000.00"
+    )
     assert _child(panel, QSlider, "sldPercentBuy").value() == 50
     assert _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
 
@@ -200,7 +204,7 @@ def test_the_maximum_respects_the_app_notional_limit(qtbot) -> None:
     qtbot.keyClicks(_child(panel, QLineEdit, "txtPriceBuy"), "100")
     qtbot.keyClicks(_child(panel, QLineEdit, "txtAmountBuy"), "6")
 
-    assert _child(panel, QLabel, "lblMaxBuy").text() == "5 BTC"
+    assert _child(panel, ReadoutSlot, "roFiguresBuy").value_text("maximum") == "5"
     assert "app's limit of 500 USDT" in _child(panel, QLabel, "lblProblemBuy").text()
     assert not _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
 

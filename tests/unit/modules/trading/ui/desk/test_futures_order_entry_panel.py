@@ -13,7 +13,6 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -40,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
 from .futures_entry_fixtures import MARK, futures_context, futures_reads
 
@@ -120,8 +120,12 @@ def test_the_cost_and_the_liquidation_estimate_are_shown(qtbot) -> None:
     vm.set_price(EntrySide.BUY, "60000")
     vm.set_quantity(EntrySide.BUY, "0.01")
 
-    cost = panel.findChild(QLabel, "lblCostBuy").text()
-    liquidation = panel.findChild(QLabel, "lblLiquidationBuy").text()
+    figures = panel.findChild(ReadoutSlot, "roFiguresBuy")
+    cost = figures.value_text("cost")
+    liquidation = figures.value_text("liquidation")
 
-    assert cost == "60 USDT"
-    assert liquidation not in ("", "—")
+    assert cost == "60.00"
+    assert liquidation not in (None, "")
+    # The estimate says what it leaves out, on its value.
+    value = figures.value_label("liquidation")
+    assert "other positions" in value.toolTip()

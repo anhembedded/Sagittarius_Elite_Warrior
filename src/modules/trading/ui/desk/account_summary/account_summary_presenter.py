@@ -33,7 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.accou
     AccountSummaryPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summary_lines import (
-    summary_lines_for,
+    summary_readout,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
@@ -104,5 +104,5 @@ class AccountSummaryPresenter(QObject):
         self._view.mark_stale(event.reason)
 
     def _show(self, summary: AccountSummary) -> None:
-        self._view.set_lines(summary_lines_for(summary))
+        self._view.show_readout(summary_readout(summary))
         self._view.clear_stale()

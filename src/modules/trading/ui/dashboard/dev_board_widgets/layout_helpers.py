@@ -44,12 +44,6 @@ def field_row(label_text: str, field: QWidget) -> QWidget:
     return row
 
 
-def field_label(text: str) -> QLabel:
-    label = QLabel(text)
-    label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-    return label
-
-
 def action_button_style(accent: str) -> str:
     return (
         f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; color: {Palette.TEXT_PRIMARY}; "

@@ -47,22 +47,22 @@ def test_it_shows_the_session_state_as_soon_as_it_is_built(qapp) -> None:
 
     probe = TradingSessionProbe(session)
 
-    assert probe._enabled.text() == "ON"
-    assert probe._orders_sent.text() == "3"
-    assert probe._open_symbols.text() == "BTCUSDT"
+    assert probe.value_text("live_submission") == "ON"
+    assert probe.value_text("orders_sent") == "3"
+    assert probe.value_text("open_symbols") == "BTCUSDT"
 
 
 def test_live_submission_off_says_so_rather_than_showing_nothing(qapp) -> None:
     probe = TradingSessionProbe(FakeTradingSession(_snapshot(enabled=False)))
 
-    assert probe._enabled.text() == "OFF"
+    assert probe.value_text("live_submission") == "OFF"
 
 
 def test_no_open_symbols_reads_as_a_dash_not_an_empty_line(qapp) -> None:
     """An empty label is indistinguishable from a broken one."""
     probe = TradingSessionProbe(FakeTradingSession(_snapshot()))
 
-    assert probe._open_symbols.text() == "—"
+    assert probe.value_text("open_symbols") == "—"
 
 
 def test_the_symbols_are_sorted_so_the_line_is_stable(qapp) -> None:
@@ -73,7 +73,7 @@ def test_the_symbols_are_sorted_so_the_line_is_stable(qapp) -> None:
         FakeTradingSession(_snapshot(symbols=frozenset({"ETHUSDT", "BTCUSDT"})))
     )
 
-    assert probe._open_symbols.text() == "BTCUSDT, ETHUSDT"
+    assert probe.value_text("open_symbols") == "BTCUSDT, ETHUSDT"
 
 
 def test_refresh_reads_the_session_again(qapp) -> None:
@@ -83,8 +83,8 @@ def test_refresh_reads_the_session_again(qapp) -> None:
     session.answer_with(_snapshot(enabled=True, orders_sent=2))
     probe.refresh()
 
-    assert probe._enabled.text() == "ON"
-    assert probe._orders_sent.text() == "2"
+    assert probe.value_text("live_submission") == "ON"
+    assert probe.value_text("orders_sent") == "2"
 
 
 def test_the_refresh_button_is_what_refreshes_it(qapp) -> None:
@@ -94,7 +94,7 @@ def test_the_refresh_button_is_what_refreshes_it(qapp) -> None:
 
     probe._refresh_button.click()
 
-    assert probe._orders_sent.text() == "9"
+    assert probe.value_text("orders_sent") == "9"
 
 
 def test_one_refresh_is_one_read_of_the_session(qapp) -> None:
