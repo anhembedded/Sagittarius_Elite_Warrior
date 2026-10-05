@@ -151,18 +151,106 @@ def test_a_new_first_window_drops_a_load_asked_against_the_old_one(opened, threa
     assert not _logged(presenter, "Loaded 100 older candles")
 
 
-def test_a_dropped_load_does_not_leave_the_commands_off(opened, threads):
-    """The stale result lands before the new timeframe's window, which may
-    never draw (nothing stored at 1h): the commands come back regardless."""
+def test_the_commands_wait_for_a_first_window_that_never_draws(opened, threads, feed):
+    """A stale result lands before the new timeframe's window; nothing is
+    stored at 1h, so that window settles without drawing. The commands stay
+    off until it settles, then come back."""
+    presenter, load_older, _load_range = opened
+    chart = presenter.charts["BTCUSDT"]
+    feed.empty.add("1h")
+
+    load_older.trigger()
+    chart.chart.toolbar.sig_timeframe_changed.emit("1h")
+    threads.run_first()
+    assert chart.loading
+    assert not load_older.isEnabled()
+
+    threads.run_all()
+    assert not chart.loading
+    assert load_older.isEnabled()
+
+
+def test_the_commands_are_off_while_a_first_window_loads(opened, threads):
+    """Going live asks for a new first window; a range or an older window
+    asked meanwhile would be drawn against the window it replaces (the
+    review of PR #366)."""
+    presenter, load_older, load_range = opened
+    chart = presenter.charts["BTCUSDT"]
+
+    presenter.on_mode_shown(NavigationSource.USER_INTENT)
+    assert chart.loading
+    assert not load_older.isEnabled()
+    assert not load_range.isEnabled()
+
+    threads.run_all()
+    assert load_older.isEnabled()
+    assert load_range.isEnabled()
+
+
+def test_a_range_asked_before_a_new_first_window_is_dropped(
+    opened, threads, monkeypatch
+):
+    """Review of PR #366, probe 1, the order that can still happen: the
+    range is asked, then the timeframe changes; the range's read answers
+    first. It is not drawn, and the new window is."""
+    presenter, _load_older, load_range = opened
+    chart = presenter.charts["BTCUSDT"]
+    _choose(presenter, monkeypatch, HistoryRange(START - 50 * _MINUTE, START))
+
+    load_range.trigger()
+    chart.chart.toolbar.sig_timeframe_changed.emit("5m")
+    threads.run_first()
+    assert not chart.showing_range
+
+    threads.run_all()
+    assert not chart.showing_range
+    assert {k.interval for k in chart._klines} == {"5m"}
+
+
+def test_an_older_window_never_mixes_timeframes(opened, threads, history):
+    """Review of PR #366, probe 2: 1m candles asked for, then 1h picked; the
+    1m read answers before the 1h window. Whatever the order, every drawn
+    candle has one timeframe."""
     presenter, load_older, _load_range = opened
     chart = presenter.charts["BTCUSDT"]
 
     load_older.trigger()
     chart.chart.toolbar.sig_timeframe_changed.emit("1h")
     threads.run_first()
+    assert {k.interval for k in chart._klines} == {"1m"}
 
+    threads.run_all()
+    assert {k.interval for k in chart._klines} == {"1h"}
+
+
+def test_an_older_window_answering_before_going_live_is_dropped(opened, threads):
+    """Going live asks for a new first window at the same timeframe; the
+    older read asked before it answers first, while the window is still in
+    flight. It is dropped, not prepended to the window about to go."""
+    presenter, load_older, _load_range = opened
+
+    load_older.trigger()
+    presenter.on_mode_shown(NavigationSource.USER_INTENT)
+    threads.run_first()
+
+    assert not _logged(presenter, "Loaded 100 older candles")
+    assert presenter.charts["BTCUSDT"].loading
+
+
+def test_a_window_of_a_timeframe_left_behind_is_not_drawn(opened, threads):
+    """1h picked, then 1m again before the 1h window lands: the 1h window
+    answering last must not replace the 1m one (`LiveCandleChart` draws only
+    the timeframe it shows; the review of PR #366)."""
+    presenter, _load_older, _load_range = opened
+    chart = presenter.charts["BTCUSDT"]
+
+    chart.chart.toolbar.sig_timeframe_changed.emit("1h")
+    chart.chart.toolbar.sig_timeframe_changed.emit("1m")
+    threads.run_last()
+    threads.run_all()
+
+    assert {k.interval for k in chart._klines} == {"1m"}
     assert not chart.loading
-    assert load_older.isEnabled()
 
 
 def test_nothing_older_is_stored_says_so(build, threads, actions):

@@ -15,10 +15,13 @@ from replacing another's (the epic review of PR 300 found that with desks).
 window right before the oldest candle drawn; `load_range` draws exactly a
 chosen span. Both read through `ChartHistory` on the thread pool and come
 back on a Qt signal carrying the load's generation
-(`async-ui-action-rule.md` §1): a new first window (another timeframe,
-another symbol), a range, or closing the tab moves the generation on, and a
-result of an earlier one is dropped and logged. One load runs at a time per
-chart, and `loadingChanged` says when. While a range is drawn the chart
+(`async-ui-action-rule.md` §1): asking for a new first window (another
+timeframe, going live), drawing a range, or closing the tab moves the
+generation on, and a result of an earlier one is dropped and logged. The
+chart counts as loading from the moment a first window is asked for until it
+settles (drawn, empty or failed, `LiveCandleChart`'s two hooks), and while
+its own load runs; nothing is asked against it meanwhile, and
+`loadingChanged` says when. While a range is drawn the chart
 draws no live candle, which would land after a gap the range does not show;
 the next first window (a timeframe change) follows the stream again.
 """
@@ -142,6 +145,10 @@ class MarketChart(LiveCandleChart):
         self._history_source = sources.history
         self._generation = 0
         self._load_token = CancellationToken()
+        #: This chart's own load (older candles or a range) is running.
+        self._own_load = False
+        #: First windows asked for (`LiveCandleChart`) and not settled yet.
+        self._first_windows = 0
         self._loading = False
         self._drawing_range = False
         self._showing_range = False
@@ -159,6 +166,8 @@ class MarketChart(LiveCandleChart):
 
     @property
     def loading(self) -> bool:
+        """An older window or a range is loading, or a first window is: what
+        is drawn is about to change, so nothing may be asked against it."""
         return self._loading
 
     @property
@@ -215,7 +224,9 @@ class MarketChart(LiveCandleChart):
         """Also drops a load in flight: a closed tab draws nothing."""
         self._load_token.cancel()
         self._generation += 1
-        self._set_loading(False)
+        self._own_load = False
+        self._first_windows = 0
+        self._update_loading()
         super().shutdown()
 
     def apply_candle(self, candle: MarketData) -> None:
@@ -226,7 +237,8 @@ class MarketChart(LiveCandleChart):
     def _start_load(
         self, report: SignalInstance, request: _LoadRequest, read: Callable[[], object]
     ) -> None:
-        self._set_loading(True)
+        self._own_load = True
+        self._update_loading()
         self._load_token = CancellationToken()
         self._threads.submit(
             self._read_stored, _Load(report, request, read, self._load_token)
@@ -245,9 +257,8 @@ class MarketChart(LiveCandleChart):
         load.report.emit(load.request, result)
 
     def _on_older_loaded(self, request: _LoadRequest, result: object) -> None:
-        if not self._is_current(request, "older candles"):
+        if not self._finish_own_load(request, "older candles"):
             return
-        self._set_loading(False)
         if isinstance(result, Exception):
             self.logged.emit(f"[ERROR] Older candles failed to load: {result}")
             return
@@ -265,9 +276,8 @@ class MarketChart(LiveCandleChart):
         self.logged.emit(f"Loaded {len(older)} older candles of {self.shown_symbol}.")
 
     def _on_range_loaded(self, request: _LoadRequest, result: object) -> None:
-        if not self._is_current(request, "range"):
+        if not self._finish_own_load(request, "range"):
             return
-        self._set_loading(False)
         if isinstance(result, Exception):
             self.logged.emit(f"[ERROR] The range failed to load: {result}")
             return
@@ -305,28 +315,39 @@ class MarketChart(LiveCandleChart):
     def _drawn_request(self) -> _LoadRequest:
         return _LoadRequest(self._generation, self.shown_symbol, self._interval)
 
-    def _is_current(self, request: _LoadRequest, what: str) -> bool:
-        """A load fits only what is drawn now: the same base (generation),
-        symbol and timeframe as when it was asked for."""
+    def _finish_own_load(self, request: _LoadRequest, what: str) -> bool:
+        """The chart's own load is over, whatever its result; the result fits
+        only what is drawn now: the same base (generation), symbol and
+        timeframe as when it was asked for."""
+        self._own_load = False
+        self._update_loading()
         if request == self._drawn_request():
             return True
         logger.info("[market] stale %s load dropped: %s", what, request)
-        if request.generation == self._generation:
-            # Asked against this base and overtaken by a timeframe change
-            # whose window is not drawn yet: nothing is loading any more.
-            self._set_loading(False)
         return False
 
-    def _set_loading(self, loading: bool) -> None:
+    def _update_loading(self) -> None:
+        loading = self._own_load or self._first_windows > 0
         if loading != self._loading:
             self._loading = loading
             self.loadingChanged.emit(loading)
+
+    def _on_first_window_requested(self) -> None:
+        # Asked, not yet drawn, is already a new base (the review of PR
+        # #366): a load asked against the window it replaces must not land
+        # after it, and none may start before it settles.
+        self._generation += 1
+        self._first_windows += 1
+        self._update_loading()
+
+    def _on_first_window_settled(self) -> None:
+        self._first_windows = max(0, self._first_windows - 1)
+        self._update_loading()
 
     def _on_history_drawn(self, klines: Sequence[MarketData]) -> None:
         # Any whole history drawn (a first window or a range) is a new base:
         # a load asked against the previous one no longer fits it.
         self._generation += 1
-        self._set_loading(False)
         self._showing_range = self._drawing_range
         self._klines = list(klines)
         self._replay()
