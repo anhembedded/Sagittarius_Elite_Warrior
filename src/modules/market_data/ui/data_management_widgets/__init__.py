@@ -1,25 +1,19 @@
-"""QtWidgets building blocks for DatabaseScreen (EPIC-005E), each a direct port of
-one QML component this screen used: `TimeRangeCard`, `LogPanel`, `AppProgressBar`
-(all from the engine kit or `components/`), and the `SymbolPickerModal`/
-`ModalDialogCard` confirm-dialog pattern. Kept in their own module so
-`data_management_view.py` stays about assembly, not primitive construction.
-
-Split by `EPIC-007G` into one module per widget. This package re-exports
-the same names, so no call site changed.
+"""The Data mode's widgets (`EPIC-033J`), one module per widget: the coverage
+table (`DatabaseStatusPanel`), the Gaps panel, the candle inspector and the
+two shard dialogs. Re-exported here so the view imports one package.
 """
 
 from __future__ import annotations
 
 from .database_status_panel import DatabaseStatusPanel
-from .field_style import field_style
-from .gap_inspector_dialog import GapInspectorDialog
+from .gaps_panel import GapsPanel
 from .kline_inspector_dialog import KlineInspectorDialog
-from .time_range_card import TimeRangeCardWidget
+from .shard_dialogs import ImportDataDialog, SyncHistoryDialog
 
 __all__ = [
     "DatabaseStatusPanel",
-    "GapInspectorDialog",
+    "GapsPanel",
+    "ImportDataDialog",
     "KlineInspectorDialog",
-    "TimeRangeCardWidget",
-    "field_style",
+    "SyncHistoryDialog",
 ]

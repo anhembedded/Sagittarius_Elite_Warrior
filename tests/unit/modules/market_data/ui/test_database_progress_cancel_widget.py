@@ -1,13 +1,7 @@
-"""EPIC-015 Phase 2: `AppProgressBar` + a standalone Cancel `QPushButton`
-replaced by a progress banner that owns its own Cancel control — there is no
-`view._btn_cancel_sync` `QPushButton` any more.
-
-That banner was `ProgressBanner.qml` in an inline embed, reached through
-`view._progress_banner.root_object` and clicked at scene coordinates. `EPIC-025`
-PR 4.3l makes it `kit.ProgressBanner` (ADR D21): the button is a `QPushButton`
-found by `objectName`, and `CANCELLING` disables it without relabelling it —
-this screen's own `_sync_progress()` never asked the `.qml` to relabel either,
-so what changes here is only how the control is reached.
+"""The Data mode's running task (`EPIC-033J`): its progress is in the window's
+status bar (`ui-presentation-rule.md` §10: modeless progress lives there), and
+Data → Stop stops it — the action replaced the progress banner's own Cancel
+button, which `EPIC-015` and `EPIC-025` PR 4.3l had rebuilt twice.
 
 Renamed from `test_database_progress_cancel_qml.py` at `EPIC-005E` when this
 screen went QtWidgets-first."""
@@ -18,17 +12,25 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QLabel, QProgressBar
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
+    STOP,
+    data_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
+    DATABASE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     CANCELLING_CAPTION,
     UIMode,
 )
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -71,63 +73,45 @@ def database_screen(qapp, request):
     return view, presenter
 
 
-def _cancel_button(view: DataManagementView) -> QPushButton:
-    button = view._progress_banner.findChild(QPushButton, "progressBannerCancel")
-    assert button is not None
-    return button
+def _status(view: DataManagementView) -> tuple[QLabel, QProgressBar]:
+    text = next(w for w in view.status_widgets() if w.objectName() == "lblDataTask")
+    bar = next(w for w in view.status_widgets() if w.objectName() == "prgDataTask")
+    assert isinstance(text, QLabel)
+    assert isinstance(bar, QProgressBar)
+    return text, bar
 
 
-def _click(view: DataManagementView, qapp) -> None:
-    _cancel_button(view).click()
-    qapp.processEvents()
-
-
-def test_database_cancel_button_visibility_and_interaction(qapp, database_screen):
+def test_progress_shows_in_the_status_bar_and_stop_stops_the_task(
+    qapp, database_screen
+):
     view, presenter = database_screen
     view_model = presenter._view_model
+    actions = bound_actions(
+        view, data_commands(DATABASE_ROUTE), presenter.bind_commands
+    )
+    text, bar = _status(view)
 
-    # 1. In IDLE mode with progressVisible=False -> progress card is hidden,
-    #    which hides the Cancel button along with everything else in it.
     view_model.set_progress(value=0, maximum=0, visible=False)
-    qapp.processEvents()
-    assert view._progress_container.isVisible() is False
+    assert not text.isVisibleTo(view)
+    assert not bar.isVisibleTo(view)
+    assert not actions.action(STOP).isEnabled()
 
-    # 2. When syncing is active (progressVisible=True, SYNCING mode) -> the
-    #    progress card, and its Cancel button inside, are visible & enabled.
-    view_model.set_progress(value=10, maximum=100, visible=True)
     presenter.fsm.transition_to(UIMode.SYNCING)
-    view_model.set_ui_mode(UIMode.SYNCING.value)
+    view_model.set_progress(value=25, maximum=100, visible=True, text="Syncing BTCUSDT")
+    assert bar.isVisibleTo(view)
+    assert bar.value() == 25
+    assert text.text() == "Syncing BTCUSDT"
+    assert actions.action(STOP).isEnabled()
+
+    actions.action(STOP).trigger()
     qapp.processEvents()
 
-    assert view._progress_container.isVisible() is True
-    cancel_btn = _cancel_button(view)
-    assert cancel_btn.isEnabled() is True
-    assert "Cancel" in cancel_btn.text()
-
-    # 3. Clicking cancel emits cancelRequested and transitions to CANCELLING
-    cancel_signal_called = False
-
-    def on_cancel():
-        nonlocal cancel_signal_called
-        cancel_signal_called = True
-
-    view_model.cancelRequested.connect(on_cancel)
-    _click(view, qapp)
-
-    assert cancel_signal_called is True
     assert presenter.fsm.current_state == UIMode.CANCELLING
-
-    # In CANCELLING mode the banner disables the button and the screen says the
-    # word in its caption. The button keeps this screen's `_CANCEL_LABEL`
-    # throughout: `set_cancelling()` does not rename it, because a button that
-    # changes its own wording mid-click is not what a caller wants.
-    qapp.processEvents()
-    cancel_btn = _cancel_button(view)
-    assert cancel_btn.isEnabled() is False
-    assert cancel_btn.text() == "Cancel Progress (Cancel)"
-    assert view._progress_banner._status.text() == CANCELLING_CAPTION
-    # No percentage is meaningful once a cancel is in flight.
-    assert view._progress_banner._bar.indeterminate is True
+    # A stop has no known duration: the bar stops claiming one and the text
+    # says the word.
+    assert text.text() == CANCELLING_CAPTION
+    assert bar.maximum() == 0
+    assert not actions.action(STOP).isEnabled()
 
 
 def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(
@@ -137,9 +121,8 @@ def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(
     `BasePresenter._bind_fsm_to_ui`'s FSM callback calls (duck-typed via
     `hasattr` — missing it does not raise, it silently no-ops with just a
     log warning). This drives the FSM directly, with no
-    `view_model.set_ui_mode(...)` call alongside it, unlike the test above —
-    if `apply_ui_mode` were ever removed again, `view_model.uiMode` would
-    stay "IDLE" here and this would catch it."""
+    `view_model.set_ui_mode(...)` call: if `apply_ui_mode` were ever removed
+    again, `view_model.uiMode` would stay "IDLE" here and this would catch it."""
     view, presenter = database_screen
     view_model = presenter._view_model
 
@@ -147,4 +130,4 @@ def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(
     qapp.processEvents()
 
     assert view_model.uiMode == UIMode.SYNCING.value
-    assert view._btn_symbol.isEnabled() is False
+    assert not view.status_panel._actions["klines"].isEnabled()

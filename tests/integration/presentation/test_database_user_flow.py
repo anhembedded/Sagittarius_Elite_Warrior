@@ -7,10 +7,14 @@ import time
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QProgressBar
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
+    STOP,
+    data_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
     DataManagementPresenter,
@@ -18,7 +22,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presen
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
+    DATABASE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -137,34 +145,27 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
         app.stop()
 
 
-def test_database_cancel_button_cancels_active_sync_flow(
-    qapp, qtbot, database_app_context
-):
-    """EPIC-015 Phase 2: the Cancel control belongs to the progress banner
-    (`view._progress_banner`) — there is no `view._btn_cancel_sync`
-    `QPushButton` of this screen's own any more (that was `EPIC-005E`'s
-    shape). It was a QML `Button` clicked at scene coordinates until
-    `EPIC-025` PR 4.3l; it is `kit.ProgressBanner`'s `QPushButton` now,
-    reached the same way `test_database_progress_cancel_widget.py`'s unit
-    tests reach it."""
+def test_data_stop_stops_an_active_sync_flow(qapp, qtbot, database_app_context):
+    """Data → Stop stops a running sync (`EPIC-033J`); it replaced the
+    progress banner's own Cancel button. The action is bound the way the
+    window binds it, and the progress is the status bar's."""
     view, presenter, _ = database_app_context
     view_model = presenter._view_model
+    actions = bound_actions(
+        view, data_commands(DATABASE_ROUTE), presenter.bind_commands
+    )
+    bar = next(w for w in view.status_widgets() if isinstance(w, QProgressBar))
 
-    # Start single sync
     view_model.selectedSymbol = "BTCUSDT"
     view_model.selectedInterval = "1m"
     view_model.requestSync()
     qapp.processEvents()
 
-    # Wait until in SYNCING state and progress is visible
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
-    assert view._progress_container.isVisible() is True
-    cancel_btn = view._progress_banner.findChild(QPushButton, "progressBannerCancel")
-    assert cancel_btn is not None
-    assert cancel_btn.isEnabled() is True
+    assert bar.isVisibleTo(view)
+    assert actions.action(STOP).isEnabled()
 
-    # Click Cancel
-    cancel_btn.click()
+    actions.action(STOP).trigger()
     qapp.processEvents()
 
     # FSM transitions through CANCELLING then back to IDLE

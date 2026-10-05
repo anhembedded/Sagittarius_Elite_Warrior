@@ -1,5 +1,12 @@
-"""The Database Status panel — a `QTableView` over the shards on disk, plus
-the four actions that operate on the selected one.
+"""The Database Status panel — a `QTableView` over the shards on disk; the
+Data mode's central widget (`EPIC-033J`).
+
+**The Data mode (`EPIC-033J`).** The toolbar above the table is gone: the
+commands that act on the selected shard are the Data menu's (Check gaps,
+Inspect candles, Delete data), and the panel reports the selection
+(`shardSelected`) for them to act on. The table's context menu repeats them,
+as context menus repeat menu commands (`ui-presentation-rule.md` §6). Syncing
+a shard is Data → Sync history…, which opens on the selected shard.
 
 **What this replaces.** `DatabaseStatusTable.qml` + `DatabaseStatusRow.qml`, a
 hand-drawn table whose every row carried four `Button`s. That shape came from
@@ -42,7 +49,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QTableView,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -67,7 +73,6 @@ from ..database_status_table_model import (
 #: contract.
 INSPECT_KLINES = "klines"
 INSPECT_GAPS = "gaps"
-SYNC_SHARD = "sync"
 CLEAR_SHARD = "clear"
 
 #: Asked before `Clear` runs. Returns True to proceed. Injectable so a test
@@ -83,13 +88,10 @@ def _empty_text(known_shard_count: int) -> str:
     if known_shard_count > 0:
         return (
             f"Storage Vault has {known_shard_count} local data file(s) on disk, "
-            "not yet scanned this session. Use 'Scan All Shards & Timeframes', "
-            "or select a symbol and timeframe and click 'Sync'."
+            "not yet scanned this session. Choose Data → Scan all shards, or "
+            "Data → Sync history… to fetch one."
         )
-    return (
-        "Storage Vault is empty. Select a symbol and timeframe and click 'Sync' "
-        "to load data."
-    )
+    return "No history is stored yet. Choose Data → Sync history… to fetch one."
 
 
 class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
@@ -111,6 +113,8 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
     """
 
     rowActionRequested = Signal(str, str, str)  # action, symbol, interval
+    #: The selected shard (`DatabaseStatusRow`), or `None` when none is.
+    shardSelected = Signal(object)
 
     def __init__(
         self,
@@ -145,7 +149,6 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         self._empty.setWordWrap(True)
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self._toolbar = QToolBar()
         self._actions = self._build_actions()
 
         self._build_layout()
@@ -173,25 +176,23 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         )
         table.doubleClicked.connect(lambda _index: self._request(INSPECT_KLINES))
         table.selectionModel().selectionChanged.connect(
-            lambda *_args: self._refresh_action_state()
+            lambda *_args: self._on_selection_changed()
         )
-        # Qt renders a widget's own actions as its context menu — the same
-        # four actions the toolbar shows, with no second menu to keep in sync.
+        # Qt renders a widget's own actions as its context menu.
         table.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
         return table
 
     def _build_actions(self) -> dict[str, QAction]:
-        """One `QAction` per user action, added to both the toolbar and the
-        table (which shows them as its context menu)."""
+        """The table's context menu: the Data menu's commands that act on the
+        selected shard, by the same names."""
         specs = (
-            (INSPECT_KLINES, "Inspect candles…", "actInspectKlines"),
-            (INSPECT_GAPS, "Inspect gaps…", "actInspectGaps"),
-            (SYNC_SHARD, "Sync this shard", "actSyncShard"),
-            (CLEAR_SHARD, "Clear this shard…", "actClearShard"),
+            (INSPECT_GAPS, "&Check gaps", "actInspectGaps"),
+            (INSPECT_KLINES, "&Inspect candles", "actInspectKlines"),
+            (CLEAR_SHARD, "&Delete data", "actClearShard"),
         )
         actions: dict[str, QAction] = {}
         for action_id, label, object_name in specs:
-            action = self._toolbar.addAction(label)
+            action = QAction(label, self)
             action.setObjectName(object_name)
             action.triggered.connect(
                 lambda _checked=False, chosen=action_id: self._request(chosen)
@@ -202,9 +203,6 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
 
     def _build_layout(self) -> None:
         head = QHBoxLayout()
-        title = QLabel("Database Status")
-        title.setObjectName("lblDatabaseStatusTitle")
-        head.addWidget(title)
         head.addWidget(self._count_label)
         head.addStretch(1)
         head.addWidget(self._search)
@@ -212,7 +210,6 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(head)
-        layout.addWidget(self._toolbar)
         layout.addWidget(self._table, 1)
         layout.addWidget(self._empty, 1)
 
@@ -260,7 +257,12 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         self._count_label.setText(f"{visible} shard{'' if visible == 1 else 's'}")
         self._table.setVisible(visible > 0)
         self._empty.setVisible(visible == 0)
+        # A rescan can replace the selected row without a selection change.
+        self._on_selection_changed()
+
+    def _on_selection_changed(self) -> None:
         self._refresh_action_state()
+        self.shardSelected.emit(self.selected_row())
 
     def _refresh_action_state(self) -> None:
         row = self.selected_row()
@@ -283,9 +285,14 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
             return
         if action == INSPECT_GAPS and row.is_healthy:
             return
-        if action == CLEAR_SHARD and not self._confirm_clear(row):
+        if action == CLEAR_SHARD and not self.confirm_clear(row):
             return
         self.rowActionRequested.emit(action, row.symbol, row.interval)
+
+    def confirm_clear(self, row: DatabaseStatusRow) -> bool:
+        """The question before `row` is deleted, from the context menu or
+        Data → Delete data alike."""
+        return self._confirm_clear(row)
 
     def _ask_before_clearing(self, row: DatabaseStatusRow) -> bool:
         """Names the shard and the consequence, per `HLD §11.5` — deleting
@@ -293,7 +300,7 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         on one click."""
         answer = QMessageBox.question(
             self,
-            "Clear local data",
+            "Delete Data",
             f"Delete all {write_value(ColumnKind.QUANTITY, row.total_candles)} "
             "locally stored candles for "
             f"{row.symbol} ({row.interval})?\n\n"

@@ -107,8 +107,12 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger, &Fit levels) | — | the kind's toolbar | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |
-| | &Repair gap | — | Data | — |
-| | &Delete data… | — | Data | yes |
+| | &Repair gap, Repair a&ll gaps | — | Data (Repair gap) | — |
+| | &Inspect candles | — | — | — |
+| | St&op (while a task runs) | — | Data | — |
+| | Scan s&tatus, Scan &all shards, Sync all &gaps | — | Data (Scan status) | — |
+| | &Export data…, I&mport data…, Optimi&ze database | — | — | — |
+| | &Delete data, &Purge all data | — | — | yes |
 | &Tools | &Run backtest… | F7 | Backtest | — |
 | | &Stop backtest | — | Backtest | — |
 | | Check &connection | — | — | — |
@@ -126,7 +130,6 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 - Emergency stop is on each desk's toolbar, for that desk's venue, not on every mode's: one Emergency stop for every venue comes with the single Trade mode (`EPIC-033I`).
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
   - Trade, on the Dev Board: Load history, Start live, Stop live (`EPIC-033P`).
-  - Data: Scan status, Scan all shards, Sync timeframe (Ctrl+L, the key the table gives Sync history…), Sync all gaps, Export data…, Import data…, Optimize database, Delete selected data and Purge all data, the last two confirmed (`EPIC-033J`).
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
   - Bots: Refresh fills (`EPIC-033K`).
 

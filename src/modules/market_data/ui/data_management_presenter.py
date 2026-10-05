@@ -60,10 +60,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
-    SymbolPreferences,
-    find_symbol_preferences,
-)
 from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -212,14 +208,6 @@ class DataManagementPresenter(CommandPresenter):
         self._view_model.selectedSymbolChanged.connect(self._mark_state_dirty)
         self._view_model.selectedIntervalChanged.connect(self._mark_state_dirty)
 
-        # EPIC-014 — the shared symbol favourites/recents store. Optional in
-        # the same way as the coordinator above: a presenter built against a
-        # container that does not know about it keeps the view's own
-        # unpersisted store and still works.
-        view.set_symbol_preferences(
-            find_symbol_preferences(container) or SymbolPreferences()
-        )
-
         self._refresh_stats()
 
         self._discovered = False
@@ -283,7 +271,7 @@ class DataManagementPresenter(CommandPresenter):
     # ================================================================== #
 
     def bind_commands(self, binder: ICommandBinder) -> None:
-        bind_data_commands(binder, self._view_model)
+        self._commands = bind_data_commands(binder, self._view_model, self.view)
 
     def _connect_ui_signals(self) -> None:
         """Connect view-model requests and internal signals to presenter slots."""
@@ -583,14 +571,15 @@ class DataManagementPresenter(CommandPresenter):
     def _on_export_requested(self) -> None:
         if self._shutdown_requested:
             return
-        file_format = ExportFileFormat(self._view_model.selectedExportFormat)
-        path = self._file_dialogs.export_path(
+        target = self._file_dialogs.export_target(
             self._view_model.selectedSymbol,
             self._view_model.selectedInterval,
-            file_format,
+            ExportFileFormat(self._view_model.selectedExportFormat),
         )
-        if not path:
+        if target is None:
             return
+        path, file_format = target
+        self._view_model.selectedExportFormat = file_format.value
         symbol = self._view_model.selectedSymbol.strip()
         interval = self._view_model.selectedInterval.strip()
         self._export_import_coordinator.request_export_data(

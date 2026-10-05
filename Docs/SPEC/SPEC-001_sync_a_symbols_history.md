@@ -4,7 +4,8 @@
 - **Actor:** trader (from a screen), operator (from the command line)
 - **Origin:** measured from the code. The behaviour predates this directory; `BUG-010`,
   `BUG-025`, `BOT-121` and `BOT-122` are the four reports that shaped it.
-- **Surfaces:** Data Management screen (one symbol, and bulk) · Dev Board's *Load History* and
+- **Surfaces:** the Data mode's Data → Sync history… (one shard, its range optional) and
+  Sync all gaps (bulk) (`EPIC-033J`) · Dev Board's *Load History* and
   *Start Live* (their fetch phase) · Backtest screen's data sync · `sync` on the command line and
   at the interactive prompt.
 
@@ -106,6 +107,7 @@ the module and deliberately not published.
 | Evidence | Where | Tier |
 | :--- | :--- | :--- |
 | Start point, chunked persistence, cancellation between fetches | `tests/unit/modules/market_data/application/sync/test_sync_market_data_handler.py` | unit |
+| Data → Sync history… syncs the shard and range chosen in its dialog, opening on the selected shard | `tests/unit/modules/market_data/ui/test_data_commands.py`, `tests/unit/modules/market_data/ui/data_mode/test_shard_dialogs.py` | unit |
 | Many symbols in one request, per-target dispatch | `tests/unit/modules/market_data/application/sync/test_bulk_sync_market_data.py` | unit |
 | The second concurrent sync of a pair is skipped | `tests/unit/modules/market_data/application/sync/test_in_flight_sync_guard.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/market_data/contracts/test_market_data_sync_contract.py` | contract |

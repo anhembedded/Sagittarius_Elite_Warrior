@@ -15,7 +15,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
     MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
-    SYNC_TIMEFRAME,
+    SYNC_HISTORY,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets.shard_dialogs import (
+    ShardChoice,
+    SyncChoice,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
     STOP_LIVE,
@@ -71,10 +75,10 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate):
     assert presenter.fsm.current_state.value in ["LOCKED", "LIVE", "ERROR"]
 
 
-def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp):
+def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp, monkeypatch):
     """
-    Database screen (QtWidgets, EPIC-005E). Loads through the router, and a
-    real Sync timeframe drives the presenter's FSM into SYNCING.
+    The Data mode loads through the router, and a real Data → Sync history…
+    (its dialog answered) drives the presenter's FSM into SYNCING.
     """
     qtbot.addWidget(main_window)
 
@@ -89,8 +93,13 @@ def test_sanity_data_management_sync(qtbot, main_window, navigate, qapp):
     # Ensure starting mode is IDLE
     assert presenter.fsm.current_state.value == "IDLE"
 
-    # The user runs Data → Sync timeframe (`EPIC-033D`).
-    main_window.findChild(QAction, f"action::{SYNC_TIMEFRAME}").trigger()
+    # The user runs Data → Sync history… and syncs BTCUSDT 1m (`EPIC-033J`).
+    monkeypatch.setattr(
+        view,
+        "ask_sync_history",
+        lambda *_args: SyncChoice(ShardChoice("BTCUSDT", "1m"), None, None),
+    )
+    main_window.findChild(QAction, f"action::{SYNC_HISTORY}").trigger()
 
     qtbot.waitUntil(
         lambda: presenter.fsm.current_state.value == "SYNCING", timeout=2000
