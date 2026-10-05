@@ -271,33 +271,8 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         row.addWidget(self._btn_bot_params)
 
-        self._btn_run = _pill_button("btnRunBacktest", min_width=145)
-        run_row = QHBoxLayout()
-        run_row.setContentsMargins(0, 0, 0, 0)
-        run_row.setSpacing(8)
-        self._run_icon_label = QLabel()
-        run_row.addWidget(self._run_icon_label)
-        self._run_text_label = QLabel()
-        self._run_text_label.setStyleSheet(
-            f"color: {Palette.BG}; font-size: 11px; font-weight: bold; background: transparent; border: none;"
-        )
-        run_row.addWidget(self._run_text_label)
-        self._btn_run.setLayout(run_row)
-        self._btn_run.clicked.connect(self._on_run_clicked)
-        # Not added to `row`: `BackTestView` places this in `PageShell`'s
-        # header actions instead — the header's primary action, per the
-        # Pattern Library, not another item in the "which data am I
-        # looking at" context bar this toolbar has become.
-
         scroll.setWidget(row_widget)
         return scroll
-
-    @property
-    def run_button(self) -> QPushButton:
-        """Public accessor for `BackTestView` to place in the page header —
-        `_btn_run` itself stays the private attribute every existing test
-        and this class's own `_sync_run_button` already key off."""
-        return self._btn_run
 
     def _icon_text_button(
         self,
@@ -514,8 +489,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_expand_metrics.clicked.connect(self._vm.requestOpenExtendedMetrics)
         row.addWidget(self._btn_expand_metrics)
 
-        # BOT-095G — no `setStyleSheet()` here either, same ratchet as
-        # `_btn_save_report` below.
+        # BOT-095G — no `setStyleSheet()` here: the styling ratchet only falls.
         self._combo_run_history = QComboBox()
         self._combo_run_history.setObjectName("comboSessionRunHistory")
         self._combo_run_history.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -529,79 +503,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._on_run_history_selected
         )
         row.addWidget(self._combo_run_history)
-
-        # BOT-115B — no `setStyleSheet()` here: `test_app_styling_only_shrinks.py`
-        # (ADR D21) ratchets that count down, not up, so a new button renders
-        # in the platform's own theme rather than copying `_btn_expand_metrics`'s
-        # pre-existing (grandfathered) styling.
-        self._btn_save_report = QPushButton("Save report")
-        self._btn_save_report.setObjectName("btnSaveReport")
-        self._btn_save_report.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_save_report.setFixedHeight(26)
-        self._btn_save_report.setToolTip(
-            "Save this run's full trades, config and metrics as a "
-            ".sagi-report.json file"
-        )
-        self._btn_save_report.setEnabled(False)
-        self._btn_save_report.clicked.connect(self._vm.requestExportReport)
-        row.addWidget(self._btn_save_report)
-
-        # `BOT-115C` — always available while the screen isn't busy
-        # (`_sync_controls_enabled()`), mirroring `_combo_run_history`'s own
-        # enablement rather than `_btn_save_report`'s (importing needs no
-        # existing result on screen).
-        self._btn_import_report = QPushButton("Import report")
-        self._btn_import_report.setObjectName("btnImportReport")
-        self._btn_import_report.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_import_report.setFixedHeight(26)
-        self._btn_import_report.setToolTip(
-            "Load a .sagi-report.json file and view its results read-only"
-        )
-        self._btn_import_report.clicked.connect(self._vm.requestImportReport)
-        row.addWidget(self._btn_import_report)
-
-        # `BOT-115D` — same "no existing result needed" enablement as
-        # `_btn_import_report`: the dialog's own Column A shows "run a
-        # backtest first" until one exists, rather than the button being
-        # disabled and unexplained.
-        self._btn_compare_reports = QPushButton("Compare reports")
-        self._btn_compare_reports.setObjectName("btnCompareReports")
-        self._btn_compare_reports.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_compare_reports.setFixedHeight(26)
-        self._btn_compare_reports.setToolTip(
-            "Compare the current result against a saved .sagi-report.json file"
-        )
-        self._btn_compare_reports.clicked.connect(self._vm.requestOpenCompareReports)
-        row.addWidget(self._btn_compare_reports)
-
-        # `BOT-107A` — same "always available while not busy" enablement as
-        # `_btn_compare_reports`: the dialog itself shows a "not computed for
-        # this run" message until an out-of-sample-validated result exists.
-        self._btn_out_of_sample_comparison = QPushButton("In-Sample vs Out-of-Sample")
-        self._btn_out_of_sample_comparison.setObjectName("btnOutOfSampleComparison")
-        self._btn_out_of_sample_comparison.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_out_of_sample_comparison.setFixedHeight(26)
-        self._btn_out_of_sample_comparison.setToolTip(
-            "Compare this run's In-Sample and Out-of-Sample metrics side by side"
-        )
-        self._btn_out_of_sample_comparison.clicked.connect(
-            self._vm.requestOpenOutOfSampleComparison
-        )
-        row.addWidget(self._btn_out_of_sample_comparison)
-
-        # `BOT-107B` — same "always available while not busy" enablement as
-        # its siblings above: the dialog itself shows "run a backtest
-        # first"/"too few trades" until a real, reshufflable result exists.
-        self._btn_monte_carlo = QPushButton("Monte Carlo")
-        self._btn_monte_carlo.setObjectName("btnMonteCarlo")
-        self._btn_monte_carlo.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_monte_carlo.setFixedHeight(26)
-        self._btn_monte_carlo.setToolTip(
-            "Reshuffle this run's trades to estimate Risk of Ruin and "
-            "worst-case drawdown"
-        )
-        self._btn_monte_carlo.clicked.connect(self._vm.requestOpenMonteCarlo)
-        row.addWidget(self._btn_monte_carlo)
 
         return row_widget
 
@@ -662,8 +563,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.selectedCurrencyChanged.connect(self._sync_toolbar_labels)
         vm.controlsEnabledChanged.connect(self._sync_controls_enabled)
         vm.uiModeChanged.connect(self._sync_controls_enabled)
-        vm.uiModeChanged.connect(self._sync_run_button)
-        vm.isConfigDirtyChanged.connect(self._sync_run_button)
         vm.isConfigDirtyChanged.connect(self._sync_banners)
         vm.run_progress.backtestProgressChanged.connect(self._sync_banners)
         vm.run_progress.syncProgressChanged.connect(self._sync_banners)
@@ -683,7 +582,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _sync_all(self) -> None:
         self._sync_toolbar_labels()
         self._sync_controls_enabled()
-        self._sync_run_button()
         self._sync_banners()
         self._sync_stat_cards()
         self._sync_metrics_header()
@@ -711,10 +609,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_timezone,
             self._btn_capital,
             self._btn_bot_params,
-            self._btn_import_report,
-            self._btn_compare_reports,
-            self._btn_out_of_sample_comparison,
-            self._btn_monte_carlo,
         ):
             btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns
@@ -725,49 +619,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._combo_run_history.setEnabled(
             enabled and self._combo_run_history.count() > 1
         )
-
-    def _sync_run_button(self) -> None:
-        vm = self._vm
-        mode = vm.uiMode
-        is_cancellable = mode in ("RUNNING", "SYNCING")
-        self._btn_run.setEnabled(
-            mode != "CANCELLING" and (bool(vm.controlsEnabled) or is_cancellable)
-        )
-        if is_cancellable:
-            color, hover_color = Palette.DANGER, Palette.DANGER
-            icon_name = "square"
-        elif vm.isConfigDirty:
-            color, hover_color = Palette.WARNING, Palette.WARNING
-            icon_name = "rotate-ccw"
-        else:
-            color, hover_color = Palette.SUCCESS, Palette.SUCCESS
-            icon_name = "play"
-        self._btn_run.setStyleSheet(
-            f"QPushButton {{ background-color: {color}; border-radius: 6px; border: none; }} "
-            f"QPushButton:hover {{ background-color: {hover_color}; }} "
-            f"QPushButton:disabled {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-        self._run_icon_label.setPixmap(
-            get_icon_loader().get_icon(icon_name, Palette.BG, 13).pixmap(13, 13)
-        )
-        if mode == "CANCELLING":
-            text = "CANCELLING..."
-        elif mode == "RUNNING":
-            text = "CANCEL BACKTEST"
-        elif mode == "SYNCING":
-            text = "CANCEL SYNC"
-        elif vm.isConfigDirty:
-            text = "UPDATE"
-        else:
-            text = "RUN BACKTEST"
-        self._run_text_label.setText(text)
-
-    def _on_run_clicked(self) -> None:
-        mode = self._vm.uiMode
-        if mode in ("RUNNING", "SYNCING"):
-            self._vm.requestCancelBacktest()
-        else:
-            self._vm.requestRun()
 
     def _sync_banners(self) -> None:
         vm = self._vm
@@ -836,10 +687,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         text = self._vm.run_result.resultWarningText
         self._result_warning_label.setText(text)
         self._result_warning_label.setVisible(has_cards and bool(text))
-        # BOT-115B — `has_cards` is the same "a real BacktestResult exists"
-        # signal `_on_backtest_succeeded` populates stat cards from, so it
-        # already means exactly "there is something to save".
-        self._btn_save_report.setEnabled(has_cards)
 
     def _sync_session_run_history(self) -> None:
         """`BOT-095G` — repopulates the dropdown from

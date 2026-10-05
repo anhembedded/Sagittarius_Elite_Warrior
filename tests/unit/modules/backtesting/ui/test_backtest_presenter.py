@@ -58,9 +58,17 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_sim
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
+    RUN,
+    STOP,
+    backtest_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
+    BACKTEST_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_signal_payloads import (
     BacktestProgress,
@@ -166,6 +174,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.base_ind
     BaseIndicatorScript,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -328,6 +337,13 @@ def _build_presenter_with_registry(
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)
     return BackTestPresenter(view, container)
+
+
+def _backtest_actions(presenter: BackTestPresenter):
+    """The Backtest commands, bound as the window binds them (`EPIC-033D`)."""
+    return bound_actions(
+        presenter.view, backtest_commands(BACKTEST_ROUTE), presenter.bind_commands
+    )
 
 
 def _make_result(with_trades: bool) -> BacktestResult:
@@ -2325,14 +2341,9 @@ def test_cancel_ignored_when_nothing_is_active(presenter, view_model):
 
 
 # ---------------------------------------------------------------------------
-# BOT-076 — tick mode rejects an unbounded (ALL_HISTORY) time range.
-#
-# `IRangeCoverage`'s SQL has no lower bound when start_time is
-# None, so it scans every 1s-interval row ever synced for the symbol. A real
-# session got stuck retrying "Đồng bộ dữ liệu ngay" forever: the coverage
-# round-trip got slower every retry as more tick data accumulated, while the
-# live-trailing end_time cutoff kept advancing with real time regardless, so
-# the two could never converge.
+# BOT-076 — tick mode rejects an unbounded (ALL_HISTORY) time range: with no
+# lower bound the coverage scan grew every retry and never caught up with the
+# live end_time, so a real session retried the sync forever.
 # ---------------------------------------------------------------------------
 
 
@@ -2460,15 +2471,17 @@ def test_qml_documents_load_without_errors(presenter, qapp):
     assert presenter.view.bottom_widget is not None
 
 
-def test_qml_run_button_click_requests_a_run(
-    presenter, view_model, qapp, mock_thread_mgr
+def test_run_then_stop_through_the_presenters_own_actions(
+    presenter, qapp, mock_thread_mgr
 ):
-    qapp.processEvents()
+    actions = _backtest_actions(presenter)
 
-    presenter.view.top_widget._btn_run.click()
-    qapp.processEvents()
-
+    actions.action(RUN).trigger()
     mock_thread_mgr.submit.assert_called_once()
+    actions.action(STOP).trigger()
+    qapp.processEvents()
+
+    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
 
 
 def test_bot_params_button_is_enabled(presenter, qapp):
@@ -2987,11 +3000,8 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     card.set_script_regions = Mock()
     # 3 bars below the 103.0 threshold then 3 at/above it — each zone clears
     # `_MIN_ZONE_BARS` (BUG-079) so both are actually drawn, not dropped.
-    # Seeded in chronological order, which is the only order a store has:
-    # the coordinator asks `IHistoricalKlines` for the NEWEST bars (that is
-    # how a limit keeps recent data) and reverses them back to chronological
-    # before replaying, exactly as production does. The old stub had to be
-    # handed a pre-reversed list to fake that; a real store needs no trick.
+    # Seeded chronologically, as a store holds them; the coordinator reads the
+    # newest bars and reverses them, as production does.
     klines = _make_trend_zone_klines([90.0, 90.0, 90.0, 110.0, 110.0, 110.0])
     fake_historical_klines.seed(klines)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
@@ -4628,17 +4638,6 @@ def test_progress_updates_are_ignored_after_cancel(presenter, view_model):
     )
 
     assert view_model.run_progress.backtestProgressPercent == 50.0
-
-
-def test_qml_run_button_requests_cancel_while_backtest_is_running(
-    presenter, view_model, qapp
-):
-    view_model.requestRun()
-
-    presenter.view.top_widget._btn_run.click()
-    qapp.processEvents()
-
-    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
 
 
 def test_superseded_backtest_success_cannot_overwrite_the_new_action(

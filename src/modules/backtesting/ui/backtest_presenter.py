@@ -99,6 +99,12 @@ from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
@@ -116,11 +122,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
     find_symbol_preferences,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.extensions.pyside_mvc.mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from .backtest_command_binding import bind_backtest_commands
 from .backtest_view_model import BackTestViewModel
 from .coordinators import DataSyncCoordinator, ExecutionCoordinator, build_coordinators
 from .logic.backtest_chart_host import BacktestChartHostFactory
@@ -230,7 +237,7 @@ _REPORT_IMPORT_DIALOG_TITLE = "Import Backtest Report"
 _UNKNOWN_APP_VERSION = "unknown"
 
 
-class BackTestPresenter(BasePresenter):
+class BackTestPresenter(CommandPresenter):
     """
     @brief Presenter for the Backtest Screen (BOT-022 — Epic BOT-006 Phase 1
     / Epic BOT-040).
@@ -468,23 +475,10 @@ class BackTestPresenter(BasePresenter):
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
         self._chart_klines_fetch_limit = self._screen_config.chart_klines_fetch_limit
-        # `BUG-127` — a plain resolve, because the port is bound now.
-        #
-        # This was a `try` whose body resolved the port, an `isinstance` check on
-        # the answer, and an `except Exception` that constructed
-        # `InMemorySymbolMarketMetadataCache()` — this module's own import of
-        # another module's *adapter*, which is what the boundary allowlist
-        # carried. Measured: the port was bound nowhere, so the `resolve()`
-        # raised on every construction and the `except` was the **only** path.
-        # The screen therefore held a private empty cache that nothing would
-        # ever write to, and the exchange-rule check answered "not verified"
-        # for every symbol from the day `BOT-095E1` shipped.
-        #
-        # Deliberately no fallback now. A missing binding must fail loudly at
-        # construction rather than degrade into a permanently negative answer:
-        # that silence is the whole defect, and
-        # `tests/unit/architecture/test_every_resolved_type_is_bound.py` is the
-        # check that keeps the binding there.
+        # `BUG-127` — a plain resolve, deliberately with no fallback: the old
+        # `except` built a private empty cache, so every symbol read "not
+        # verified". A missing binding fails loudly here instead, and
+        # `test_every_resolved_type_is_bound.py` keeps the binding there.
         self._market_metadata_cache: ISymbolMarketMetadataCache = container.resolve(
             ISymbolMarketMetadataCache
         )
@@ -617,6 +611,9 @@ class BackTestPresenter(BasePresenter):
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_backtest_commands(binder, self._view_model)
 
     def _connect_ui_signals(self) -> None:
         connect_ui_signals(self)

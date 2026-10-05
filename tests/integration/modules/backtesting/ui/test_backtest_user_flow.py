@@ -12,9 +12,16 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
+    RUN,
+    backtest_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
+    BACKTEST_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
@@ -31,9 +38,18 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
 )
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _BOT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+
+def _run_backtest(presenter: BackTestPresenter) -> None:
+    """Backtest → Run backtest, the action bound as the window binds it."""
+    actions = bound_actions(
+        presenter.view, backtest_commands(BACKTEST_ROUTE), presenter.bind_commands
+    )
+    actions.action(RUN).trigger()
 
 
 def _resolve_runtime_symbol() -> str:
@@ -178,7 +194,7 @@ def test_run_button_completes_real_backtest_and_chart_render(backtest_screen, qt
     assert "Database: OK" in health_lines[-1]
     health_count_before = sum("[Health]" in message for message in log_messages_before)
 
-    view.top_widget._btn_run.click()
+    _run_backtest(presenter)
     qtbot.waitUntil(
         lambda: presenter.fsm.current_state is BacktestUiState.COMPLETED,
         timeout=5000,
@@ -239,8 +255,8 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     view_model.time_range.customStartText = "2026-08-01 00:00"
     view_model.time_range.customEndText = "2026-08-11 00:00"
 
-    # Trigger backtest run via toolbar button
-    view.top_widget._btn_run.click()
+    # Backtest → Run backtest (`EPIC-033D`).
+    _run_backtest(presenter)
 
     # The Cancel button belongs to the banner, not to this panel: it was
     # inside `ProgressBanner.qml`'s scene until `EPIC-025` PR 4.3l and is

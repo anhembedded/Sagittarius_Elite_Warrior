@@ -1,7 +1,7 @@
 {
  "src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py": 441,
- "src/modules/backtesting/ui/backtest_presenter.py": 2259,
- "src/modules/backtesting/ui/backtest_top_panel.py": 887,
+ "src/modules/backtesting/ui/backtest_presenter.py": 2256,
+ "src/modules/backtesting/ui/backtest_top_panel.py": 734,
  "src/modules/backtesting/ui/backtest_trade_logs_panel.py": 443,
  "src/modules/backtesting/ui/backtest_view_model.py": 830,
  "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 455,
