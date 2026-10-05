@@ -29,8 +29,9 @@ from sagittarius_engine.infrastructure.event_bus.bus_observers import (
     remove_bus_observer,
 )
 
-#: About a minute of a busy run's events between two drains; the log keeps
-#: its own, larger window.
+#: Records kept between two drains. Drained every 250 ms, it overflows only
+#: while the bus publishes over 4 000 events a second; the log keeps its own,
+#: larger window.
 DEFAULT_CAPACITY = 1000
 
 

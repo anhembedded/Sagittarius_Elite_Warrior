@@ -168,7 +168,7 @@ def test_a_handler_that_raises_shows_in_the_log(mode) -> None:
     assert "RuntimeError: boom" in outcomes[1]
 
 
-def test_closing_the_mode_stops_recording(qtbot) -> None:
+def test_shutting_the_window_down_stops_recording(qtbot) -> None:
     view = DeveloperView()
     qtbot.addWidget(view)
     container = fake_container({IEventBus: MemoryEventBus(), IConfig: DictConfig({})})

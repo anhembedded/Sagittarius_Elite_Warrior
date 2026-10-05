@@ -36,7 +36,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 from .bus_event_recorder import BusEventRecord
 from .event_log_table_model import EventLogTableModel
 
-EMPTY_LOG_TEXT = "Nothing has been published on the event bus since this mode opened."
+EMPTY_LOG_TEXT = "Nothing has been published on the event bus since the app started."
 
 
 def lost_text(lost: int) -> str:

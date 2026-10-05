@@ -1,10 +1,20 @@
 """The Developer mode's presenter (`EPIC-033P`).
 
-@details It records the bus while it lives: a `BusEventRecorder` registered
-with the Engine, drained onto the view's log by a `QTimer` on the UI thread
-four times a second, so a burst of ticks costs one table update, not one per
-event (`BUG-042`). The mode exists only under developer mode
-(`developer_screen.py`), so a normal run never observes the bus.
+@details It records the bus while it lives, which is from the window's build
+to its close (every mode is built at start, SPEC-011 §4): a
+`BusEventRecorder` registered with the Engine, drained onto the view's log by
+a `QTimer` on the UI thread four times a second, so a burst of ticks costs one
+table update, not one per event (`BUG-042`). The mode exists only under
+developer mode (`developer_screen.py`), so a normal run never observes the bus.
+
+@par The cost of a sorted log, measured (the PR #367 review)
+Unsorted, a drain of 1 000 records into a full log takes about 15 ms. Sorted
+by a column, each row inserted into the sorting proxy costs about 0.09 ms, so
+the same drain takes about 90 ms; suspending the proxy's dynamic sort for the
+append and sorting once after was measured worse (about 450 ms). A drain is
+that large only while the bus publishes over 4 000 events a second; at 100
+per drain a sorted log costs about 9 ms. Accepted, because the mode is
+developer-only and the cost lasts as long as the person keeps it sorted.
 
 It also places the probes the modules contributed, which needs the container
 the view does not have; a run with no contribution table (a test container)
@@ -16,10 +26,9 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QTimer
-from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
-    IContributionTable,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.contribution_lookup import (
+    contribution_table,
 )
-from sagittarius_engine.exceptions import DependencyResolutionError
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -44,7 +53,7 @@ class DeveloperPresenter(BasePresenter):
         super().__init__(view, container)
         self._view = view
         self._recorder = recorder or BusEventRecorder()
-        table = _contribution_table(container)
+        table = contribution_table(container)
         probes = view.place_probes(table, container) if table is not None else 0
         self._timer = QTimer(self)
         self._timer.setInterval(DRAIN_INTERVAL_MS)
@@ -77,13 +86,3 @@ def build_developer_presenter(view: BaseView, container: IContainer) -> BasePres
             "not a DeveloperView"
         )
     return DeveloperPresenter(view, container)
-
-
-def _contribution_table(container: IContainer) -> IContributionTable | None:
-    """The table, or `None` when this run has none: a container nothing bound
-    it in, or a `Mock` one (the smoke tests that build every route)."""
-    try:
-        table = container.resolve(IContributionTable)
-    except DependencyResolutionError:
-        return None
-    return table if isinstance(table, IContributionTable) else None

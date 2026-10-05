@@ -3,7 +3,7 @@
 
 Same `ScreenContribution` shape as the other screens (`EPIC-025E` PR 4.4e), with one
 real difference from every other screen converted this way: `DashboardView`
-needs `container` at *view* construction (`_contribution_table(container)`,
+needs `container` at *view* construction (`contribution_table(container)`,
 to read every module's `DEV_PROBE` contributions), not only at presenter
 construction the way `ScreenContribution.presenter_factory` already supplies
 it. `PresenterManager.navigate_to()` calls `view_factory()` with zero
@@ -23,9 +23,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
-    IContributionTable,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadata
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
@@ -33,7 +30,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine.exceptions import DependencyResolutionError
+from Sagittarius_Elite_Warrior.src.support.ui_kit.contribution_lookup import (
+    contribution_table,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
@@ -50,28 +49,6 @@ _NAV = NavMetadata(
     section_sequence=10,
     item_sequence=10,
 )
-
-
-def _contribution_table(container: IContainer) -> IContributionTable | None:
-    """The table, or `None` when this run has none.
-
-    Both `None` cases are real, not defensive padding (unchanged from
-    `DashboardScreenModule`'s own docstring):
-
-    - **Nothing bound it.** `assemble_contributions()` binds the port in the
-      GUI entry point only; a container built without it raises
-      `DependencyResolutionError`, which is the answer "this run has no
-      surfaces", not a failure.
-    - **A `Mock()` container.** The smoke tests that build every navigable
-      route pass one, and a `Mock` reaching a factory would build a `Mock`
-      widget and place it on the screen. The `isinstance` check is what
-      tells a real table from that.
-    """
-    try:
-        table = container.resolve(IContributionTable)
-    except DependencyResolutionError:
-        return None
-    return table if isinstance(table, IContributionTable) else None
 
 
 def _build_dashboard_presenter(view: BaseView, container: IContainer) -> BasePresenter:
@@ -102,7 +79,7 @@ def dashboard_screen(container: IContainer) -> ScreenContribution:
         )
 
         return DashboardView(
-            contributions=_contribution_table(container),
+            contributions=contribution_table(container),
             container=container,
             # `EPIC-027O` — decided once, here, alongside every other
             # venue-branched read this composition layer already makes
