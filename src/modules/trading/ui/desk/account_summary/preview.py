@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.accou
     AccountSummaryPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summary_lines import (
-    summary_lines_for,
+    summary_readout,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -27,8 +27,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 def build_preview() -> QWidget:
     panel = AccountSummaryPanel()
-    panel.set_lines(
-        summary_lines_for(
+    panel.show_readout(
+        summary_readout(
             FuturesAccountSummary(
                 venue=TradingVenue.FUTURES_TESTNET,
                 available_balance=Decimal("4210.55"),

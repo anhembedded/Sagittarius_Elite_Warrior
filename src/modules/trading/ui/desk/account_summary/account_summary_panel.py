@@ -9,11 +9,10 @@ the last ones read, because the mark says what they are.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
-from PySide6.QtWidgets import QFormLayout, QLabel, QVBoxLayout, QWidget
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summary_lines import (
-    SummaryLine,
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
+    Readout,
+    ReadoutSlot,
 )
 
 _UNREAD_TEXT = "The account has not been read yet."
@@ -31,24 +30,21 @@ class AccountSummaryPanel(QWidget):  # base-exempt: a container, not a surface
         self._unread = QLabel(_UNREAD_TEXT)
         self._unread.setObjectName("lblAccountSummaryUnread")
         self._unread.setWordWrap(True)
-        self._figures = QFormLayout()
-        self._values: dict[str, QLabel] = {}
+        self._figures = ReadoutSlot()
+        self._figures.setObjectName("roAccountSummary")
         layout = QVBoxLayout(self)
         layout.addWidget(self._stale)
         layout.addWidget(self._unread)
-        layout.addLayout(self._figures)
+        layout.addWidget(self._figures)
         layout.addStretch(1)
 
-    def set_lines(self, lines: Sequence[SummaryLine]) -> None:
-        while self._figures.rowCount():
-            self._figures.removeRow(0)
-        self._values = {}
-        for line in lines:
-            value = QLabel(line.value_text)
-            value.setObjectName(f"lblSummary{line.label.replace(' ', '')}")
-            self._figures.addRow(f"{line.label}:", value)
-            self._values[line.label] = value
-        self._unread.setVisible(not lines)
+    def show_readout(self, readout: Readout | None) -> None:
+        """The figures, or none while the account is unread."""
+        if readout is None:
+            self._figures.clear()
+        else:
+            self._figures.show_readout(readout)
+        self._unread.setVisible(readout is None)
 
     def mark_stale(self, reason: str) -> None:
         self._stale.setText(f"Out of date: {reason}")
@@ -62,7 +58,6 @@ class AccountSummaryPanel(QWidget):  # base-exempt: a container, not a surface
     def stale_text(self) -> str:
         return "" if self._stale.isHidden() else self._stale.text()
 
-    def value_of(self, label: str) -> str | None:
-        """The text shown for `label`, or `None` when it is not shown."""
-        value = self._values.get(label)
-        return value.text() if value is not None else None
+    def value_of(self, key: str) -> str | None:
+        """The text shown for the row `key`, or `None` when it is not shown."""
+        return self._figures.value_text(key)

@@ -7,12 +7,15 @@ desk its spendable quote, what open orders hold and the account's value.
 A Multi-Assets Futures account counts every margin asset in USD, so its
 figures say "USD", never "USDT" (`EPIC-028O`). An unknown Spot value is
 said to be unknown, never shown as a partial sum.
+
+Since `EPIC-033N` the panel shows them as a `Readout`: each figure a money
+value written by the application's formatter, its unit in its title
+("Available (USDT)") because the unit is the account's, not the number's.
+Which rows a summary has is known only once it is read, so the readout
+carries its rows with its values.
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
@@ -20,49 +23,77 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     FuturesAccountSummary,
     SpotAccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    display_number,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 
 _UNPRICED = "unknown: a holding could not be priced"
 
 
-@dataclass(frozen=True)
-class SummaryLine:
-    label: str
-    value_text: str
-
-
-def summary_lines_for(summary: AccountSummary | None) -> tuple[SummaryLine, ...]:
-    """@return The panel's lines; empty when the account could not be read."""
+def summary_readout(summary: AccountSummary | None) -> Readout | None:
+    """@return The panel's rows and values; `None` when the account could not
+    be read."""
     if isinstance(summary, FuturesAccountSummary):
-        return _futures_lines(summary)
+        return _futures_readout(summary)
     if isinstance(summary, SpotAccountSummary):
-        return _spot_lines(summary)
+        return _spot_readout(summary)
     if summary is None:
-        return ()
-    return (SummaryLine("Available", _amount(summary.available_balance, "USDT")),)
-
-
-def _futures_lines(summary: FuturesAccountSummary) -> tuple[SummaryLine, ...]:
-    unit = "USD" if summary.asset_mode is AssetMode.MULTI_ASSETS else "USDT"
-    lines = (
-        SummaryLine("Available", _amount(summary.available_balance, unit)),
-        SummaryLine("Wallet balance", _amount(summary.wallet_balance, unit)),
-        SummaryLine("Unrealized PnL", f"{summary.unrealized_pnl:+,.2f} {unit}"),
-        SummaryLine("Margin balance", _amount(summary.margin_balance, unit)),
+        return None
+    return Readout(
+        (_money("available", "Available", "USDT"),),
+        {"available": display_number(summary.available_balance)},
     )
-    if summary.asset_mode is AssetMode.MULTI_ASSETS:
-        return (*lines, SummaryLine("Margin", "every margin asset (Multi-Assets)"))
-    return lines
 
 
-def _spot_lines(summary: SpotAccountSummary) -> tuple[SummaryLine, ...]:
+def _money(key: str, title: str, unit: str) -> ColumnSpec:
+    return ColumnSpec(key, f"{title} ({unit})", ColumnKind.MONEY)
+
+
+def _futures_readout(summary: FuturesAccountSummary) -> Readout:
+    multi = summary.asset_mode is AssetMode.MULTI_ASSETS
+    unit = "USD" if multi else "USDT"
+    specs = (
+        _money("available", "Available", unit),
+        _money("wallet", "Wallet balance", unit),
+        _money("unrealized_pnl", "Unrealized PnL", unit),
+        _money("margin_balance", "Margin balance", unit),
+    )
+    values = {
+        "available": display_number(summary.available_balance),
+        "wallet": display_number(summary.wallet_balance),
+        "unrealized_pnl": display_number(summary.unrealized_pnl),
+        "margin_balance": display_number(summary.margin_balance),
+    }
+    if not multi:
+        return Readout(specs, values)
+    margin = ColumnSpec("margin", "Margin", ColumnKind.TEXT)
+    return Readout(
+        (*specs, margin), {**values, "margin": "every margin asset (Multi-Assets)"}
+    )
+
+
+def _spot_readout(summary: SpotAccountSummary) -> Readout:
     quote = summary.quote_asset
-    equity = _amount(summary.equity, quote) if summary.equity is not None else _UNPRICED
-    return (
-        SummaryLine("Available", _amount(summary.quote_free, quote)),
-        SummaryLine("In orders", _amount(summary.quote_locked, quote)),
-        SummaryLine("Account value", equity),
+    # An unknown account value is a sentence, not an amount: the row is text
+    # then, so it says why rather than standing empty.
+    equity = (
+        _money("equity", "Account value", quote)
+        if summary.equity is not None
+        else ColumnSpec("equity", "Account value", ColumnKind.TEXT)
     )
-
-
-def _amount(value: Decimal, unit: str) -> str:
-    return f"{value:,.2f} {unit}"
+    return Readout(
+        (
+            _money("available", "Available", quote),
+            _money("in_orders", "In orders", quote),
+            equity,
+        ),
+        {
+            "available": display_number(summary.quote_free),
+            "in_orders": display_number(summary.quote_locked),
+            "equity": display_number(summary.equity)
+            if summary.equity is not None
+            else _UNPRICED,
+        },
+    )

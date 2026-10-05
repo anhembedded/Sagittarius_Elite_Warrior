@@ -24,7 +24,6 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -36,7 +35,6 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_text import (
-    NONE_TEXT,
     format_amount,
     parse_amount,
 )
@@ -50,10 +48,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protection_fields import (
     ProtectionFields,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.side_readout import (
+    LIQUIDATION_KEY,
+    SideUnits,
+    side_readout,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
-_NONE_TEXT = NONE_TEXT
 _SLIDER_STEP = 25
-_CENT = Decimal("0.01")
+_LIQUIDATION_TIP = (
+    "An estimate for this order's position alone; the exchange's own "
+    "figure also counts your other positions"
+)
 
 
 def order_type_joins_queue_now(order_type: OrderType) -> bool:
@@ -135,22 +141,11 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
             lambda percent: view_model.set_percent(side, percent)
         )
 
-        self._available = QLabel(_NONE_TEXT)
-        self._available.setObjectName(f"lblAvailable{name}")
-        self._maximum = QLabel(_NONE_TEXT)
-        self._maximum.setObjectName(f"lblMax{name}")
-        self._total = QLabel(_NONE_TEXT)
-        self._total.setObjectName(f"lblTotal{name}")
-        self._fee = QLabel(_NONE_TEXT)
-        self._fee.setObjectName(f"lblFee{name}")
-        self._cost = QLabel(_NONE_TEXT)
-        self._cost.setObjectName(f"lblCost{name}")
-        self._liquidation = QLabel(_NONE_TEXT)
-        self._liquidation.setObjectName(f"lblLiquidation{name}")
-        self._liquidation.setToolTip(
-            "An estimate for this order's position alone; the exchange's own "
-            "figure also counts your other positions"
-        )
+        # Available, maximum, total, fee and, on Futures, cost and an
+        # estimated liquidation price: a read-out (`side_readout.py`).
+        self._figures = ReadoutSlot()
+        self._figures.setObjectName(f"roFigures{name}")
+        self._futures = view_model.profile.futures_controls
         self._protection = ProtectionFields(view_model.options, side)
         self._problem = QLabel()
         self._problem.setObjectName(f"lblProblem{name}")
@@ -173,15 +168,6 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         quantity_row.addWidget(self._quantity_unit)
         quantity_row.addWidget(self._spend, 1)
         quantity_row.addWidget(self._spend_unit)
-        figures = QFormLayout()
-        figures.addRow("Available", self._available)
-        self._maximum_label = QLabel()
-        figures.addRow(self._maximum_label, self._maximum)
-        figures.addRow("Total", self._total)
-        figures.addRow("Est. fee", self._fee)
-        if view_model.profile.futures_controls:
-            figures.addRow("Cost", self._cost)
-            figures.addRow("Liq. price (est.)", self._liquidation)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -190,12 +176,18 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         layout.addLayout(quantity_row)
         layout.addWidget(self._protection)
         layout.addWidget(self._slider)
-        layout.addLayout(figures)
+        layout.addWidget(self._figures)
         layout.addWidget(self._problem)
         layout.addWidget(self._submit)
 
         view_model.changed.connect(self.sync)
         self.sync()
+
+    def _show_figures(self, figures: SideFigures | None, units: SideUnits) -> None:
+        self._figures.show_readout(side_readout(figures, units))
+        value = self._figures.findChild(QLabel, f"readout::{LIQUIDATION_KEY}")
+        if value is not None:
+            value.setToolTip(_LIQUIDATION_TIP)
 
     def sync(self) -> None:
         vm = self._vm
@@ -234,25 +226,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._slider.blockSignals(False)
 
         label = vm.profile.side_label(side)
-        self._maximum_label.setText("Max total" if by_quote else f"Max {label.lower()}")
-        self._available.setText(
-            f"{format_amount(figures.available)} {figures.available_asset}"
-            if figures is not None
-            else _NONE_TEXT
-        )
-        self._maximum.setText(_maximum_text(figures, base, quote))
-        self._total.setText(
-            f"{format_amount(figures.total)} {quote}" if figures else _NONE_TEXT
-        )
-        self._fee.setText(
-            f"{format_amount(figures.fee)} {quote}" if figures else _NONE_TEXT
-        )
-        self._cost.setText(
-            f"{format_amount(figures.cost)} {quote}"
-            if figures and figures.cost is not None
-            else _NONE_TEXT
-        )
-        self._liquidation.setText(_liquidation_text(figures))
+        self._show_figures(figures, SideUnits(base, quote, label, self._futures))
         self._problem.setText((figures.problem or "") if figures else "")
         self._submit.setText(f"{label} {base}".strip())
         ready = figures is not None and figures.can_submit
@@ -268,23 +242,6 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         )
         for field in editable:
             field.setEnabled(not vm.busy and figures is not None)
-
-
-def _liquidation_text(figures: SideFigures | None) -> str:
-    estimate = figures.liquidation if figures else None
-    if estimate is None or estimate.price is None:
-        return _NONE_TEXT
-    return format_amount(estimate.price.quantize(_CENT))
-
-
-def _maximum_text(figures: SideFigures | None, base: str, quote: str) -> str:
-    """The most a side may order: a quote total on a side sized by quote, a
-    base quantity otherwise."""
-    if figures is None:
-        return _NONE_TEXT
-    if figures.sized_by_quote:
-        return f"{format_amount(figures.max_total)} {quote}"
-    return f"{format_amount(figures.max_quantity)} {base}"
 
 
 def _show_value(field: QLineEdit, value: Decimal | None) -> None:

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -30,8 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.accou
     AccountSummaryPresenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summary_lines import (
-    SummaryLine,
-    summary_lines_for,
+    summary_readout,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -62,24 +62,36 @@ def _futures(available: str = "100", mode: AssetMode = AssetMode.SINGLE_ASSET):
 # -- the lines ------------------------------------------------------------- #
 
 
-def test_a_futures_account_shows_its_four_figures_in_usdt() -> None:
-    assert summary_lines_for(_futures()) == (
-        SummaryLine("Available", "100.00 USDT"),
-        SummaryLine("Wallet balance", "125.00 USDT"),
-        SummaryLine("Unrealized PnL", "-5.00 USDT"),
-        SummaryLine("Margin balance", "120.00 USDT"),
-    )
+def _shown(qtbot, summary) -> dict[str, str | None]:
+    """What the panel shows for `summary`: each row's title and its text."""
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+    readout = summary_readout(summary)
+    panel.show_readout(readout)
+    if readout is None:
+        return {}
+    return {spec.title: panel.value_of(spec.key) for spec in readout.specs}
 
 
-def test_a_multi_assets_account_counts_in_usd_and_says_so() -> None:
-    lines = summary_lines_for(_futures(mode=AssetMode.MULTI_ASSETS))
+def test_a_futures_account_shows_its_four_figures_in_usdt(qtbot) -> None:
+    assert _shown(qtbot, _futures()) == {
+        "Available (USDT)": "100.00",
+        "Wallet balance (USDT)": "125.00",
+        "Unrealized PnL (USDT)": "-5.00",
+        "Margin balance (USDT)": "120.00",
+    }
 
-    assert lines[0] == SummaryLine("Available", "100.00 USD")
-    assert lines[-1] == SummaryLine("Margin", "every margin asset (Multi-Assets)")
+
+def test_a_multi_assets_account_counts_in_usd_and_says_so(qtbot) -> None:
+    shown = _shown(qtbot, _futures(mode=AssetMode.MULTI_ASSETS))
+
+    assert shown["Available (USD)"] == "100.00"
+    assert shown["Margin"] == "every margin asset (Multi-Assets)"
 
 
-def test_a_spot_account_whose_value_is_unknown_says_so() -> None:
-    lines = summary_lines_for(
+def test_a_spot_account_whose_value_is_unknown_says_so(qtbot) -> None:
+    shown = _shown(
+        qtbot,
         SpotAccountSummary(
             venue=TradingVenue.SPOT_TESTNET,
             available_balance=Decimal(50),
@@ -87,18 +99,24 @@ def test_a_spot_account_whose_value_is_unknown_says_so() -> None:
             quote_asset="USDT",
             quote_free=Decimal(50),
             quote_locked=Decimal(7),
-        )
+        ),
     )
 
-    assert lines == (
-        SummaryLine("Available", "50.00 USDT"),
-        SummaryLine("In orders", "7.00 USDT"),
-        SummaryLine("Account value", "unknown: a holding could not be priced"),
-    )
+    assert shown == {
+        "Available (USDT)": "50.00",
+        "In orders (USDT)": "7.00",
+        "Account value": "unknown: a holding could not be priced",
+    }
 
 
-def test_an_unread_account_shows_no_figure() -> None:
-    assert summary_lines_for(None) == ()
+def test_an_unread_account_shows_no_figure(qtbot) -> None:
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+
+    panel.show_readout(summary_readout(None))
+
+    assert panel.value_of("available") is None
+    assert not panel.findChild(QLabel, "lblAccountSummaryUnread").isHidden()
 
 
 # -- the presenter --------------------------------------------------------- #
@@ -124,7 +142,7 @@ def test_the_desk_reads_its_summary_when_it_opens(qtbot) -> None:
 
     presenter.refresh()
 
-    assert panel.value_of("Available") == "100.00 USDT"
+    assert panel.value_of("available") == "100.00"
     assert panel.stale_text == ""
 
 
@@ -146,12 +164,12 @@ def test_stale_is_marked_with_its_reason_and_cleared_by_the_next_change(
     bus.emit(AccountSummaryStaleEvent(reason="the venue timed out", venue=_FUTURES))
     qapp.processEvents()
     assert panel.stale_text == "Out of date: the venue timed out"
-    assert panel.value_of("Available") == "100.00 USDT"
+    assert panel.value_of("available") == "100.00"
 
     bus.emit(AccountSummaryChangedEvent(summary=_futures("80")))
     qapp.processEvents()
     assert panel.stale_text == ""
-    assert panel.value_of("Available") == "80.00 USDT"
+    assert panel.value_of("available") == "80.00"
 
 
 def test_another_venues_stale_mark_never_reaches_this_desk(qtbot, qapp) -> None:
@@ -177,4 +195,4 @@ def test_an_open_read_answering_after_a_newer_event_is_dropped(qtbot, qapp) -> N
     qapp.processEvents()
     held.run(0)
 
-    assert panel.value_of("Available") == "80.00 USDT"
+    assert panel.value_of("available") == "80.00"

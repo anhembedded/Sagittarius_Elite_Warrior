@@ -15,7 +15,6 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -37,18 +36,29 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    ReadoutForm,
+    configure_item_view,
+)
 
 EMPTY_TEXT = "Select a bot, or create one with New bot."
 NO_CHART_TEXT = "The bot's chart is not open."
-_FACT_LABELS = (
-    ("venue", "Venue"),
-    ("symbol", "Symbol"),
-    ("capital", "Capital"),
-    ("grid_profit", "Grid profit"),
-    ("unrealised", "Unrealised PnL"),
-    ("inventory", "Held"),
-    ("running_time", "Running time"),
+#: The bot's figures as a read-out (`EPIC-033N`). Each value is a sentence
+#: `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
+#: application's formatter, so every row is text here.
+_FACT_SPECS = tuple(
+    ColumnSpec(key, title, ColumnKind.TEXT)
+    for key, title in (
+        ("venue", "Venue"),
+        ("symbol", "Symbol"),
+        ("capital", "Capital"),
+        ("grid_profit", "Grid profit"),
+        ("unrealised", "Unrealised PnL"),
+        ("inventory", "Held"),
+        ("running_time", "Running time"),
+    )
 )
 
 
@@ -65,7 +75,8 @@ class BotDetailPanel(QWidget):
         self.state = QLabel()
         self.state.setObjectName("lblBotState")
         self.state.setWordWrap(True)
-        self.facts = {key: QLabel() for key, _ in _FACT_LABELS}
+        self.facts = ReadoutForm(_FACT_SPECS, APP_VALUE_FORMATTER)
+        self.facts.setObjectName("roBotFacts")
         self.orders = BotOrdersTableModel(self)
         self.fills = BotFillsTableModel(self)
         self.verdicts = QListWidget()
@@ -108,9 +119,6 @@ class BotDetailPanel(QWidget):
         names.addWidget(self.title)
         names.addWidget(self.state)
         header.addLayout(names, 1)
-        form = QFormLayout()
-        for key, label in _FACT_LABELS:
-            form.addRow(label, self.facts[key])
         self.tabs.addTab(self._chart_page(), "Chart")
         self.tabs.addTab(self._parameters_page(), "Parameters")
         self.tabs.addTab(_table(self.orders, "tblBotOrders"), "Orders")
@@ -122,7 +130,7 @@ class BotDetailPanel(QWidget):
         detail = QWidget()
         detail_layout = QVBoxLayout(detail)
         detail_layout.addLayout(header)
-        detail_layout.addLayout(form)
+        detail_layout.addWidget(self.facts)
         detail_layout.addWidget(self.tabs, 1)
         empty = QLabel(EMPTY_TEXT)
         empty.setObjectName("lblBotsEmpty")
@@ -181,8 +189,12 @@ class BotDetailPanel(QWidget):
     def _show_facts(self) -> None:
         facts = self._model.facts
         self.state.setText(facts.state if facts else "")
-        for key, _ in _FACT_LABELS:
-            self.facts[key].setText(getattr(facts, key) if facts else "")
+        self.facts.set_values(
+            {
+                spec.key: getattr(facts, spec.key) if facts else ""
+                for spec in _FACT_SPECS
+            }
+        )
         bot = self._model.selected
         self.orders.set_rows(bot.progress.orders if bot and bot.progress else ())
 

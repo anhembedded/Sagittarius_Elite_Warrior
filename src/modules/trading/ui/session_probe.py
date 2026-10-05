@@ -23,18 +23,15 @@ while pinging the venue would need a background action, an action identity and
 a cancellation path (`async-ui-action-rule.md`). The Exchange API *tester*,
 which does ping, is PR 1.5's, with that machinery.
 
-A `QWidget` and nothing more: no kit, no `Panel`, no style. A module's `ui/` may
-import `support/ui_kit` and `support/charting` whole, and neither exists before
-Phase 4 — so this panel's independence from them is not restraint, it is what
-makes it buildable today, and the dock the workbench puts it in supplies the
-title and the frame.
+A `QWidget` and nothing more: no `Panel`, no style; the dock the workbench
+puts it in supplies the title and the frame. Since `EPIC-033N` its three
+fields are the Engine's `ReadoutForm`, written by the application's formatter
+like every other read-out.
 """
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QFormLayout,
-    QLabel,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -42,8 +39,22 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    ReadoutForm,
+)
 
 _NO_SYMBOLS = "—"
+
+_FIELDS = (
+    ColumnSpec("live_submission", "Live submission", ColumnKind.STATUS),
+    ColumnSpec("orders_sent", "Orders sent this session", ColumnKind.QUANTITY),
+    ColumnSpec("open_symbols", "Symbols believed open", ColumnKind.TEXT),
+)
 
 
 class TradingSessionProbe(QWidget):  # base-exempt: a container, not a surface
@@ -53,18 +64,8 @@ class TradingSessionProbe(QWidget):  # base-exempt: a container, not a surface
         super().__init__(parent)
         self._session = session
 
-        self._enabled = QLabel()
-        self._enabled.setObjectName("lblProbeTradingEnabled")
-        self._orders_sent = QLabel()
-        self._orders_sent.setObjectName("lblProbeOrdersSent")
-        self._open_symbols = QLabel()
-        self._open_symbols.setObjectName("lblProbeOpenSymbols")
-        self._open_symbols.setWordWrap(True)
-
-        fields = QFormLayout()
-        fields.addRow("Live submission:", self._enabled)
-        fields.addRow("Orders sent this session:", self._orders_sent)
-        fields.addRow("Symbols believed open:", self._open_symbols)
+        self._fields = ReadoutForm(_FIELDS, APP_VALUE_FORMATTER)
+        self._fields.setObjectName("roTradingSessionProbe")
 
         # A button, not a timer: a probe answers a question the developer just
         # asked, and a panel polling the session forever is a panel whose
@@ -74,7 +75,7 @@ class TradingSessionProbe(QWidget):  # base-exempt: a container, not a surface
         self._refresh_button.clicked.connect(self.refresh)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(fields)
+        layout.addWidget(self._fields)
         layout.addWidget(self._refresh_button)
         layout.addStretch(1)
 
@@ -89,8 +90,15 @@ class TradingSessionProbe(QWidget):  # base-exempt: a container, not a surface
         from after it (`domain-truth-rule.md`).
         """
         snapshot = self._session.snapshot()
-        self._enabled.setText("ON" if snapshot.enabled else "OFF")
-        self._orders_sent.setText(str(snapshot.orders_sent_this_session))
-        self._open_symbols.setText(
-            ", ".join(sorted(snapshot.known_open_symbols)) or _NO_SYMBOLS
+        self._fields.set_values(
+            {
+                "live_submission": "ON" if snapshot.enabled else "OFF",
+                "orders_sent": snapshot.orders_sent_this_session,
+                "open_symbols": ", ".join(sorted(snapshot.known_open_symbols))
+                or _NO_SYMBOLS,
+            }
         )
+
+    def value_text(self, key: str) -> str:
+        """What the field `key` shows."""
+        return self._fields.value_text(key)
