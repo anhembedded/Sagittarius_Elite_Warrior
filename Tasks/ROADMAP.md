@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 172 | 82.7% |
+| 🟢 **Completed** | 172 | 82.3% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 28 | 13.5% |
+| 🔴 **Backlog** | 29 | 13.9% |
 | ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **208** | **100%** |
+| 📈 **Tổng số Task** | **209** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -480,6 +480,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
+| **P3** | **[BOT-152](backlog/BOT-152_split_order_entry_view_model.md)** | **The order entry's view model splits what the presenter sets from what the view asks** | 🟢 **`S (Small)`** | — | *(added 05/10, PR #358 review)* `OrderEntryViewModel` holds 30 public members, over `PLR0904`'s 20; the ratchet counts the file, not the members. |
 | **P3** | **[BOT-151](backlog/BOT-151_grouped_trees_from_specs.md)** | **Grouped trees are built from column specs like every flat table** | 🟡 **`M (Standard)`** | Engine | *(added 05/10, PR #351 review)* Four grouped `QTreeWidget` dialogs still configure themselves; `configure_item_view` cannot take a `QTreeWidget`. The open criterion 1 of `EPIC-033N`. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
