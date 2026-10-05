@@ -7,10 +7,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    PinnedTimeframes,
-    TimeframePickerDialog,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
 )
@@ -22,18 +18,16 @@ from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .order_execution_dialog import OrderExecutionDialog
 from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
-from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
 from .symbol_picker_dialog import SymbolPickerDialogWidget
 from .time_range_picker_dialog import TimeRangePickerDialogWidget
-from .timezone_picker_dialog import TimezonePickerDialog
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
 
 class BackTestModalsHost:
-    """Owns all 14 modal `QDialog`s, built lazily on first open (matching
+    """Owns the modal `QDialog`s, built lazily on first open (matching
     every other lazy-modal precedent in this app —
     `DataManagementView._kline_inspector`, EPIC-005E2/E3), and wires
     `BackTestViewModel`'s `openXRequested` signals to them. Replaces both
@@ -51,13 +45,6 @@ class BackTestModalsHost:
         self._order_execution: OrderExecutionDialog | None = None
         self._report_comparison: ReportComparisonDialog | None = None
         self._out_of_sample_comparison: OutOfSampleComparisonDialog | None = None
-        self._strategy_picker: StrategyPickerDialog | None = None
-        self._timeframe_picker: TimeframePickerDialog | None = None
-        # EPIC-015 bậc 1: private, non-persisted — this picker is its own
-        # only consumer (unlike `ChartToolbar`'s own `PinnedTimeframes`,
-        # shared with its embedded toolbar pill row) — see
-        # `timeframe_picker_dialog.py`'s `PinnedTimeframes` docstring.
-        self._timeframe_picker_pinned = PinnedTimeframes()
         self._symbol_picker: SymbolPickerDialogWidget | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (BackTestPresenter injects it through
@@ -67,7 +54,6 @@ class BackTestModalsHost:
         # opens a working picker, it just remembers nothing past the session.
         self._symbol_preferences = SymbolPreferences()
         self._time_range_picker: TimeRangePickerDialogWidget | None = None
-        self._timezone_picker: TimezonePickerDialog | None = None
         self._strategy_properties: StrategyPropertiesDialog | None = None
 
         view_model.openCapitalRequested.connect(self._open_capital)
@@ -79,11 +65,8 @@ class BackTestModalsHost:
         view_model.openOutOfSampleComparisonRequested.connect(
             self._open_out_of_sample_comparison
         )
-        view_model.openStrategyPickerRequested.connect(self._open_strategy_picker)
-        view_model.openTimeframePickerRequested.connect(self._open_timeframe_picker)
         view_model.openSymbolPickerRequested.connect(self._open_symbol_picker)
         view_model.openTimeRangePickerRequested.connect(self._open_time_range_picker)
-        view_model.openTimezonePickerRequested.connect(self._open_timezone_picker)
         view_model.openBotParamsRequested.connect(self._open_bot_params)
 
     def _open_capital(self, _x: float, _y: float) -> None:
@@ -99,20 +82,17 @@ class BackTestModalsHost:
     def _open_limitations(self) -> None:
         if self._limitations is None:
             self._limitations = LimitationsDialog(self._vm, self._parent)
-        self._limitations.show()
-        self._limitations.raise_()
+        self._limitations.open()
 
     def _open_indicator_picker(self, _x: float, _y: float) -> None:
         if self._indicator_picker is None:
             self._indicator_picker = IndicatorPickerDialog(self._vm, self._parent)
-        self._indicator_picker.show()
-        self._indicator_picker.raise_()
+        self._indicator_picker.open()
 
     def _open_order_execution(self, _x: float, _y: float) -> None:
         if self._order_execution is None:
             self._order_execution = OrderExecutionDialog(self._vm, self._parent)
-        self._order_execution.show()
-        self._order_execution.raise_()
+        self._order_execution.open()
 
     def _open_report_comparison(self) -> None:
         if self._report_comparison is None:
@@ -125,12 +105,6 @@ class BackTestModalsHost:
                 self._vm, self._parent
             )
         self._out_of_sample_comparison.open_dialog()
-
-    def _open_strategy_picker(self) -> None:
-        if self._strategy_picker is None:
-            self._strategy_picker = StrategyPickerDialog(self._vm, self._parent)
-        self._strategy_picker.show()
-        self._strategy_picker.raise_()
 
     def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
         """Swaps in the shared, persisted favourites/recents store.
@@ -149,21 +123,6 @@ class BackTestModalsHost:
         if self._symbol_picker is not None:
             self._symbol_picker.set_preferences(preferences)
         self._symbol_preferences = preferences
-
-    def _open_timeframe_picker(self) -> None:
-        if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerDialog.from_callbacks(
-                get_codes=lambda: self._vm.timeframeOptions,
-                get_current=lambda: self._vm.selectedTimeframe,
-                get_pinned=self._timeframe_picker_pinned.get,
-                set_pinned=self._timeframe_picker_pinned.set,
-                parent=self._parent,
-            )
-            self._timeframe_picker.chosen.connect(self._on_timeframe_chosen)
-        self._timeframe_picker.open_dialog()
-
-    def _on_timeframe_chosen(self, code: str) -> None:
-        self._vm.selectedTimeframe = code
 
     def _open_symbol_picker(self) -> None:
         if self._symbol_picker is None:
@@ -186,12 +145,6 @@ class BackTestModalsHost:
                 self._vm, self._parent
             )
         self._time_range_picker.open_dialog()
-
-    def _open_timezone_picker(self) -> None:
-        if self._timezone_picker is None:
-            self._timezone_picker = TimezonePickerDialog(self._vm, self._parent)
-        self._timezone_picker.show()
-        self._timezone_picker.raise_()
 
     def _open_bot_params(self, strategy_name: str) -> None:
         if self._strategy_properties is None:

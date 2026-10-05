@@ -1,4 +1,12 @@
-"""Backtest strategy properties -- the four-tab dialog (BOT-104)."""
+"""Backtest strategy parameters: the strategy's inputs and the simulated
+broker's properties, in two tabs (BOT-104).
+
+`EPIC-033L` makes it a stock `QDialog` titled after its command, Strategy
+Parameters, with Save, Cancel and Restore Defaults in a `QDialogButtonBox`.
+The Properties tab is `BrokerPropertiesTab`. The two "Coming soon" tabs,
+Style and Visibility, are gone: a tab holding only a promise is a page to
+open and find nothing on.
+"""
 
 from __future__ import annotations
 
@@ -6,29 +14,22 @@ from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFrame,
-    QHBoxLayout,
+    QGroupBox,
     QLabel,
-    QLineEdit,
     QPushButton,
     QScrollArea,
-    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.binding import BindingGroup
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
     connect_value_committed,
-    mark_uses_item_data,
     read_widget_value,
     write_widget_value,
 )
@@ -37,13 +38,17 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
 )
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
-from ._layout import _ACCENT, _field_row, _section_header
+from .broker_properties_tab import BrokerPropertiesTab
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
+#: Names the command that opens it: the Run setup's Strategy parameters….
+_TITLE = "Strategy Parameters"
+_NO_INPUTS_TEXT = "This strategy has no input parameters to configure."
 
-#: What "Đặt lại mặc định" restores each broker property to, keyed by the same
+
+#: What Restore Defaults restores each broker property to, keyed by the same
 #: `BrokerPropertyField.key` everything else uses (BUG-064). A table rather
 #: than twelve `setText`/`setValue`/`setChecked` calls, so a new property gets
 #: its default declared in the one place the rest of it is already declared —
@@ -72,184 +77,37 @@ def _field_names(groups: Sequence[ParamGroup]) -> list[str]:
     return [field.name for group in groups for field in group.fields]
 
 
-class StrategyPropertiesDialog(Overlay):
-    """Port of `StrategyPropertiesModal.qml` (766 lines, BOT-104) — 4-tab
-    dialog. Tabs 3/4 ("Định dạng"/"Hiển thị") were themselves QML
-    placeholder text ("Sắp ra mắt" — Coming soon), ported as-is, not
-    expanded."""
+class StrategyPropertiesDialog(QDialog):
+    """@brief The run's strategy inputs and broker properties."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
-        super().__init__("STRATEGY SETTINGS", parent=parent)
+        super().__init__(parent)
         self.setObjectName("botParamsDialog")
+        self.setWindowTitle(_TITLE)
         self._vm = view_model
         self._strategy_name = ""
         self._field_widgets: list[BotParamFieldWidget] = []
-        self.resize(680, 620)
-
-        self._tabs = QTabWidget()
-        self.body_layout.addWidget(self._tabs)
 
         self._inputs_tab = QWidget()
         self._inputs_layout = QVBoxLayout(self._inputs_tab)
         self._inputs_layout.setObjectName("strategyInputsContent")
-        self._inputs_layout.setSpacing(14)
-        inputs_scroll = QScrollArea()
-        inputs_scroll.setWidgetResizable(True)
-        inputs_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inputs_scroll.setWidget(self._inputs_tab)
-        self._tabs.addTab(inputs_scroll, "Inputs")
-
-        self._properties_tab = self._build_properties_tab()
-        self._property_widgets = self._build_property_widgets()
+        self._properties_tab = BrokerPropertiesTab()
+        self._property_widgets = self._properties_tab.widgets
         self._bindings = self._bind_broker_properties()
         self._vm.broker_sim.marketChanged.connect(self._show_leverage_for_market)
         self._show_leverage_for_market()
-        properties_scroll = QScrollArea()
-        properties_scroll.setWidgetResizable(True)
-        properties_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        properties_scroll.setWidget(self._properties_tab)
-        self._tabs.addTab(properties_scroll, "Properties")
 
-        style_tab = QLabel("Strategy indicator display and colors (Coming soon)")
-        style_tab.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 12px; padding: 12px;"
-        )
-        self._tabs.addTab(style_tab, "Style")
-
-        visibility_tab = QLabel("Per-timeframe display filters (Coming soon)")
-        visibility_tab.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 12px; padding: 12px;"
-        )
-        self._tabs.addTab(visibility_tab, "Visibility")
+        self._tabs = QTabWidget()
+        self._tabs.addTab(_scrolled(self._inputs_tab), "&Inputs")
+        self._tabs.addTab(_scrolled(self._properties_tab), "P&roperties")
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._tabs, 1)
+        layout.addWidget(self._build_buttons())
 
         view_model.strategy_params.botParamsGroupsChanged.connect(self._sync_inputs)
         view_model.botParamsSaved.connect(self.accept)
-
-    # -- Tab 2: Properties ------------------------------------------------
-
-    def _build_properties_tab(self) -> QWidget:
-        tab = QWidget()
-        tab.setObjectName("strategyPropertiesContent")
-        layout = QVBoxLayout(tab)
-        layout.setSpacing(16)
-
-        layout.addLayout(_section_header("$", "Initial Capital & Currency"))
-        row1 = QHBoxLayout()
-        row1.setSpacing(12)
-        self._prop_initial_capital = QLineEdit()
-        self._prop_initial_capital.setObjectName("propInitialCapital")
-        row1.addLayout(_field_row("Initial Capital", self._prop_initial_capital), 1)
-        self._prop_currency = QComboBox()
-        self._prop_currency.setObjectName("propCurrency")
-        self._prop_currency.addItems(["USD", "USDT", "BTC", "VND"])
-        row1.addLayout(_field_row("Currency", self._prop_currency))
-        layout.addLayout(row1)
-
-        layout.addLayout(_section_header("#", "Order Size & Pyramiding"))
-        row2 = QHBoxLayout()
-        row2.setSpacing(12)
-        # Marked here, at the addItem(label, data) calls it applies to: this
-        # combo's value is each item's data, not the label Qt's
-        # USER property would otherwise report.
-        self._prop_order_size_type = mark_uses_item_data(QComboBox())
-        self._prop_order_size_type.setObjectName("propOrderSizeType")
-        self._prop_order_size_type.addItem("% of Equity", "percent_of_equity")
-        self._prop_order_size_type.addItem("Fixed USD (Cash)", "fixed_cash")
-        self._prop_order_size_type.addItem("Contracts / Coin", "fixed_contracts")
-        row2.addLayout(_field_row("Order Size Type", self._prop_order_size_type))
-        self._prop_order_size_value = QLineEdit()
-        self._prop_order_size_value.setObjectName("propOrderSizeValue")
-        row2.addLayout(_field_row("Size Value", self._prop_order_size_value), 1)
-        self._prop_pyramiding = QSpinBox()
-        self._prop_pyramiding.setObjectName("propPyramiding")
-        self._prop_pyramiding.setRange(1, 10)
-        row2.addLayout(_field_row("Pyramiding (Max Orders)", self._prop_pyramiding))
-        layout.addLayout(row2)
-
-        layout.addLayout(_section_header("%", "Commission & Slippage"))
-        row3 = QHBoxLayout()
-        row3.setSpacing(12)
-        self._prop_commission_type = mark_uses_item_data(QComboBox())
-        self._prop_commission_type.setObjectName("propCommissionType")
-        self._prop_commission_type.addItem("% of Order Value", "percent")
-        self._prop_commission_type.addItem("USD / Order", "cash_per_order")
-        self._prop_commission_type.addItem("USD / Contract", "cash_per_contract")
-        row3.addLayout(_field_row("Commission Type", self._prop_commission_type))
-        self._prop_commission_value = QLineEdit()
-        self._prop_commission_value.setObjectName("propCommissionValue")
-        row3.addLayout(_field_row("Commission Rate", self._prop_commission_value), 1)
-        self._prop_slippage_ticks = QSpinBox()
-        self._prop_slippage_ticks.setObjectName("propSlippageTicks")
-        self._prop_slippage_ticks.setRange(0, 100)
-        row3.addLayout(_field_row("Slippage (Ticks)", self._prop_slippage_ticks))
-        layout.addLayout(row3)
-
-        # EPIC-027D — its own widget, so Spot can hide it (not merely disable).
-        self._leverage_section = QWidget()
-        self._leverage_section.setObjectName("leverageSection")
-        section = QVBoxLayout(self._leverage_section)
-        section.setContentsMargins(0, 0, 0, 0)
-        section.addLayout(_section_header("x", "Leverage"))
-        row4 = QHBoxLayout()
-        row4.setSpacing(12)
-        self._prop_long_leverage = QSpinBox()
-        self._prop_long_leverage.setObjectName("propLongLeverage")
-        self._prop_long_leverage.setRange(1, 125)
-        row4.addLayout(_field_row("Long Leverage (x)", self._prop_long_leverage), 1)
-        self._prop_short_leverage = QSpinBox()
-        self._prop_short_leverage.setObjectName("propShortLeverage")
-        self._prop_short_leverage.setRange(1, 125)
-        row4.addLayout(_field_row("Short Leverage (x)", self._prop_short_leverage), 1)
-        section.addLayout(row4)
-        layout.addWidget(self._leverage_section)
-
-        layout.addLayout(_section_header("%", "Automatic Take Profit (Take Profit %)"))
-        row5 = QHBoxLayout()
-        row5.setSpacing(12)
-        self._prop_take_profit_enabled = QCheckBox("Enable Take Profit %")
-        self._prop_take_profit_enabled.setObjectName("propTakeProfitEnabled")
-        self._prop_take_profit_enabled.setStyleSheet(f"color: {Palette.TEXT_PRIMARY};")
-        row5.addWidget(self._prop_take_profit_enabled)
-        self._prop_take_profit_pct = QLineEdit()
-        self._prop_take_profit_pct.setObjectName("propTakeProfitPct")
-        row5.addLayout(
-            _field_row(
-                "Take Profit % (matches strategy's take_profit_percent)",
-                self._prop_take_profit_pct,
-            ),
-            1,
-        )
-        layout.addLayout(row5)
-
-        layout.addStretch(1)
-        return tab
-
-    def _build_property_widgets(self) -> dict[str, QWidget]:
-        """Which widget backs each `BrokerPropertyField.key` — and only that
-        (BUG-064).
-
-        There is no read/write logic left here: `kit.widget_value` gets a
-        widget's value out of Qt's own USER property metadata, so this stopped
-        needing five per-widget-type binding constructors. Adding a broker
-        property is one row here plus one in `BROKER_PROPERTY_FIELDS`; nothing
-        has to be taught how to read a spin box.
-        """
-        return {
-            "initial_capital": self._prop_initial_capital,
-            "currency": self._prop_currency,
-            "order_size_type": self._prop_order_size_type,
-            "order_size_text": self._prop_order_size_value,
-            "pyramiding": self._prop_pyramiding,
-            "commission_type": self._prop_commission_type,
-            "commission_text": self._prop_commission_value,
-            "slippage_ticks": self._prop_slippage_ticks,
-            "long_leverage": self._prop_long_leverage,
-            "short_leverage": self._prop_short_leverage,
-            "take_profit_enabled": self._prop_take_profit_enabled,
-            "take_profit_pct_text": self._prop_take_profit_pct,
-        }
 
     def _bind_broker_properties(self) -> BindingGroup:
         """Declares each Properties-tab widget and its ViewModel property to
@@ -274,59 +132,53 @@ class StrategyPropertiesDialog(Overlay):
                 field.coerce,
             )
         # Not a value, so not a binding: the % field is only editable while the
-        # checkbox is on. Kept as a plain signal connection, and seeded once
-        # for the state the ViewModel is already in.
-        self._prop_take_profit_enabled.toggled.connect(
-            self._prop_take_profit_pct.setEnabled
+        # box is on (the tab connects the two), seeded once for the state the
+        # ViewModel is already in.
+        self._properties_tab.take_profit_pct.setEnabled(
+            bool(self._vm.broker_sim.takeProfitPctEnabled)
         )
-        self._prop_take_profit_pct.setEnabled(self._vm.broker_sim.takeProfitPctEnabled)
         return bindings
 
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        btn_reset = QPushButton("Reset to Default")
-        btn_reset.setObjectName("btnResetBotParams")
-        btn_reset.clicked.connect(self.reset_all_fields)
-        row.addWidget(btn_reset)
-        row.addStretch(1)
-        btn_cancel = QPushButton("Cancel")
-        btn_cancel.setObjectName("btnBotParamsCancel")
-        btn_cancel.clicked.connect(self.reject)
-        row.addWidget(btn_cancel)
-        # BUG-064 — was "Lưu & Chạy lại" ("Save & Re-run"). Saving no longer
-        # starts a backtest, so the old label promised something the button
-        # stopped doing.
-        btn_save = QPushButton("Save")
-        btn_save.setObjectName("btnBotParamsSave")
-        btn_save.setStyleSheet(
-            f"background-color: {_ACCENT}; color: {Palette.BG}; font-weight: bold; "
-            f"border-radius: 6px; padding: 6px 14px;"
+    def _build_buttons(self) -> QDialogButtonBox:
+        standard = QDialogButtonBox.StandardButton
+        buttons = QDialogButtonBox(
+            standard.Save | standard.Cancel | standard.RestoreDefaults
         )
-        btn_save.clicked.connect(self.save_and_close)
-        row.addWidget(btn_save)
-
-        # BUG-064 — a dialog's first autoDefault button answers Enter; it was
-        # "Đặt lại mặc định", so Enter in any field wiped every setting
-        # (measured: isDefault=True). Here Enter means "commit this field"
-        # (editingFinished), so no button may answer it.
-        for button in (btn_reset, btn_cancel, btn_save):
+        named = {
+            standard.Save: "btnBotParamsSave",
+            standard.Cancel: "btnBotParamsCancel",
+            standard.RestoreDefaults: "btnResetBotParams",
+        }
+        for which, object_name in named.items():
+            button = buttons.button(which)
+            button.setObjectName(object_name)
             button.setAutoDefault(False)
-            button.setDefault(False)
-        return row
+        self._buttons = buttons
+        # BUG-064 — was "Lưu & Chạy lại" ("Save & Re-run"). Saving no longer
+        # starts a backtest; the platform's Save says what it does.
+        buttons.button(standard.Save).clicked.connect(self.save_and_close)
+        buttons.button(standard.RestoreDefaults).clicked.connect(self.reset_all_fields)
+        buttons.rejected.connect(self.reject)
+        return buttons
+
+    def showEvent(self, event) -> None:
+        """BUG-064 — a button that answers Enter once wiped every setting.
+        Here Enter means "commit this field" (editingFinished), so no button
+        may answer it; and a button box makes its first accept button the
+        default as it is shown, so the default is taken back after."""
+        super().showEvent(event)
+        for button in self._buttons.buttons():
+            if isinstance(button, QPushButton):
+                button.setDefault(False)
 
     def open_for_strategy(self, strategy_name: str) -> None:
         self._strategy_name = strategy_name
-        self.title = (
-            f"STRATEGY SETTINGS: {strategy_name.upper()}"
-            if strategy_name
-            else "STRATEGY SETTINGS"
-        )
+        self.setWindowTitle(f"{_TITLE}: {strategy_name}" if strategy_name else _TITLE)
         self._sync_inputs()
         # No `_sync_properties()` any more: the Properties tab is bound to the
         # ViewModel (BUG-064), so it is already showing current values —
         # whether or not anyone thought to refresh it before opening.
-        self.show()
-        self.raise_()
+        self.open()
 
     def _sync_inputs(self) -> None:
         """Rebuilds the Inputs tab's widgets from the current schema.
@@ -356,17 +208,20 @@ class StrategyPropertiesDialog(Overlay):
         self._field_widgets = []
 
         if not groups:
-            empty = QLabel("This strategy has no input parameters to configure.")
-            empty.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-            self._inputs_layout.addWidget(empty)
+            self._inputs_layout.addWidget(QLabel(_NO_INPUTS_TEXT))
             return
 
         for group in groups:
-            self._inputs_layout.addLayout(_section_header("~", group.label))
+            # A group's title is the strategy author's text, never an access
+            # key: a group box would read "Entry & exit" as Alt+E.
+            box = QGroupBox(group.label.replace("&", "&&"))
+            rows = QVBoxLayout(box)
             for field in group.fields:
                 field_widget = BotParamFieldWidget(field, self._vm.strategy_params)
-                self._inputs_layout.addWidget(field_widget)
+                rows.addWidget(field_widget)
                 self._field_widgets.append(field_widget)
+            self._inputs_layout.addWidget(box)
+        self._inputs_layout.addStretch(1)
         self._wire_commit_on_edit(fw.input_widget for fw in self._field_widgets)
 
     def reset_all_fields(self) -> None:
@@ -413,7 +268,7 @@ class StrategyPropertiesDialog(Overlay):
     def _show_leverage_for_market(self) -> None:
         """EPIC-027D — Spot trades at 1× only (ADR D3): no leverage to set."""
         spot = self._vm.broker_sim.market == MarketType.SPOT.value
-        self._leverage_section.setVisible(not spot)
+        self._properties_tab.leverage_section.setVisible(not spot)
 
     def _commit_edited_values(self) -> None:
         """Persist what is currently typed, and nothing more — the
@@ -429,7 +284,7 @@ class StrategyPropertiesDialog(Overlay):
         self._vm.requestStrategyPropertiesCommit(self._collect_payload())
 
     def save_and_close(self) -> None:
-        """The "Lưu" button: persist and close the dialog (the close happens
+        """The Save button: persist and close the dialog (the close happens
         via `botParamsSaved` -> `accept`, so an invalid value leaves it open
         with the inline error showing).
 
@@ -439,3 +294,12 @@ class StrategyPropertiesDialog(Overlay):
         just marks any existing results stale.
         """
         self._vm.requestStrategyPropertiesSave(self._collect_payload())
+
+
+def _scrolled(content: QWidget) -> QScrollArea:
+    """A tab scrolls once, at the tab (`ui-presentation-rule.md` §3)."""
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QFrame.Shape.NoFrame)
+    scroll.setWidget(content)
+    return scroll

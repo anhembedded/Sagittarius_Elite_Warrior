@@ -1,112 +1,115 @@
-"""Backtest order-execution settings — the shared `ChecklistOverlay`, plus one
-cross-row rule this class keeps.
+"""Backtest order-execution settings: when the strategy is evaluated again.
 
 `EPIC-015` §4c hosted `CheckboxList.qml`; `EPIC-025` PR 4.3f replaced it with
-`kit.ChecklistOverlay` (ADR D21). What did **not** move, in either direction, is
-the rule: two of these four rows are mutually exclusive, the widget knows
-nothing about it, and `_rows()`/`_on_toggled()` are where it lives — exactly
-where the pre-QML `_sync()` kept it. Moving the rendering never moves the rule.
+`kit.ChecklistOverlay` (ADR D21): four check boxes, two of them mutually
+exclusive by a rule only this class knew, and "On bar close" locked checked
+so it could only be left by checking its rival. `EPIC-033L` gives the rule
+its stock shape: the two exclusive choices are radio buttons
+(`ui-presentation-rule.md` §6), so either can be picked; "On order fill" is
+a check box beside them; the real-time row stays a locked, checked box, a
+fact about live trading this mode cannot change. Changes apply at once, as
+they always did, so the only button is Close.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    ChecklistItem,
-    ChecklistOverlay,
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QGroupBox,
+    QRadioButton,
+    QVBoxLayout,
+    QWidget,
 )
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "ORDER EXECUTION"
-
-_EXECUTION_TRIGGERS = (
-    ("On bar close", True, ""),
-    (
-        "On order fill",
-        False,
-        (
-            "BOT-077 — re-evaluates the strategy once more at the exact "
-            "tick an order just filled, before the next tick, so it can "
-            "react to its own fill immediately. Only takes effect in "
-            "Historical Tick mode; NOT a Stop Loss fix (BOT-041 already "
-            "checks every bar regardless of this toggle)."
-        ),
-    ),
-    (
-        "On every tick of the historical bar",
-        False,
-        (
-            "This mode uses 1-second candles, entirely separate from the "
-            "candles you've synced at other timeframes — a separate sync "
-            "of 1-second data will be required."
-        ),
-    ),
-    ("On every tick of the real-time bar", True, ""),
+#: Names the command that opens it: the Run setup's Execution… button.
+_TITLE = "Execution"
+_ORDER_FILL_TIP = (
+    "BOT-077 — re-evaluates the strategy once more at the exact tick an order "
+    "just filled, before the next tick, so it can react to its own fill "
+    "immediately. Only takes effect in Historical Tick mode; NOT a Stop Loss "
+    "fix (BOT-041 already checks every bar regardless of this toggle)."
 )
-
-#: The two rows a user can actually toggle. Their keys are these indices as
-#: strings — `ChecklistOverlay` does not know these are execution triggers,
-#: only that rows have string keys.
-_ORDER_FILL_INDEX = 1
-_ORDER_FILL_KEY = str(_ORDER_FILL_INDEX)
-_HISTORICAL_TICK_INDEX = 2
-_HISTORICAL_TICK_KEY = str(_HISTORICAL_TICK_INDEX)
-_BAR_CLOSE_KEY = "0"
+_HISTORICAL_TICK_TIP = (
+    "This mode uses 1-second candles, entirely separate from the candles "
+    "you've synced at other timeframes — a separate sync of 1-second data "
+    "will be required."
+)
+_REALTIME_TICK_TIP = "Live trading only: a backtest has no real-time bar."
 _HISTORICAL_TICK_MODE = "HISTORICAL_TICK"
 _BAR_CLOSE_MODE = "BAR_CLOSE"
 
 
-class OrderExecutionDialog(ChecklistOverlay):
+class OrderExecutionDialog(QDialog):
     """@brief When strategy re-evaluation runs."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
-        super().__init__(_TITLE, parent=parent)
         self.setObjectName("orderExecutionModal")
-        self.resize(400, 250)
-        self.toggled.connect(self._on_toggled)
+        self.setWindowTitle(_TITLE)
+
+        self.bar_close = QRadioButton("On bar &close")
+        self.bar_close.setObjectName("radioExecutionBarClose")
+        self.historical_tick = QRadioButton("On every tic&k of the historical bar")
+        self.historical_tick.setObjectName("radioExecutionHistoricalTick")
+        self.historical_tick.setToolTip(_HISTORICAL_TICK_TIP)
+        modes = QButtonGroup(self)
+        modes.addButton(self.bar_close)
+        modes.addButton(self.historical_tick)
+        self.order_fill = QCheckBox("On order fi&ll")
+        self.order_fill.setObjectName("chkExecutionOrderFill")
+        self.order_fill.setToolTip(_ORDER_FILL_TIP)
+        self.realtime_tick = QCheckBox("On every tick of the real-time bar")
+        self.realtime_tick.setObjectName("chkExecutionRealtimeTick")
+        self.realtime_tick.setToolTip(_REALTIME_TICK_TIP)
+        self.realtime_tick.setChecked(True)
+        self.realtime_tick.setEnabled(False)
+
+        group = QGroupBox("Evaluate the strategy")
+        rows = QVBoxLayout(group)
+        for control in (
+            self.bar_close,
+            self.historical_tick,
+            self.order_fill,
+            self.realtime_tick,
+        ):
+            rows.addWidget(control)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(group)
+        layout.addWidget(buttons)
+
+        self.historical_tick.toggled.connect(self._on_mode_chosen)
+        self.order_fill.toggled.connect(self._on_order_fill_toggled)
         view_model.executionModeChanged.connect(self.refresh)
         view_model.calcOnOrderFillsChanged.connect(self.refresh)
         self.refresh()
 
-    def showEvent(self, event) -> None:
-        self.refresh()
-        super().showEvent(event)
-
     def refresh(self) -> None:
-        """Renders the four triggers against the screen's execution mode."""
-        is_realtime = self._vm.executionMode == _HISTORICAL_TICK_MODE
-        # Only these three rows are ever driven by live state — the other
-        # one has no live source and stays unchecked, matching the shape
-        # every earlier version of this dialog had.
-        checked_by_key = {
-            _BAR_CLOSE_KEY: not is_realtime,
-            _ORDER_FILL_KEY: self._vm.calcOnOrderFills,
-            _HISTORICAL_TICK_KEY: is_realtime,
-        }
-        self.set_items(
-            [
-                ChecklistItem(
-                    key=str(index),
-                    label=text,
-                    checked=checked_by_key.get(str(index), False),
-                    locked=locked,
-                    tooltip=tooltip,
-                )
-                for index, (text, locked, tooltip) in enumerate(_EXECUTION_TRIGGERS)
-            ]
-        )
+        """Shows the view model's execution mode and order-fill flag; a
+        change made elsewhere (a reset to idle) never leaves it stale."""
+        tick = self._vm.executionMode == _HISTORICAL_TICK_MODE
+        for control in (self.bar_close, self.historical_tick, self.order_fill):
+            control.blockSignals(True)
+        self.historical_tick.setChecked(tick)
+        self.bar_close.setChecked(not tick)
+        self.order_fill.setChecked(bool(self._vm.calcOnOrderFills))
+        for control in (self.bar_close, self.historical_tick, self.order_fill):
+            control.blockSignals(False)
 
-    def _on_toggled(self, key: str, checked: bool) -> None:
-        if key == _ORDER_FILL_KEY:
-            self._vm.calcOnOrderFills = checked
-            return
-        if key != _HISTORICAL_TICK_KEY:
-            return
-        self._vm.executionMode = _HISTORICAL_TICK_MODE if checked else _BAR_CLOSE_MODE
+    def _on_mode_chosen(self, tick: bool) -> None:
+        self._vm.executionMode = _HISTORICAL_TICK_MODE if tick else _BAR_CLOSE_MODE
+
+    def _on_order_fill_toggled(self, checked: bool) -> None:
+        self._vm.calcOnOrderFills = checked
