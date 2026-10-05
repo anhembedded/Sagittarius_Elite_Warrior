@@ -42,9 +42,9 @@ What the survey of 2026-10-05 found:
 ### Stages, one pull request each
 | Stage | What | Waits on |
 | :--- | :--- | :--- |
-| 1 | The strategy card moves to `trading/ui/desk/strategy_card/` and becomes stock controls (a `QGroupBox` over a `QFormLayout`); the Dev Board binds it through `dev_board_strategy_card()`. Nothing outside the Dev Board imports `trading/ui/dashboard/` but `module.py` | — |
+| 1 | The strategy card moves to `trading/ui/desk/strategy_card/` and becomes stock controls (a `QGroupBox` over a `QFormLayout`); the Dev Board binds it through `dev_board_strategy_card()`. Nothing outside the Dev Board imports `trading/ui/dashboard/` but `module.py`. **The desk package is a temporary home**: HLD §11.2.4 maps the desks' strategy cards to a row per venue in Bots, §11.2.5 to the Strategy panel in `strategy/ui/panels/`, and `EPIC-033K` stage 3 deletes the card; this stage only unblocks the Dev Board's deletion, and the Bots session's stage 3 removes `desk/strategy_card/` with the card | — |
 | 2 | The Developer mode: a screen of its own whose central widget is the event log (an `IBusObserver` feeding a bounded list model, marshalled to the UI thread), its probes docked right from the surface that today is `dev_board`; screens and commands gain the `dev.mode` gate descriptors already have, so the mode exists only under developer mode. The Dev Board stays beside it | stage 1 |
-| 3 | The Dev Board is deleted: the package, its route and six commands, its tests (the F9 tests re-homed on the desks, the `BUG-134` regression on the card), its baseline rows lowered, SPEC-001, 002, 004, 005, 011 and 012 and the HLD reworded | stage 2, `EPIC-033Q` and `EPIC-033S` merged |
+| 3 | The Dev Board is deleted: the package, its route and six commands, its tests (the F9 tests re-homed on the desks, the `BUG-134` regression on the card), its baseline rows lowered, SPEC-001, 002, 004, 005, 011 and 012 and the HLD reworded, `diagrams/hld-05b_trading_devboard_slots.puml` included (it still draws the card as a kit `Panel`) | stage 2, `EPIC-033Q` and `EPIC-033S` merged |
 
 ## 4. Changes, per file
 | File | Change |
