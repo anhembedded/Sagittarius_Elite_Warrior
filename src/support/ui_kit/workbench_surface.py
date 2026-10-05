@@ -41,6 +41,7 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
+    QDockWidget,
     QToolBar,
     QWidget,
 )
@@ -158,6 +159,15 @@ class WorkbenchSurface(RegionHost):
             super().place_widget(place_obj.value, widget, title=title)
         except EngineContributionError as exc:
             raise ContributionError(str(exc)) from exc
+
+    def dock_of(self, widget: QWidget) -> QDockWidget:
+        """The dock `widget` was placed in as content."""
+        for dock in self.findChildren(QDockWidget):
+            if dock.widget() is widget:
+                return dock
+        raise LookupError(
+            f"surface {self.surface_id!r} placed no dock for {widget.objectName()!r}"
+        )
 
     def show_modal(self, title: str) -> QDialog:
         try:
