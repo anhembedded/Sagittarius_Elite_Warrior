@@ -5,7 +5,8 @@ longer in front drives nothing, and with no chart every command is off."""
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QObject
+import shiboken6
+from PySide6.QtCore import QCoreApplication, QEvent, QObject
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import (
     ChartCommandMirror,
@@ -16,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     GO_LIVE,
     MENU_EQUIVALENT,
     ZOOM_IN,
+    ZOOM_OUT,
     chart_command_id,
     chart_command_keys,
     chart_commands,
@@ -48,7 +50,8 @@ def menu(qapp):
     first, second = ChartCard("BTCUSDT"), ChartCard("ETHUSDT")
     yield mirror, actions, first, second
     for widget in (first, second):
-        widget.deleteLater()
+        if shiboken6.isValid(widget):
+            widget.deleteLater()
     owner.deleteLater()
 
 
@@ -152,3 +155,23 @@ def test_each_command_has_its_own_access_key():
     keys = [key for c in commands for key in access_keys(c.text)]
 
     assert len(keys) == len(set(keys)) == len(commands)
+
+
+def test_a_chart_deleted_before_the_mode_follows_another_drives_nothing(menu, qapp):
+    """Review of PR #372: the commands must not reach a deleted action,
+    whatever order a host closes a chart and follows the next in."""
+    mirror, actions, first, _second = menu
+    mirror.follow_chart(chart_command_actions(first))
+
+    first.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    actions[ZOOM_IN].trigger()
+
+    assert not actions[ZOOM_IN].isEnabled()
+
+
+def test_zoom_in_and_out_take_the_platform_s_zoom_keys():
+    commands = {c.command_id: c for c in chart_commands("test", _PREFIX, "test", _MENU)}
+
+    assert commands[chart_command_id(_PREFIX, ZOOM_IN)].standard_shortcut == "ZoomIn"
+    assert commands[chart_command_id(_PREFIX, ZOOM_OUT)].standard_shortcut == "ZoomOut"

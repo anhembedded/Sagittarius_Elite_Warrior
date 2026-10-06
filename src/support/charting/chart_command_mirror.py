@@ -63,7 +63,7 @@ class ChartCommandMirror(QObject):
         super().__init__(parent)
         self._prefix = prefix
         self._states = {key: _CommandState(self) for key in chart_command_keys()}
-        self._actions: Mapping[str, QAction] = {}
+        self._actions: dict[str, QAction] = {}
         self._connections: list[QMetaObject.Connection] = []
 
     def bind_commands(self, binder: ICommandBinder) -> None:
@@ -92,8 +92,18 @@ class ChartCommandMirror(QObject):
                 continue
             self._connections.append(action.enabledChanged.connect(state.enabled.emit))
             self._connections.append(action.toggled.connect(state.checked.emit))
+            self._connections.append(
+                action.destroyed.connect(partial(self._forget, key))
+            )
             state.enabled.emit(action.isEnabled())
             state.checked.emit(action.isChecked())
+
+    def _forget(self, key: str, *_destroyed: object) -> None:
+        """A followed chart's action went with its chart before the mode
+        followed another: the command drives nothing and is off, whatever
+        order the host closes and re-follows in."""
+        if self._actions.pop(key, None) is not None:
+            self._states[key].enabled.emit(False)
 
     def _on_command(self, key: str, checked: bool) -> None:
         action = self._actions.get(key)

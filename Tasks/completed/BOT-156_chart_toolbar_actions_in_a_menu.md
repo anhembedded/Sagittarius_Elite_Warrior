@@ -41,3 +41,8 @@
 - **Backtest.** `IBacktestChartHost.command_actions()` (its one implementer delegates to `chart_command_actions`); `ChartDisplayCommands` holds the mirror and follows the first card, the one the chart controls drive, alongside the toolbar it already followed. `bind_backtest_commands` now takes the view, so it follows the chart drawn at bind time as `BOT-155` does for the toolbar.
 - **Pinned timeframes.** They are a person's favourites, changing per symbol, not commands of their own. Each carries `menuEquivalent` = "More timeframes…", whose picker reaches every timeframe and shows the one in effect; the conformance check `toolbar_actions_in_a_menu` judges such an action by that name, and `ui-presentation-rule.md` §6 says so.
 - **Tests.** `tests/unit/support/charting/test_chart_command_mirror.py` (9), `tests/unit/modules/trading/ui/market/test_market_chart_commands.py` (3, the real presenter), two presenter-graph tests in `test_chart_display_commands.py`, and a probe for `menuEquivalent`. Mutation-checked: no disconnect on a new chart, no `menuEquivalent`, Market not following on refresh, Backtest not following a redrawn card, and the check ignoring the property each turn a test red.
+- **Review of PR #372.**
+  - Zoom in and Zoom out take the platform's `QKeySequence.ZoomIn` and `QKeySequence.ZoomOut` keys (§11), held only by the mode in front.
+  - The mirror drops an action that goes with its chart (`destroyed`), so a command never reaches a deleted action, whatever order a host closes a chart and follows the next in.
+  - HLD §11.2.3 lists View → Chart in both modes and how Go live differs from Back to live.
+  - Grouping the 14 items of Backtest's View → Chart needs a field on `CommandContribution`: `BOT-157`.

@@ -50,6 +50,11 @@ _TEXTS: tuple[tuple[str, str], ...] = (
 )
 #: The keys whose command keeps a checked state (a one-shot tool).
 CHECKABLE = frozenset({BOX_ZOOM})
+#: The platform's own zoom keys (`QKeySequence.StandardKey`; Ctrl++ and
+#: Ctrl+- on Windows), which a standard command takes
+#: (`ui-presentation-rule.md` §11). Only the mode in front holds its
+#: commands' shortcuts, so Market and Backtest never claim them together.
+_STANDARD_KEYS = {ZOOM_IN: "ZoomIn", ZOOM_OUT: "ZoomOut"}
 
 
 def chart_command_id(prefix: str, key: str) -> str:
@@ -69,6 +74,7 @@ def chart_commands(
             mode=route,
             checkable=key in CHECKABLE,
             needs_input=key == MORE_TIMEFRAMES,
+            standard_shortcut=_STANDARD_KEYS.get(key),
         )
         for key, text in _TEXTS
     )
