@@ -45,11 +45,6 @@ class ConfigKeys(str, Enum):
     # both `default()`'s dispatch and `do_help()`'s listing.
     CLI_COMMANDS = "CLI_COMMANDS"
 
-    # UI Appearance
-    UI_FONT_FAMILY = "ui.font.family"
-    UI_FONT_SIZE = "ui.font.size"
-    UI_FONT_FALLBACKS = "ui.font.fallbacks"
-
     # Chart Configuration
     CHART_CARD_MAX_ZOOM_OUT_CANDLES = "CHART_CARD_MAX_ZOOM_OUT_CANDLES"
 

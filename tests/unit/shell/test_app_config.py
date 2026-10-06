@@ -32,7 +32,7 @@ def test_the_files_it_names_are_the_files_that_exist() -> None:
 
 def test_it_reads_the_real_application_configuration() -> None:
     config, _dev_mode = load_app_config(["app.py"])
-    assert config.get(ConfigKeys.UI_FONT_FAMILY) is not None
+    assert config.get(ConfigKeys.CHART_CARD_MAX_ZOOM_OUT_CANDLES) is not None
     assert config.get(ConfigKeys.DEV_MODE.value, False) is False
 
 
