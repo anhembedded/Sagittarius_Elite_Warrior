@@ -3293,7 +3293,7 @@ def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
     presenter._run_backtest(config)
     card.set_indicator_visible = Mock()
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.EQUITY].trigger()
     qapp.processEvents()
 
     card.set_indicator_visible.assert_any_call("test_script:R", False)
@@ -3301,7 +3301,7 @@ def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
     assert "test_subplot:S" not in hidden_names
     card.set_indicator_visible.reset_mock()
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.OHLC].trigger()
     qapp.processEvents()
 
     card.set_indicator_visible.assert_any_call("test_script:R", True)
@@ -3405,7 +3405,7 @@ def test_dynamic_script_toggle_on_during_equity_mode_keeps_overlay_hidden(
     presenter._run_backtest(config)
     card = presenter.view.chart_cards[0]
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.EQUITY].trigger()
     qapp.processEvents()
 
     card.set_indicator_visible = Mock()
@@ -3426,14 +3426,14 @@ def test_mode_buttons_switch_the_chart_mode_end_to_end(
     )
     presenter._run_backtest(config)
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.EQUITY].trigger()
     qapp.processEvents()
 
     assert (
         presenter.view.chart_cards[0].chart_card.chart_type_renderer.chart_type == LINE
     )
-    assert presenter.view.chart_controls._trade_flags_check.isEnabled() is False
-    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+    assert presenter.view.chart_controls._trade_flags_action.isEnabled() is False
+    assert presenter.view.chart_controls._ema_action.isEnabled() is False
 
 
 def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
@@ -3452,17 +3452,17 @@ def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
     presenter._run_backtest(config)
     presenter._on_ema_toggled = Mock()
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.EQUITY].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.EQUITY].trigger()
     qapp.processEvents()
 
-    assert presenter.view.chart_controls._ema_check.isEnabled() is False
+    assert presenter.view.chart_controls._ema_action.isEnabled() is False
     presenter._on_ema_toggled.assert_called_once_with(False)
     presenter._on_ema_toggled.reset_mock()
 
-    presenter.view.chart_controls._mode_buttons[ChartDisplayMode.OHLC].click()
+    presenter.view.chart_controls._mode_actions[ChartDisplayMode.OHLC].trigger()
     qapp.processEvents()
 
-    assert presenter.view.chart_controls._ema_check.isEnabled() is True
+    assert presenter.view.chart_controls._ema_action.isEnabled() is True
     # The checkbox was never unchecked (only disabled) — back on a
     # price-scale mode, visibility is restored to match its own state.
     presenter._on_ema_toggled.assert_called_once_with(True)

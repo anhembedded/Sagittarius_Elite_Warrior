@@ -112,13 +112,21 @@ def style_sheet_problems(window: QMainWindow, page: QWidget) -> list[str]:
     ]
 
 
+#: Qt's own toolbar overflow button: `QToolBarLayout` stretches it to the
+#: bar's height, so it is taller than its hint by Qt's design, not the app's
+#: (found when `BOT-155` made a toolbar overflow at 1024×700).
+_QT_EXTENSION_BUTTON = "qt_toolbar_ext_button"
+
+
 def control_height_problems(window: QMainWindow, page: QWidget) -> list[str]:
     kinds = (QAbstractButton, QLineEdit, QComboBox, QAbstractSpinBox)
     return [
         f"{type(w).__name__} {w.objectName()!r} is {w.height()}px, its size hint "
         f"{w.sizeHint().height()}px"
         for w in _visible(page)
-        if isinstance(w, kinds) and w.height() > w.sizeHint().height() + _HEIGHT_SLACK
+        if isinstance(w, kinds)
+        and w.objectName() != _QT_EXTENSION_BUTTON
+        and w.height() > w.sizeHint().height() + _HEIGHT_SLACK
     ]
 
 

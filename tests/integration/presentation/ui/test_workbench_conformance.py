@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QToolBar,
+    QToolButton,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
@@ -221,6 +222,31 @@ def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:
     assert toolbar_problems(window, window)
     assert style_sheet_problems(window, window)
     assert control_height_problems(window, window)
+
+
+def test_an_overflowing_toolbar_s_own_extension_button_is_not_a_finding(qtbot) -> None:
+    """Qt stretches its overflow button to the bar's height (`BOT-155`); an
+    app control made too tall beside it is still seen."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    bar = QToolBar("Chart", window)
+    window.addToolBar(bar)
+    for n in range(30):
+        bar.addAction(f"Layer {n}")
+    window.resize(200, 200)
+    window.show()
+    qtbot.waitUntil(
+        lambda: any(
+            b.isVisible()
+            for b in bar.findChildren(QToolButton, "qt_toolbar_ext_button")
+        )
+    )
+    assert control_height_problems(window, window) == []
+
+    tall = QPushButton("Tall")
+    tall.setFixedHeight(60)
+    bar.insertWidget(bar.actions()[0], tall)  # first, so it is not overflowed
+    qtbot.waitUntil(lambda: control_height_problems(window, window) != [])
 
 
 def test_a_button_named_like_a_contributed_command_is_seen(qtbot) -> None:

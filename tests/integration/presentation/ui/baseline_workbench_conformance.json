@@ -3,15 +3,9 @@
     "Checks each mode fails, AS FOUND (EPIC-033B, 2026-10-04; window sizes EPIC-033C, 2026-10-05).",
     "Read by test_workbench_conformance.py. 'mode' lists a check failed at every window size, 'mode@WxH' one failed at that size only.",
     "Only shrinks; empty when EPIC-033M closes.",
-    "Owners of the fits_the_window entries: backtest@* is BOT-155 (chart controls as a toolbar); dashboard@1024x700 leaves with the Dev Board (EPIC-033P)."
+    "Owner of the remaining fits_the_window entry: dashboard@1024x700 leaves with the Dev Board (EPIC-033P)."
   ],
   "failing": {
-    "backtest@1024x700": [
-      "fits_the_window"
-    ],
-    "backtest@1366x768": [
-      "fits_the_window"
-    ],
     "dashboard": [
       "control_height",
       "mnemonics_escaped",

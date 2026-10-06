@@ -1,6 +1,6 @@
 # BOT-155 — The Backtest mode, and so the window, shrinks to 1024×700
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-10-06)
 **Source:** the conformance suite's new `fits_the_window` check (`EPIC-033C`, PR #370), and its independent review: "the window's minimum is 1400×727, so every mode is unusable on a 1366×768 laptop screen, not just Backtest"
 **Risk:** 🟡 — the chart's display controls move; the marker filters (PROP-004) must keep working
 **Complexity:** M — `BacktestChartControls` becomes a toolbar of actions, and its tests follow
@@ -16,9 +16,9 @@
 - **The other entry has another owner:** `dashboard@1024x700` (the Dev Board's eight-dock rail) is not this task's. EPIC-033P deletes the Dev Board, and that entry goes with it.
 
 ## 2. Acceptance criteria
-- [ ] The Backtest mode's minimum width lets the window be 1024 px wide. `fits_the_window` passes for `backtest` at every size, and both `backtest@…` baseline entries are removed.
-- [ ] Every control keeps its effect: chart mode, strategy indicators, volume and buy/sell flags; the outcome, side and minimum-|PnL| marker filters; Spot hiding "Short only"; Equity mode disabling the flags and filters.
-- [ ] The conformance checks `toolbar_actions_only` and `no_button_duplicates_a_command` still pass.
+- [x] The Backtest mode's minimum width lets the window be 1024 px wide. `fits_the_window` passes for `backtest` at every size, and both `backtest@…` baseline entries are removed.
+- [x] Every control keeps its effect: chart mode, strategy indicators, volume and buy/sell flags; the outcome, side and minimum-|PnL| marker filters; Spot hiding "Short only"; Equity mode disabling the flags and filters.
+- [x] The conformance checks `toolbar_actions_only` and `no_button_duplicates_a_command` still pass.
 
 ## 3. Design
 Use a `QToolBar` above the chart, as the chart's own `ChartToolbar` already does. It overflows into its extension button when narrow (Qt `QToolBar`, MS `cmd-toolbars`).
@@ -38,3 +38,22 @@ Use a `QToolBar` above the chart, as the chart's own `ChartToolbar` already does
 ## 5. Testing
 - **Unit:** each action and filter emits what the old control did. Spot removes "Short only"; Equity disables the flags and the filters.
 - **Integration:** `test_workbench_conformance.py` at all three sizes, with the `backtest` entries gone from its baseline.
+
+## Implementation notes (written when done)
+- **What changed:** `BacktestChartControls` (`src/modules/backtesting/ui/logic/chart_controls.py`) is now a `QToolBar` named `backtestChartControls`.
+  - **Chart mode:** three checkable actions in one exclusive `QActionGroup`.
+  - **Layers:** strategy indicators, volume and buy/sell flags are checkable actions, on by default.
+  - **Filters:** the outcome and side combo boxes and the minimum-|PnL| spin box are `QWidgetAction`s the toolbar wraps.
+  - **Unchanged for callers:** the signals and getters `BackTestView` and the presenter read are the same, so neither changed.
+- **Result:** both `backtest@…` `fits_the_window` entries left the baseline. The suite passes at 1024×700, 1366×768 and 1920×1080, and the only `fits_the_window` entry left is the Dev Board's (EPIC-033P).
+- **Found on the way:** at 1024×700, Qt's own overflow button (`qt_toolbar_ext_button`) is stretched to the bar's height by `QToolBarLayout`. `control_height` flagged it in Backtest and in the Market chart toolbar.
+  - `workbench_widget_checks.py` now skips that one Qt-internal object name.
+  - A probe test (`test_an_overflowing_toolbar_s_own_extension_button_is_not_a_finding`) shows the overflow button is not a finding while a too-tall app button beside it still is.
+  - With the exemption removed, the probe goes red.
+- **Tests:** 4 new tests in `tests/unit/modules/backtesting/ui/logic/test_chart_controls.py`:
+  - it is a toolbar whose minimum width is under half its preferred width;
+  - the modes are one exclusive group of checkable actions;
+  - each layer is a checkable action, on by default;
+  - no radio button or check box remains.
+
+  They were red before the change (4 failed). The presenter and view tests now drive actions instead of buttons.
