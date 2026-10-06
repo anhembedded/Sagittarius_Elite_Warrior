@@ -41,5 +41,5 @@ def fill_page(view: DeskView) -> None:
     desk.set_symbol("BTCUSDT")
     desk.set_status("Trading is off for this venue.", False)
     orders = OrderEntryViewModel(view.profile, view)
-    orders.begin_symbol("BTCUSDT")
+    orders.presenter_side().begin_symbol("BTCUSDT")
     view.attach(desk, orders)

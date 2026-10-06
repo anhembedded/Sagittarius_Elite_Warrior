@@ -38,7 +38,7 @@ def test_each_side_joins_its_own_queue(side: EntrySide, expected: str) -> None:
     panel = presented_panel(books={SYMBOL: _book()})
     panel.presenter.show_symbol(SYMBOL)
 
-    panel.vm.use_best_price(side)
+    panel.vm.intents.use_best_price(side)
 
     assert panel.vm.entry(side).price == Decimal(expected)
     assert not panel.vm.message_is_error
@@ -47,9 +47,9 @@ def test_each_side_joins_its_own_queue(side: EntrySide, expected: str) -> None:
 def test_an_unreadable_book_is_reported_and_the_price_is_kept() -> None:
     panel = presented_panel()  # no book seeded: the read fails
     panel.presenter.show_symbol(SYMBOL)
-    panel.vm.set_price(EntrySide.BUY, "98")
+    panel.vm.intents.set_price(EntrySide.BUY, "98")
 
-    panel.vm.use_best_price(EntrySide.BUY)
+    panel.vm.intents.use_best_price(EntrySide.BUY)
 
     assert panel.vm.entry(EntrySide.BUY).price == 98
     assert panel.vm.message_is_error
@@ -61,7 +61,7 @@ def test_an_empty_side_of_the_book_is_named() -> None:
     panel = presented_panel(books={SYMBOL: _book(bid="0")})
     panel.presenter.show_symbol(SYMBOL)
 
-    panel.vm.use_best_price(EntrySide.BUY)
+    panel.vm.intents.use_best_price(EntrySide.BUY)
 
     assert panel.vm.entry(EntrySide.BUY).price is None
     assert panel.vm.message == "Could not read the best price: the book has no bid yet"
@@ -72,7 +72,7 @@ def test_a_book_read_for_a_symbol_the_panel_left_is_dropped() -> None:
     panel = presented_panel(threads=threads, books={SYMBOL: _book()})
     panel.presenter.show_symbol(SYMBOL)
     threads.run(0)
-    panel.vm.use_best_price(EntrySide.BUY)
+    panel.vm.intents.use_best_price(EntrySide.BUY)
 
     panel.presenter.show_symbol("ETHUSDT")
     threads.run(1)  # BTCUSDT's book answers after the switch
@@ -85,7 +85,7 @@ def test_no_book_is_read_before_a_symbol_is_shown() -> None:
     threads = HeldThreadManager()
     panel = presented_panel(threads=threads, books={SYMBOL: _book()})
 
-    panel.vm.use_best_price(EntrySide.BUY)
+    panel.vm.intents.use_best_price(EntrySide.BUY)
 
     assert threads.pending == []
 

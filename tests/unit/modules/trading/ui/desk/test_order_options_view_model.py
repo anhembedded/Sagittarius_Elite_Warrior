@@ -87,7 +87,7 @@ def test_a_new_symbol_forgets_the_levels_typed_for_the_last() -> None:
     vm.options.set_tp_sl_enabled(True)
     vm.options.set_take_profit(_BUY, "63000")
 
-    vm.begin_symbol("ETHUSDT")
+    vm.presenter_side().begin_symbol("ETHUSDT")
 
     assert vm.options.protection(_BUY) is None
 
@@ -96,11 +96,11 @@ def test_a_re_read_keeps_what_the_panel_last_said() -> None:
     """Only a new symbol's "Loading" line is cleared when its terms arrive;
     "Order placed" survives the re-read that follows the order."""
     vm = OrderEntryViewModel(desk_profile_for(TradingVenue.SPOT_TESTNET))
-    vm.begin_symbol(SYMBOL)
-    vm.set_context(spot_context())
+    vm.presenter_side().begin_symbol(SYMBOL)
+    vm.presenter_side().set_context(spot_context())
     assert vm.message == ""
 
-    vm.show_result("Order placed (SEW-1).", is_error=False)
-    vm.set_context(spot_context())
+    vm.presenter_side().show_result("Order placed (SEW-1).", is_error=False)
+    vm.presenter_side().set_context(spot_context())
 
     assert vm.message == "Order placed (SEW-1)."

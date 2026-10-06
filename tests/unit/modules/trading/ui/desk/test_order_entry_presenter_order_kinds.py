@@ -50,8 +50,8 @@ def test_the_load_reads_the_app_notional_limit() -> None:
 
 def test_a_quote_sized_buy_asks_to_spend_its_total() -> None:
     panel = _loaded("250")
-    panel.vm.set_order_type(OrderType.MARKET)
-    panel.vm.set_total(_BUY, "450")
+    panel.vm.intents.set_order_type(OrderType.MARKET)
+    panel.vm.intents.set_total(_BUY, "450")
     estimate = canned_preview(OrderSide.BUY, "1.8", None)
     preview = replace(
         estimate, order=replace(estimate.order, quote_quantity=Decimal(450))
@@ -59,7 +59,7 @@ def test_a_quote_sized_buy_asks_to_spend_its_total() -> None:
     panel.submission.preview_answers(preview)
     panel.submission.submit_answers(placed(preview.order))
 
-    panel.vm.request_submit(_BUY)
+    panel.vm.intents.request_submit(_BUY)
 
     asked = panel.submission.previewed[0]
     assert asked.order_type is OrderType.MARKET
@@ -77,24 +77,24 @@ def test_a_quote_sized_buy_asks_to_spend_its_total() -> None:
 def test_a_quote_sized_buy_too_small_for_one_lot_is_still_confirmed() -> None:
     # The exchange sizes it from the quote; only its notional is checked.
     panel = _loaded("250")
-    panel.vm.set_order_type(OrderType.MARKET)
-    panel.vm.set_total(_BUY, "20")
+    panel.vm.intents.set_order_type(OrderType.MARKET)
+    panel.vm.intents.set_total(_BUY, "20")
     estimate = canned_preview(OrderSide.BUY, "0", None)
     panel.submission.preview_answers(
         replace(estimate, order=replace(estimate.order, quote_quantity=Decimal(20)))
     )
 
-    panel.vm.request_submit(_BUY)
+    panel.vm.intents.request_submit(_BUY)
 
     assert len(panel.confirm.asked) == 1
 
 
 def test_a_stop_limit_carries_its_stop_and_the_last_price() -> None:
     panel = _loaded("100")
-    panel.vm.set_order_type(OrderType.STOP_LIMIT)
-    panel.vm.set_stop_price(_SELL, "95")
-    panel.vm.set_price(_SELL, "94")
-    panel.vm.set_quantity(_SELL, "0.2")
+    panel.vm.intents.set_order_type(OrderType.STOP_LIMIT)
+    panel.vm.intents.set_stop_price(_SELL, "95")
+    panel.vm.intents.set_price(_SELL, "94")
+    panel.vm.intents.set_quantity(_SELL, "0.2")
     limit = canned_preview(OrderSide.SELL, "0.2", "94")
     preview = replace(
         limit,
@@ -106,7 +106,7 @@ def test_a_stop_limit_carries_its_stop_and_the_last_price() -> None:
     panel.submission.preview_answers(preview)
     panel.submission.submit_answers(placed(preview.order))
 
-    panel.vm.request_submit(_SELL)
+    panel.vm.intents.request_submit(_SELL)
 
     asked = panel.submission.previewed[0]
     assert asked.order_type is OrderType.STOP_LIMIT
@@ -120,12 +120,12 @@ def test_a_stop_limit_carries_its_stop_and_the_last_price() -> None:
 
 def test_a_limit_order_carries_no_stop_and_no_quote() -> None:
     panel = _loaded("100")
-    panel.vm.set_stop_price(_BUY, "105")  # typed on another tab, then left
-    panel.vm.set_price(_BUY, "100")
-    panel.vm.set_quantity(_BUY, "1")
+    panel.vm.intents.set_stop_price(_BUY, "105")  # typed on another tab, then left
+    panel.vm.intents.set_price(_BUY, "100")
+    panel.vm.intents.set_quantity(_BUY, "1")
     panel.submission.preview_answers(canned_preview(OrderSide.BUY, "1", "100"))
 
-    panel.vm.request_submit(_BUY)
+    panel.vm.intents.request_submit(_BUY)
 
     asked = panel.submission.previewed[0]
     assert asked.stop_price is None
@@ -135,10 +135,10 @@ def test_a_limit_order_carries_no_stop_and_no_quote() -> None:
 
 def test_a_stop_crossed_by_the_time_of_the_preview_is_not_confirmed() -> None:
     panel = _loaded("100")
-    panel.vm.set_order_type(OrderType.STOP_LIMIT)
-    panel.vm.set_stop_price(_BUY, "105")
-    panel.vm.set_price(_BUY, "106")
-    panel.vm.set_quantity(_BUY, "1")
+    panel.vm.intents.set_order_type(OrderType.STOP_LIMIT)
+    panel.vm.intents.set_stop_price(_BUY, "105")
+    panel.vm.intents.set_price(_BUY, "106")
+    panel.vm.intents.set_quantity(_BUY, "1")
     limit = canned_preview(OrderSide.BUY, "1", "106")
     panel.submission.preview_answers(
         replace(
@@ -150,7 +150,7 @@ def test_a_stop_crossed_by_the_time_of_the_preview_is_not_confirmed() -> None:
         )
     )
 
-    panel.vm.request_submit(_BUY)
+    panel.vm.intents.request_submit(_BUY)
 
     assert panel.confirm.asked == []
     assert panel.submission.submitted_live == []
@@ -161,8 +161,8 @@ def test_a_stop_crossed_by_the_time_of_the_preview_is_not_confirmed() -> None:
 def test_a_preview_worth_more_than_the_limit_is_not_confirmed() -> None:
     # The gate's own figure (rounded quantity x rounded price) decides.
     panel = _loaded("100")
-    panel.vm.set_price(_BUY, "100")
-    panel.vm.set_quantity(_BUY, "1")
+    panel.vm.intents.set_price(_BUY, "100")
+    panel.vm.intents.set_quantity(_BUY, "1")
     panel.submission.preview_answers(
         replace(
             canned_preview(OrderSide.BUY, "1", "100"),
@@ -170,7 +170,7 @@ def test_a_preview_worth_more_than_the_limit_is_not_confirmed() -> None:
         )
     )
 
-    panel.vm.request_submit(_BUY)
+    panel.vm.intents.request_submit(_BUY)
 
     assert panel.confirm.asked == []
     assert panel.vm.message_is_error

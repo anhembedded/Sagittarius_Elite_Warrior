@@ -61,6 +61,7 @@ class BestPriceFiller(QObject):
     ) -> None:
         super().__init__(view_model)
         self._vm = view_model
+        self._writes = view_model.presenter_side()
         self._terms = terms
         self._threads = thread_manager
         self._reads: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
@@ -101,7 +102,7 @@ class BestPriceFiller(QObject):
                 self._vm.order_symbol,
                 reason,
             )
-            self._vm.show_result(
+            self._writes.show_result(
                 f"Could not read the best price: {reason}", is_error=True
             )
             return
@@ -112,4 +113,4 @@ class BestPriceFiller(QObject):
             _QUEUE_NAME[side],
             price,
         )
-        self._vm.set_price_value(side, price)
+        self._writes.set_price_value(side, price)

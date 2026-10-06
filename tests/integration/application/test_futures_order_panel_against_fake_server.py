@@ -310,18 +310,18 @@ def test_a_market_long_with_tp_sl_is_protected_once_its_fill_is_reported(
         )
         presenter.entryPlaced.connect(lambda placed: follower.expect(*placed))
         presenter.show_symbol(_SYMBOL)
-        vm.set_last_price(_LAST)
+        vm.presenter_side().set_last_price(_LAST)
 
         vm.options.request_leverage(20)
         setting = vm.options.setting
         assert setting is not None and setting.leverage == 20, vm.message
 
-        vm.set_order_type(OrderType.MARKET)
-        vm.set_quantity(EntrySide.BUY, "0.01")
+        vm.intents.set_order_type(OrderType.MARKET)
+        vm.intents.set_quantity(EntrySide.BUY, "0.01")
         vm.options.set_tp_sl_enabled(True)
         vm.options.set_take_profit(EntrySide.BUY, "52000")
         vm.options.set_stop_loss(EntrySide.BUY, "48000")
-        vm.request_submit(EntrySide.BUY)
+        vm.intents.request_submit(EntrySide.BUY)
         (entry_id,) = follower.waiting
         client = clients.create(OrderSubmissionMode.VALIDATE_ONLY)
         assert client.get_open_orders(_SYMBOL) == []

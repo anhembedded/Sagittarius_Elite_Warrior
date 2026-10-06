@@ -273,9 +273,9 @@ def test_a_confirmed_buy_on_the_panel_moves_the_btc_holding(qtbot) -> None:
         before = view_model.context
         assert before is not None
         assert before.free_base is not None and before.available_quote is not None
-        view_model.set_order_type(OrderType.MARKET)
-        view_model.set_total(EntrySide.BUY, "500")
-        view_model.request_submit(EntrySide.BUY)
+        view_model.intents.set_order_type(OrderType.MARKET)
+        view_model.intents.set_total(EntrySide.BUY, "500")
+        view_model.intents.request_submit(EntrySide.BUY)
 
         assert not view_model.message_is_error, view_model.message
         assert panel.asked[0].question.startswith("Spend 500 USDT to buy BTC")
@@ -296,7 +296,7 @@ def test_the_panel_reads_the_app_notional_limit_and_caps_its_maximum(qtbot) -> N
         assert context.available_quote is not None
         assert context.available_quote > _LIMITS.max_notional_per_order
 
-        panel.view_model.set_order_type(OrderType.MARKET)
+        panel.view_model.intents.set_order_type(OrderType.MARKET)
         figures = panel.view_model.figures(EntrySide.BUY)
 
         assert figures is not None
@@ -305,8 +305,8 @@ def test_the_panel_reads_the_app_notional_limit_and_caps_its_maximum(qtbot) -> N
 
 def test_the_bbo_button_fills_each_side_from_the_venue_book(qtbot) -> None:
     with _spot_panel_on_fake_server() as panel:
-        panel.view_model.use_best_price(EntrySide.BUY)
-        panel.view_model.use_best_price(EntrySide.SELL)
+        panel.view_model.intents.use_best_price(EntrySide.BUY)
+        panel.view_model.intents.use_best_price(EntrySide.SELL)
 
         assert not panel.view_model.message_is_error, panel.view_model.message
         # The fake's book is one cent either side of its last price.
@@ -319,11 +319,11 @@ def test_a_stop_limit_buy_rests_on_the_exchange_until_its_stop(qtbot) -> None:
         view_model = panel.view_model
         before = view_model.context
         assert before is not None
-        view_model.set_order_type(OrderType.STOP_LIMIT)
-        view_model.set_stop_price(EntrySide.BUY, "51000")
-        view_model.set_price(EntrySide.BUY, "51100")
-        view_model.set_quantity(EntrySide.BUY, "0.001")
-        view_model.request_submit(EntrySide.BUY)
+        view_model.intents.set_order_type(OrderType.STOP_LIMIT)
+        view_model.intents.set_stop_price(EntrySide.BUY, "51000")
+        view_model.intents.set_price(EntrySide.BUY, "51100")
+        view_model.intents.set_quantity(EntrySide.BUY, "0.001")
+        view_model.intents.request_submit(EntrySide.BUY)
 
         assert not view_model.message_is_error, view_model.message
         assert "once the price reaches 51,000 USDT" in panel.asked[0].question

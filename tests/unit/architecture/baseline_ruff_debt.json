@@ -83,7 +83,6 @@
       "src/modules/backtesting/ui/logic/backtest_chart_host.py": 1,
       "src/modules/backtesting/ui/ports/i_backtest_chart_host.py": 1,
       "src/modules/market_data/ui/data_management_view_model.py": 1,
-      "src/modules/trading/ui/desk/order_entry/order_entry_view_model.py": 1,
       "src/support/binance_gateway/contracts/i_trading_session_factory.py": 1,
       "src/support/charting/chart_card/chart_card.py": 1,
       "src/support/indicators/indicator_scripts/base_indicator_script.py": 1

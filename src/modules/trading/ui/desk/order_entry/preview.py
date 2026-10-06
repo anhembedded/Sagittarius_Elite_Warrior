@@ -74,8 +74,8 @@ PREVIEW_TERMS = OrderEntryTerms(
 
 def build_preview() -> QWidget:
     view_model = OrderEntryViewModel(desk_profile_for(TradingVenue.SPOT_TESTNET))
-    view_model.begin_symbol("BTCUSDT")
-    view_model.set_context(
+    view_model.presenter_side().begin_symbol("BTCUSDT")
+    view_model.presenter_side().set_context(
         OrderEntryContext(
             symbol="BTCUSDT",
             base_asset="BTC",
@@ -86,12 +86,12 @@ def build_preview() -> QWidget:
             notional_limit=Decimal(500),
         )
     )
-    view_model.set_last_price(Decimal("60123.45"))
-    view_model.set_price(EntrySide.BUY, "60000")
-    view_model.set_quantity(EntrySide.BUY, "0.005")
-    view_model.use_last_price(EntrySide.SELL)
-    view_model.set_stop_price(EntrySide.BUY, "60500")
-    view_model.set_total(EntrySide.BUY, "250")
+    view_model.presenter_side().set_last_price(Decimal("60123.45"))
+    view_model.intents.set_price(EntrySide.BUY, "60000")
+    view_model.intents.set_quantity(EntrySide.BUY, "0.005")
+    view_model.intents.use_last_price(EntrySide.SELL)
+    view_model.intents.set_stop_price(EntrySide.BUY, "60500")
+    view_model.intents.set_total(EntrySide.BUY, "250")
     tabs = QTabWidget()
     tabs.addTab(OrderEntryPanel(view_model), "Spot")
     tabs.addTab(_futures_panel(), "Futures")
@@ -104,8 +104,8 @@ def _futures_panel() -> QWidget:
         "BTCUSDT", 10, MarginType.CROSSED, Decimal(2_000_000)
     )
     view_model = OrderEntryViewModel(desk_profile_for(TradingVenue.FUTURES_TESTNET))
-    view_model.begin_symbol("BTCUSDT")
-    view_model.set_context(
+    view_model.presenter_side().begin_symbol("BTCUSDT")
+    view_model.presenter_side().set_context(
         OrderEntryContext(
             symbol="BTCUSDT",
             base_asset="BTC",
@@ -137,9 +137,9 @@ def _futures_panel() -> QWidget:
         )
     )
     view_model.options.show_setting(setting)
-    view_model.set_last_price(Decimal("60123.45"))
-    view_model.set_price(EntrySide.BUY, "60000")
-    view_model.set_quantity(EntrySide.BUY, "0.05")
+    view_model.presenter_side().set_last_price(Decimal("60123.45"))
+    view_model.intents.set_price(EntrySide.BUY, "60000")
+    view_model.intents.set_quantity(EntrySide.BUY, "0.05")
     view_model.options.set_tp_sl_enabled(True)
     view_model.options.set_take_profit(EntrySide.BUY, "63000")
     view_model.options.set_stop_loss(EntrySide.BUY, "58500")

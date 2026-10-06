@@ -98,14 +98,14 @@ def _panel(
     announced: list[object] = []
     presenter.entryPlaced.connect(announced.append)
     presenter.show_symbol(SYMBOL)
-    vm.set_last_price(MARK)
+    vm.presenter_side().set_last_price(MARK)
     return _Panel(vm, presenter, submission, control, terms, account, announced)
 
 
 def _type_limit(vm: OrderEntryViewModel, side: EntrySide, quantity: str) -> None:
-    vm.set_order_type(OrderType.LIMIT)
-    vm.set_price(side, "60000")
-    vm.set_quantity(side, quantity)
+    vm.intents.set_order_type(OrderType.LIMIT)
+    vm.intents.set_price(side, "60000")
+    vm.intents.set_quantity(side, quantity)
 
 
 def _answers_with_an_order(panel: _Panel, side: OrderSide, quantity: str) -> None:
@@ -121,7 +121,7 @@ def test_the_load_reads_the_futures_context_and_shows_the_exchanges_setting() ->
     assert context is not None and context.futures is not None
     assert context.futures.setting.leverage == 10
     assert panel.vm.options.setting == context.futures.setting
-    panel.vm.set_price(EntrySide.BUY, "60000")
+    panel.vm.intents.set_price(EntrySide.BUY, "60000")
     figures = panel.vm.figures(EntrySide.BUY)
     assert figures is not None and figures.max_quantity is not None
 
@@ -133,7 +133,7 @@ def test_time_in_force_and_reduce_only_reach_the_order() -> None:
     _type_limit(panel.vm, EntrySide.SELL, "0.005")
     _answers_with_an_order(panel, OrderSide.SELL, "0.005")
 
-    panel.vm.request_submit(EntrySide.SELL)
+    panel.vm.intents.request_submit(EntrySide.SELL)
 
     (sent,) = panel.submission.submitted_live
     assert sent.side is OrderSide.SELL
@@ -144,11 +144,11 @@ def test_time_in_force_and_reduce_only_reach_the_order() -> None:
 def test_a_market_order_carries_no_time_in_force() -> None:
     panel = _panel()
     panel.vm.options.set_time_in_force(TimeInForce.FOK)
-    panel.vm.set_order_type(OrderType.MARKET)
-    panel.vm.set_quantity(EntrySide.BUY, "0.01")
+    panel.vm.intents.set_order_type(OrderType.MARKET)
+    panel.vm.intents.set_quantity(EntrySide.BUY, "0.01")
     _answers_with_an_order(panel, OrderSide.BUY, "0.01")
 
-    panel.vm.request_submit(EntrySide.BUY)
+    panel.vm.intents.request_submit(EntrySide.BUY)
 
     (sent,) = panel.submission.submitted_live
     assert sent.time_in_force is None
@@ -162,7 +162,7 @@ def test_an_entry_with_tp_sl_is_announced_for_protection() -> None:
     _type_limit(panel.vm, EntrySide.BUY, "0.005")
     _answers_with_an_order(panel, OrderSide.BUY, "0.005")
 
-    panel.vm.request_submit(EntrySide.BUY)
+    panel.vm.intents.request_submit(EntrySide.BUY)
 
     ((order, levels),) = panel.announced
     assert order.side is OrderSide.BUY
@@ -176,7 +176,7 @@ def test_levels_typed_with_tp_sl_off_protect_nothing() -> None:
     _type_limit(panel.vm, EntrySide.BUY, "0.005")
     _answers_with_an_order(panel, OrderSide.BUY, "0.005")
 
-    panel.vm.request_submit(EntrySide.BUY)
+    panel.vm.intents.request_submit(EntrySide.BUY)
 
     assert panel.announced == []
 
@@ -217,7 +217,7 @@ def test_the_box_keeps_an_order_reduce_only_when_the_position_went_away() -> Non
     _answers_with_an_order(panel, OrderSide.SELL, "0.005")
     panel.account.holding([])
 
-    panel.vm.request_submit(EntrySide.SELL)
+    panel.vm.intents.request_submit(EntrySide.SELL)
 
     (sent,) = panel.submission.submitted_live
     assert sent.reduce_only is True
@@ -233,7 +233,7 @@ def test_an_order_that_closes_a_position_is_not_protected() -> None:
     _type_limit(panel.vm, EntrySide.SELL, "0.005")
     _answers_with_an_order(panel, OrderSide.SELL, "0.005")
 
-    panel.vm.request_submit(EntrySide.SELL)
+    panel.vm.intents.request_submit(EntrySide.SELL)
 
     (sent,) = panel.submission.submitted_live
     assert sent.reduce_only is True
@@ -254,7 +254,7 @@ def test_the_box_is_read_when_the_user_asks_not_when_the_order_leaves() -> None:
     _answers_with_an_order(panel, OrderSide.SELL, "0.005")
     panel.account.holding([])
 
-    panel.vm.request_submit(EntrySide.SELL)
+    panel.vm.intents.request_submit(EntrySide.SELL)
     threads.run(loaded)  # the preview, then the confirmation
     panel.vm.options.set_reduce_only(False)
     threads.run(loaded + 1)  # the submit

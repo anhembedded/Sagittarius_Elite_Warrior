@@ -86,9 +86,9 @@ def spot_desk(trade_boot: Boot) -> Iterator[TradeDesk]:
 def _type_resting_limit_buy(desk: TradeDesk, qtbot) -> None:
     vm = desk.presenter.orders
     qtbot.waitUntil(lambda: vm.context is not None, timeout=_WAIT_MS)
-    vm.set_order_type(OrderType.LIMIT)
-    vm.set_price(EntrySide.BUY, _RESTING_PRICE)
-    vm.set_quantity(EntrySide.BUY, _QUANTITY)
+    vm.intents.set_order_type(OrderType.LIMIT)
+    vm.intents.set_price(EntrySide.BUY, _RESTING_PRICE)
+    vm.intents.set_quantity(EntrySide.BUY, _QUANTITY)
 
 
 def _buy(desk: TradeDesk, qtbot) -> None:
