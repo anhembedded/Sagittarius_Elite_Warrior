@@ -30,7 +30,7 @@ from .order_entry_fixtures import SYMBOL, HeldThreadManager
 class _Changer:
     def __init__(self) -> None:
         self.vm = OrderEntryViewModel(desk_profile_for(TradingVenue.FUTURES_TESTNET))
-        self.vm.begin_symbol(SYMBOL)
+        self.vm.presenter_side().begin_symbol(SYMBOL)
         self.control = FakeFuturesSettingsControl()
         self.threads = HeldThreadManager()
         self.reads: list[str] = []
@@ -56,7 +56,7 @@ def test_an_answer_names_its_symbol_and_reads_it_again(qapp) -> None:
 def test_an_answer_for_a_symbol_the_panel_left_is_not_shown(qapp) -> None:
     desk = _Changer()
     desk.vm.options.request_leverage(20)
-    desk.vm.begin_symbol("ETHUSDT")
+    desk.vm.presenter_side().begin_symbol("ETHUSDT")
 
     desk.threads.run(0)
     qapp.processEvents()

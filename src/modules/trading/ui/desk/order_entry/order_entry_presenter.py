@@ -132,6 +132,7 @@ class OrderEntryPresenter(QObject):
                 f"{ports.venue.value}'s ports"
             )
         self._vm = view_model
+        self._writes = view_model.presenter_side()
         self._ports = ports
         self._threads = thread_manager
         self._confirm = confirm
@@ -155,7 +156,7 @@ class OrderEntryPresenter(QObject):
     def show_symbol(self, symbol: str) -> None:
         """Switches the panel to `symbol` and reads its terms."""
         self._best_price.drop_pending()
-        self._vm.begin_symbol(symbol)
+        self._writes.begin_symbol(symbol)
         self.refresh()
 
     def refresh(self) -> None:
@@ -167,7 +168,7 @@ class OrderEntryPresenter(QObject):
         self._threads.submit(self._run_load, action.action_id, symbol)
 
     def update_last_price(self, price: Decimal | None) -> None:
-        self._vm.set_last_price(price)
+        self._writes.set_last_price(price)
 
     # -- load ---------------------------------------------------------- #
 
@@ -226,10 +227,10 @@ class OrderEntryPresenter(QObject):
             logger.warning(
                 "Order panel could not read %s: %s", self._vm.order_symbol, error
             )
-            self._vm.show_error(f"Could not read {self._vm.order_symbol}: {error}")
+            self._writes.show_error(f"Could not read {self._vm.order_symbol}: {error}")
             return
         self._loads.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        self._vm.set_context(context)
+        self._writes.set_context(context)
         self._vm.options.show_setting(
             context.futures.setting if context.futures else None
         )
@@ -238,20 +239,20 @@ class OrderEntryPresenter(QObject):
 
     def _on_submit_requested(self, side_value: str) -> None:
         if self._orders.active_outcome is ActionOutcome.PENDING:
-            self._vm.show_result("An order is already being placed.", is_error=True)
+            self._writes.show_result("An order is already being placed.", is_error=True)
             return
         side = EntrySide(side_value)
         figures = self._vm.figures(side)
         if figures is None or figures.problem is not None or figures.price is None:
             reason = figures.problem if figures is not None else "Still loading."
-            self._vm.show_result(reason or "Enter a price.", is_error=True)
+            self._writes.show_result(reason or "Enter a price.", is_error=True)
             return
         request = self._request_for(side, figures, figures.price)
         self._protection = (
             None if request.reduce_only else self._vm.options.protection(side)
         )
         action = self._orders.begin_action(_ORDER, side.value, None)
-        self._vm.set_busy(True, "Checking the order...")
+        self._writes.set_busy(True, "Checking the order...")
         self._threads.submit(self._run_preview, action.action_id, side, request)
 
     def _request_for(
@@ -300,7 +301,7 @@ class OrderEntryPresenter(QObject):
         refusal = preview_refusal(preview, error, limit)
         if refusal is not None:
             self._orders.finish_action(action_id, ActionOutcome.FAILED)
-            self._vm.show_result(refusal, is_error=True)
+            self._writes.show_result(refusal, is_error=True)
             return
         price = preview.order.price or request.reference_price
         fee_rate = context.terms.commission.taker if context else Decimal(0)
@@ -315,9 +316,9 @@ class OrderEntryPresenter(QObject):
         )
         if not self._confirm(confirmation):
             self._orders.finish_action(action_id, ActionOutcome.CANCELLED)
-            self._vm.show_result("Order not sent.", is_error=False)
+            self._writes.show_result("Order not sent.", is_error=False)
             return
-        self._vm.set_busy(True, "Sending order...")
+        self._writes.set_busy(True, "Sending order...")
         rounded = replace(
             request, quantity=preview.order.quantity, reference_price=price
         )
@@ -364,12 +365,12 @@ class OrderEntryPresenter(QObject):
             action_id, ActionOutcome.SUCCEEDED if placed else ActionOutcome.FAILED
         )
         logger.info("Order panel %s order: %s", side.value, message)
-        self._vm.show_result(message, is_error=not placed)
+        self._writes.show_result(message, is_error=not placed)
         if placed:
             if result is not None and result.submitted_order is not None:
                 self.orderAccepted.emit(result.submitted_order)
             self._announce_protection(result, reduced)
-            self._vm.clear_amount(side)
+            self._writes.clear_amount(side)
             self.refresh()
 
     def _announce_protection(
@@ -382,7 +383,7 @@ class OrderEntryPresenter(QObject):
         if levels is None or order is None or reduced:
             return
         self.entryPlaced.emit((order, levels))
-        self._vm.show_result(
+        self._writes.show_result(
             f"Order placed ({order.client_order_id}); TP/SL follow once it fills.",
             is_error=False,
         )

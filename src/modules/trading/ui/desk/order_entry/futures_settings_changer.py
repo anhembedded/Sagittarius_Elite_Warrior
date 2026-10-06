@@ -55,6 +55,7 @@ class FuturesSettingsChanger(QObject):
     ) -> None:
         super().__init__(view_model)
         self._vm = view_model
+        self._writes = view_model.presenter_side()
         self._control = control
         self._threads = thread_manager
         self._reread = reread
@@ -85,10 +86,10 @@ class FuturesSettingsChanger(QObject):
         if not symbol:
             return
         if self._changes.active_outcome is ActionOutcome.PENDING:
-            self._vm.show_result("A change is already being sent.", is_error=True)
+            self._writes.show_result("A change is already being sent.", is_error=True)
             return
         action = self._changes.begin_action(_CHANGE, symbol, None)
-        self._vm.set_busy(True, f"Setting {what} on {symbol}...")
+        self._writes.set_busy(True, f"Setting {what} on {symbol}...")
         logger.info("Order panel asks for %s on %s", what, symbol)
         self._threads.submit(self._run, action.action_id, symbol, what, send)
 
@@ -118,7 +119,7 @@ class FuturesSettingsChanger(QObject):
         if symbol != self._vm.order_symbol:
             logger.info("Order panel left %s before its answer; not shown", symbol)
             return
-        self._vm.show_result(text, is_error=failed)
+        self._writes.show_result(text, is_error=failed)
         self._reread()
 
 

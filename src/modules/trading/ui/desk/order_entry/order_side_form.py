@@ -92,17 +92,19 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._price = QLineEdit()
         self._price.setObjectName(f"txtPrice{name}")
         self._price.setPlaceholderText("Price")
-        self._price.textEdited.connect(lambda text: view_model.set_price(side, text))
+        self._price.textEdited.connect(
+            lambda text: view_model.intents.set_price(side, text)
+        )
         self._last = QToolButton()
         self._last.setObjectName(f"btnLastPrice{name}")
         self._last.setText("Last")
         self._last.setToolTip("Use the last traded price")
-        self._last.clicked.connect(lambda: view_model.use_last_price(side))
+        self._last.clicked.connect(lambda: view_model.intents.use_last_price(side))
         self._best = QToolButton()
         self._best.setObjectName(f"btnBestPrice{name}")
         self._best.setText("BBO")
         self._best.setToolTip(_BEST_PRICE_TIP[side])
-        self._best.clicked.connect(lambda: view_model.use_best_price(side))
+        self._best.clicked.connect(lambda: view_model.intents.use_best_price(side))
         self._market_price = QLabel("Market price")
         self._price_unit = QLabel()
 
@@ -111,7 +113,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._stop.setPlaceholderText("Stop")
         self._stop.setToolTip("The order is placed once the last price reaches this")
         self._stop.textEdited.connect(
-            lambda text: view_model.set_stop_price(side, text)
+            lambda text: view_model.intents.set_stop_price(side, text)
         )
         self._stop_unit = QLabel()
 
@@ -119,7 +121,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._quantity.setObjectName(f"txtAmount{name}")
         self._quantity.setPlaceholderText("Amount")
         self._quantity.textEdited.connect(
-            lambda text: view_model.set_quantity(side, text)
+            lambda text: view_model.intents.set_quantity(side, text)
         )
         self._quantity_unit = QLabel()
 
@@ -127,7 +129,9 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._spend.setObjectName(f"txtTotal{name}")
         self._spend.setPlaceholderText("Total")
         self._spend.setToolTip("How much to spend; the exchange decides the amount")
-        self._spend.textEdited.connect(lambda text: view_model.set_total(side, text))
+        self._spend.textEdited.connect(
+            lambda text: view_model.intents.set_total(side, text)
+        )
         self._spend_unit = QLabel()
 
         self._slider = QSlider(Qt.Orientation.Horizontal)
@@ -138,7 +142,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._slider.setTickInterval(_SLIDER_STEP)
         self._slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self._slider.valueChanged.connect(
-            lambda percent: view_model.set_percent(side, percent)
+            lambda percent: view_model.intents.set_percent(side, percent)
         )
 
         # Available, maximum, total, fee and, on Futures, cost and an
@@ -152,7 +156,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._problem.setWordWrap(True)
         self._submit = QPushButton()
         self._submit.setObjectName(f"btnSubmit{name}")
-        self._submit.clicked.connect(lambda: view_model.request_submit(side))
+        self._submit.clicked.connect(lambda: view_model.intents.request_submit(side))
 
         stop_row = QHBoxLayout()
         stop_row.addWidget(self._stop, 1)
