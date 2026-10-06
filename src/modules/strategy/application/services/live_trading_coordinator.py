@@ -142,12 +142,7 @@ class LiveTradingCoordinator:
         self._leverage = leverage
 
     def handle(self, signal: Signal) -> None:
-        if signal.symbol != self._live_symbol:
-            logger.debug(
-                "Ignoring signal for %s — live symbol is %s.",
-                signal.symbol,
-                self._live_symbol,
-            )
+        if self._is_ignored(signal):
             return
 
         metadata = self._metadata_provider.get_or_fetch(signal.symbol)
@@ -274,6 +269,40 @@ class LiveTradingCoordinator:
             logger.info(
                 "Live order submitted for %s: %s", signal.symbol, signal.action.value
             )
+
+    def _is_ignored(self, signal: Signal) -> bool:
+        """@return True when `handle()` stops before any read: a signal for
+        another symbol, or one arriving while trading is OFF (`BUG-163`).
+
+        The switch is asked first, as `ExecuteOrderHandler` orders its own
+        gates (free before network). A strategy can only be armed while
+        trading is OFF, so an armed strategy with the switch off is the normal
+        state; without this, every signal there fetched metadata and made an
+        authenticated account read before the switch refused it. The desk is
+        told why nothing was sent."""
+        if signal.symbol != self._live_symbol:
+            logger.debug(
+                "Ignoring signal for %s — live symbol is %s.",
+                signal.symbol,
+                self._live_symbol,
+            )
+            return True
+        if self._trading_session.snapshot().enabled:
+            return False
+        logger.debug(
+            "[live-signal] %s %s not acted on: trading is OFF; no account or "
+            "market read.",
+            signal.action.value,
+            signal.symbol,
+        )
+        self._event_publisher.publish(
+            LiveOrderBlockedEvent(
+                symbol=signal.symbol,
+                reason="Trading is OFF — the strategy's signal was not sent.",
+                venue=self._venue,
+            )
+        )
+        return True
 
     def _sellable_spot_quantity(
         self,

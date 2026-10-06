@@ -18,6 +18,7 @@ module that now owns it:
 `tests/unit/modules/strategy/test_module_tick_subscription.py`.
 """
 
+import logging
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -36,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_s
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+#: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG`.
+_TRACE = 5
 
 
 def _market_data(
@@ -59,22 +63,24 @@ def _market_data(
     )
 
 
-def test_logs_at_debug_not_info():
-    """`EPIC-021G` §2.5 / `BUG-042`: tick processing runs every candle,
-    every symbol — it must never be `INFO`, or `SignalLogHandler` mirrors
-    it to the UI's queued log model on every single tick."""
+def test_a_tick_logs_nothing_above_trace(caplog):
+    """`BUG-163` (`logging-rule.md` §6): this runs for every tick of every
+    streamed symbol, armed strategy or not — the line used to be `DEBUG`
+    (`BUG-042` had already banned `INFO`), two lines per tick with the
+    websocket's own, enough to bury a `--dev` log. Per-tick detail is `TRACE`,
+    which only `--debug` turns on."""
     handler = MarketTickEventHandler(VenueStrategySessions(lambda _venue: Mock()))
-    handler.logger = Mock()
+    event = MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
 
-    handler.handle(
-        MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
-    )
+    with caplog.at_level(logging.DEBUG, logger="App.TradingStrategy"):
+        handler.handle(event)
+    assert caplog.records == []
 
-    handler.logger.debug.assert_called_once()
-    handler.logger.info.assert_not_called()
-    call_args = handler.logger.debug.call_args[0][0]
-    assert "Processing spot tick for" in call_args
-    assert "BTCUSDT" in call_args
+    with caplog.at_level(_TRACE, logger="App.TradingStrategy"):
+        handler.handle(event)
+    (record,) = caplog.records
+    assert record.levelno == _TRACE
+    assert "Processing spot tick for BTCUSDT" in record.getMessage()
 
 
 def test_every_tick_is_handed_to_the_session_unfiltered():

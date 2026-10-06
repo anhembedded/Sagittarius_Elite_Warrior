@@ -34,6 +34,8 @@ logger = logging.getLogger("App.LiveStream")
 
 #: Delay before retrying the WebSocket connection after an `OSError`.
 _RECONNECT_DELAY_SECONDS = 5
+#: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG`, on only under `--debug`.
+_TRACE = 5
 
 #: A subscription key: `(market, symbol, interval.value)` — plain `str`
 #: interval, not `TimeFrame`, so two owners on the same symbol/interval hash
@@ -256,19 +258,20 @@ class BinanceWebsocketService(ILiveStreamService):
         if res.get("e") == "kline":
             try:
                 market_data = self._parse_kline(res)
-                # `BUG-113` (`BUG-042`/`BUG-095` regression) — fires per
-                # kline tick, several times a second on an active symbol;
-                # `logging-rule.md` §4/§6 puts per-event detail at DEBUG,
-                # never INFO (`SignalLogHandler`'s queued-signal UI mirror
-                # is exactly what `BUG-042` once froze on 838 per-event
-                # INFO lines).
-                logger.debug(
-                    "[Live Stream] %s | Price: %s | Vol: %s | Closed: %s",
-                    market_data.symbol,
-                    market_data.close_price,
-                    market_data.volume,
-                    market_data.is_closed,
-                )
+                # `BUG-113` (`BUG-042`/`BUG-095` regression), `BUG-163` —
+                # fires per kline tick, several times a second per symbol;
+                # `logging-rule.md` §6 puts per-tick detail at TRACE (on only
+                # under `--debug`), not DEBUG, which a whole `--dev` run
+                # keeps (`BUG-042`'s UI-freeze came from per-event INFO).
+                if logger.isEnabledFor(_TRACE):
+                    logger.log(
+                        _TRACE,
+                        "[Live Stream] %s | Price: %s | Vol: %s | Closed: %s",
+                        market_data.symbol,
+                        market_data.close_price,
+                        market_data.volume,
+                        market_data.is_closed,
+                    )
                 self._event_bus.emit(
                     MarketTickEvent(market_data=market_data, market_type=market)
                 )
