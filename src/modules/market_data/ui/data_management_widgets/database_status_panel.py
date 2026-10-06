@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
     write_value,
@@ -144,10 +145,7 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         self._search.textEdited.connect(lambda _text: self._refresh_counts())
 
         self._table = self._build_table()
-        self._empty = QLabel(_empty_text(0))
-        self._empty.setObjectName("lblDatabaseStatusEmpty")
-        self._empty.setWordWrap(True)
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty = empty_page(_empty_text(0), "lblDatabaseStatusEmpty")
 
         self._actions = self._build_actions()
 
