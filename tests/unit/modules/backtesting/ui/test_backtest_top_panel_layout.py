@@ -11,7 +11,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_top_panel imp
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    StatCardData,
+    stat_cards_to_qml,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 def test_top_panel_initial_state_shows_result_box(qapp: QApplication) -> None:
@@ -41,24 +46,32 @@ def test_top_panel_with_cards_shows_header_cards_and_expand_button(
     mock_expand = MagicMock()
     vm.openExtendedMetricsRequested.connect(mock_expand)
 
-    primary = [
-        {
-            "title": "TOTAL PNL (NET PNL)",
-            "value": "-8,193.54",
-            "valueTone": Tone.NEGATIVE,
-            "suffix": "USD",
-            "badgeText": "-81.94%",
-            "badgeTone": Tone.NEGATIVE,
-        },
-        {
-            "title": "WIN RATE",
-            "value": "10.33%",
-            "valueTone": Tone.NEUTRAL,
-            "suffix": "",
-            "badgeText": "92/891 trades",
-            "badgeTone": Tone.NEUTRAL,
-        },
-    ]
+    primary = stat_cards_to_qml(
+        [
+            StatCardData(
+                "net_pnl",
+                "TOTAL PNL (NET PNL)",
+                -8193.54,
+                ColumnKind.MONEY,
+                Tone.NEGATIVE,
+                "USD",
+                "Net PnL (%)",
+                -81.94,
+                ColumnKind.PERCENT,
+                Tone.NEGATIVE,
+            ),
+            StatCardData(
+                "win_rate",
+                "WIN RATE",
+                10.33,
+                ColumnKind.PERCENT,
+                Tone.NEUTRAL,
+                "",
+                "Winning / closed trades",
+                "92 / 891",
+            ),
+        ]
+    )
     vm.run_result.set_stat_cards(primary=primary, extended=[])
     vm.run_result.set_result_warning_text("⚠ Trading fees make up most of the result.")
     panel._sync_all()

@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
     StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _NEUTRAL = Tone.NEUTRAL
 
@@ -43,8 +44,17 @@ _NEUTRAL = Tone.NEUTRAL
 def _snapshot(**overrides: object) -> ExtendedMetricsSnapshot:
     defaults: dict[str, object] = {
         "cards": (
-            StatCardData("Gross Profit", "1,148.19", _NEUTRAL, "USD", "", _NEUTRAL),
-            StatCardData("Gross Loss", "-9,341.72", _NEUTRAL, "USD", "", _NEUTRAL),
+            StatCardData(
+                "gross_profit",
+                "Gross Profit",
+                1148.19,
+                ColumnKind.MONEY,
+                _NEUTRAL,
+                "USD",
+            ),
+            StatCardData(
+                "gross_loss", "Gross Loss", -9341.72, ColumnKind.MONEY, _NEUTRAL, "USD"
+            ),
         ),
         "gross_profit": 1148.19,
         "gross_loss": -9341.72,
@@ -71,7 +81,7 @@ def test_opening_the_dialog_renders_the_real_view_models_snapshot(qapp, view_mod
 
     assert dialog.objectName() == "backtestMetricsDetailDialog"
     assert dialog.isVisible() is True
-    assert dialog._profit_label.text() == "+1,148.19"
+    assert dialog._profit_label.text() == "1,148.19"
     assert dialog._loss_label.text() == "-9,341.72"
     dialog.close()
 
@@ -86,7 +96,12 @@ def test_timeframe_seconds_reads_the_view_models_live_selected_timeframe(
         _snapshot(
             cards=(
                 StatCardData(
-                    "Max Drawdown Duration", "24", _NEUTRAL, "bars", "", _NEUTRAL
+                    "max_drawdown_duration",
+                    "Max Drawdown Duration",
+                    24,
+                    ColumnKind.QUANTITY,
+                    _NEUTRAL,
+                    "bars",
                 ),
             )
         )
@@ -101,8 +116,8 @@ def test_timeframe_seconds_reads_the_view_models_live_selected_timeframe(
         for row in group.rows
         if row.title == "MAX DRAWDOWN DURATION"
     )
-    # 24 bars * 3600s / 86400 = 1 day exactly.
-    assert row.info == "≈ 1 days"
+    # 24 bars * 3600s = 24 hours exactly, written as the formatter writes a duration.
+    assert row.info == "≈ 24:00:00"
     dialog.close()
 
 
@@ -115,7 +130,7 @@ def test_stat_cards_changed_refreshes_an_already_open_dialog(qapp, view_model):
     view_model.run_result.statCardsChanged.emit()
     qapp.processEvents()
 
-    assert dialog._profit_label.text() == "+5,000.00"
+    assert dialog._profit_label.text() == "5,000.00"
     dialog.close()
 
 

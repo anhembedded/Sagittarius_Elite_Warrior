@@ -20,14 +20,32 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _PROFIT = MetricRow(
-    "Net profit", "1,200.00", "USD", Tone.POSITIVE, "Good", Tone.POSITIVE
+    "net_profit",
+    "Net profit",
+    1200.0,
+    ColumnKind.MONEY,
+    "USD",
+    Tone.POSITIVE,
+    "Good",
+    Tone.POSITIVE,
 )
 _DRAWDOWN = MetricRow(
-    "Max drawdown", "-8%", "", Tone.NEGATIVE, "", Tone.NEUTRAL, "≈ 3 days"
+    "max_drawdown",
+    "Max drawdown",
+    -8.0,
+    ColumnKind.PERCENT,
+    "",
+    Tone.NEGATIVE,
+    "",
+    Tone.NEUTRAL,
+    "≈ 72:00:00",
 )
-_TRADES = MetricRow("Trades", "42", "", Tone.NEUTRAL, "", Tone.NEUTRAL)
+_TRADES = MetricRow(
+    "trades", "Trades", 1042, ColumnKind.QUANTITY, "", Tone.NEUTRAL, "", Tone.NEUTRAL
+)
 _GROUPS = (
     MetricGroup("PROFIT", (_PROFIT, _DRAWDOWN)),
     MetricGroup("ACTIVITY", (_TRADES,)),
@@ -50,8 +68,8 @@ def _shown(table) -> list[list[str]]:
 def test_each_metric_is_a_row_with_its_section_in_order(qapp):
     assert _shown(_table()) == [
         ["PROFIT", "Net profit", "1,200.00 USD", "Good"],
-        ["PROFIT", "Max drawdown", "-8%", "≈ 3 days"],
-        ["ACTIVITY", "Trades", "42", ""],
+        ["PROFIT", "Max drawdown", "-8.00%", "≈ 72:00:00"],
+        ["ACTIVITY", "Trades", "1,042", ""],
     ]
 
 

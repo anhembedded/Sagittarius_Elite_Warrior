@@ -4,15 +4,15 @@ column specs (`EPIC-033L` stage 4, `EPIC-033N`).
 Both dialogs list `MetricComparisonRow`s: a metric, its value on each side,
 and the difference. They were `QTreeWidget`s each configured by hand
 (selection, resize modes); the table is now a `SpecTable` over this model, so
-it shares every other table's properties. The values arrive formatted, so
-they pass through the formatter unchanged; the value columns' kind still
-right-aligns them. The difference is coloured by its tone as well as signed.
+it shares every other table's properties. The rows hold raw numbers
+of a kind each, and the model writes them with the formatter (below); the value
+columns' kind still right-aligns them. The difference is coloured by its tone as well as signed.
 
 A dialog's own column titles are a subclass: In-sample vs Out-of-sample here,
 Column A vs Column B for Compare Reports.
 
 Sorting (review of PR #364): every spec-configured table sorts from its
-header, but these values are formatted text in mixed units, money beside a
+header, but these values are in mixed units, money beside a
 percentage beside a count, so no numeric order exists across rows. The
 metric column sorts by name; a value column sorts back to the metrics' own
 order, the one the rules build. `comparison_table()` points the table's
@@ -53,11 +53,15 @@ class MetricComparisonModel(RowTableModel[MetricComparisonRow]):
     """A metric per row, the two sides and their difference."""
 
     def _value(self, row: MetricComparisonRow, column: int) -> DisplayValue:
+        # One column holds metrics of different kinds, money beside a percent
+        # beside a count, and a column has one kind: the row writes its own
+        # figures through `write_value`, the formatter's entry for a value
+        # outside a column of its kind.
         values: tuple[DisplayValue, ...] = (
             row.label,
-            row.value_a,
-            row.value_b,
-            row.delta,
+            row.text(row.value_a),
+            row.text(row.value_b),
+            row.text(row.delta),
         )
         return values[column]
 

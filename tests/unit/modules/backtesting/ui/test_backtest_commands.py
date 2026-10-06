@@ -36,12 +36,17 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    StatCardData,
+    stat_cards_to_qml,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _REQUESTS = {
     RUN: "runBacktestRequested",
@@ -63,16 +68,20 @@ def _actions(view_model: BackTestViewModel):
 
 def _show_a_result(view_model: BackTestViewModel) -> None:
     view_model.run_result.set_stat_cards(
-        primary=[
-            {
-                "title": "WIN RATE",
-                "value": "10.33%",
-                "valueTone": Tone.NEUTRAL,
-                "suffix": "",
-                "badgeText": "92/891 trades",
-                "badgeTone": Tone.NEUTRAL,
-            }
-        ],
+        primary=stat_cards_to_qml(
+            [
+                StatCardData(
+                    "win_rate",
+                    "WIN RATE",
+                    10.33,
+                    ColumnKind.PERCENT,
+                    Tone.NEUTRAL,
+                    "",
+                    "Winning / closed trades",
+                    "92 / 891",
+                )
+            ]
+        ),
         extended=[],
     )
 

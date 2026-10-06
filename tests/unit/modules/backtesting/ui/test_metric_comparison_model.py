@@ -1,5 +1,6 @@
 """The comparison dialogs' metrics table, from column specs (`EPIC-033L`
-stage 4): values pass through as written, the value columns are numeric so
+stage 4, `EPIC-033N`): a row's figures are written by the formatter in the
+row's own kind, the value columns are numeric so
 they right-align, and only the difference is coloured, by its tone."""
 
 from __future__ import annotations
@@ -19,13 +20,33 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import ratio_key
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _GAIN = MetricComparisonRow(
-    "Net profit", "1,000.00", "1,250.00", "+250.00", Tone.POSITIVE
+    "Net profit",
+    "net_profit",
+    ColumnKind.MONEY,
+    1000.0,
+    1250.0,
+    250.0,
+    Tone.POSITIVE,
 )
-_LOSS = MetricComparisonRow("Win rate", "55%", "50%", "-5%", Tone.NEGATIVE)
-_FLAT = MetricComparisonRow("Trades", "10", "10", "0", Tone.NEUTRAL)
+_LOSS = MetricComparisonRow(
+    "Win rate", "win_rate", ColumnKind.PERCENT, 55.0, 50.0, -5.0, Tone.NEGATIVE
+)
+_FLAT = MetricComparisonRow(
+    "Trades", "trades", ColumnKind.QUANTITY, 10, 10, 0, Tone.NEUTRAL
+)
+_RATIO = MetricComparisonRow(
+    "Sharpe Ratio",
+    ratio_key("sharpe"),
+    ColumnKind.QUANTITY,
+    1.5,
+    0.25,
+    -1.25,
+    Tone.NEGATIVE,
+)
 
 
 def _model() -> ReportComparisonModel:
@@ -41,14 +62,31 @@ def test_each_dialog_has_its_own_column_titles(qapp):
     assert titles == ["Metric", "In-sample", "Out-of-sample", "Δ (OOS − IS)"]
 
 
-def test_the_values_are_numeric_columns_and_pass_through(qapp):
+def test_the_values_are_numeric_columns_written_by_the_formatter_per_row(qapp):
     model = _model()
 
     kinds = [spec.kind for spec in ReportComparisonModel.COLUMNS]
     assert kinds[0] is ColumnKind.TEXT
     assert all(kind.is_numeric for kind in kinds[1:])
-    row = [model.data(model.index(0, column)) for column in range(4)]
-    assert row == ["Net profit", "1,000.00", "1,250.00", "+250.00"]
+
+    def shown(row: int) -> list[object]:
+        return [model.data(model.index(row, column)) for column in range(4)]
+
+    assert shown(0) == ["Net profit", "1,000.00", "1,250.00", "250.00"]
+    assert shown(1) == ["Win rate", "55.00%", "50.00%", "-5.00%"]
+    assert shown(2) == ["Trades", "10", "10", "0"]
+
+
+def test_a_ratio_row_is_two_decimals(qapp):
+    model = ReportComparisonModel()
+    model.set_rows([_RATIO])
+
+    assert [model.data(model.index(0, column)) for column in range(4)] == [
+        "Sharpe Ratio",
+        "1.50",
+        "0.25",
+        "-1.25",
+    ]
 
 
 def test_only_the_difference_is_coloured_by_its_tone(qapp):
@@ -71,7 +109,7 @@ def _table():
 
 def test_a_value_column_sorts_back_to_the_metrics_own_order(qapp):
     """The values are formatted text in mixed units: a text sort would put
-    "+250.00" before "0" before "-5%" (review of PR #364)."""
+    "250.00" before "0" before "-5.00%" (review of PR #364)."""
     table = _table()
 
     for column in (1, 2, 3):

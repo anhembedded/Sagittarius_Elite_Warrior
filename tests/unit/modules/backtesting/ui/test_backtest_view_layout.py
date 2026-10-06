@@ -15,31 +15,32 @@ from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    StatCardData,
+    stat_cards_to_qml,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
-def _stat_cards(count: int) -> list[dict[str, str]]:
-    return [
-        {
-            "title": f"Card {i}",
-            "value": "1.00",
-            "valueTone": Tone.NEUTRAL,
-            "suffix": "USD",
-            "badgeText": "",
-            "badgeTone": Tone.NEUTRAL,
-        }
-        for i in range(count)
-    ]
+def _stat_cards(count: int) -> list[dict[str, object]]:
+    return stat_cards_to_qml(
+        [
+            StatCardData(
+                f"card{i}", f"Card {i}", 1.0, ColumnKind.MONEY, Tone.NEUTRAL, "USD"
+            )
+            for i in range(count)
+        ]
+    )
 
 
 def _trade_log_rows(count: int) -> list[TradeLogRow]:
@@ -74,7 +75,7 @@ def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp):
     assert v.top_widget._result_box.isVisible() is False
     # `EPIC-025` PR 4.3g: a `QWidget` again, reachable by `findChild` — the
     # name is unchanged from every previous version of this row.
-    assert v.top_widget._stat_cards_row.findChild(QWidget, "cardMetric_0") is not None
+    assert v.top_widget._stat_cards_row.readout.value_text("card0") == "1.00"
 
 
 def test_metrics_header_and_expand_button_appear_when_a_run_completes(view, qapp):
