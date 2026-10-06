@@ -62,6 +62,10 @@ class StrategyCard(QGroupBox):
         self._cbo_live_strategy.setObjectName("cboLiveStrategy")
         self._cbo_live_interval = QComboBox()
         self._cbo_live_interval.setObjectName("cboLiveInterval")
+        # The strategies arrive after the card is built: each field sizes
+        # itself to what it lists, so its choice is shown whole.
+        for combo in (self._cbo_live_strategy, self._cbo_live_interval):
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self._spn_sizing_percent = QDoubleSpinBox()
         self._spn_sizing_percent.setObjectName("spnLiveSizingPercent")
         self._spn_sizing_percent.setRange(MIN_SIZING_PERCENT, MAX_SIZING_PERCENT)
