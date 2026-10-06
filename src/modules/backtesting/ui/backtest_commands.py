@@ -6,7 +6,9 @@ and Stop backtest, scoped to the mode; those two are also on its toolbar. The
 report tools are not in the catalogue yet (`EPIC-033L` designs the mode) and
 sit beside them until then. Run and Stop were one button that changed its
 text; as two commands each says what it does, and only the one that applies
-is enabled. Stop, not Cancel: a run has side effects on the screen it is
+is enabled. Run carries an icon, and the toolbar writes its text beside it, so a
+person looking for the run finds a button, not a label (`BOT-164`); Stop has
+none, since the library's outline square reads as a check box once greyed. Stop, not Cancel: a run has side effects on the screen it is
 filling (`ui-presentation-rule.md` §10). Save report…, Export trades… (the
 trades the Trades panel lists, as CSV; a button on that panel until
 `EPIC-033L`) and the two that ask for a file end with "…"; the comparison and Monte Carlo windows take none.
@@ -71,6 +73,7 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
         on_toolbar: bool = False,
         shortcut: str | None = None,
         needs_input: bool = False,
+        icon: str | None = None,
     ) -> CommandContribution:
         return CommandContribution(
             contributor_id=_CONTRIBUTOR,
@@ -79,12 +82,13 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=BACKTEST_MENU,
             mode=route,
             on_toolbar=on_toolbar,
+            icon=icon,
             shortcut=shortcut,
             needs_input=needs_input,
         )
 
     return (
-        command(RUN, "&Run backtest", on_toolbar=True, shortcut="F7"),
+        command(RUN, "&Run backtest", on_toolbar=True, shortcut="F7", icon="play"),
         command(STOP, "&Stop backtest", on_toolbar=True),
         command(SAVE_REPORT, "Sa&ve report…", needs_input=True),
         command(IMPORT_REPORT, "&Import report…", needs_input=True),

@@ -59,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
     action_descriptor,
+    apply_icons,
     exclusive_groups,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
@@ -160,6 +161,9 @@ class MainWindow(OptionsShell):
         self._commands = tuple(
             (command, registry.contribute(action_descriptor(command)))
             for command in screen_registry.commands()
+        )
+        apply_icons(
+            self._commands, QApplication.palette().color(QPalette.ColorRole.WindowText)
         )
         # Before any presenter binds: a choice checked at bind time already
         # unchecks its alternatives.

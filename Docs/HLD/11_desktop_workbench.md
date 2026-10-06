@@ -143,7 +143,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
   - Trade: &Close position (the Futures position selected in Positions, at market; asks Close position / Keep position) and, in View, Hide other pair&s (the chosen venue's tables show its symbol only) (`EPIC-033I`).
 
-Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
+Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. On the Backtest toolbar it is the one button with an icon (play) beside its text, so it reads as a button and not as a label (`BOT-164`): a mode's commands toolbar writes each command's text beside its icon, and a command names its icon in its contribution (`CommandContribution.icon`); the menu entry shares the action, so it shows the icon too. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 
 Developer mode adds no menu of its own (proposed in `EPIC-033P` stage 3; the user agreed on
 2026-10-06, "Đồng ý bỏ menu Developer"): its probes are panels,
