@@ -140,7 +140,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 
-Developer mode adds no menu of its own (decided in `EPIC-033P` stage 3): its probes are panels,
+Developer mode adds no menu of its own (proposed in `EPIC-033P` stage 3; the user agreed on
+2026-10-06, "Đồng ý bỏ menu Developer"): its probes are panels,
 each with its View toggle like every dock (`ui-presentation-rule.md` §8), and the mode itself is on
 the mode bar; a `Develo&per` menu of the same toggles would be a second command for each (§2,
 Consistency), and the Dev Board's commands that might have filled it went with the Dev Board. A
