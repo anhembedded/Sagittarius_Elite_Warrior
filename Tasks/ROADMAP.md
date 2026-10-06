@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 182 | 84.3% |
+| 🟢 **Completed** | 182 | 83.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 26 | 12.0% |
+| 🔴 **Backlog** | 27 | 12.4% |
 | ❌ **Cancelled** | 8 | 3.7% |
 | 📈 **Tổng số Task** | **217** | **100%** |
 
