@@ -16,6 +16,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from PySide6.QtWidgets import QTableView
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
@@ -54,6 +55,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
     IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_column_checks import (
+    alignment_problems,
+    digit_font_problems,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     PRECISION_ROLE,
     Precision,
@@ -195,3 +200,31 @@ def test_a_running_bots_orders_are_quoted_in_its_venues_filters(
     assert filters is not None
     assert orders.data(price, PRECISION_ROLE) == Precision(filters.tick_size)
     assert orders.data(quantity, PRECISION_ROLE) == Precision(filters.step_size)
+
+
+def test_the_running_bots_tables_show_each_column_as_its_kind(
+    screen: _Screen,
+) -> None:
+    """`EPIC-033N`, the conformance suite's column checks on the Bots mode
+    with rows in its tables (the booted suite sees no bot): the list, the
+    resting orders and the venues' strategies align by kind, and their
+    prices, quantities and money are in the fixed-pitch font."""
+    app = screen.app
+    bot_id = _created(app)
+    screen.select(bot_id)
+    screen.press(BotAction.START)
+    screen.wait_for(bot_id, S.RUNNING)
+    view = screen.view
+    screen.qtbot.waitUntil(lambda: bool(view.orders.orders.rows), timeout=_WAIT_MS)
+    view.show()
+    screen.qtbot.waitExposed(view)
+    view.surface.dock_of(view.orders).raise_()
+    measured = [
+        table.objectName()
+        for table in view.findChildren(QTableView)
+        if table.isVisible() and table.model().rowCount()
+    ]
+
+    assert {"tblBots", "tblBotOrders"} <= set(measured)
+    assert alignment_problems(view, view) == []
+    assert digit_font_problems(view, view) == []

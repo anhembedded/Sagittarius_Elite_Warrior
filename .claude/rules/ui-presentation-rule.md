@@ -38,7 +38,7 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - No fixed, minimum or maximum size on a control or a container that holds text; the style's metrics decide (MS `vis-layout`: standard button 75×23 px at 96 dpi comes from the style; Qt `QStyle.pixelMetric`). Margins and spacing are the layout's defaults. `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H4]`
 - No scroll area inside a scroll area; content that outgrows its panel scrolls once, at the panel. `[guard: test_workbench_conformance.py; review: H4]`
 - No widget placed over another by `move()` (no overlay on a chart); controls live in toolbars, docks or context menus. `[review: H4]`
-- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). The conformance suite runs every check at 1024×700, 1366×768 and 1920×1080 and fails on a mode whose minimum size holds the window bigger than that; alignment is review until `EPIC-033N`. `[guard: test_workbench_conformance.py; review: H4]`
+- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). The conformance suite runs every check at 1024×700, 1366×768 and 1920×1080 and fails on a mode whose minimum size holds the window bigger than that, and on a visible column, header or cell, aligned against its kind (§9). `[guard: test_workbench_conformance.py; review: H4]`
 - MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
 ## 4. Text, icons and terminology
