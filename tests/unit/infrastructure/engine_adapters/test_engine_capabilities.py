@@ -59,8 +59,8 @@ def test_a_missing_parameter_is_reported_not_just_a_missing_symbol():
     missing = find_missing_capabilities(
         (
             RequiredEngineCapability(
-                module="sagittarius_engine.extensions.pyside_mvc",
-                attribute="create_quick_widget",
+                module="sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view",
+                attribute="configure_item_view",
                 parameter="no_such_parameter",
                 since="TEST",
             ),
