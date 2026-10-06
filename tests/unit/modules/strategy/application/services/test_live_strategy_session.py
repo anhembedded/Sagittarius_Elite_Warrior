@@ -12,6 +12,7 @@ Two groups of tests live here:
    hypothetical.
 """
 
+import dataclasses
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
@@ -309,3 +310,23 @@ def test_the_lock_is_released_before_the_coordinator_runs():
     session.dispatch_tick(_market_data("BTCUSDT"))
 
     assert session.config == swapped
+
+
+def test_a_forming_candle_never_reaches_the_engine_only_the_closed_one_does():
+    """`BUG-164`: the stream pushes the forming kline about four times a
+    second (`is_closed=False`), and `IStrategyEngine.on_tick` is the closed-
+    candle commit — each indicator takes the close as a new bar. Feeding it
+    every update made an EMA out of ~240 forming prices a minute instead of
+    one close. Only the closed candle is a bar."""
+    engine = Mock()
+    engine.on_tick.return_value = None
+    session = LiveStrategySession(_FakeFactory([(engine, Mock())]))
+    session.arm(_config())
+    forming = dataclasses.replace(_market_data(), is_closed=False)
+    closed = _market_data()
+
+    session.dispatch_tick(forming)
+    engine.on_tick.assert_not_called()
+
+    session.dispatch_tick(closed)
+    engine.on_tick.assert_called_once_with(closed)

@@ -198,8 +198,8 @@ class LiveStrategySession(IArmedStrategy):
     def dispatch_tick(self, market_data: MarketData) -> None:
         """@brief One closed candle in; at most one order intent out.
 
-        @details Silently ignores everything that is not the armed
-        symbol+interval — `BUG-085`: an EMA fed alternating `1m` and `5m`
+        @details Silently ignores a candle still forming (`BUG-164`) and
+        everything that is not the armed symbol+interval — `BUG-085`: an EMA fed alternating `1m` and `5m`
         closes is neither timeframe's EMA, and the same is true across
         symbols. Multi-symbol live trading needs one session each, not one
         engine fed everything.
@@ -210,6 +210,13 @@ class LiveStrategySession(IArmedStrategy):
             coordinator = self._coordinator
 
         if engine is None or config is None:
+            return
+        if not market_data.is_closed:
+            # `BUG-164` — a forming kline arrives about four times a second;
+            # `IStrategyEngine.on_tick` commits each indicator with a new bar,
+            # and only a closed candle is one. Evaluating a forming bar is
+            # `on_forming_bar_tick`'s provisional path (`BOT-042D`), which a
+            # live order must not ride.
             return
         if (
             market_data.symbol != config.symbol
