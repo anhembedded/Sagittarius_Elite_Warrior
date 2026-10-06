@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     access_key_problems,
     control_height_problems,
     duplicate_button_problems,
+    separator_problems,
     style_sheet_problems,
     toolbar_in_menu_problems,
     toolbar_problems,
@@ -62,6 +63,43 @@ def test_a_shared_or_missing_access_key_is_seen(qtbot) -> None:
         "File → 'Save' has no access key",
         "File → Recent → 'Clear' has no access key",
     ]
+
+
+def test_a_separator_at_an_end_or_doubled_is_seen(qtbot) -> None:
+    """`BOT-157`: a separator only ever divides two groups."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    menu = QMenu("&View", window)
+    window.menuBar().addMenu(menu)
+    menu.addSeparator()
+    menu.addAction("&Spot market")
+    menu.addSeparator()
+    menu.addSeparator()
+    menu.addAction("Load &older candles")
+    chart = QMenu("C&hart", menu)
+    menu.addMenu(chart)
+    chart.addAction("&Go live")
+    chart.addSeparator()
+    menu.addSeparator()
+
+    assert separator_problems(window, window) == [
+        "View: starts with a separator",
+        "View: ends with a separator",
+        "View: two separators together",
+        "View → Chart: ends with a separator",
+    ]
+
+
+def test_one_separator_between_two_groups_is_not_a_finding(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    menu = QMenu("&View", window)
+    window.menuBar().addMenu(menu)
+    menu.addAction("&Spot market")
+    menu.addSeparator()
+    menu.addAction("Load &older candles")
+
+    assert separator_problems(window, window) == []
 
 
 def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:

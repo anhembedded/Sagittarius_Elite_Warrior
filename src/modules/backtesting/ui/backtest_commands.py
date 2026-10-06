@@ -49,7 +49,10 @@ MONTE_CARLO = f"{_PREFIX}.monte_carlo"
 EXPORT_TRADES = f"{_PREFIX}.export_trades"
 #: View → Chart (`BOT-155`).
 CHART_MENU = ("&View", "C&hart")
+#: The exclusive group, and the menu group, of the three chart modes.
 CHART_MODE = f"{_PREFIX}.chart_mode"
+#: The menu group of the chart's three layers (`BOT-157`).
+CHART_LAYERS = f"{_PREFIX}.chart_layers"
 SHOW_CANDLESTICK = f"{_PREFIX}.show_candlestick"
 SHOW_EQUITY = f"{_PREFIX}.show_equity"
 SHOW_SIDE_BY_SIDE = f"{_PREFIX}.show_side_by_side"
@@ -95,9 +98,11 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
 
 
 def _chart_commands(route: str) -> tuple[CommandContribution, ...]:
-    """View → Chart: the chart mode (one of three) and the three layers."""
+    """View → Chart: the chart mode (one of three) and the three layers,
+    each a menu group of its own; the chart's navigation follows as a third
+    (`chart_commands`, `BOT-157`)."""
 
-    def choice(command_id: str, text: str, group: str | None) -> CommandContribution:
+    def mode_choice(command_id: str, text: str) -> CommandContribution:
         return CommandContribution(
             contributor_id=_CONTRIBUTOR,
             command_id=command_id,
@@ -105,14 +110,26 @@ def _chart_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=CHART_MENU,
             mode=route,
             checkable=True,
-            exclusive_group=group,
+            exclusive_group=CHART_MODE,
+            group=CHART_MODE,
+        )
+
+    def layer(command_id: str, text: str) -> CommandContribution:
+        return CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=command_id,
+            text=text,
+            menu_path=CHART_MENU,
+            mode=route,
+            checkable=True,
+            group=CHART_LAYERS,
         )
 
     return (
-        choice(SHOW_CANDLESTICK, "&Candlestick", CHART_MODE),
-        choice(SHOW_EQUITY, "&Equity curve", CHART_MODE),
-        choice(SHOW_SIDE_BY_SIDE, "&Side by side", CHART_MODE),
-        choice(SHOW_INDICATORS, "Strategy &indicators", None),
-        choice(SHOW_VOLUME, "&Volume", None),
-        choice(SHOW_TRADE_FLAGS, "&Buy/sell flags", None),
+        mode_choice(SHOW_CANDLESTICK, "&Candlestick"),
+        mode_choice(SHOW_EQUITY, "&Equity curve"),
+        mode_choice(SHOW_SIDE_BY_SIDE, "&Side by side"),
+        layer(SHOW_INDICATORS, "Strategy &indicators"),
+        layer(SHOW_VOLUME, "&Volume"),
+        layer(SHOW_TRADE_FLAGS, "&Buy/sell flags"),
     )

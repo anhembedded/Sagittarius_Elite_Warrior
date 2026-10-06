@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from itertools import pairwise
 
 from PySide6.QtGui import QAction, QFontDatabase
 from PySide6.QtWidgets import (
@@ -322,6 +323,39 @@ def access_key_problems(window: QMainWindow, page: QWidget) -> list[str]:
     found = []
     for title, menu in top_menus(window):
         found += _menu_key_problems(menu, title)
+    return found
+
+
+def _menu_separator_problems(menu: QMenu, path: str) -> list[str]:
+    items = [a for a in menu.actions() if a.isVisible()]
+    found = []
+    if items and items[0].isSeparator():
+        found.append(f"{path}: starts with a separator")
+    if len(items) > 1 and items[-1].isSeparator():
+        found.append(f"{path}: ends with a separator")
+    if any(
+        before.isSeparator() and after.isSeparator()
+        for before, after in pairwise(items)
+    ):
+        found.append(f"{path}: two separators together")
+    for item in items:
+        submenu = item.menu()
+        if submenu is not None:
+            found += _menu_separator_problems(
+                submenu, f"{path} → {plain_text(item.text())}"
+            )
+    return found
+
+
+def separator_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§6 (`BOT-157`): a separator divides one group of related commands from
+    the next (MS `cmd-menus`), so a menu never starts or ends with one and
+    never shows two together, in the menus as the showing mode fills them.
+    Qt's own `separatorsCollapsible` hides such a separator on some styles
+    only, so the menu's own items are what is judged."""
+    found = []
+    for title, menu in top_menus(window):
+        found += _menu_separator_problems(menu, title)
     return found
 
 

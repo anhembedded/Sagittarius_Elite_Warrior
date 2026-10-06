@@ -25,9 +25,17 @@ exclusive `QActionGroup`, so checking one unchecks the others and checking
 the checked one keeps it (Qt `QActionGroup`; MS `cmd-menus`, "option
 buttons" in a menu).
 
+Related commands of one menu name one `group` (`BOT-157`): the menu shows
+each group together, in the order its first command was contributed, with
+one separator between adjacent groups and none at either end (MS
+`cmd-menus`, "group related items"). A command naming no group is in the
+`None` group, so every command declared before groups existed stays where it
+was.
+
 Plausible extensions, each a local change: an icon name (one field and one
 line in the window); a command whose text follows its state, such as
-Pause / Resume (one field naming the alternate text).
+Pause / Resume (one field naming the alternate text); a group's order key, or
+a group's title shown as a section header where the platform has one.
 """
 
 from __future__ import annotations
@@ -71,6 +79,9 @@ class CommandContribution:
     #: The choice this checkable command is one option of; the window makes
     #: every command naming the same group one exclusive `QActionGroup`.
     exclusive_group: str | None = None
+    #: The related commands it sits with in its menu; a separator divides
+    #: one group from the next. `None` is the group of commands naming none.
+    group: str | None = None
 
     def __post_init__(self) -> None:
         if self.shortcut is not None and self.standard_shortcut is not None:

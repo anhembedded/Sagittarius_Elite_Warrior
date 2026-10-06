@@ -54,6 +54,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     mnemonic_problems,
     nested_scroll_problems,
     perspective_problems,
+    separator_problems,
     style_sheet_problems,
     toolbar_in_menu_problems,
     toolbar_problems,
@@ -83,6 +84,7 @@ MODE_CHECKS: dict[str, Check] = {
     "combo_text_shown_whole": combo_problems,
     "mnemonics_escaped": mnemonic_problems,
     "access_keys_unique": access_key_problems,
+    "menu_separators_between_groups": separator_problems,
     "perspective_round_trip": perspective_problems,
     "bars_named_uniquely": object_name_problems,
     # Last: it rearranges the mode, then puts the default back.
