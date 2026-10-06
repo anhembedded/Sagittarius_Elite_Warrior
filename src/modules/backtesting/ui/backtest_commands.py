@@ -114,5 +114,5 @@ def _chart_commands(route: str) -> tuple[CommandContribution, ...]:
         choice(SHOW_SIDE_BY_SIDE, "&Side by side", CHART_MODE),
         choice(SHOW_INDICATORS, "Strategy &indicators", None),
         choice(SHOW_VOLUME, "&Volume", None),
-        choice(SHOW_TRADE_FLAGS, "&Buy/Sell flags", None),
+        choice(SHOW_TRADE_FLAGS, "&Buy/sell flags", None),
     )

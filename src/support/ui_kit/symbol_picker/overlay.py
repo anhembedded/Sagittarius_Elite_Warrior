@@ -37,10 +37,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     TabBar,
     apply_role,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_view import configure_spec_view
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 from .filtering import (
     QUOTE_ANY,
@@ -185,7 +185,7 @@ class SymbolPickerOverlay(Overlay):
         # Whole-row, one row at a time, read-only: the one way every table of
         # the application behaves (`EPIC-033N`); a user who clicked a cell
         # meant the pair it belongs to.
-        self._proxy = configure_item_view(
+        self._proxy = configure_spec_view(
             self._table,
             self._model,
             SymbolTableModel.COLUMNS,

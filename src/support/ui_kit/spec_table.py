@@ -2,9 +2,10 @@
 application is shown (`EPIC-033N`).
 
 A panel hands over its model and says what an empty table should tell the
-user; the Engine's `configure_item_view` does everything a column's kind
-decides (header, alignment, sorting on the raw value, whole-row selection,
-no editing, values written by `APP_VALUE_FORMATTER`), and the Engine's
+user; `configure_spec_view` does everything a column's kind decides
+(header, alignment, sorting on the raw value, whole-row selection, no
+editing, values written by `APP_VALUE_FORMATTER`, a stretch column that
+never squeezes below its content), and the Engine's
 `EmptyStateStack` shows the instruction while there are no rows.
 
 Every panel used to do this by hand: a `QSortFilterProxyModel` pointed at a
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_view import configure_spec_view
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
@@ -35,7 +37,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     IValueFormatter,
     Selection,
     SpecProxyModel,
-    configure_item_view,
 )
 
 
@@ -67,7 +68,7 @@ class SpecTable[TRow]:
         self.model = model
         self.view = QTableView()
         self.view.setObjectName(object_name)
-        self.proxy: SpecProxyModel = configure_item_view(
+        self.proxy: SpecProxyModel = configure_spec_view(
             self.view,
             model,
             model.COLUMNS,

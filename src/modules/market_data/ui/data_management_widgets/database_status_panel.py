@@ -52,14 +52,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_view import configure_spec_view
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
     write_value,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench import (
-    ColumnKind,
-    configure_item_view,
-)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from ..database_status_table_model import (
     DatabaseStatusFilterProxy,
@@ -165,7 +163,7 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         table.setObjectName("tblDatabaseStatus")
         # Columns, sorting and selection from the model's specs (`EPIC-033N`),
         # over the search filter: the spec proxy sorts what the filter keeps.
-        self._spec_proxy = configure_item_view(
+        self._spec_proxy = configure_spec_view(
             table,
             self._proxy,
             DatabaseStatusTableModel.COLUMNS,

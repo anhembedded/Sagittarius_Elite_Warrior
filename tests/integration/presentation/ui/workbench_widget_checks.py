@@ -293,6 +293,26 @@ def toolbar_in_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
     return found
 
 
+def toolbar_text_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§4: a toolbar action reads exactly as the menu item of its command,
+    which is in sentence case (MS `cmd-menus`): one command, one name. The
+    Backtest chart's toolbar read "Equity Curve" beside View → Chart →
+    Equity curve (2026-10-06)."""
+    in_menus = [a for _, menu in top_menus(window) for a in _menu_actions(menu)]
+    by_name = {command_name(a.text()): plain_text(a.text()) for a in in_menus}
+    found = []
+    for bar in page.findChildren(QToolBar):
+        for action in bar.actions():
+            text = plain_text(action.text()).rstrip("…").strip()
+            in_menu = by_name.get(command_name(action.text()), "").rstrip("…").strip()
+            if in_menu and text != in_menu:
+                found.append(
+                    f"{text!r} on toolbar {bar.objectName()!r} reads {in_menu!r} "
+                    "in its menu"
+                )
+    return found
+
+
 def access_key_problems(window: QMainWindow, page: QWidget) -> list[str]:
     """§4: every menu item has an access key unique in its menu (MS
     `cmd-menus`), in the menus as the showing mode fills them. An item goes

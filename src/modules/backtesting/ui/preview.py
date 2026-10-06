@@ -141,7 +141,7 @@ def build_preview() -> QWidget:
     # EPIC-027D — builds the chart card so `chart_controls` exists and
     # `_show_marker_sides()` actually runs once, the same call order
     # `BackTestPresenter` uses (`render_symbol_cards` after the view model),
-    # so the preview's Spot run really demonstrates "Short Only" dropped
+    # so the preview's Spot run really demonstrates "Short only" dropped
     # from the chart's side filter, not just the trade-log tab.
     view.render_symbol_cards(["ETHUSDT"])
     view.resize(1400, 850)

@@ -22,11 +22,11 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
     HistoryView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_view import configure_spec_view
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 _LOADING_TEXT = "Reading the history..."
 
@@ -62,7 +62,7 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         # Columns, sorting and selection from the model's specs (`EPIC-033N`).
         # Not `SpecTable`: this panel's empty page says three different
         # things (reading, an error, no rows), not one instruction.
-        configure_item_view(
+        configure_spec_view(
             self._table, model, model.COLUMNS, formatter=APP_VALUE_FORMATTER
         )
 
