@@ -53,6 +53,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
     IHiddenAsMode,
     IShownAsMode,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.application_identity import (
+    APPLICATION_NAME,
+    about_text,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
     ConfirmClose,
     ask_before_closing,
@@ -114,7 +118,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
 
 logger = logging.getLogger("App.Shell.MainWindow")
 
-APPLICATION_NAME = "Sagittarius Elite Warrior"
 #: The first window's size, before the user has resized anything: a desk's
 #: right column is wide, and a smaller window clips it.
 _WINDOW_SIZE = (1440, 860)
@@ -146,7 +149,7 @@ class MainWindow(OptionsShell):
         super().__init__(
             registry,
             application_name=APPLICATION_NAME,
-            about_text=_about_text(venue_text, version_text),
+            about_text=about_text(venue_text, version_text),
         )
         action_owner.setParent(self)
         self._container = app_engine.context.container
@@ -391,13 +394,3 @@ class MainWindow(OptionsShell):
     def _mark_dirty(self) -> None:
         if self._state_coordinator is not None and not self._is_shut_down:
             self._state_coordinator.mark_dirty(self)
-
-
-def _about_text(venue_text: str, version_text: str) -> str:
-    """Help → About: the name, the version and the venue."""
-    lines = [APPLICATION_NAME, "A desktop workbench for Binance trading bots."]
-    if version_text:
-        lines.append(version_text)
-    if venue_text:
-        lines.append(f"Venue: {venue_text}")
-    return "\n".join(lines)
