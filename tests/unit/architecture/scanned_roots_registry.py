@@ -61,6 +61,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # `EPIC-030E` — layer direction inside one module; same `scanned_files()`
     # walk over `src/` as the row above.
     ("tests/unit/architecture/test_module_layers_point_inward.py", (("src", "*.py"),)),
+    # EPIC-033N — display text in UI code is written by the formatter.
+    (
+        "tests/unit/architecture/test_display_values_go_through_the_formatter.py",
+        (("src", "*.py"),),
+    ),
     # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
     (
         "tests/unit/architecture/test_god_files_only_shrink.py",
