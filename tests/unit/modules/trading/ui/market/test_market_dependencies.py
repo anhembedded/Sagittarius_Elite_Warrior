@@ -109,3 +109,17 @@ def test_without_a_coordinator_the_choice_is_not_remembered(qapp):
     )
 
     assert dependencies.state is None
+
+
+def test_the_parameters_command_saves_where_the_charts_read(qapp):
+    """Tools → Indicator parameters… saves through `params_store`; the
+    charts read `script_params`. They must be the one store, or an edit
+    never reaches a chart (`BOT-063`, moved from the Dev Board)."""
+    dependencies = market_dependencies_for(
+        _container(FakeHistoricalKlines(), FakeMarketStream())
+    )
+
+    assert dependencies.params_store is not None
+    dependencies.params_store.save("ema_20", {"period": 5})
+
+    assert dependencies.script_params("ema_20") == {"period": 5}

@@ -118,6 +118,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | &Tools | &Run backtest… | F7 | Backtest | — |
 | | &Stop backtest | — | Backtest | — |
 | | Check &connection | — | — | — |
+| | &Indicator parameters… (Market mode: the script selected in Indicators; off when it declares no input; `BOT-153`) | — | — | — |
 | | &Options | `QKeySequence.Preferences` | — | — |
 | &Window | &Reset layout | — | — | — |
 | | &Output | Ctrl+J | — | — |

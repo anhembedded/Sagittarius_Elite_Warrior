@@ -188,6 +188,11 @@ class MarketChart(LiveCandleChart):
         start, end = self._klines[0].open_time, self._klines[-1].close_time
         return HistoryRange(start, end) if start < end else None
 
+    def redraw_indicators(self) -> None:
+        """Recomputes the drawn scripts with their saved parameters, which
+        each new instance reads (Tools → Indicator parameters…)."""
+        self._replay()
+
     def show_indicators(self, keys: Iterable[str]) -> None:
         """Draws exactly `keys`, recomputed over the candles already drawn."""
         wanted = tuple(keys)
