@@ -39,6 +39,14 @@
     Explicit alias for the default behavior: lint + format + full parallel test
     suite with --cov-fail-under=80 gate enforced.
 
+.PARAMETER Part
+    Which half of -Full to run, for GitHub's two parallel jobs (BOT-160):
+    "Unit" runs tests/unit alone; "Rest" runs the static checks, every other
+    tier and sanity. Both collect coverage into the file COVERAGE_FILE names
+    and leave the 80% gate to the job that combines them; a part run locally
+    is therefore never evidence the coverage gate holds. "All" (the default)
+    is the whole gate in one run, as before.
+
 .PARAMETER Workers
     Override the number of parallel xdist worker processes (default:
     min(logical processor count, 6) — see .DESCRIPTION). Use -Workers 1 to
@@ -70,6 +78,8 @@ param(
     [switch]$UnitOnly,
     [switch]$Full,
     [switch]$TestnetOnly,
+    [ValidateSet("All", "Unit", "Rest")]
+    [string]$Part = "All",
     # Default: min(logical processor count, 6) — 6 is the benchmarked sweet
     # spot on the primary dev machine; auto-scaled down so a smaller box
     # (fewer than 6 real cores) never oversubscribes xdist past what it
@@ -255,6 +265,12 @@ if ($SanityOnly) {
     $useCoverage = $false
     $enforceCoverageGate = $false
     $SkipLint = $true
+}
+# A part covers half the tests, so its own percentage means nothing: the job
+# that combines both parts' coverage files enforces the gate (BOT-160).
+if ($Part -ne "All") {
+    $enforceCoverageGate = $false
+    if ($Part -eq "Unit") { $SkipLint = $true }
 }
 
 $venvActivateWin = if (Test-Path (Join-Path $repoRoot ".venv\Scripts\Activate.ps1")) {
@@ -460,7 +476,13 @@ if (-not $SkipTests) {
         # ----------------------------------------------------------------
         $workerCount = [math]::Max(1, $Workers)
 
-        if ($UnitOnly) {
+        # Sanity runs with every mode but the Unit part, whose sibling Rest
+        # part runs it on the other GitHub job (BOT-160).
+        $runSanity = $Part -ne "Unit"
+        if ($Part -eq "Unit") {
+            $mainTarget = $unitTarget
+            Write-Step "Unit part ($workerCount workers; sanity runs in the Rest part)"
+        } elseif ($UnitOnly) {
             $mainTarget = $unitTarget
             Write-Step "Unit ($workerCount workers) + Sanity (1 core) — running concurrently"
         } else {
@@ -471,7 +493,7 @@ if (-not $SkipTests) {
 
         # Launch sanity as a background PowerShell job
         $sanityLogFile = Join-Path $tempDir "ci_sanity_$([System.Diagnostics.Process]::GetCurrentProcess().Id).log"
-        $sanityJob = Start-Job -ScriptBlock {
+        $sanityJob = if ($runSanity) { Start-Job -ScriptBlock {
             param($executionRoot, $pytestBin, $target, $logFile, $rootDir, $repoDir, $pathSep)
             Set-Location $executionRoot
             $env:PYTHONPATH     = "$rootDir$pathSep$executionRoot$pathSep$repoDir"
@@ -479,7 +501,7 @@ if (-not $SkipTests) {
             $output = & $pytestBin $target -v --rootdir=$rootDir 2>&1
             $output | Out-File -FilePath $logFile -Encoding utf8
             return $LASTEXITCODE
-        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile, $botRoot, $repoRoot, $pythonPathSeparator
+        } -ArgumentList $testExecutionRoot, $pytestExe, $sanityTarget, $sanityLogFile, $botRoot, $repoRoot, $pythonPathSeparator } else { $null }
 
         # Run main tests in foreground while sanity runs in background
         Push-Location $testExecutionRoot
@@ -498,6 +520,11 @@ if (-not $SkipTests) {
             # deliberately redundant with it, not a replacement for it.
             $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/testnet"
 
+            # The Rest part runs every tier the Unit part does not (BOT-160).
+            if ($Part -eq "Rest") {
+                $pytestArgs += "--ignore=Sagittarius_Elite_Warrior/tests/unit"
+            }
+
             # tests/integration/presentation/ui/ runs here, unconditionally.
             # BOT-038's exclusion was removed on 2026-08-25 after 7 re-runs
             # (sequential and -n 6 with a concurrent sanity process, matching
@@ -512,7 +539,9 @@ if (-not $SkipTests) {
             # bug, do not reopen BOT-038.
             if ($useCoverage) {
                 $pytestArgs += "--cov=Sagittarius_Elite_Warrior/src"
-                $pytestArgs += "--cov-report=term-missing"
+                # A part's own report would read as a failing percentage; the
+                # combining job prints the one that counts (BOT-160).
+                $pytestArgs += $(if ($Part -eq "All") { "--cov-report=term-missing" } else { "--cov-report=" })
                 if ($enforceCoverageGate) { $pytestArgs += "--cov-fail-under=80" }
             }
             # Parallel: default min(cores, 6) workers, override with -Workers N (-Workers 1 = sequential)
@@ -530,7 +559,7 @@ if (-not $SkipTests) {
         # Wait for background sanity job and collect results
         Write-Host ""
         Write-Host "  ⏳ Waiting for sanity job to complete..." -ForegroundColor DarkGray
-        $sanityExitCode = Receive-Job -Job $sanityJob -Wait -AutoRemoveJob
+        $sanityExitCode = if ($sanityJob) { Receive-Job -Job $sanityJob -Wait -AutoRemoveJob } else { 0 }
 
         # Print sanity output
         if (Test-Path $sanityLogFile) {
@@ -545,7 +574,8 @@ if (-not $SkipTests) {
         if ($mainExitCode -ne 0) { $failed += "Tests"; Write-Failure "Tests" }
         else { Write-Success "Tests" }
 
-        if ($sanityExitCode -ne 0) { $failed += "Sanity"; Write-Failure "Sanity" }
+        if (-not $runSanity) { Write-Host "  ⏭️  Sanity runs in the Rest part" -ForegroundColor DarkGray }
+        elseif ($sanityExitCode -ne 0) { $failed += "Sanity"; Write-Failure "Sanity" }
         else { Write-Success "Sanity" }
     }
 

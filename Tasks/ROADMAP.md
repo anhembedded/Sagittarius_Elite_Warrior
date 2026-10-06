@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 176 | 81.9% |
+| 🟢 **Completed** | 177 | 81.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
 | 🔴 **Backlog** | 31 | 14.4% |
 | ❌ **Cancelled** | 8 | 3.7% |
-| 📈 **Tổng số Task** | **215** | **100%** |
+| 📈 **Tổng số Task** | **216** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-160`](completed/BOT-160_gate_in_two_parallel_parts.md) (the GitHub gate runs in two parallel parts)**: [Decision: the user chose to split the gate after the measurement. `ci-local.ps1 -Part Unit|Rest` runs the two halves on two runners; the required `ci-local.ps1 -Full` check keeps its name, needs both, runs even when one fails, and enforces the 80% floor on their combined coverage. Nothing is dropped, and a local `-Full` is unchanged.]
 - [x] **[`BOT-159`](completed/BOT-159_faster_slowest_tests.md) (the gate's slowest tests run faster, proving the same things)**: [Decision: the user's idea of running only integration tests on CI was measured first. Of the 381 s gate, integration is about a minute and the 627 architecture guards about 33 s; the time sits in a few slow tests and in coverage. The scanned-roots guard now reads the git index once (21 s → 2 s) and the `BUG-052` probe releases its stuck worker after naming it (about 28 s → 12 s). No test was removed; the per-test Backtest presenter was measured and kept.]
 - [x] **[`EPIC-033P`](epics/EPIC-033_windows_workbench/completed/EPIC-033P_developer_mode.md) (the Developer mode replaces the Dev Board, which is deleted)**: [Decision: stage 3 deletes `trading/ui/dashboard/` (33 files, 5 483 lines), its route, its six commands and the `dev_board` surface, once the Market mode, the desks and the Developer mode carry everything it offered that the user kept. A coverage survey of its 287 tests (252 unit, 35 integration) classified each as already covered on the surface that owns the behaviour now (105), re-homed before the deletion (12, into 10 new tests: the Spot desk's order path in `create_app()` against the fake server, the `BUG-134` and `BUG-052` regressions, a leased symbol refused in words, the four default EMAs against the real script registry) or dying with the board (170, e.g. its auto-start, its Load history form and Last signal); in shared files, `BUG-104`'s click-goes-live and the health check's request moved onto the Market mode and Backtest. Every baseline that named its files was lowered; `pyproject.toml`'s eight mypy excludes for the deleted files await the user's approval to be removed. No `Develo&per` menu: the probes' View toggles already reach them.]
 - [x] **`EPIC-033A`, `EPIC-033B`, `EPIC-033C` (the UI contract, its conformance fences and the workbench shell) closed**: [Root cause of the last open box: `ModeHost` saved only its surface's layout, so the commands toolbar of every mode with a surface came back on top and shown after a restart, against the rule's "toolbars persist per mode"; the window now remembers each mode's host and its surface separately, and `test_main_window_state.py` rearranges every mode and restarts to prove it. Two clauses a booted window can show had no check and now do: access keys unique per menu, and every toolbar action in a menu (found as failing for the shared chart toolbar in Market, the Dev Board and Backtest, recorded in the baseline). Re-homed to `EPIC-033N`: per-column alignment, the fixed-pitch font for aligned digits and the value-formatter ban. The unused `ui.font.*` configuration keys were removed on the user's approval (PR #372).]

@@ -1,6 +1,9 @@
 # One gate, two runners. This workflow prepares the environment and then runs
 # scripts/ci-local.ps1 -Full — the same script every local handoff uses — so
-# "green" has one definition (ci-rule.md §1). Until 2026-09-17 it re-listed
+# "green" has one definition (ci-rule.md §1). On GitHub it runs as two parts
+# in parallel (`-Part Unit`, `-Part Rest`) and one job, still named
+# `ci-local.ps1 -Full`, that requires both and enforces the combined coverage
+# (BOT-160). Until 2026-09-17 it re-listed
 # the script's steps by hand and drifted from them twice (the ruff targets,
 # the testnet exclusion) with nothing to say so.
 #
@@ -26,9 +29,17 @@ defaults:
     shell: bash
 
 jobs:
-  gate:
-    name: ci-local.ps1 -Full
+  part:
+    # The gate in two halves on two runners at once (BOT-160): the unit tier
+    # took about three quarters of the single job's test time, so splitting it from the
+    # static checks, integration and sanity cuts the wait to the longer half.
+    # Nothing is dropped: the parts together run what -Full runs.
+    name: gate (${{ matrix.part }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [Unit, Rest]
 
     steps:
       - name: Checkout Repository
@@ -85,9 +96,13 @@ jobs:
           # for the reviewer and the user to judge by eye (pr-review SKILL
           # §5.1, test_workbench_screenshots.py).
           SEW_UI_SCREENSHOTS: ${{ github.workspace }}/ui-screenshots
+          # Each part keeps its own coverage data; the `gate` job below
+          # combines both and enforces the 80% floor (BOT-160).
+          COVERAGE_FILE: ${{ github.workspace }}/coverage/.coverage.${{ matrix.part }}
         run: |
           set +e
-          pwsh -NoProfile -File scripts/ci-local.ps1 -Full > gate-stdout.log 2>&1
+          mkdir -p coverage
+          pwsh -NoProfile -File scripts/ci-local.ps1 -Full -Part ${{ matrix.part }} > gate-stdout.log 2>&1
           status=$?
           sed -n '/===CI_LOCAL_RESULT===/,/===END_CI_LOCAL_RESULT===/p' gate-stdout.log
           if [ "$status" -ne 0 ]; then
@@ -102,16 +117,79 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-local-logs
+          name: ci-local-logs-${{ matrix.part }}
           path: |
             logs/
             gate-stdout.log
           if-no-files-found: warn
 
-      - name: Keep the UI pictures
+      - name: Keep the coverage data
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.part }}
+          path: coverage/
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - name: Keep the UI pictures
+        # The pictures come from the integration tier, which the Rest part runs.
+        if: always() && matrix.part == 'Rest'
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots
           path: ui-screenshots/
           if-no-files-found: warn
+
+  gate:
+    # Keeps the required check's name. It passes only when both parts passed
+    # and their combined coverage holds the 80% floor; `if: always()` makes it
+    # run (and fail) when a part fails, since a skipped required check would
+    # read as passing.
+    name: ci-local.ps1 -Full
+    needs: part
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        # The coverage data names source files by the same absolute paths the
+        # parts measured them at, so the report reads this checkout.
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install coverage
+        # The locked version, the one the parts wrote their data with.
+        run: pip install "$(grep -E '^coverage==' requirements.lock)"
+
+      - name: Collect the parts' coverage data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage
+          merge-multiple: true
+
+      - name: Combine the parts
+        run: |
+          echo "Unit and Rest parts: ${{ needs.part.result }}"
+          status=0
+          if [ "${{ needs.part.result }}" != "success" ]; then
+            echo "A part of the gate failed; read its job log (gate (Unit) / gate (Rest))."
+            status=1
+          fi
+          export COVERAGE_FILE=coverage/.coverage
+          if coverage combine --keep coverage/.coverage.Unit coverage/.coverage.Rest; then
+            coverage report --fail-under=80 || status=1
+          else
+            echo "The parts' coverage data could not be combined."
+            status=1
+          fi
+          echo "===CI_LOCAL_RESULT==="
+          echo "RESULT: $([ "$status" -eq 0 ] && echo PASS || echo FAIL)"
+          echo "PARTS: ${{ needs.part.result }}"
+          echo "===END_CI_LOCAL_RESULT==="
+          exit $status
