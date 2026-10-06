@@ -65,8 +65,8 @@ class BackTestViewModel(UiModeViewModel):
     Validation, `RunStaticBacktestCommand` construction, and dispatch all
     stay in the Presenter.
 
-    `controlsEnabled` (from `UiModeViewModel`) locks every Backtest input
-    and command while a run, a cancel or a sync is under way.
+    `controlsEnabled` (from `UiModeViewModel`) locks every Backtest input and
+    command while a run, cancel or sync is under way (its tests: `..._controls`).
     """
 
     DISABLED_UI_MODES = frozenset(

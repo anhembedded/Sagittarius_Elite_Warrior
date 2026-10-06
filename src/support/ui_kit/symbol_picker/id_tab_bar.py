@@ -16,6 +16,10 @@ class IdTabBar(QTabBar):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # A filter row of a few tabs is read at a glance: its minimum is all
+        # of them, so a layout widens the window instead of hiding a tab
+        # behind scroll arrows (review of PR #385).
+        self.setUsesScrollButtons(False)
         self.currentChanged.connect(
             lambda index: self.id_selected.emit(index, str(self.tabData(index)))
         )
