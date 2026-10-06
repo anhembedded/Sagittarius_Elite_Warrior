@@ -126,12 +126,9 @@ def test_the_backlog_reads_by_priority_then_id(tmp_path):
 
     board = render_board(tmp_path)
 
-    assert (
-        board.index("| high |")
-        < board.index("| low |")
-        < board.index("| later |")
-        < board.index("| unranked |")
-    )
+    # BOT-209 sorts first by id: only the rank puts the deferral after both ranked rows.
+    assert board.index("| high |") < board.index("| low |") < board.index("| later |")
+    assert board.index("| low |") < board.index("| unranked |")
 
 
 def test_the_counts_come_from_the_folders(tmp_path):
