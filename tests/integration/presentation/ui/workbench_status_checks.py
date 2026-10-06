@@ -10,7 +10,15 @@ bar, left indeterminate, ran "busy" in every mode from start-up.
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMainWindow, QProgressBar, QStatusBar, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QLabel,
+    QMainWindow,
+    QProgressBar,
+    QSizeGrip,
+    QStatusBar,
+    QWidget,
+)
 
 
 def status_at_rest_problems(window: QMainWindow, page: QWidget) -> list[str]:
@@ -30,12 +38,25 @@ def status_at_rest_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def _items(bar: QStatusBar) -> list[QWidget]:
+    """What the bar holds: a widget added to it directly, or the slot around one."""
     return [
         child
-        for child in bar.findChildren(QWidget)
-        if child.parentWidget() is bar and child.layout() is not None
+        for child in bar.findChildren(
+            QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly
+        )
+        if not isinstance(child, QSizeGrip)
     ]
 
 
-def _shows_something(item: QWidget, window: QMainWindow) -> bool:
-    return any(child.isVisibleTo(window) for child in item.findChildren(QWidget))
+def _shows_something(widget: QWidget, window: QMainWindow) -> bool:
+    """A label shows its text or picture; a container, a child that shows something."""
+    if not widget.isVisibleTo(window):
+        return False
+    if isinstance(widget, QLabel):
+        return bool(widget.text().strip()) or not widget.pixmap().isNull()
+    if widget.layout() is None:
+        return True
+    children = widget.findChildren(
+        QWidget, options=Qt.FindChildOption.FindDirectChildrenOnly
+    )
+    return any(_shows_something(child, window) for child in children)
