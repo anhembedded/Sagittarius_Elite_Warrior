@@ -33,8 +33,10 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.list_model import (
     IndicatorScriptListModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.ui_mode_view_model import (
+    UiModeViewModel,
+)
 from sagittarius_engine.extensions.pyside_mvc import (
-    BaseQmlViewModel,
     LogListModel,
     from_qml,
 )
@@ -52,10 +54,9 @@ _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
 _DEFAULT_TIMEFRAME = TimeFrame.ONE_MINUTE.value
 
 
-class BackTestViewModel(BaseQmlViewModel):
+class BackTestViewModel(UiModeViewModel):
     """
-    @brief QML-facing state for the Backtest Screen (BOT-022).
-
+    @brief The Backtest screen's state (BOT-022).
     @details
     Deliberately holds no business logic — same split as
     `SettingsViewModel`/`SidebarViewModel`: it carries the editable config
@@ -64,9 +65,8 @@ class BackTestViewModel(BaseQmlViewModel):
     Validation, `RunStaticBacktestCommand` construction, and dispatch all
     stay in the Presenter.
 
-    `controlsEnabled` (from `BaseQmlViewModel`) locks every Backtest input and
-    command; each reads it and its change signal instead of comparing
-    `uiMode` itself (`test_backtest_view_model_controls.py`).
+    `controlsEnabled` (from `UiModeViewModel`) locks every Backtest input and
+    command while a run, cancel or sync is under way (its tests: `..._controls`).
     """
 
     DISABLED_UI_MODES = frozenset(
