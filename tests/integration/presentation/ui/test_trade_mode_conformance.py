@@ -1,6 +1,7 @@
 """`EPIC-033I` — the Trade mode with both venues built passes every check of
 the conformance suite, at each window size, with each venue shown; and each
-is pictured for a reviewer (`pr-review` SKILL §5.1).
+is pictured for a reviewer (`pr-review` SKILL §5.1); and at each size the
+order entry New order… focuses is in view (review of PR #375).
 
 The conformance suite boots the app as configured, with no trading venue
 enabled, so it measures the Trade mode's notice alone. Here the app runs
@@ -22,7 +23,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
     TRADE_ROUTE,
 )
@@ -37,6 +38,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot
     SPOT,
     Boot,
     choose,
+    new_order,
     trade_mode_running,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
@@ -94,3 +96,31 @@ def test_the_trade_mode_conforms_with_each_venue_shown(
 
     problems = ratchet_problems(_baseline(), report, size)
     assert not problems, "\n".join(problems)
+
+
+def _in_view(widget: QWidget) -> bool:
+    """At least half of `widget`'s height is drawn, not scrolled away."""
+    return widget.visibleRegion().boundingRect().height() * 2 >= widget.height()
+
+
+@pytest.mark.parametrize(
+    "size", [QSize(*s) for s in WINDOW_SIZES], ids=[f"{w}x{h}" for w, h in WINDOW_SIZES]
+)
+def test_new_order_focuses_a_field_the_person_sees(
+    trade_boot: Boot, size: QSize
+) -> None:
+    """Review of PR #375: the right column sat beside the chart only, under
+    which the bottom panels' hints left Order entry about 70 px at 1366×768,
+    so F9 put the keyboard in a price field scrolled out of view."""
+    with trade_mode_running(trade_boot) as desk:
+        desk.window.resize(size)
+        _settle()
+        for venue in (FUTURES, SPOT):
+            choose(desk.window, venue)
+            _settle()
+            new_order(desk)
+            _settle()
+            focused = QApplication.focusWidget()
+            assert focused is not None, venue
+            assert focused.objectName() == "txtPriceBuy", venue
+            assert _in_view(focused), (venue, focused.visibleRegion().boundingRect())

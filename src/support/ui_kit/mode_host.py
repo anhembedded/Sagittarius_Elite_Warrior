@@ -115,7 +115,8 @@ class ModeHost(RegionHost):
         """Window → Reset layout: the commands toolbar and the shown
         surface's panels go back to the default (`EPIC-033C`). A surface
         not showing keeps its own layout, as each venue of the Trade mode
-        keeps its own (`ISurfaceStack`); it is reset when it shows. Qt also
+        keeps its own (`ISurfaceStack`); nothing resets it later: the person
+        resets it while it shows. Qt also
         lays out a hidden window's restored state only once it shows, and
         leaves the tab bars of the state it replaced drawn over the panels
         (measured 2026-10-06, `EPIC-033I`)."""

@@ -8,7 +8,8 @@ shows, so that:
   person chooses another;
 - every surface's layout is remembered on exit and restored on start, each
   under its own surface id (the Engine's `PerspectiveStore`);
-- Window → Reset layout puts every surface back to its default.
+- Window → Reset layout puts the surface that shows back to its default;
+  the others keep the layouts the person left them in.
 
 A `Protocol`: the implementers are views, `QWidget`s, and Shiboken forbids a
 second `QObject`-derived base and conflicts with `ABCMeta`

@@ -172,13 +172,23 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         surface = self.surface
         surface.place_widget(Place.WORKSPACE, self.chart)
         surface.place_widget(Place.HEADER, self._context_bar())
+        # The right column runs the page's full height, beside the bottom
+        # panels too: an order is the mode's main work, and under the chart
+        # alone it was left a few lines at 1366×768 (review of PR #375).
+        surface.setCorner(
+            Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea
+        )
         self._place_right(_scrolling(order_entry, "scrollOrderEntry"))
+        # Every bottom panel asks for its minimum, so the tallest one's own
+        # hint never takes the chart's height (`MinimumHintSlot`).
         bottom: list[tuple[str, QWidget]] = [
             (title, MinimumHintSlot(table))
             for title, table in self.account_tabs.panels()
         ]
         bottom.append((EQUITY_CHART_TITLE, MinimumHintSlot(self.equity_chart)))
-        bottom.append((STRATEGY_TITLE, _scrolling(strategy, "scrollStrategy")))
+        bottom.append(
+            (STRATEGY_TITLE, MinimumHintSlot(_scrolling(strategy, "scrollStrategy")))
+        )
         for title, widget in bottom:
             surface.place_widget(Place.CONSOLE, widget, title=title)
         # What the account holds is what an order changes: in front.
