@@ -73,3 +73,16 @@ def test_the_change_signal_fires_only_when_the_controls_flip(qapp) -> None:
     view_model.set_ui_mode(BacktestUiState.IDLE.value)  # still enabled
 
     assert flips == [False, True]
+
+
+def test_a_mode_change_listener_reads_the_new_controls_state(qapp) -> None:
+    """`set_ui_mode` updates both values before either signal fires: a slot
+    on `uiModeChanged` that reads `controlsEnabled` sees the new one (the
+    top panel and the Run setup panel listen to both signals)."""
+    view_model = BackTestViewModel()
+    seen: list[bool] = []
+    view_model.uiModeChanged.connect(lambda: seen.append(view_model.controlsEnabled))
+
+    view_model.set_ui_mode(BacktestUiState.RUNNING.value)
+
+    assert seen == [False]
