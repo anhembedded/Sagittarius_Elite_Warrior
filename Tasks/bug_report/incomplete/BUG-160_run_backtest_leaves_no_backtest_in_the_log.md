@@ -3,7 +3,7 @@
 - **Reported:** 2026-10-06 (the user, in chat, with the app log pasted)
 - **Severity:** 🟡 P2 — the user cannot tell whether a backtest ran; none appears in the log
 - **Status:** Open
-- **Board:** The user saw no backtest run; the pasted log (22:52:40–22:52:42) holds no backtest command, only the Market chart re-syncing BTCUSDT alternately at 1s (fails, Invalid interval) and 1m. Not investigated yet.
+- **Board:** The user saw no backtest run; the pasted log (22:52:40–22:52:42) holds no backtest command, only the Market chart re-syncing BTCUSDT alternately at 1s (fails, Invalid interval) and 1m. Partly investigated: the WARNING after each failed 1s sync is fixed; the missing backtest and the flip need the owner's answers.
 - **Context:** Run a backtest (Backtest mode, Run backtest) → `src/modules/backtesting/` and `src/modules/market_data/` → `ui/` and `application/` layers
 - **Environment:** Windows (the user's desktop). App commit, engine commit and Python version not captured. Futures USD-M, BTCUSDT, trading off (live ticks from the stream). Same run as [BUG-159](BUG-159_market_1s_timeframe_without_data_gives_no_message.md).
 
@@ -138,17 +138,20 @@ The log as pasted:
 ```
 
 ## Root cause
-Not yet established. The log was read for what it shows; the code was not investigated.
+Established so far (2026-10-06, code read against the log; BUG-159 and BUG-160 share the 1s sync failure, not the missing backtest):
+- **Missing backtest: not established, and not a Market-chart defect.** `BackTestPresenter._on_run_backtest` (`backtest_presenter.py:816`) writes the `run_requested` dev trace as its first act, and Run is a Backtest-mode command (`backtest_commands.py:87`, `mode=route`). The pasted app log holds no backtest command and the Backtest Output of BUG-161 holds no `run_requested` between 22:51:05 and 22:53:38, which covers 22:52:40–42. So in that window Run was either not pressed in the Backtest mode or was disabled; the code shows no path that swallows a press. `BACKTEST_TRACE` lines are the Market chart's own history read (`get_historical_klines/handler.py:40`), which is why they looked like a backtest.
+- **1s fails on Futures: BUG-159's cause.** Binance USD-M Futures has no 1s klines (`APIError -1120`); fixed in `fix(bug-159)`.
+- **Warning after each failed 1s sync: fixed.** `StopLiveStreamCommandHandler` logged `WARNING` ("Failed to stop live stream. It might not be running.") for an owner holding no stream, though every chart restart stops unconditionally (`LiveChartCoordinator.stop`) and the run-log scan fails on WARNING. It is now INFO.
+- **The 1s/1m flip every ~0.5 s: not established.** No code path re-selects a timeframe on its own (`ChartToolbar.set_active` never emits); each flip is a `sig_timeframe_changed` from the toolbar, i.e. a click. The log carries no click record.
 
 ## Fix
-Not started.
+Only the WARNING (above), by `StopLiveStreamCommandHandler`; the report stays Open for the missing backtest and the flip.
 
 ## Regression test
-Not written.
+`tests/unit/modules/market_data/application/stream/stop_live_stream/test_handler.py::test_an_owner_holding_nothing_is_not_a_warning`, red before the fix, green after.
 
 ## Verification
-Not run.
+The handler test above; the unit suites of `support` and `modules` green. Not reproduced on the user's desktop.
 
 ## Suggested next steps
-- Ask the user for the steps between choosing 1s and starting the backtest, and for the log from the moment Run backtest (F7) is pressed.
-- Then follow `fix-bug-rule.md`.
+Needs the owner (nothing here can be decided from code): in which mode Run backtest / F7 was pressed at 22:52, and whether the 1s/1m toggling was the user clicking; then the app log file from that minute. Without them this report cannot be closed.

@@ -31,3 +31,16 @@ def test_execute_reports_failure_when_owner_had_nothing_running():
     response = handler.execute(StopLiveStreamCommand(owner="dashboard"))
 
     assert response.success is False
+
+
+def test_an_owner_holding_nothing_is_not_a_warning(caplog):
+    """`BUG-160`: a chart's unconditional stop of a stream that never opened
+    (its 1s sync had failed) logged `WARNING`, which the run-log scan fails on."""
+    stream_service = Mock()
+    stream_service.release_owner.return_value = False
+    handler = StopLiveStreamCommandHandler(stream_service)
+
+    with caplog.at_level("DEBUG"):
+        handler.execute(StopLiveStreamCommand(owner="market.BTCUSDT"))
+
+    assert [r for r in caplog.records if r.levelname in ("WARNING", "ERROR")] == []

@@ -54,7 +54,9 @@ The log as pasted:
 ```
 
 ## Root cause
-Not yet established. The log was read for what it shows; the code was not investigated.
+Not established (code read 2026-10-06; no defect found, and no reproduction). What the code says:
+- The log holds no `run_requested` dev trace, which `BackTestPresenter._on_run_backtest` (`backtest_presenter.py:816`) writes before anything can refuse the run. So no press reached the presenter: the command was not pressed, or was disabled (`backtest_command_binding.py`: Run follows `controlsEnabled`, off while the mode is RUNNING/SYNCING). A refusal by the range or tick-mode rule would have left `run_requested`, `run_config_invalid` and a failure line first.
+- The `preview_ignored` lines are the chart *preview* declining, by design (`chart_preview_coordinator.py:110-122`, BUG-073/BUG-109): the toolbar was in Realtime (tick) mode, whose 1s data is refused over a range wider than the limit or unbounded. Pressing Run in that state would be refused with a message (`TickModeRequiresBoundedRangeRule`); on Futures tick mode also needs 1s klines, which the exchange does not serve (BUG-159).
 
 ## Fix
 Not started.
@@ -66,5 +68,4 @@ Not written.
 Not run.
 
 ## Suggested next steps
-- Ask the user how the run was started and for the app log file (not the Output panel) from that moment; check the Execution… settings for a tick mode.
-- Then follow `fix-bug-rule.md`.
+Needs the owner: how Run was started (toolbar, F7, Tools menu), whether the Run command was greyed out, and whether Execution was Realtime (tick) with the market on Futures. Then the app log file from that moment.
