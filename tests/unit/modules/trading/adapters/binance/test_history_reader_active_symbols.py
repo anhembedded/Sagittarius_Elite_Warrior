@@ -76,3 +76,29 @@ def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -
         ("BTCUSDT", "HELD"),
         ("SOLUSDT", "OPEN_ORDER"),
     )
+
+
+def test_futures_names_a_held_pair_with_an_open_order_once_as_an_open_order() -> None:
+    client = Mock()
+    client.futures_position_information.return_value = [
+        {"symbol": "ETHUSDT", "positionAmt": "0.5"}
+    ]
+    client.futures_get_open_orders.return_value = [{"symbol": "ETHUSDT"}]
+    client.futures_get_open_algo_orders.return_value = []
+    client.futures_income_history.return_value = [
+        {"symbol": "ETHUSDT", "incomeType": "COMMISSION", "income": "-0.01"}
+    ]
+
+    assert _why(_futures(client).active_symbols(_SINCE)) == (("ETHUSDT", "OPEN_ORDER"),)
+
+
+def test_spot_names_a_held_pair_with_an_open_order_once_as_an_open_order() -> None:
+    client = Mock()
+    client.get_account.return_value = {
+        "balances": [{"asset": "BTC", "free": "0.1", "locked": "0"}]
+    }
+    client.get_open_orders.return_value = [{"symbol": "BTCUSDT"}]
+
+    reader = _spot(client, _Catalog("BTCUSDT"))
+
+    assert _why(reader.active_symbols(_SINCE)) == (("BTCUSDT", "OPEN_ORDER"),)

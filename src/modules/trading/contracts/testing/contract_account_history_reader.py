@@ -179,16 +179,15 @@ class AccountHistoryReaderContract:
     def test_active_symbols_state_why_each_pair_is_active(
         self, given_history: GivenHistory
     ) -> None:
-        """`BOT-149`: the reason is the venue's fact; the order a capped page
-        reads them in is the application's policy, so no order but the
-        symbol's is promised."""
+        """`BOT-149`: the reason is the venue's fact, so a pair known only
+        from a fill since `since` is `TRADED`; the order a capped page reads
+        them in is the application's policy, so no order but the symbol's is
+        promised."""
         reader = given_history([], [contract_trade("BTCUSDT", 10)])
 
         active = reader.active_symbols(_START + timedelta(hours=5))
 
-        assert active
-        assert all(isinstance(pair, ActiveSymbol) for pair in active)
-        assert all(isinstance(pair.reason, ActiveReason) for pair in active)
+        assert active == (ActiveSymbol("BTCUSDT", ActiveReason.TRADED),)
 
     def test_the_every_symbol_scan_limit_is_none_or_positive(
         self, given_history: GivenHistory

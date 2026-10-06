@@ -92,3 +92,28 @@ def test_a_named_symbol_is_read_alone() -> None:
     reader = _reader(held_symbols=_HELD, open_symbols=["ZZZUSDT"])
 
     assert history_scope(reader, "BBBUSDT", _SINCE, "AAAUSDT").symbols == ("BBBUSDT",)
+
+
+def test_exactly_the_limit_of_pairs_is_read_in_symbol_order_without_a_notice() -> None:
+    reader = _reader(held_symbols=["AAAUSDT", "BBBUSDT"], open_symbols=["ZZZUSDT"])
+
+    scope = history_scope(reader, None, _SINCE)
+
+    assert (scope.symbols, scope.notices) == (("AAAUSDT", "BBBUSDT", "ZZZUSDT"), ())
+
+
+def test_one_pair_over_the_limit_ranks_and_says_one_was_left_out() -> None:
+    reader = _reader(
+        held_symbols=["AAAUSDT", "BBBUSDT", "CCCUSDT"], open_symbols=["ZZZUSDT"]
+    )
+
+    scope = history_scope(reader, None, _SINCE)
+
+    assert scope.symbols == ("ZZZUSDT", "AAAUSDT", "BBBUSDT")
+    assert "3 of 4 active pairs" in scope.notices[0]
+
+
+def test_a_pair_held_and_with_an_open_order_ranks_as_an_open_order() -> None:
+    reader = _reader(held_symbols=_HELD + ["ZZZUSDT"], open_symbols=["ZZZUSDT"])
+
+    assert history_scope(reader, None, _SINCE).symbols[0] == "ZZZUSDT"
