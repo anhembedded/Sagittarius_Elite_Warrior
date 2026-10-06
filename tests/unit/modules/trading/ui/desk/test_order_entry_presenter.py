@@ -166,7 +166,7 @@ def test_a_confirmed_buy_is_sent_rounded_as_previewed() -> None:
     assert sent.reference_price == 100
     assert sent.reduce_only is False
     assert panel.submission.submitted_dry == []
-    assert "Buy 2.000 BTC at 100.0000 USDT" in panel.confirm.asked[0].question
+    assert "Buy 2.000 BTC at 100.00 USDT" in panel.confirm.asked[0].question
     assert not panel.vm.message_is_error
     assert panel.vm.entry(EntrySide.BUY).quantity is None
     assert panel.terms.reads == [SYMBOL, SYMBOL]  # balances re-read after
@@ -187,7 +187,7 @@ def test_a_market_sell_is_priced_at_the_last_price() -> None:
     assert panel.submission.submitted_live[0].reference_price == 250
     assert panel.submission.submitted_live[0].order_type is OrderType.MARKET
     assert panel.submission.submitted_live[0].quote_quantity is None
-    assert "about 250.0000 USDT" in panel.confirm.asked[0].question
+    assert "about 250.00 USDT" in panel.confirm.asked[0].question
 
 
 def test_a_sell_is_sent_as_a_sell_of_the_held_asset() -> None:

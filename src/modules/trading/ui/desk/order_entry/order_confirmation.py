@@ -31,8 +31,17 @@ def _amount(quantity: Decimal, step: Decimal) -> str:
     return write_value(ColumnKind.QUANTITY, quantity, precision=precision)
 
 
+#: The fewest decimals a price is shown with, as the price rule writes one.
+_MIN_PRICE_DECIMALS = 2
+
+
 def _price(price: Decimal) -> str:
-    return write_value(ColumnKind.PRICE, price)
+    """A price in all of its own decimals, never fewer than two: the order
+    carries the price exactly, so the question shows it exactly; the price
+    rule would round 1.23456 or 1,500.123 to its band (review of PR #389)."""
+    exponent = price.normalize().as_tuple().exponent
+    places = max(-exponent, _MIN_PRICE_DECIMALS) if isinstance(exponent, int) else 0
+    return write_value(ColumnKind.PRICE, price, precision=Precision.of_decimals(places))
 
 
 def _money(amount: Decimal) -> str:

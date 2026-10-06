@@ -115,7 +115,7 @@ def test_a_stop_limit_carries_its_stop_and_the_last_price() -> None:
     assert asked.quote_quantity is None
     sent = panel.submission.submitted_live[0]
     assert (sent.stop_price, sent.last_price) == (95, 100)
-    assert "once the price reaches 95.0000 USDT" in panel.confirm.asked[0].question
+    assert "once the price reaches 95.00 USDT" in panel.confirm.asked[0].question
 
 
 def test_a_limit_order_carries_no_stop_and_no_quote() -> None:

@@ -127,3 +127,16 @@ def test_a_quote_sized_buy_names_what_it_spends() -> None:
     assert "Estimated fee: 0.25 USDT" in confirmation.details
     # The exchange sizes it from the quote, so no lot rounding is claimed.
     assert "rounded" not in confirmation.details
+
+
+def test_a_price_finer_than_its_band_is_shown_exactly() -> None:
+    """The order carries the price exactly, so the question shows every
+    decimal of it, never fewer than two (review of PR #389)."""
+    fine = replace(
+        _PREVIEW,
+        order=replace(_PREVIEW.order, price=Decimal("1500.123")),
+    )
+
+    confirmation = _confirm(fine, "1500.123")
+
+    assert "at 1,500.123 USDT" in confirmation.question
