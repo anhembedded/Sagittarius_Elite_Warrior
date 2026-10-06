@@ -35,8 +35,7 @@
     "item_view_config": {},
     "checkable_button": {
       "src/modules/trading/ui/settings/trading_settings_view.py": 1,
-      "src/presentation/ui/components/critical_error_dialog.py": 1,
-      "src/support/ui_kit/time_range_picker/dialog.py": 1
+      "src/presentation/ui/components/critical_error_dialog.py": 1
     },
     "font_family": {
       "src/presentation/ui/components/critical_error_dialog.py": 1

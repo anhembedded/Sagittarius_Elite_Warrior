@@ -30,6 +30,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QDate
+from PySide6.QtWidgets import QDialogButtonBox, QRadioButton, QWidget
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
     TimeRangePickerDialogWidget,
 )
@@ -198,3 +199,36 @@ def test_backtest_dialog_applying_writes_an_explicit_custom_range(
     assert backtest_view_model.time_range.customStartText != ""
     assert backtest_view_model.time_range.customEndText != ""
     assert not dialog.isVisible()
+
+
+def test_presets_are_one_exclusive_group_of_radio_buttons(qapp, dialog):
+    dialog.open_dialog()
+    qapp.processEvents()
+
+    dialog._choose_preset(RangePresetKind.LAST_7_DAYS)
+    qapp.processEvents()
+
+    checked = [
+        kind for kind, button in dialog._preset_buttons.items() if button.isChecked()
+    ]
+    assert checked == [RangePresetKind.LAST_7_DAYS]
+    assert all(isinstance(b, QRadioButton) for b in dialog._preset_buttons.values())
+
+
+def test_editing_a_calendar_moves_the_selection_to_custom(qapp, dialog):
+    dialog.open_dialog()
+    dialog._choose_preset(RangePresetKind.LAST_7_DAYS)
+
+    dialog._from_calendar.clicked.emit(QDate(2026, 7, 2))
+    qapp.processEvents()
+
+    assert dialog._preset_buttons[RangePresetKind.CUSTOM].isChecked()
+
+
+def test_the_dialog_is_stock_with_ok_and_cancel(qapp, dialog):
+    assert dialog.styleSheet() == ""
+    assert all(w.styleSheet() == "" for w in dialog.findChildren(QWidget))
+    box = dialog.findChild(QDialogButtonBox)
+    assert box is not None
+    assert dialog._btn_apply is box.button(QDialogButtonBox.StandardButton.Ok)
+    assert dialog.title == "Data Time Range"
