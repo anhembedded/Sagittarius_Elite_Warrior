@@ -19,7 +19,12 @@ one screen and four on another.
 | timestamp (a `datetime`; a naive one is UTC) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
 | duration | `h:mm:ss` | `1:05:00` |
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
+| quantity in a `BYTES_KEY` column | a size in bytes, in the largest unit it fills | `512 B`, `3.20 MB` |
 | text, side, status | as given | `LONG` |
+
+A size is a quantity of bytes, and the key says so as a timeframe's does:
+units step by 1 024 (`KB`, `MB`, `GB`), the way the platform's file manager
+writes them, two decimals above a byte.
 
 A timeframe is a duration — it sorts by length, so `1m` comes before `15m`
 before `1h` — but it reads as the code a trader knows; the column says so by
@@ -63,6 +68,13 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 #: in seconds (`ColumnKind.DURATION`).
 TIMEFRAME_KEY: Final = "timeframe"
 
+#: The key of a column, or read-out row, that holds a size in bytes
+#: (`ColumnKind.QUANTITY`).
+BYTES_KEY: Final = "bytes"
+
+_BYTE_UNITS: Final = ("B", "KB", "MB", "GB", "TB")
+_BYTES_PER_UNIT: Final = 1024
+
 _TIMEFRAME_CODES: Final = {frame.to_seconds(): frame.value for frame in TimeFrame}
 
 #: The kinds a symbol's filters quantize: a price in ticks, a quantity in
@@ -99,6 +111,18 @@ def _price_text(value: float) -> str:
 def _quantized_text(value: float, precision: Precision) -> str:
     """`value` in whole quanta, with exactly the quantum's decimals."""
     return f"{precision.quantize(value):,.{precision.decimals}f}"
+
+
+def _bytes_text(count: float) -> str:
+    """`count` bytes in the largest unit it fills: `512 B`, `3.20 MB`."""
+    size = abs(count)
+    unit = 0
+    while size >= _BYTES_PER_UNIT and unit < len(_BYTE_UNITS) - 1:
+        size /= _BYTES_PER_UNIT
+        unit += 1
+    if unit == 0:
+        return f"{count:,.0f} {_BYTE_UNITS[0]}"
+    return f"{math.copysign(size, count):,.2f} {_BYTE_UNITS[unit]}"
 
 
 def _quantity_text(value: float) -> str:
@@ -139,6 +163,12 @@ class AppValueFormatter:
             return _quantized_text(number, context.precision)
         if kind is ColumnKind.PRICE:
             return _price_text(number)
+        if (
+            kind is ColumnKind.QUANTITY
+            and context.key == BYTES_KEY
+            and math.isfinite(number)
+        ):
+            return _bytes_text(number)
         if kind is ColumnKind.QUANTITY:
             return _quantity_text(number)
         if kind is ColumnKind.MONEY:

@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    BYTES_KEY,
     TIMEFRAME_KEY,
     AppValueFormatter,
 )
@@ -111,6 +112,37 @@ def test_a_timeframe_column_reads_as_its_code_and_sorts_by_its_length():
     assert formatter.format(ColumnKind.DURATION, 90, context) == "0:01:30"
     # The same length in any other column is a plain duration.
     assert _text(ColumnKind.DURATION, 60) == "0:01:00"
+
+
+@pytest.mark.parametrize(
+    ("count", "expected"),
+    [
+        (0, "0 B"),
+        (512, "512 B"),
+        (1023, "1,023 B"),
+        (1024, "1.00 KB"),
+        (1536, "1.50 KB"),
+        (1024**2 - 1, "1,024.00 KB"),
+        (1024**2, "1.00 MB"),
+        (3355443, "3.20 MB"),
+        (int(128.4 * 1024**2), "128.40 MB"),
+        (5 * 1024**3, "5.00 GB"),
+        (3 * 1024**5, "3,072.00 TB"),
+        (-2048, "-2.00 KB"),
+    ],
+)
+def test_a_bytes_quantity_is_written_in_the_largest_unit_it_fills(count, expected):
+    assert (
+        AppValueFormatter().format(ColumnKind.QUANTITY, count, FormatContext(BYTES_KEY))
+        == expected
+    )
+
+
+def test_a_quantity_in_any_other_column_is_not_a_size():
+    assert _text(ColumnKind.QUANTITY, 2048) == "2,048"
+    assert AppValueFormatter().format(
+        ColumnKind.QUANTITY, float("inf"), FormatContext(BYTES_KEY)
+    ) == _text(ColumnKind.QUANTITY, float("inf"))
 
 
 def _quoted(kind: ColumnKind, value: object, quantum: str) -> str:
