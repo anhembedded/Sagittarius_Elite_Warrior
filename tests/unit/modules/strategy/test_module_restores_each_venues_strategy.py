@@ -1,12 +1,13 @@
-"""`EPIC-028C`/`028L` — at boot, each enabled venue re-arms its own saved
-strategy (`EPIC-028L` widened this from the primary venue once each venue had
-a desk that shows and stops it).
+"""`BOT-166` — a start arms nothing: each enabled venue's saved strategy stays
+saved, for the Bots mode to show as not armed (it superseded `EPIC-028C`/
+`028L`'s boot-time re-arm).
 
-@details Driven through `StrategyModule.boot()` itself, so removing the
-per-venue restore from it fails here (`CS-002`: a test that built its own
-arming service could not tell). `ICommandDispatcher` is a `core/` port: the
-recording double below answers every arm with success and keeps the command,
-which carries both the configuration and the venue it was addressed to.
+@details Driven through `StrategyModule.boot()` itself, so putting an arm back
+into it fails here (`CS-002`: a test that built its own arming service could
+not tell). `ICommandDispatcher` is a `core/` port: the recording double below
+keeps every command it is asked to dispatch, and the claim is that boot asks
+for none. The composed-app proof, with the UI and the tick path, is
+`tests/integration/presentation/ui/test_saved_strategy_restores_disarmed.py`.
 """
 
 from __future__ import annotations
@@ -80,12 +81,6 @@ def _boot(config: DictConfig, *venues: TradingVenue) -> _RecordingDispatcher:
     return _boot_with(_RecordingDispatcher(), config, venues)
 
 
-def _boot_refusing(
-    config: DictConfig, refused: TradingVenue, *venues: TradingVenue
-) -> _RecordingDispatcher:
-    return _boot_with(_RecordingDispatcher(refused), config, venues)
-
-
 def _boot_with(
     dispatcher: _RecordingDispatcher,
     config: DictConfig,
@@ -106,14 +101,7 @@ def _boot_with(
     return dispatcher
 
 
-def _armed(dispatcher: _RecordingDispatcher) -> dict[TradingVenue, LiveStrategyConfig]:
-    return {command.venue: command.config for command in dispatcher.armed}
-
-
-def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
-    """Both venues saved a strategy and both have a desk (`EPIC-028L`): each
-    comes back armed with its own, addressed to its own venue — Spot's never
-    lands on Futures, nor the other way round."""
+def test_boot_arms_no_enabled_venues_saved_strategy() -> None:
     config = DictConfig()
     store = in_memory_config_store(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
@@ -121,36 +109,24 @@ def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
 
     dispatcher = _boot(config, _FUTURES, _SPOT)
 
-    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG, _SPOT: _SPOT_CONFIG}
+    assert dispatcher.armed == []
 
 
-def test_one_venues_bad_saved_config_leaves_the_other_venue_armed() -> None:
-    """A strategy Spot saved that no longer validates is logged and left
-    disarmed; it must not keep Futures from coming back."""
-    config = DictConfig()
-    store = in_memory_config_store(config)
-    store.save(_FUTURES, _FUTURES_CONFIG)
-    store.save(_SPOT, _SPOT_CONFIG)
-    dispatcher = _boot_refusing(config, _SPOT, _FUTURES, _SPOT)
-
-    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG, _SPOT: _SPOT_CONFIG}
-    assert dispatcher.accepted == [_FUTURES]
-
-
-def test_a_spot_only_app_rearms_spots_own_strategy() -> None:
+def test_boot_keeps_what_was_saved_for_the_user_to_arm() -> None:
     config = DictConfig()
     store = in_memory_config_store(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
 
-    dispatcher = _boot(config, _SPOT)
+    _boot(config, _FUTURES, _SPOT)
 
-    assert _armed(dispatcher) == {_SPOT: _SPOT_CONFIG}
+    assert store.load(_FUTURES) == _FUTURES_CONFIG
+    assert store.load(_SPOT) == _SPOT_CONFIG
 
 
-def test_a_single_venue_apps_strategy_comes_back_on_that_venue() -> None:
-    """The unscoped keys an older version saved belong to the one venue it
-    ran on."""
+def test_a_single_venue_apps_legacy_keys_still_move_to_that_venue() -> None:
+    """Adopting the unscoped keys is bookkeeping, not arming: the selection
+    comes back on its venue, and still nothing is armed."""
     config = DictConfig(
         {
             ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value: "ema_crossover",
@@ -162,8 +138,13 @@ def test_a_single_venue_apps_strategy_comes_back_on_that_venue() -> None:
 
     dispatcher = _boot(config, _FUTURES)
 
-    assert list(_armed(dispatcher)) == [_FUTURES]
-    assert _armed(dispatcher)[_FUTURES].strategy_key == "ema_crossover"
+    assert dispatcher.armed == []
+    moved = in_memory_config_store(config).load(_FUTURES)
+    assert (moved.strategy_key, moved.symbol, moved.interval) == (
+        "ema_crossover",
+        "BTCUSDT",
+        "5m",
+    )
 
 
 def test_with_two_venues_enabled_a_legacy_strategy_is_not_guessed_onto_one() -> None:
@@ -175,6 +156,7 @@ def test_with_two_venues_enabled_a_legacy_strategy_is_not_guessed_onto_one() -> 
         }
     )
 
-    dispatcher = _boot(config, _FUTURES, _SPOT)
+    _boot(config, _FUTURES, _SPOT)
 
-    assert dispatcher.armed == []
+    assert in_memory_config_store(config).load(_FUTURES).strategy_key == ""
+    assert in_memory_config_store(config).load(_SPOT).strategy_key == ""

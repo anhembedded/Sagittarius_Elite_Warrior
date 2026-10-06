@@ -85,8 +85,8 @@ def _require_in_range(
     out-of-range value would arm a bot the user did not ask for, and every
     caller already has somewhere to put the message —
     `ArmStrategyCommandHandler` turns it into `INVALID_PARAMS` with this
-    text attached, and `boot()`'s `_arm_from_config` logs it and starts
-    disarmed.
+    text attached, and `saved_selection()` restores it as nothing
+    selected.
     """
     if not minimum <= value <= maximum:
         raise ValueError(

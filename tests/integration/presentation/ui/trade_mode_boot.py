@@ -81,6 +81,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "sanity"))
@@ -110,6 +111,7 @@ class TradeDesk:
     presenter: DeskPresenter
     urls: FakeServerUrls
     scopes: VenueTradingScopes
+    container: IContainer
 
 
 def _yes(_parent: object) -> ConfirmOrder:
@@ -154,9 +156,12 @@ _BOOT_FIXTURES = (
 
 
 @contextmanager
-def trade_mode_running(boot: Boot) -> Iterator[TradeDesk]:
+def trade_mode_running(
+    boot: Boot, user_config: dict[str, object] | None = None
+) -> Iterator[TradeDesk]:
     """The real app with Futures and Spot Testnet on, the Trade mode open
-    with Spot chosen on its toolbar."""
+    with Spot chosen on its toolbar. `user_config` is what the user's saved
+    configuration file held at start (`BOT-166`: a saved strategy)."""
     qapp, monkeypatch, tmp_path = boot.qapp, boot.monkeypatch, boot.tmp_path
     seeded_history, market_stream = boot.seeded_history, boot.market_stream
     range_coverage, symbol_catalog = boot.range_coverage, boot.symbol_catalog
@@ -170,7 +175,7 @@ def trade_mode_running(boot: Boot) -> Iterator[TradeDesk]:
     # module's own name is the one to replace.
     monkeypatch.setattr(desk_presenter, "confirm_with_message_box", _yes)
     user_json = tmp_path / "user_config.json"
-    user_json.write_text(json.dumps({}))
+    user_json.write_text(json.dumps(user_config or {}))
     config = ConfigManager()
     config.load_json(str(_CONFIG_DIR / "app_config.json"))
     config.load_json(str(user_json), writable=True)
@@ -212,6 +217,7 @@ def trade_mode_running(boot: Boot) -> Iterator[TradeDesk]:
                 trade.desks[SPOT],
                 urls,
                 container.resolve(VenueTradingScopes),
+                container,
             )
         finally:
             threads = container.resolve(IThreadManager)

@@ -144,9 +144,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
     VenueStrategySessions,
 )
@@ -156,19 +153,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.composition.command_bindings
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
     bind_published_ports,
     live_strategy_config_store,
-    venue_strategy_arming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings import (
     bind_state,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
-    IStrategyArming,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -226,17 +216,17 @@ class StrategyModule(BoundedContextModule):
         bind_published_ports(context.container)
 
     def boot(self, context: Any) -> None:
-        """Seeds the live strategy from config, then subscribes the tick path
-        — both this context's own since PR 2.1c-2 and PR 4.4f-2 respectively.
+        """Adopts legacy saved keys, then subscribes the tick path — the
+        second this context's own since PR 2.1c-2.
 
         `MarketTickEventHandler` used to live in
         `src/application/event_handlers/market_data/` and be subscribed by
         `binance_bot_module.boot()`. It reads one thing from `market_data`
         (the published `MarketTickEvent`) and drives one thing, this module's
         `LiveStrategySession` — so it is this module's subscriber, and its own
-        docstring carries the measurement. `_arm_from_config()` (PR 4.4f-2,
-        moved unchanged from `binance_bot_module.boot()`) runs first, so the
-        session the tick handler is built from is already seeded.
+        docstring carries the measurement. No strategy is armed here
+        (`BOT-166`): the sessions it feeds hold no engine until the user
+        arms.
 
         @par Why `boot()` and the raw bus, not the `subscribe(bridge)` hook
         `BoundedContextModule` declares `subscribe(bridge: QtEventBridge)`
@@ -268,69 +258,27 @@ class StrategyModule(BoundedContextModule):
         process.
         """
         sessions = context.container.resolve(VenueStrategySessions)
-        self._restore_armed_strategies(context.container)
+        self._adopt_saved_selection(context.container)
 
         self._tick_handler = MarketTickEventHandler(sessions)
         context.event_bus.on(MarketTickEvent, self._tick_handler.handle)
 
     @classmethod
-    def _restore_armed_strategies(cls, container: IContainer) -> None:
-        """`EPIC-028C` — re-arms each enabled venue's own saved strategy
-        through that venue's own arming. A single-venue app's unscoped keys
-        first become that one venue's (`LiveStrategyConfigStore.adopt_legacy`).
+    def _adopt_saved_selection(cls, container: IContainer) -> None:
+        """`BOT-166` — a start restores what was saved and arms nothing.
 
-        `EPIC-028L` widened this from the primary venue to every enabled
-        one: each venue now has a desk that shows its armed strategy and can
-        stop it (`trading.futures`, `trading.spot`), which is what the
-        primary-only restore waited for (the PR #295 review, F3). One venue's
-        bad saved config is logged and left disarmed by `_arm_from_config`;
-        it never keeps the other venue from coming back."""
-        store = live_strategy_config_store(container)
+        A single-venue app's unscoped keys first become that one venue's
+        (`LiveStrategyConfigStore.adopt_legacy`); each venue's saved
+        selection then stays where it is, for the Bots mode to show as not
+        armed and to pre-fill the Arm strategy… dialog with
+        (`StrategyArmingCoordinator.restore_into_view_model`). Arming is the
+        user's explicit act in the running session: yesterday's click is not
+        today's confirmation, and `EPIC-026` puts real money behind the
+        difference. Boot used to arm every enabled venue's saved strategy
+        (`EPIC-028C`/`028L`, `BUG-163`'s follow-up); that door is gone, not
+        switched off, so no later caller can open it at start.
+
+        Adopting a position the journal recorded (`EPIC-026H`, ADR `O2`) is a
+        different thing and happens on enable, not here."""
         enabled = container.resolve(IVenueContexts).enabled()
-        store.adopt_legacy(enabled)
-        for venue in enabled:
-            cls._arm_from_config(store, venue, venue_strategy_arming(container, venue))
-
-    @staticmethod
-    def _arm_from_config(
-        store: LiveStrategyConfigStore, venue: TradingVenue, arming: IStrategyArming
-    ) -> None:
-        """Seeds `venue`'s live strategy from its saved keys at startup.
-
-        `EPIC-025E` PR 4.4f-2 — moved out of `binance_bot_module.boot()`
-        unchanged; see that file's own prior docstring (now removed) for the
-        `EPIC-021G`/`BUG-085` history behind the three-way completeness gate
-        `LiveStrategyConfig.is_complete` asks. A bad saved config (an unknown
-        strategy key, a parameter a strategy stopped declaring) is logged and
-        left disarmed rather than crashing the whole app boot.
-
-        `EPIC-027N` PR #287 review (blocking) — this used to call
-        `LiveStrategySession.arm()` directly, a second door past
-        `ArmStrategyCommandHandler`'s validation (its three Spot-only
-        refusals among them): a saved Futures-era config (SHORT-capable,
-        leveraged, non-USDT) would re-arm here unchecked if the venue was
-        later switched to Spot. `IStrategyArming.arm()` dispatches that same
-        `ArmStrategyCommand` — the one door every other arming caller
-        (`StrategyArmingCoordinator` via `StrategyArmingControlAdapter`)
-        already goes through — so boot no longer has a second, unvalidated
-        one.
-        """
-        try:
-            live_config = store.load(venue)
-        except ValueError as exc:
-            logger.warning(
-                "The saved strategy config for %s is invalid (%s) — starting unarmed.",
-                venue.value,
-                exc,
-            )
-            return
-
-        if not live_config.is_complete:
-            return
-        result = arming.arm(live_config)
-        if not result.armed:
-            logger.warning(
-                "Could not arm the strategy saved for %s (%s) — starting disarmed.",
-                venue.value,
-                result.error_message or result.block_reason,
-            )
+        live_strategy_config_store(container).adopt_legacy(enabled)
