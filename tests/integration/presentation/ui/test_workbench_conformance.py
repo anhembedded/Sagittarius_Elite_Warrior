@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layou
     object_name_problems,
     reset_layout_problems,
 )
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_status_checks import (
+    status_at_rest_problems,
+)
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_text_checks import (
     column_problems,
     combo_problems,
@@ -94,6 +97,7 @@ MODE_CHECKS: dict[str, Check] = {
     "menu_separators_between_groups": separator_problems,
     "perspective_round_trip": perspective_problems,
     "bars_named_uniquely": object_name_problems,
+    "no_progress_at_rest": status_at_rest_problems,
     # Last: it rearranges the mode, then puts the default back.
     "reset_layout_restores_default": reset_layout_problems,
 }

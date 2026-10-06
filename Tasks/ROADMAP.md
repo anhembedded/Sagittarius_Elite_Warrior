@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 182 | 84.3% |
+| 🟢 **Completed** | 182 | 83.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 26 | 12.0% |
+| 🔴 **Backlog** | 27 | 12.4% |
 | ❌ **Cancelled** | 8 | 3.7% |
 | 📈 **Tổng số Task** | **217** | **100%** |
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BUG-151`](bug_report/completed/BUG-151_status_bar_progress_bar_always_busy.md) (the status bar's progress bar no longer runs busy at rest)**: [Root cause: in the Engine, `WorkbenchShell._sync_status_widgets()` set each status widget visible by mode scope on every mode change, over its owner's own `hide()`; the Data mode's idle progress bar, indeterminate while hidden, ran in every mode. Fixed in the Engine (`BUG-021`, PR #233): each status widget sits in a `StatusSlot` whose scope the shell sets, its visibility staying the owner's. `engine.ref` moves to `68b4d29` (with engine `BUG-022`, the follow-up the sanity tier caught); the conformance suite's new `no_progress_at_rest` check was red in all six modes before and is green at every window size.]
 - [x] **[`EPIC-033M`](epics/EPIC-033_windows_workbench/completed/EPIC-033M_retire_kit.md) (the kit, Palette and the theme bootstrap are deleted)**: [Decision: three parts on one branch, A (`src/modules`) and B (`src/support`) in parallel sessions, C (deletions and bans) after both. About 10,300 lines go with their tests; the styling census is a ban at zero, every stock-controls rule but `color_literal` is a ban, the QQuickWidget guard a ban without exemption. Data series colours stay a ratchet (`BOT-161`) and the last 5 uncollectable objects, all from the Engine's QML layer, go to `BUG-152`, both by the user's decision.]
 - [x] **[`BOT-149`](completed/BOT-149_every_pair_history_reads_the_users_pairs_first.md) (an every-pair history reads the user's own pairs first)**: [Decision: the reader says why each active pair is active (`ActiveSymbol`, `ActiveReason`) and `history_scope` decides the order, because the order is policy and the reason is the venue's fact. A capped Spot page reads open-order pairs, then the desk's pair, then traded, then held; root cause of the old behaviour: both readers returned pairs alphabetically and the cap took the first five (`0GUSDT, 1000CATUSDT, …`). Futures and uncapped pages are unchanged. The desk's pair is carried by `HistoryRequest.desk_symbol`, set by `HistoryTabsLoader`.]
 - [x] **[`BOT-152`](completed/BOT-152_split_order_entry_view_model.md) (the order entry's view model splits what the view asks from what the presenter sets)**: [Root cause: one class held reads, the user's intents and the presenter's writes (31 public members, one `PLR0904` entry the ratchet could not see grow). Decision: split along its own section comments into `OrderEntryViewModel` (signals and reads, 14), `OrderEntryUserIntents` (`vm.intents`, 10) and `OrderEntryPresenterWriter` (`vm.presenter_side()`, 8) over one `OrderEntryState`; the signals stay on the view model so no connection moved, and a guard fails if a view reaches the writes. The `PLR0904` baseline entry is gone.]
