@@ -15,6 +15,14 @@ Owns no async action-id or cancellation bookkeeping of its own
 (`async-ui-action-rule.md` §2): the owning chart creates and resets the
 `CancellationToken` and passes it on every call.
 
+**A cancelled load says nothing (`BUG-150`).** Every callback emits on the
+owning chart, and a chart is cancelled before it is replaced or deleted (a
+closed Market tab is `deleteLater`'d), so once the token is cancelled no
+callback runs: not a log line, not the history, not `load_finished`. The
+chart settles a request it cancelled itself (`LiveCandleChart._restart`);
+`load_finished` carries the request's token so a settle that was already on
+its way is matched to its own request.
+
 **Ownership (`BOT-126`).** The stream is reference-counted per
 `(symbol, interval)` across owners; this coordinator always names its own
 `stream_owner` (`desk.<venue>`, `bot.<id>`), so `stop()` releases only this
@@ -32,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
+    report_unless_cancelled,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
@@ -100,46 +111,75 @@ class LiveChartCoordinator:
         token: CancellationToken,
         go_live: bool,
     ) -> None:
+        report = _Reporter(self._callbacks, token)
         try:
             interval = TimeFrame(interval_str)
             if go_live:
-                self._callbacks.log(f"Syncing {symbol} data from Binance...")
+                report.log(f"Syncing {symbol} data from Binance...")
                 self._feed.sync(symbol, interval, token.is_cancelled)
                 if token.is_cancelled():
                     return
             else:
-                self._callbacks.log(
+                report.log(
                     f"Loading {symbol} data from the local database "
                     "(not connected live — enable trading to connect)."
                 )
-            self._load_history(symbol, interval)
+            self._load_history(symbol, interval, report)
             if token.is_cancelled():
                 return
             if go_live:
-                self._start_stream(symbol, interval)
+                self._start_stream(symbol, interval, report)
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._callbacks.stream_failed(f"System error: {exc}")
+            report.stream_failed(f"System error: {exc}")
         finally:
-            self._callbacks.load_finished()
+            report.load_finished()
 
-    def _load_history(self, symbol: str, interval: TimeFrame) -> None:
+    def _load_history(
+        self, symbol: str, interval: TimeFrame, report: _Reporter
+    ) -> None:
         ordered = list(self._feed.load_history(symbol, interval, HISTORY_CANDLE_LIMIT))
         if not ordered:
-            self._callbacks.log(f"No historical data for {symbol}.")
+            report.log(f"No historical data for {symbol}.")
             return
         # `EPIC-022E` — the raw `MarketData` rows ride along beside the
         # chart-shaped tuples: an overlay replays them (it reads
         # `close_time`/`close_price`, which `map_klines`' 5-tuples drop).
-        self._callbacks.history_ready(
-            symbol, map_klines(ordered), map_volume(ordered), ordered
-        )
+        report.history_ready(symbol, map_klines(ordered), map_volume(ordered), ordered)
 
-    def _start_stream(self, symbol: str, interval: TimeFrame) -> None:
-        self._callbacks.log(f"Opening live stream for {symbol}...")
+    def _start_stream(
+        self, symbol: str, interval: TimeFrame, report: _Reporter
+    ) -> None:
+        report.log(f"Opening live stream for {symbol}...")
         outcome = self._feed.start_stream(self._stream_owner, symbol, interval)
         if outcome.success:
-            self._callbacks.stream_started(f"Streaming live data for {symbol}.")
+            report.stream_started(f"Streaming live data for {symbol}.")
         else:
-            self._callbacks.stream_failed(
-                f"Could not open live stream: {outcome.message}"
-            )
+            report.stream_failed(f"Could not open live stream: {outcome.message}")
+
+
+class _Reporter:
+    """One load's callbacks, silent once its token is cancelled (`BUG-150`):
+    the chart they emit on may be gone (`report_unless_cancelled`)."""
+
+    def __init__(self, callbacks: LiveChartCallbacks, token: CancellationToken) -> None:
+        self._callbacks = callbacks
+        self._token = token
+
+    def log(self, text: str) -> None:
+        report_unless_cancelled(self._token, self._callbacks.log, text)
+
+    def history_ready(
+        self, symbol: str, candles: list, volume: list, klines: list
+    ) -> None:
+        report_unless_cancelled(
+            self._token, self._callbacks.history_ready, symbol, candles, volume, klines
+        )
+
+    def stream_started(self, text: str) -> None:
+        report_unless_cancelled(self._token, self._callbacks.stream_started, text)
+
+    def stream_failed(self, text: str) -> None:
+        report_unless_cancelled(self._token, self._callbacks.stream_failed, text)
+
+    def load_finished(self) -> None:
+        report_unless_cancelled(self._token, self._callbacks.load_finished, self._token)

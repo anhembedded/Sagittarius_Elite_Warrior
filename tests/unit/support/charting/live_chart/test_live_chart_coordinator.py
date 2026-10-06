@@ -247,3 +247,43 @@ def test_two_desks_stream_under_their_own_owners() -> None:
     held = stream.held_by("desk.spot")
     assert held is not None
     assert held.market_type is MarketType.SPOT
+
+
+class _CancelledToken:
+    def is_cancelled(self) -> bool:
+        return True
+
+
+def test_a_cancelled_load_reports_nothing() -> None:
+    """`BUG-150`: the chart a callback emits on may be deleted once its load
+    is cancelled (a closed Market tab), so nothing at all is reported."""
+    callbacks = _callbacks()
+    feed = MarketDataCandleFeed(
+        FakeMarketDataSync(),
+        FakeHistoricalKlines(),
+        FakeMarketStream(),
+        MarketType.SPOT,
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, _OWNER)
+
+    coordinator._run("BTCUSDT", "1m", _CancelledToken(), True)
+
+    for name in ("history_ready", "load_finished", "stream_started", "log"):
+        getattr(callbacks, name).assert_not_called()
+    callbacks.stream_failed.assert_not_called()
+
+
+def test_a_settled_load_names_its_own_token() -> None:
+    callbacks = _callbacks()
+    feed = MarketDataCandleFeed(
+        FakeMarketDataSync(),
+        FakeHistoricalKlines(),
+        FakeMarketStream(),
+        MarketType.SPOT,
+    )
+    token = _FakeToken()
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, _OWNER)
+
+    coordinator._run("BTCUSDT", "1m", token, False)
+
+    callbacks.load_finished.assert_called_once_with(token)

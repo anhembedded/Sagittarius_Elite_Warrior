@@ -12,7 +12,9 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QDockWidget, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QDockWidget, QLabel, QToolBar, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
@@ -95,6 +97,24 @@ def test_reset_layout_brings_back_the_inner_surfaces_closed_panel(
     assert host.reset_perspective() is True
 
     assert not dock.isHidden()
+
+
+def test_reset_layout_brings_back_the_hidden_commands_toolbar_beside_a_surface(
+    with_surface: tuple[ModeHost, _ViewWithSurface],
+) -> None:
+    """The commands toolbar is the host's own, not the surface's: Reset
+    layout resets both (the conformance suite found it left hidden)."""
+    host, _ = with_surface
+    host.add_command(QAction("Run", host))
+    host.show()
+    host.capture_default_perspective()
+    bar = host.findChild(QToolBar, options=Qt.FindChildOption.FindDirectChildrenOnly)
+    assert bar is not None
+    bar.hide()
+
+    assert host.reset_perspective() is True
+
+    assert not bar.isHidden()
 
 
 def test_a_saved_layout_round_trips_through_the_inner_surface(

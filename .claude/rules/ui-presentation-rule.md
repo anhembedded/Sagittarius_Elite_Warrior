@@ -38,7 +38,7 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - No fixed, minimum or maximum size on a control or a container that holds text; the style's metrics decide (MS `vis-layout`: standard button 75×23 px at 96 dpi comes from the style; Qt `QStyle.pixelMetric`). Margins and spacing are the layout's defaults. `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H4]`
 - No scroll area inside a scroll area; content that outgrows its panel scrolls once, at the panel. `[guard: test_workbench_conformance.py; review: H4]`
 - No widget placed over another by `move()` (no overlay on a chart); controls live in toolbars, docks or context menus. `[review: H4]`
-- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). The conformance suite runs at 1366×768 only; the small size lands with `EPIC-033C` and alignment with `EPIC-033N`. `[review: H4]`
+- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). The conformance suite runs every check at 1024×700, 1366×768 and 1920×1080 and fails on a mode whose minimum size holds the window bigger than that; alignment is review until `EPIC-033N`. `[guard: test_workbench_conformance.py; review: H4]`
 - MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
 ## 4. Text, icons and terminology
@@ -65,7 +65,7 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 
 ## 8. Panels, modes and perspectives
 - The app is one `QMainWindow` shell with a mode per job the person does; each mode is a workbench host: a central widget, docks, toolbars (Qt Creator's shape; HLD §11). `[guard: test_workbench_conformance.py]`
-- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). The suite checks the View toggle; object names and Reset Layout are review until `EPIC-033C`. `[guard: test_workbench_conformance.py; review: H7]`
+- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). The suite checks the View toggle, that every dock and toolbar a main window lays out has an object name unique in it, and that Reset Layout puts back each dock's and toolbar's place after they are moved and hidden. `[guard: test_workbench_conformance.py; review: H7]`
 - Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. The suite checks that a host restores its own saved state; the restart half lands with `EPIC-033C`. `[guard: test_workbench_conformance.py; review: H7]`
 
 ## 9. Tables, lists and read-outs
