@@ -84,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
@@ -92,6 +95,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
@@ -287,6 +293,7 @@ def open_screen(
     qtbot: Any,
     bots: Sequence[StoredBot] = (),
     answers: Answers | None = None,
+    venue_enabled: bool = True,
 ) -> BotsScreen:
     pool = HeldPool()
     bus = MemoryEventBus()
@@ -304,7 +311,7 @@ def open_screen(
         IVenueTradingPorts,
         FakeVenueTradingPorts(
             fake_venue_ports(
-                VENUE,
+                VENUE if venue_enabled else TradingVenue.DISABLED,
                 order_entry_terms=terms(),
                 trading_session=trading_session,
                 account_activity=activity,
@@ -314,6 +321,7 @@ def open_screen(
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
+    container.singleton(ISymbolCatalog, FakeSymbolCatalog([SYMBOL, "ETHUSDT"]))
     container.singleton(IMarketDataSync, FakeMarketDataSync())
     container.singleton(IMarketDataRepository, FakeMarketDataRepository())
     container.singleton(IMarketStream, FakeMarketStream())

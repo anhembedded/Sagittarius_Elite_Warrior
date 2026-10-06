@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
     MarketDataCandleFeed,
 )
@@ -59,6 +62,8 @@ class BotsDependencies:
     venues: IVenueTradingPorts
     sync: IMarketDataSync
     candles: MarketDataCandleFeed
+    #: The Spot symbols New bot's picker lists (`BUG-155`).
+    symbols: ISymbolCatalog
     #: Each served venue's tick and step sizes, which the selected bot's
     #: orders and fills are written in (`EPIC-033N`).
     filters: Mapping[TradingVenue, ISymbolPrecisions]
@@ -73,6 +78,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         venues=container.resolve(IVenueTradingPorts),
         sync=sync,
         candles=candles,
+        symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
     )
 
