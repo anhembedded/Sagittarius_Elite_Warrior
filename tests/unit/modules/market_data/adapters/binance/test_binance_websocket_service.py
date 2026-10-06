@@ -123,7 +123,7 @@ async def test_a_tick_is_labelled_with_the_market_its_connection_streams():
 
 
 @pytest.mark.asyncio
-async def test_kline_tick_logs_at_debug_not_info(caplog) -> None:
+async def test_kline_tick_logs_at_trace_only(caplog) -> None:
     """`BUG-113` (`BUG-042`/`BUG-095` regression) — every kline WebSocket
     message fires this line, several times a second on an active symbol;
     at `INFO` it is exactly the per-event flood `logging-rule.md` §4/§6
@@ -158,15 +158,15 @@ async def test_kline_tick_logs_at_debug_not_info(caplog) -> None:
 
     with caplog.at_level(logging.DEBUG, logger="App.LiveStream"):
         await service._process_socket_message(tscm, _SPOT)
+    # `BUG-163` (`logging-rule.md` §6): per-tick is `TRACE`, never `DEBUG`
+    # either — a `--dev` log held two lines per tick per symbol.
+    assert not any("[Live Stream]" in r.message for r in caplog.records)
 
-    assert any(
-        "[Live Stream]" in record.message and record.levelno == logging.DEBUG
-        for record in caplog.records
-    )
-    assert not any(
-        "[Live Stream]" in record.message and record.levelno >= logging.INFO
-        for record in caplog.records
-    )
+    caplog.clear()
+    with caplog.at_level(5, logger="App.LiveStream"):
+        await service._process_socket_message(tscm, _SPOT)
+    (record,) = [r for r in caplog.records if "[Live Stream]" in r.message]
+    assert record.levelno == 5
 
 
 def test_parse_kline():

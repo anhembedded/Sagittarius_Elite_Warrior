@@ -7,6 +7,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_s
     VenueStrategySessions,
 )
 
+#: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG` — per-tick detail, on
+#: only under `--debug`.
+_TRACE = 5
+
 
 class MarketTickEventHandler:
     """
@@ -50,13 +54,15 @@ class MarketTickEventHandler:
     to being what its name says: the adapter from one event-bus event to
     one application call.
 
-    @par `logger.debug()`, not `.info()` — `BUG-042`
+    @par `TRACE`, not `.debug()` or `.info()` — `BUG-042`, `BUG-163`
     `SignalLogHandler` mirrors every `"App"` `INFO+` line to the UI's log
     model via a queued Qt signal; 838 trades once produced 5,028 `INFO`
-    lines in 2 seconds and froze the UI. Tick processing runs every
-    candle, every symbol — `DEBUG` here, `INFO` reserved for the
-    once-per-meaningful-event lines this handler's collaborators already
-    log (an order sent, a limit hit).
+    lines in 2 seconds and froze the UI. Tick processing runs for every
+    tick of every streamed symbol, whether or not any strategy is armed
+    (`BUG-163`: the Market mode's Watchlist alone makes ~12 a second), so
+    the line is `TRACE` (`logging-rule.md` §6), on only under `--debug`;
+    `INFO` stays reserved for the once-per-meaningful-event lines this
+    handler's collaborators already log (an order sent, a limit hit).
 
     @par Why this is `strategy`'s and not `market_data`'s (`EPIC-025` PR 2.1c-2)
     It sat in `src/application/event_handlers/market_data/` for four epics, and
@@ -100,9 +106,13 @@ class MarketTickEventHandler:
         on a price that market never had.
         """
         md = event.market_data
-        self.logger.debug(
-            f"Processing {event.market_type.value} tick for {md.symbol} "
-            f"at {md.close_price}"
-        )
+        if self.logger.isEnabledFor(_TRACE):
+            self.logger.log(
+                _TRACE,
+                "Processing %s tick for %s at %s",
+                event.market_type.value,
+                md.symbol,
+                md.close_price,
+            )
         for session in self._sessions.built_for(event.market_type):
             session.dispatch_tick(md)
