@@ -212,7 +212,7 @@ class AccountTabsPresenter(QObject):
 
     def _reopen_histories(self, hide_other_pairs: bool) -> None:
         symbol = self._symbol if hide_other_pairs and self._symbol else None
-        self._histories.open(symbol)
+        self._histories.open(symbol, self._symbol)
 
     def _on_page_requested(self, kind_value: str, page: int) -> None:
         self._histories.turn_to(HistoryKind(kind_value), page)

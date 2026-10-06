@@ -298,3 +298,22 @@ def test_a_venue_without_a_scan_limit_reads_every_active_pair() -> None:
     assert reader.read == held
     assert page.scanned_symbols == tuple(held)
     assert not any("active pairs" in notice for notice in page.notices)
+
+
+def test_a_capped_every_pair_page_reads_open_orders_then_the_desks_pair() -> None:
+    """`BOT-149` — the desk's pair travels in the query and ranks right after
+    the pairs with an open order, ahead of the alphabet."""
+    reader = FakeAccountHistoryReader(
+        held_symbols=["AAAUSDT", "BBBUSDT", "DESKUSDT"],
+        open_symbols=["ZZZUSDT"],
+        now=CONTRACT_NOW,
+        scan_limit=2,
+    )
+
+    page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetTradeHistoryQuery(
+            venue=_SPOT, symbol=None, since=_SINCE, desk_symbol="DESKUSDT"
+        )
+    )
+
+    assert page.scanned_symbols == ("ZZZUSDT", "DESKUSDT")
