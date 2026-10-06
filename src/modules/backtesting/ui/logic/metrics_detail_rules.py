@@ -3,7 +3,7 @@
 ## Where this came from
 
 `EPIC-015` Phase 3 put all of this inside `MetricsDetailVM`, a `QObject`
-exposing it to `MetricsDetailPanel.qml` through `Property` declarations.
+re-publishing every value to `MetricsDetailPanel.qml` as a bindable attribute.
 `EPIC-025` PR 4.3j deletes that `.qml` (ADR D21) and keeps the part that was
 never about QML: which section each metric belongs to, what verdict a ratio
 earns, how the gross-profit-vs-loss bar divides, and the plain text a "Copy
@@ -30,7 +30,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 from .performance_metrics_view import StatCardData
 

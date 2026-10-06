@@ -41,7 +41,7 @@ class MarketSelector(QComboBox):
     def _on_index_changed(self, index: int) -> None:
         value = self.itemData(index)
         if isinstance(value, str):
-            self._broker_sim.set_market(value)
+            self._broker_sim.market = value
 
     def _show_view_model_market(self) -> None:
         index = self.findData(self._broker_sim.market)

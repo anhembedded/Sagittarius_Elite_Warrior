@@ -34,7 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 #: Configurations that compare as fully equal produce this exact fallback
 #: from `compute_diff_summary()` (its own "diffs list is empty" branch) —

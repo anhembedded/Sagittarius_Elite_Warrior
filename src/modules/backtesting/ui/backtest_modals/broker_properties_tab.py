@@ -23,9 +23,6 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
-    mark_uses_item_data,
-)
 
 _ORDER_SIZE_TYPES = (
     ("% of equity", "percent_of_equity"),
@@ -56,9 +53,8 @@ def _spin(object_name: str, low: int, high: int) -> QSpinBox:
 
 
 def _choices(object_name: str, items: tuple[tuple[str, str], ...]) -> QComboBox:
-    # The value is each item's data, not the label Qt's USER property would
-    # otherwise report.
-    combo = mark_uses_item_data(QComboBox())
+    # The value is each item's data, not its label (`widget_values.py`).
+    combo = QComboBox()
     combo.setObjectName(object_name)
     for label, value in items:
         combo.addItem(label, value)

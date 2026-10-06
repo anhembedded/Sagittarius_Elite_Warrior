@@ -14,7 +14,11 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.metric_comparison_mode
     ReportComparisonModel,
     comparison_table,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _GAIN = MetricComparisonRow(
@@ -53,8 +57,8 @@ def test_only_the_difference_is_coloured_by_its_tone(qapp):
     def colour(row: int, column: int) -> object:
         return model.data(model.index(row, column), Qt.ItemDataRole.ForegroundRole)
 
-    assert colour(0, 3) == QColor(semantic_colour("success"))
-    assert colour(1, 3) == QColor(semantic_colour("danger"))
+    assert colour(0, 3) == QColor(BULL_COLOR)
+    assert colour(1, 3) == QColor(BEAR_COLOR)
     assert colour(2, 3) is None
     assert colour(0, 1) is None
 

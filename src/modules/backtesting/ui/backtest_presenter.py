@@ -1992,8 +1992,8 @@ class BackTestPresenter(CommandPresenter):
         path only ever round-trips a string this exact session captured
         moments earlier) — inventing one here risks a subtly wrong display,
         which `domain-truth-rule.md` treats as worse than not touching the
-        field at all. `isConfigDirty` is a pure function of FSM state
-        (`_get_is_config_dirty()`), so entering `VIEWING_IMPORTED_REPORT`
+        field at all. `isConfigDirty` is a pure function of FSM state,
+        so entering `VIEWING_IMPORTED_REPORT`
         already satisfies the task's own criterion without it; clicking Run
         afterwards uses whatever the toolbar currently shows, exactly as
         the task's own §2 describes.

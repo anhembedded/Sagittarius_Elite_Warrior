@@ -26,12 +26,9 @@ text (`"OK"` against `"3 gaps found!"`) already said it.
 A profit figure is the other case. Green for gain and red for loss is a
 convention of the domain this app is in, not decoration this screen invented, so
 the tone survives — written onto the one label that carries the figure, which is
-the "per-widget property" half of that same rule. The two colours come from
-`semantic_colour()`, `kit/style.py`'s documented escape hatch for a colour
-chosen per instance rather than per role, whose own docstring names this case;
-a literal would fail the guard `EPIC-007D` drove to zero. Nothing else here is
-coloured, no stylesheet is set, and `Palette` is not imported: every other pixel
-is the platform's theme, and this file adds to none of §11.4's four numbers.
+the "per-widget property" half of that same rule, in the colour `readout_table`
+gives a verdict (the one the Trades table uses). Nothing else here is coloured,
+no stylesheet is set: every other pixel is the platform's theme.
 """
 
 from __future__ import annotations
@@ -41,18 +38,10 @@ from collections.abc import Callable, Mapping, Sequence
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
-
-#: The two semantic-colour names this file reads, and the only two. Named
-#: `_COLOUR` rather than `_TOKEN` because ruff's `S105` reads any
-#: `*_TOKEN = "..."` as a possible hardcoded credential. `semantic_colour()` is
-#: `kit/style.py`'s own documented escape hatch for *"a colour chosen per
-#: instance rather than per role"*, and its docstring names this exact case:
-#: whether a figure reads positive or negative is decided per figure at
-#: runtime. A literal here would fail the no-hardcoded-colour guard
-#: `EPIC-007D` drove to zero, and would not survive a palette change.
-_GAIN_COLOUR = "success"
-_LOSS_COLOUR = "danger"
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
+    Tone,
+    tone_colour,
+)
 
 _TITLE_KEY = "title"
 _VALUE_KEY = "value"
@@ -71,11 +60,7 @@ def _tone_colour(value: object) -> QColor | None:
     `Tone.NEUTRAL`, a missing key and a value that is not a `Tone` at all all
     mean — the same fallback every card dict upstream already assumes.
     """
-    if value is Tone.POSITIVE:
-        return QColor(semantic_colour(_GAIN_COLOUR))
-    if value is Tone.NEGATIVE:
-        return QColor(semantic_colour(_LOSS_COLOUR))
-    return None
+    return tone_colour(value) if isinstance(value, Tone) else None
 
 
 class BacktestStatRow(QWidget):  # base-exempt: a container, not a surface

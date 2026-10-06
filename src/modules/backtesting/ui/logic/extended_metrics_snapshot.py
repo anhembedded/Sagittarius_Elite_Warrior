@@ -14,7 +14,7 @@ right alongside (not in place of) the existing QML-facing dict conversion.
 
 Frozen and plain data — no behaviour belongs here. `BackTestViewModel` holds
 one of these as a private attribute and returns it through a plain Python
-accessor (not a QML `Property`): only `MetricsDetailDialogWidget`'s
+accessor (not a Qt property): only `MetricsDetailDialogWidget`'s
 composition root reads it, never a `.qml` file.
 """
 

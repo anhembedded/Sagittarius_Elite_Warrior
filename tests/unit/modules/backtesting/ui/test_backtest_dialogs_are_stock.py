@@ -25,7 +25,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Overlay
 
 _DIALOGS = {
     CapitalDialogWidget: "Initial Capital",
@@ -44,6 +43,6 @@ def test_the_dialog_is_stock(qapp, dialog_type):
     dialog = dialog_type(BackTestViewModel())
 
     assert isinstance(dialog, QDialog)
-    assert not isinstance(dialog, Overlay)
+    assert type(dialog).__bases__ == (QDialog,)
     assert dialog.windowTitle() == _DIALOGS[dialog_type]
     assert len(dialog.findChildren(QDialogButtonBox)) == 1

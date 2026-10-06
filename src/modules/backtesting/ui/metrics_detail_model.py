@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import tone_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -32,7 +33,7 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 )
 
 from .logic.metrics_detail_rules import MetricGroup, MetricRow
-from .readout_table import SORT_ROLE, readout_table, tone_colour
+from .readout_table import SORT_ROLE, readout_table
 
 _METRIC_COLUMN = 1
 _VALUE_COLUMN = 2
