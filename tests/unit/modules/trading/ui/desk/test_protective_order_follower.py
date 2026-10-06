@@ -67,9 +67,12 @@ class _Desk:
         self.submission = FakeOrderSubmission()
         self.submission.submit_answers(placed(order()))
         self.reports: list[tuple[str, bool]] = []
+        # Owned here, as the desk owns its feed (`parent=`); a bus
+        # subscription keeps no subscriber alive (Engine `BUG-019`).
+        self.feed = OrderFeed(self.bus, _FUTURES)
         self.follower = ProtectiveOrderFollower(
             self.submission,
-            OrderFeed(self.bus, _FUTURES),
+            self.feed,
             InlineThreadManager(),
             lambda text, failed: self.reports.append((text, failed)),
         )

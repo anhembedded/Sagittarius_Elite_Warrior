@@ -299,9 +299,12 @@ def test_a_market_long_with_tp_sl_is_protected_once_its_fill_is_reported(
         presenter = OrderEntryPresenter(vm, ports, threads, lambda _c: True)
         bus = MemoryEventBus()
         reports: list[tuple[str, bool]] = []
+        # The test owns the feed, as the desk does (`parent=`); a bus
+        # subscription keeps no subscriber alive (Engine `BUG-019`).
+        feed = OrderFeed(bus, _FUTURES)
         follower = ProtectiveOrderFollower(
             submission,
-            OrderFeed(bus, _FUTURES),
+            feed,
             threads,
             lambda text, failed: reports.append((text, failed)),
         )
