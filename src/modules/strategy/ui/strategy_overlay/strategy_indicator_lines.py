@@ -8,20 +8,12 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
 )
-
-#: First 4 entries match ema_ribbon_script.py's own EMA 20/50/100/200 colors
-#: (red/orange/cyan/blue) so a strategy whose indicators happen to line up
-#: 1:1 with that script still looks familiar on this chart; the rest are
-#: fallbacks for strategies with more lines than that.
-_LINE_COLOR_PALETTE = (
-    "#e74c3c",  # token-exempt: indicator series colour, not chrome
-    "#e67e22",  # token-exempt: indicator series colour, not chrome
-    "#00bcd4",  # token-exempt: indicator series colour, not chrome
-    "#3498db",  # token-exempt: indicator series colour, not chrome
-    "#2ecc71",  # token-exempt: indicator series colour, not chrome
-    "#9b59b6",  # token-exempt: indicator series colour, not chrome
-    "#f1c40f",  # token-exempt: indicator series colour, not chrome
-    "#95a5a6",  # token-exempt: indicator series colour, not chrome
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    FALLBACK_LINE_SERIES,
+    series_colour,
 )
 
 
@@ -67,21 +59,24 @@ def _flatten(name: str, value: Any) -> list[tuple[str, float]]:
 
 
 def assign_strategy_line_colors(
-    line_names: Sequence[str], overrides: Mapping[str, str] | None = None
+    line_names: Sequence[str], overrides: Mapping[str, ChartSeries] | None = None
 ) -> dict[str, str]:
     """Deterministic color per line, in the order the caller lists them —
-    cycles through `_LINE_COLOR_PALETTE` if a strategy has more lines than
-    it has colors. `overrides` (BOT-111, from `BaseStrategy.chart_line_colors()`)
-    takes priority for any name it names; every other line still gets the
-    next palette color in order, so a strategy overriding some but not all
-    of its lines doesn't skip palette slots for the ones it left alone."""
+    cycles through `FALLBACK_LINE_SERIES` if a strategy has more lines than
+    it has colors. `overrides` (BOT-111, from `BaseStrategy.chart_line_series()`)
+    names the series of any line it names, and the table
+    (`support/charting/contracts/series_colours.py`) says its colour; every other line
+    still gets the next palette color in order, so a strategy overriding some
+    but not all of its lines doesn't skip palette slots for the ones it left
+    alone."""
     overrides = overrides or {}
     colors: dict[str, str] = {}
     palette_index = 0
     for name in line_names:
         if name in overrides:
-            colors[name] = overrides[name]
+            colors[name] = series_colour(overrides[name])
             continue
-        colors[name] = _LINE_COLOR_PALETTE[palette_index % len(_LINE_COLOR_PALETTE)]
+        fallback = FALLBACK_LINE_SERIES[palette_index % len(FALLBACK_LINE_SERIES)]
+        colors[name] = series_colour(fallback)
         palette_index += 1
     return colors

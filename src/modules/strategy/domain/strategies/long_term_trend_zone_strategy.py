@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_c
     IndicatorValue,
     StrategyContext,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
     IIndicator,
@@ -23,7 +26,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
 )
 
 _DEFAULT_TREND_EMA_LEN = 200
-_ZONE_LINE_COLOR = "#9b59b6"
 
 
 class LongTermTrendZoneStrategy(BaseStrategy):
@@ -56,8 +58,8 @@ class LongTermTrendZoneStrategy(BaseStrategy):
     def build_indicators(self) -> dict[str, IIndicator[IndicatorValue]]:
         return {self.TREND_EMA_KEY: EMA(self._trend_ema_len)}
 
-    def chart_line_colors(self) -> dict[str, str]:
-        return {self.TREND_EMA_KEY: _ZONE_LINE_COLOR}
+    def chart_line_series(self) -> dict[str, ChartSeries]:
+        return {self.TREND_EMA_KEY: ChartSeries.LONG_TERM_TREND_EMA}
 
     def classify_trend_zone(self, context: StrategyContext) -> str | None:
         close_price = context.candle.close_price
