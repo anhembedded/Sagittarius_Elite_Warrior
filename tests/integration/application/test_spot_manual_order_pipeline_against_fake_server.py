@@ -64,6 +64,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
@@ -198,3 +199,70 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
         assert before.summary is not None
         assert after.summary is not None
         assert after.summary.available_balance < before.summary.available_balance
+
+
+def test_a_second_manual_buy_on_the_same_symbol_is_not_blocked_by_a_position_limit() -> (
+    None
+):
+    """`BUG-142` through the real Spot path: `SpotTradingClient` against the fake
+    exchange, not a venue-agnostic double. Spot has no positions, so the first
+    order must not mark the symbol open; the second reaches the wire and the
+    reported BTC holding rises twice."""
+    no_interval = TradingLimits(
+        max_orders_per_session=20,
+        max_notional_per_order=Decimal(50000),
+        max_positions_per_symbol=1,
+        min_order_interval=timedelta(0),
+    )
+    with (
+        run_binance_fake_server() as urls,
+        patch.object(Client, "API_TESTNET_URL", urls.spot),
+        patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
+    ):
+        session_factory = SpotSessionFactory()
+        metadata_provider = SpotMetadataProvider(
+            session_factory, InMemorySymbolOrderMetadataCache()
+        )
+        credentials_provider = _FakeCredentialsProvider()
+        account_reader = SpotAccountReader(session_factory, credentials_provider)
+        session_state = TradingSessionState()
+        session_state.enable(set())
+        context = venue_context(
+            TradingVenue.SPOT_TESTNET,
+            account_reader=account_reader,
+            client_factory=SpotTradingClientFactory(
+                session_factory, credentials_provider, metadata_provider
+            ),
+            metadata_provider=metadata_provider,
+        )
+        handler = ExecuteOrderCommandHandler(
+            single_venue_scopes(context, session_state),
+            PreviewOrderQueryHandler(FakeVenueContexts(context)),
+            TradingLimitPolicy(no_interval),
+        )
+        command = ExecuteOrderCommand(
+            order_request=PreviewOrderQuery(
+                venue=TradingVenue.SPOT_TESTNET,
+                symbol=_SYMBOL,
+                side=OrderSide.BUY,
+                order_type=OrderType.MARKET,
+                quantity=_QTY,
+                reference_price=Decimal(50000),
+            ),
+            live=True,
+        )
+
+        def btc_free() -> Decimal:
+            held = account_reader.check_connection().holdings or ()
+            return next(h.free for h in held if h.asset == "BTC")
+
+        start = btc_free()
+        first = handler.execute(command)
+        after_first = btc_free()
+        second = handler.execute(command)
+
+        assert first.blocked_by is None
+        assert second.blocked_by is None
+        assert btc_free() > after_first > start
+        assert session_state.orders_sent_this_session == 2
+        assert _SYMBOL not in session_state.known_open_symbols

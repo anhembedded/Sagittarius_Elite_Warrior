@@ -35,7 +35,7 @@ def test_record_order_sent_increments_counter_and_marks_symbol_open() -> None:
     state = TradingSessionState()
     now = datetime(2026, 8, 27, tzinfo=UTC)
 
-    state.record_order_sent("BTCUSDT", now)
+    state.record_order_sent("BTCUSDT", now, venue_has_positions=True)
 
     assert state.orders_sent_this_session == 1
     assert state.open_position_count("BTCUSDT") == 1
@@ -66,7 +66,7 @@ def test_time_since_last_order_is_none_before_any_order() -> None:
 def test_time_since_last_order_reflects_the_recorded_time() -> None:
     state = TradingSessionState()
     first = datetime(2026, 8, 27, 12, 0, 0, tzinfo=UTC)
-    state.record_order_sent("BTCUSDT", first)
+    state.record_order_sent("BTCUSDT", first, venue_has_positions=True)
 
     later = first + timedelta(seconds=90)
     assert state.time_since_last_order("BTCUSDT", later) == timedelta(seconds=90)
@@ -85,7 +85,9 @@ def test_generation_advances_on_every_state_change() -> None:
     state.disable()
     assert state.generation == start + 2
 
-    state.record_order_sent("BTCUSDT", datetime(2026, 8, 27, tzinfo=UTC))
+    state.record_order_sent(
+        "BTCUSDT", datetime(2026, 8, 27, tzinfo=UTC), venue_has_positions=True
+    )
     assert state.generation == start + 3
 
     state.reconcile_position("ETHUSDT", has_position=True)

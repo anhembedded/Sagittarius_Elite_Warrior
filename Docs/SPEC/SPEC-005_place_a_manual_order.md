@@ -56,7 +56,8 @@ goes."*
       ready;
    2. the minimum-notional check from step 3;
    3. **four session limits** — orders per session, notional per order, positions per symbol,
-      and the minimum interval between orders.
+      and the minimum interval between orders. On a venue without positions (Spot) the positions
+      limit cannot trip: no order marks a symbol open there (`BUG-142`).
 7. If nothing blocked it, the app submits one order, records it against the session's counters,
    and, on a venue with positions (Futures), marks the symbol as believed-open. On a venue without positions (Spot) it does not: Spot orders are paced by the notional and the interval only (`BUG-142`).
 8. The app answers once, with what blocked it or with the order that was sent.
@@ -72,7 +73,9 @@ goes."*
   has no preview and no limit checks; a minimum-notional block has a preview and no limit
   checks; a limit block shows every check with the numbers it was judged against.
 - The session's order counter went up by exactly one for one submitted order, and the symbol it
-  names is marked believed-open immediately — before any fill confirmation.
+  names is marked believed-open immediately — before any fill confirmation — on a venue with
+  positions (Futures). On a venue without positions (Spot) the counter and the symbol's interval
+  advance and nothing is marked open (`BUG-142`).
 - An exchange refusal arrives as a named reason with Binance's own text kept alongside it:
   insufficient margin, lot size, minimum notional, price filter, reduce-only rejected, rate
   limit, or `UNKNOWN`. No layer above Infrastructure ever sees a Binance error code.

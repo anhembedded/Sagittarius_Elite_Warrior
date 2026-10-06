@@ -275,7 +275,7 @@ class TradingSessionState:
             return None if last is None else now - last
 
     def record_order_sent(
-        self, symbol: str, when: datetime, *, venue_has_positions: bool = True
+        self, symbol: str, when: datetime, *, venue_has_positions: bool
     ) -> None:
         """@brief Counts an order against the session and the symbol's interval.
         @details It marks `symbol` open only when `venue_has_positions`
