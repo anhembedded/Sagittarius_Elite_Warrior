@@ -1,12 +1,15 @@
-"""View → Load older candles, Load range… (`EPIC-033S`) and Back to live
-(`EPIC-033T`): the commands that act on the Market chart in front.
+"""View → Load older candles, Load range… (`EPIC-033S`), Back to live
+(`EPIC-033T`) and View → Chart (`BOT-156`): the commands that act on the
+Market chart in front.
 
 Presenter-owned (`async-ui-action-rule.md` §2): built and held by
 `MarketPresenter`, never registered. It owns no load bookkeeping either:
 each `MarketChart` fences its own loads by generation and says when it is
 loading; this object only routes the command to the chart in front and keeps
 the commands off while no chart is open or the one in front loads, and Back
-to live off while that chart shows no range.
+to live off while that chart shows no range. View → Chart, the chart
+toolbar's own actions, follows the chart in front through a
+`ChartCommandMirror`.
 """
 
 from __future__ import annotations
@@ -16,13 +19,17 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import (
+    ChartCommandMirror,
+    chart_command_actions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
 
 from .chart_history import HistoryRange
 from .market_chart import MarketChart
-from .market_commands import BACK_TO_LIVE, LOAD_OLDER, LOAD_RANGE
+from .market_commands import BACK_TO_LIVE, CHART_PREFIX, LOAD_OLDER, LOAD_RANGE
 from .market_view import MarketView
 
 logger = logging.getLogger("App.Trading.Market")
@@ -50,6 +57,7 @@ class ChartHistoryCommands(QObject):
         super().__init__(parent)
         self._view = view
         self._charts = charts
+        self._chart_commands = ChartCommandMirror(CHART_PREFIX, self)
         view.current_chart_changed.connect(lambda _symbol: self.refresh())
 
     def bind_commands(self, binder: ICommandBinder) -> None:
@@ -72,6 +80,8 @@ class ChartHistoryCommands(QObject):
             enabled=self.backToLiveEnabledChanged,
             initially_enabled=self._front_shows_range(),
         )
+        self._chart_commands.bind_commands(binder)
+        self._follow_front()
 
     def watch(self, chart: MarketChart) -> None:
         """Keeps the commands in step with `chart`'s loads and range."""
@@ -81,6 +91,7 @@ class ChartHistoryCommands(QObject):
     def refresh(self) -> None:
         self.enabledChanged.emit(self._front_ready())
         self.backToLiveEnabledChanged.emit(self._front_shows_range())
+        self._follow_front()
 
     def load_older(self) -> None:
         chart = self._front()
@@ -117,6 +128,12 @@ class ChartHistoryCommands(QObject):
 
     def _on_back_to_live(self, _checked: bool) -> None:
         self.back_to_live()
+
+    def _follow_front(self) -> None:
+        chart = self._front()
+        self._chart_commands.follow_chart(
+            chart_command_actions(chart.chart) if chart is not None else None
+        )
 
     def _front(self) -> MarketChart | None:
         return self._charts().get(self._view.current_symbol)

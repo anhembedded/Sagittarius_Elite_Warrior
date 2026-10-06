@@ -10,6 +10,7 @@ import pytest
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
     CHART_MENU,
+    CHART_PREFIX,
     SHOW_CANDLESTICK,
     SHOW_EQUITY,
     SHOW_INDICATORS,
@@ -35,6 +36,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.signal_wiring import (
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    ZOOM_IN,
+    chart_command_id,
 )
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
@@ -202,3 +207,51 @@ def test_view_chart_takes_no_access_key_of_the_view_menu():
 
     assert set(access_keys(CHART_MENU[-1])) & taken == set()
     assert len(keys) == len(set(keys)) == len(items)
+
+
+# -- the chart card's own toolbar (`BOT-156`) --------------------------------
+
+
+@pytest.fixture
+def presenter_registry(qapp, request):
+    strategy_registry = StrategyRegistry()
+    strategy_registry.register("fake_strategy", _FakeStrategy)
+    config = Mock()
+    config.get_all.return_value = {}
+    config.get.side_effect = lambda key, default=None: default
+    presenter = _build_presenter_with_registry(
+        qapp, Mock(), Mock(), config, strategy_registry, request
+    )
+    owner = QObject()
+    request.addfinalizer(owner.deleteLater)
+    registry = bound_actions(
+        owner, backtest_commands(BACKTEST_ROUTE), presenter.bind_commands
+    )
+    return presenter, registry.action(chart_command_id(CHART_PREFIX, ZOOM_IN))
+
+
+def test_the_chart_s_zoom_is_in_view_chart_for_the_first_chart(presenter_registry):
+    presenter, zoom_in = presenter_registry
+    zoomed: list[str] = []
+    card = presenter.view.chart_cards[0].chart_card
+    card.zoom.zoom_in.triggered.connect(lambda: zoomed.append("in"))
+
+    assert zoom_in.isEnabled()
+    zoom_in.trigger()
+
+    assert zoomed == ["in"]
+
+
+def test_the_chart_s_zoom_follows_a_chart_drawn_for_a_new_symbol(presenter_registry):
+    presenter, zoom_in = presenter_registry
+    first = presenter.view.chart_cards[0].chart_card
+    zoomed: list[str] = []
+    first.zoom.zoom_in.triggered.connect(lambda: zoomed.append("first"))
+
+    presenter.view.render_symbol_cards(["ETHUSDT"])
+    connect_chart_controls(presenter)
+    card = presenter.view.chart_cards[0].chart_card
+    card.zoom.zoom_in.triggered.connect(lambda: zoomed.append("new"))
+    zoom_in.trigger()
+
+    assert zoomed == ["new"]

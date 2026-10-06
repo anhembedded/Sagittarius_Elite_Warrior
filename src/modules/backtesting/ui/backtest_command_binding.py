@@ -22,8 +22,8 @@ from .backtest_commands import (
     STOP,
 )
 from .backtest_view_model import BackTestViewModel
-from .chart_display_commands import ChartDisplayCommands
-from .ports.i_backtest_chart_controls import IBacktestChartControls
+from .chart_display_commands import ChartDisplayCommands, front_chart
+from .ports.i_backtest_view import IBacktestView
 
 #: The modes a run or its sync can be stopped in; CANCELLING is already stopping.
 _STOPPABLE_MODES = frozenset({"RUNNING", "SYNCING"})
@@ -32,14 +32,14 @@ _STOPPABLE_MODES = frozenset({"RUNNING", "SYNCING"})
 def bind_backtest_commands(
     binder: ICommandBinder,
     view_model: BackTestViewModel,
-    chart_controls: IBacktestChartControls | None,
+    view: IBacktestView,
 ) -> None:
     """What `BackTestPresenter.bind_commands` binds. View → Chart follows
-    `chart_controls`, the toolbar drawn now, and each one drawn after it
-    (`BOT-155`, `ChartDisplayCommands.follow_controls_of`)."""
+    the chart `view` draws now, its toolbar and its card, and each one drawn
+    after it (`BOT-155`, `BOT-156`, `ChartDisplayCommands.follow_controls_of`)."""
     display = ChartDisplayCommands(view_model)
     display.bind_commands(binder)
-    display.follow_toolbar(chart_controls)
+    display.follow_toolbar(view.chart_controls, front_chart(view.chart_cards))
     idle = DerivedState(
         view_model.controlsEnabledChanged,
         lambda: bool(view_model.controlsEnabled),

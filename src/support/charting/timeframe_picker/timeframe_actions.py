@@ -21,6 +21,7 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction, QActionGroup
 
+from ..chart_commands import MENU_EQUIVALENT
 from .selection import TimeframeSelection
 
 _MORE_TEXT = "More timeframes…"
@@ -70,6 +71,9 @@ class TimeframeActions(QObject):
         for pinned in self._selection.pinned_rows:
             action = QAction(pinned.code, self)
             action.setObjectName(f"actTimeframe_{pinned.code}")
+            # A favourite, reached from a menu through the full picker
+            # (`BOT-156`, `chart_commands.py`).
+            action.setProperty(MENU_EQUIVALENT, _MORE_TEXT)
             action.setCheckable(True)
             # Checked before connecting: seeding the current timeframe must not
             # read as the user having chosen it.

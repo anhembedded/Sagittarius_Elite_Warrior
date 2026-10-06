@@ -19,6 +19,9 @@ from PySide6.QtWidgets import (
     QToolButton,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    MENU_EQUIVALENT,
+)
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
     object_name_problems,
@@ -109,6 +112,7 @@ def test_a_toolbar_action_in_no_menu_is_seen(qtbot) -> None:
     shared = QAction("&Zoom in", window)
     menu.addAction(shared)
     menu.addAction(QAction("Re&set zoom", window))
+    menu.addAction(QAction("&More timeframes…", window))
     bar = QToolBar("Chart", window)
     bar.setObjectName("chart")
     window.addToolBar(bar)
@@ -117,9 +121,14 @@ def test_a_toolbar_action_in_no_menu_is_seen(qtbot) -> None:
     bar.addSeparator()
     bar.addWidget(QPushButton("Widget"))
     bar.addAction("Crosshair")
+    # A favourite reached through a chooser, and one whose chooser is not
+    # in a menu (`BOT-156`).
+    bar.addAction("1h").setProperty(MENU_EQUIVALENT, "More timeframes…")
+    bar.addAction("4h").setProperty(MENU_EQUIVALENT, "More symbols…")
 
     assert toolbar_in_menu_problems(window, window) == [
-        "'Crosshair' on toolbar 'chart' is in no menu"
+        "'Crosshair' on toolbar 'chart' is in no menu",
+        "'4h' on toolbar 'chart' is in no menu",
     ]
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
     OhlcCandle,
@@ -47,6 +48,11 @@ class IBacktestChartHost(Protocol):
 
     @property
     def symbol(self) -> str: ...
+
+    def command_actions(self) -> dict[str, QAction]:
+        """The chart toolbar's actions View → Chart drives, by key
+        (`BOT-156`, `chart_command_actions`)."""
+        ...
 
     def set_dev_mode(self, enabled: bool) -> None: ...
 
