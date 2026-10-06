@@ -109,7 +109,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
 | | &Delete bot… | — | — | yes |
-| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger, &Fit levels) | — | the kind's toolbar | — |
+| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
+| | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |
 | | &Repair gap, Repair a&ll gaps | — | Data (Repair gap) | — |

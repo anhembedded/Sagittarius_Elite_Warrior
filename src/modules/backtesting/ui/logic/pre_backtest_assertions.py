@@ -16,7 +16,7 @@ _INVALID_CUSTOM_START_MESSAGE = f"Invalid start date — format {DATETIME_FORMAT
 _INVALID_CUSTOM_END_MESSAGE = f"Invalid end date — format {DATETIME_FORMAT}."
 _INVALID_CUSTOM_RANGE_MESSAGE = "Start date must be before end date."
 _TICK_MODE_REQUIRES_BOUNDED_RANGE_MESSAGE = (
-    'Realtime mode (tick-based) does not support "All History" — please '
+    'Realtime mode (tick-based) does not support "All history" — please '
     "choose a bounded time range. Checking data coverage at tick (second) "
     "resolution with no start point makes verification slower with every "
     "retry and it never catches up."

@@ -2348,7 +2348,7 @@ def test_all_history_with_tick_mode_is_rejected_before_any_dispatch(
 
     assert presenter.fsm.current_state == BacktestUiState.IDLE
     assert view_model.run_result.resultIsError is True
-    assert "All History" in view_model.run_result.resultText
+    assert "All history" in view_model.run_result.resultText
     mock_dispatcher.dispatch.assert_not_called()
 
 
@@ -4901,7 +4901,7 @@ def test_build_run_config_ignores_malformed_take_profit_pct_text(presenter, view
 
 
 def test_build_run_config_rejection_logs_error_message(presenter, view_model, caplog):
-    """When a run configuration is rejected (e.g. tick mode with All History),
+    """When a run configuration is rejected (e.g. tick mode with All history),
     the error message must be printed to the log (at ERROR level) and to the
     event logger, not merely written to the ViewModel run_result."""
     import logging
@@ -4922,6 +4922,6 @@ def test_build_run_config_rejection_logs_error_message(presenter, view_model, ca
         config = presenter._build_run_config()
 
     assert config is None
-    assert 'Realtime mode (tick-based) does not support "All History"' in caplog.text
+    assert 'Realtime mode (tick-based) does not support "All history"' in caplog.text
     assert view_model.run_result.resultIsError is True
     assert view_model.run_result.resultText != ""
