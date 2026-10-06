@@ -25,6 +25,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
     resolve_preset,
     seed_range,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _NOW = datetime(2026, 7, 8, 12, 30, tzinfo=UTC)
 
@@ -149,6 +151,23 @@ def test_the_summary_counts_candles_in_the_screens_own_timeframe():
     assert "7 days" in five_minutes
     assert "2,016 candles 5m" in five_minutes
     assert "168 candles 1h" in one_hour
+
+
+def test_the_summary_writes_its_instants_and_counts_as_the_formatter_does():
+    """`EPIC-033N`: the instants are the app's one timestamp, the day and
+    candle counts its quantity — no per-screen `date()` or `:,` spec."""
+    start = datetime(2026, 7, 1, 6, 30, tzinfo=UTC)
+    end = datetime(2026, 7, 8, 18, 45, 10, tzinfo=UTC)
+
+    summary = build_summary(start, end, timeframe_seconds=300, timeframe_label="5m")
+
+    assert summary == (
+        f"{write_value(ColumnKind.QUANTITY, 7)} days"
+        f" · {write_value(ColumnKind.TIMESTAMP, start)}"
+        f" → {write_value(ColumnKind.TIMESTAMP, end)}"
+        f"   ≈ {write_value(ColumnKind.QUANTITY, 2016)} candles 5m"
+    )
+    assert summary.startswith("7 days · 2026-07-01 06:30:00 → 2026-07-08 18:45:10")
 
 
 def test_the_summary_says_which_end_is_missing():

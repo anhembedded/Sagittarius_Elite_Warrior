@@ -21,9 +21,37 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
     OrderPreview,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_text import (
-    format_amount,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, Precision
+
+
+def _amount(quantity: Decimal, step: Decimal) -> str:
+    """A base-asset amount in whole lot steps, as the desk's tables write it."""
+    precision = Precision(step) if step > 0 else None
+    return write_value(ColumnKind.QUANTITY, quantity, precision=precision)
+
+
+#: The fewest decimals a price is shown with, as the price rule writes one.
+_MIN_PRICE_DECIMALS = 2
+
+
+def _price(price: Decimal) -> str:
+    """A price in all of its own decimals, never fewer than two: the order
+    carries the price exactly, so the question shows it exactly; the price
+    rule would round 1.23456 or 1,500.123 to its band (review of PR #389)."""
+    exponent = price.normalize().as_tuple().exponent
+    places = max(-exponent, _MIN_PRICE_DECIMALS) if isinstance(exponent, int) else 0
+    return write_value(ColumnKind.PRICE, price, precision=Precision.of_decimals(places))
+
+
+def _money(amount: Decimal) -> str:
+    return write_value(ColumnKind.MONEY, amount)
+
+
+def _fee(amount: Decimal) -> str:
+    """A fee is a quantity, as on the order form's read-out (`side_readout.py`):
+    it is often far below a cent, which money's two decimals would print as 0.00."""
+    return write_value(ColumnKind.QUANTITY, amount)
 
 
 @dataclass(frozen=True)
@@ -66,25 +94,26 @@ def build_confirmation(
     total = order.quantity * price
     fee = estimated_fee(order.quantity, price, fee_rate)
     lines = [
-        f"Total: {about}{format_amount(total)} {quote_asset}",
-        f"Estimated fee: {format_amount(fee)} {quote_asset}",
+        f"Total: {about}{_money(total)} {quote_asset}",
+        f"Estimated fee: {_fee(fee)} {quote_asset}",
     ]
     if preview.raw_quantity != order.quantity:
         lines.append(
-            f"The amount was rounded down from {format_amount(preview.raw_quantity)} "
-            f"to the lot step of {format_amount(preview.step_size)}."
+            f"The amount was rounded down from "
+            f"{write_value(ColumnKind.QUANTITY, preview.raw_quantity)} "
+            f"to the lot step of {write_value(ColumnKind.QUANTITY, preview.step_size)}."
         )
     lines.append("The order is sent to the exchange at once.")
     trigger = ""
     if order.stop_price is not None:
-        stop = f"{format_amount(order.stop_price)} {quote_asset}"
+        stop = f"{_price(order.stop_price)} {quote_asset}"
         trigger = f" once the price reaches {stop}"
         lines.append(f"It joins the book only when the last price reaches {stop}.")
     return OrderConfirmation(
         title=f"Place {side_label} order",
         question=(
-            f"{side_label} {format_amount(order.quantity)} {base_asset} at "
-            f"{about}{format_amount(price)} {quote_asset}{trigger}, as a {kind} "
+            f"{side_label} {_amount(order.quantity, preview.step_size)} {base_asset} at "
+            f"{about}{_price(price)} {quote_asset}{trigger}, as a {kind} "
             f"order on {venue_label}?"
         ),
         details="\n".join(lines),
@@ -118,15 +147,18 @@ def _quote_buy_confirmation(
     base_asset, quote_asset = labels.base_asset, labels.quote_asset
     spend = order.quote_quantity or Decimal(0)
     lines = [
-        f"Spend: {format_amount(spend)} {quote_asset}",
-        f"Estimated amount: about {format_amount(order.quantity)} {base_asset}",
-        f"Estimated fee: {format_amount(spend * fee_rate)} {quote_asset}",
+        f"Spend: {_money(spend)} {quote_asset}",
+        (
+            f"Estimated amount: about {_amount(order.quantity, preview.step_size)} "
+            f"{base_asset}"
+        ),
+        f"Estimated fee: {_fee(spend * fee_rate)} {quote_asset}",
         "The order is sent to the exchange at once.",
     ]
     return OrderConfirmation(
         title=f"Place {side_label} order",
         question=(
-            f"Spend {format_amount(spend)} {quote_asset} to {side_label.lower()} "
+            f"Spend {_money(spend)} {quote_asset} to {side_label.lower()} "
             f"{base_asset}, as a market order on {venue_label}?"
         ),
         details="\n".join(lines),

@@ -56,13 +56,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .instant_text import format_instant
 from .range_rules import (
     PRESET_LABELS,
     PRESET_ORDER,
     RangePresetKind,
     build_summary,
     can_apply,
-    format_instant,
     resolve_preset,
     seed_range,
 )

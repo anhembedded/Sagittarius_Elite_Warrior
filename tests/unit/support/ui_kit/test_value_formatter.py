@@ -8,8 +8,11 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    BYTES_KEY,
+    RATIO_KEY,
     TIMEFRAME_KEY,
     AppValueFormatter,
+    ratio_key,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -113,6 +116,40 @@ def test_a_timeframe_column_reads_as_its_code_and_sorts_by_its_length():
     assert _text(ColumnKind.DURATION, 60) == "0:01:00"
 
 
+@pytest.mark.parametrize(
+    ("count", "expected"),
+    [
+        (0, "0 B"),
+        (512, "512 B"),
+        (1023, "1,023 B"),
+        (1024, "1.00 KB"),
+        (1536, "1.50 KB"),
+        # One byte under a unit reads as that unit, not as 1,024.00 of the one below.
+        (1024**2 - 1, "1.00 MB"),
+        (1024**3 - 1, "1.00 GB"),
+        (1024**2 - 6 * 1024, "1,018.00 KB"),
+        (1024**2, "1.00 MB"),
+        (3355443, "3.20 MB"),
+        (int(128.4 * 1024**2), "128.40 MB"),
+        (5 * 1024**3, "5.00 GB"),
+        (3 * 1024**5, "3,072.00 TB"),
+        (-2048, "-2.00 KB"),
+    ],
+)
+def test_a_bytes_quantity_is_written_in_the_largest_unit_it_fills(count, expected):
+    assert (
+        AppValueFormatter().format(ColumnKind.QUANTITY, count, FormatContext(BYTES_KEY))
+        == expected
+    )
+
+
+def test_a_quantity_in_any_other_column_is_not_a_size():
+    assert _text(ColumnKind.QUANTITY, 2048) == "2,048"
+    assert AppValueFormatter().format(
+        ColumnKind.QUANTITY, float("inf"), FormatContext(BYTES_KEY)
+    ) == _text(ColumnKind.QUANTITY, float("inf"))
+
+
 def _quoted(kind: ColumnKind, value: object, quantum: str) -> str:
     context = FormatContext("cell", Precision(Decimal(quantum)))
     return AppValueFormatter().format(kind, value, context)  # type: ignore[arg-type]
@@ -166,3 +203,45 @@ def test_a_precision_leaves_money_percent_and_non_finite_values_to_their_rules()
         ColumnKind.PRICE, float("inf")
     )
     assert _quoted(ColumnKind.PRICE, None, "0.01") == ""
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (1.5, "1.50"),
+        (2.0, "2.00"),
+        (1234.5678, "1,234.57"),
+        (-63.2412, "-63.24"),
+        (-0.001, "0.00"),
+        (0, "0.00"),
+        (float("inf"), "\u221e"),
+        (float("-inf"), "-\u221e"),
+    ],
+)
+def test_a_ratio_has_two_decimals_and_infinity_reads_as_the_symbol(value, expected):
+    formatter = AppValueFormatter()
+
+    assert (
+        formatter.format(ColumnKind.QUANTITY, value, FormatContext(ratio_key("sharpe")))
+        == expected
+    )
+
+
+def test_a_ratio_is_a_quantity_only_under_its_own_key():
+    # The same number in an ordinary quantity column keeps the magnitude rule.
+    assert _text(ColumnKind.QUANTITY, 1.5) == "1.5"
+
+
+def test_a_ratio_key_names_the_row_and_ends_in_the_rule():
+    formatter = AppValueFormatter()
+
+    assert ratio_key("sharpe") == "sharpe.ratio"
+    for key in (RATIO_KEY, ratio_key("profit_factor")):
+        assert (
+            formatter.format(ColumnKind.QUANTITY, 3.14159, FormatContext(key)) == "3.14"
+        )
+    # A key that only contains the word is an ordinary quantity.
+    assert (
+        formatter.format(ColumnKind.QUANTITY, 3.14159, FormatContext("ratio_x"))
+        == "3.14159"
+    )

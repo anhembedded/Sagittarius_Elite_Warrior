@@ -129,6 +129,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 from .backtest_command_binding import bind_backtest_commands
 from .backtest_view_model import BackTestViewModel
 from .coordinators import DataSyncCoordinator, ExecutionCoordinator, build_coordinators
+from .logic import run_texts
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
 from .logic.backtest_fsm_matrix import (
@@ -633,7 +634,7 @@ class BackTestPresenter(CommandPresenter):
         trades_count = len(result.trades) if result and hasattr(result, "trades") else 0
         duration = getattr(result, "duration", 0.0) if result else 0.0
         self._emit_ui_log(
-            f"[EventBus] Backtest completed: {trades_count} trades (duration: {duration:.2f}s)",
+            f"[EventBus] {run_texts.completed_event_text(trades_count, duration)}",
             "info",
             is_dev=True,
         )
@@ -652,7 +653,7 @@ class BackTestPresenter(CommandPresenter):
         side = getattr(sig, "side", "") if sig else ""
         price = getattr(sig, "price", 0.0) if sig else 0.0
         self._emit_ui_log(
-            f"[Signal] Signal: {str(side).upper()} {symbol} @ {price:,.2f}",
+            f"[Signal] {run_texts.signal_text(str(side), symbol, price)}",
             "info",
             is_dev=True,
         )
@@ -1138,9 +1139,8 @@ class BackTestPresenter(CommandPresenter):
             "out_of_sample": "Testing out-of-sample",
             "full": "Running full dataset",
         }.get(phase, "Running")
-        eta_label = f" · ETA ~{eta_seconds}s" if eta_seconds is not None else ""
         self._view_model.run_progress.set_backtest_progress(
-            percent, f"{phase_label}: {percent:.0f}%{eta_label}"
+            percent, run_texts.progress_text(phase_label, percent, eta_seconds)
         )
 
     @Slot(int, object, list, list, list)
@@ -1841,7 +1841,7 @@ class BackTestPresenter(CommandPresenter):
         percent = min(100.0, max(0.0, current / total * 100.0)) if total > 0 else 0.0
         self._view_model.run_progress.set_sync_progress(
             percent,
-            f"Syncing candles: {current:,}/{total:,} ({percent:.0f}%)",
+            run_texts.sync_text(current, total, percent),
         )
 
     @Slot(int)

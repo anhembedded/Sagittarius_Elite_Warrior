@@ -104,7 +104,8 @@ def test_build_yearly_returns_rows_colors_a_gain_bull_and_a_loss_bear():
     months = rows[0]["months"]
     assert months[0]["color"] == BULL_COLOR  # January gained
     assert months[1]["color"] == BEAR_COLOR  # February lost
-    assert months[0]["text"] == "+10.00%"
+    assert months[0]["text"] == "10.00%"
+    assert months[1]["text"] == "-18.18%"  # the minus marks a loss, no plus a gain
 
 
 def test_build_yearly_returns_rows_reports_the_compounded_ytd_figure():
@@ -117,5 +118,5 @@ def test_build_yearly_returns_rows_reports_the_compounded_ytd_figure():
     rows = build_yearly_returns_rows(_result(equity_curve))
 
     # +10% then +10% compounds to +21%, not +20%.
-    assert rows[0]["ytdText"] == "+21.00%"
+    assert rows[0]["ytdText"] == "21.00%"
     assert rows[0]["ytdColor"] == BULL_COLOR

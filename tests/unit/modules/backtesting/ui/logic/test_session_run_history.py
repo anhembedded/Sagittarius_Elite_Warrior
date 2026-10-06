@@ -79,22 +79,22 @@ def test_make_run_snapshot_assigns_a_unique_run_id_per_call():
     assert first.run_id != second.run_id
 
 
-def test_snapshot_label_includes_time_config_and_signed_pnl():
+def test_snapshot_label_writes_time_config_and_pnl_as_the_application_does():
     now = datetime(2026, 1, 1, 15, 20, 5, tzinfo=UTC)
     snapshot = _snapshot(now, net_profit_percent=28.4)
 
     label = snapshot.label
 
-    assert "15:20:05" in label
-    assert "ETHUSDT" in label
-    assert "+28.4%" in label
+    # The one timestamp format, the run's own summary, the one percent format.
+    assert label.startswith("2026-01-01 15:20:05 — ETHUSDT | ")
+    assert label.endswith(" — 28.40%")
 
 
-def test_snapshot_label_shows_negative_pnl_without_a_leading_plus():
+def test_snapshot_label_marks_a_loss_by_its_minus_only():
     snapshot = _snapshot(datetime(2026, 1, 1, tzinfo=UTC), net_profit_percent=-9.1)
 
-    assert "-9.1%" in snapshot.label
-    assert "+-9.1%" not in snapshot.label
+    assert snapshot.label.endswith(" — -9.10%")
+    assert "+" not in snapshot.label
 
 
 def test_cache_get_all_returns_newest_first():

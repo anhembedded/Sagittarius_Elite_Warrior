@@ -1,5 +1,5 @@
 """The Data mode's view (`EPIC-033J`): HLD §11.2.1's layout, the status
-bar's words, and a selected shard becoming what the commands act on."""
+bar's read-outs, and a selected shard becoming what the commands act on."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QMainWindow
+from PySide6.QtWidgets import QDockWidget, QLabel, QMainWindow
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DATA_SURFACE,
     DataManagementView,
@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_m
 )
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_source import IStatusSource
+from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
 _AT = datetime(2026, 10, 1, tzinfo=UTC)
 
@@ -44,14 +45,52 @@ def test_the_coverage_table_is_central_and_the_gaps_are_docked_below(mode):
     assert surface.dockWidgetArea(docks[0]) is Qt.DockWidgetArea.BottomDockWidgetArea
 
 
-def test_records_and_size_are_words_in_the_status_bar(mode):
+def _title(form: ReadoutForm) -> str:
+    """A read-out's row title: the label that is not its value."""
+    (title,) = [
+        label.text()
+        for label in form.findChildren(QLabel)
+        if not label.objectName().startswith("readout::")
+    ]
+    return title
+
+
+def test_records_and_size_are_read_outs_in_the_status_bar(mode):
     view_model, view = mode
 
-    view_model.set_stats("1,250", "3.2 MB")
+    view_model.set_stats(1250, int(3.2 * 1024 * 1024))
 
     assert isinstance(view, IStatusSource)
-    texts = [widget.text() for widget in view.status_widgets()[:2]]
-    assert texts == ["Records: 1,250", "Database: 3.2 MB"]
+    records, size = view.status_widgets()[:2]
+    assert (_title(records), records.value_text("records")) == ("Records", "1,250")
+    assert (_title(size), size.value_text("bytes")) == ("Database", "3.20 MB")
+
+
+def test_unknown_stats_are_blank_not_a_glyph(mode):
+    view_model, view = mode
+
+    view_model.set_stats(None, None)
+
+    records, size = view.status_widgets()[:2]
+    assert records.value_text("records") == ""
+    assert size.value_text("bytes") == ""
+
+
+def test_a_stat_is_offered_only_once_its_figure_is_known(mode):
+    """A title with no value read as a label beside nothing (review of PR
+    #389): an unknown stat is hidden, and shown when its figure arrives."""
+    view_model, view = mode
+    records, size = view.status_widgets()[:2]
+
+    view_model.set_stats(None, None)
+    assert (records.isHidden(), size.isHidden()) == (True, True)
+
+    view_model.set_stats(1250, None)
+    assert (records.isHidden(), size.isHidden()) == (False, True)
+
+    view_model.set_stats(1250, 2048)
+    assert (records.isHidden(), size.isHidden()) == (False, False)
+    assert records.isWindow() is False
 
 
 def test_selecting_a_shard_is_recorded_in_the_selection(mode):

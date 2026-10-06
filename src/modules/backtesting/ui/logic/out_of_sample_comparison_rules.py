@@ -34,15 +34,18 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
     MetricComparisonRow,
     build_metric_comparison_rows,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 def build_split_description(validation: OutOfSampleValidation) -> str:
-    """E.g. "In-Sample: 70% of the range · Out-of-Sample: 30%"."""
+    """E.g. "In-Sample: 70.00% of the range · Out-of-Sample: 30.00%"."""
     in_sample_percent = validation.in_sample_ratio * 100.0
     out_of_sample_percent = 100.0 - in_sample_percent
     return (
-        f"In-Sample: {in_sample_percent:.0f}% of the range · "
-        f"Out-of-Sample: {out_of_sample_percent:.0f}%"
+        f"In-Sample: {write_value(ColumnKind.PERCENT, in_sample_percent)} "
+        f"of the range · "
+        f"Out-of-Sample: {write_value(ColumnKind.PERCENT, out_of_sample_percent)}"
     )
 
 
@@ -57,9 +60,10 @@ def build_overfit_warning(validation: OutOfSampleValidation) -> str:
         - validation.out_of_sample.metrics.net_profit_percent
     )
     return (
-        f"Possible overfitting: In-Sample net profit is {divergence:.1f} "
-        f"points higher than Out-of-Sample (warns above "
-        f"{OUT_OF_SAMPLE_DIVERGENCE_WARNING_POINTS:.0f} points)."
+        f"Possible overfitting: In-Sample net profit is "
+        f"{write_value(ColumnKind.PERCENT, divergence)} higher than "
+        f"Out-of-Sample (warns above "
+        f"{write_value(ColumnKind.PERCENT, OUT_OF_SAMPLE_DIVERGENCE_WARNING_POINTS)})."
     )
 
 

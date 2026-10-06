@@ -34,6 +34,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.time_range_preset import (
     TimeRangePreset,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -56,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -105,6 +112,10 @@ def backtest_screen(qapp, request):
             return IndicatorScriptRegistry()
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        # `BUG-127`: the real in-memory cache, never the `Mock()` below, whose
+        # `get()` answers a truthy object with a truthy `is_stale()`.
+        if interface == ISymbolMarketMetadataCache:
+            return InMemorySymbolMarketMetadataCache()
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -146,8 +157,22 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     presenter._view_model.run_result.set_extended_metrics_snapshot(
         ExtendedMetricsSnapshot(
             cards=(
-                StatCardData("Gross Profit", "100.00", _neutral, "USD", "", _neutral),
-                StatCardData("Gross Loss", "-50.00", _neutral, "USD", "", _neutral),
+                StatCardData(
+                    "gross_profit",
+                    "Gross Profit",
+                    100.0,
+                    ColumnKind.MONEY,
+                    _neutral,
+                    "USD",
+                ),
+                StatCardData(
+                    "gross_loss",
+                    "Gross Loss",
+                    -50.0,
+                    ColumnKind.MONEY,
+                    _neutral,
+                    "USD",
+                ),
             ),
             gross_profit=100.0,
             gross_loss=-50.0,

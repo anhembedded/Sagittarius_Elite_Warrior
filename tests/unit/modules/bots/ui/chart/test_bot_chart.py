@@ -41,15 +41,15 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
 def _drawn(card: ChartCard) -> list[tuple[float, str, str]]:
     """What the card's price plot shows of the bot: each labelled horizontal
     line's price, label and colour, lowest first. The card's own last-price
-    line is left out: its label is a format string (`{value:.4f}`), which no
-    overlay label is."""
+    line is left out by identity: since `EPIC-033N` its label is the
+    formatter's text, not a `{value:.4f}` format telling it apart."""
     lines = [
         item
         for item in card.plot_layout.main_plot.items
         if isinstance(item, pg.InfiniteLine)
         and item.angle == 0
         and hasattr(item, "label")
-        and "{" not in item.label.format
+        and item is not card.price_line.item
     ]
     return sorted(
         (line.value(), line.label.format, line.pen.color().name()) for line in lines

@@ -278,7 +278,7 @@ def test_a_confirmed_buy_on_the_panel_moves_the_btc_holding(qtbot) -> None:
         view_model.intents.request_submit(EntrySide.BUY)
 
         assert not view_model.message_is_error, view_model.message
-        assert panel.asked[0].question.startswith("Spend 500 USDT to buy BTC")
+        assert panel.asked[0].question.startswith("Spend 500.00 USDT to buy BTC")
         after = view_model.context
         assert after is not None and after.free_base is not None
         # `quoteOrderQty`: exactly the total is spent; the fee is charged in
@@ -326,7 +326,7 @@ def test_a_stop_limit_buy_rests_on_the_exchange_until_its_stop(qtbot) -> None:
         view_model.intents.request_submit(EntrySide.BUY)
 
         assert not view_model.message_is_error, view_model.message
-        assert "once the price reaches 51,000 USDT" in panel.asked[0].question
+        assert "once the price reaches 51,000.00 USDT" in panel.asked[0].question
         after = view_model.context
         assert after is not None
         # Resting, not filled: no BTC bought yet.

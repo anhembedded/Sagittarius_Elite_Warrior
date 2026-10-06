@@ -75,8 +75,8 @@ class RunResultViewModel(QObject):
         super().__init__(parent)
         self.resultText = ""
         self.resultIsError = False
-        self.primaryStatCards: list[dict[str, str]] = []
-        self.extendedStatCards: list[dict[str, str]] = []
+        self.primaryStatCards: list[dict[str, object]] = []
+        self.extendedStatCards: list[dict[str, object]] = []
         #: `EPIC-015` Phase 3 — `MetricsDetailDialogWidget`'s composition
         #: root reads this directly (plain Python accessor).
         #: `None` until the first run succeeds, the same "no result yet"
@@ -123,8 +123,8 @@ class RunResultViewModel(QObject):
     @Slot("QVariantList", "QVariantList")
     def set_stat_cards(
         self,
-        primary: list[dict[str, str]],
-        extended: list[dict[str, str]],
+        primary: list[dict[str, object]],
+        extended: list[dict[str, object]],
     ) -> None:
         """Empty lists clear the panel (no result yet, or the last run
         failed / returned nothing) — the cards row hides itself when

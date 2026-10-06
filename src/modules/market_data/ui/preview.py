@@ -40,7 +40,7 @@ def build_preview() -> QWidget:
     )
     view_model.log_model.append("Checking database status for BTCUSDT (1m)...")
     view_model.log_model.append("Scan complete.", level="success")
-    view_model.set_stats("414,400", "128.40 MB")
+    view_model.set_stats(414_400, int(128.4 * 1024 * 1024))
 
     view = DataManagementView()
     view.set_view_model(view_model)

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
     AuditDatabaseIntegrityQuery,
+    DataAnomalyDTO,
     DatabaseAuditResultDTO,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
@@ -115,3 +117,26 @@ def test_kline_inspector_coordinator_run_audit_success(kline_fixture):
     assert isinstance(dispatcher.dispatch.call_args[0][1], AuditDatabaseIntegrityQuery)
     signals["ui_audit_result"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
+
+
+def test_the_audit_summary_writes_its_counts_through_the_formatter(kline_fixture):
+    coordinator, dispatcher, _tracker, signals, _history = kline_fixture
+    moment = datetime(2026, 10, 5, 3, 40, tzinfo=UTC)
+    dispatcher.dispatch.return_value = DatabaseAuditResultDTO(
+        symbol="BTCUSDT",
+        interval="1m",
+        total_checked=1_234_567,
+        is_clean=False,
+        anomaly_count=1_200,
+        anomalies=[DataAnomalyDTO(moment, "gap", "a hole", {"open": 1.0})],
+    )
+
+    coordinator.run_audit("BTCUSDT", "1m")
+
+    is_clean, count, summary, anomalies = signals["ui_audit_result"].call_args.args
+    assert (is_clean, count) == (False, 1_200)
+    assert summary == (
+        "Warning: Found 1,200 anomalous candles out of 1,234,567 candles checked."
+    )
+    # A moment is a value: the one that shows it is the formatter's.
+    assert anomalies[0]["timestamp"] == moment

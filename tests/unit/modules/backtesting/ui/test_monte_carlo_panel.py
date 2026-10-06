@@ -163,7 +163,9 @@ def test_a_completed_result_renders_the_summary_and_feeds_both_charts(qapp):
     vm.run_result.set_monte_carlo_result(_simulation_result())
     qapp.processEvents()
 
-    assert "5,000" in panel._summary_label.text()
+    assert panel._summary.value_text("iterations") == "5,000"
+    assert panel._summary.value_text("median_return") == "8.00%"
+    assert panel._error_label.text() == ""
     assert panel._btn_run.isEnabled()
     assert len(panel._spaghetti_chart._curves) == 1
     assert panel._histogram._bars.opts["height"]
@@ -181,7 +183,8 @@ def test_a_failed_run_shows_the_error_and_clears_the_charts(qapp):
     vm.run_result.set_monte_carlo_error("boom")
     qapp.processEvents()
 
-    assert "boom" in panel._summary_label.text()
+    assert "boom" in panel._error_label.text()
+    assert panel._summary.keys == ()
     assert panel._spaghetti_chart._curves == []
     panel.deleteLater()
 
@@ -197,7 +200,8 @@ def test_clearing_the_result_reverts_the_panel_to_its_empty_summary(qapp):
     vm.run_result.clear_monte_carlo_result()
     qapp.processEvents()
 
-    assert panel._summary_label.text() == ""
+    assert panel._summary.keys == ()
+    assert panel._error_label.text() == ""
     assert panel._spaghetti_chart._curves == []
     panel.deleteLater()
 

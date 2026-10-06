@@ -34,8 +34,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.monte_carlo_rules import (
     build_drawdown_histogram_buckets,
     build_spaghetti_chart_series,
-    build_summary_lines,
+    build_summary_readout,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
 from ._monte_carlo_drawdown_histogram_widget import (
     MonteCarloDrawdownHistogramWidget,
@@ -72,7 +73,7 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
 
         self._build_controls_row()
         self._build_description_label()
-        self._build_summary_labels()
+        self._build_summary()
         self._build_charts()
 
         view_model.run_result.monteCarloResultChanged.connect(self.refresh)
@@ -107,11 +108,15 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self._description_label.setWordWrap(True)
         self.body_layout.addWidget(self._description_label)
 
-    def _build_summary_labels(self) -> None:
-        self._summary_label = QLabel()
-        self._summary_label.setObjectName("lblMonteCarloSummary")
-        self._summary_label.setWordWrap(True)
-        self.body_layout.addWidget(self._summary_label)
+    def _build_summary(self) -> None:
+        # Why a run is not shown, as a sentence; its figures are a read-out.
+        self._error_label = QLabel()
+        self._error_label.setObjectName("lblMonteCarloError")
+        self._error_label.setWordWrap(True)
+        self.body_layout.addWidget(self._error_label)
+        self._summary = ReadoutSlot()
+        self._summary.setObjectName("lblMonteCarloSummary")
+        self.body_layout.addWidget(self._summary)
 
     def _build_charts(self) -> None:
         self._spaghetti_chart = MonteCarloSpaghettiChartWidget()
@@ -137,16 +142,18 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
         error = self._vm.run_result.monte_carlo_error()
         result = self._vm.run_result.monte_carlo_result()
         if error:
-            self._summary_label.setText(f"⚠ {error}")
+            self._error_label.setText(f"⚠ {error}")
+            self._summary.clear()
             self._spaghetti_chart.set_series([])
             self._histogram.set_buckets([])
             return
+        self._error_label.setText("")
         if result is None:
-            self._summary_label.setText("")
+            self._summary.clear()
             self._spaghetti_chart.set_series([])
             self._histogram.set_buckets([])
             return
-        self._summary_label.setText("\n".join(build_summary_lines(result)))
+        self._summary.show_readout(build_summary_readout(result))
         self._spaghetti_chart.set_series(
             build_spaghetti_chart_series(result.sample_equity_curves)
         )

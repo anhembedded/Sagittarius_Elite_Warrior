@@ -35,6 +35,11 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
     BacktestRunConfig,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    ratio_key,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: Configurations that compare as fully equal produce this exact fallback
 #: from `compute_diff_summary()` (its own "diffs list is empty" branch) —
@@ -63,20 +68,26 @@ _NEUTRAL_FIELDS: frozenset[str] = frozenset(
     }
 )
 
-#: `(field_name, display_label, suffix)` — the metrics rows shown in the
+#: `(field_name, display_label, kind)` — the metrics rows shown in the
 #: comparison table, in display order. A short, curated set (not every
 #: `BacktestMetrics` field) matching the metrics `MetricsDetailDialogWidget`
-#: already treats as headline figures.
-_METRIC_ROWS: tuple[tuple[str, str, str], ...] = (
-    ("net_profit", "Net Profit", ""),
-    ("net_profit_percent", "Net Profit %", "%"),
-    ("max_drawdown_percent", "Max Drawdown", "%"),
-    ("percent_profitable", "Win Rate", "%"),
-    ("profit_factor", "Profit Factor", ""),
-    ("total_closed_trades", "Total Closed Trades", ""),
-    ("sharpe_ratio", "Sharpe Ratio", ""),
-    ("sortino_ratio", "Sortino Ratio", ""),
-    ("max_consecutive_losses", "Max Consecutive Losses", ""),
+#: already treats as headline figures. The kind says how the formatter writes
+#: both sides and their difference (`EPIC-033N`).
+_METRIC_ROWS: tuple[tuple[str, str, ColumnKind], ...] = (
+    ("net_profit", "Net Profit", ColumnKind.MONEY),
+    ("net_profit_percent", "Net Profit %", ColumnKind.PERCENT),
+    ("max_drawdown_percent", "Max Drawdown", ColumnKind.PERCENT),
+    ("percent_profitable", "Win Rate", ColumnKind.PERCENT),
+    ("profit_factor", "Profit Factor", ColumnKind.QUANTITY),
+    ("total_closed_trades", "Total Closed Trades", ColumnKind.QUANTITY),
+    ("sharpe_ratio", "Sharpe Ratio", ColumnKind.QUANTITY),
+    ("sortino_ratio", "Sortino Ratio", ColumnKind.QUANTITY),
+    ("max_consecutive_losses", "Max Consecutive Losses", ColumnKind.QUANTITY),
+)
+
+#: The metrics that are a ratio, not a count: they read to two decimals.
+_RATIO_FIELDS: frozenset[str] = frozenset(
+    {"profit_factor", "sharpe_ratio", "sortino_ratio"}
 )
 
 _ZERO_DELTA_TOLERANCE = 1e-9
@@ -84,13 +95,21 @@ _ZERO_DELTA_TOLERANCE = 1e-9
 
 @dataclass(frozen=True)
 class MetricComparisonRow:
-    """One row of the side-by-side metrics table."""
+    """One row of the side-by-side metrics table: the two sides and the
+    difference as raw numbers of one kind, which `AppValueFormatter` writes.
+    `key` is the formatter's context (a ratio's key says it is one)."""
 
     label: str
-    value_a: str
-    value_b: str
-    delta: str
+    key: str
+    kind: ColumnKind
+    value_a: float
+    value_b: float
+    delta: float
     tone: Tone
+
+    def text(self, figure: float) -> str:
+        """`figure` as the formatter writes this row's metric."""
+        return write_value(self.kind, figure, self.key)
 
 
 def build_config_diff_text(
@@ -143,16 +162,6 @@ def build_market_type_mismatch_warning(
     )
 
 
-def _format_metric_value(value: object) -> str:
-    if isinstance(value, bool):
-        return "Yes" if value else "No"
-    if isinstance(value, int):
-        return f"{value:,}"
-    if isinstance(value, float):
-        return f"{value:,.2f}"
-    return str(value)
-
-
 def _row_tone(field_name: str, delta: float) -> Tone:
     if field_name in _NEUTRAL_FIELDS:
         return Tone.NEUTRAL
@@ -169,18 +178,20 @@ def build_metric_comparison_rows(
     `metrics_a` — the delta's tone follows `_LOWER_IS_BETTER`/
     `_NEUTRAL_FIELDS` above rather than the raw sign of the difference."""
     rows: list[MetricComparisonRow] = []
-    for field_name, label, suffix in _METRIC_ROWS:
-        value_a = getattr(metrics_a, field_name)
-        value_b = getattr(metrics_b, field_name)
-        delta = float(value_b) - float(value_a)
-        sign = "+" if delta > 0 else ("" if delta < 0 else "±")
-        delta_text = f"{sign}{abs(delta):,.2f}{suffix}" if delta else f"0{suffix}"
+    for field_name, label, kind in _METRIC_ROWS:
+        value_a = float(getattr(metrics_a, field_name))
+        value_b = float(getattr(metrics_b, field_name))
+        delta = value_b - value_a
         rows.append(
             MetricComparisonRow(
                 label=label,
-                value_a=f"{_format_metric_value(value_a)}{suffix}",
-                value_b=f"{_format_metric_value(value_b)}{suffix}",
-                delta=delta_text,
+                key=(
+                    ratio_key(field_name) if field_name in _RATIO_FIELDS else field_name
+                ),
+                kind=kind,
+                value_a=value_a,
+                value_b=value_b,
+                delta=delta,
                 tone=_row_tone(field_name, delta),
             )
         )

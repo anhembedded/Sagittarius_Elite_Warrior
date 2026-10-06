@@ -31,6 +31,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateData
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from .backtest_fsm_matrix import BacktestRunConfig
 
@@ -51,12 +53,12 @@ class BacktestRunSnapshot:
     @property
     def label(self) -> str:
         """A short, timestamped line for the history dropdown, e.g.
-        `15:20 — ETHUSDT | 5m | ema_strategy | +28.4%`."""
+        `2026-10-05 15:20:00 — ETHUSDT | 5m | ema_strategy | 28.40%`."""
         pnl = self.result.metrics.net_profit_percent if self.result.metrics else 0.0
-        sign = "+" if pnl >= 0 else ""
         return (
-            f"{self.timestamp.strftime('%H:%M:%S')} — "
-            f"{self.run_config.to_summary_label()} — {sign}{pnl:.1f}%"
+            f"{write_value(ColumnKind.TIMESTAMP, self.timestamp)} — "
+            f"{self.run_config.to_summary_label()} — "
+            f"{write_value(ColumnKind.PERCENT, pnl)}"
         )
 
 

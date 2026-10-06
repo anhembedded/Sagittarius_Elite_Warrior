@@ -17,11 +17,16 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
     StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _NEUTRAL = Tone.NEUTRAL
 
 _SNAPSHOT = ExtendedMetricsSnapshot(
-    cards=(StatCardData("Gross Profit", "100.00", _NEUTRAL, "USD", "", _NEUTRAL),),
+    cards=(
+        StatCardData(
+            "gross_profit", "Gross Profit", 100.0, ColumnKind.MONEY, _NEUTRAL, "USD"
+        ),
+    ),
     gross_profit=1148.19,
     gross_loss=-9341.72,
     profit_factor=0.123,

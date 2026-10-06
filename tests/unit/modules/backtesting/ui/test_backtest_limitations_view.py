@@ -85,7 +85,7 @@ def test_the_exchange_filters_are_stated_whether_applied_or_not():
     )
     missing = " ".join(build_backtest_limitations(_result()))
 
-    assert "quantity step 1e-05, minimum notional 5, tick 0.01" in applied
+    assert "quantity step 0.00001, minimum notional 5.00, tick 0.01" in applied
     assert "No exchange filters applied" in missing
 
 

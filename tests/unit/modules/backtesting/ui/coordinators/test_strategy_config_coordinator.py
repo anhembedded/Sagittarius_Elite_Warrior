@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
@@ -9,6 +10,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.coordinators import (
     StrategyConfigCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    LotSizeFilter,
+    NotionalFilter,
+    PriceFilter,
+    SymbolMarketMetadata,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
@@ -198,3 +205,26 @@ def test_capital_validation_message_reaches_the_view_model(qtbot) -> None:
     coordinator.set_capital_validation_message("not-a-number")
 
     assert view_model.capitalValidationMessage != ""
+
+
+def test_stale_metadata_says_when_it_was_fetched_as_every_timestamp_is_written(
+    qtbot,
+) -> None:
+    stale = SymbolMarketMetadata(
+        symbol="BTCUSDT",
+        status="TRADING",
+        base_asset="BTC",
+        quote_asset="USDT",
+        price_filter=PriceFilter(0.01, 100000.0, 0.01),
+        lot_size_filter=LotSizeFilter(0.0001, 1000.0, 0.0001),
+        notional_filter=NotionalFilter(5.0, apply_to_market=True),
+        fetched_at=datetime(2020, 1, 2, 3, 4, 5, tzinfo=UTC),
+    )
+    coordinator, view_model, _state, _logger = _build(state=_State(metadata=stale))
+
+    coordinator.refresh_market_rule_verification()
+
+    assert view_model.marketRuleExplanation == (
+        "Not verified against exchange rules "
+        "(metadata is stale, fetched at 2020-01-02 03:04:05 UTC)."
+    )

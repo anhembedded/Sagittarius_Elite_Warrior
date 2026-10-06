@@ -7,6 +7,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_market import (
     market_label,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: BOT-081 — every entry here is true for every run TODAY because the
 #: underlying feature simply doesn't exist yet in the engine. This is the
@@ -93,9 +95,9 @@ def build_backtest_limitations(result: BacktestResult) -> list[str]:
     else:
         notes.append(
             _FILTERS_APPLIED_NOTE.format(
-                step=f"{filters.step_size:g}",
-                min_notional=f"{filters.min_notional:g}",
-                tick=f"{filters.tick_size:g}",
+                step=write_value(ColumnKind.QUANTITY, filters.step_size),
+                min_notional=write_value(ColumnKind.MONEY, filters.min_notional),
+                tick=write_value(ColumnKind.PRICE, filters.tick_size),
             )
         )
     notes.extend(_ALWAYS_APPLICABLE_LIMITATIONS)

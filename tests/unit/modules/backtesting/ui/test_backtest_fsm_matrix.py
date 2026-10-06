@@ -1,5 +1,8 @@
 """Unit tests for BacktestRunConfig and FSM State Matrix (BOT-095B, BOT-104)."""
 
+from dataclasses import replace
+from datetime import UTC, datetime
+
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -287,3 +290,28 @@ def test_fsm_viewing_imported_report_exits_on_run_config_change_or_dismiss():
         ]
         == BacktestUiState.IDLE
     )
+
+
+def test_the_diff_summary_writes_money_and_moments_as_the_application_does():
+    before = replace(
+        _base_config(),
+        start_time=datetime(2026, 1, 1, tzinfo=UTC),
+        end_time=None,
+    )
+    after = replace(
+        before,
+        initial_balance=25_000.0,
+        end_time=datetime(2026, 2, 1, 12, 30, tzinfo=UTC),
+    )
+
+    diff = before.compute_diff_summary(after)
+
+    assert "Capital (10,000.00 → 25,000.00)" in diff
+    assert (
+        "Time range (2026-01-01 00:00:00..Now → "
+        "2026-01-01 00:00:00..2026-02-01 12:30:00)"
+    ) in diff
+
+
+def test_the_summary_label_writes_capital_as_money():
+    assert _base_config().to_summary_label().endswith("Capital: 10,000.00 USD")

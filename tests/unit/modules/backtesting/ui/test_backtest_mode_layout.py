@@ -23,10 +23,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    StatCardData,
+    stat_cards_to_qml,
+)
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
-from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, shell_menus
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -109,12 +113,23 @@ def test_after_a_run_the_chart_keeps_most_of_the_window(mode, qapp):
     563 px wide and left the chart 558 of 1366. Two to a row, the chart
     keeps more than half the window."""
     view_model, view = mode
-    card = {"title": "Net profit", "value": "12,345.67", "suffix": " USD"}
-    card |= {"valueTone": Tone.NEUTRAL, "badgeText": "", "badgeTone": Tone.NEUTRAL}
+    cards = stat_cards_to_qml(
+        [
+            StatCardData(
+                f"net_profit{i}",
+                "Net profit",
+                12345.67,
+                ColumnKind.MONEY,
+                Tone.NEUTRAL,
+                "USD",
+            )
+            for i in range(4)
+        ]
+    )
     view.resize(1366, 768)
     view.show()
 
-    view_model.run_result.set_stat_cards([card] * 4, [])
+    view_model.run_result.set_stat_cards(cards, [])
     qapp.processEvents()
 
     assert view.charts_container.width() > 1366 // 2

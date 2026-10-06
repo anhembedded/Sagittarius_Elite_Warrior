@@ -624,49 +624,27 @@ def test_boot_falls_back_to_an_unpersisted_store_when_none_is_registered(
 
 
 def test_boot_wires_the_container_registered_store_into_the_view(
-    qapp,
-    mock_thread_mgr,
-    mock_dispatcher,
-    mock_config,
-    strategy_registry,
-    indicator_script_registry,
-    request,
+    qapp, mock_container, request
 ):
     """When the container *does* have a registered store — the real
     `app_bootstrapper.py` shape — `boot()` must hand the View that exact
     instance, not a fresh fallback, so Backtest's chart reads/writes the
     same persisted, per-symbol pins Dev Board would."""
     shared_store = TimeframePinPreferences()
-    container = Mock()
-    container.registrations.return_value = {TimeframePinPreferences: shared_store}
-
-    def resolve_mock(interface):
-        if interface == IThreadManager:
-            return mock_thread_mgr
-        if interface == IDispatcher:
-            return mock_dispatcher
-        if interface == IConfig:
-            return mock_config
-        if interface == StrategyRegistry:
-            return strategy_registry
-        if interface == IStrategyCatalog:
-            return StrategyCatalogService(strategy_registry)
-        if interface == IStrategyChartOverlay:
-            return StrategyChartOverlayService(strategy_registry)
-        if interface == IndicatorScriptRegistry:
-            return indicator_script_registry
-        if interface == TimeframePinPreferences:
-            return shared_store
-        return Mock()
-
-    container.resolve.side_effect = resolve_mock
+    mock_container.registrations.return_value = {TimeframePinPreferences: shared_store}
+    resolve_others = mock_container.resolve.side_effect
+    mock_container.resolve.side_effect = lambda interface: (
+        shared_store
+        if interface == TimeframePinPreferences
+        else resolve_others(interface)
+    )
     view = BackTestView()
     view.resize(1400, 800)
     view.show()
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)
 
-    BackTestPresenter(view, container)
+    BackTestPresenter(view, mock_container)
 
     assert view._timeframe_pin_preferences is shared_store
 
@@ -2430,12 +2408,13 @@ def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
 # ---------------------------------------------------------------------------
 
 
-def test_a_metric_tile_is_rendered_per_primary_stat_card_after_a_run(
+def test_a_readout_row_is_shown_per_primary_stat_card_after_a_run(
     presenter, view_model, qapp, mock_dispatcher
 ):
     """Renamed in `EPIC-025` PR 4.3g — the row is QtWidgets again, so "qml
     renders" was no longer what this test checks. The promise is unchanged:
-    a completed run puts a tile on screen per primary figure."""
+    a completed run puts a row on screen per primary figure (`EPIC-033N`: the
+    figures are a read-out, not tiles)."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True)
@@ -2445,13 +2424,10 @@ def test_a_metric_tile_is_rendered_per_primary_stat_card_after_a_run(
     qapp.processEvents()
 
     top_widget = presenter.view.top_widget
-    tiles = [
-        child
-        for child in top_widget._stat_cards_row.findChildren(QWidget)
-        if child.objectName().startswith("cardMetric_")
-    ]
-    assert len(tiles) == len(presenter._view_model.run_result.primaryStatCards)
-    assert tiles
+    cards = presenter._view_model.run_result.primaryStatCards
+    shown = top_widget._stat_cards_row.readout.keys
+    assert cards
+    assert all(card["key"] in shown for card in cards)
 
 
 def test_qml_documents_load_without_errors(presenter, qapp):
@@ -4373,7 +4349,7 @@ def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
     # Change initial capital
     vm.initialCapitalText = "50000"
     assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
-    assert "Capital (10,000 → 50,000)" in vm.configDiffSummary
+    assert "Capital (10,000.00 → 50,000.00)" in vm.configDiffSummary
 
     # Change strategy
     vm.strategy_params.selectedStrategyKey = "ema_strategy"

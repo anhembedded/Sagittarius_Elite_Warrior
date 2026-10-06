@@ -71,6 +71,7 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 
 ## 9. Tables, lists and read-outs
 - Every table, list and read-out of a kind shares its properties: item views are configured by the engine's column specs (selection, editing, sorting, header), never per view; a column's kind decides alignment and formatting — numbers, money and durations right, text, identifiers and dates left (MS `ctrl-list-views`). `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H6]`
+- A number or a time a person reads is written by the application's formatter (`src/support/ui_kit/value_formatter.py`): no UI code formats one itself with a format spec or `strftime`. `[guard: test_display_values_go_through_the_formatter.py; review: H6]`
 - Full-row selection, always visible; a header click sorts ascending, then descending; columns are movable and remembered per view (MS `ctrl-list-views`). The suite checks that every visible table or tree was configured from its column specs, with full-row selection, read-only cells and sorting enabled; remembered columns are review until `EPIC-033N` closes. `[guard: test_workbench_conformance.py; review: H6]`
 - An empty view shows an instruction, not a blank (MS `ctrl-list-views`). `[review: H6]`
 - A table narrower than its columns scrolls horizontally, never drops them (`BOT-128`). `[review: H6]`

@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
     build_metric_comparison_rows,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _T0 = datetime(2024, 1, 1, tzinfo=UTC)
 
@@ -180,7 +181,8 @@ def test_higher_is_better_field_tones_positive_when_b_is_bigger():
 
     row = next(r for r in rows if r.label == "Net Profit")
     assert row.tone is Tone.POSITIVE
-    assert row.delta.startswith("+")
+    assert row.delta == 100.0
+    assert row.text(row.delta) == "100.00"
 
 
 def test_higher_is_better_field_tones_negative_when_b_is_smaller():
@@ -228,7 +230,47 @@ def test_equal_values_tone_neutral():
 
     row = next(r for r in rows if r.label == "Net Profit")
     assert row.tone is Tone.NEUTRAL
-    assert row.delta == "0"
+    assert row.delta == 0.0
+    assert row.text(row.delta) == "0.00"
+
+
+def test_each_metric_is_written_in_its_own_kind_by_the_formatter():
+    """Money, percent, count and ratio rows, each as `AppValueFormatter`
+    writes that kind (`EPIC-033N`) — one format where the rows had a `%`
+    suffix, a bare `{:,.2f}` and a bare `{:,}` each."""
+    rows = {
+        row.label: row
+        for row in build_metric_comparison_rows(
+            _metrics(
+                net_profit=1000.0,
+                net_profit_percent=10.0,
+                total_closed_trades=1500,
+                profit_factor=1.234,
+            ),
+            _metrics(
+                net_profit=1250.5,
+                net_profit_percent=12.5,
+                total_closed_trades=2500,
+                profit_factor=float("inf"),
+            ),
+        )
+    }
+
+    money = rows["Net Profit"]
+    assert (money.kind, money.text(money.value_a), money.text(money.value_b)) == (
+        ColumnKind.MONEY,
+        "1,000.00",
+        "1,250.50",
+    )
+    percent = rows["Net Profit %"]
+    assert (percent.text(percent.value_b), percent.text(percent.delta)) == (
+        "12.50%",
+        "2.50%",
+    )
+    count = rows["Total Closed Trades"]
+    assert (count.text(count.value_a), count.text(count.value_b)) == ("1,500", "2,500")
+    ratio = rows["Profit Factor"]
+    assert (ratio.text(ratio.value_a), ratio.text(ratio.value_b)) == ("1.23", "\u221e")
 
 
 # ---------------------------------------------------------------------------

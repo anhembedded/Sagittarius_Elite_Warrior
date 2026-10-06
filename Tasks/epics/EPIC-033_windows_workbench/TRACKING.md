@@ -41,7 +41,7 @@ gantt
 | EPIC-033B | [A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates](completed/EPIC-033B_workbench_conformance_fences.md) | #332 | 🟡 | ✅ Done | 2026-10-06 |
 | EPIC-033C | [One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar](completed/EPIC-033C_workbench_shell.md) | #345 | 🔴 | ✅ Done | 2026-10-06 |
 | EPIC-033D | [Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it](completed/EPIC-033D_commands_as_actions.md) | P4c (claude/confident-dirac-le8m4x) | 🟡 | ✅ Done | 2026-10-05 |
-| EPIC-033N | [Every table, list and read-out is built from one spec per kind](incomplete/EPIC-033N_uniform_display_widgets.md) | P4d (claude/confident-dirac-le8m4x) | 🟡 | 🟡 In progress: tables and formatter done; read-outs, grouped trees, per-symbol precision open | — |
+| EPIC-033N | [Every table, list and read-out is built from one spec per kind](completed/EPIC-033N_uniform_display_widgets.md) | P4d (claude/confident-dirac-le8m4x) | 🟡 | ✅ Done (2026-10-06): the last criterion in three parallel parts, then the static ban | — |
 | EPIC-033E | [One Options dialog (Tools → Options) with sections, OK, Cancel and Apply](completed/EPIC-033E_settings_dialog.md) | #348 | 🟡 | ✅ Done | 2026-10-04 |
 | EPIC-033F | [One Output dock with a channel per module replaces three log cards](completed/EPIC-033F_one_output_dock.md) | #348 | 🟢 | ✅ Done | 2026-10-04 |
 | EPIC-033G | [The chart is a canvas; its controls are actions in the toolbar and the context menu](completed/EPIC-033G_stock_chart_controls.md) | P4d (claude/confident-dirac-le8m4x) | 🟡 | ✅ Done | 2026-10-05 |

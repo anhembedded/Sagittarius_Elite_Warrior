@@ -1,8 +1,8 @@
-"""`BOT-144` — the Storage Vault size stat tile's text, extracted out of
+"""`BOT-144` — the Storage Vault stat tiles' values, extracted out of
 `DataManagementPresenter` (part of bringing that file under the
 `architecture-rule.md` §5.4 400-line ceiling).
 
-@details A pure `Path | str | None -> str` computation with no `self`
+@details A pure `Path | str | None -> int | None` computation with no `self`
 dependency beyond the already-resolved config value, mirroring
 `export_paths.py`'s own reasoning for living here rather than on the
 Presenter.
@@ -13,36 +13,27 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
-from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
-_UNKNOWN_STAT = "—"
-_BYTES_PER_MB = 1024 * 1024
-
-
-def database_size_text(raw_dir: object) -> str:
-    """Sums on-disk SQLite files under `raw_dir`, or `_UNKNOWN_STAT` if it
-    is unset, not a directory, or unreadable."""
+def database_size_bytes(raw_dir: object) -> int | None:
+    """Sums on-disk SQLite files under `raw_dir`, or `None` if it is unset,
+    not a directory, unreadable or holds nothing: the size is then unknown,
+    and the read-out writes it blank (`AppValueFormatter`'s `BYTES_KEY`)."""
     if not isinstance(raw_dir, (str, Path)) or not str(raw_dir).strip():
-        return _UNKNOWN_STAT
+        return None
 
     try:
         directory = Path(raw_dir)
         if not directory.is_dir():
-            return _UNKNOWN_STAT
+            return None
         total_bytes = sum(
             path.stat().st_size for path in directory.glob("*.db*") if path.is_file()
         )
     except OSError:
-        return _UNKNOWN_STAT
+        return None
 
-    if not total_bytes:
-        return _UNKNOWN_STAT
-    return f"{total_bytes / _BYTES_PER_MB:.2f} MB"
+    return total_bytes or None
 
 
-def stored_records_text(candle_counts: Iterable[int]) -> str:
-    """The stored-records tile: every shard's candles, summed and written as a
-    quantity (`EPIC-033N`), or `_UNKNOWN_STAT` before a scan has counted any."""
-    total = sum(candle_counts)
-    return write_value(ColumnKind.QUANTITY, total) if total else _UNKNOWN_STAT
+def stored_records(candle_counts: Iterable[int]) -> int | None:
+    """Every shard's candles, summed, or `None` before a scan has counted any."""
+    return sum(candle_counts) or None

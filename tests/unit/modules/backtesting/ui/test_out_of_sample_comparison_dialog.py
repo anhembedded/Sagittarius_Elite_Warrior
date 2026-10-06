@@ -148,7 +148,7 @@ def test_a_validated_run_renders_the_split_and_metrics_table(qapp):
     dialog.open_dialog()
     qapp.processEvents()
 
-    assert "70%" in dialog._description_label.text()
+    assert "70.00%" in dialog._description_label.text()
     assert dialog._table.model.rowCount() > 0
     dialog.close()
 

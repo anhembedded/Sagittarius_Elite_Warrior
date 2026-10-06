@@ -57,9 +57,9 @@ def test_a_limit_order_names_its_amount_price_total_and_fee() -> None:
 
     assert confirmation.title == "Place Buy order"
     assert confirmation.question == (
-        "Buy 0.012 BTC at 60,000 USDT, as a limit order on Spot Testnet?"
+        "Buy 0.0120 BTC at 60,000.00 USDT, as a limit order on Spot Testnet?"
     )
-    assert "Total: 720 USDT" in confirmation.details
+    assert "Total: 720.00 USDT" in confirmation.details
     assert "Estimated fee: 0.72 USDT" in confirmation.details
     assert "rounded" not in confirmation.details
 
@@ -98,10 +98,10 @@ def test_a_stop_limit_names_its_stop() -> None:
     confirmation = _confirm(stop)
 
     assert confirmation.question == (
-        "Buy 0.012 BTC at 60,000 USDT once the price reaches 59,900 USDT, as a "
+        "Buy 0.0120 BTC at 60,000.00 USDT once the price reaches 59,900.00 USDT, as a "
         "stop-limit order on Spot Testnet?"
     )
-    assert "only when the last price reaches 59,900 USDT" in confirmation.details
+    assert "only when the last price reaches 59,900.00 USDT" in confirmation.details
 
 
 def test_a_quote_sized_buy_names_what_it_spends() -> None:
@@ -120,10 +120,23 @@ def test_a_quote_sized_buy_names_what_it_spends() -> None:
     confirmation = _confirm(quote, "60000")
 
     assert confirmation.question == (
-        "Spend 250 USDT to buy BTC, as a market order on Spot Testnet?"
+        "Spend 250.00 USDT to buy BTC, as a market order on Spot Testnet?"
     )
-    assert "Spend: 250 USDT" in confirmation.details
+    assert "Spend: 250.00 USDT" in confirmation.details
     assert "Estimated amount: about 0.0041 BTC" in confirmation.details
     assert "Estimated fee: 0.25 USDT" in confirmation.details
     # The exchange sizes it from the quote, so no lot rounding is claimed.
     assert "rounded" not in confirmation.details
+
+
+def test_a_price_finer_than_its_band_is_shown_exactly() -> None:
+    """The order carries the price exactly, so the question shows every
+    decimal of it, never fewer than two (review of PR #389)."""
+    fine = replace(
+        _PREVIEW,
+        order=replace(_PREVIEW.order, price=Decimal("1500.123")),
+    )
+
+    confirmation = _confirm(fine, "1500.123")
+
+    assert "at 1,500.123 USDT" in confirmation.question

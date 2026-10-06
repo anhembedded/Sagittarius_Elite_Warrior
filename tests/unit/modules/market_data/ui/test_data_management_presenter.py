@@ -505,7 +505,7 @@ def test_stored_records_tile_sums_scanned_totals(
 
     presenter._refresh_stats()
 
-    assert view_model.storedRecords == "2,640"
+    assert view_model.storedRecords == 2640
 
 
 def test_dead_screen_does_not_break_app_wide_logging(qapp, mock_container, request):
@@ -566,7 +566,7 @@ def test_startup_auto_discovery_stays_cheap_and_refreshes_the_stat_tiles(
     presenter._scan_coordinator.run_auto_discover()
 
     assert view_model.status_model.rowCount() == 0
-    assert view_model.storedRecords == "—"
+    assert view_model.storedRecords is None
     assert presenter.fsm.current_state == UIMode.IDLE
     assert not any(
         call.args[0] is ScanAllDatabasesQuery or call.args[0] is PruneEmptyShardsCommand
@@ -621,7 +621,7 @@ def test_vacuum_refreshes_the_stat_tiles(presenter, view_model, mock_dispatcher)
     presenter._vault_maintenance_coordinator.run_vacuum()
 
     assert presenter.fsm.current_state == UIMode.IDLE
-    assert view_model.storedRecords == "500"
+    assert view_model.storedRecords == 500
 
 
 def test_unlock_ui_from_a_locked_state_returns_to_idle(presenter):
@@ -647,7 +647,7 @@ def test_unlock_ui_is_idempotent_when_already_idle(
     presenter._unlock_ui()
 
     assert presenter.fsm.current_state == UIMode.IDLE
-    assert view_model.storedRecords == "777"
+    assert view_model.storedRecords == 777
 
 
 def test_data_management_view_model_supports_one_second_and_all_standard_intervals(
