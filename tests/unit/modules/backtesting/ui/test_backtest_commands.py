@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands impo
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
     BACKTEST_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+    BackTestView,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
@@ -53,7 +56,8 @@ def _actions(view_model: BackTestViewModel):
     return bound_actions(
         view_model,
         backtest_commands(BACKTEST_ROUTE),
-        lambda binder: bind_backtest_commands(binder, view_model, None),
+        # A real view with no chart drawn yet.
+        lambda binder: bind_backtest_commands(binder, view_model, BackTestView()),
     )
 
 

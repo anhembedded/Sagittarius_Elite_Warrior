@@ -29,7 +29,7 @@ class _ViewWithSurface(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self._surface = WorkbenchSurface(surfaces_by_id()["dev_board"])
+        self._surface = WorkbenchSurface(surfaces_by_id()["bots"])
         self._surface.place_widget(Place.WORKSPACE, QLabel("chart"))
         self._surface.place_widget(Place.RAIL, QLabel("orders"), title="Orders")
         QVBoxLayout(self).addWidget(self._surface)
@@ -68,7 +68,7 @@ def test_a_surface_nested_inside_a_panel_is_not_the_screens(qapp) -> None:
     whatever panel holds it."""
     view = QWidget()
     panel = QWidget(view)
-    QVBoxLayout(panel).addWidget(WorkbenchSurface(surfaces_by_id()["dev_board"]))
+    QVBoxLayout(panel).addWidget(WorkbenchSurface(surfaces_by_id()["bots"]))
 
     host = ModeHost("x", view)
 

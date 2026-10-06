@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
@@ -19,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import (
+    chart_command_actions,
 )
 
 from ..ports.i_backtest_chart_host import IBacktestChartHost
@@ -52,6 +56,9 @@ class PythonBacktestChartHost:
     @property
     def symbol(self) -> str:
         return self._chart_card.symbol
+
+    def command_actions(self) -> dict[str, QAction]:
+        return chart_command_actions(self._chart_card)
 
     def set_dev_mode(self, enabled: bool) -> None:
         self._chart_card.set_dev_mode(enabled)

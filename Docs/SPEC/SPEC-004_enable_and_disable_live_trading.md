@@ -6,8 +6,7 @@
   `BUG-089` (a second click landing on an in-flight toggle). Per venue since `EPIC-028B`/`028C`;
   the single Trading screen's toggle became each desk's in `EPIC-028K`/`028L`/`028M`.
 - **Surfaces:** each desk's Enable/Disable toggle, for the desk's own venue (the Futures desk for
-  Futures Testnet, the Spot desk for Spot Testnet), and the Dev Board's, for the venue it trades.
-  All of them are one class (`DeskSessionControls`). The Options dialog's Trading page only **reads** this
+  Futures Testnet, the Spot desk for Spot Testnet). Both are one class (`DeskSessionControls`). The Options dialog's Trading page only **reads** this
   state — it refuses a venue change while trading is on and says where to turn it off.
 
 ## 1. Trigger
@@ -39,7 +38,7 @@ holds before it does."*
    refused.
 7. On success the app allows live submission on that venue, records what it reconciled, and the
    toggle reads Enabled. On a desk, the chart goes live (`BUG-107`: until then it shows stored
-   candles); the Dev Board's chart keeps its own Start Live button.
+   candles).
 8. Disabling is the mirror and is simpler: it always succeeds, immediately, and needs no network.
 
 ## 4. What must be true afterwards
@@ -102,7 +101,6 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | contract |
 | One venue's session never moves the other's | `tests/unit/modules/trading/application/test_venue_isolation.py` | unit |
 | A desk's toggle turns on its own venue only and puts its chart live | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py` | unit |
-| The Dev Board's toggle is the same controls, and never puts its chart live | `tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py` | unit |
 | The toggle's async ownership: one action at a time, stale results fenced, never superseding an Emergency Stop | `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |
 | The Options page refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
 | Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, click Enable on the Futures desk and confirm the reconciled positions shown match the Testnet web UI | human |

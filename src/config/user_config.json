@@ -2,13 +2,5 @@
     "DEFAULT_SYNC_DAYS": 30,
     "CHART_CARD_MIN_FETCH_CANDLES": 2000,
     "CHART_CARD_LOAD_MORE_BATCH_CANDLES": 2000,
-    "CHART_CARD_MAX_ZOOM_OUT_CANDLES": 200,
-    "ui.font.family": "JetBrainsMono Nerd Font",
-    "ui.font.size": 10,
-    "ui.font.fallbacks": [
-        "CaskaydiaCove Nerd Font",
-        "FiraCode Nerd Font",
-        "MesloLGS NF",
-        "Consolas"
-    ]
+    "CHART_CARD_MAX_ZOOM_OUT_CANDLES": 200
 }

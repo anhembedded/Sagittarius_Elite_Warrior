@@ -32,7 +32,7 @@ class SizeHint(Enum): COMPACT = "compact"; REGULAR = "regular"; TALL = "tall"
 @dataclass(frozen=True, slots=True)
 class ContributionDescriptor:
     contributor_id: str        # a module_id, or "shell" for the shell's own surfaces — nothing else
-    surface_id: str            # "trading", "dev_board", "bots", "backtest", "data_management"
+    surface_id: str            # "trading", "developer", "bots", "backtest", "data_management"
     place: Place
     order: int                 # sort key within (surface_id, place); collisions are allowed (see rule 2)
     size_hint: SizeHint
@@ -106,10 +106,10 @@ runs a command, not what its arguments are.
    `(order, contributor_id, factory.__qualname__)`, so two independently authored modules that both
    pick `order = 10` render deterministically instead of refusing to boot. The **uniqueness key** is
    `(surface_id, place, contributor_id, factory.__qualname__)`; registering it twice raises.
-3. A contribution to a surface that is **declared but gated off for this run** (`dev_board` when
-   `dev.mode` is false) is **dropped with one log line**, whatever its place. That is the normal
-   user run: the twelve mirrored panels, the manual-order panel, the checklist and the probes are all
-   dropped together, and the app boots.
+3. A contribution to a surface that is **declared but gated off for this run** (`developer` when
+   `dev.mode` is false; the Dev Board's `dev_board` until `EPIC-033P`) is **dropped with one log
+   line**, whatever its place. That is the normal user run: every probe is dropped, and the app
+   boots.
 4. `factory` is never invoked during `contribute()`; a guard runs every module's `contribute()`
    against a registry that raises on any factory call.
 5. `contribute()` runs after `boot()`, in the module list's order, and **may `resolve()`** — so the
@@ -122,7 +122,7 @@ runs a command, not what its arguments are.
 | :--- | :--- | :--- |
 | `welcome` | shell | `HEADER`, `WORKSPACE` |
 | `trading` | shell | `HEADER`, `CONTEXT_BAR`, `WORKSPACE`, `RAIL`, `CONSOLE`, `MODAL`, `STATUS_TILE` |
-| `dev_board` (gated) | shell | the same plus `DEV_PROBE`; system controls are a `HEADER` contribution at `order = 20` |
+| `developer` (gated, `EPIC-033P`) | shell | `WORKSPACE` (the event log) and `DEV_PROBE`; the `dev_board` surface it replaced was deleted with the Dev Board |
 | `backtest` | `backtesting` | `WORKSPACE`, `NAVIGATOR`, `RAIL`, `CONSOLE` (the places its own view fills, `EPIC-033L`) |
 | `data_management` | `market_data` | `RAIL`, `MODAL` |
 

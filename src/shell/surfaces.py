@@ -1,7 +1,7 @@
 """The surfaces this application has, and what each one can hold (SDD).
 
 A **surface** is a place a user navigates to. It is owned either by the shell
-(`trading`, `dev_board`, `developer` — the workbench itself) or by the
+(`trading`, `developer` — the workbench itself) or by the
 module whose subject it is (`backtest`, `data_management`). Owning a surface
 means declaring it here; it does not mean the owner fills it — any module may
 contribute to any surface, which is the whole point of the mechanism.
@@ -12,8 +12,8 @@ immediately rather than by finding its panel missing at runtime.
 
 `gated_by` names a run-time condition. A gated surface is **declared even when
 it is off**, so contributions to it are *dropped with a log line* instead of
-raising — the normal user run drops every Dev Board panel and boots (validation
-rule 3). Declaring it conditionally would turn that normal case into a crash.
+raising — the normal user run drops every Developer mode probe and boots
+(validation rule 3). Declaring it conditionally would turn that normal case into a crash.
 
 The `Surface` type itself is `core/contracts/surface.py`: the host that renders
 one lives in `support/ui_kit`, which may not import the shell (PR 1.4b). What
@@ -47,12 +47,6 @@ _WORKBENCH_PLACES = frozenset(
 
 SURFACES: tuple[Surface, ...] = (
     Surface("trading", owner="shell", accepts=_WORKBENCH_PLACES),
-    Surface(
-        "dev_board",
-        owner="shell",
-        accepts=_WORKBENCH_PLACES | {Place.DEV_PROBE},
-        gated_by=DEV_MODE_GATE,
-    ),
     Surface(
         DEVELOPER_SURFACE_ID,
         owner="shell",

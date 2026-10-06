@@ -15,7 +15,7 @@ from outside the code:
 Neither is a specification, and the gap showed the day Phase 0 of `EPIC-025` had to be
 accepted. Its acceptance test was four sentences inside a task file — *"Trading loads history,
 Dev Board's Start Live syncs and streams, Data Management syncs a symbol, CLI `sync`/`stream`
-work"* — written once, for one phase, and impossible to re-run later because nothing said what
+work"* (the Dev Board was deleted in `EPIC-033P`) — written once, for one phase, and impossible to re-run later because nothing said what
 "loads history" means precisely enough to check twice.
 
 - [`Docs/PROJECT_INTENT_AND_USER_STORIES.md`](../PROJECT_INTENT_AND_USER_STORIES.md) is the

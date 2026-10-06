@@ -25,10 +25,12 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
 - **View → Back to live:** a chart showing a range draws its newest first
   window again and follows the stream, in one request (`EPIC-033T`); off
   while the chart in front shows no range and while it loads.
+- **View → Chart:** the chart toolbar's own actions (More timeframes…, the
+  zooms, Go live) as commands, since a toolbar's buttons take no keyboard
+  focus (`BOT-156`, `chart_commands.py`); they act on the chart in front.
 - **Tools → Indicator parameters…:** edits the parameters of the script
   selected in the Indicators panel, in the dialog the Dev Board used for it
-  (`BOT-063`), which the Dev Board's deletion (`EPIC-033P`) would otherwise
-  take with it. In Tools, beside Options, as a dialog of settings; off while
+  (`BOT-063`) until `EPIC-033P` deleted the Dev Board. In Tools, beside Options, as a dialog of settings; off while
   the selected script declares no input.
 
 Qt-free, because `TradingModule.contribute()` imports it on a headless run
@@ -40,10 +42,16 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    chart_commands,
+)
 
 FILE_MENU = ("&File",)
 TOOLS_MENU = ("&Tools",)
 VIEW_MENU = ("&View",)
+CHART_MENU = ("&View", "C&hart")
+#: The prefix of the chart's commands' ids (`chart_command_id`).
+CHART_PREFIX = "trading.market"
 CHECK_CONNECTION = "trading.market.check_connection"
 CLOSE_CHART = "trading.market.close_chart"
 SHOW_SPOT = "trading.market.show_spot"
@@ -112,6 +120,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             on_toolbar=True,
         ),
+        *chart_commands("trading", CHART_PREFIX, route, CHART_MENU),
         CommandContribution(
             contributor_id="trading",
             command_id=INDICATOR_PARAMS,

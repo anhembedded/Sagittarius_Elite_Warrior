@@ -1,6 +1,6 @@
 """`EPIC-033C` — the `IShownAsMode` port stays declared, both ways.
 
-The window (`presentation/`) and two of the three presenters that implement
+The window (`presentation/`) and one of the two presenters that implement
 the port are excluded from mypy, and the window dispatches with
 `isinstance(presenter, IShownAsMode)`. A presenter whose method drifted from
 the port would be skipped without a sound and its screen would never go live,
@@ -87,11 +87,10 @@ def test_every_implementer_takes_the_ports_one_source_argument() -> None:
         assert annotation.id == "NavigationSource", where
 
 
-def test_the_implementers_are_the_known_three() -> None:
+def test_the_implementers_are_the_known_two() -> None:
     """A new implementer is a deliberate change: add it here, with its reason
     for going live on a show rather than on construction."""
     assert set(_implementers()) == {
         "modules/market_data/ui/data_management_presenter.py::DataManagementPresenter",
-        "modules/trading/ui/dashboard/dashboard_presenter.py::DashboardPresenter",
         "modules/trading/ui/market/market_presenter.py::MarketPresenter",
     }

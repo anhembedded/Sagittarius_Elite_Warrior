@@ -1,9 +1,10 @@
 """`EPIC-033F` — the real window's one Output pane carries every screen's log.
 
 Built by the shared `main_window` fixture from the real modules' screens. The
-four log cards (Dev Board's System monitor, each desk's log, Data's sync log,
-Backtest's run log) are channels of the pane now, and a line a screen's view
-model logs is what the pane shows on that channel.
+log cards (each desk's log, Data's sync log, Backtest's run log; the Dev
+Board's System monitor until `EPIC-033P` deleted it) are channels of the pane
+now, beside the Market mode's, and a line a screen's view model logs is what
+the pane shows on that channel.
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ def test_every_screen_log_is_a_channel_of_the_one_pane(
 
     titles = {choice.itemText(index) for index in range(choice.count())}
 
-    assert titles == {"Market", "System monitor", "Sync", "Backtest", *desks}
+    assert titles == {"Market", "Sync", "Backtest", *desks}
     assert len(main_window.findChildren(OutputPane)) == 1
 
 

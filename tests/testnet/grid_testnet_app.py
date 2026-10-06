@@ -12,7 +12,7 @@ is reached, so the fake exchange proves it in CI
 (`tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py`)
 before a person's run depends on it. The enabling is not run there: the fake
 server does not speak the websocket (the same limit as
-`test_dev_board_f9_against_fake_server.py`).
+`test_spot_desk_against_fake_server.py`).
 
 The round trip's support lives here, beside the app it reads:
 

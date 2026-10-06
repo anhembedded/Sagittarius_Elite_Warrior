@@ -27,12 +27,17 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    chart_commands,
+)
 
 #: The shell's Tools menu (it already holds &Options, so the access keys
 #: below avoid O).
 BACKTEST_MENU = ("&Tools",)
 _CONTRIBUTOR = "backtesting"
 _PREFIX = "backtesting.backtest"
+#: The prefix of the chart toolbar's commands' ids (`BOT-156`).
+CHART_PREFIX = _PREFIX
 
 RUN = f"{_PREFIX}.run"
 STOP = f"{_PREFIX}.stop"
@@ -85,6 +90,7 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
         command(MONTE_CARLO, "Monte Car&lo"),
         command(EXPORT_TRADES, "Export &trades…", needs_input=True),
         *_chart_commands(route),
+        *chart_commands(_CONTRIBUTOR, CHART_PREFIX, route, CHART_MENU),
     )
 
 

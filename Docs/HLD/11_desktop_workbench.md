@@ -75,7 +75,7 @@ the mode the user last used; there is no Welcome page.
 
 ### 11.2.3 The menu bar is the catalogue of commands
 
-Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, B, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
+Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, B, D, T, W, H, and P, kept for a Developer menu should one ever be needed — see §11.2.3) and within each menu; "…" only where the command asks for more input;
 "confirm" means a dialog with specific verbs and the safe choice as default
 (`ui-presentation-rule.md` §10). A command with a toolbar column is also on that mode's toolbar.
 
@@ -91,6 +91,9 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
 | | S&pot market, Futures mar&ket (Market mode: one exclusive choice of the market its Watchlist and charts show, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
 | | Load o&lder candles, Load ran&ge… (Market mode: the chart in front prepends the stored window before its oldest candle, or draws a chosen UTC span; off while it loads; `EPIC-033S`) | — | Market | — |
+| | Back to l&ive (Market mode: a chart showing a range of the past redraws its newest first window and follows the stream, one request; off while the chart in front shows no range or loads; `EPIC-033T`) | — | Market | — |
+| | C&hart › &Candlestick, &Equity curve, &Side by side (Backtest mode: one exclusive choice of what the chart draws), Strategy &indicators, &Volume, &Buy/Sell flags (Backtest: the chart's layers, checkable); `BOT-155` | — | the chart's own toolbar | — |
+| | C&hart › &More timeframes…, Zoom i&n, Zoom &out, Zoom in ver&tically, Zoom out verticall&y, Box &zoom (checkable), &Reset zoom, &Go live (Market and Backtest: the chart in front's own toolbar, kept in step with it; Go live scrolls a chart the person panned back to the live edge, where Back to live reloads a chart showing a past range; the pinned timeframes are reached through More timeframes…; `BOT-156`) | Zoom in `QKeySequence.ZoomIn`, Zoom out `QKeySequence.ZoomOut` (Ctrl++, Ctrl+-) | the chart's own toolbar | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
 | T&rade | &Venue › Futures, Spot | — | Trade | — |
@@ -126,27 +129,31 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Keyboard shortcuts | — | — | — |
 | | &About Sagittarius Elite Warrior | — | — | — |
 
-**Until the mode tasks land** (`EPIC-033D` converted the screens as they are; `EPIC-033H`–`033L` and `033P` rebuild them to the table above):
+**Until the mode tasks land** (`EPIC-033D` converted the screens as they are; `EPIC-033H`–`033L` rebuild them to the table above, and `EPIC-033P` built the Developer mode and deleted the Dev Board):
 
 - The table's menus, names and shortcuts hold where a screen already has the command: Trade's Enable live trading, Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
 - Delete bot carries no "…": it only confirms, and "…" marks a command that asks for more input (§4 of the rule).
 - Emergency stop is on each desk's toolbar, for that desk's venue, not on every mode's: one Emergency stop for every venue comes with the single Trade mode (`EPIC-033I`).
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
-  - Trade, on the Dev Board: Load history, Start live, Stop live (`EPIC-033P`).
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
   - Bots: Refresh fills and Fit levels (`EPIC-033K`).
 
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 
-Developer mode adds a `Develo&per` menu before Tools, holding the probes. Context menus on tables
-repeat the menu commands that act on the selected row (Cancel order, Copy).
+Developer mode adds no menu of its own (proposed in `EPIC-033P` stage 3; the user agreed on
+2026-10-06, "Đồng ý bỏ menu Developer"): its probes are panels,
+each with its View toggle like every dock (`ui-presentation-rule.md` §8), and the mode itself is on
+the mode bar; a `Develo&per` menu of the same toggles would be a second command for each (§2,
+Consistency), and the Dev Board's commands that might have filled it went with the Dev Board. A
+probe that one day needs a command of its own (a request to send) brings the menu with it. Context
+menus on tables repeat the menu commands that act on the selected row (Cancel order, Copy).
 
 ### 11.2.4 Today's screens, mapped
 
 | Today | Becomes | Why |
 | :--- | :--- | :--- |
 | Welcome | dropped | the app opens on the last mode; developer mode is a page in Options |
-| Dev Board | Market (chart, watchlist, indicators) and Developer (probes); its order dialog becomes Trade's New order | it held three jobs |
+| Dev Board | Market (chart, watchlist, indicators) and Developer (probes, event log); its order dialog became the desks' New order (F9). Deleted in `EPIC-033P` | it held three jobs |
 | Watchlist screen | the Watchlist panel in Market | a list beside the chart, not a place of its own |
 | Futures desk, Spot desk | Trade, with the venue selector | one job, two venues |
 | Backtest | Backtest | its overlays and nested scrolling become panels |
@@ -185,10 +192,8 @@ cards. Two things replace it:
 - A **panel** is a `QDockWidget` whose content is a module-owned widget: a table (`QTableView` on
   a model), a form, or a read-only summary. It has a title, a close button, and nothing else of its
   own. One panel = one factory in `module.contribute()`; the module's `ui/panels/` package holds it.
-- A **dialog** is the desktop way to *do* something that needs input and confirmation: place a
-  manual order on Dev Board (shortcut F9, as in MT5, also reachable from a toolbar action; the
-  desks keep their order panel in the rail, where it is the screen's purpose — `EPIC-028`),
-  arm a strategy with parameters, pick a time range, edit settings. Every dialog that commits on OK
+- A **dialog** is the desktop way to *do* something that needs input and confirmation: arm a
+  strategy with parameters, pick a time range, edit settings. Every dialog that commits on OK
   has Cancel, states what OK will do, validates before enabling OK, and reports the result in the
   status bar. A dialog that applies each change as it is made has Close instead, since there is
   nothing for a Cancel to take back (MS `win-dialog-box`); Backtest's Strategy Parameters is one.
@@ -199,11 +204,11 @@ Which former widgets become what:
 | :--- | :--- | :--- |
 | positions table, open orders table (QML tables) | panels (`QTableView` + `QAbstractTableModel`; the existing view models keep their role) | `trading/ui/panels/` |
 | session card | a status-bar tile (enabled / orders this session) plus the Enable / Disable / Emergency-stop actions on the toolbar; one `DeskSessionControls` behind every screen's actions, each for one venue (`EPIC-028M`) | `trading/ui/` |
-| manual order card | the desks' **order panel** (`trading/ui/desk/order_entry/`): in each desk's rail, and in Dev Board's **Order** dialog (F9) for the venue the board trades | `EPIC-028H`/`028I`; the card left in `EPIC-028M` |
+| manual order card | the desks' **order panel** (`trading/ui/desk/order_entry/`), in each desk's rail; Trade → New order… (F9, as in MT5) focuses it (`EPIC-033R`) | `EPIC-028H`/`028I`; the card left in `EPIC-028M` |
 | equity chart | a panel hosting the chart widget | `trading/ui/panels/` |
 | strategy card, last-signal card | the Strategy panel (armed strategy, parameters button, last signal) | `strategy/ui/panels/` |
 | strategy parameters dialog | a `QDialog` | `strategy/ui/dialogs/` |
-| Dev Board system controls | a toolbar of actions | `market_data/ui/` |
+| Dev Board system controls | gone with the Dev Board (`EPIC-033P`): the Market mode's View menu holds Spot or Futures market, Load older candles, Load range… and Back to live | `trading/ui/market/` |
 | indicator checklist | the Market mode's Indicators panel | `trading/ui/market/` (`EPIC-033H`): the mode also runs SPEC-003's check through `trading`'s account port, and `market_data` may not depend on `trading` |
 | backtest modals (11, QML) | `QDialog`s | `backtesting/ui/dialogs/` |
 | Data Management tables, time-range and timeframe pickers | panels and dialogs | `market_data/ui/` |
@@ -257,8 +262,8 @@ them, since this list once said "enforced" where no test existed.
 ## 11.6 What this changes in the plan
 
 - Phase 0 (`EPIC-025A`) rebuilds Data Management's four QML widgets as panels and dialogs and
-  removes the theme layer; Phase 1 rebuilds Trading and Dev Board as modes with docks and the Order
-  dialog; Phase 3 rebuilds the eleven backtest modals as dialogs; Phase 4 deletes what is left of
+  removes the theme layer; Phase 1 rebuilds Trading as modes with docks (the Dev Board's parts
+  went to the Market, Trade and Developer modes, and `EPIC-033P` deleted it); Phase 3 rebuilds the eleven backtest modals as dialogs; Phase 4 deletes what is left of
   `kit/` and `qml/`. The Gantt bars are re-cut accordingly.
 - The Engine track: `TASK-043` item 3 (QML import paths) is dropped; E2's region host is a
   `QMainWindow`-based surface host; the Engine's tokens and QML kit are not consumed by this app.

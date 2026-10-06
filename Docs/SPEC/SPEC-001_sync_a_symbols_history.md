@@ -5,8 +5,8 @@
 - **Origin:** measured from the code. The behaviour predates this directory; `BUG-010`,
   `BUG-025`, `BOT-121` and `BOT-122` are the four reports that shaped it.
 - **Surfaces:** the Data mode's Data → Sync history… (one shard, its range optional) and
-  Sync all gaps (bulk) (`EPIC-033J`) · Dev Board's *Load History* and
-  *Start Live* (their fetch phase) · Backtest screen's data sync · `sync` on the command line and
+  Sync all gaps (bulk) (`EPIC-033J`) · a live chart's sync before it streams (the Market mode's
+  and a desk's, `support/charting/live_chart/`) · Backtest screen's data sync · `sync` on the command line and
   at the interactive prompt.
 
 ## 1. Trigger

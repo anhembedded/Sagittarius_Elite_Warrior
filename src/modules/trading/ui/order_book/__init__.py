@@ -1,7 +1,8 @@
 """The account's order book as the desktop renders it: two tables and a row
 projection each (`EPIC-025` PR 1.4b-2).
 
-Shared by Trading and the Dev Board, which is why it is a component and not a
+Shared by both desks (and the Dev Board, until `EPIC-033P`), which is why it
+is a component and not a
 screen's private widget — `EPIC-023A` had already moved the QML pair here for
 that reason, and reaching into a sibling screen's directory is the
 cross-screen-import anti-pattern `architecture-rule.md` §5 documents. The

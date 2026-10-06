@@ -32,6 +32,9 @@ from PySide6.QtWidgets import (
     QWidget,
     QWidgetAction,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    MENU_EQUIVALENT,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -265,8 +268,11 @@ def _menu_actions(menu: QMenu) -> list[QAction]:
 def toolbar_in_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
     """§6: every toolbar action is also in a menu (MS `cmd-toolbars`): the
     same `QAction`, or one with the same text, reachable from the menu bar
-    as the showing mode fills it. A widget on a toolbar is
-    `toolbar_actions_only`'s; separators are not commands."""
+    as the showing mode fills it. An action that says its command is in a
+    menu under another name (`MENU_EQUIVALENT`: a chart's pinned timeframe,
+    reached through More timeframes…, `BOT-156`) is judged by that name. A
+    widget on a toolbar is `toolbar_actions_only`'s; separators are not
+    commands."""
     in_menus = [a for _, menu in top_menus(window) for a in _menu_actions(menu)]
     texts = {command_name(a.text()) for a in in_menus if a.text()}
     found = []
@@ -277,6 +283,7 @@ def toolbar_in_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
                 or action.isSeparator()
                 or action in in_menus
                 or command_name(action.text()) in texts
+                or command_name(str(action.property(MENU_EQUIVALENT) or "")) in texts
             ):
                 continue
             found.append(

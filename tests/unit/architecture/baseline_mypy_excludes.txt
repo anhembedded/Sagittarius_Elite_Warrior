@@ -16,14 +16,6 @@
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]sync_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]kline_inspector_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]preview\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dev_board_panel\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_presenter\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_view\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_view_model\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_symbol_picker_dialog\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_symbol_picker_source\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]history_pagination_controller\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]preview\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]backtest_metrics_detail_source\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]backtest_symbol_picker_source\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]backtest_time_range_source\.py$

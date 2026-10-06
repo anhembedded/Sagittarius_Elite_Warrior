@@ -1,5 +1,5 @@
 """Positions/Open Orders table bookkeeping, shared by every screen that
-displays them (`DashboardPresenter`, the desks' `AccountTabsPresenter`).
+displays them (the desks' `AccountTabsPresenter`; the Dev Board's until `EPIC-033P`).
 
 @details `EPIC-021H`/`BUG-086`/`BUG-084` built the four `OrderFeed` handlers
 and the two render methods once, for the Trading screen (retired in

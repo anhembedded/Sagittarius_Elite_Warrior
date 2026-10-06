@@ -1,7 +1,7 @@
 """The Market mode as a contribution (`EPIC-033H`): Ctrl+1, the first mode.
 
 HLD §11.2.1 puts watching the market first on the mode bar, so its item
-sequence sits before the Dev Board's (10, 10). Lazy, as every
+sequence sits before every other mode's. Lazy, as every
 `ScreenContribution` must be: the factories are `Deferred` import paths, so
 nothing below imports Qt until the mode is built.
 """

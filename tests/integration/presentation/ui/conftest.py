@@ -1,5 +1,4 @@
 import os
-from contextlib import suppress
 from datetime import UTC, datetime
 
 import pytest
@@ -215,7 +214,7 @@ def app_engine(
     # in reverse dependency order, and qtbot is the innermost). Nothing pumps
     # the event loop after that, so those deletions sit queued until pytest-qt
     # pumps at the NEXT test's setup — by which point this fixture has booted
-    # an engine and the Dev Board's auto-start has a worker running. Any
+    # an engine and a mode's first load has a worker running. Any
     # allocation that worker makes can then trigger a GC that runs shiboken
     # destructors for those just-freed widgets **on the worker thread**, and
     # the interpreter aborts: `Fatal Python error: Aborted` partway through a
@@ -241,8 +240,8 @@ def app_engine(
 
     # Loaded writable from a tmp copy, not the real file: Tools → Options'
     # Apply calls ConfigManager.save(), and any test in this directory that
-    # exercises it (directly or incidentally, e.g. by driving the full Dev
-    # Board/Settings flow) must not overwrite the actual repo config on every
+    # exercises it (directly or incidentally) must not overwrite the actual
+    # repo config on every
     # run — both a bad side effect and non-hermetic across parallel runs.
     user_json = tmp_path / "user_config.json"
     if os.path.exists(real_user_json):
@@ -255,27 +254,6 @@ def app_engine(
     config_manager.load_json(str(user_json), writable=True)
     if dev_mode:
         config_manager.load_dict({"dev.mode": True})
-
-    # BOT-034: AutoStartController's fallback (default 2s — see
-    # dashboard_presenter.py's _DEFAULT_AUTOSTART_FALLBACK_SECONDS) exists to
-    # cover *real* wall-clock waiting for a live WS tick. This test module's
-    # mocked dispatcher never produces one, and a single test's own setup +
-    # waits reliably take close enough to 2 real seconds that the fallback
-    # was firing *during* a test — submitting a second, independent
-    # _load_history() background task that raced the test's own explicit
-    # action against the same IndicatorScriptRunner/chart-card state. That
-    # was a real, reproduced Windows access violation (bisected down to a
-    # single, deterministically-crashing test with no other test involved).
-    # Pushing the fallback out to effectively "never" here is honest test
-    # isolation, not a workaround — the fallback's own timing behavior is
-    # covered by tests/unit/.../test_autostart_controller.py, not by this
-    # integration suite.
-    config_manager.load_dict(
-        {
-            "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS": 3600.0,
-            "DEV_BOARD_AUTOSTART_ENABLED": True,
-        }
-    )
 
     engine = create_app(config_manager)
 
@@ -330,9 +308,9 @@ def app_engine(
             # real exchange/fake server (see
             # `test_manual_order_pipeline_against_fake_server.py`), but not
             # something this offscreen Qt suite's shared engine should do on
-            # every manual-order click. `DashboardPresenter._run_manual_order`
-            # only wants a real tuple shape back (it iterates `positions`
-            # directly), not a network round trip, so a flat empty tuple —
+            # every manual-order click. The order path only wants a real
+            # tuple shape back (it iterates `positions` directly), not a
+            # network round trip, so a flat empty tuple —
             # "no open position for any symbol" — is the correct fixture
             # answer here, same spirit as the `_FakeResponse` branches below.
             return ()
@@ -420,57 +398,22 @@ def app_engine(
 def main_window(qapp, qtbot, app_engine):
     """
     @brief Instantiate the MainWindow with the mocked engine.
-    @details Teardown cancels every routed DashboardPresenter's
-    _cancellation_token (BOT-034), stops its AutoStartController's pending
-    fallback QTimer, and then blocks until this engine's IThreadManager pool
-    has actually drained, before this fixture's own generator resumes —
-    which, since fixtures tear down in reverse dependency order, happens
-    *before* app_engine's teardown calls engine.stop(). Without this, a Load
-    History/Start Live background task (or a fallback timer's later
-    load_history call) left running past the end of a test can still be
-    mid-emit when this test's Qt widgets get garbage-collected, touching an
-    already-deleted pyqtgraph object — this was a real, reproduced crash
-    (Windows access violation), not a hypothetical one.
-
-    The fallback-timer piece matters independently of the cancellation
-    token/thread-pool drain below: AutoStartController.begin() arms a
-    2-second QTimer that only gets cancelled by a *real* MarketTickEvent
-    (see on_market_tick) — the mocked dispatcher in this test module never
-    produces one, so that timer is still armed when a test finishes in well
-    under 2 seconds. Left alone, it fires *during a later test* (this is a
-    single shared qapp/event loop across the whole file) and calls back into
-    a presenter whose chart widgets are gone by then — this was the actual
-    root cause of a crash that survived the cancellation-token/thread-pool
-    fixes alone (verified by bisecting against the pre-autostart commit,
-    which does not reproduce it at all).
-
-    Cancelling the token only stops the NEXT checkpoint a background method
-    reaches (cooperative, not a hard kill) — a bare sleep-based grace period
-    was tried first and was NOT reliable (the crash still reproduced when
-    combining test files, i.e. across an accumulation of orphaned timers/
-    threads within one pytest process). thread_manager.shutdown(wait=True)
-    is a hard guarantee instead of a probabilistic one: it blocks until
-    every submitted task has actually returned. This is safe here
-    specifically because DashboardPresenter's background tasks
-    (_run_load_history / _run_sync_and_start) are bounded work (a few
-    dispatch calls), not an indefinite loop — the real WS streaming loop
-    lives elsewhere, outside this pool. Calling shutdown() again from
-    ThreadManagerExtension during app_engine's own teardown afterward is
-    safe — ThreadPoolExecutor.shutdown is idempotent. This is test-only
-    teardown; production shutdown still deliberately uses wait=False (see
-    thread_manager_module.py) since only this test fixture, not the app,
-    needs to await widget-teardown safety.
+    @details Teardown blocks until this engine's IThreadManager pool has
+    actually drained, before this fixture's own generator resumes — which,
+    since fixtures tear down in reverse dependency order, happens *before*
+    app_engine's teardown calls engine.stop(). Without this, a background
+    load left running past the end of a test can still be mid-emit when this
+    test's Qt widgets get garbage-collected, touching an already-deleted
+    pyqtgraph object — a real, reproduced crash (Windows access violation),
+    not a hypothetical one. A bare sleep-based grace period was tried first
+    and was NOT reliable; thread_manager.shutdown(wait=True) blocks until
+    every submitted task has returned. Production shutdown still uses
+    wait=False (see thread_manager_module.py): only this test fixture needs
+    to await widget-teardown safety.
     """
     window = real_main_window(app_engine)
     window.show()
     yield window
-    for presenter in window.presenters.values():
-        autostart = getattr(presenter, "_autostart", None)
-        if autostart is not None:
-            autostart.shutdown()
-        token = getattr(presenter, "_cancellation_token", None)
-        if token is not None:
-            token.cancel()
 
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -489,22 +432,13 @@ def main_window(qapp, qtbot, app_engine):
         )
 
     # ChartCard's helpers that watch its canvas (the cached-frame controller
-    # and the FPS meter; until `EPIC-033G` also ViewportController) install
-    # event filters on it — an event filter registered via installEventFilter() is a raw pointer on
-    # the filtered widget's side, not a Qt-managed ownership link. Normally
-    # ChartCard.cleanup() explicitly disposes them (see
-    # DashboardView.render_symbol_cards, which calls it every time it
-    # replaces the current cards). But _ensure_chart_cards reuses the same
-    # cards for the lifetime of one Dev Board screen (symbols never change
-    # within a test), so cleanup() is otherwise never called for whichever
-    # cards are still current when a test ends — leaving Qt's normal
-    # deleteLater()-driven widget teardown to destroy `canvas` out from
-    # under a still-alive helper, or vice versa, with no
-    # guaranteed ordering. Whichever side survives longer is left holding a
-    # dangling event-filter pointer to the other — a real, reproduced
-    # Windows access violation (bisected: does not reproduce before
-    # BOT-034's auto-start, which is what pushed every Dev Board test to
-    # actually construct chart cards instead of only some of them).
+    # and the FPS meter) install event filters on it — an event filter is a
+    # raw pointer on the filtered widget's side, not a Qt-managed ownership
+    # link. ChartCard.cleanup() disposes them, but a screen that keeps its
+    # cards for its whole life (Backtest's `chart_cards`) never calls it for
+    # the cards still current when a test ends, leaving Qt's deleteLater()
+    # teardown to destroy `canvas` out from under a still-alive helper, or
+    # vice versa — a real, reproduced Windows access violation.
     for host in window.hosts.values():
         cards = getattr(host.view, "chart_cards", None)
         if cards:
@@ -549,29 +483,6 @@ def navigate(qapp, qtbot, main_window):
             "presenter_instance": main_window.presenters[route],
             "view_instance": main_window.hosts[route].view,
         }
-
-        # BOT-034: opening the Dev Board auto-starts Start Live — a real
-        # background task on this fixture's real ThreadPoolExecutor (see
-        # app_engine's docstring). Waiting here for it to settle (success or
-        # failure) is not optional politeness: without it, the task can
-        # still be mid-flight touching the chart when a test finishes and
-        # main_window's Qt widgets get torn down, which reliably produced a
-        # real crash (Windows access violation in a ThreadPoolExecutor
-        # worker touching an already-deleted pyqtgraph ViewBox) before this
-        # wait was added. Best-effort: a second navigate("dashboard") in the
-        # same test reuses the already-settled presenter, so there is
-        # nothing new to wait for — swallow the timeout rather than fail.
-        presenter = entry.get("presenter_instance")
-        if route == "dashboard" and presenter is not None:
-            settled = {"done": False}
-
-            def _mark_settled(*_args) -> None:
-                settled["done"] = True
-
-            presenter.ui_stream_success_signal.connect(_mark_settled)
-            presenter.ui_stream_failed_signal.connect(_mark_settled)
-            with suppress(Exception):
-                qtbot.waitUntil(lambda: settled["done"], timeout=2000)
 
         return entry
 

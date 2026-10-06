@@ -40,8 +40,8 @@ def trading(qapp) -> WorkbenchSurface:
 
 
 @pytest.fixture
-def dev_board(qapp) -> WorkbenchSurface:
-    return WorkbenchSurface(surfaces_by_id()["dev_board"])
+def developer(qapp) -> WorkbenchSurface:
+    return WorkbenchSurface(surfaces_by_id()["developer"])
 
 
 class TestIdentity:
@@ -186,18 +186,20 @@ class TestWhatTheSurfaceRefuses:
     def test_a_place_the_surface_does_not_accept(
         self, trading: WorkbenchSurface
     ) -> None:
-        """`dev_probe` is Dev Board's, and `surfaces.py` says so. The host
+        """`dev_probe` is the Developer mode's, and `surfaces.py` says so. The host
         enforces the same contract the registry does, because a widget can
         also reach a host directly in a test or a preview."""
         with pytest.raises(ContributionError, match="cannot render dev_probe"):
             trading.place_widget(Place.DEV_PROBE, QLabel("probe"), title="Probe")
 
-    def test_dev_board_does_accept_a_probe(self, dev_board: WorkbenchSurface) -> None:
-        dev_board.place_widget(Place.DEV_PROBE, QLabel("probe"), title="Exchange API")
+    def test_the_developer_surface_does_accept_a_probe(
+        self, developer: WorkbenchSurface
+    ) -> None:
+        developer.place_widget(Place.DEV_PROBE, QLabel("probe"), title="Exchange API")
 
         assert (
-            dev_board.findChild(
-                QWidget, f"{dev_board.objectName()}::dev_probe::Exchange API"
+            developer.findChild(
+                QWidget, f"{developer.objectName()}::dev_probe::Exchange API"
             )
             is not None
         )

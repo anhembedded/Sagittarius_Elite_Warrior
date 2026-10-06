@@ -17,7 +17,7 @@ stays each guard's own.
 `ScreenContribution(..., route=<ROUTE_CONSTANT>, ...)`. A screen's directory
 depth varies with how many screens its module owns — `backtesting/ui/
 backtest_screen.py` sits at the module's `ui/` root (the module's only
-screen), `trading/ui/dashboard/dashboard_screen.py` owns a subdirectory and
+screen), `trading/ui/market/market_screen.py` owns a subdirectory and
 the two desks share one (`trading/ui/desk/desk_screen/`) — so
 "screen package" is derived from the file, not guessed from a directory name
 matching its route (`database_screen.py`'s own route is `"data_management"`,
@@ -125,8 +125,8 @@ def screen_owner(path: Path) -> Path | None:
 
     `None` for a file that sits above every screen inside its root — a Feed
     shared by more than one screen in the same module
-    (`modules/trading/ui/equity_feed.py`, read by both `trading/` and
-    `dashboard/`) or one shared by the whole application
+    (`modules/trading/ui/equity_feed.py`, read by both desks) or one shared
+    by the whole application
     (`shell/system_failure_log.py`). That address is this repository's
     `presentation/ui/common/` today: the one place a subscription is allowed
     to live, so Guard 3 must not attribute it to any single screen.

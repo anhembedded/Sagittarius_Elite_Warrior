@@ -1,6 +1,7 @@
 """What a screen says when trading is enabled, refused or stopped.
 
-@details One copy for the Dev Board and each desk (`EPIC-028K`): the table
+@details One copy for each desk (`EPIC-028K`; the Dev Board's too, until
+`EPIC-033P`): the table
 lived word for word in two presenters (one was the Trading screen's, retired
 in `EPIC-028M`), and a third
 copy in the desks would have been the next one to drift.

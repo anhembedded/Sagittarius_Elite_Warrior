@@ -40,7 +40,7 @@ with measurements from this codebase, why it fits.
 1. [Criteria for cutting a module (C1–C6), applied to this application](01_cut_criteria.md)
 2. [Context map: four bounded contexts, four support packages, a kernel; distillation; integration patterns; the Published Language](02_context_map.md)
 3. [Module contracts: `BoundedContextModule`, the internal layout, each module's contracts, the mapping from today's code](03_module_contracts.md)
-4. [Surfaces and contribution points: Trading, Dev Board (`dev_probe`), Settings, CLI — and §4.6, the workbench rule for where a new module's UI goes](04_surfaces_and_contribution_points.md)
+4. [Surfaces and contribution points: Trading, the Developer mode (`dev_probe`), Options pages, CLI — and §4.6, the workbench rule for where a new module's UI goes](04_surfaces_and_contribution_points.md)
 5. [Engine owns mechanism, application owns policy: the split with `EPIC-001D`](05_engine_app_split.md)
 6. [Enforcement and migration: three guards, the allowlist ratchet, six phases](06_enforcement_and_migration.md)
 7. [Build or buy: what already exists for each thing we plan to build (survey 2026-09-12)](07_build_vs_buy.md)
@@ -62,7 +62,7 @@ with measurements from this codebase, why it fits.
 | HLD-04a | [`diagrams/hld-04a_engine_track_zones.puml`](diagrams/hld-04a_engine_track_zones.puml) | **Package diagram**, high view — the Engine, the lift-ready staging area and the policy that never moves, joined by `«trace»` (§8.1–8.3) |
 | HLD-04b | [`diagrams/hld-04b_engine_track_schedule.puml`](diagrams/hld-04b_engine_track_schedule.puml) | **Package diagram**, detail — every element and the `«trace»` that lifts it, tagged with its step E0–E3 (§8.4) |
 | HLD-05a | [`diagrams/hld-05a_window_containment.puml`](diagrams/hld-05a_window_containment.puml) | **Class diagram**, high view — `MainWindow` and its parts by composition, the `Surface` hierarchy, and the registry each part consults (§4) |
-| HLD-05b | [`diagrams/hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml) | **Object diagram**, detail — Trading and Dev Board widget by widget, coloured by owning module, with a link on every same-factory pair (§4.5) |
+| HLD-05b | deleted (`EPIC-033P`) | Drew Trading and the Dev Board widget by widget; both screens are gone, and §4.5's table says where each widget lives now |
 | as-is / to-be | [`../../Tasks/proposal/PRO-004_assets/`](../../Tasks/proposal/PRO-004_assets/) | The measured current structure and the target structure (from `PRO-004`) |
 
 Each numbered diagram comes in two views: **`a` is the high view** — the shape of the thing, small

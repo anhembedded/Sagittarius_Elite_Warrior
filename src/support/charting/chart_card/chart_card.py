@@ -319,10 +319,6 @@ class ChartCard(ChartFrame):
         self.fps_meter.watch_viewport(self.plot_layout.widget.viewport())
         self._create_cached_interaction()
 
-    def check_near_left_edge(self) -> None:
-        """Manually trigger an edge check (used for re-evaluation after cooldown)."""
-        self.edge_scroll_detector.check_edge()
-
     # ==========================================
     # PUBLIC API FOR PRESENTER
     # ==========================================

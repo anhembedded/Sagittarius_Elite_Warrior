@@ -1,7 +1,8 @@
 """`EPIC-028K` — a desk's strategy card, wired to its own venue's strategy.
 
 @details The card's behaviour is `StrategyArmingCoordinator`'s, the same one
-the Trading screen and the Dev Board drive; what differs is the arming it is
+the Trading screen and the Dev Board drove (both since deleted); what differs
+is the arming it is
 given. A desk passes its venue's own (`VenueStrategyControls`), so the Spot
 desk arms Spot, and the summary line and the chart's strategy lines follow
 that venue's armed state. Signals reach the card from the desk's own

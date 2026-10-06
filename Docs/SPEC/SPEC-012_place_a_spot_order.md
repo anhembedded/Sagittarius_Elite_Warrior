@@ -8,9 +8,8 @@
   labels, SELL gated on a real holding), `EPIC-027P` (this SPEC, and the real Spot Testnet round
   trip that proves it).
 - **Surfaces:** the Spot desk's order panel (`EPIC-028H`/`028L`), which the desk's Trade → New
-  order… (`F9`, `EPIC-033R`) focuses · the Dev Board's order dialog
-  (`F9`), which hosts the same panel when the board trades Spot (`EPIC-028M`; both replaced the
-  manual-order card of `EPIC-027O`) · `trade-once --live` at the command line, venue-agnostic like
+  order… (`F9`, `EPIC-033R`) focuses (it replaced the manual-order card of `EPIC-027O` in
+  `EPIC-028M`) · `trade-once --live` at the command line, venue-agnostic like
   every other caller of `ExecuteOrderCommand`.
 
 ## 1. Trigger
@@ -31,7 +30,7 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 3. Main flow
 
-1. The actor uses the Spot desk's order panel (`F9` focuses it; or the Dev Board's `F9` dialog on a Spot board) for
+1. The actor uses the Spot desk's order panel (`F9` focuses it) for
    the symbol shown, and types a Buy or a Sell: Limit, Market or Stop-limit. The sides read
    **Buy** and **Sell**, not Long and Short — the same domain direction
    (`ManualOrderDirection.LONG`/`SHORT`) `manual_order_intent_for()` keys off, named for what the
@@ -58,7 +57,7 @@ afterwards — not pretend I opened a leveraged position."*
    exchange's own commission, charged in the asset received.
 7. The next read of `ITradingAccountReader.check_connection().holdings` — polled by
    `HoldingsRefreshService`, republished as `HoldingsChangedEvent`, rendered by the Spot desk's
-   Assets tab and the Dev Board's Holdings table — reflects the new balance. There is no position to reconcile: the balance
+   Assets tab — reflects the new balance. There is no position to reconcile: the balance
    itself **is** the truth (ADR D7).
 
 ## 4. What must be true afterwards
@@ -92,8 +91,9 @@ afterwards — not pretend I opened a leveraged position."*
 - **It does not promise the fill price or quantity beyond what the account's own updated balance
   shows.** Same limit SPEC-005 §6 states for a market order's notional.
 - **It does not switch the trading market mid-session.** The venue — and therefore the market
-  this use case trades — is fixed at boot (ADR D1); the Dev Board's own Market combo changes only
-  which market's **candles** the chart shows, a separate, view-only choice (SPEC-002).
+  this use case trades — is fixed at boot (ADR D1); the Market mode's View → Spot market or
+  Futures market changes only which market's **candles** it shows, a separate, view-only choice
+  (SPEC-002).
 
 ## 7. Ports and modules it exercises
 
@@ -116,7 +116,7 @@ panel reads the same holdings for its Sell side.
 | A Sell is sent as a sell of the held asset; one whose holding is gone at submit time is refused | `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py` | unit |
 | A Buy on the Spot desk shows the bought asset in Assets | `tests/unit/modules/trading/ui/desk/test_spot_desk_journey.py` | unit |
 | The Spot desk's Trade → New order… (`F9`) focuses its order panel and places nothing | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py` | unit |
-| The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/desk/test_strategy_card.py` (the desks' card) and `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
+| The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/desk/test_strategy_card.py` | unit |
 | The Spot order path's own mapping, rounding and Futures-only-type refusal | `tests/unit/modules/trading/adapters/binance/spot/test_spot_order_payload_mapper.py` | unit |
 | A real BUY click's mapped `ExecuteOrderCommand`, dispatched through the real handler, reaches the wire and moves the exact balance `SpotAccountReader.check_connection()` reports afterwards | `tests/integration/application/test_spot_manual_order_pipeline_against_fake_server.py` | integration |
 | The Spot order lifecycle (place → open → cancel → gone, a MARKET order fills immediately, positions always empty) against a real HTTP round trip through the fake exchange | `tests/integration/infrastructure/binance/test_spot_trading_client_order_lifecycle_against_fake_server.py` | integration |

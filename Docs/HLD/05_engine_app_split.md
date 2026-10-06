@@ -3,7 +3,7 @@
 The user's framing: *"Engine đó sẽ là core engine trong sự nghiệp của tôi, tôi sẽ tái sử dụng cực
 nhiều"* ("that Engine will be the core engine of my career; I will reuse it enormously"). The rule
 that follows is simple to state: everything that **does not know this application** goes to the
-Engine; everything that knows about "trading", "Dev Board" or "Binance" stays in the application.
+Engine; everything that knows about "trading", "a desk" or "Binance" stays in the application.
 The Engine's own rule agrees — `ui-architecture.md` §1: *"Runtime — Engine owns: Shell, regions,
 navigation, screen lifecycle"*.
 

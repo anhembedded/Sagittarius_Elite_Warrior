@@ -45,11 +45,6 @@ class ConfigKeys(str, Enum):
     # both `default()`'s dispatch and `do_help()`'s listing.
     CLI_COMMANDS = "CLI_COMMANDS"
 
-    # UI Appearance
-    UI_FONT_FAMILY = "ui.font.family"
-    UI_FONT_SIZE = "ui.font.size"
-    UI_FONT_FALLBACKS = "ui.font.fallbacks"
-
     # Chart Configuration
     CHART_CARD_MAX_ZOOM_OUT_CANDLES = "CHART_CARD_MAX_ZOOM_OUT_CANDLES"
 
@@ -132,8 +127,9 @@ class ConfigKeys(str, Enum):
     #: string (the default) means "every declared default", which is what
     #: `build_engine(params=None)` already does.
     TRADING_LIVE_STRATEGY_PARAMS = "trading.live_strategy_params"
-    #: `BOT-063` — every Dev Board indicator script's saved parameter
-    #: values, as one JSON object keyed by script key
+    #: `BOT-063` — every indicator script's saved parameter values (Tools →
+    #: Indicator parameters…, the Market mode since `EPIC-033P` deleted the
+    #: Dev Board; the stored key keeps its old name so saved values survive), as one JSON object keyed by script key
     #: (`{"ema_20": {"period": 25}, "macd_full": {"fast_period": 10}}`) —
     #: same "one blob, not one key per field" reasoning as
     #: `TRADING_LIVE_STRATEGY_PARAMS` just above, except keyed by script

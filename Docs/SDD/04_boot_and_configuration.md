@@ -45,9 +45,10 @@ that downcast disappears). The Welcome switch and every settings section write t
 
 ### `dev.mode` and restart (SDD-05)
 
-- Gate evaluated **once**, in the shell, before `app.use()`; the `dev_board` surface is declared but
-  gated off when false, so its contributions are dropped under validation rule 3 and its `screen`
-  is never registered. Backtest's chart FPS overlay also follows `dev.mode`
+- Gate evaluated **once**, in the shell, before `app.use()`; the `developer` surface is declared but
+  gated off when false, so its contributions are dropped under validation rule 3, and the Developer
+  mode's `screen` (`gated_by="dev.mode"`) is dropped with its commands (`EPIC-033P`; the
+  `dev_board` surface it replaced was deleted with the Dev Board). Backtest's chart FPS overlay also follows `dev.mode`
   (`backtest_view.py:204`), so a restart changes it too — declared.
 - The Welcome switch writes `dev.mode` through `IConfigWriter` (the writable `user_config.json`),
   then shows "takes effect after restart" and a **Restart now** button that calls

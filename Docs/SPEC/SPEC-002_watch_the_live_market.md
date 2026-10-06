@@ -10,8 +10,8 @@
   live from the user's own open of the mode until the tab or the app closes; View → Spot market or
   Futures market picks the market every one of them shows (`EPIC-033Q`), and View → Load older
   candles or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
-  Back to live draws its newest window again and follows the stream (`EPIC-033T`) · Dev Board's
-  *Start Live* · a desk's chart · `stream start` / `stream stop` at the interactive prompt.
+  Back to live draws its newest window again and follows the stream (`EPIC-033T`) · a desk's
+  chart · `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
 
@@ -103,10 +103,10 @@ consumer-facing port.
 | :--- | :--- | :--- |
 | Both implementations start, stop and answer alike | `tests/unit/modules/market_data/contracts/test_market_stream_contract.py` | contract |
 | `stream start` / `stream stop`, including the bare-`stream` usage line | `tests/unit/modules/market_data/cli/test_stream_cmd.py` | unit |
-| A stop or a second start cancels the in-flight one, and its result is fenced | `tests/unit/modules/trading/ui/dashboard/test_stream_lifecycle_cancellation.py` | unit |
+| A live chart's sync carries the screen's cancellation check, and a cancelled or superseded load reports nothing | `tests/unit/support/charting/live_chart/test_live_chart_coordinator.py`, `tests/unit/modules/trading/ui/market/test_market_chart_cancelled_load.py` | unit |
 | A transport error mid-stream reconnects, and the next candle still arrives | `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py` | unit |
-| The stream's state reaches the actor as a status pill, every UI mode | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
-| The Dev Board actually streams end to end | `tests/integration/modules/trading/ui/test_dashboard_live_stream.py` | integration |
+| The stream's state reaches the actor in words, in the status bar | `tests/unit/modules/trading/ui/market/test_market_view.py` | unit |
+| In the booted app, the Market mode starts its Watchlist stream on the user's open and never on a restore | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |

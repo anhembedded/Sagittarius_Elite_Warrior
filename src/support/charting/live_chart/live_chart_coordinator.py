@@ -52,9 +52,8 @@ if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
     from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
-#: How many candles a chart asks for on a (re)load: a fixed depth (unlike
-#: Dev Board's `_compute_fetch_limit()`, which grows with its indicator
-#: scripts; these charts have none).
+#: How many candles a chart asks for on a (re)load: a fixed depth, since
+#: these charts draw no indicator script whose warm-up would need more.
 HISTORY_CANDLE_LIMIT = 500
 
 

@@ -48,9 +48,8 @@ it."*
   anything to learn whether this run can send a real order.
 - The mode the actor last used comes back on the next launch, shown as a restore and not as a
   click: **launching opens no market stream and sends no live-stream command, whichever mode
-  comes back** (`BUG-104`). A restored Market mode says its market data is not live; the Dev Board's opt-in
-  auto-start waits too. Either goes live when the actor clicks its mode, the showing one
-  included.
+  comes back** (`BUG-104`). A restored Market mode says its market data is not live, and goes
+  live when the actor clicks its mode, the showing one included.
 - Every mode is built at start (the user's decision, 2026-10-04); a screen goes live on the
   actor's open (`IShownAsMode`), never when it is built.
 - After the switch is applied and the app restarted, `dev.mode` is `true` in `user_config.json`
@@ -78,26 +77,18 @@ it."*
 - **Developer mode is not a permission.** It shows probes and chart diagnostics; it does not
   enable, disable or widen anything about live trading. Turning it on does not make the app
   able to trade, and turning it off does not make it safe.
-- **The Dev Board screen itself is still always present**, until `EPIC-033P` stage 3 deletes it.
-  A screen can be gated since `EPIC-033P` stage 2 (`ScreenContribution.gated_by`, which drops the
-  screen and its mode's commands), and the Developer mode is; the Dev Board is not, because the
-  Market mode does not yet offer all it does (`EPIC-033Q`, `EPIC-033S`).
+- **Developer mode holds no trading command.** Everything it shows is a developer's view of
+  the app (the event log, the probes); order entry, the strategy controls and the market's charts
+  live on the desks and in the Market mode, which every run has. The Dev Board, the always-present
+  testbed that once mixed probes with those trading controls, was deleted in `EPIC-033P` stage 3,
+  once the desks and the Market mode carried everything it offered that the user kept (the
+  stage's decisions dropped its *Last signal* read-out).
 
-  The history of that asymmetry, kept because the decision it records still holds for the
-  Dev Board: until stage 2, `ContributionRegistry.contribute()` evaluated `surface_is_open()` for a
-  contributed **panel**, while `contribute_screen()` evaluated no gate at all.
-
-  That asymmetry is a promise, not an oversight. The screen still carries manual order entry and
-  the strategy controls, and **nothing on the Trading surface carries them** — measured rather
-  than assumed: `grep -rn "manual_order"` over the Trading screen's package was empty, while
-  `dashboard_presenter.py` holds the manual-order action, its ownership tracker and the
-  armed-symbol block reason. Gating the screen before they move would take a capability away from
-  the actor, which ADR D12 forbids as an undeclared behaviour change. So the blocker is a **home
-  on Trading for those two things** — a feature placement, and the actor's call — not a missing
-  gate; it travels with the screens into `modules/trading/ui/` in Phase 2 + Phase 4
+  Why it stayed ungated until then, kept because the rule still holds for any future developer
+  surface: gating a screen that carries a capability nothing else carries takes that capability
+  away from the actor, which ADR D12 forbids as an undeclared behaviour change
   (`Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-16_the_duplication_criterion_waits.md`).
-  `EPIC-025B`'s "done when" list carried the **opposite** sentence until 2026-09-16 and was
-  corrected against this clause; `TRACKING.md` carries the per-pull-request record.
+  The capability moves first; the screen is gated or deleted after.
 
 ## 7. Ports and modules it exercises
 
@@ -116,7 +107,7 @@ market data, trading or a strategy.
 | What the next process is told, including the stripped `--dev` | `tests/unit/shell/test_developer_mode_restart.py` | unit |
 | A failed start leaves this session running | `tests/unit/shell/test_developer_mode_restart.py` | unit |
 | The Futures desk is the default route, and survives the round trip into `ScreenRegistry` | `tests/unit/shell/test_screen_wiring.py` | unit |
-| Launching with any mode remembered opens no market stream and dispatches no `StartLiveStreamCommand`; a restored Dev Board does not auto-start, a clicked one does; the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
+| Launching with any mode remembered opens no market stream and dispatches no `StartLiveStreamCommand`; a restored Market mode does not start its Watchlist stream, a clicked one does; the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | The version shown is the version the project declares | `tests/unit/architecture/test_app_version_matches_pyproject.py` | unit |
 | A gated screen is dropped with its mode's commands when developer mode is off, and is a mode when it is on; the shell contributes the Developer mode | `tests/unit/shell/test_contribution_registry.py`, `tests/unit/shell/test_contribution_assembly.py` | unit |
 | The Developer mode: the event log central, what the bus publishes and a raising handler reaching it, a burst it could not keep said in words, a contributed probe docked right, recording from the window's build until it shuts down | `tests/unit/shell/developer_mode/test_developer_mode.py`, `tests/unit/shell/developer_mode/test_bus_event_recorder.py` | unit |

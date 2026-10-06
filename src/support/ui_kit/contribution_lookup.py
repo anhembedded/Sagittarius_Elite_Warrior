@@ -1,9 +1,10 @@
 """Which contribution table, if any, a run has (`EPIC-033P`).
 
-Qt-free on purpose: the Dev Board's screen module imports it, and
-`contribute()` imports that module on a headless run
+Qt-free on purpose: it was written for the Dev Board's screen module, which
+`contribute()` imported on a headless run
 (`test_module_contribution_laziness.py`), where `surface_building.py`'s Qt
-import would cost a widget module nobody opened.
+import would cost a widget module nobody opened. The Developer mode's
+presenter is its one reader since `EPIC-033P` deleted the Dev Board.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ def contribution_table(container: IContainer) -> IContributionTable | None:
     """The run's contribution table, or `None` when it has none.
 
     Both `None` cases are real runs, not defensive padding (moved here from
-    the Dev Board's screen in `EPIC-033P`, so its two readers share it):
+    the Dev Board's screen in `EPIC-033P`):
 
     - **Nothing bound it.** `assemble_contributions()` binds the port in the
       GUI entry point only; a container built without it raises

@@ -84,8 +84,10 @@ feed and dispatches actions. So:
   widget. It proves the binding, not the behaviour.
 - A **surface test** asserts the UI map row for that surface — places, contributors, order — and
   that a gated-off surface receives nothing. It never asserts a business fact.
-- The **Qt-click journey tests** (today's `test_dev_board_*` under integration) survive as the only
-  tests that press real buttons on a real surface with real cards and the fake server; there is
+- The **Qt-click journey tests** (the Dev Board's `test_dev_board_*` under integration until
+  `EPIC-033P`; the desks' `test_spot_desk_against_fake_server.py` and `test_desk_journeys.py` now)
+  survive as the only tests that press real buttons on a real surface with real cards and the fake
+  server; there is
   one per user journey the epic promises to keep (manual order, cancel, enable/disable, arm/disarm).
 
 ## 10.5 The module's definition of done, as tests

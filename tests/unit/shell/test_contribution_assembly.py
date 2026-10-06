@@ -55,7 +55,7 @@ class _ProbeModule(BoundedContextModule):
         registry.contribute(
             ContributionDescriptor(
                 contributor_id=self.module_id,
-                surface_id="dev_board",
+                surface_id="developer",
                 place=Place.DEV_PROBE,
                 order=10,
                 size_hint=SizeHint.REGULAR,
@@ -76,7 +76,7 @@ def test_a_modules_contribution_reaches_the_table(qapp) -> None:
 
     contributions = assemble_contributions(container, dev_mode=True)
 
-    (descriptor,) = contributions.panels("dev_board", Place.DEV_PROBE)
+    (descriptor,) = contributions.panels("developer", Place.DEV_PROBE)
     assert descriptor.contributor_id == "probes"
     assert descriptor.title == "A probe"
 
@@ -94,14 +94,14 @@ def test_the_reading_port_is_bound_for_whoever_renders_a_surface(qapp) -> None:
 def test_a_gated_surface_drops_the_contribution_and_the_app_still_boots(
     qapp,
 ) -> None:
-    """`dev.mode` off is the normal user run. Every Dev Board panel is dropped
+    """`dev.mode` off is the normal user run. Every Developer mode probe is dropped
     with a log line, and nothing raises — the case `shell/surfaces.py`'s own
     docstring says is deliberately not an error."""
     container = _container(_ProbeModule())
 
     contributions = assemble_contributions(container, dev_mode=False)
 
-    assert contributions.panels("dev_board", Place.DEV_PROBE) == ()
+    assert contributions.panels("developer", Place.DEV_PROBE) == ()
     # The probe, and the shell's own Developer mode (`EPIC-033P`).
     assert contributions.dropped_count() == 2
 
@@ -130,7 +130,7 @@ def test_a_modules_own_screen_is_collected_too(qapp) -> None:
     contributions = assemble_contributions(container, dev_mode=True)
 
     routes = {screen.route for screen in contributions.screens()}
-    assert {"dashboard", "trading.futures", "trading.spot"} <= routes
+    assert {"market", "trading.futures", "trading.spot"} <= routes
 
 
 def test_a_container_with_no_modules_collects_nothing(qapp) -> None:
@@ -139,7 +139,7 @@ def test_a_container_with_no_modules_collects_nothing(qapp) -> None:
     a module's."""
     contributions = assemble_contributions(_container(), dev_mode=False)
 
-    assert contributions.panels("dev_board", Place.DEV_PROBE) == ()
+    assert contributions.panels("developer", Place.DEV_PROBE) == ()
     assert contributions.screens() == ()
     assert contributions.options_pages() == ()
 

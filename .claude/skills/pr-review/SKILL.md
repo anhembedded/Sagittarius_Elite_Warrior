@@ -90,6 +90,13 @@ Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/
 - For mutation checks (E7/E12), confirm failure occurs for the intended reason upon fault injection. Never mutate user working checkout.
 - For design checks (N3–N6), write your own probes — known answers, round trips, extreme inputs, a measured largest input — in a scratch file inside the isolated worktree, and report what each probe showed. A probe is evidence; it is never committed.
 
+### 5.1 A UI change is looked at, not only read
+When the diff changes what a window shows (a view, a dock, a toolbar, a dialog, a command's text or place, a chart, a column spec), look at the booted workbench before judging Group H. The code proves the rule's measurable half; whether a mode reads well is judged by eye.
+1. **Capture the reviewed head**, in the isolated worktree: `SEW_UI_SCREENSHOTS=<scratch dir> PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/integration/presentation/ui/test_workbench_screenshots.py -q`. It writes `<route>@<W>x<H>.png` for every mode at 1024×700, 1366×768 and 1920×1080, from the same seeded window the conformance suite measures. The PR's `ui-screenshots` CI artifact holds the same pictures.
+2. **Open every picture of each mode the diff touches**, at all three sizes, with the Read tool, and, for a change to the shell, menus or shared controls, every mode's.
+3. **Judge each against `.claude/rules/ui-presentation-rule.md` §2–§10 and the mode's row of `Docs/HLD/11_desktop_workbench.md`**: what is likely is visible and the rest one menu away; the centre holds the mode's main work and is not squeezed by its docks; nothing is cut off, overlapped or left blank without an instruction; toolbars are not crowded into their overflow at the sizes people use; labels read as the rule's text conventions say; the change does what its task says it does, as seen.
+4. **Report what you saw.** A finding cites the picture (`market@1024x700.png`) and the Check ID (H3, H4, H6, H7 or F2). The Verification State names the pictures opened; a UI change reviewed without them says so as an unverified gap.
+
 ## 6. Finding Severity Classification
 - **Blocking:** Concrete defect, consequential rule violation, or missing verification required for merge.
 - **Should fix:** Defect or violation with stated consequence that does not block active task.

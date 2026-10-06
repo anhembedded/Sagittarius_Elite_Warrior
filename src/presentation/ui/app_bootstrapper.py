@@ -237,9 +237,8 @@ def build() -> AppRuntime:
     # Registered so screen presenters can find it: PresenterManager builds
     # each presenter as `presenter_class(view, container)`, with no seam for
     # extra constructor arguments, so the container is the only way through.
-    # A presenter must therefore treat it as optional (see
-    # DashboardPresenter) — every test that builds a presenter against a bare
-    # container would otherwise break.
+    # A presenter must therefore treat it as optional — every test that
+    # builds a presenter against a bare container would otherwise break.
     app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
 
     # EPIC-017A — which screens' remembered fields Settings' DEFAULT_SYMBOLS/
@@ -258,8 +257,6 @@ def build() -> AppRuntime:
     for scope_key, config_key, state_keys in (
         ("backtest", "DEFAULT_SYMBOLS", ("symbol",)),
         ("backtest", "DEFAULT_INTERVAL", ("timeframe",)),
-        ("dashboard", "DEFAULT_SYMBOLS", ("symbol",)),
-        ("dashboard", "DEFAULT_INTERVAL", ("interval",)),
         ("data_management", "DEFAULT_SYMBOLS", ("symbol",)),
         ("data_management", "DEFAULT_INTERVAL", ("interval",)),
     ):
@@ -270,7 +267,7 @@ def build() -> AppRuntime:
     # EPIC-014 — starred and recently used trading pairs, ONE store shared by
     # every screen that picks a symbol. Registered rather than owned by a
     # screen because that is what makes it shared: a star set on Backtest is
-    # the same star Dev Board shows, which is the whole reason favourites are
+    # the same star every other picker shows, which is the whole reason favourites are
     # worth having across a 1,400-entry list.
     #
     # Restored before the first screen is built, and marked dirty on every
@@ -287,9 +284,9 @@ def build() -> AppRuntime:
     # Follow-up to `EPIC-015` Phase 4 — pinned timeframes per chart, keyed by
     # symbol, shared by every `ChartToolbar` in the app the same way
     # `SymbolPreferences` is shared above: Backtest's single chart and each
-    # of Dev Board's per-symbol charts read the same store, scoped by their
-    # own symbol, so a Dev Board rebuild-on-symbol-change recovers the same
-    # pinned set for a symbol it has already seen instead of resetting it.
+    # other `ChartCard` read the same store, scoped by their own symbol,
+    # so a chart rebuilt for a symbol it has already seen recovers the same
+    # pinned set instead of resetting it.
     timeframe_pin_preferences = TimeframePinPreferences()
     state_coordinator.restore_into(timeframe_pin_preferences)
     timeframe_pin_preferences.set_on_changed(

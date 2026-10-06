@@ -1,4 +1,6 @@
-"""The candle series every Dev Board integration test reads.
+"""The candle series the booted app's history store holds in this directory's
+integration tests (the Dev Board's, until `EPIC-033P` deleted it; the Market
+mode and Backtest read it now).
 
 **Why this is not in `conftest.py`.** A test module that needs these has to
 import them, and importing `conftest` by name executes that file a *second*
@@ -25,10 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 #: silently drifts between the files that assert on it.
 MOCK_KLINE_COUNT = 5
 
-#: Every symbol the seeded history answers for. The Dev Board tests drive the
-#: symbol dropdown, so the fake must hold rows for each option they can pick —
-#: a dispatch stub answered for whatever it was asked; a store only answers
-#: for what was put in it.
+#: Every symbol the seeded history answers for: a screen may open any of
+#: them, so the fake must hold rows for each — a dispatch stub answered for
+#: whatever it was asked; a store only answers for what was put in it.
 SEEDED_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT")
 
 
@@ -53,7 +54,7 @@ _SERIES_ANCHOR = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
 
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
     """Newest-first `MarketData` list, matching what the real repository
-    returns (DashboardPresenter reverses it before rendering).
+    returns (a screen reverses it before rendering).
 
     **Anchored to the clock, and `EPIC-025` PR 1.1a is why.** These rows used
     to sit at a fixed `2024-01-01`, which worked because the dispatch stub

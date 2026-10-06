@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_m
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_view_model import (
     MarketDataSettingsViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
-    DashboardQmlViewModel,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
     DeskViewModel,
 )
@@ -56,7 +53,6 @@ from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 #: list like any other `BaseQmlViewModel` subclass this app defines.
 _ALL_VIEW_MODELS = [
     BackTestViewModel,
-    DashboardQmlViewModel,
     DataManagementViewModel,
     MarketDataSettingsViewModel,
     StatusMessageViewModel,

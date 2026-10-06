@@ -146,9 +146,9 @@ def test_the_same_factory_on_two_surfaces_is_two_panels(
     """One widget class, many instances — that is what "one widget, many
     places" means (SDD, "Ownership of a contributed panel")."""
     registry.contribute(_descriptor(surface_id="trading"))
-    registry.contribute(_descriptor(surface_id="dev_board"))
+    registry.contribute(_descriptor(surface_id="backtest"))
     assert len(registry.panels("trading", Place.RAIL)) == 1
-    assert len(registry.panels("dev_board", Place.RAIL)) == 1
+    assert len(registry.panels("backtest", Place.RAIL)) == 1
 
 
 # --- rule 3: a gated-off surface drops, it does not raise -----------------
@@ -159,11 +159,11 @@ def test_a_gated_off_surface_drops_its_contributions(
 ) -> None:
     registry = ContributionRegistry(dev_mode=False)
     with caplog.at_level(logging.INFO):
-        registry.contribute(_descriptor(surface_id="dev_board", place=Place.DEV_PROBE))
+        registry.contribute(_descriptor(surface_id="developer", place=Place.DEV_PROBE))
 
-    assert registry.panels("dev_board", Place.DEV_PROBE) == ()
+    assert registry.panels("developer", Place.DEV_PROBE) == ()
     assert registry.dropped_count() == 1
-    assert "dev_board" in caplog.text
+    assert "developer" in caplog.text
     assert DEV_MODE_GATE in caplog.text
 
 
@@ -178,8 +178,8 @@ def test_a_gated_off_surface_still_validates_the_place() -> None:
 
 def test_with_developer_mode_on_the_gated_surface_accepts() -> None:
     registry = ContributionRegistry(dev_mode=True)
-    registry.contribute(_descriptor(surface_id="dev_board", place=Place.DEV_PROBE))
-    assert len(registry.panels("dev_board", Place.DEV_PROBE)) == 1
+    registry.contribute(_descriptor(surface_id="developer", place=Place.DEV_PROBE))
+    assert len(registry.panels("developer", Place.DEV_PROBE)) == 1
     assert registry.dropped_count() == 0
 
 

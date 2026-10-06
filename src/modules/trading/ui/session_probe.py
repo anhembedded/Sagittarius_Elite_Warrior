@@ -1,10 +1,9 @@
-"""What this app believes about the live trading session, on Dev Board.
+"""What this app believes about the live trading session, in the Developer mode.
 
-**The first widget a bounded context owns** (`EPIC-025` PR 1.4c-4). Every
-screen in the app is still a legacy `View` the shell carries; this panel is not
-a screen — it is a `DEV_PROBE` the `trading` module *contributes* to the Dev
-Board surface, which is the mechanism the whole epic exists to build, rendering
-in a real run for the first time.
+**The first widget a bounded context owns** (`EPIC-025` PR 1.4c-4). This panel
+is not a screen — it is a `DEV_PROBE` the `trading` module *contributes* to the
+`developer` surface (the Dev Board's until `EPIC-033P` deleted it), which is
+the mechanism `EPIC-025` exists to build.
 
 @par Why a probe, and why this one
 A `dev_probe` answers *what does the engine actually think right now*, next to

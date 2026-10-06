@@ -1,6 +1,7 @@
 """`EPIC-027O` — asset -> last-known USDT price, derived from whatever
 symbol prices a screen has already seen (a chart's own last close). Shared
-by `DashboardPresenter`/`AccountTabsPresenter` so the same USDT-quoted-only
+by the desks' `AccountTabsPresenter` (and the Dev Board, until `EPIC-033P`)
+so the same USDT-quoted-only
 stripping rule (ADR D9) is not maintained twice.
 """
 

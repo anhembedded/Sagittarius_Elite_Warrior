@@ -1,5 +1,5 @@
-"""`BOT-063` — the one place a Dev Board indicator script's saved
-parameter values meet `IConfig`.
+"""`BOT-063` — the one place an indicator script's saved parameter values
+meet `IConfig` (Tools → Indicator parameters…, in the Market mode).
 
 @details Mirrors `modules/strategy/application/services/
 live_strategy_config_store.py`'s JSON-blob-via-IConfig shape, keyed by

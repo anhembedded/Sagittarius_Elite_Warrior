@@ -10,10 +10,9 @@
 .EXAMPLE
     .\scripts\preview-qml.ps1 --list
     .\scripts\preview-qml.ps1 backtest
-    .\scripts\preview-qml.ps1 dashboard
+    .\scripts\preview-qml.ps1 market
     .\scripts\preview-qml.ps1 data_management
     .\scripts\preview-qml.ps1 settings
-    .\scripts\preview-qml.ps1 dashboard
 #>
 [CmdletBinding()]
 param(

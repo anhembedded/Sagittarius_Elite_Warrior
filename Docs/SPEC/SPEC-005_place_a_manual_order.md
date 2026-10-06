@@ -5,12 +5,11 @@
 - **Origin:** `EPIC-021F` (preview and dry run), `EPIC-021G` (live submission and the safety
   pipeline), `EPIC-024B` (the Dev Board panel), with `BUG-090` (the exchange's own minimum
   notional was never wired into the live path). The desks' order panel (`EPIC-028H`/`028I`)
-  replaced the Dev Board's own card in `EPIC-028M`.
+  replaced the Dev Board's own card in `EPIC-028M`, and the Dev Board itself was deleted in
+  `EPIC-033P`.
 - **Surfaces:** each desk's order panel (the Futures desk for Futures Testnet, the Spot desk for
   Spot Testnet), reached by mouse or by the desk's Trade → New order… (`F9`, `EPIC-033R`), which
-  moves the keyboard focus to the panel's first field · the Dev Board's order dialog, opened with `F9` or from the header, which hosts
-  that same panel for the venue the board trades (a card in the controls column until `EPIC-025`
-  PR 1.4c-3 made it a dialog, the board's own form until `EPIC-028M`) ·
+  moves the keyboard focus to the panel's first field ·
   `order-preview` · `order-dry-run` · `trade-once --live` at the command line and the
   interactive prompt.
 
@@ -34,10 +33,9 @@ goes."*
 ## 3. Main flow
 
 1. The actor uses a desk's order panel (Trade → New order…, `F9`, puts the keyboard focus on its
-   first field and places nothing), or opens the Dev Board's order dialog — `F9`, or the
-   header's *Place order* button — and names the order type, the price where it takes one, and
-   the quantity, for the symbol the screen shows; the panel takes the last price as the
-   reference for a market order. The dialog is modeless: the charts behind it keep ticking
+   first field and places nothing) and names the order type, the price where it takes one, and
+   the quantity, for the symbol the desk shows; the panel takes the last price as the
+   reference for a market order. The panel sits beside the desk's chart, which keeps ticking
    while the actor decides.
 2. The app fetches that symbol's exchange filters and **normalises** the order: the quantity is
    rounded to the venue's step size, the price to its tick size.
@@ -83,7 +81,7 @@ goes."*
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | Trading is off, or the venue is disabled, or the connection is not ready | Blocked by the named safety gate; nothing was normalised and no limits were evaluated | The gates are cheap and come first, and the empty preview is how the actor knows evaluation stopped there |
-| A strategy is armed on this symbol | Blocked by `SYMBOL_LEASED`, in the operator's own words: the strategy would lose track of its real position, so disarm it or trade a different symbol | The user's decision of 2026-09-09 (`PRO-003` §4.1.2), and it is *hard*, not a warning — even while the position is flat, because the strategy's next signal assumes it started flat. Enforced on the order path since `EPIC-025` PR 2.1f, so `trade-once` and every future caller inherit it; before that only the Dev Board's own form had it |
+| A strategy is armed on this symbol | Blocked by `SYMBOL_LEASED`, in the operator's own words: the strategy would lose track of its real position, so disarm it or trade a different symbol | The user's decision of 2026-09-09 (`PRO-003` §4.1.2), and it is *hard*, not a warning — even while the position is flat, because the strategy's next signal assumes it started flat. Enforced on the order path since `EPIC-025` PR 2.1f, so `trade-once` and every future caller inherit it; before that only the Dev Board's own form (deleted in `EPIC-033P`) had it |
 | The order is below the venue's minimum notional | Blocked by `MIN_NOTIONAL`, with the preview that shows the computed notional | `BUG-090`: refusing locally beats a round trip for a rejection the app could already predict |
 | A session limit is reached | Blocked by that limit, with every check and the numbers behind it — e.g. order 21 of a 20-order session | The app's own configured safety policy, distinct from the venue's hard filters |
 | The exchange refuses the submitted order | The named `OrderRejectionReason`, with the exchange's original message kept for a human to look up | A raw English exchange string is not a stable contract; the name is what a caller branches on |
@@ -142,10 +140,9 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | The command line's preview report, text and JSON | `tests/unit/presentation/cli/test_order_preview_formatter.py` | unit |
 | `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
-| The Dev Board's F9 dialog is the desks' order panel for its venue: an order placed there joins Open orders, a leased symbol is refused in words, a Futures TP/SL is followed | `tests/unit/modules/trading/ui/dashboard/test_dev_board_order_entry.py` | unit |
-| In the real app with no venue on, F9 says so and holds no order panel | `tests/integration/presentation/ui/test_dev_board_order_dialog.py` | integration |
-| In the real app with Spot Testnet on, against a fake Binance server: F9 reads the venue's balance; a Buy while trading is off is refused in words and never sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_dev_board_f9_against_fake_server.py` | integration |
+| An order a desk's panel placed joins that desk's Open orders; a leased symbol is refused in the operator's own words; a Futures entry with TP/SL is protected once it fills | `tests/unit/modules/trading/ui/desk/test_desk_journeys.py`, `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py`, `tests/unit/modules/trading/ui/desk/test_protective_order_follower.py` | unit |
+| A desk whose venue is off says so and holds nothing that sends | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
+| In the real app with Spot Testnet on, against a fake Binance server: the Spot desk's `F9` focuses an entry that read the venue's balance; a Buy while trading is off is refused in words and never sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_spot_desk_against_fake_server.py` | integration |
 | Each desk's Trade → New order… (`F9`) focuses the order panel's first field for the order type, places nothing, and is disabled while the panel cannot take an order or the venue is off | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py` | unit |
-| The form is a dialog `F9` opens, not a panel in the layout | `tests/unit/modules/trading/ui/dashboard/test_dashboard_view.py` | unit |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
-| Submitting one order by hand | **the user runs it**: enable trading on the Futures desk, submit a small order from its panel (or press `F9` on the Dev Board), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |
+| Submitting one order by hand | **the user runs it**: enable trading on the Futures desk, submit a small order from its panel (`F9` focuses it), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |

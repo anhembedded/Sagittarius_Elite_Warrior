@@ -51,6 +51,8 @@
 # -> 9 after PR EPIC-028K (10 - 2 retired + 1 new: the Trading screen's and
 #    the Dev Board's `market_tick_feed` lines fold into one seam,
 #    `modules/trading/ui/market_ticks.py`, which the desks use too).
+# -> 7 after PR EPIC-033P stage 3 (9 - 2 retired + 0 new: the Dev Board's
+#    `symbol_options_coordinator` and `sync_progress_feed` lines left with it).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -712,8 +714,9 @@
 # `TYPE_CHECKING`-guarded import for the class-level attribute annotation the
 # same move required (never executed, so the boundary scanner does not see
 # it). Retirement condition is otherwise unchanged from the paragraph above.
-modules.trading.ui.dashboard.logic.presenter_factory_core -> modules.market_data.ui.symbol_options_coordinator
-modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
+#
+# `EPIC-033P` stage 3 deleted the Dev Board (`modules/trading/ui/dashboard/`),
+# and both lines with it.
 
 # Two more are new for the same reason PR 4.4b's `shell.legacy_screens ->
 # modules.market_data.ui.module` line was: `shell/legacy_screens.py` still

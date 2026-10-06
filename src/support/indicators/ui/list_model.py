@@ -132,7 +132,7 @@ class IndicatorScriptListModel(QAbstractListModel):
     @Slot(int, bool)
     def setEnabled(self, row: int, value: bool) -> None:
         """Called directly by each screen's checklist checkbox
-        (`dev_board_panel.py`, `backtest_modals.py`) — kept as a `@Slot`
+        (`backtest_modals.py`) — kept as a `@Slot`
         from the QML-hosted era this class predates, not because anything
         still calls it across a QML/Python boundary."""
         if not 0 <= row < len(self._rows):

@@ -232,7 +232,6 @@ def _load_config(project_root: Path, database_directory: str) -> ConfigManager:
         {
             ConfigKeys.DATABASE_DIR.value: database_directory,
             "DEFAULT_INTERVAL": _INITIAL_INTERVAL.value,
-            "DEV_BOARD_AUTOSTART_ENABLED": False,
         }
     )
     return config

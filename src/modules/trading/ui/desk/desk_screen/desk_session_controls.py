@@ -19,7 +19,8 @@ event reports what its later steps did (`BUG-093`). Two signals say so, one
 per kind of host: `accountChanged` asks a host to read its tables again (a
 desk's account tabs read the venue), and `accountReconciled` hands over the
 positions and open orders the session itself confirmed, for a host that
-keeps its tables from events and these answers alone (the Dev Board). An
+keeps its tables from events and these answers alone (the Dev Board, until
+`EPIC-033P`; no host listens now, `BOT-158`). An
 unconfirmed final state hands over nothing, and nor does an enable refused
 before the venue was read: an empty answer from a failed or skipped read is
 not "flat".
