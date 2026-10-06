@@ -22,6 +22,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     AskStop,
     ask_stop_with_dialog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialog import (
+    AskArmStrategy,
+    ask_arm_with_dialog,
+)
 
 type ConfirmDelete = Callable[[BotSnapshot], bool]
 
@@ -31,6 +35,8 @@ class BotsDialogs:
     ask_new_bot: AskNewBot
     ask_stop: AskStop
     confirm_delete: ConfirmDelete
+    #: Bots → Arm strategy… (`EPIC-033K` stage 3).
+    ask_arm_strategy: AskArmStrategy
 
 
 def delete_question(bot: BotSnapshot) -> str:
@@ -48,6 +54,7 @@ def dialogs_for(parent: QWidget) -> BotsDialogs:
         ),
         ask_stop=lambda bot: ask_stop_with_dialog(parent, bot),
         confirm_delete=lambda bot: _ask_delete(parent, bot),
+        ask_arm_strategy=lambda venue, form: ask_arm_with_dialog(parent, venue, form),
     )
 
 

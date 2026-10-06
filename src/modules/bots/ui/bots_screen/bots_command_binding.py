@@ -17,13 +17,23 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
+from ..strategies.venue_strategies import VenueStrategies
 from .bot_action_rules import BotAction
-from .bots_commands import FIT_LEVELS, NEW_BOT, REFRESH_FILLS, lifecycle_id
+from .bots_commands import (
+    ARM_STRATEGY,
+    DISARM_STRATEGY,
+    FIT_LEVELS,
+    NEW_BOT,
+    REFRESH_FILLS,
+    lifecycle_id,
+)
 from .bots_view_model import BotsViewModel
 from .kind_command_binding import KindCommands
 
 
-def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> None:
+def bind_bots_commands(
+    binder: ICommandBinder, view_model: BotsViewModel, strategies: VenueStrategies
+) -> None:
     """What `BotsPresenter.bind_commands` binds."""
     idle = DerivedState(
         view_model.action_in_flight_changed,
@@ -68,6 +78,8 @@ def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> Non
     # The selected kind's own commands follow its toolbar; the presenter
     # hands each new editor over (`KindCommands.follow_panel_of`).
     KindCommands(view_model).bind_commands(binder)
+    # The Strategies panel's selected venue (`EPIC-033K` stage 3).
+    strategies.bind_commands(binder, ARM_STRATEGY, DISARM_STRATEGY)
 
 
 def _bind_lifecycle(

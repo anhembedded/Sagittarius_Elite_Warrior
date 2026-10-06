@@ -39,18 +39,28 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
+    StrategiesPanel,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.strategies.strategy_fakes import (
+    VenueArming,
+    venue_strategies,
+)
 
 
 def _actions(view_model: BotsViewModel):
+    strategies = venue_strategies(
+        StrategiesPanel(), (VenueArming(TradingVenue.SPOT_TESTNET),)
+    )
     return bound_actions(
         QObject(),
         bots_commands(BOTS_ROUTE),
-        lambda binder: bind_bots_commands(binder, view_model),
+        lambda binder: bind_bots_commands(binder, view_model, strategies),
     )
 
 

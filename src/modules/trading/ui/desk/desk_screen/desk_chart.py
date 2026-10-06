@@ -115,6 +115,11 @@ class DeskChart(LiveCandleChart):
         if symbol == self._symbol:
             self._draw_fills()
 
+    @property
+    def armed_config(self) -> ArmedStrategyConfig | None:
+        """The armed strategy the chart draws; `None` for none."""
+        return self._overlay.armed_config
+
     def set_armed_config(self, config: ArmedStrategyConfig | None) -> None:
         """Draws the armed strategy's own lines over the candles."""
         self._overlay.set_armed_config(config)

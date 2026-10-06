@@ -74,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
     in_memory_config_store,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _KEY = "ema_crossover"
@@ -125,10 +128,10 @@ class TestTheRealService(StrategyArmingContract):
         dispatcher = _DirectDispatcher(
             {
                 ArmStrategyCommandHandler: ArmStrategyCommandHandler(
-                    sessions, ports, config_store
+                    sessions, ports, config_store, RecordingPublisher()
                 ),
                 DisarmStrategyCommandHandler: DisarmStrategyCommandHandler(
-                    sessions, ports
+                    sessions, ports, RecordingPublisher()
                 ),
             }
         )

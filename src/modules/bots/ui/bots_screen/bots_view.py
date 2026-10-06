@@ -1,7 +1,8 @@
 """`EPIC-033K` — the Bots mode, laid out as HLD §11.2.1 lists it.
 
 The selected bot's chart is the centre; Bots (the list) is docked on the
-left, Plan (the bot's figures, the kind's editor and its verdicts) on the
+left, Strategies (a row per venue's armed strategy, `EPIC-033K` stage 3)
+under it, Plan (the bot's figures, the kind's editor and its verdicts) on the
 right, and Orders, Fills, Log and the kind's Backtest are tabbed at the
 bottom. Every command is an action of the Bots menu (`bots_commands.py`);
 nothing here is a push button.
@@ -19,7 +20,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QItemSelectionModel, QSize
+from PySide6.QtCore import QItemSelectionModel, QSize, Qt
 from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
@@ -46,6 +47,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
+    STRATEGIES_DOCK,
+    StrategiesPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
+    MinimumHintSlot,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
@@ -97,6 +105,7 @@ class BotsView(BaseView):
         self.status.setWordWrap(True)
         self.status.hide()
         self.plan = BotPlanPanel(self.model)
+        self.strategies = StrategiesPanel()
         self.orders = BotOrdersPanel(self.model)
         self.fills = BotFillsPanel(self.model)
         self.log = BotLogPanel(self.model)
@@ -148,7 +157,7 @@ class BotsView(BaseView):
         column.addWidget(self._bots_table.body, 1)
         surface = self.surface
         surface.place_widget(Place.WORKSPACE, self.chart_area)
-        surface.place_widget(Place.NAVIGATOR, bots, title=BOTS_DOCK)
+        self._place_left(bots)
         surface.place_widget(Place.RAIL, self.plan, title=PLAN_DOCK)
         for widget, title in (
             (self.orders, ORDERS_DOCK),
@@ -159,6 +168,35 @@ class BotsView(BaseView):
             surface.place_widget(Place.CONSOLE, widget, title=title)
         # The bottom docks are tabbed; a bot is watched by its orders first.
         surface.dock_of(self.orders).raise_()
+
+    def _place_left(self, bots: QWidget) -> None:
+        """Bots above Strategies, both in view, never tabbed.
+
+        The surface tabs a second panel of one side with the first, and
+        tabbed panels on two sides, made before the window first shows,
+        leave a stale tab bar drawn over the panels (Qt 6, `EPIC-033I`): the
+        bottom is this mode's one tabbed side. So Bots steps out of the left
+        side while Strategies is placed, and comes back above it. Both ask
+        for no more than their minimum, so they share the column evenly; the
+        person drags the splitter, and the layout is remembered.
+
+        The left column runs the mode's full height, beside the bottom
+        panels: under it they would add their minimum to the column's, and
+        the mode would no longer fit a 1024×700 window (measured: 550 px
+        against 500 with a Grid's backtest in front).
+        """
+        surface = self.surface
+        surface.setCorner(
+            Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+        surface.place_widget(Place.NAVIGATOR, bots, title=BOTS_DOCK)
+        bots_dock = surface.dock_of(bots)
+        surface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, bots_dock)
+        strategies = MinimumHintSlot(self.strategies)
+        surface.place_widget(Place.NAVIGATOR, strategies, title=STRATEGIES_DOCK)
+        strategies_dock = surface.dock_of(strategies)
+        surface.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, bots_dock)
+        surface.splitDockWidget(bots_dock, strategies_dock, Qt.Orientation.Vertical)
 
     def _connect(self) -> None:
         self.model.bots_changed.connect(self._show_bots)

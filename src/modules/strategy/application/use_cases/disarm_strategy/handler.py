@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
     VenueStrategySessions,
 )
@@ -17,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_re
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
+    ArmedStrategyChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -36,13 +42,20 @@ class DisarmStrategyCommandHandler(
     a signal, which is precisely the untruthful state this epic exists to
     remove. `ITradingSession.emergency_stop()` remains the way out of a live
     session: it disables trading first, and is not gated on any of this.
+
+    `EPIC-033K` stage 3 — a disarm that took effect publishes
+    `ArmedStrategyChangedEvent`, as an arm does.
     """
 
     def __init__(
-        self, sessions: VenueStrategySessions, trading_ports: IVenueTradingPorts
+        self,
+        sessions: VenueStrategySessions,
+        trading_ports: IVenueTradingPorts,
+        publisher: IEventPublisher,
     ) -> None:
         self._sessions = sessions
         self._trading_ports = trading_ports
+        self._publisher = publisher
 
     def execute(self, command: DisarmStrategyCommand) -> DisarmStrategyResult:
         logger.debug("Handling DisarmStrategyCommand on %s", command.venue.value)
@@ -57,4 +70,5 @@ class DisarmStrategyCommandHandler(
         session.disarm()
         if armed_symbol is not None:
             trading_session.release_symbol(armed_symbol, STRATEGY_OWNER)
+        self._publisher.publish(ArmedStrategyChangedEvent(False, venue=command.venue))
         return DisarmStrategyResult(disarmed=True)

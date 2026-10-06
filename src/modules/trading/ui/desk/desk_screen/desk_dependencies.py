@@ -20,9 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
-    IStrategyCatalogReader,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
@@ -70,13 +67,12 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 @dataclass(frozen=True)
 class DeskDependencies:
-    """One desk's ports: its venue's trading and strategy ports, the
-    strategy catalog, the chart's market data, how an order is
-    confirmed, and the symbols' filters its tables write numbers in."""
+    """One desk's ports: its venue's trading ports and armed strategy (the
+    chart draws it), the chart's market data, how an order is confirmed,
+    and the symbols' filters its tables write numbers in."""
 
     ports: VenueTradingPorts
     strategy: VenueStrategyControls
-    catalog: IStrategyCatalogReader
     chart: DeskChartPorts
     thread_manager: IThreadManager
     #: `None` asks with the real dialog (`confirm_with_message_box`).
@@ -105,7 +101,6 @@ def desk_dependencies_for(
     return DeskDependencies(
         ports=ports,
         strategy=container.resolve(IVenueStrategyControls).get(venue),
-        catalog=container.resolve(IStrategyCatalogReader),
         chart=DeskChartPorts(
             thread_manager=threads,
             market_data_sync=container.resolve(IMarketDataSync),

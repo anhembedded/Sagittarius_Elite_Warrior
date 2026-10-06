@@ -1,6 +1,6 @@
 # EPIC-033K — Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it
 
-**Status:** 🟡 In progress (stages 1 and 2 of 4)
+**Status:** 🟡 In progress (stages 1–3 of 4)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🔴 — arms live strategies
 **Complexity:** M
@@ -16,7 +16,7 @@ Arming a strategy lives in a card inside each desk and the last signal in anothe
 ## 2. Acceptance criteria
 - [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). The chart and the Plan, Orders, Fills and Log docks follow the selection in the Bots dock.
 - [ ] The Bots menu and toolbar hold exactly HLD §11.2.3's commands; each bot kind contributes its panel and its toolbar, shown while a bot of that kind is selected; SPEC-014's behaviour (lifecycle-gated actions, one action at a time, the Stop dialog's *keep* default, the close guard) is unchanged.
-- [ ] A strategy armed on a venue is listed as its own row with Arm and Disarm actions until `EPIC-029L`.
+- [x] A strategy armed on a venue is listed as its own row with Arm and Disarm actions until `EPIC-029L`. *(Stage 3: the Strategies panel under Bots; Bots → Arm strategy…, Disarm strategy.)*
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
 - [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
 
@@ -39,7 +39,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 | :--- | :--- | :--- |
 | 1 | this task's first PR | The layout: the selected bot's chart is the central widget; Bots (the list, with the status line) is a `NAVIGATOR` dock; Plan (name, state, figures, the kind's editor, its verdicts) a `RAIL` dock; Orders, Fills, Log and the kind's Backtest tabbed `CONSOLE` docks. The surface accepts those four places in `shell/surfaces.py`. Fit levels, a push button over the chart, becomes a Bots menu command. `BotDetailPanel` and its `QTabWidget` are deleted. |
 | 2 | ✅ delivered (2026-10-06) | Each kind contributes its toolbar (SPEC-014: "each bot type has its own toolbar"): Grid's Suggest from ATR and Suggest from Bollinger become actions shown while a Grid is selected, in the Bots menu and disabled otherwise. |
-| 3 | next | A strategy armed on a venue is a row of its own with Arm and Disarm until `EPIC-029L`; the desks' strategy and last-signal cards are deleted. It touches `trading/ui/desk/`, so it is coordinated with the session rebuilding the desks. |
+| 3 | ✅ delivered (2026-10-06) | A strategy armed on a venue is a row of its own with Arm and Disarm until `EPIC-029L`; the desks' strategy card is deleted (the last-signal card went with `BOT-158`), which is `EPIC-033I` stage 4's Strategy panel too. |
 | 4 | last | The SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart); the task closes. |
 
 ### Decisions in stage 1
@@ -51,7 +51,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 - **Fit levels is a command**, "Fit &levels" in the Bots menu, enabled while a bot is selected; HLD §11.2.2 lists it with Refresh fills among the commands its table does not name yet.
 
 ## Implementation notes (written when done)
-Stages 1 and 2 delivered; stages 3 and 4 to come.
+Stages 1–3 delivered; stage 4 to come.
 
 ### Stage 2 — each kind's commands and toolbar
 - **Declared Qt-free, by kind.** `kinds/kind_commands.py` maps a `kind_id` to its `KindCommand`s (id, menu text); `bots_commands.py` contributes every one to the Bots menu after Delete bot, not on the mode's toolbar. Grid's are "Suggest from &ATR" and "Suggest from Bollin&ger" (HLD §11.2.3's keys; A and G were free in the Bots menu). A second kind is one entry there and its editor's `kind_actions`.
@@ -59,3 +59,12 @@ Stages 1 and 2 delivered; stages 3 and 4 to come.
 - **The menu follows the toolbar through one shared mechanism.** `ChartCommandMirror`'s drive-and-follow body moved to `support/ui_kit/action_mirror.py` (`ActionMirror`); `ChartCommandMirror` names the chart's commands over it, and `KindCommands` (`bots_screen/kind_command_binding.py`) the kinds'. `bind_bots_commands` builds `KindCommands` on the view model; the presenter hands each selection's editor to it (`follow_panel_of`, `None` with no selection). A menu command is enabled exactly while its toolbar action is: a Grid selected, editable, and the planner holding that range. Writing a second follower was the duplication `test_presenter_duplication_only_shrinks.py` caught (`_on_command`, `_on_enabled`: 32 → 34); sharing it kept 32.
 - **A defect found on the way.** `GridPanel.set_planner_market` re-enabled the suggestions whatever the editor's state, so a running Grid, read-only from the moment it was shown, offered them once the planner answered. `_offer_suggestions` now holds them off while read-only; `test_grid_panel.py::test_a_read_only_panel_offers_no_suggestion_when_the_planner_answers_late` was red before the fix.
 - **Proof:** `test_kind_commands.py` (contributed to the Bots menu, not the mode's toolbar; a menu command follows the Grid toolbar's action and fills the range; on the screen, live for a selected draft Grid and off for a running one or none; red when the presenter stops handing the editor over or the binding is dropped), the conformance suite (access keys unique per menu, every toolbar action in a menu and worded as it, no push button duplicating a command).
+
+### Stage 3 — a row per venue's armed strategy
+- **Where it lives.** A Strategies panel under Bots (`bots/ui/strategies/`): a table from its column specs, a row per venue this run serves (Venue, Strategy, State), the state a word with a tone. Bots and Strategies are stacked, not tabbed (the bottom stays the mode's one tabbed side), and the left column runs the mode's full height (`setCorner`): under the column the bottom panels added their minimum to it and the mode needed 550 px against the 500 that fit 1024×700 (`test_the_mode_fits_a_small_window_with_a_grid_and_its_backtest_in_front` caught it).
+- **Commands, not buttons.** Bots → Ar&m strategy… and D&isarm strategy (M and I were free), acting on the selected row; Arm is enabled while nothing is armed there and nothing is in flight, Disarm while something is. Arm asks in a dialog (HLD §11.2: arming with parameters is a dialog): the desks' card's fields plus the **symbol**, which the card took from its desk's chart; Cancel is the default (`ui-presentation-rule.md` §7). Disarm takes no confirmation: nothing is sold or cancelled. The question is `BotsDialogs.ask_arm_strategy`, so a test answers it as it answers Stop.
+- **One truth on the bus.** Arming left the Trade mode while its chart still draws the armed strategy's lines, so the strategy module's arm and disarm handlers publish `ArmedStrategyChangedEvent(armed, venue)` (declared in `trading/contracts/events/`, which `strategy` may import and `trading` may not reverse); each desk and the Bots rows re-read `IArmedStrategyReader` for their venue. The event carries no config: no reader holds a second copy (`architecture-rule.md` §6).
+- **Moved, not copied.** `StrategyArmingCoordinator` and its refusal messages moved from `trading/ui/` to `bots/ui/strategies/` (they use trading's contracts only); the card's view model became `StrategyFormViewModel`, snake_case with plain attributes (no QML reads it any more), its parameters a `ParamsSink` in `support/ui_kit/param_form/` because `StrategyParamsDialog`'s Protocol keeps the card's camelCase names and `bots/ui/` has no N802 exemption (adding one is a `pyproject.toml` change).
+- **Deleted.** `desk_strategy.py`, `desk/strategy_card/`, the desk view model's strategy state, `DeskDependencies.catalog`, the Trade page's Strategy panel, `test_strategy_card.py` (its leverage-on-Spot proof is `test_arm_strategy_dialog.py`, cited by SPEC-012).
+- **Proof:** `test_venue_strategies.py` (a row per venue; Arm asks for the selected venue and arms it alone, with the symbol chosen; Cancel arms nothing; a refusal is said in words; Disarm one venue leaves the other; an event from elsewhere is shown; the form opens on the saved arming and arms nothing), `test_arm_strategy_dialog.py`, `test_strategy_rows_on_the_bots_screen.py` (the presenter's real wiring: rows from the container, commands bound, the bus followed), `test_arm_strategy_per_venue.py` (each handler publishes for its venue only, a refusal publishes nothing), `test_two_desks_stay_apart.py` (the event redraws that venue's desk only). Mutation: dropping the presenter's subscription, the command binding, the desk's subscription or the arm call each turns a test red.
+

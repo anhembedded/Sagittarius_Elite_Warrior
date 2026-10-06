@@ -1,60 +1,38 @@
-"""`EPIC-022D`/`EPIC-022F`/`EPIC-023C` — a screen's strategy card, minus the
-widgets.
+"""`EPIC-022D`/`EPIC-022F`/`EPIC-023C` — arming a venue's live strategy,
+minus the widgets; in the Bots mode since `EPIC-033K` stage 3.
 
-@details Holds the parameter values the user is editing, turns the card's
-two buttons into an arm/disarm request through `IStrategyArmingControl`, and
+@details Holds the parameter values the person is editing, turns Arm strategy
+and Disarm strategy into a request through `IStrategyArmingControl`, and
 reads what strategies exist and their parameter forms through
-`IStrategyCatalogReader`.
+`IStrategyCatalogReader`. It talks to trading-owned ports only
+(`ArmedStrategyConfig` in, `ArmedStrategyConfig` out), never the strategy
+module's own (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+§8), which is why it can live in `bots/ui/`: `bots` reaches `trading` through
+its contracts like any other customer.
 
-`EPIC-025` PR 4.3m: neither `trading` nor `dashboard` imports
-`modules.strategy.ui.*` or `modules.strategy.application.services.
-strategy_registry` directly any more (`architecture-rule.md` §3 forbids it
-the moment `strategy` becomes a module in PR 4.4). What crossed as
-`StrategyRegistry.available()`, `build_bot_params_schema`/
-`build_bot_params_rows`/`parse_bot_params` and a direct
-`dispatcher.dispatch(ArmStrategyCommandHandler, …)` +
-`LiveStrategyConfigStore` now crosses as two published ports —
-`IStrategyCatalog` and `IStrategyArming` — with the class-handling and the
-persistence both kept inside `modules/strategy`
-(`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
-§5).
-
-**PR 4.4c (§8) inverts those two ports again**, this time so `trading` (this
-file's own future home once it moves with the screens) never has to import
-`modules.strategy.contracts` at all: `trading` now declares its own
-`IStrategyCatalogReader`/`IStrategyArmingControl` (`modules/trading/
-contracts/`), and `strategy`'s adapter implements them by wrapping the
-original `IStrategyCatalog`/`IStrategyArming` and translating field for
-field at the boundary. This file talks to the trading-owned ports only —
-`ArmedStrategyConfig` in, `ArmedStrategyConfig` out — never the strategy-owned
-ones underneath.
-
-**This file stays shared rather than becoming two per-screen copies.** An
-earlier PR 4.3m draft gave Trading and Dev Board a byte-identical copy
-each, reasoning that the ADR's §5 crossing table had put every piece of
-*data* on the port, leaving only "orchestration glue with nothing
-behavioural to duplicate wrongly" — a claim
-`tests/unit/architecture/test_presenter_duplication_only_shrinks.py`
-disproved by measurement (32 → 63 duplicated members): the glue's own
-method names are exactly what that ratchet counts, data or not. This is
-also where the class lived before `EPIC-025` PR 2.1e ever moved it into
-`modules/strategy/ui/` (`git log --follow` on this path shows the same
-`presentation/ui/common/strategy_arming_coordinator.py` name), so
-un-crossing the module boundary and re-sharing the file are the same
-move, not two.
+@par Why it moved here
+HLD §11.2 decided that a strategy armed on a venue is a row in the Bots mode
+until `EPIC-029L` makes it a bot kind, and that Trade stays manual. The
+desks' strategy cards went, and their coordinator came here with the one
+owner left (`VenueStrategies`). It stays one shared class rather than a copy
+per venue: `test_presenter_duplication_only_shrinks.py` measured the copies
+once (32 → 63 duplicated members, `EPIC-025` PR 4.3m).
 
 Per `async-ui-action-rule.md` §2, this Coordinator owns **no** action-id or
-FSM bookkeeping: the owning Presenter keeps its own `ActionOwnershipTracker`
-and hands it in.
+FSM bookkeeping: its owner keeps the `ActionOwnershipTracker` and hands it in.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_block_messages import (
+    ARM_BLOCK_MESSAGES,
+    DISARM_BLOCKED_MESSAGE,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     ArmedStrategyConfig,
 )
@@ -70,10 +48,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
     DisarmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.arm_block_messages import (
-    ARM_BLOCK_MESSAGES,
-    DISARM_BLOCKED_MESSAGE,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -82,29 +56,24 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 logger = logging.getLogger("App.StrategyArming")
 
 
-class StrategyCardViewModel(Protocol):
-    """What the strategy card's Coordinator reads from and writes to.
+class StrategyFormState(Protocol):
+    """What the arming Coordinator reads from and writes to.
 
-    @details Narrower than either screen's own ViewModel on purpose: this
-    Coordinator has no business touching the toggle, the chart, or the
-    session stats that ViewModel also carries, and naming only what it
-    uses is what makes that reviewable.
+    @details Narrower than its owner's form on purpose: the symbol and the
+    sizing the dialog edits are read by `build_config`'s caller-given
+    `get_active_symbol` and by these attributes, and naming only what is
+    used is what makes that reviewable.
     """
 
-    @property
-    def selectedStrategyKey(self) -> str: ...
-
-    @property
-    def liveInterval(self) -> str: ...
-
-    @property
-    def sizingPercent(self) -> float: ...
-
-    @property
-    def leverage(self) -> float: ...
+    selected_strategy_key: str
+    live_interval: str
+    sizing_percent: float
+    leverage: float
 
     def set_strategy_options(
-        self, strategy_options: list[dict], interval_options: list[str]
+        self,
+        strategy_options: Sequence[tuple[str, str]],
+        interval_options: Sequence[str],
     ) -> None: ...
 
     def set_strategy_selection(
@@ -122,7 +91,7 @@ class StrategyArmingCoordinator:
 
     def __init__(
         self,
-        view_model: StrategyCardViewModel,
+        view_model: StrategyFormState,
         catalog: IStrategyCatalogReader,
         arming: IStrategyArmingControl,
         get_active_symbol: Callable[[], str],
@@ -171,8 +140,7 @@ class StrategyArmingCoordinator:
         """
         options = self._catalog.options()
         self._view_model.set_strategy_options(
-            [{"key": opt.key, "label": opt.label} for opt in options],
-            interval_options,
+            [(opt.key, opt.label) for opt in options], interval_options
         )
         saved = self._arming.saved_selection()
 
@@ -197,7 +165,7 @@ class StrategyArmingCoordinator:
 
     def refresh_params_rows(self) -> None:
         """Rebuilds the parameter form for whatever strategy is selected."""
-        key = self._view_model.selectedStrategyKey
+        key = self._view_model.selected_strategy_key
         if not key:
             self._view_model.set_bot_params(())
             return
@@ -217,7 +185,7 @@ class StrategyArmingCoordinator:
         screen makes, so a value accepted on one screen cannot be rejected
         on the other.
         """
-        key = self._view_model.selectedStrategyKey
+        key = self._view_model.selected_strategy_key
         if not key:
             return False
         result = self._catalog.validate_params(key, raw_values)
@@ -235,11 +203,11 @@ class StrategyArmingCoordinator:
 
     def build_config(self) -> ArmedStrategyConfig:
         return ArmedStrategyConfig(
-            strategy_key=self._view_model.selectedStrategyKey,
+            strategy_key=self._view_model.selected_strategy_key,
             symbol=self._get_active_symbol(),
-            interval=self._view_model.liveInterval,
+            interval=self._view_model.live_interval,
             strategy_params=dict(self._params),
-            sizing_percent=self._view_model.sizingPercent,
+            sizing_percent=self._view_model.sizing_percent,
             leverage=self._view_model.leverage,
         )
 
@@ -315,7 +283,7 @@ class StrategyArmingCoordinator:
         each of those would discard values the user is mid-way through
         typing.
         """
-        key = self._view_model.selectedStrategyKey
+        key = self._view_model.selected_strategy_key
         if key == self._last_form_strategy_key:
             return
         self._last_form_strategy_key = key

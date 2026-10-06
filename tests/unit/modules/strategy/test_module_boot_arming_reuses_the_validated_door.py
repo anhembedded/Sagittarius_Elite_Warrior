@@ -69,6 +69,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
     in_memory_config_store,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 #: SHORT/COVER-capable (`test_supported_directions_guard.py`) — the exact
@@ -136,6 +139,7 @@ def test_boot_refuses_a_stale_short_capable_config_on_a_spot_venue() -> None:
                         fake_venue_ports(venue, trading_session=trading_session)
                     ),
                     config_store,
+                    RecordingPublisher(),
                 ),
             }
         ),

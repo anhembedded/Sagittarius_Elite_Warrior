@@ -8,8 +8,8 @@
   entry scrolls, once, at its panel.
 - **Bottom, tabbed:** Positions (Futures) or Assets (Spot), Open orders,
   Order history, Trade history and Equity, as HLD §11.2.1 lists them, what
-  is held in front; and Strategy until arming moves to the Bots mode
-  (`EPIC-033K` stage 3).
+  is held in front. No Strategy panel: arming a strategy is the Bots mode's
+  (`EPIC-033K` stage 3; HLD §11.2: Trade stays manual).
 
 Each venue's page is a `WorkbenchSurface` of its own (`trade.<venue>`), so
 each keeps its own layout (HLD §11.2.1, `ISurfaceStack`). Stock controls,
@@ -19,8 +19,7 @@ actions in the Trade menu and on its toolbar, not buttons here.
 
 Built as an empty shell, without reading a service: the presenter side
 decides what fills it. `attach` lays the page out once the presenter has its
-view models (`OrderEntryPanel` and the strategy card each take theirs at
-construction).
+view models (`OrderEntryPanel` takes its own at construction).
 """
 
 from __future__ import annotations
@@ -57,12 +56,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card.strategy_card import (
-    StrategyCard,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card.strategy_card_binding import (
-    StrategyCardBinding,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
@@ -84,7 +77,6 @@ TRADE_SURFACE = Surface(
 #: The panels' titles, which are also their View toggles' texts.
 ORDER_ENTRY_TITLE = "Order entry"
 ACCOUNT_SUMMARY_TITLE = "Account summary"
-STRATEGY_TITLE = "Strategy"
 #: The equity chart's title: the curve is the venue's account, not a symbol.
 EQUITY_CHART_TITLE = "Equity"
 
@@ -151,16 +143,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         their view models, and binds the context bar to `desk`."""
         panel = OrderEntryPanel(order)
         panel.setObjectName("orderEntryPanel")
-        card = StrategyCard(
-            StrategyCardBinding(
-                strategy=desk.strategy_card,
-                is_trading_enabled=lambda: bool(desk.enabled),
-                trading_state_changed=desk.tradingStateChanged,
-            ),
-            market_type=self._profile.market_type,
-        )
-        card.setObjectName("deskStrategyCard")
-        self._lay_out(panel, card)
+        self._lay_out(panel)
         self._apply_symbols(desk)
         self._apply_status(desk)
         self._symbol.currentTextChanged.connect(desk.requestSymbolChange)
@@ -168,7 +151,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         desk.symbolChanged.connect(lambda: self._apply_symbols(desk))
         desk.statusChanged.connect(lambda: self._apply_status(desk))
 
-    def _lay_out(self, order_entry: QWidget, strategy: QWidget) -> None:
+    def _lay_out(self, order_entry: QWidget) -> None:
         surface = self.surface
         surface.place_widget(Place.WORKSPACE, self.chart)
         surface.place_widget(Place.HEADER, self._context_bar())
@@ -186,9 +169,6 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
             for title, table in self.account_tabs.panels()
         ]
         bottom.append((EQUITY_CHART_TITLE, MinimumHintSlot(self.equity_chart)))
-        bottom.append(
-            (STRATEGY_TITLE, MinimumHintSlot(_scrolling(strategy, "scrollStrategy")))
-        )
         for title, widget in bottom:
             surface.place_widget(Place.CONSOLE, widget, title=title)
         # What the account holds is what an order changes: in front.
@@ -246,7 +226,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
 def _scrolling(content: QWidget, name: str) -> QScrollArea:
     """`content` in a panel that scrolls once, at the panel, when the panel
     is shorter than it (`ui-presentation-rule.md` §3): the order entry and
-    the strategy card are taller than a 1024×700 window leaves them."""
+    the strategy card were taller than a 1024×700 window leaves them."""
     scroll = QScrollArea()
     scroll.setObjectName(name)
     scroll.setWidgetResizable(True)

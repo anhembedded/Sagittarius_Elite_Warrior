@@ -52,12 +52,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
-    VenueStrategySessions,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyCommandHandler,
 )
@@ -76,9 +70,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
@@ -265,21 +256,9 @@ def app_engine(
         # would report success while leaving the session (and therefore the
         # card's own "what is armed" label) unchanged. Both handlers are
         # cheap, synchronous, and take only container-resolved collaborators,
-        # so building them here costs nothing a `_FakeResponse` branch below
-        # wouldn't already cost.
-        if command_type is ArmStrategyCommandHandler:
-            handler = ArmStrategyCommandHandler(
-                engine.context.container.resolve(VenueStrategySessions),
-                engine.context.container.resolve(IVenueTradingPorts),
-                engine.context.container.resolve(LiveStrategyConfigStore),
-            )
-            return handler.execute(command_obj)
-        if command_type is DisarmStrategyCommandHandler:
-            handler = DisarmStrategyCommandHandler(
-                engine.context.container.resolve(VenueStrategySessions),
-                engine.context.container.resolve(IVenueTradingPorts),
-            )
-            return handler.execute(command_obj)
+        # so the container builds them, as the real dispatcher does.
+        if command_type in (ArmStrategyCommandHandler, DisarmStrategyCommandHandler):
+            return engine.context.container.resolve(command_type).execute(command_obj)
         if command_type is ExecuteOrderCommand:
             # `EPIC-024B` — the manual order card's real-Qt-click test needs
             # the REAL `ExecuteOrderCommandHandler`, same reasoning as the

@@ -54,8 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
 
 class OrderBookDisplay(Protocol):
     """What this Coordinator reads from and writes to — narrower than a
-    full screen View on purpose, same reasoning `StrategyCardViewModel`
-    (`strategy_arming_coordinator.py`) documents for its own Protocol."""
+    full screen View on purpose, same reasoning `StrategyFormState`
+    (`bots/ui/strategies/strategy_arming_coordinator.py`) documents for its
+    own Protocol."""
 
     def set_positions(self, rows: Sequence[PositionRow]) -> None: ...
 

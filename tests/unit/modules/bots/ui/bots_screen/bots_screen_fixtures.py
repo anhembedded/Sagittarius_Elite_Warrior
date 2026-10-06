@@ -73,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
+    StrategyFormViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -106,6 +109,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_controls import (
+    IVenueStrategyControls,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -131,6 +140,11 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.strategies.strategy_fakes import (
+    FakeVenueStrategyControls,
+    VenueArming,
+    strategy_catalog,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
     ActionRegistry,
 )
@@ -204,6 +218,8 @@ class Answers:
     new_bot: CreateBotCommand | None = None
     stop: BaseHandling | None = None
     delete: bool = False
+    #: Bots → Arm strategy…: `True` arms what the form holds.
+    arm_strategy: bool = False
     asked: list[str] = field(default_factory=list)
 
     def dialogs(self) -> BotsDialogs:
@@ -211,7 +227,14 @@ class Answers:
             ask_new_bot=self._ask_new_bot,
             ask_stop=self._ask_stop,
             confirm_delete=self._confirm_delete,
+            ask_arm_strategy=self._ask_arm_strategy,
         )
+
+    def _ask_arm_strategy(
+        self, venue: TradingVenue, _form: StrategyFormViewModel
+    ) -> bool:
+        self.asked.append(f"arm {venue.value}")
+        return self.arm_strategy
 
     def _ask_new_bot(
         self, kinds: Sequence[str], venues: Sequence[TradingVenue]
@@ -238,6 +261,8 @@ class BotsScreen:
     bus: MemoryEventBus
     #: The Bots commands, bound as the window binds them (`EPIC-033D`).
     actions: ActionRegistry
+    #: The venue's live strategy, armed from the Strategies panel.
+    strategy: VenueArming
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -324,6 +349,9 @@ def open_screen(
     container.singleton(IMarketStream, FakeMarketStream())
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
+    strategy = VenueArming(VENUE)
+    container.singleton(IVenueStrategyControls, FakeVenueStrategyControls(strategy))
+    container.singleton(IStrategyCatalogReader, strategy_catalog())
     BotsModule().register(SimpleNamespace(container=container, event_bus=bus))
     store = container.resolve(IBotStore)
     for bot in bots:
@@ -335,4 +363,4 @@ def open_screen(
         view, container, dialogs=answers.dialogs(), now=lambda: NOW
     )
     actions = bound_actions(view, bots_commands(BOTS_ROUTE), presenter.bind_commands)
-    return BotsScreen(view, presenter, pool, store, answers, bus, actions)
+    return BotsScreen(view, presenter, pool, store, answers, bus, actions, strategy)

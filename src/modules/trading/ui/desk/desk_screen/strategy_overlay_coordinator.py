@@ -104,6 +104,11 @@ class StrategyOverlayCoordinator:
     # Arming
     # ------------------------------------------------------------------ #
 
+    @property
+    def armed_config(self) -> ArmedStrategyConfig | None:
+        """The armed strategy whose lines are drawn; `None` for none."""
+        return self._config
+
     def set_armed_config(self, config: ArmedStrategyConfig | None) -> None:
         """Switches to (or clears) the strategy whose lines are drawn."""
         if config == self._config:

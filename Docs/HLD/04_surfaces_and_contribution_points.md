@@ -124,7 +124,7 @@ each, differing only in their `DeskProfile` (ADR D5). Every widget on a desk is 
 | Enable/Disable, Emergency stop | `trading` | ✅ for its venue only | — |
 | Session state (enabled, orders sent, symbols held) | `trading` | — | the Developer mode's *Trading session* probe |
 | Equity chart | `trading` (adapter) + `charting` | ✅ its venue's curve | — |
-| Strategy panel, parameters dialog | `strategy` | ✅ its venue's arming (`desk/strategy_card/`, until Bots takes it, HLD §11.2.4) | — |
+| Strategy rows, Arm strategy dialog, parameters dialog | `strategy` | — (the Bots mode arms each venue since `EPIC-033K` stage 3: `bots/ui/strategies/`; a desk's chart draws what is armed) | — |
 | Strategy overlay on the chart | `strategy` | ✅ | — |
 | Indicator script checklist, indicator parameters | `indicators` | — | the Market mode's Indicators panel and Tools → Indicator parameters… (`BOT-153`) |
 | Watchlist | `trading` | a reduced context bar (symbol) | the Market mode's Watchlist panel |

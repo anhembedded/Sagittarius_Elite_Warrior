@@ -103,6 +103,7 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from ..strategies.strategies_wiring import strategies_for
 from .bots_command_binding import bind_bots_commands
 from .kind_command_binding import KindCommands
 from .spot_candle_feed import spot_candle_feed
@@ -130,8 +131,7 @@ def _utc_now() -> datetime:
 class BotsPresenter(CommandPresenter):
     """@brief Orchestrates the Bots screen."""
 
-    # The engine declares both as plain `None` defaults, untyped, so any real
-    # value is an "incompatible override" to mypy; the FSM reads them as-is.
+    # The engine declares both untyped `None`s: an "incompatible override".
     INITIAL_STATE = BotsUiState.NO_SELECTION  # type: ignore[assignment]
     UI_TRANSITION_MATRIX = BOTS_UI_TRANSITIONS  # type: ignore[assignment]
 
@@ -174,11 +174,12 @@ class BotsPresenter(CommandPresenter):
         self._rejudge = single_shot_timer(self, _REJUDGE_MS, self._refresh_detail)
         self._clock = QTimer(self)
         self._clock.setInterval(_CLOCK_MS)
+        ask, status = self._dialogs.ask_arm_strategy, self._model.set_status
+        self.strategies = strategies_for(container, view.strategies, ask, status)
+        self.subscribe(*self.strategies.subscription)
         self._connect()
         self._clock.start()
         self._queries.bots()
-
-    # -- wiring ------------------------------------------------------------ #
 
     def _connect(self) -> None:
         model = self._model
@@ -200,8 +201,7 @@ class BotsPresenter(CommandPresenter):
     # -- reads ------------------------------------------------------------- #
 
     def _on_bot_changed(self, _bot_id: str, _removed: bool) -> None:
-        """A write reaches the screen queued from the writer's thread, so it
-        can land after `shutdown()`; it then arms nothing (`BUG-149`)."""
+        """A write lands queued, maybe after `shutdown()`: then nothing (`BUG-149`)."""
         if self._closed:
             logger.debug("Bots screen: a bot change after shutdown is ignored")
             return
@@ -313,7 +313,7 @@ class BotsPresenter(CommandPresenter):
             self._begin(PendingAction(f"{value} {bot.name}", BotAction(value)), command)
 
     def bind_commands(self, binder: ICommandBinder) -> None:
-        bind_bots_commands(binder, self._model)
+        bind_bots_commands(binder, self._model, self.strategies)
 
     def _on_new_bot(self) -> None:
         if self._busy():
@@ -386,8 +386,7 @@ class BotsPresenter(CommandPresenter):
         self._model.set_action_in_flight(self._busy())
 
     def shutdown(self) -> None:
-        """Answers in flight are dropped; the chart's stream and the log
-        handler are released; nothing is cancelled at the exchange."""
+        """Drops answers in flight; releases streams; cancels nothing remote."""
         self._closed = True
         self._actions.invalidate_active()
         self._reads.drop_all()
