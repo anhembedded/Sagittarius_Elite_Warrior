@@ -19,6 +19,7 @@
 ## Symptom
 - The user's words: "chọn 1s, nhưng nếu k có khung đó, vẫn k có báo erro hay wanring gì."
 - Screenshot, 1s chosen and outlined by the user: [`BUG-159_1s_selected.webp`](BUG-159_1s_selected.webp).
+- The app log of the same run (pasted later, in [BUG-160](BUG-160_run_backtest_leaves_no_backtest_in_the_log.md)) shows each 1s sync failing on the exchange: `App.ExchangeClient - ERROR - Failed to stream historical klines for BTCUSDT: APIError(code=-1120): Invalid interval.` then `App - ERROR - SyncMarketDataCommand failed: …`. The error is in the log only.
 - Output panel as shown: "[22:48:21] Live for BTCUSDT, ETHUSDT, BNBUSDT." and "[22:48:22] Loading BTCUSDT data from the local database (not connected live — enable trading to connect)."
 
 ## Root cause
