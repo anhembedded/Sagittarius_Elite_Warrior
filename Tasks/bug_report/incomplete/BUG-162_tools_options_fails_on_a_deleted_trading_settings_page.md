@@ -1,8 +1,9 @@
-# BUG-154 — Tools → Options opens a "Critical System Error" instead of the Options dialog
+# BUG-162 — Tools → Options opens a "Critical System Error" instead of the Options dialog
 
 - **Reported:** 2026-10-06 (the user, in chat, with two screenshots and the traceback)
 - **Severity:** 🟡 P2 — the Options dialog does not open, so no setting can be changed from the app (Tools → Options is the one place for them, `ui-presentation-rule.md` §7)
 - **Status:** Open
+- **Renumbered:** filed as `BUG-154` on 2026-10-06 while another session's fix took the same number (`completed/BUG-154_environment_banner_can_be_hidden_from_the_toolbar_menu.md`, merged first); this report became `BUG-162`. Its two pictures keep their `BUG-154_` names.
 - **Board:** Tools → Options shows "Critical System Error: libshiboken: Internal C++ object (TradingSettingsView) already deleted." and no Options dialog opens. Seen in the Market mode on the user's desktop. Not investigated yet.
 - **Context:** Change a setting (Tools → Options, `EPIC-033E`) → `shell/` and the Engine's `WorkbenchShell` / `OptionsDialog` → the Trading options page (`TradingSettingsView`, `src/modules/trading/ui/settings/`), `ui/` layer
 - **Environment:** Windows (the user's desktop; paths under `C:\Users\hoang\Documents\Gemini\Sagittarius_Elite_Warrior\.venv`). App commit, engine commit and Python version not captured. The window title reads "Sagittarius Elite Warrior — Trading is OFF. Data view only."; the Market mode was shown, Futures market, BTCUSDT 1m.
