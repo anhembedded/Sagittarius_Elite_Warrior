@@ -42,3 +42,14 @@ class TradingVenue(str, Enum):
         added here.
         """
         return self in (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)
+
+    @property
+    def has_positions(self) -> bool:
+        """@brief Whether this venue has positions at all — `BUG-142`.
+
+        @details Futures does; Spot holds balances and has nothing a "position
+        limit" could count. Asked by the order path, rather than comparing the
+        venue to `SPOT_TESTNET`, so a position-shaped limit or piece of state
+        reads one capability and a future venue sets it in one place.
+        """
+        return self is TradingVenue.FUTURES_TESTNET

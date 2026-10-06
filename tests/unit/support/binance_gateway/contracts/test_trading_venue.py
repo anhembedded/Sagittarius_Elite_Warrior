@@ -43,3 +43,10 @@ def test_trading_venue_has_no_mainnet_member():
     member_names = {member.name for member in TradingVenue}
     forbidden = {name for name in member_names if "MAINNET" in name or "LIVE" in name}
     assert forbidden == set()
+
+
+def test_only_a_futures_venue_has_positions() -> None:
+    """`BUG-142` — Spot holds balances, not positions; `DISABLED` trades nothing."""
+    assert TradingVenue.FUTURES_TESTNET.has_positions is True
+    assert TradingVenue.SPOT_TESTNET.has_positions is False
+    assert TradingVenue.DISABLED.has_positions is False

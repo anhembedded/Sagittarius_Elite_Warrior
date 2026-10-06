@@ -41,6 +41,20 @@ def test_record_order_sent_increments_counter_and_marks_symbol_open() -> None:
     assert state.open_position_count("BTCUSDT") == 1
 
 
+def test_record_order_sent_on_a_venue_without_positions_counts_but_does_not_mark_open() -> (
+    None
+):
+    """`BUG-142` — Spot has no positions, so nothing would ever clear the mark."""
+    state = TradingSessionState()
+    now = datetime(2026, 8, 27, tzinfo=UTC)
+
+    state.record_order_sent("BTCUSDT", now, venue_has_positions=False)
+
+    assert state.orders_sent_this_session == 1
+    assert state.open_position_count("BTCUSDT") == 0
+    assert state.time_since_last_order("BTCUSDT", now) == timedelta(0)
+
+
 def test_time_since_last_order_is_none_before_any_order() -> None:
     state = TradingSessionState()
     assert (

@@ -58,8 +58,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 4 |
-| ✅ **Đã sửa / đã đóng** | 141 |
+| 🔴 **Đang mở** | 3 |
+| ✅ **Đã sửa / đã đóng** | 142 |
 | 📈 **Tổng** | **145** |
 
 ---
@@ -71,7 +71,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | **[BUG-152](incomplete/BUG-152_sanity_run_ends_with_uncollectable_objects_warning.md)** | A green gate's log ends with `ResourceWarning: gc: 5 uncollectable objects at shutdown`, so the prescribed `ResourceWarning` grep matches on every run | 🟢 P3 | 2026-10-06 | Found by the CI timing measurement; not investigated. |
 | **[BUG-151](incomplete/BUG-151_status_bar_progress_bar_always_busy.md)** | The status bar's progress bar shows "busy" from start-up in every mode, with no task running | 🟡 P2 | 2026-10-06 | Reported by the user with a screenshot; also seen in the PR #372 pictures and review. Not investigated (user's request). |
 | **[BUG-143](incomplete/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md)** | Stopping the app with the Spot user-data stream live prints `Task was destroyed but it is pending!` and `Unclosed client session`: the stream's tasks are destroyed while cancelling, so its connection is dropped, not closed. Seen in the user's first live grid round trip. Cause: the engine's `AsyncRuntime.stop()` stopped the loop before cancelling tasks. Fixed in the engine (`934b830`, engine `BUG-017`) and pinned by `engine.ref`; awaiting a live run that stops cleanly. | 🟢 P3 | 2026-10-04 | User's `-TestnetOnly` run (`EPIC-029H`) |
-| **[BUG-142](incomplete/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | Sau một lệnh Spot thủ công, mọi lệnh sau trên cùng symbol bị `MAX_POSITIONS_PER_SYMBOL` chặn cho tới khi bật lại giao dịch: `record_order_sent` đánh dấu symbol "đang mở" và trên Spot không gì xoá dấu đó (Spot không có vị thế). Đã tái hiện; chưa sửa vì là cơ chế khác với owner budget của `EPIC-029A`, và hướng sửa đổi một safety gate nên cần người dùng quyết. | 🟡 P2 | 2026-10-03 | Tái hiện trong `EPIC-029A` (ADR §1.3) |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên
@@ -89,6 +88,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-142](completed/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | After one manual Spot order, every later order on that symbol was refused with `MAX_POSITIONS_PER_SYMBOL` until trading was enabled again: the handler marked the symbol open and nothing on Spot (no positions) ever cleared it. On a venue without positions (`TradingVenue.has_positions`) an order no longer marks its symbol open. | 🟡 P2 | 2026-10-03 | `fix(bug-142)` |
 | **[BUG-150](completed/BUG-150_closed_market_tab_reports_on_its_deleted_chart.md)** | A Market tab closed while its first window loaded let the load's worker emit on the deleted chart (`RuntimeError: Signal source has been deleted`): `LiveChartCoordinator` checked its token only between steps and always called `load_finished`. Fixed at the shared seam: a cancelled load reports nothing, `load_finished` names its token, and the chart settles the request it cancels itself. | 🟢 P3 | 2026-10-05 | ✅ 2026-10-05 |
 | **[BUG-149](completed/BUG-149_bots_screen_reads_after_shutdown.md)** | A bot write queued from another thread when the Bots screen closed re-armed its coalesced re-read, which then submitted into the app's pool after it had shut down (`RuntimeError: cannot schedule new futures after shutdown`, CI run 37282507866 on PR #356). Fixed: `FencedReads` refuses every read after `drop_all()`, and the presenter's change handler arms nothing after `shutdown()`. | 🟢 P3 | 2026-10-05 | ✅ 2026-10-05 |
 | **[BUG-148](completed/BUG-148_local_runs_use_an_engine_ci_never_built.md)** | `run-ui.ps1` installed the engine's moving `main` and `ci-local.ps1`'s mypy read a sibling engine checkout, so a machine could run and type-check against an engine CI never built. Only CI followed `engine.ref`. Fixed by one installer, `scripts/engine_pin.py`, used by CI and both launchers, and an Engine Pin step that fails the gate when the engine in use is not `engine.ref`'s. | 🟢 P3 | 2026-10-04 | ✅ 2026-10-04 |

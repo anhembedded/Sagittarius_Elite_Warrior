@@ -58,7 +58,7 @@ goes."*
    3. **four session limits** — orders per session, notional per order, positions per symbol,
       and the minimum interval between orders.
 7. If nothing blocked it, the app submits one order, records it against the session's counters,
-   and marks the symbol as believed-open.
+   and, on a venue with positions (Futures), marks the symbol as believed-open. On a venue without positions (Spot) it does not: Spot orders are paced by the notional and the interval only (`BUG-142`).
 8. The app answers once, with what blocked it or with the order that was sent.
 
 ## 4. What must be true afterwards
