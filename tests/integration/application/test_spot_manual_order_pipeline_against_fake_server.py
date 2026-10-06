@@ -1,8 +1,8 @@
 """`EPIC-027O` — the manual order card's Spot BUY proof, at the same depth
 `test_manual_order_pipeline_against_fake_server.py` already holds for
 Futures: not "the presenter asked the dispatcher for the right command"
-(`test_dashboard_presenter.py`/`test_manual_order_intent.py` already prove
-that), but what actually reaches the exchange once
+(the desks' order entry tests and `test_manual_order_intent.py` already
+prove that), but what actually reaches the exchange once
 `manual_order_intent_for()`'s BUY intent crosses `PreviewOrderQueryHandler`,
 `SpotTradingClient`'s real order-payload mapping, and `python-binance`'s own
 form encoding — and that the SAME `SpotAccountReader.check_connection()`
@@ -17,10 +17,9 @@ this reads BTC's `free` balance before and after rather than asserting a
 holding merely exists — the only way to show a BUY *moved* the balance
 `ITradingAccountReader.check_connection().holdings` reports, on real Spot
 account-state mutation, not a la carte fixture data. It does not drive a
-`qtbot` click or boot the Dev Board window: the manual order card's own
-button→direction→dispatch wiring is already proven end-to-end for a real
-click reaching `ExecuteOrderCommandHandler`
-(`test_dev_board_manual_order_qt_click.py`), and `manual_order_intent_for()`'s
+`qtbot` click or boot a window: the Spot desk's own Buy button is proven
+end-to-end, from a real click through `ExecuteOrderCommandHandler` to the
+fake exchange, by `test_spot_desk_against_fake_server.py`, and `manual_order_intent_for()`'s
 BUY/SELL mapping is proven byte-for-byte at the unit level
 (`test_manual_order_intent.py`) — this file's job is only the third leg,
 same division of labour the Futures sibling test already states for itself.
@@ -132,7 +131,7 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
     must both put a real order on the wire and be visible afterwards through
     `ITradingAccountReader.check_connection().holdings` — the same read
     `HoldingsRefreshService` polls and `OrderFeed.holdingsChanged` republishes
-    for the Dev Board/Trading screens' Holdings table."""
+    for the desks' Holdings table."""
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),

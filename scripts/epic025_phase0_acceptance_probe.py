@@ -96,9 +96,10 @@ from Sagittarius_Elite_Warrior.tests.conftest import (
     real_screen_registry,
 )
 
-#: The routes Phase 0 touched. `dashboard` is Dev Board; it is included even
-#: though `dev.mode` gates it, because the probe boots with `--dev`.
-_ROUTES = ("trading", "dashboard", "data_management")
+#: The routes Phase 0 touched. The Dev Board's place is the Developer mode's
+#: since `EPIC-033P` deleted the Dev Board; it is included even though
+#: `dev.mode` gates it, because the probe boots with `--dev`.
+_ROUTES = ("trading", "developer", "data_management")
 
 #: Where the evidence lands. Kept on failure *and* success: a screenshot of a
 #: screen that painted is the only artefact this probe produces that a human
@@ -142,7 +143,7 @@ def _distinct_colours(widget) -> int:
 
 
 def main() -> int:
-    # `--dev` so Dev Board is registered at all: the surface and every
+    # `--dev` so the Developer mode is registered at all: the surface and every
     # `dev_probe` are gated on `dev.mode`, and a probe that silently skipped
     # the screen it means to check would report success for two of three.
     config_manager, _dev_mode = load_app_config([sys.argv[0], "--dev"])

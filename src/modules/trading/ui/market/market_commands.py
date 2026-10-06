@@ -30,8 +30,7 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
   focus (`BOT-156`, `chart_commands.py`); they act on the chart in front.
 - **Tools → Indicator parameters…:** edits the parameters of the script
   selected in the Indicators panel, in the dialog the Dev Board used for it
-  (`BOT-063`), which the Dev Board's deletion (`EPIC-033P`) would otherwise
-  take with it. In Tools, beside Options, as a dialog of settings; off while
+  (`BOT-063`) until `EPIC-033P` deleted the Dev Board. In Tools, beside Options, as a dialog of settings; off while
   the selected script declares no input.
 
 Qt-free, because `TradingModule.contribute()` imports it on a headless run

@@ -3,19 +3,9 @@
     "Checks each mode fails, AS FOUND (EPIC-033B, 2026-10-04; window sizes EPIC-033C, 2026-10-05).",
     "Read by test_workbench_conformance.py. 'mode' lists a check failed at every window size, 'mode@WxH' one failed at that size only.",
     "Only shrinks; empty when EPIC-033M closes.",
-    "Owner of the remaining fits_the_window entry: dashboard@1024x700 leaves with the Dev Board (EPIC-033P).",
-    "toolbar_actions_in_a_menu (2026-10-06, as found): the Dev Board's chart toolbar and Cancel order reach no menu (ui-presentation-rule.md §6); the row leaves with the Dev Board (EPIC-033P). Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156)."
+    "The Dev Board's rows left with it (EPIC-033P); Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156)."
   ],
   "failing": {
-    "dashboard": [
-      "control_height",
-      "mnemonics_escaped",
-      "no_style_sheet",
-      "toolbar_actions_in_a_menu"
-    ],
-    "dashboard@1024x700": [
-      "fits_the_window"
-    ],
     "trading.futures": [
       "no_style_sheet"
     ],

@@ -29,7 +29,6 @@ from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_regis
 _EXPECTED_ROUTES = (
     # `EPIC-033H` — the Market mode, `trading`'s first contribution.
     "market",
-    "dashboard",
     # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
     # single Trading screen (`"trading"`) they replace.
     "trading.futures",
@@ -42,9 +41,9 @@ _EXPECTED_ROUTES = (
 
 
 def _real_modules(container: object) -> tuple[object, object, object, object]:
-    """The four module instances that own these seven screens (`EPIC-029F`
+    """The four module instances that own these six screens (`EPIC-029F`
     added the Bots tab; `EPIC-033H` replaced `market_data`'s Watchlist screen
-    with `trading`'s Market mode), each with
+    with `trading`'s Market mode; `EPIC-033P` deleted the Dev Board), each with
     `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
     safe to skip straight to). Ordered to match `_EXPECTED_ROUTES` — the
@@ -80,7 +79,6 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
     by_route = {screen.route: screen.contributor_id for screen in registry.screens()}
     assert by_route == {
         "market": "trading",
-        "dashboard": "trading",
         "trading.futures": "trading",
         "trading.spot": "trading",
         "data_management": "market_data",
@@ -106,7 +104,7 @@ def test_no_view_is_built_while_contributing() -> None:
     laziness is what keeps boot from importing every screen's dependency
     tree. `container=object()` (not even a `Mock()`) is the proof: a
     factory that ran eagerly would crash on it immediately, since
-    `dashboard_screen`/`backtest_screen`'s view factories call
+    the desks' and `backtest_screen`'s factories call
     `container.resolve(...)`, which a plain `object()` cannot answer."""
     registry = ContributionRegistry(dev_mode=False)
     _contribute_screens(registry, container=object())
@@ -126,7 +124,6 @@ def test_the_modes_keep_the_sidebars_order() -> None:
 
     assert [mode.route for mode in modes] == [
         "market",
-        "dashboard",
         "trading.futures",
         "trading.spot",
         "bots",

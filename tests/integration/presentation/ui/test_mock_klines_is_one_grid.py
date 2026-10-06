@@ -1,7 +1,8 @@
 """`BUG-123` — the mocked candle series must be **one** grid per process.
 
-Every Dev Board history test seeds `mock_klines.build_mock_klines()` for five
-symbols in a fixture, and the load-more tests then call it a *second* time in
+Every Dev Board history test (deleted with the Dev Board, `EPIC-033P`) seeded
+`mock_klines.build_mock_klines()` for five symbols in a fixture, and the
+load-more tests then called it a *second* time in
 the test body to work out which page sits immediately below what the screen is
 already showing. While the anchor was `datetime.now()` read on every call, a
 minute rolling over between those two calls shifted the second grid one minute

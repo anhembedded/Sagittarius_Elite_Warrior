@@ -5,7 +5,7 @@ permanent object whose target key changes as the user picks a different
 strategy from a combo), several indicator scripts can be enabled and
 independently edited at once, so there is no single "currently selected"
 script to hold a sink for. This is instead built fresh per dialog-open,
-one per script key (`dev_board_panel.py._open_script_params_dialog()`),
+one per script key (`market/indicator_params_command.py`),
 and talks straight to the injected catalog/store rather than round-
 tripping through a Presenter signal — nothing else in the UI needs to
 react live to a script's params changing (unlike the strategy card's

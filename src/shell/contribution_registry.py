@@ -30,7 +30,7 @@ have no Engine equivalent yet — routing is `NavigationService`'s concern
 (`EPIC-025F` PR 5.1's in-app prototype), a separate mechanism from panel
 placement.
 
-**A gated-off surface drops its contributions.** `dev_board` when developer mode
+**A gated-off surface drops its contributions.** `developer` when developer mode
 is off is the normal user run, not an error: every panel and probe aimed at it is
 dropped with one log line each, and the app boots.
 

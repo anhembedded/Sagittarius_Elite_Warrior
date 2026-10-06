@@ -1,9 +1,8 @@
-"""`EPIC-028C` — a screen's feeds follow the venue the container names;
+"""`EPIC-028C` — a screen's feeds forward only the venue it shows;
 `EPIC-028K` — a desk's follow the venue it is built for, signals included.
 
-@details The real `StdLibContainer` binds `TradingVenue`, the way the running
-app binds the primary venue; the bus is the real `MemoryEventBus`. The screen
-sees only its venue's equity and fills.
+@details The bus is the real `MemoryEventBus`. The screen sees only its
+venue's equity and fills.
 """
 
 from __future__ import annotations
@@ -32,7 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 _SAMPLE = EquitySample(
@@ -44,10 +42,8 @@ _SAMPLE = EquitySample(
 
 def test_a_screens_feeds_forward_only_the_venue_it_shows(qapp) -> None:
     bus = MemoryEventBus()
-    container = StdLibContainer()
-    container.singleton(TradingVenue, TradingVenue.SPOT_TESTNET)
     parent = QObject()
-    feeds = screen_venue_feeds.build(bus, container, parent)
+    feeds = screen_venue_feeds.build_for(bus, TradingVenue.SPOT_TESTNET, parent)
     equity: list = []
     closed: list = []
     feeds.equity.equitySampled.connect(equity.append)

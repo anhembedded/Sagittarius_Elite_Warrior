@@ -1,7 +1,8 @@
 """`EPIC-024B` — the manual trading form's second-caller proof, at the same
 depth `test_live_trading_pipeline_against_fake_server.py` already holds the
 strategy path to: not "the presenter asked the dispatcher for the right
-command" (the unit tests in `test_dashboard_presenter.py` already prove
+command" (the desks' order entry unit tests,
+`tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py`, prove
 that), but what actually reaches the exchange once `ExecuteOrderCommand`
 crosses `PreviewOrderQueryHandler`'s rounding, `map_order_to_futures_params`,
 and `python-binance`'s own form encoding — the exact layers a caller-level
@@ -13,9 +14,8 @@ flat until a market order fills (`EPIC-028O`), and each test starts flat — so
 this covers the "flat account, Long
 click opens a real BUY" half of `manual_order_intent_for()`'s table. The
 "closing an existing position" half (`reduce_only=True`) is already covered
-at the unit level (`test_manual_order_intent.py`'s 7 cases,
-`test_dashboard_presenter.py::test_run_manual_order_dispatches_execute_order_with_the_mapped_intent`)
-— extending the fake server to seed a fixture position for this file too
+at the unit level (`test_manual_order_intent.py`'s 7 cases) —
+extending the fake server to seed a fixture position for this file too
 was judged not worth the added shared-fixture surface for what the mapping
 function's own dedicated tests already lock down byte-for-byte.
 """
@@ -153,10 +153,11 @@ def _orders_the_exchange_received(futures_url: str) -> list[dict[str, Any]]:
 
 
 def _submit_manual_order(direction: ManualOrderDirection) -> None:
-    """The manual order card's own logic (`DashboardPresenter.
-    _run_manual_order`), rebuilt here against real collaborators instead of
-    a mocked dispatcher — read the real (fake) position, map the click,
-    dispatch the real handler."""
+    """The manual order's own logic (the Dev Board's card, deleted by
+    `EPIC-033P`; the desks' order panel places orders since `EPIC-028M`),
+    rebuilt here against real collaborators instead of a mocked dispatcher —
+    read the real (fake) position, map the click, dispatch the real
+    handler."""
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemorySymbolOrderMetadataCache()

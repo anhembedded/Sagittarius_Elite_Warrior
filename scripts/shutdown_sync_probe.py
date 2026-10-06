@@ -119,7 +119,6 @@ def main() -> None:
         config.load_dict(
             {
                 ConfigKeys.DATABASE_DIR.value: db_dir,
-                "DEV_BOARD_AUTOSTART_ENABLED": False,
             }
         )
         engine = create_app(config)

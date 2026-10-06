@@ -87,8 +87,7 @@ _VENUES_NOT_SAVED_MESSAGE = (
 #: `BOT-125` — a venue change is refused outright rather than partially
 #: applied; the dialog keeps OK and Apply disabled and shows this.
 _VENUE_LOCKED_MESSAGE = (
-    "Trading is active. Disable trading on its desk or the Dev Board "
-    "before changing the trading venues."
+    "Trading is active. Disable trading on its desk before changing the trading venues."
 )
 _TITLE = "Trading"
 

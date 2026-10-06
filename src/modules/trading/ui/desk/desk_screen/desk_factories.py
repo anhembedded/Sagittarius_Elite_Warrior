@@ -16,7 +16,7 @@ enabled is read when the desk's presenter is built, since
 reads no service, as no screen's view does.
 
 The views and presenters are imported only when the desk is opened, like
-every screen's (`dashboard_screen.py`): `contribute()` runs on every boot, a
+every screen's (`market_screen.py`): `contribute()` runs on every boot, a
 headless `sync` included.
 
 Extension cases, each local: a third venue (one `<venue>_desk_screen.py`

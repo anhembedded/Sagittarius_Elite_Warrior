@@ -2,7 +2,7 @@
 
 Three facts make this a value and not a lookup:
 
-1. **It gates a surface.** `dev_board` exists or does not exist for a run; a
+1. **It gates a surface.** `developer` exists or does not exist for a run; a
    value that could change mid-run would mean loading and unloading a module,
    which the mechanism deliberately cannot do.
 2. **The command line wins.** `--dev` / `--debug` on `sys.argv` turn it on even

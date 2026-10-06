@@ -199,7 +199,7 @@ def test_no_presenter_owned_object_is_registered() -> None:
 # Probes: the guard can fail                                                  #
 # --------------------------------------------------------------------------- #
 
-_FORBIDDEN = {"SyncCoordinator", "BacktestChartHost", "DashboardPresenter"}
+_FORBIDDEN = {"SyncCoordinator", "BacktestChartHost", "MarketPresenter"}
 
 
 def test_a_coordinator_registered_as_a_singleton_is_flagged() -> None:
@@ -213,8 +213,8 @@ def test_a_factory_lambda_building_a_forbidden_class_is_flagged() -> None:
 
 
 def test_a_dotted_reference_is_flagged() -> None:
-    source = "c.scoped(IFoo, presenters.DashboardPresenter)\n"
-    assert registered_forbidden_names(source, _FORBIDDEN) == [(1, "DashboardPresenter")]
+    source = "c.scoped(IFoo, presenters.MarketPresenter)\n"
+    assert registered_forbidden_names(source, _FORBIDDEN) == [(1, "MarketPresenter")]
 
 
 def test_a_same_file_builder_function_is_followed() -> None:

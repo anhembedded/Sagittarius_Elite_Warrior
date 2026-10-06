@@ -63,8 +63,7 @@ _WIDGET_PACKAGE_MARKERS = (".ui.", ".ui_widgets.", "presentation.ui.")
 def _stash_container_if_needed(module: object) -> None:
     """`EPIC-025F` PR 5.2: `TradingModule`/`BacktestingModule` need `boot()`
     to have stashed a container before `contribute()` runs (their
-    `dashboard_screen(self._container)`/`backtest_screen(self._container)`
-    calls) — this file calls `contribute()` in isolation, the same way
+    desk screens'/`backtest_screen(self._container)` calls) — this file calls `contribute()` in isolation, the same way
     `tests/unit/shell/test_screen_wiring.py` and `tests/conftest.py`'s fake
     path do, so it stashes a sentinel the same way. Any object works: this
     guard proves the factory is never *called*, only referenced, so the

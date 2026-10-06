@@ -116,8 +116,8 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
 logger = logging.getLogger("App.Shell.MainWindow")
 
 APPLICATION_NAME = "Sagittarius Elite Warrior"
-#: The Dev Board's right column is wide; a smaller first window clips it
-#: before the user has resized anything.
+#: The first window's size, before the user has resized anything: a desk's
+#: right column is wide, and a smaller window clips it.
 _WINDOW_SIZE = (1440, 860)
 #: The View menu's own items keep these access keys: T&oolbars, Stat&us bar.
 _VIEW_MENU_KEYS = ("o", "u")

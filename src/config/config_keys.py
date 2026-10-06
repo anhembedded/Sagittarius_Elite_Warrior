@@ -127,8 +127,9 @@ class ConfigKeys(str, Enum):
     #: string (the default) means "every declared default", which is what
     #: `build_engine(params=None)` already does.
     TRADING_LIVE_STRATEGY_PARAMS = "trading.live_strategy_params"
-    #: `BOT-063` — every Dev Board indicator script's saved parameter
-    #: values, as one JSON object keyed by script key
+    #: `BOT-063` — every indicator script's saved parameter values (Tools →
+    #: Indicator parameters…, the Market mode since `EPIC-033P` deleted the
+    #: Dev Board; the stored key keeps its old name so saved values survive), as one JSON object keyed by script key
     #: (`{"ema_20": {"period": 25}, "macd_full": {"fast_period": 10}}`) —
     #: same "one blob, not one key per field" reasoning as
     #: `TRADING_LIVE_STRATEGY_PARAMS` just above, except keyed by script

@@ -1,12 +1,13 @@
 """
-@brief Unit tests verifying System Health diagnostics logging across Dashboard & Backtest screens.
+@brief System Health diagnostics logging on the Backtest screen.
 
 @details
-Proves that:
-1. DashboardPresenter executes an initial HealthCheckQuery on initialization and appends to UI LogModel.
-2. DashboardPresenter receives HealthUpdatedEvent from the EventBus and reflects component status in real time.
-3. User actions (Start Live / Load History) re-trigger pre-flight HealthCheck.
-4. BackTestPresenter receives HealthUpdatedEvent and logs status cleanly.
+Proves that `BackTestPresenter` asks for a fresh health reading when it is
+built (`HealthCheckRequested`, `EPIC-008G`) instead of running
+`HealthCheckQuery` itself, and logs each `HealthUpdatedEvent` through
+`HealthStatusReport.to_log_line()`, every component included. The Dev Board
+proved the same through its own `HealthCheckCoordinator` until `EPIC-033P`
+deleted it; Backtest is the screen that still asks.
 """
 
 import os
@@ -82,12 +83,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
     FakeEquityCurve,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presenter import (
-    DashboardPresenter,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
-    DashboardView,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -137,7 +132,6 @@ def health_mock_container(qapp):
     # `EPIC-023C` — must be real, not `MagicMock()`: `StrategyArmingCoordinator`
     # reads `strategy_session.armed().config` and formats it into the card's summary,
     # and `restore_into_view_model()` calls `sorted(available_strategies())`
-    # — same reasoning `test_dashboard_presenter.py`'s own fixtures document.
     strategy_registry = StrategyRegistry()
     strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
     strategy_session = LiveStrategySession(
@@ -195,92 +189,6 @@ def health_mock_container(qapp):
     return container, mock_health_query, mock_event_bus
 
 
-def test_dashboard_asks_for_health_instead_of_running_the_query_itself(
-    qapp, health_mock_container
-):
-    """`EPIC-008G`: the screen no longer resolves `HealthCheckQuery` and builds
-    its own `HealthUpdatedEvent`.
-
-    That workaround existed because `HealthExtension.boot()` publishes exactly
-    once, at `app.boot()`, before any lazily-built presenter exists.
-    `EPIC-008E` replaced it with a real request/response pair, so the screen
-    now just asks — and the answer arrives over the same event path as every
-    other health update, leaving one code path instead of two."""
-    container, mock_health_query, mock_event_bus = health_mock_container
-    view = DashboardView()
-
-    presenter = DashboardPresenter(view, container)
-
-    assert mock_health_query.execute.call_count == 0, (
-        "the screen must not run the health query itself any more"
-    )
-    published = [
-        call.args[0] for call in mock_event_bus.emit.call_args_list if call.args
-    ]
-    assert any(isinstance(event, HealthCheckRequested) for event in published), (
-        "opening the screen must publish HealthCheckRequested"
-    )
-    assert presenter._health_check_coordinator._health_feed is not None
-
-
-def test_dashboard_handles_health_updated_event(qapp, health_mock_container):
-    """Verify DashboardPresenter reacts to health.updated event and appends to log."""
-    container, _, _ = health_mock_container
-    view = DashboardView()
-    presenter = DashboardPresenter(view, container)
-
-    initial_log_count = len(presenter._view_model.log_model.entries)
-
-    # Simulate health update with degraded database
-    degraded_event = HealthUpdatedEvent(
-        {
-            "status": "degraded",
-            "components": {
-                "container": "ok",
-                "event_bus": "ok",
-                "database": "connection failed",
-            },
-        }
-    )
-    presenter._health_check_coordinator._health_feed._on_health_updated(degraded_event)
-
-    assert len(presenter._view_model.log_model.entries) == initial_log_count + 1
-    latest_entry = presenter._view_model.log_model.entries[-1]
-    # Format changed with EPIC-008G and the user approved it: both screens now
-    # render through HealthStatusReport.to_log_line(), so they can no longer
-    # disagree about the same fact the way they used to.
-    assert "System status: DEGRADED" in latest_entry.message
-    assert "Database: CONNECTION FAILED" in latest_entry.message
-    # Backtest's own formatter used to omit `container` entirely; nothing is
-    # hand-picked any more, so it survives.
-    assert "Container: OK" in latest_entry.message
-
-
-def test_dashboard_initial_health_check_single_log(qapp, health_mock_container):
-    """Verify that clicking Start Live or Load History does not duplicate health log."""
-    container, _mock_health_query, mock_event_bus = health_mock_container
-    view = DashboardView()
-    presenter = DashboardPresenter(view, container)
-
-    def _requests() -> int:
-        return sum(
-            1
-            for call in mock_event_bus.emit.call_args_list
-            if call.args and isinstance(call.args[0], HealthCheckRequested)
-        )
-
-    count_before = _requests()
-    assert count_before >= 1
-
-    presenter._view_model.symbol = "BTCUSDT"
-    presenter._view_model.startDate = "2024-01-01 00:00"
-    presenter._view_model.endDate = "2024-01-02 00:00"
-
-    presenter._on_load_history()
-    # An ordinary user action must not re-ask for health.
-    assert _requests() == count_before
-
-
 def test_backtest_initializes_and_handles_health_updated_event(
     qapp, health_mock_container
 ):
@@ -308,7 +216,7 @@ def test_backtest_initializes_and_handles_health_updated_event(
     strategy_registry = StrategyRegistry()
     strategy_registry.register("fake", _FakeStrategy)
 
-    container, mock_health_query, _ = health_mock_container
+    container, mock_health_query, mock_event_bus = health_mock_container
     orig_side_effect = container.resolve.side_effect
 
     def resolve_with_strategy(interface):
@@ -327,6 +235,12 @@ def test_backtest_initializes_and_handles_health_updated_event(
 
     # Opening the screen asks; it no longer runs the query itself.
     assert mock_health_query.execute.call_count == 0
+    published = [
+        call.args[0] for call in mock_event_bus.emit.call_args_list if call.args
+    ]
+    assert any(isinstance(event, HealthCheckRequested) for event in published), (
+        "opening the screen must publish HealthCheckRequested"
+    )
     presenter._health_check_coordinator._health_feed._on_health_updated(
         HealthUpdatedEvent(
             {"status": "healthy", "components": {"database": "ok", "event_bus": "ok"}}
@@ -334,3 +248,24 @@ def test_backtest_initializes_and_handles_health_updated_event(
     )
     log_texts = [entry.message for entry in presenter._view_model.log_model.entries]
     assert any("[Health] System status: HEALTHY" in log for log in log_texts)
+
+    # Re-homed from the Dev Board's health test (`EPIC-033P`): every screen
+    # logs through `HealthStatusReport.to_log_line()`, so nothing is
+    # hand-picked — a degraded database is named with its state, and the
+    # container survives too.
+    presenter._health_check_coordinator._health_feed._on_health_updated(
+        HealthUpdatedEvent(
+            {
+                "status": "degraded",
+                "components": {
+                    "container": "ok",
+                    "event_bus": "ok",
+                    "database": "connection failed",
+                },
+            }
+        )
+    )
+    latest = presenter._view_model.log_model.entries[-1].message
+    assert "System status: DEGRADED" in latest
+    assert "Database: CONNECTION FAILED" in latest
+    assert "Container: OK" in latest

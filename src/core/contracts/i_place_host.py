@@ -44,7 +44,7 @@ class IPlaceHost(Protocol):
 
     @property
     def surface_id(self) -> str:
-        """The id contributions name — `"trading"`, `"dev_board"`, …"""
+        """The id contributions name — `"trading"`, `"developer"`, …"""
         ...
 
     def accepts(self) -> frozenset[Place]:

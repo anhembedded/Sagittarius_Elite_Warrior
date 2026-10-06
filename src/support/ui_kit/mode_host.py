@@ -2,8 +2,9 @@
 (`EPIC-033C`).
 
 The Engine's `WorkbenchShell` switches between `RegionHost`s. Today's screens
-are views, not hosts: most draw a `PageShell`, and two (Bots, Dev Board) draw
-a `WorkbenchSurface` of their own inside the view. `ModeHost` is the host the
+are views, not hosts: most draw a `PageShell`, and Bots draws a
+`WorkbenchSurface` of its own inside the view (the Dev Board did too, until
+`EPIC-033P` deleted it). `ModeHost` is the host the
 shell needs, with the view as its central widget, until each mode is laid out
 as a workbench of its own (`EPIC-033H`-`033L`, `033P`), when this class goes.
 
@@ -42,8 +43,7 @@ _SURFACE_PREFIX = "mode::"
 
 def _surface_of(view: QWidget) -> RegionHost | None:
     """The workbench surface a view draws its panels on: a `RegionHost` that
-    is the view's own direct child, as the Bots tab and the Dev Board build
-    it. A host nested deeper belongs to a panel, not to the screen."""
+    is the view's own direct child, as the Bots tab builds it. A host nested deeper belongs to a panel, not to the screen."""
     return view.findChild(RegionHost, options=Qt.FindChildOption.FindDirectChildrenOnly)
 
 

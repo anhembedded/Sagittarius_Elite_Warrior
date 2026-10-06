@@ -35,8 +35,9 @@ import pytest
 #: Bật bằng cách đặt biến môi trường thành thư mục đích.
 _OUTPUT_ENV = "SEW_CAPTURE_SCREENSHOTS"
 
-#: The `EPIC-007` screens still routed; Settings became Tools → Options (`EPIC-033E`).
-_ROUTES = ("dashboard", "data_management", "backtest")
+#: The `EPIC-007` screens still routed; Settings became Tools → Options
+#: (`EPIC-033E`), and the Market mode took the Dev Board's place (`EPIC-033P`).
+_ROUTES = ("market", "data_management", "backtest")
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get(_OUTPUT_ENV),

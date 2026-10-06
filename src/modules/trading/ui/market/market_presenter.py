@@ -22,8 +22,8 @@
 
 @par What it replaces
 The Watchlist screen (`watchlist_presenter.py`, retired here) and, for
-watching the market, the Dev Board's chart column; the Dev Board itself
-becomes the Developer mode (`EPIC-033P`).
+watching the market, the Dev Board's chart column; the Developer mode
+replaced the rest of the Dev Board, which `EPIC-033P` deleted.
 """
 
 from __future__ import annotations

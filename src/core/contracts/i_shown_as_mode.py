@@ -4,8 +4,7 @@
 The workbench window builds every mode at start, so a presenter's
 constructor runs whether or not the user ever opens it. Work that used to
 start on construction because construction meant "the user opened this
-screen" (a market stream, a database scan, the Dev Board's opt-in
-auto-start) moves here, and the shell calls it each time the mode is shown,
+screen" (a market stream, a database scan) moves here, and the shell calls it each time the mode is shown,
 with why it was shown: a `RESTORE` at start is not a click (`BUG-104`).
 
 A `Protocol`: the implementers are presenters, `QObject`s, and Shiboken

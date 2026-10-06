@@ -238,20 +238,20 @@ def test_a_modal_contribution_is_available_not_placed(
     assert host.modal_titles() == ("Place order",)
 
 
-def test_a_dev_probe_reaches_dev_board(
+def test_a_dev_probe_reaches_the_developer_surface(
     qapp, registry: ContributionRegistry, container: Mock
 ) -> None:
     registry.contribute(
         _descriptor(
             Place.DEV_PROBE,
             lambda _c: QLabel("probe"),
-            surface_id="dev_board",
+            surface_id="developer",
             contributor_id="trading",
             title="Exchange API",
         )
     )
 
-    host = build_surface("dev_board", registry, container)
+    host = build_surface("developer", registry, container)
 
     assert (
         host.findChild(QWidget, f"{host.objectName()}::dev_probe::Exchange API")

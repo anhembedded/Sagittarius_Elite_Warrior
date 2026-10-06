@@ -30,7 +30,7 @@ def test_discover_previews_finds_all_targets():
     Asserts discover_previews() auto-discovers all screen keys.
     """
     previews = discover_previews()
-    expected_keys = {"bots_screen", "data_management", "dashboard", "backtest"}
+    expected_keys = {"bots_screen", "data_management", "market_mode", "backtest"}
     assert expected_keys.issubset(set(previews.keys())), (
         f"discover_previews() missing expected keys. Found: {list(previews.keys())}"
     )

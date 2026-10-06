@@ -38,8 +38,8 @@ bind: every venue's client is created from its own `VenueContext`
 that names the venue.
 
 **`contribute()` since PR 1.4c-4, and what it contributes.** One
-`DEV_PROBE`: the live trading session's own state, on the Dev Board — the
-first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: this
+`DEV_PROBE`: the live trading session's own state, in the Developer mode
+(`EPIC-033P`) — the first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: this
 module's own credentials, order venue and connection check, split off the old
 monolithic Settings screen, and a page of Tools → Options since `EPIC-033E`.
 
@@ -97,13 +97,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen import (
-    DASHBOARD_ROUTE,
-    dashboard_screen,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_commands import (
-    dev_board_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
     desk_commands,
@@ -191,8 +184,9 @@ class TradingModule(BoundedContextModule):
 
     def __init__(self) -> None:
         super().__init__()
-        #: Stashed by `boot()`, read by `contribute()`'s `dashboard_
-        #: screen(self._container)` call (`EPIC-025F` PR 5.2). `boot()`
+        #: Stashed by `boot()`, read by `contribute()`'s desk screens
+        #: (`EPIC-025F` PR 5.2 began it for the Dev Board, which `EPIC-033P`
+        #: deleted). `boot()`
         #: always runs before `contribute()` (`BoundedContextModule`'s own
         #: hook table), and this is the same single container the app has
         #: for its whole lifetime — see `boot()`'s own docstring for why it
@@ -231,9 +225,9 @@ class TradingModule(BoundedContextModule):
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
 
-        `dashboard_screen(self._container)` and the two desks' screens need
-        the container `boot()` stashed (see `__init__`'s docstring): each
-        desk reads which venues are enabled when its presenter is built.
+        The two desks' screens need the container `boot()` stashed (see
+        `__init__`'s docstring): each desk reads which venues are enabled
+        when its presenter is built.
         """
         if self._container is None:
             raise RuntimeError("TradingModule.contribute() called before boot()")
@@ -257,7 +251,6 @@ class TradingModule(BoundedContextModule):
         )
         # `EPIC-033H` — the Market mode, first on the mode bar.
         registry.contribute_screen(market_screen())
-        registry.contribute_screen(dashboard_screen(self._container))
         # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
         # single Trading screen they replace.
         registry.contribute_screen(futures_desk_screen(self._container))
@@ -265,7 +258,6 @@ class TradingModule(BoundedContextModule):
         # `EPIC-033D` — each screen's commands.
         for command in (
             *market_commands(MARKET_ROUTE),
-            *dev_board_commands(DASHBOARD_ROUTE),
             *desk_commands(FUTURES_DESK_ROUTE, TradingVenue.FUTURES_TESTNET),
             *desk_commands(SPOT_DESK_ROUTE, TradingVenue.SPOT_TESTNET),
         ):
@@ -288,7 +280,7 @@ class TradingModule(BoundedContextModule):
            or stop it alongside Enable/Disable/Emergency-Stop.
 
         `EPIC-025F` PR 5.2 added the second: stashing `container` for
-        `contribute()`'s `dashboard_screen(self._container)` call (see
+        `contribute()`'s desk screens (see
         `__init__`'s docstring). Stashed here, not in `register()` — the
         `context.container` `register()` receives is `RegisteringContainer`,
         a spy that raises on every `resolve()` call **forever**, not only

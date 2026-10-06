@@ -8,10 +8,9 @@ or Sagittarius Engine boot.
 Usage:
     python scripts/preview_qml.py --list
     python scripts/preview_qml.py backtest
-    python scripts/preview_qml.py dashboard
+    python scripts/preview_qml.py market
     python scripts/preview_qml.py data_management
     python scripts/preview_qml.py settings
-    python scripts/preview_qml.py dashboard
     python scripts/preview_qml.py --dir src/presentation/ui/qml/Capital
 """
 

@@ -6,9 +6,6 @@
   "counts": {
     "style_sheet": {
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 2,
-      "src/modules/trading/ui/dashboard/dev_board_panel.py": 2,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/layout_helpers.py": 1,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/system_controls_card.py": 5,
       "src/modules/trading/ui/settings/trading_settings_view.py": 7,
       "src/support/ui_kit/kit/controls/badge.py": 1,
       "src/support/ui_kit/kit/controls/date_time_field.py": 1,
@@ -34,10 +31,6 @@
     },
     "fixed_size": {
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 3,
-      "src/modules/trading/ui/dashboard/dashboard_view.py": 1,
-      "src/modules/trading/ui/dashboard/dev_board_panel.py": 2,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/layout_helpers.py": 1,
-      "src/modules/trading/ui/dashboard/dev_board_widgets/system_controls_card.py": 5,
       "src/modules/trading/ui/settings/trading_settings_view.py": 2,
       "src/presentation/ui/components/critical_error_dialog.py": 1,
       "src/support/ui_kit/kit/preferred_height_scroll_area.py": 1,
@@ -58,7 +51,6 @@
       "src/modules/strategy/domain/strategies/ema_trend_pullback_strategy.py": 2,
       "src/modules/strategy/domain/strategies/long_term_trend_zone_strategy.py": 1,
       "src/modules/strategy/ui/strategy_overlay/strategy_indicator_lines.py": 8,
-      "src/modules/trading/ui/dashboard/preview.py": 2,
       "src/support/charting/chart_card/__main__.py": 2,
       "src/support/charting/chart_card/theme.py": 2,
       "src/support/indicators/indicator_scripts/dev_indicator_script.py": 4,

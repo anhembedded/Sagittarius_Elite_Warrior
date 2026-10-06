@@ -6,8 +6,9 @@ mode go live (`BUG-104`).
 started a sync and a live stream in its constructor. The window now builds
 every mode at start (the user's decision, 2026-10-04), so the guarantee moved
 from "a remembered screen is never built" to "a remembered mode is shown as a
-`RESTORE`, and nothing goes live on a restore that needs a click": the Dev
-Board's opt-in auto-start (enabled in this directory's config) is the probe.
+`RESTORE`, and nothing goes live on a restore that needs a click": the
+Market mode's Watchlist stream, which starts on the user's open only, is the
+probe (the Dev Board's opt-in auto-start was, until `EPIC-033P` deleted it).
 
 Lives in `integration/`: building a real `MainWindow` builds every real
 screen through the real DI container. Uses this directory's `app_engine`
@@ -16,10 +17,9 @@ fixture (a real boot, mocked only at the dispatcher).
 @par Why this file has its own window harness instead of `conftest.py`'s
 `main_window` fixture
 That fixture has no way to pass `state_coordinator`. `_WindowHarness` below
-re-applies its documented teardown sequence (cancel autostart and the
-presenter cancellation tokens, drain background work, clean up chart cards,
-close + deleteLater + drain the event loop) for windows this suite must
-construct itself.
+re-applies its documented teardown sequence (drain background work, clean
+up chart cards, close + deleteLater + drain the event loop) for windows this
+suite must construct itself.
 
 @par Why the harness waits on submitted futures rather than calling
 `IThreadManager.shutdown(wait=True)`
@@ -39,6 +39,12 @@ import pytest
 from PySide6.QtWidgets import QDockWidget
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
+    WATCHLIST_STREAM_OWNER,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
+    MARKET_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
@@ -108,17 +114,9 @@ class _WindowHarness:
         return window
 
     def close(self, window: MainWindow) -> None:
-        """Flushes state, cancels every background worker this window owns,
-        then blocks until they have actually returned."""
+        """Flushes state, disposes every presenter, then blocks until each
+        background worker this window started has actually returned."""
         window.shutdown()  # flushes state_coordinator, disposes presenters
-
-        for presenter in window.presenters.values():
-            autostart = getattr(presenter, "_autostart", None)
-            if autostart is not None:
-                autostart.shutdown()
-            token = getattr(presenter, "_cancellation_token", None)
-            if token is not None:
-                token.cancel()
 
         pending = self._futures
         self._futures = []
@@ -154,10 +152,9 @@ def windows(qtbot, app_engine, monkeypatch):
     harness.close_all()
 
 
-def _autostart_has_begun(window: MainWindow) -> bool:
-    autostart = window.presenters["dashboard"]._autostart
-    assert autostart is not None, "this directory's config enables the auto-start"
-    return autostart.has_begun
+def _watchlist_streams(market_stream) -> bool:
+    """Has the Market mode's Watchlist stream been started?"""
+    return ("start", WATCHLIST_STREAM_OWNER) in market_stream.calls
 
 
 def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
@@ -169,7 +166,6 @@ def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
 
 _EVERY_MODE = (
     "market",
-    "dashboard",
     "trading.futures",
     "trading.spot",
     "bots",
@@ -211,27 +207,29 @@ def test_every_mode_is_covered_by_the_launch_check(windows):
 
 
 def test_a_remembered_mode_comes_back_as_a_restore_and_does_not_go_live(
-    windows, tmp_path
+    windows, tmp_path, market_stream
 ):
-    """`BUG-104`: the Dev Board comes back, and its auto-start does not run:
-    nobody clicked."""
+    """`BUG-104`: the Market mode comes back, and its Watchlist does not
+    start streaming: nobody clicked."""
     coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(StateScope(key="shell"), {"mode": "dashboard"})
+    coordinator._store.write(StateScope(key="shell"), {"mode": MARKET_ROUTE})
 
     window = windows.open(coordinator)
 
-    assert window.current_mode == "dashboard"
+    assert window.current_mode == MARKET_ROUTE
     assert window.last_source is ShellNavigationSource.RESTORE
-    assert _autostart_has_begun(window) is False
+    assert _watchlist_streams(market_stream) is False
 
 
-def test_a_click_on_the_dev_board_begins_its_auto_start(windows):
-    """The positive half: the same auto-start does run on a user's open."""
+def test_a_click_on_the_market_mode_starts_its_watchlist_stream(windows, market_stream):
+    """The positive half, re-homed from the Dev Board's auto-start
+    (`EPIC-033P`): the same mode does go live on a user's open."""
     window = windows.open()
+    assert _watchlist_streams(market_stream) is False
 
-    window.switch_screen("dashboard")
+    window.switch_screen(MARKET_ROUTE)
 
-    assert _autostart_has_begun(window) is True
+    assert _watchlist_streams(market_stream) is True
 
 
 def test_a_mode_retired_since_the_last_session_opens_the_default(windows, tmp_path):
@@ -252,9 +250,9 @@ def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
     docstring for the deadlock skipping it produced."""
     coordinator = _coordinator_over(tmp_path)
     window = windows.open(coordinator)
-    window.switch_screen("dashboard")
-    docks = window.hosts["dashboard"].findChildren(QDockWidget)
-    assert docks, "the Dev Board's surface has panels"
+    window.switch_screen(MARKET_ROUTE)
+    docks = window.hosts[MARKET_ROUTE].findChildren(QDockWidget)
+    assert docks, "the Market mode has panels"
     closed = docks[0].objectName()
     docks[0].close()
     window.switch_screen("data_management")
@@ -263,7 +261,7 @@ def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
     reopened = windows.open(_coordinator_over(tmp_path))
 
     assert reopened.current_mode == "data_management"
-    dock = reopened.hosts["dashboard"].findChild(QDockWidget, closed)
+    dock = reopened.hosts[MARKET_ROUTE].findChild(QDockWidget, closed)
     assert dock is not None
     assert dock.isHidden()
 
