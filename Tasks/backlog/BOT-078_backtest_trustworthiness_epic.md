@@ -1,5 +1,7 @@
 # Epic: Backtest Trustworthiness — kết quả backtest có đáng tin không?
 
+**Board:** **Đã hoàn thành (14/08)** — cả 3 task con (`BOT-079`/`BOT-080`/`BOT-081`) xong. Backtest giờ minh bạch phí, có kiểm định out-of-sample bắt buộc, và công bố giới hạn ngay trên UI. Xem bảng chi tiết bên dưới. 📄 [Rà soát định hướng](reports/app_direction_audit.md).
+
 > Sinh ra từ 📄 [Rà soát định hướng App](../reports/app_direction_audit.md), phát hiện
 > **#1** và **#2** — hai lỗ hổng khiến con số backtest **có thể đánh lừa người đọc**
 > ngay cả khi engine chạy hoàn toàn đúng.

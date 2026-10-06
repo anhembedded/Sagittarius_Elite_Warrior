@@ -1,5 +1,7 @@
 # Nhiệm vụ: Multi-Core Parameter Grid Search Engine
 
+**Board:** Multi-process grid search over a strategy's parameters, the engine of Epic `BOT-108`.
+
 **Mã Task:** `BOT-108A`  
 **Thuộc Epic:** [`BOT-108`](BOT-108_strategy_parameter_optimization_epic.md)  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  

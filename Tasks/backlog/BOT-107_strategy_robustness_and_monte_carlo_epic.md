@@ -1,5 +1,7 @@
 # Epic: Kiểm định Độ tin cậy Chiến lược & Mô phỏng Monte Carlo (Strategy Robustness & Monte Carlo Epic)
 
+**Board:** **2/2 xong (24/09)**: Phân tách In-Sample / Out-of-Sample đối sánh mù (`BOT-107A` ✅), mô phỏng ngẫu nhiên Trade Reshuffling Monte Carlo đánh giá xác suất phá sản (Risk of Ruin %) và p95/p99 max drawdown (`BOT-107B` ✅).
+
 **Mã Epic:** `BOT-107`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** 🔴 **Backlog**  

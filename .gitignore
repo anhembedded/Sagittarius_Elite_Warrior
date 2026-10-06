@@ -169,6 +169,8 @@ src/config/secrets.local.json
 # Documentation site builds (MkDocs)
 site/
 Tasks/dashboard.html
+# The board `python3 scripts/render_board.py --write` renders from the task files.
+Tasks/BOARD.md
 
 # Claude Code's own convention: settings.local.json is always the personal,
 # machine-local override file (see Claude Code's Settings File Locations),

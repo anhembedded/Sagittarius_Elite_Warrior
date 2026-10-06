@@ -1,5 +1,7 @@
 # Epic: Lưu trữ & Nạp lại Báo cáo Backtest (Backtest Report Persistence & Portability)
 
+**Board:** **4/4 xong (24/09)**: `BOT-115A` ✅, `BOT-115B` ✅, `BOT-115C` ✅ (một phần), `BOT-115D` ✅. Xuất một lần chạy ra file `.sagi-report.json` độc lập (kết quả + cấu hình + provenance), nạp lại sau nhiều ngày trên máy khác mà không chạy lại engine, và so sánh 2 báo cáo cạnh nhau. JSON có `schema_version`, **không bao giờ `pickle`** (file report là input không tin cậy).
+
 **Mã Epic:** `BOT-115`  
 **Độ phức tạp:** 🔴 **L (Thinking)**  
 **Trạng thái:** ✅ **4/4 task con xong (24/09)** — `BOT-115A`/`BOT-115B` xong, `BOT-115C` xong một phần (chart nến + vault-sync hoãn), `BOT-115D` xong  

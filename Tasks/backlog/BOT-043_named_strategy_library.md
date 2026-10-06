@@ -1,5 +1,7 @@
 # Epic con: Named Strategy Library — chiến lược trong dropdown
 
+**Board:** Index of the named strategies offered in the strategy list (Phase 0 of Epic `BOT-040`); each strategy is its own task.
+
 > Thuộc [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Đây là file chỉ mục** — mỗi chiến lược là 1 task riêng (chia nhỏ theo yêu
 > cầu user), vì độ khó chênh nhau rất xa. Phụ thuộc `BOT-026` ✅,

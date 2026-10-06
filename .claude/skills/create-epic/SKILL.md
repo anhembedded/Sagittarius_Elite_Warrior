@@ -15,7 +15,7 @@ flowchart TD
     Scan --> Scaffold["2. Scaffold Directory Tree<br/>Create incomplete/ and completed/"]
     Scaffold --> Manifest["3. Epic Manifest & Tracking<br/>Copy epic.md to README.md & tracking.md to TRACKING.md"]
     Manifest --> Slice["4. Slice Sub-Tasks<br/>Create incomplete/EPIC-nnnA_slug.md from task.md"]
-    Slice --> Sync["5. Board Synchronization<br/>Update Tasks/epics/README.md & ROADMAP.md"]
+    Slice --> Sync["5. Board Synchronization<br/>Update Tasks/epics/README.md"]
     Sync --> Verify["6. Structure & Link Verification<br/>Run check_skill_prompt_references & test_claude_tree"]
     Verify --> Done(["Done"])
 ```
@@ -54,7 +54,6 @@ Tasks/epics/
    - Add a row in the epic's `README.md` sub-tasks table ordered by risk.
 5. **Board Synchronization:**
    - Add an entry row to the Epics Board in `Tasks/epics/README.md`.
-   - Add a single 1-line linked summary row to `Tasks/ROADMAP.md` (no duplicate long-form text).
 
 ## 6. Lifecycle Tracking & Maintenance
 - **Execution:** Child tasks are executed via `/execute-task`. Before starting or resuming, display the Mermaid Kanban and Gantt charts per `.claude/rules/report-task-rule.md`.
@@ -62,7 +61,7 @@ Tasks/epics/
   ```bash
   git mv Tasks/epics/EPIC-{nnn}_{slug}/incomplete/EPIC-{nnn}{Letter}_*.md Tasks/epics/EPIC-{nnn}_{slug}/completed/
   ```
-  Update `Status: ✅ Done (YYYY-MM-DD)` in the task file, update the epic `README.md` sub-task table, and refresh `Tasks/ROADMAP.md`.
+  Update `Status: ✅ Done (YYYY-MM-DD)` in the task file, update the epic `README.md` sub-task table, and write the task's `**Board:**` line (ONBOARDING §6).
 - **Cancellation:** If a task becomes obsolete, move to `cancelled/` via `git mv`. Prepend explicit rationale at the top of the task file. Never delete the file; keep its row marked `❌ Cancelled` in the epic `README.md` so history remains intact.
 - **Decisions (ADRs):** Record non-trivial design arbitrations as `DECISION_{date}_{slug}.md` inside the epic folder using `.claude/templates/decision.md`.
 

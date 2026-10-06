@@ -1,5 +1,7 @@
 # Epic: Chuẩn Tham Chiếu Vàng — Thực Thi Chiến Lược "EMA Trend Confirm + Pullback + TP%" (Golden Reference Strategy Execution)
 
+**Board:** **Hoàn thành (20/08)** — cả 4 bước (`BOT-041`/`BOT-050`/`BOT-110`/`BOT-111`) đã xong, xem mục Completed phía trên. `BOT-105A` không bắt buộc cho riêng golden strategy này, vẫn ở backlog riêng.
+
 **Mã Epic:** `BOT-109`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** ✅ **Hoàn thành (2026-08-20)** — cả 4 bước (`BOT-041`/`BOT-050`/`BOT-110`/`BOT-111`) đã xong. `BOT-105A` (bước 2) không bắt buộc cho riêng golden strategy này, vẫn ở backlog riêng.  

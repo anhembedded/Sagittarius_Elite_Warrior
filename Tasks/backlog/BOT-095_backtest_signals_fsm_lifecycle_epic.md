@@ -1,5 +1,7 @@
 # Epic BOT-095: Hoàn thiện Hệ thống UI Signals, State Machine & Vòng đời Tham số Màn hình Backtest
 
+**Board:** **Đã hoàn thành — cả 9 task con (`A`/`B`/`H`/`C`/`D1`/`D`/`E`/`E2`/`G`) đều ✅ trong bảng chi tiết bên dưới**, kể cả `BOT-095E1` (đã dời sang `completed/`) mà ghi chú cũ của epic từng liệt là còn mở. Máy trạng thái FSM (`BacktestUiState` mở rộng: `CONFIG_DIRTY`, `CANCELLING`, `COMPLETED`), Dirty Tracking, nút Hủy `CancellationToken`, kiểm tra nến sẵn sàng khi đổi Timeframe, và Real-time validation đều đã có. 📄 [Đặc tả Epic BOT-095](backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md).
+
 > **Trạng thái 2026-09-26: Epic đã hoàn thành.** Toàn bộ 10 task con
 > (`BOT-095A/B/C/D/D1/E/E2/H/G/F`) đã xong, cùng `BOT-095E1` (market
 > metadata) — ghi chú 2026-09-24 trước đó liệt `BOT-095E1` là "còn mở" đã

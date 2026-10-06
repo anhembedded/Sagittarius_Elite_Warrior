@@ -1,5 +1,8 @@
 # Epic: Backtest Screen — Full Feature Set (TradingView Strategy Tester Parity)
 
+**Priority:** P2
+**Board:** Epic mới, từ spec + mockup đầy đủ do user cung cấp (4 khu vực: Top Toolbar / Performance Metrics / Chart Canvas / Trade Logs Table). Có bảng đối chiếu spec ↔ code, tách rõ phần làm được ngay vs phần cần `BOT-041`…`BOT-045`. **Supersede scope** của `BOT-022`/`BOT-024` (2 task đó đã được mở rộng tại chỗ, không tạo mới). Xem bảng chi tiết bên dưới. 📄 [Feature Status & Sanity Coverage](reports/backtest_screen_feature_status.md).
+
 > Phụ thuộc [Epic BOT-006](BOT-006_backtest_engine_execution.md) — cụ thể là
 > `BOT-021` ✅ (Static engine, đã xong) và [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md)
 > (Realtime engine, chưa làm — thay cho `BOT-023` [đã huỷ 2026-08-18](../cancelled/BOT-023_dynamic_backtest_engine.md)). **Supersede** `BOT-022`/`BOT-024` — 2 task đó không bị xoá, chỉ được

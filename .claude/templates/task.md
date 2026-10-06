@@ -7,6 +7,8 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 <!-- Use BOT-nnn for a standalone task or EPIC-nnnA for an epic child. Choose one value for status, risk and complexity. Remove optional fields that do not apply. -->
 <!-- Execute through .claude/skills/execute-task/SKILL.md; completion follows .claude/rules/task-execution-rule.md and chat reports follow .claude/rules/report-task-rule.md. -->
 **Status:** {🔵 Backlog / 🟡 In progress / ✅ Done (YYYY-MM-DD) / ❌ Cancelled (YYYY-MM-DD; reason)}
+**Priority (optional, backlog):** {P1 / P2 / P3}
+**Board:** {one line the generated board shows: the outcome while open; the decision or root cause once Done (ONBOARDING §6). Links relative to `Tasks/`.}
 **Source:** {who asked, when — the user's words quoted once, verbatim, then translated}
 **Risk:** {🟢 / 🟡 / 🔴} — {what could break, one line}
 **Complexity:** {S / M / L} — {why, one line}

@@ -1,5 +1,7 @@
 # Epic: Tick-Level Indicator/Strategy Engine Support — *Provisional vs Commit*
 
+**Board:** **Hoàn thành (19/08)** — cả 4 task con (`BOT-042A`/`B`/`C`/`D`) đã xong, xem mục Completed phía trên. Không còn chặn `BOT-076` ngoài chính nó.
+
 > Thuộc [Epic BOT-073](BOT-073_realtime_tick_backtest_epic.md) (chủ sở hữu mới)
 > và [Epic BOT-040](BOT-040_backtest_screen_full_feature_epic.md), Phase 0
 > (chặn 2/4 Execution Trigger Rule: "Historical bar tick" + "Realtime bar

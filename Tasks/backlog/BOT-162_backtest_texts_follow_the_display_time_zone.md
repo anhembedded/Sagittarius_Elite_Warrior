@@ -1,6 +1,8 @@
 # BOT-162 — The Backtest mode's texts show times in the display time zone the person picked
 
 **Status:** 🔵 Backlog
+**Priority:** P3
+**Board:** *(added 06/10, PR #389 review)* The event log, run-history label, config diff, coverage message and imported-report banner write UTC while the trades table and chart follow the chosen zone.
 **Source:** the review of PR #389 (`EPIC-033N`, finding 7), and the owner's go-ahead for this follow-up, 2026-10-06: "oki vụ muối giờ" (OK on the time-zone matter).
 **Risk:** 🟢 — only the time zone of times written in texts changes; no figure, run or stored value does
 **Complexity:** S — five call sites in `backtesting/ui`, one formatter that already takes a zone
