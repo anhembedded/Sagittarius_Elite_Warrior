@@ -97,6 +97,8 @@ from ..strategies.strategies_wiring import strategies_for
 from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import bots_dependencies_for
 from .kind_command_binding import KindCommands
+from .new_bot_dialog import spot_venues_enabled_first
+from .new_bot_symbols import new_bot_symbols
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -139,7 +141,9 @@ class BotsPresenter(CommandPresenter):
         threads, commands, feed = deps.threads, deps.commands, deps.candles
         self._model = view.model
         view.use_venue_filters(deps.filters)
-        self._dialogs = dialogs or dialogs_for(view)
+        self._dialogs = dialogs or dialogs_for(
+            view, new_bot_symbols(deps.symbols, threads, container)
+        )
         self._now = now
         self._catalog, self._venues = deps.kinds, deps.venues
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
@@ -313,7 +317,7 @@ class BotsPresenter(CommandPresenter):
         if self._busy():
             return
         kinds = [kind.kind_id for kind in self._catalog.kinds()]
-        venues = [v for v in self._venues.enabled() if v.market_type is MarketType.SPOT]
+        venues = spot_venues_enabled_first(self._venues.enabled())
         command = self._dialogs.ask_new_bot(kinds, venues)
         if command is not None:
             self._begin(PendingAction(f"Create {command.name}"), command)

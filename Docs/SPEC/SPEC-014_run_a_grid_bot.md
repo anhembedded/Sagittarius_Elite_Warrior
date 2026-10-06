@@ -29,8 +29,10 @@ sound, I start it, and I watch what it does."*
 
 1. The trader opens the Bots mode. The Bots panel lists every saved bot: name, kind, venue, symbol,
    state in words (Draft, Running, Paused, Recovering, Halted, Stopped, Error) and grid profit.
-2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Spot Grid), an
-   enabled Spot venue, the symbol (typed, never taken from a chart) and, optionally, a name.
+2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Spot Grid), the
+   Spot venue (preselected, an enabled one first, and never blocking: Start refuses a venue that is
+   not enabled), the symbol (chosen in the shared symbol picker over the Spot catalog, never taken
+   from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
    (`BOT-150`).
 3. The new bot is selected. The app reads the symbol's filters, fees and price from the venue and

@@ -21,9 +21,11 @@ def open_bots_screen(tmp_path: Path, qtbot: Any) -> Iterator[OpenBotsScreen]:
     opened: list[BotsScreen] = []
 
     def _open(
-        bots: Sequence[StoredBot] = (), answers: Answers | None = None
+        bots: Sequence[StoredBot] = (),
+        answers: Answers | None = None,
+        venue_enabled: bool = True,
     ) -> BotsScreen:
-        screen = open_screen(tmp_path, qtbot, bots, answers)
+        screen = open_screen(tmp_path, qtbot, bots, answers, venue_enabled)
         opened.append(screen)
         return screen
 

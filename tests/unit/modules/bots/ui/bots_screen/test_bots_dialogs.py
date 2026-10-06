@@ -3,11 +3,12 @@ a typed symbol and an enabled Spot venue, and nothing more (`BOT-150`)."""
 
 from __future__ import annotations
 
+import concurrent.futures
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QLineEdit, QPushButton
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -32,8 +33,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_dialog import (
     CREATE_BUTTON_TEXT,
-    NO_SPOT_VENUE,
     NewBotDialog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols import (
+    NewBotSymbols,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog import (
     STOP_BUTTON_TEXT,
@@ -43,9 +46,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPickerOverlay,
+    SymbolPreferences,
+)
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .bots_screen_fixtures import VENUE, stored
 
@@ -71,13 +82,36 @@ def test_stop_names_the_base_the_run_holds(qtbot) -> None:
     assert "no base" in stop_question(_RUNNING)
 
 
-def test_create_waits_for_a_symbol_and_names_what_it_does(qtbot) -> None:
-    dialog = NewBotDialog(["grid"], [VENUE])
+def _symbols(*names: str) -> NewBotSymbols:
+    """The picker's list, read by the same coordinator the other screens use,
+    on a pool that runs a task where it is submitted."""
+    return NewBotSymbols(FakeSymbolCatalog(names), _InlinePool(), SymbolPreferences())
+
+
+class _InlinePool(IThreadManager):
+    def submit(self, task, *args, **kwargs):  # type: ignore[no-untyped-def]
+        task(*args, **kwargs)
+        return concurrent.futures.Future()
+
+    def shutdown(self, wait: bool = True) -> None:
+        return None
+
+
+def _pick(dialog: NewBotDialog, symbol: str) -> None:
+    """Chooses `symbol` in the shared picker the Symbol button opens."""
+    dialog.symbol.click()
+    picker = dialog.findChild(SymbolPickerOverlay)
+    assert picker is not None, "the Symbol button opens the shared symbol picker"
+    picker.symbol_chosen.emit(symbol)
+
+
+def test_create_waits_for_a_picked_symbol_and_names_what_it_does(qtbot) -> None:
+    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT", "ETHUSDT"))
     qtbot.addWidget(dialog)
 
     assert dialog.create_button.text() == CREATE_BUTTON_TEXT
     assert not dialog.create_button.isEnabled()
-    qtbot.keyClicks(dialog.symbol, "ethusdt")
+    _pick(dialog, "ethusdt")
     assert dialog.create_button.isEnabled()
 
     command = dialog.command()
@@ -88,9 +122,9 @@ def test_create_waits_for_a_symbol_and_names_what_it_does(qtbot) -> None:
 def test_new_bot_asks_only_the_minimum_and_saves_no_parameters(qtbot) -> None:
     """`BOT-150` — the user's rule (2026-10-04): creating a bot asks the least;
     its parameters are set afterwards, while it is a draft or stopped."""
-    dialog = NewBotDialog(["grid"], [VENUE])
+    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
     qtbot.addWidget(dialog)
-    qtbot.keyClicks(dialog.symbol, "btcusdt")
+    _pick(dialog, "btcusdt")
 
     assert dialog.findChild(BotKindPanel) is None
     assert dialog.command().config == {}
@@ -104,9 +138,9 @@ def test_the_new_bot_command_carries_the_venue_enum_and_saves(
     from Qt as a plain `str`, which compares equal to the member, so the test
     above stayed green while saving the bot crashed on `venue.value`. The
     command is saved through the real handler and store here."""
-    dialog = NewBotDialog(["grid"], [VENUE])
+    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
     qtbot.addWidget(dialog)
-    qtbot.keyClicks(dialog.symbol, "btcusdt")
+    _pick(dialog, "btcusdt")
 
     command = dialog.command()
     result = CreateBotCommandHandler(
@@ -117,10 +151,32 @@ def test_the_new_bot_command_carries_the_venue_enum_and_saves(
     assert result.accepted, result.message
 
 
-def test_without_an_enabled_spot_venue_nothing_can_be_created(qtbot) -> None:
-    dialog = NewBotDialog(["grid"], [])
+def test_the_symbol_is_chosen_in_the_picker_never_typed(qtbot) -> None:
+    """`BUG-155` — Symbol was a free-text field ("e.g. BTCUSDT"); it is the
+    shared picker the other screens use, listing the Spot catalog."""
+    symbols = _symbols("BTCUSDT", "ETHUSDT")
+    dialog = NewBotDialog(["grid"], [VENUE], symbols)
     qtbot.addWidget(dialog)
-    qtbot.keyClicks(dialog.symbol, "BTCUSDT")
 
-    assert not dialog.create_button.isEnabled()
-    assert dialog.problem.text() == NO_SPOT_VENUE
+    assert dialog.findChild(QLineEdit, "editNewBotSymbol") is None
+    dialog.symbol.click()
+    assert dialog.findChild(SymbolPickerOverlay) is not None
+    assert list(symbols.catalog_symbols()) == ["BTCUSDT", "ETHUSDT"]
+    _pick(dialog, "ETHUSDT")
+    assert dialog.symbol.text() == "ETHUSDT"
+
+
+def test_a_symbol_list_that_cannot_be_read_is_said_not_left_empty(qtbot) -> None:
+    class _Down(FakeSymbolCatalog):
+        def list_symbols(self, market, *, force_refresh=False):  # type: ignore[no-untyped-def]
+            raise ConnectionError("exchange unreachable")
+
+    symbols = NewBotSymbols(_Down(), _InlinePool(), SymbolPreferences())
+    dialog = NewBotDialog(["grid"], [VENUE], symbols)
+    qtbot.addWidget(dialog)
+    dialog.show()
+
+    dialog.symbol.click()
+
+    assert not dialog.problem.isHidden()
+    assert "exchange unreachable" in dialog.problem.text()

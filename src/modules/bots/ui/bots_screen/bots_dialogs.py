@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_dialog im
     AskNewBot,
     ask_new_bot_with_dialog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols import (
+    NewBotSymbols,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog import (
     AskStop,
     ask_stop_with_dialog,
@@ -46,11 +49,11 @@ def delete_question(bot: BotSnapshot) -> str:
     )
 
 
-def dialogs_for(parent: QWidget) -> BotsDialogs:
-    """The modal dialogs, parented to `parent`."""
+def dialogs_for(parent: QWidget, symbols: NewBotSymbols) -> BotsDialogs:
+    """The modal dialogs, parented to `parent`; `symbols` feeds New bot's picker."""
     return BotsDialogs(
         ask_new_bot=lambda kinds, venues: ask_new_bot_with_dialog(
-            parent, kinds, venues
+            parent, kinds, venues, symbols
         ),
         ask_stop=lambda bot: ask_stop_with_dialog(parent, bot),
         confirm_delete=lambda bot: _ask_delete(parent, bot),
