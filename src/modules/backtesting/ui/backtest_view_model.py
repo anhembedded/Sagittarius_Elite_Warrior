@@ -64,9 +64,9 @@ class BackTestViewModel(BaseQmlViewModel):
     Validation, `RunStaticBacktestCommand` construction, and dispatch all
     stay in the Presenter.
 
-    `controlsEnabled` (inherited from `BaseQmlViewModel`) drives every input
-    the toolbar exposes — QML binds `enabled: viewModel.controlsEnabled`
-    instead of a hand-rolled `uiMode !== "LOCKED"` check.
+    `controlsEnabled` (from `BaseQmlViewModel`) locks every Backtest input and
+    command; each reads it and its change signal instead of comparing
+    `uiMode` itself (`test_backtest_view_model_controls.py`).
     """
 
     DISABLED_UI_MODES = frozenset(
