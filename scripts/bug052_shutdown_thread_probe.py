@@ -31,7 +31,6 @@ from __future__ import annotations
 import os
 import sys
 import threading
-import time
 import traceback
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -50,9 +49,16 @@ _STUCK_FLAG = "--stuck-task"
 #: about to finish" — the reported hang lasted indefinitely.
 _GRACE_SECONDS = 2.0
 
-#: Long enough that a hang is unmistakable next to teardown's own duration,
-#: short enough that the probe still terminates on its own.
+#: The longest the stuck task can hold the process: long enough that a hang
+#: is unmistakable next to teardown's own duration, short enough that the
+#: probe still terminates on its own if it never reaches its verdict.
 _STUCK_TASK_SECONDS = 20.0
+
+#: Set once the probe has named the stuck task, so the process exits then
+#: instead of sitting out the rest of `_STUCK_TASK_SECONDS` (`BOT-159`: the
+#: wait was a fifth of the integration tier). Teardown and the survivor scan
+#: both run before it is set, so they see the same stuck worker as before.
+_RELEASE_STUCK_TASK = threading.Event()
 
 
 def _describe(thread: threading.Thread) -> str:
@@ -78,7 +84,7 @@ def main() -> int:
         from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
         thread_manager = runtime.app_engine.context.container.resolve(IThreadManager)
-        thread_manager.submit(time.sleep, _STUCK_TASK_SECONDS)
+        thread_manager.submit(_RELEASE_STUCK_TASK.wait, _STUCK_TASK_SECONDS)
         print(
             f"[probe] submitted a {_STUCK_TASK_SECONDS}s task that ignores cancellation"
         )
@@ -108,6 +114,7 @@ def main() -> int:
         print(
             f"[probe] VERDICT: {len(blockers)} NON-DAEMON thread(s) hold the process open: {names}"
         )
+        _RELEASE_STUCK_TASK.set()
         return 1
 
     print("[probe] VERDICT: no non-daemon survivor — the interpreter is free to exit")
