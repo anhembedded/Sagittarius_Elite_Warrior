@@ -15,8 +15,6 @@ from __future__ import annotations
 import concurrent.futures
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -30,8 +28,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -88,12 +84,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
-    candle,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
-    FakeHistoricalKlines,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
@@ -103,14 +93,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
-    BestBidAsk,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
-    CommissionRate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_controls import (
     IVenueStrategyControls,
@@ -118,18 +105,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_co
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
-    OrderEntryTerms,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudgetCaps,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
-    SymbolOrderMetadata,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
-    FakeOrderEntryTerms,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
+    FakeAccountActivity,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
@@ -162,9 +143,17 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_logger import ILogger
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-SYMBOL = "BTCUSDT"
-VENUE = TradingVenue.SPOT_TESTNET
-NOW = datetime(2026, 10, 4, 12, tzinfo=UTC)
+from .bots_market_fixtures import (
+    NOW,
+    SYMBOL,
+    VENUE,
+    daily_candles,
+    terms,
+    venue_contexts,
+)
+
+__all__ = ["NOW", "SYMBOL", "VENUE"]
+
 #: A plan every check accepts at 65,000: ten levels of about 100 USDT.
 GOOD_CONFIG = {
     "lower": "60000",
@@ -268,46 +257,12 @@ class BotsScreen:
     strategy: VenueArming
     #: The venue's trading switch.
     trading_session: FakeTradingSession
+    #: The venue's order history, which the fills are read from.
+    activity: FakeAccountActivity
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
         self.pool.run_all()
-
-
-def terms() -> FakeOrderEntryTerms:
-    rules = SymbolOrderMetadata(
-        symbol=SYMBOL,
-        status="TRADING",
-        step_size=Decimal("0.00001"),
-        tick_size=Decimal("0.01"),
-        min_notional=Decimal(5),
-        quantity_precision=None,
-        price_precision=None,
-        fetched_at=NOW,
-    )
-    entry = OrderEntryTerms(
-        rules=rules,
-        commission=CommissionRate(SYMBOL, Decimal("0.001"), Decimal("0.001")),
-    )
-    book = BestBidAsk(SYMBOL, Decimal(64999), Decimal(1), Decimal(65001), Decimal(1))
-    return FakeOrderEntryTerms(entry, books={SYMBOL: book})
-
-
-def daily_candles(days: int = 30) -> FakeHistoricalKlines:
-    klines = FakeHistoricalKlines()
-    klines.seed(
-        [
-            candle(
-                SYMBOL,
-                minutes=day * 1440,
-                interval=TimeFrame.ONE_DAY,
-                close_price=65000.0,
-            )
-            for day in range(days)
-        ],
-        MarketType.SPOT,
-    )
-    return klines
 
 
 def stored(
@@ -344,14 +299,19 @@ def open_screen(
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IThreadManager, pool)
     trading_session = FakeTradingSession()
+    activity = FakeAccountActivity()
     container.singleton(
         IVenueTradingPorts,
         FakeVenueTradingPorts(
             fake_venue_ports(
-                VENUE, order_entry_terms=terms(), trading_session=trading_session
+                VENUE,
+                order_entry_terms=terms(),
+                trading_session=trading_session,
+                account_activity=activity,
             )
         ),
     )
+    container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
     container.singleton(IMarketDataSync, FakeMarketDataSync())
@@ -374,5 +334,14 @@ def open_screen(
     )
     actions = bound_actions(view, bots_commands(BOTS_ROUTE), presenter.bind_commands)
     return BotsScreen(
-        view, presenter, pool, store, answers, bus, actions, strategy, trading_session
+        view,
+        presenter,
+        pool,
+        store,
+        answers,
+        bus,
+        actions,
+        strategy,
+        trading_session,
+        activity,
     )

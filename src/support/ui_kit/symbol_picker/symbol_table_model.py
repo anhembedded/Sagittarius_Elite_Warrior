@@ -41,7 +41,6 @@ from __future__ import annotations
 from typing import ClassVar, Final
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -93,19 +92,14 @@ class SymbolTableModel(RowTableModel[SymbolEntry]):
                 if row.is_favourite
                 else _ADD_FAVOURITE_TOOLTIP
             )
-        if (
-            role == Qt.ItemDataRole.FontRole
-            and column == self.SYMBOL_COLUMN
-            and row.is_current
-        ):
-            # The row the screen is already running on, in bold. It replaces
-            # the card's "selected" border and is the only emphasis this table
-            # carries — ADR D21 leaves colour to the OS palette, and Qt has no
-            # palette role meaning "this is the one you are on".
-            font = QFont()
-            font.setBold(True)
-            return font
         return None
+
+    def _is_emphasised(self, row: SymbolEntry, column: int) -> bool:
+        """The row the screen is already running on, in bold. It replaces the
+        card's "selected" border and is the only emphasis this table carries:
+        ADR D21 leaves colour to the OS palette, and Qt has no palette role
+        meaning "this is the one you are on"."""
+        return column == self.SYMBOL_COLUMN and row.is_current
 
     @staticmethod
     def _status_text(row: SymbolEntry) -> str:

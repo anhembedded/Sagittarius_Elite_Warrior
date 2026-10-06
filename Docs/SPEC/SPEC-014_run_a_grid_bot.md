@@ -58,10 +58,11 @@ sound, I start it, and I watch what it does."*
 8. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
    edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
-   bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures:
-   grid profit apart from unrealised, fees by maker and taker, what stopped the replay, the fill
-   rule, and how many candles were replayed without 1-second klines. **Cancel** drops the run and
-   the last result stays; selecting another bot drops it and clears the result.
+   bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures
+   as a read-out: grid profit apart from unrealised, both curves' end against the capital, fees by
+   maker and taker, and how many candles were replayed without 1-second klines; under them, in words,
+   what stopped the replay, the fill rule and what the coarse or missing candles mean. **Cancel**
+   drops the run and the last result stays; selecting another bot drops it and clears the result.
 9. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
    and says its resting orders will be cancelled. **Cancel** leaves the bot running.
 10. Closing the app while any bot is not at rest asks first, naming the bots and what closing
@@ -135,6 +136,9 @@ available while it runs.
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
 | The chart is central; Bots, Plan, Orders, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
+| The chart, Plan, Orders, Fills and Log follow the selection, and say what to do with none | `tests/unit/modules/bots/ui/bots_screen/test_bots_selection.py` | unit (real bots graph) |
+| The Bots menu and the mode's toolbar hold exactly HLD §11.2.3's Bots commands | `tests/integration/presentation/ui/test_bots_mode_catalogue.py` | integration (booted app) |
+| Orders and fills are written in the bot's symbol filters; every column aligns, and its digits sit, by its kind | `tests/unit/modules/bots/ui/bots_screen/test_bot_tables_precision.py` · `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | unit · integration (fake exchange) |
 | Closing asks while a bot is active; Cancel keeps the window | `tests/unit/presentation/ui/test_main_window_close_guard.py` | unit |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
@@ -142,6 +146,7 @@ available while it runs.
 | The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |
 | Two stored hours replay through their 1-second klines; without them the replay is coarse and never completes more cycles; 1-second klines that miss the candle's range are not trusted | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
 | Run, Cancel keeps the last result, another bot clears it, a late result is fenced, Sync only on a click then run again | `tests/unit/modules/bots/ui/kinds/test_grid_backtest.py` | unit (real query handler) |
+| A backtest's figures are a read-out of raw values by kind and its caveats are sentences | `tests/unit/modules/bots/ui/kinds/test_grid_backtest_summary.py` | unit |
 | The Backtest panel holds a Grid's page and, without a selection, an instruction; it runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
 | The mode's Start, Pause, Resume and Stop reach the real executor and the exchange | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | A Grid rests its levels with its tag, re-lays an outside cancel and stops clean on Spot Testnet; how many owner budgets fit the venue's rate limits — **pending the user's run** | `tests/testnet/test_grid_bot_round_trip.py` · `tests/testnet/test_spot_rate_limits.py` | testnet, run by the user |

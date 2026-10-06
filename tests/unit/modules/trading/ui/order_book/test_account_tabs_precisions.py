@@ -1,4 +1,4 @@
-"""`OrderMetadataPrecisions` and the desk tables it feeds (`EPIC-033N`):
+"""`FilterPrecisions` and the desk tables it feeds (`EPIC-033N`):
 a price is written in its symbol's tick size and a size in its step size,
 from the venue's cached order metadata; an unknown symbol keeps the
 formatter's magnitude rule."""
@@ -37,12 +37,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.order_metadata_precisions import (
-    OrderMetadataPrecisions,
-    precision_of,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
+    FilterPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -71,30 +70,6 @@ def cache() -> InMemorySymbolOrderMetadataCache:
     return filled
 
 
-def test_a_cached_symbol_answers_its_tick_and_step(cache):
-    precisions = OrderMetadataPrecisions(cache)
-
-    assert precisions.tick("BTCUSDT") == Precision(Decimal("0.10"))
-    assert precisions.step("BTCUSDT") == Precision(Decimal("0.001"))
-
-
-def test_a_symbol_not_cached_is_unknown(cache):
-    precisions = OrderMetadataPrecisions(cache)
-
-    assert precisions.tick("NEWUSDT") is None
-    assert precisions.step("NEWUSDT") is None
-
-
-@pytest.mark.parametrize("size", [Decimal(0), Decimal(-1), Decimal("NaN"), 0.0])
-def test_a_size_that_restricts_nothing_says_nothing_of_decimals(size):
-    """Binance writes "0" for a filter that does not restrict."""
-    assert precision_of(size) is None
-
-
-def test_a_float_size_is_read_as_the_text_it_prints():
-    assert precision_of(0.01) == Precision(Decimal("0.01"))
-
-
 def _position(symbol: str) -> PositionRow:
     return PositionRow(
         symbol=symbol,
@@ -117,7 +92,7 @@ def test_the_account_tabs_quote_every_symbol_table_in_its_filters(qapp, cache):
     (`DeskPresenter`); each table of a symbol's rows answers them, and a
     column of something else (a leverage, a fee) does not."""
     panel = AccountTabsPanel(HeldTab.POSITIONS)
-    panel.use_precisions(OrderMetadataPrecisions(cache))
+    panel.use_precisions(FilterPrecisions(cache))
     panel.set_positions([_position("BTCUSDT"), _position("NEWUSDT")])
     panel.set_open_orders([_open_order("BTCUSDT")])
     orders = _source(panel.history_panel(HistoryKind.ORDERS).table)

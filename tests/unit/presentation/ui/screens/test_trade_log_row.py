@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
@@ -11,6 +11,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ReadoutForm,
 )
 
 _T0 = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
@@ -111,15 +119,26 @@ def test_build_trade_log_rows_defaults_mae_mfe_to_zero():
 
 
 # ================= BOT-045: the selected trade's journal =================
+# A read-out of raw values, written by the application's formatter by each
+# row's kind (`EPIC-033N`), as a `ReadoutForm` shows them.
 
 
-def test_a_blank_entry_reason_reads_as_a_dash():
+def _shown(row: TradeLogRow) -> dict[str, str]:
+    """Title -> text, as the read-out writes each value."""
+    readout = trade_details(row)
+    form = ReadoutForm(readout.specs, APP_VALUE_FORMATTER)
+    form.set_values(readout.values)
+    return {spec.title: form.value_text(spec.key) for spec in readout.specs}
+
+
+def test_a_blank_entry_reason_is_an_empty_value(qapp):
+    """Unknown reads as nothing, never a glyph (`EPIC-033N`)."""
     row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, entry_reason="")
 
-    assert dict(trade_details(row))["Entry reason"] == "—"
+    assert _shown(row)["Entry reason"] == ""
 
 
-def test_the_exit_reason_reads_as_words():
+def test_the_exit_reason_reads_as_words(qapp):
     row = TradeLogRow(
         1,
         _T0,
@@ -132,27 +151,36 @@ def test_the_exit_reason_reads_as_words():
         exit_reason=ExitReason.END_OF_BACKTEST,
     )
 
-    assert dict(trade_details(row))["Exit reason"] == "End of backtest"
+    assert _shown(row)["Exit reason"] == "End of backtest"
 
 
-def test_the_duration_reads_in_hours_and_minutes():
+def test_the_duration_is_a_duration_the_formatter_writes(qapp):
     row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)  # 06:00 to 18:00
+    readout = trade_details(row)
 
-    assert dict(trade_details(row))["Duration"] == "12h 00m"
+    assert readout.values["duration"] == timedelta(hours=12)
+    assert _kind(readout, "duration") is ColumnKind.DURATION
+    assert _shown(row)["Duration"] == "12:00:00"
 
 
-def test_excursions_are_signed_percentages():
+def test_a_duration_never_reads_negative():
+    row = TradeLogRow(1, _T1, 100.0, _T0, 110.0, 1.0, 10.0, 10.0)
+
+    assert trade_details(row).values["duration"] == timedelta(0)
+
+
+def test_excursions_are_percentages_the_formatter_writes(qapp):
     row = TradeLogRow(
         1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, mae_percent=-3.21, mfe_percent=5.67
     )
+    readout = trade_details(row)
 
-    details = dict(trade_details(row))
+    assert _kind(readout, "mae") is ColumnKind.PERCENT
+    assert _shown(row)["Worst excursion (MAE)"] == "-3.21%"
+    assert _shown(row)["Best excursion (MFE)"] == "5.67%"
 
-    assert details["Worst excursion (MAE)"] == "-3.21%"
-    assert details["Best excursion (MFE)"] == "+5.67%"
 
-
-def test_a_strategys_metadata_follows_with_readable_labels_in_its_order():
+def test_a_strategys_metadata_follows_with_readable_labels_in_its_order(qapp):
     row = TradeLogRow(
         1,
         _T0,
@@ -162,22 +190,37 @@ def test_a_strategys_metadata_follows_with_readable_labels_in_its_order():
         1.0,
         10.0,
         10.0,
-        metadata={"qml_score": 92, "zone": "demand"},
+        metadata={"qml_score": 92.5, "zone": "demand & supply"},
     )
+    readout = trade_details(row)
 
-    labels = [label for label, _text in trade_details(row)]
+    titles = [spec.title for spec in readout.specs]
+    assert titles[-2:] == ["Qml Score", "Zone"]
+    assert [spec.kind for spec in readout.specs[-2:]] == [
+        ColumnKind.QUANTITY,
+        ColumnKind.TEXT,
+    ]
+    assert _shown(row)["Qml Score"] == "92.5"
+    assert _shown(row)["Zone"] == "demand & supply"
 
-    assert labels[-2:] == ["Qml Score", "Zone"]
-    assert dict(trade_details(row))["Qml Score"] == "92"
+
+def test_an_ampersand_in_a_metadata_key_is_text_not_an_access_key():
+    row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, metadata={"r&d": "x"})
+
+    assert trade_details(row).specs[-1].title == "R&&D"
 
 
 def test_no_metadata_adds_no_line():
     row = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, metadata={})
 
-    assert [label for label, _text in trade_details(row)] == [
+    assert [spec.title for spec in trade_details(row).specs] == [
         "Entry reason",
         "Exit reason",
         "Duration",
         "Worst excursion (MAE)",
         "Best excursion (MFE)",
     ]
+
+
+def _kind(readout: Readout, key: str) -> ColumnKind:
+    return next(spec.kind for spec in readout.specs if spec.key == key)

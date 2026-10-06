@@ -68,7 +68,9 @@ class BotFacts:
     grid_profit: str
     unrealised: str
     inventory: str
-    running_time: str
+    #: How long the run has gone, written by the formatter as a duration;
+    #: `None` while the bot is not running.
+    running_time: timedelta | None
 
 
 def bot_facts(bot: BotSnapshot, last_price: Decimal | None, now: datetime) -> BotFacts:
@@ -112,14 +114,8 @@ def _inventory(bot: BotSnapshot) -> str:
     return f"{_quantity(progress.inventory)} at an average {_price(cost)}"
 
 
-def _running_time(bot: BotSnapshot, now: datetime) -> str:
+def _running_time(bot: BotSnapshot, now: datetime) -> timedelta | None:
     started = bot.run_started_at
     if started is None or bot.state not in _RUNNING_CLOCK:
-        return NO_VALUE
-    elapsed = max(now - started, timedelta(0))
-    days, remainder = divmod(int(elapsed.total_seconds()), 86_400)
-    hours, remainder = divmod(remainder, 3_600)
-    minutes = remainder // 60
-    return (
-        f"{days}d {hours:02d}h {minutes:02d}m" if days else f"{hours}h {minutes:02d}m"
-    )
+        return None
+    return max(now - started, timedelta(0))

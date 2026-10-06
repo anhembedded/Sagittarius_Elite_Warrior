@@ -74,6 +74,14 @@ answers the Engine's `PRECISION_ROLE` for those cells from the
 that `Precision` to the formatter. A table never given one, or a symbol whose
 filters are unknown, answers `None` and the formatter rounds by magnitude.
 
+@par The font of a kind (`EPIC-033N`, D6)
+A price, a quantity and money are written in the platform's fixed-pitch
+font so their digits line up down the column; every other kind keeps the
+application font (`kind_font`). `data()` answers `FontRole` from the
+column's kind for every table, so no model or view decides it; a model only
+says which cells carry its one emphasis (`_is_emphasised`), and that cell is
+bold in its kind's font.
+
 @par `@abstractmethod` without `ABC`, the `BaseFeed` pattern
 `QAbstractTableModel`'s metaclass is Shiboken's, and mixing `ABCMeta` into it
 raises a metaclass conflict. So the decorator documents the contract and the
@@ -96,9 +104,11 @@ from collections.abc import Sequence
 from typing import ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QObject, Qt
+from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kind_font import kind_font
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.no_symbol_precisions import (
     NO_SYMBOL_PRECISIONS,
@@ -170,7 +180,8 @@ class RowTableModel[TRow](QAbstractTableModel):
         return self.COLUMNS[section].title
 
     def data(self, index: AnyIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        """The raw value, then `_role_data()`.
+        """The raw value, its precision and its kind's font, then
+        `_role_data()`.
 
         A stale index answers `None` before any role is considered, so a
         repaint racing a `set_rows()` cannot read past the end of the list.
@@ -182,6 +193,8 @@ class RowTableModel[TRow](QAbstractTableModel):
             return self._value(row, index.column())
         if role == PRECISION_ROLE:
             return self._precision(row, index.column())
+        if role == Qt.ItemDataRole.FontRole:
+            return self._font(row, index.column())
         return self._role_data(row, index.column(), role)
 
     # -- reading and writing whole rows ------------------------------------
@@ -247,6 +260,18 @@ class RowTableModel[TRow](QAbstractTableModel):
             return self._precisions.step(symbol)
         return None
 
+    # -- the font of a kind ---------------------------------------------------
+
+    def _font(self, row: TRow, column: int) -> QFont | None:
+        """The column kind's font, bold where the row is emphasised; `None`
+        (the view's font) for a plain cell of a kind with no font of its own."""
+        font = kind_font(self.COLUMNS[column].kind)
+        if not self._is_emphasised(row, column):
+            return font
+        emphasised = QFont(font) if font is not None else QFont()
+        emphasised.setBold(True)
+        return emphasised
+
     # -- what a particular table decides -----------------------------------
 
     @abstractmethod
@@ -260,8 +285,15 @@ class RowTableModel[TRow](QAbstractTableModel):
         quoted in; `None` for a table whose rows name none."""
         return None
 
+    def _is_emphasised(self, row: TRow, column: int) -> bool:
+        """Whether this cell carries the table's one emphasis — a losing
+        position's PnL, the shard to act on — drawn bold in its kind's font.
+        None by default."""
+        return False
+
     def _role_data(self, row: TRow, column: int, role: int) -> object:
-        """Any role beyond the value — a bold cell, a tooltip. `None` means
-        "Qt's default", and that is the right answer for most tables, so this
-        is not abstract."""
+        """Any role beyond the value, its precision and its font — a colour,
+        a tooltip. `None` means "Qt's default", and that is the right answer
+        for most tables, so this is not abstract. A font is never decided
+        here: the kind decides it (`_font`)."""
         return None

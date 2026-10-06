@@ -62,12 +62,17 @@ def test_the_state_carries_its_reason_and_capital_comes_from_the_kinds_key() -> 
 
 
 def test_running_time_counts_from_the_run_start_and_stops_at_rest() -> None:
-    bot = replace(
-        _running(), run_started_at=NOW - timedelta(days=1, hours=2, minutes=5)
-    )
+    """A duration the formatter writes (`EPIC-033N`), not text written here."""
+    elapsed = timedelta(days=1, hours=2, minutes=5)
+    bot = replace(_running(), run_started_at=NOW - elapsed)
 
-    assert bot_facts(bot, None, NOW).running_time == "1d 02h 05m"
-    short = replace(bot, run_started_at=NOW - timedelta(minutes=7))
-    assert bot_facts(short, None, NOW).running_time == "0h 07m"
+    assert bot_facts(bot, None, NOW).running_time == elapsed
     stopped = replace(bot, state=BotLifecycleState.STOPPED)
-    assert bot_facts(stopped, None, NOW).running_time == "—"
+    assert bot_facts(stopped, None, NOW).running_time is None
+
+
+def test_a_run_started_in_the_future_has_run_for_nothing() -> None:
+    """A clock behind the stored start never reads as a negative time."""
+    bot = replace(_running(), run_started_at=NOW + timedelta(minutes=3))
+
+    assert bot_facts(bot, None, NOW).running_time == timedelta(0)

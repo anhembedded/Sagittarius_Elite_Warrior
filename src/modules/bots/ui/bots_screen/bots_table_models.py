@@ -3,13 +3,19 @@ orders, and its fills.
 
 Each state is named in words in its own column; a tone colours it as well,
 never instead (`ui-presentation-rule.md`).
+
+The orders and the fills are the selected bot's: their rows name no symbol,
+the bot does. They are shown with that symbol (`show_rows`), so their prices
+are quoted in its tick size and their quantities in its step size
+(`SYMBOL_QUOTED`, `EPIC-033N`); the bots list holds no price or quantity.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QColor
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
@@ -80,7 +86,27 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         return None
 
 
-class BotOrdersTableModel(RowTableModel[BotOrderLine]):
+class SelectedBotRows[TRow](RowTableModel[TRow]):
+    """Rows of the selected bot, quoted in that bot's symbol."""
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._bot_symbol: str | None = None
+
+    def show_rows(self, symbol: str | None, rows: Sequence[TRow]) -> None:
+        """Shows `rows`, the activity of the bot trading `symbol`."""
+        self._bot_symbol = symbol
+        self.set_rows(rows)
+
+    def _symbol(self, row: TRow) -> str | None:
+        return self._bot_symbol
+
+
+class BotOrdersTableModel(SelectedBotRows[BotOrderLine]):
+    #: The grid level is an index, not an amount of the symbol.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset(
+        {"price", "quantity", "executed"}
+    )
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
         ColumnSpec("level", "Level", ColumnKind.QUANTITY),
         ColumnSpec("side", "Side", ColumnKind.SIDE),
@@ -102,7 +128,8 @@ class BotOrdersTableModel(RowTableModel[BotOrderLine]):
         return values[column]
 
 
-class BotFillsTableModel(RowTableModel[BotFill]):
+class BotFillsTableModel(SelectedBotRows[BotFill]):
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"price", "quantity"})
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
         ColumnSpec("time", "Time", ColumnKind.TIMESTAMP),
         ColumnSpec("side", "Side", ColumnKind.SIDE),

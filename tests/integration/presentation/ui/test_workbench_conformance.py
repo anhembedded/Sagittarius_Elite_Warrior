@@ -7,7 +7,8 @@ controls, scroll areas inside scroll areas, labels whose `&` turned into a
 mnemonic. These are properties of the composed window, which no file scan
 sees, so this suite boots the real app (`main_window`) and checks every
 navigable mode, at each of `WINDOW_SIZES` (`EPIC-033C`). The checks live in
-`workbench_widget_checks.py` and `workbench_layout_checks.py`; each cites
+`workbench_widget_checks.py`, `workbench_layout_checks.py`,
+`workbench_text_checks.py` and `workbench_column_checks.py`; each cites
 `ui-presentation-rule.md`, which cites its source (Microsoft's Windows UX
 guidelines, KDE HIG, Qt).
 
@@ -33,6 +34,10 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
     DEVELOPER_ROUTE,
+)
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_column_checks import (
+    alignment_problems,
+    digit_font_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
@@ -81,6 +86,8 @@ MODE_CHECKS: dict[str, Check] = {
     "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
     "columns_shown_whole": column_problems,
+    "columns_aligned_by_kind": alignment_problems,
+    "digits_in_fixed_pitch": digit_font_problems,
     "combo_text_shown_whole": combo_problems,
     "mnemonics_escaped": mnemonic_problems,
     "access_keys_unique": access_key_problems,

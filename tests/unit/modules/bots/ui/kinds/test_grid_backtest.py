@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     FILL_RULE,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
 from .grid_backtest_fixtures import (
     SYMBOL,
@@ -69,10 +70,11 @@ def test_run_shows_the_replay_its_equity_and_every_caveat(
     world.pool.run_all()
 
     shown = view.summary_text()
-    assert shown["Fill rule"] == FILL_RULE
-    assert "96 candles" in shown["Period"]
-    assert "closed cycles" in shown["Grid profit"]
-    assert "Without 1-second klines" in shown
+    assert FILL_RULE in view.notes.text()
+    assert shown["candles"] == "96"
+    assert shown["cycles"]
+    assert shown["coarse_candles"]
+    assert isinstance(view.summary_form(), ReadoutForm)
     assert view.status.text() == "Backtest done."
     assert view.run_button.isEnabled() and not view.cancel_button.isEnabled()
     assert view.equity.grid_curve.getData()[0] is not None
@@ -137,6 +139,7 @@ def test_another_bot_drops_the_run_in_flight_and_clears_the_result(
     world.pool.run_all()
 
     assert view.summary_text() == {}
+    assert view.notes.text() == ""
     assert view.run_button.isEnabled()
     assert view.status.text() != "Backtest done."
 
@@ -181,7 +184,7 @@ def test_a_period_with_no_candles_offers_a_sync_and_only_a_click_syncs(
         TimeFrame.ONE_SECOND,
     ]
     assert view.status.text() == "Backtest done."
-    assert "96 candles" in view.summary_text()["Period"]
+    assert view.summary_text()["candles"] == "96"
     world.backtest.shutdown()
 
 
@@ -235,7 +238,9 @@ def test_a_period_partly_stored_is_replayed_and_says_what_is_missing(
     _run(world, qtbot)
     world.pool.run_all()
 
-    assert view.summary_text()["Candles stored"].startswith("48 of 96")
+    assert view.summary_text()["stored_candles"] == "48"
+    assert view.summary_text()["expected_candles"] == "96"
+    assert "not the whole period" in view.notes.text()
     assert "48 candles of the period are not stored" in view.status.text()
     assert view.sync_button.isVisibleTo(view)
     world.backtest.shutdown()

@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
-    QFormLayout,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
@@ -30,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     ZonedValueFormatter,
@@ -87,9 +87,8 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
                 lambda: view_model.time_range.displayTimezone
             ),
         )
-        self._details = QWidget()
+        self._details = ReadoutSlot()
         self._details.setObjectName("backtestTradeDetails")
-        self._details_form = QFormLayout(self._details)
 
         show = QLabel("Sh&ow:")
         show.setBuddy(self.filter)
@@ -186,14 +185,11 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
         self.selectedTradeChanged.emit(-1 if trade is None else trade.index)
 
     def _show_details(self, trade: TradeLogRow | None) -> None:
-        while self._details_form.rowCount():
-            self._details_form.removeRow(0)
         self._details.setVisible(trade is not None)
         if trade is None:
+            self._details.clear()
             return
-        for label, text in trade_details(trade):
-            # A strategy's metadata is text, never an access key.
-            self._details_form.addRow(f"{label.replace('&', '&&')}:", QLabel(text))
+        self._details.show_readout(trade_details(trade))
 
     def _sync_dirty_opacity(self) -> None:
         # Qt Widgets has no CSS `opacity`; QGraphicsOpacityEffect is the

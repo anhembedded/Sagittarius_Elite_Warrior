@@ -28,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 NOT_READ_YET = "The market numbers for this symbol are still being read."
 
@@ -63,7 +67,7 @@ def verdict_line(verdict: Verdict) -> str:
     alone), its sentence, and the numbers behind it, so a warning shows the
     threshold beside the measured value."""
     numbers = ", ".join(
-        f"{name.replace('_', ' ')} {value.normalize():f}"
+        f"{name.replace('_', ' ')} {write_value(ColumnKind.QUANTITY, value)}"
         for name, value in verdict.numbers.items()
     )
     tail = f" ({numbers})" if numbers else ""

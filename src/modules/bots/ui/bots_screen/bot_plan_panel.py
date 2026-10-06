@@ -37,20 +37,23 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 from .widget_slot import replace_in
 
 EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
-#: The bot's figures as a read-out (`EPIC-033N`). Each value is a sentence
-#: `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
-#: application's formatter, so every row is text here.
-FACT_SPECS = tuple(
-    ColumnSpec(key, title, ColumnKind.TEXT)
-    for key, title in (
-        ("venue", "Venue"),
-        ("symbol", "Symbol"),
-        ("capital", "Capital"),
-        ("grid_profit", "Grid profit"),
-        ("unrealised", "Unrealised PnL"),
-        ("inventory", "Held"),
-        ("running_time", "Running time"),
-    )
+#: The bot's figures as a read-out (`EPIC-033N`). Most values are a
+#: sentence `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
+#: application's formatter, so those rows are text; the running time is a
+#: duration the formatter writes itself.
+FACT_SPECS = (
+    *(
+        ColumnSpec(key, title, ColumnKind.TEXT)
+        for key, title in (
+            ("venue", "Venue"),
+            ("symbol", "Symbol"),
+            ("capital", "Capital"),
+            ("grid_profit", "Grid profit"),
+            ("unrealised", "Unrealised PnL"),
+            ("inventory", "Held"),
+        )
+    ),
+    ColumnSpec("running_time", "Running time", ColumnKind.DURATION),
 )
 
 

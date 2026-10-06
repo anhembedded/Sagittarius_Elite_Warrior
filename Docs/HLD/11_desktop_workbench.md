@@ -110,8 +110,9 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Pause / &Resume | — | Bots | — |
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
-| | &Delete bot… | — | — | yes |
+| | &Delete bot (no "…": it only confirms, and "…" marks a command that asks for more input, §4 of the rule) | — | — | yes |
 | | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
+| | Refresh &fills (the selected bot's fills, read again; enabled while a bot is selected; `EPIC-033K` stage 4) | — | — | — |
 | | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
 | | Ar&m strategy…, D&isarm strategy (the Strategies panel's selected venue; `EPIC-033K` stage 3) | — | — | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
@@ -136,12 +137,10 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 **Until the mode tasks land** (`EPIC-033D` converted the screens as they are; `EPIC-033H`–`033L` rebuild them to the table above, and `EPIC-033P` built the Developer mode and deleted the Dev Board):
 
 - The table's menus, names and shortcuts hold where a screen already has the command: Trade's Enable live trading, Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
-- Delete bot carries no "…": it only confirms, and "…" marks a command that asks for more input (§4 of the rule).
 - Emergency stop is on every mode's toolbar since the single Trade mode (`EPIC-033I` stage 1), and stops every enabled venue: from another mode no venue shows, and the person pressing it wants trading stopped. Its confirmation names each venue and what it closes there.
 - Trade's Cancel order (Del) and Cancel all orders drive the chosen venue's account tables, which ask with their verbs (Cancel order / Keep order, Cancel all orders / Keep orders); the tables have no toolbar, and their rows' context menus repeat the commands (`EPIC-033I` stage 3). Enable live trading asks on enable only (Enable trading / Keep it off), which the mode does itself because the Engine's action confirms on every trigger; placing an order asks Place order / Cancel.
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
-  - Bots: Refresh fills and Fit levels (`EPIC-033K`).
   - Trade: &Close position (the Futures position selected in Positions, at market; asks Close position / Keep position) and, in View, Hide other pair&s (the chosen venue's tables show its symbol only) (`EPIC-033I`).
 
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.

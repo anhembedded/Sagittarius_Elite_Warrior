@@ -117,7 +117,7 @@ class TestWhatTheUserSees:
         font = model.data(losing, Qt.ItemDataRole.FontRole)
         assert isinstance(font, QFont)
         assert font.bold() is True
-        assert model.data(winning, Qt.ItemDataRole.FontRole) is None
+        assert not model.data(winning, Qt.ItemDataRole.FontRole).bold()
 
     def test_the_numbers_are_right_aligned_and_the_text_left(self, qapp) -> None:
         panel = _panel(qapp, position())

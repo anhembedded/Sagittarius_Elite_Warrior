@@ -1,6 +1,6 @@
 # EPIC-033K — Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it
 
-**Status:** 🟡 In progress (stages 1–3 of 4)
+**Status:** 🟡 In progress (stages 1–4 delivered; open: the desktop E2E on a real display)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🔴 — arms live strategies
 **Complexity:** M
@@ -14,11 +14,11 @@
 Arming a strategy lives in a card inside each desk and the last signal in another card on Dev Board, while `EPIC-029F` (PR #333) builds the Bots tab as its own `WorkbenchSurface` holding a push button, a splitter and hand-configured tables. There is no one workbench where a person sees everything that trades for them; `EPIC-029` already decided that place is Bots, with signal strategies becoming a bot kind (`EPIC-029L`).
 
 ## 2. Acceptance criteria
-- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). The chart and the Plan, Orders, Fills and Log docks follow the selection in the Bots dock.
-- [ ] The Bots menu and toolbar hold exactly HLD §11.2.3's commands; each bot kind contributes its panel and its toolbar, shown while a bot of that kind is selected; SPEC-014's behaviour (lifecycle-gated actions, one action at a time, the Stop dialog's *keep* default, the close guard) is unchanged.
+- [x] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). The chart and the Plan, Orders, Fills and Log docks follow the selection in the Bots dock. *(Stage 4: `test_bots_view.py`, `test_bots_selection.py`.)*
+- [x] The Bots menu and toolbar hold exactly HLD §11.2.3's commands; each bot kind contributes its panel and its toolbar, shown while a bot of that kind is selected; SPEC-014's behaviour (lifecycle-gated actions, one action at a time, the Stop dialog's *keep* default, the close guard) is unchanged. *(Stage 4: `test_bots_mode_catalogue.py` on the booted app; stage 2's kind toolbar.)*
 - [x] A strategy armed on a venue is listed as its own row with Arm and Disarm actions until `EPIC-029L`. *(Stage 3: the Strategies panel under Bots; Bots → Arm strategy…, Disarm strategy.)*
-- [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
-- [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
+- [x] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row. *(Stage 4: the Grid backtest's figures are a `ReadoutSlot`; the suite's column checks pass on a running bot.)*
+- [x] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request. *(Stage 4: SPEC-014's step 8 and Proven by; SPEC-010 is not specified yet.)*
 
 ## 3. Design
 The mode's wireframe approved in EPIC-033O is the design; this task builds it on `WorkbenchShell` with stock controls. Presenters, coordinators and view models are reused where their behaviour fits the approved design; views are new. It replaces: the Bots tab's view (its presenter, coordinators, fenced reads and view model are kept; its 7 `item_view_config` lines leave `baseline_stock_controls.json` with it), the strategy and last-signal cards.
@@ -40,7 +40,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 | 1 | this task's first PR | The layout: the selected bot's chart is the central widget; Bots (the list, with the status line) is a `NAVIGATOR` dock; Plan (name, state, figures, the kind's editor, its verdicts) a `RAIL` dock; Orders, Fills, Log and the kind's Backtest tabbed `CONSOLE` docks. The surface accepts those four places in `shell/surfaces.py`. Fit levels, a push button over the chart, becomes a Bots menu command. `BotDetailPanel` and its `QTabWidget` are deleted. |
 | 2 | ✅ delivered (2026-10-06) | Each kind contributes its toolbar (SPEC-014: "each bot type has its own toolbar"): Grid's Suggest from ATR and Suggest from Bollinger become actions shown while a Grid is selected, in the Bots menu and disabled otherwise. |
 | 3 | ✅ delivered (2026-10-06) | A strategy armed on a venue is a row of its own with Arm and Disarm until `EPIC-029L`; the desks' strategy card is deleted (the last-signal card went with `BOT-158`), which is `EPIC-033I` stage 4's Strategy panel too. |
-| 4 | last | The SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart); the task closes. |
+| 4 | ✅ delivered except the desktop E2E (2026-10-06) | The SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart) needs a real display and is open; the task closes with it. |
 
 ### Decisions in stage 1
 - **The kind's backtest is a fourth bottom panel.** HLD §11.2.1's row did not list it; it was a tab of the old detail and `EPIC-029D` built it. Its row now says "Orders, Fills, Log, Backtest (the kind's)". With no bot selected, or a kind without a backtest, the panel holds an instruction rather than hiding: a dock that hides itself fights the person's own View toggle and the saved perspective.
@@ -51,7 +51,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 - **Fit levels is a command**, "Fit &levels" in the Bots menu, enabled while a bot is selected; HLD §11.2.2 lists it with Refresh fills among the commands its table does not name yet.
 
 ## Implementation notes (written when done)
-Stages 1–3 delivered; stage 4 to come.
+Stages 1–4 delivered; the desktop E2E is open.
 
 ### Stage 2 — each kind's commands and toolbar
 - **Declared Qt-free, by kind.** `kinds/kind_commands.py` maps a `kind_id` to its `KindCommand`s (id, menu text); `bots_commands.py` contributes every one to the Bots menu after Delete bot, not on the mode's toolbar. Grid's are "Suggest from &ATR" and "Suggest from Bollin&ger" (HLD §11.2.3's keys; A and G were free in the Bots menu). A second kind is one entry there and its editor's `kind_actions`.
@@ -70,3 +70,10 @@ Stages 1–3 delivered; stage 4 to come.
 - **Deleted.** `desk_strategy.py`, `desk/strategy_card/`, the desk view model's strategy state, `DeskDependencies.catalog`, the Trade page's Strategy panel, `test_strategy_card.py` (its leverage-on-Spot proof is `test_arm_strategy_dialog.py`, cited by SPEC-012).
 - **Proof:** `test_venue_strategies.py` (a row per venue; Arm asks for the selected venue and arms it alone, with the symbol chosen; Cancel arms nothing; a refusal is said in words; Disarm one venue leaves the other; an event from elsewhere is shown; the form opens on the saved arming and arms nothing), `test_arm_strategy_dialog.py`, `test_strategy_rows_on_the_bots_screen.py` (the presenter's real wiring: rows from the container, commands bound, the bus followed), `test_arm_strategy_per_venue.py` (each handler publishes for its venue only, a refusal publishes nothing), `test_two_desks_stay_apart.py` (the event redraws that venue's desk only). Mutation: dropping the presenter's subscription, the command binding, the desk's subscription or the arm call each turns a test red.
 
+### Stage 4 — the finished mode, proved (2026-10-06)
+- **Menu and toolbar.** `test_bots_mode_catalogue.py` reads the booted window: the Bots menu is exactly §11.2.3's Bots commands in order, and the mode's own toolbar is Emergency stop, then the commands with a toolbar column. §11.2.3 now lists Refresh fills (it was among "commands the table does not list yet") and writes Delete bot without "…", folding its note into the row.
+- **Selection.** `test_bots_selection.py` on the real bots graph: another bot shows its chart, plan, resting orders, a fills read made for it (the fixture now exposes the venue's order history so a read is told apart from a reset) and its log lines; no selection leaves each panel's instruction. The Log panel's `selection_changed` connection was deleted: `set_selected` emits `log_changed` on the same change, and removing it changed nothing.
+- **Read-outs from specs.** The Grid backtest's summary is a `GridSummary`: a `Readout` of raw values by kind in a `ReadoutSlot` (times, money with the unit in the title, percents of the capital and fee rates, counts) and its caveats (why it stopped, the fill rule, coarse or missing candles) as sentences under it. `summary_rows`, `SummaryRow` and the page's `QFormLayout` are deleted. `test_grid_backtest_summary.py` asserts the values against what the preview's sample replay computed.
+- **Tables.** The orders and fills are quoted in the bot's venue's symbol filters, and every figure of the mode is written by the formatter (`EPIC-033N` notes). The conformance suite has no Bots row; its column checks run on a running bot on the composed app (`test_bots_tab_drives_the_executor.py`).
+- **Open: the desktop E2E** (open, use, rearrange, restart on a real display). This session runs offscreen; `test_main_window_state.py` already rearranges and restarts every mode headless, which is not the desktop proof.
+- **Seen, not changed:** in the Grid backtest page the equity chart's size hint takes most of the lower splitter, so the figures' pane opens narrow; it was so before this stage.

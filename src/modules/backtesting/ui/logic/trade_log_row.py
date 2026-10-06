@@ -24,7 +24,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
@@ -35,6 +36,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
     PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
+)
 
 #: `STOP_LOSS`/`TAKE_PROFIT`/`LIQUIDATION` are declared but unreachable until
 #: `BOT-041`/`BOT-049` — kept here anyway so the table never crashes on an
@@ -110,28 +117,41 @@ def build_trade_log_rows(trades: list[Trade]) -> list[TradeLogRow]:
     ]
 
 
-def _format_duration(entry_time: datetime, exit_time: datetime) -> str:
-    """@brief "4h 00m" style duration — not stored on `Trade` (BOT-045
-    decision: derivable data shouldn't be duplicated), always computed here
-    from `exit_time - entry_time`."""
-    total_minutes = max(0, int((exit_time - entry_time).total_seconds() // 60))
-    hours, minutes = divmod(total_minutes, 60)
-    return f"{hours}h {minutes:02d}m"
+#: The journal's fixed rows (`BOT-045`): the words and figures the Trades
+#: table has no column for. A strategy's metadata follows them.
+_JOURNAL_SPECS = (
+    ColumnSpec("entry_reason", "Entry reason", ColumnKind.TEXT),
+    ColumnSpec("exit_reason", "Exit reason", ColumnKind.TEXT),
+    ColumnSpec("duration", "Duration", ColumnKind.DURATION),
+    ColumnSpec("mae", "Worst excursion (MAE)", ColumnKind.PERCENT),
+    ColumnSpec("mfe", "Best excursion (MFE)", ColumnKind.PERCENT),
+)
+#: A metadata row's key, kept apart from the fixed rows' whatever the
+#: strategy names its own.
+_METADATA_KEY = "metadata:{}"
 
 
-def _signed_percent(value: float) -> str:
-    sign = "+" if value >= 0 else ""
-    return f"{sign}{value:,.2f}%"
-
-
-def _metadata_label(key: str) -> str:
+def _metadata_spec(key: str, value: object) -> ColumnSpec:
     """A strategy's metadata key as a reader sees it: no fixed schema, the
     keys are whatever the strategy attached (`BOT-045`: "tùy vào chiến
-    thuật")."""
-    return key.replace("_", " ").title()
+    thuật"). A number is a figure; anything else is words. An ampersand in
+    the key is text, never an access key."""
+    title = key.replace("_", " ").title().replace("&", "&&")
+    kind = ColumnKind.QUANTITY if _is_figure(value) else ColumnKind.TEXT
+    return ColumnSpec(_METADATA_KEY.format(key), title, kind)
 
 
-def trade_details(row: TradeLogRow) -> tuple[tuple[str, str], ...]:
+def _is_figure(value: object) -> bool:
+    return isinstance(value, int | float | Decimal) and not isinstance(value, bool)
+
+
+def _metadata_value(value: object) -> DisplayValue:
+    if isinstance(value, int | float | Decimal) and _is_figure(value):
+        return value
+    return str(value)
+
+
+def trade_details(row: TradeLogRow) -> Readout:
     """@brief The selected trade's journal (`BOT-045`): why it opened and
     closed, how long it ran, its worst and best excursion, then whatever
     the strategy attached, in insertion order.
@@ -139,13 +159,20 @@ def trade_details(row: TradeLogRow) -> tuple[tuple[str, str], ...]:
     @details The Trades table holds the figures; these are the words the
     table has no column for. Before `EPIC-033L` they were each row's
     expandable section; now one read-out under the table shows them for
-    the selected trade."""
-    lines = [
-        ("Entry reason", row.entry_reason or "—"),
-        ("Exit reason", _EXIT_REASON_LABELS[row.exit_reason]),
-        ("Duration", _format_duration(row.entry_time, row.exit_time)),
-        ("Worst excursion (MAE)", _signed_percent(row.mae_percent)),
-        ("Best excursion (MFE)", _signed_percent(row.mfe_percent)),
-    ]
-    lines += [(_metadata_label(key), str(value)) for key, value in row.metadata.items()]
-    return tuple(lines)
+    the selected trade. Each is a raw value of its row's kind, written by
+    the application's formatter (`EPIC-033N`): the duration is a
+    `timedelta` (never negative: `Trade` does not store it, it is derived
+    here), an excursion a percent, a blank entry reason an empty value."""
+    values: dict[str, DisplayValue] = {
+        "entry_reason": row.entry_reason or None,
+        "exit_reason": _EXIT_REASON_LABELS[row.exit_reason],
+        "duration": max(row.exit_time - row.entry_time, timedelta(0)),
+        "mae": row.mae_percent,
+        "mfe": row.mfe_percent,
+    }
+    specs = list(_JOURNAL_SPECS)
+    for key, value in row.metadata.items():
+        spec = _metadata_spec(key, value)
+        specs.append(spec)
+        values[spec.key] = _metadata_value(value)
+    return Readout(tuple(specs), values)

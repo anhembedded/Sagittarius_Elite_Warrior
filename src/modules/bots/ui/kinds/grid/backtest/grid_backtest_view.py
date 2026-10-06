@@ -5,7 +5,9 @@ The page asks for an interval and a period, runs on Run, and shows:
   drawn by a `BotChart` (ADR D16, the PR #321 review: never a drawer of
   its own);
 · the equity against buy-and-hold (D18);
-· the summary, each figure with its caveat, the fill rule among them.
+· the summary: the figures as a read-out the application's formatter
+  writes (`EPIC-033N`), and their caveats, the fill rule among them, as
+  sentences under it.
 
 While a run is in flight only Cancel is live. A refusal for candles that are
 not stored offers "Sync candles", and only a click syncs (`BUG-107`). Stock
@@ -17,11 +19,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from PySide6.QtCore import QDateTime, Qt, QTimeZone, Signal
+from PySide6.QtCore import QDateTime, QSize, Qt, QTimeZone, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDateTimeEdit,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -41,12 +42,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.equity_ch
     EquityChart,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
-    SummaryRow,
+    GridSummary,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
+from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
 #: The intervals a Grid backtest offers; the result chart draws in the same one.
 INTERVALS = (
@@ -93,7 +96,11 @@ class GridBacktestView(QWidget):
         self.card = ChartCard("Backtest")
         self.chart = BotChart(self.card, chart_ports, parent=self.card)
         self.equity = EquityChart()
-        self.summary = QFormLayout()
+        self.summary = ReadoutSlot()
+        self.summary.setObjectName("roGridBacktestFigures")
+        self.notes = QLabel()
+        self.notes.setObjectName("lblGridBacktestCaveats")
+        self.notes.setWordWrap(True)
         self._build()
         self.run_button.clicked.connect(self.run_requested)
         self.cancel_button.clicked.connect(self.cancel_requested)
@@ -143,34 +150,31 @@ class GridBacktestView(QWidget):
         candles: Sequence[MarketData],
         overlay: BotOverlay,
         equity: Sequence[EquityPoint],
-        rows: Sequence[SummaryRow],
+        summary: GridSummary,
     ) -> None:
         self.show_idle("")
         self.status.setText("Backtest done.")
         self.chart.draw_history(candles)
         self.chart.show_overlay(overlay)
         self.equity.show_equity(equity)
-        _fill_summary(self.summary, rows)
+        self.summary.show_readout(summary.readout)
+        self.notes.setText("\n".join(summary.notes))
+        self._figures.updateGeometry()
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
         self.chart.show_overlay(BotOverlay())
         self.equity.clear()
-        _fill_summary(self.summary, ())
+        self.summary.clear()
+        self.notes.clear()
 
     def summary_text(self) -> dict[str, str]:
-        """The summary as shown, label to value (tests read it)."""
-        shown: dict[str, str] = {}
-        for row in range(self.summary.rowCount()):
-            label = self.summary.itemAt(row, QFormLayout.ItemRole.LabelRole)
-            value = self.summary.itemAt(row, QFormLayout.ItemRole.FieldRole)
-            if label is not None and value is not None:
-                label_widget, value_widget = label.widget(), value.widget()
-                if isinstance(label_widget, QLabel) and isinstance(
-                    value_widget, QLabel
-                ):
-                    shown[label_widget.text()] = value_widget.text()
-        return shown
+        """The figures as shown, row key to text (tests read it)."""
+        return {key: self.summary.value_text(key) or "" for key in self.summary.keys}
+
+    def summary_form(self) -> ReadoutForm | None:
+        """The read-out the figures are shown in, while a result is."""
+        return self.summary.findChild(ReadoutForm)
 
     def shutdown(self) -> None:
         self.chart.shutdown()
@@ -191,15 +195,25 @@ class GridBacktestView(QWidget):
         period.addStretch(1)
         # The figures scroll in their own pane: a dozen form rows would
         # otherwise set the Bots mode's minimum height (PR #361 review).
-        figures = QScrollArea()
+        figures = _FiguresPane()
         figures.setObjectName("scrollGridBacktestFigures")
         figures.setWidgetResizable(True)
+        # The figures scroll down, never across: the pane asks for its
+        # read-out's width, and the chart takes what is left.
+        figures.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         rows = QWidget()
-        rows.setLayout(self.summary)
+        column = QVBoxLayout(rows)
+        column.addWidget(self.summary)
+        column.addWidget(self.notes)
+        column.addStretch(1)
         figures.setWidget(rows)
+        self._figures = figures
         lower = QSplitter()
+        lower.setChildrenCollapsible(False)
         lower.addWidget(self.equity)
         lower.addWidget(figures)
+        lower.setStretchFactor(0, 1)
+        lower.setStretchFactor(1, 0)
         body = QSplitter(Qt.Orientation.Vertical)
         body.addWidget(self.card)
         body.addWidget(lower)
@@ -207,6 +221,26 @@ class GridBacktestView(QWidget):
         layout.addLayout(period)
         layout.addWidget(self.status)
         layout.addWidget(body, 1)
+
+
+class _FiguresPane(QScrollArea):
+    """The figures' scroll area, asking for its content's width.
+
+    A `QScrollArea` asks for almost nothing, so the splitter gave the equity
+    chart every pixel and left the figures a strip about 70 px wide at any
+    window size, labels cut and no value shown (review of PR #378). Asking
+    for the content's width lets the splitter, which keeps its children
+    whole, leave room for every figure.
+    """
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt override
+        hint = super().minimumSizeHint()
+        content = self.widget()
+        if content is None:
+            return hint
+        bar = self.verticalScrollBar().sizeHint().width()
+        width = content.sizeHint().width() + bar + 2 * self.frameWidth()
+        return QSize(max(hint.width(), width), hint.height())
 
 
 def _datetime_edit(name: str, value: datetime) -> QDateTimeEdit:
@@ -221,12 +255,3 @@ def _datetime_edit(name: str, value: datetime) -> QDateTimeEdit:
 
 def _utc(edit: QDateTimeEdit) -> datetime:
     return datetime.fromtimestamp(edit.dateTime().toSecsSinceEpoch(), UTC)
-
-
-def _fill_summary(form: QFormLayout, rows: Sequence[SummaryRow]) -> None:
-    while form.rowCount():
-        form.removeRow(0)
-    for row in rows:
-        value = QLabel(row.value)
-        value.setWordWrap(True)
-        form.addRow(QLabel(row.label), value)

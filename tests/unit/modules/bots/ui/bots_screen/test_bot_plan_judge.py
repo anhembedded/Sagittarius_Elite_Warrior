@@ -79,6 +79,6 @@ def test_a_verdict_line_names_its_severity_and_its_numbers() -> None:
     )
 
     assert verdict_line(verdict) == (
-        "Warning: The range is narrow (measured range 10000, threshold 11400)"
+        "Warning: The range is narrow (measured range 10,000, threshold 11,400)"
     )
     assert verdict_line(Verdict(VerdictSeverity.OK, "X", "Fine")) == "OK: Fine"

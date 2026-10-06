@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.order_metadata_precisions import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
     precision_of,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
