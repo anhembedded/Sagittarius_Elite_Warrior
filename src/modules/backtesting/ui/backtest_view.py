@@ -276,15 +276,10 @@ class BackTestView(OutputSourceView):
         self._last_result = None
         self._last_klines = klines
         self._last_volume = volume
-        card = self._current_card()
-        if card is None:
+        if self._current_card() is None:
             return
-        card.render_historical_data(klines)
-        card.set_chart_type("candlestick")
-        card.render_historical_volume(volume)
-        card.clear_script_markers(_TRADE_FLAGS_KEY)
+        self._render_chart()
         self.chartPreviewRendered.emit()
-        self._remove_equity_subplot(card)
 
     @property
     def chart_mode(self) -> ChartDisplayMode:
@@ -293,10 +288,11 @@ class BackTestView(OutputSourceView):
     def set_chart_mode(self, mode: ChartDisplayMode) -> None:
         """`PythonBacktestChartHost` supports OHLC/EQUITY/BOTH directly, so
         switching modes never needs a host rebuild — it did while a native
-        host (with a narrower supported-mode set) could still be active."""
+        host (with a narrower supported-mode set) could still be active.
+
+        BUG-158: renders with or without a result (an empty equity series)."""
         self._chart_mode = mode
-        if self._last_result is not None:
-            self._render_chart()
+        self._render_chart()
 
     def set_volume_visible(self, visible: bool) -> None:
         card = self._current_card()
@@ -357,7 +353,7 @@ class BackTestView(OutputSourceView):
             return
 
         if self._chart_mode is ChartDisplayMode.EQUITY:
-            synthetic = equity_curve_to_candles(self._last_result.equity_curve)
+            synthetic = equity_curve_to_candles(self._equity_curve())
             card.render_historical_data(synthetic)
             card.set_chart_type("line")
             card.clear_script_markers(_TRADE_FLAGS_KEY)
@@ -387,8 +383,12 @@ class BackTestView(OutputSourceView):
         else:
             self._remove_equity_subplot(card)
 
+    def _equity_curve(self) -> list:
+        """The last run's equity curve; empty before any run has a result."""
+        return [] if self._last_result is None else self._last_result.equity_curve
+
     def _add_or_update_equity_subplot(self, card) -> None:
-        x_data, y_data = equity_curve_to_line_data(self._last_result.equity_curve)
+        x_data, y_data = equity_curve_to_line_data(self._equity_curve())
         if not self._equity_subplot_added:
             card.add_subplot_indicator(_EQUITY_SUBPLOT_KEY, _EQUITY_SUBPLOT_COLOR)
             self._equity_subplot_added = True
