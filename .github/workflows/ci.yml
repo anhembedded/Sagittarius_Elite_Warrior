@@ -24,6 +24,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The gate only reads the repository and passes artifacts between its own
+# jobs (which needs no token scope), so the token gets read access to the
+# contents and nothing else (CodeQL `actions/missing-workflow-permissions`).
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
