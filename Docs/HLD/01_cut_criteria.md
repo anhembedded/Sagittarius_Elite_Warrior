@@ -28,9 +28,9 @@ leave the module boundary alone. If only C6 fails, the piece is a support packag
 | `strategy` | ✅ *Signal*, *Arm*, `LiveStrategyConfig` exist nowhere else | ✅ the configuration of the strategy currently armed | ✅ changes with trading ideas — **the fastest rhythm in the app** | ✅ | ✅ `backtesting` runs it; `trading` receives orders from it | ✅ | **Bounded context — Core** |
 | `backtesting` | ✅ *Position* is an `OpenPosition` that is **simulated**, mutated by the app on every tick (`open_position.py`) | ✅ run results, trade log | ✅ changes with the simulation model (fees, matching) | ✅ | ✅ one screen of 12,309 lines that the user runs | ✅ | **Bounded context** |
 | Account / Equity | ❌ merely derived from `ACCOUNT_UPDATE` | ❌ no state of its own | — | — | ❌ one consumer | — | **Stays inside `trading`**; a candidate to split later |
-| Dev Board | ❌ no word of its own — 59 names shared with Trading | ❌ | ❌ | — | — | — | **Not a module** — it is a *surface* (§4) |
+| Dev Board | ❌ no word of its own — 59 names shared with Trading | ❌ | ❌ | — | — | — | **Not a module** — it is a *surface* (§4); deleted in `EPIC-033P`, its parts now on the desks and in the Market and Developer modes |
 | `charting` (the 27-file chart card) | ❌ | ❌ | ✅ | — | ✅ 3 screens | ❌ **purely technical** | **Support** |
-| `indicators` (indicator mathematics) | ❌ | ❌ | ✅ | ✅ | ✅ strategy, backtest, dev board | ❌ | **Support** |
+| `indicators` (indicator mathematics) | ❌ | ❌ | ✅ | ✅ | ✅ strategy, backtest, the Market mode | ❌ | **Support** |
 | `ui_kit` | ❌ | ❌ | ✅ | — | ✅ every screen | ❌ | **Support** |
 | `binance_gateway` (`exchange_session_factory`, `binance_endpoints`, credentials, error translator) | ❌ | ❌ | ✅ changes with the exchange SDK | ✅ | ✅ `market_data` **and** `trading` both build their client from one factory (the guard test *only the session factory constructs binance client*) | ❌ | **Support** — the shared Anticorruption Layer for the SDK |
 

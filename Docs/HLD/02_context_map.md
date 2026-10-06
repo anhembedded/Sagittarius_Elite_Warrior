@@ -10,7 +10,7 @@
 
 ```
                  ┌──────────────────────────── shell/ (Martin's "Main") ────────────────────────────┐
-                 │  explicit module list · surfaces: trading / dev_board / settings · CLI          │
+                 │  explicit module list · surfaces: trading / developer · Options pages · CLI     │
                  └───────────────────────────────────────────────────────────────────────────────────┘
                                                       │ knows only IExtension + contracts/
    ┌──────────────┐    IHistoricalKlines     ┌──────────────┐   IOrderSubmission    ┌──────────────┐

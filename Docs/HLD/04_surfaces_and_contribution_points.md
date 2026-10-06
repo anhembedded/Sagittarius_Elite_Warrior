@@ -13,14 +13,18 @@
   surface receives, place by place, coloured by the module that owns the widget (§4.6.2, §4.6.4);
   [`hld-05a_window_containment.puml`](diagrams/hld-05a_window_containment.puml) — what contains
   what: `MainWindow` ⊃ Sidebar + `QStackedWidget` ⊃ surfaces and module-owned screens ⊃ `PageShell`
-  slots, plus the registry that feeds every slot;
-  [`hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml) — Trading
-  and Dev Board slot by slot, each widget coloured by its owning module, dotted lines joining the
-  widgets that are the same factory on both surfaces.
+  slots, plus the registry that feeds every slot. (`hld-05b_trading_devboard_slots.puml`, which
+  drew Trading and the Dev Board slot by slot, was deleted with the Dev Board in `EPIC-033P`; §4.5's
+  table is where each of its widgets lives now.)
 
 ## 4.1 The problem, measured
 
-Trading (`screens/trading`) and Dev Board (`screens/dashboard`) build **one** set of business
+> **Resolved.** The problem below was measured in 2026-09. The single Trading screen became two
+> desks (`EPIC-028`), the Dev Board's parts moved to the desks, the Market mode and the Developer
+> mode, and `EPIC-033P` stage 3 deleted the Dev Board; `test_presenter_duplication_only_shrinks.py`
+> holds what is left of the duplication. Kept as the reason the contribution mechanism exists.
+
+Trading (`screens/trading`) and Dev Board (`screens/dashboard`) built **one** set of business
 behaviour twice. Fifty-nine method and member names are duplicated between them; both use the
 same `PositionsPanel` and `OpenOrdersPanel`; the equity chart is built with the same recipe (a
 comment says so: *"same construction recipe"*); the strategy panel has the same eight object names
@@ -46,20 +50,21 @@ that lives inside the widgets that modules own.
 | `welcome` 🔵 (ADR D13) | `HEADER` (environment banner, developer-mode switch — ADR D14) · `WORKSPACE` (app name and version, **Start**) | always | ✅ **default**; Start opens the Futures desk (`trading.futures`, since `EPIC-028M`) |
 | `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (panels) · `CONSOLE` · `MODAL` | always | no. The declared place family of the two desks (`trading.futures`, `trading.spot`, `EPIC-028K`/`028L`), which are still `PageShell` screens: they move onto this surface when `EPIC-025` converts the remaining `PageShell`s. The single Trading screen that once rendered it left in `EPIC-028M` |
 | `bots` (`EPIC-029F`, ADR D19) | not a surface yet: a `PageShell` screen at NAVIGATION item 18 whose header holds **New bot** and whose workspace is the list of bots beside one bot's detail shell (header and actions, figures, and Chart, Parameters, Orders, Fills, Log and Backtest tabs). The Parameters tab hosts the kind's own editor and the Backtest tab the kind's own backtest (`EPIC-029D`; hidden for a kind without one), both chosen by `kind_id` (`bots/ui/kinds/kind_panels.py`), so the shell names no kind | always | no |
-| `dev_board` | the same as `trading` plus `DEV_PROBE`; the system controls (market, symbol, date range, load, start/stop) are a `HEADER` contribution by `market_data` at `order = 20` — not a place of their own | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read by the asset validator, the log filter, and the chart FPS overlay on the backtest screen (`backtest_view.py:204`), so the restart in D14 changes that overlay too — declared) | no (today it is `is_default=True`) |
+| `developer` (`EPIC-033P`) | `WORKSPACE` (the event log) · `DEV_PROBE` (the modules' probes, docked right) | **`dev.mode` at boot** (ADR D14): with it off the surface drops every contribution and the Developer mode screen is dropped with its commands (`ScreenContribution.gated_by`) | no |
+| ~~`dev_board`~~ (deleted, `EPIC-033P`) | the Dev Board's: `trading`'s places plus `DEV_PROBE`, never gated; its parts moved to the desks, the Market mode and `developer` | — | — |
 | ~~`settings`~~ (deleted, `EPIC-033E`) | none: each module contributes a page of Tools → Options through `contribute_options_page`, and the Options dialog drives the page (apply, revert, dirty) | — | — |
 
 ⚠️ These are changes in **user-visible behaviour**, not pure refactoring, decided by the user on
-2026-09-13 (ADR D13, D14): the app opens on a Welcome screen; Dev Board and every API probe exist
-only when `dev.mode` was true at boot; the Welcome screen carries the developer-mode switch, which
+2026-09-13 (ADR D13, D14): the app opens on a Welcome screen; the developer surface and every API
+probe exist only when `dev.mode` was true at boot (the Developer mode since `EPIC-033P`); the Welcome screen carries the developer-mode switch, which
 writes `user_config.json` and offers a restart. The Welcome screen is a **shell** surface (it is
 about the application, not about any bounded context) and its primary action is **Start** — not
 "Login" — until there is something to authenticate; the button raises one `StartRequested` intent
 so a real login can replace it later without moving anything else.
 
-**A widget contributed to a surface belongs to a module.** For example, `trading` contributes the
-`PositionsPanel` factory to both `trading.rail` and `dev_board.rail` — one class, two instances,
-one `LiveOrderBookCoordinator` (in `modules/trading/ui/`). Duplication drops to zero because there
+**A widget contributed to a surface belongs to a module.** For example, `trading` builds the
+same `PositionsPanel` on both desks — one class, two instances, one `LiveOrderBookCoordinator`
+(in `modules/trading/ui/`). Duplication drops to zero because there
 is nothing left to copy.
 
 ## 4.3 Contribution points — the round-1 kinds (❓ O1: the final schema is settled in round 2)
@@ -74,9 +79,9 @@ geometry"*.
 | `screen` | `route, title, icon, section_key, sequences, is_default, factory(container) -> (View, Presenter)` | every module | the shell (`ScreenRegistry` ✅ from `EPIC-016` — kept until Phase 5) | the hard-coded tuple of 5 modules at `app_bootstrapper.py:322` |
 | `surface_widget` | `surface_id, slot, order, factory(container) -> QWidget, owner_module` | market_data, trading, strategy, charting, indicators | a surface | two Presenters building their own panels |
 | `options_page` | `contributor_id, order, factory(container) -> IOptionsSection` (a page bound to the **module's own** config keys) | trading (venues, credentials check), market_data (venue, default symbols / interval / sync days) ✅ `EPIC-033E`; it was the `settings_section` kind from `EPIC-025E` PR 4.4e | the Options dialog (Tools → Options) | a single `SettingsView` grid that knew every config key, then one Settings screen with a Save button per section |
-| `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `dev_board.probes` slot, only under `dev.mode`; since `EPIC-033P` the `developer` surface, the Developer mode's right dock area | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
+| `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `developer` surface, the Developer mode's right dock area, only under `dev.mode` (`EPIC-033P`; the Dev Board's probes slot before) | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
 | `cli_command` | `name, build_parser(sub), execute(app, args)` | market_data (`sync`, `stream`), trading (`exchange-status`, `order-preview`, `order-dry-run`), strategy (`trade-once`) | `shell/cli` | the if/elif chain at `main.py:139-156` plus `cli_commands.json` |
-| `status_tile` | `key, factory -> QWidget` | trading (websocket pill), market_data (price ticker) | a surface header | `DevBoardPanel.header_actions` |
+| `status_tile` | `key, factory -> QWidget` | trading (websocket pill), market_data (price ticker) | a surface header | the Dev Board's header actions (`DevBoardPanel.header_actions`, deleted with it in `EPIC-033P`) |
 
 **Considered and not adopted in round 1.** `chart_overlay`: drawing on a chart goes through
 `IChartHost`, the port of `support/charting`, which the surface hands to the widget; no separate
@@ -103,30 +108,32 @@ The user's definition: *"khi bạn dev nếu API nào của sàn chưa rõ, thì
   `EPIC-033P`) does not exist, so its factories never run, and the Developer mode screen itself is
   dropped with its commands (`ScreenContribution.gated_by`).
 
-## 4.5 Who owns which widget (the desks and Dev Board)
+## 4.5 Who owns which widget (the desks, the Market mode and the Developer mode)
 
 The single Trading screen became two **desks** in `EPIC-028` (the
 [ADR](../../Tasks/epics/EPIC-028_futures_and_spot_trading_desks/DECISION_2026-09-29_two_trading_desks.md)):
 the Futures desk and the Spot desk, one composition (`ui/desk/desk_screen/`) built for one venue
 each, differing only in their `DeskProfile` (ADR D5). Every widget on a desk is its own venue's.
-The picture of the older two-surface layout is
-[`hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml).
 
-| Widget | Owning module | Each desk | Dev Board |
-| :--- | :--- | :-: | :-: |
-| Chart panel (one symbol) / chart list (n symbols) | `charting` (host) + `market_data` (feed) | 1, its venue's market | n |
-| Positions table, open orders table (with cancel-one-order) | `trading` | ✅ account tabs: open orders (cancel one, cancel all), order and trade history, positions (close at market) or assets | ✅ |
+| Widget | Owning module | Each desk | Elsewhere |
+| :--- | :--- | :-: | :--- |
+| Chart panel (one symbol) / chart tabs (n symbols) | `charting` (host) + `market_data` (feed) | 1, its venue's market | the Market mode: a tab per open symbol, Spot or Futures (`EPIC-033H`, `033Q`) |
+| Positions table, open orders table (with cancel-one-order) | `trading` | ✅ account tabs: open orders (cancel one, cancel all), order and trade history, positions (close at market) or assets | — |
 | Account summary (available, wallet, margin, uPnL / quote free, locked, equity) | `trading` | ✅ | — |
-| Order panel (every order type the venue takes, estimates, TP/SL on Futures) | `trading` | ✅ in the rail | ✅ the same panel, in the `F9` dialog, for the venue the board trades (`EPIC-028M`; ADR D15's "Dev Board only" manual-order card is retired) |
-| Enable/Disable, Emergency stop | `trading` | ✅ for its venue only | ✅ the same `DeskSessionControls`, for the venue the board trades |
-| Session panel, websocket pill | `trading` | — | ✅ |
-| Equity chart | `trading` (adapter) + `charting` | ✅ its venue's curve | ✅ |
-| Strategy panel, last-signal panel, parameters dialog | `strategy` | ✅ its venue's arming | ✅ |
-| Strategy overlay on the chart | `strategy` | ✅ | 🔵 |
-| Indicator script checklist | `indicators` | — | ✅ |
-| System controls (market / symbol / date range / load / start / stop), symbol picker | `market_data` | a reduced context bar (symbol) | ✅ |
-| API probes | each module | — | ✅ |
-| Log console | `ui_kit` | ✅ | ✅ |
+| Order panel (every order type the venue takes, estimates, TP/SL on Futures) | `trading` | ✅ in the rail; Trade → New order… (`F9`) focuses it (`EPIC-033R`) | — (ADR D15's "Dev Board only" manual-order card was retired in `EPIC-028M`) |
+| Enable/Disable, Emergency stop | `trading` | ✅ for its venue only | — |
+| Session state (enabled, orders sent, symbols held) | `trading` | — | the Developer mode's *Trading session* probe |
+| Equity chart | `trading` (adapter) + `charting` | ✅ its venue's curve | — |
+| Strategy panel, parameters dialog | `strategy` | ✅ its venue's arming (`desk/strategy_card/`, until Bots takes it, HLD §11.2.4) | — |
+| Strategy overlay on the chart | `strategy` | ✅ | — |
+| Indicator script checklist, indicator parameters | `indicators` | — | the Market mode's Indicators panel and Tools → Indicator parameters… (`BOT-153`) |
+| Watchlist | `trading` | a reduced context bar (symbol) | the Market mode's Watchlist panel |
+| API probes, event log | each module; the shell | — | the Developer mode, only under `dev.mode` (`EPIC-033P`) |
+| Log console | `ui_kit` | ✅ | ✅ every mode's channel of the one Output pane |
+
+The Dev Board, the developer testbed that held a column of this table until `EPIC-033P` stage 3,
+is deleted: what it showed moved to the desks, the Market mode and the Developer mode, and its
+*Last signal* read-out was dropped (the user's decision, 2026-10-05).
 
 ## 4.6 Where a new module's UI goes — the workbench rule 🔵 Proposed (2026-09-13)
 
@@ -164,17 +171,18 @@ the module's UI footprint.
    the result), Data Management (sync, inspect, repair). A hypothetical `journal` module (review
    past trades) would answer yes.
 2. **Does the module produce or consume something the trader needs while trading?** If yes, it
-   contributes **panels into `trading.rail`** (and, by the mirror rule below, `dev_board.rail`);
+   contributes **panels into `trading.rail`**;
    only `market_data` and `charting` may contribute to `workspace`, because a workspace holds one
    thing. Examples: `trading` (positions, orders, session), `strategy` (the strategy panel, the last
    signal). A hypothetical `risk` module (exposure limits) would answer yes with one panel.
-3. **Is the rest configuration or diagnostics?** Then `settings.section`, `status_tile`, and
-   `dev_board.probes` respectively. Every module with configuration keys answers yes to the first.
+3. **Is the rest configuration or diagnostics?** Then an Options page, `status_tile`, and
+   a `DEV_PROBE` on the `developer` surface respectively. Every module with configuration keys answers yes to the first.
 
 A module may answer yes to several: Backtest has its own screen **and** a status tile. **When in
-doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.rail` first (gated by
-`dev.mode`) and is promoted to `trading.rail` when the user wants it there — a one-line change in
-`contribute()`. This is what "Dev Board is for testing and discovery" (ADR D4) means in practice.
+doubt, start as a probe.** Something not yet proven is a `DEV_PROBE` on the `developer` surface
+first (gated by `dev.mode`) and becomes a panel of its mode when the user wants it there. This is
+what "the developer's screen is for testing and discovery" (ADR D4) means in practice; the Dev
+Board that ADR D4 named was deleted in `EPIC-033P`, and the Developer mode carries its testing role.
 
 ### 4.6.3 Five rules that keep the vocabulary honest
 
@@ -184,9 +192,8 @@ doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.r
    four of seven columns because a screen hand-sized them) and of `EPIC-001D`'s "regions decide
    geometry".
 2. **One widget, many places.** The same factory may be contributed to several surfaces; a module
-   never builds a "Trading version" and a "Dev Board version" of a widget. Trading and Dev Board
-   therefore **mirror by default**: a `trading.rail` panel is also a `dev_board.rail` panel unless the
-   module says otherwise. The reverse is not true — Dev Board holds things Trading does not.
+   never builds one version of a widget per screen. The two desks show one order panel, one set of
+   account tabs and one strategy card, each built for its own venue.
 3. **Every screen is a surface.** A module's own screen is a `PageShell` like any other, and the
    owner declares which of its slots accept contributions from other modules
    (`accepts=("rail", "modal")`). That is how `strategy` puts its parameters dialog into Backtest
@@ -203,12 +210,12 @@ doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.r
 
 | Module | Q1 own screen | Q2 trading panels | Q3 config / diagnostics | Matches today? |
 | :--- | :--- | :--- | :--- | :--- |
-| `market_data` | ✅ Data Management (the Watchlist is a panel of `trading`'s Market mode since `EPIC-033H`) | context bar (symbol), Dev Board system controls (`HEADER`, order 20), the indicator checklist it wants on Dev Board (support packages never contribute — the needing module does) | settings section (venue, defaults); status tile (ticker) | ✅ |
+| `market_data` | ✅ Data Management (the Watchlist is a panel of `trading`'s Market mode since `EPIC-033H`) | context bar (symbol); the market's candles reach the Market mode's charts through its feed (support packages never contribute — the needing module does) | Options page (venue, defaults); status tile (ticker) | ✅ |
 | `trading` | ❌ — Trading is a **surface**, not the module's screen | positions, orders, manual order, session, equity | settings section (venue, limits, credentials check); status tile (websocket); probe | ✅ once Trading is a surface (Phase 1) |
-| `strategy` | ❌ | strategy panel, last signal; modal (parameters) | — | ✅ |
+| `strategy` | ❌ | strategy panel; modal (parameters) | — | ✅ |
 | `backtesting` | ✅ Backtest | ❌ (its run-progress tile goes on **its own** screen's header, not Trading's) | status tile on its own screen | ✅ |
-| `indicators` (support) | — | never contributes; `market_data` contributes the checklist | — | ✅ |
-| `charting` (support) | — | never contributes; the module that wants a chart contributes it (`trading` on the trading workspace, `market_data` on Dev Board) | — | ✅ |
+| `indicators` (support) | — | never contributes; `trading`'s Market mode shows the checklist | — | ✅ |
+| `charting` (support) | — | never contributes; the module that wants a chart contributes it (`trading` on the desks and in the Market mode) | — | ✅ |
 | *shell* (not a module): the Developer page of Tools → Options | — | — | — | the rule's own test: what is about the application itself belongs to the shell. The `welcome` and `settings` surfaces that held it were deleted by `EPIC-033C` and `EPIC-033E` |
 
 The check exposes the one place the current code disagrees with the rule: the Trading screen is

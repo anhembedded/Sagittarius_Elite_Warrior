@@ -53,7 +53,7 @@
 | [EPIC-033J](completed/EPIC-033J_data_mode.md) | Data mode: keep history complete, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | ✅ Done (2026-10-05) |
 | [EPIC-033K](incomplete/EPIC-033K_bots_mode.md) | Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | 🟡 In progress (stage 1: the layout) |
 | [EPIC-033L](completed/EPIC-033L_backtest_mode.md) | Backtest mode: test a strategy on stored history, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | ✅ Done (2026-10-05) |
-| [EPIC-033P](incomplete/EPIC-033P_developer_mode.md) | Developer mode: the testbed, only when developer mode is on | Elite | EPIC-033O, EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟢 | 🟡 In progress (stage 2 of 3) |
+| [EPIC-033P](completed/EPIC-033P_developer_mode.md) | Developer mode: the testbed, only when developer mode is on | Elite | EPIC-033O, EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟢 | ✅ Done (2026-10-06) |
 | [EPIC-033Q](completed/EPIC-033Q_market_spot_and_futures.md) | The Market mode shows Spot or Futures candles, as the person chooses | Elite | EPIC-033H | 🟢 | ✅ Done (2026-10-05) |
 | [EPIC-033R](completed/EPIC-033R_desk_new_order_f9.md) | Each trading desk has Trade → New order… (F9) | Elite | EPIC-033D | 🟢 | ✅ Done (2026-10-05) |
 | [EPIC-033S](completed/EPIC-033S_market_chart_history_range.md) | The Market mode's charts scroll back and load a chosen range | Elite | EPIC-033H | 🟡 | ✅ Done (2026-10-05) |
@@ -85,6 +85,7 @@ The Engine epic is scaffolded in that repository by its own rules (`.agents/rule
 Visual design (colours, icon set, branding, a designed dark theme) — deferred by the user (D1); dark mode comes only from the operating system's colour scheme (D8). The Bots tab (`EPIC-029F`, PR #333) is born a workbench host: a `WorkbenchSurface` (the Engine's `RegionHost`) with stock controls and no style sheet, so it passes every conformance check. Its 7 per-view item-view calls wait in `baseline_stock_controls.json` for `EPIC-033N`; `EPIC-033K` re-lays it out on `WorkbenchShell` (stage 1: the chart central, the list, plan and activity docked). Engine-side retirement of the QML kit is the Engine's own decision (W5 only scopes it).
 
 ## Notes (newest first)
+- **2026-10-06** — `EPIC-033P` done: the Developer mode (event log, probes) replaced the Dev Board, which stage 3 deleted after a coverage survey re-homed the only proofs it held; no `Develo&per` menu (the probes' View toggles reach them).
 - **2026-10-04** — Redesign from the use cases (D10) and the rule grounded in Microsoft/KDE/Apple guidance (D11): 033O and 033P added; the screen-by-screen tasks became mode tasks; Settings became Tools → Options.
 - **2026-10-04** — The user confirmed D3 (engine directly) and added D9 (uniform display widgets): W6 and 033N added.
 - **2026-10-04** — Epic planned from the UI review and three user messages; nothing implemented.

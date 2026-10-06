@@ -25,8 +25,8 @@ abstract class Surface {
 
 class WelcomeSurface <<shell-owned>> #LightGray
 class TradingSurface <<shell-owned>> #LightGray
-class DevBoardSurface <<shell-owned>> #LightGray {
-  {gated by dev.mode at boot}
+class DeveloperSurface <<shell-owned>> #LightGray {
+  {gated by dev.mode at boot; EPIC-033P}
 }
 class SettingsSurface <<shell-owned>> #LightGray
 class BacktestScreen <<owned by backtesting>> #Wheat {
@@ -51,7 +51,7 @@ Surface *-- "1" SurfaceHost
 
 Surface <|-- WelcomeSurface
 Surface <|-- TradingSurface
-Surface <|-- DevBoardSurface
+Surface <|-- DeveloperSurface
 Surface <|-- SettingsSurface
 Surface <|-- BacktestScreen
 Surface <|-- DataManagementScreen

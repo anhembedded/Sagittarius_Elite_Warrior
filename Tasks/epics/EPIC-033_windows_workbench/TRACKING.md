@@ -50,7 +50,7 @@ gantt
 | EPIC-033J | [Data mode: what is stored — stored-data table central, Coverage and Candle inspector panels, a Data menu](incomplete/EPIC-033J_data_mode.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-033K | [Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it](incomplete/EPIC-033K_bots_mode.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-033L | [Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels](incomplete/EPIC-033L_backtest_mode.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-033P | [Developer mode: the testbed, only when developer mode is on](incomplete/EPIC-033P_developer_mode.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-033P | [Developer mode: the testbed, only when developer mode is on](completed/EPIC-033P_developer_mode.md) | #367 (stages 1-2); stage 3 in its own pull request | 🟢 | ✅ Done | 2026-10-06 |
 | EPIC-033M | [The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban](incomplete/EPIC-033M_retire_kit.md) | — | 🟢 | 🔵 Planned | — |
 
 ---
