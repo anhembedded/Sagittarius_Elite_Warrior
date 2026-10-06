@@ -124,7 +124,10 @@ def test_a_timeframe_column_reads_as_its_code_and_sorts_by_its_length():
         (1023, "1,023 B"),
         (1024, "1.00 KB"),
         (1536, "1.50 KB"),
-        (1024**2 - 1, "1,024.00 KB"),
+        # One byte under a unit reads as that unit, not as 1,024.00 of the one below.
+        (1024**2 - 1, "1.00 MB"),
+        (1024**3 - 1, "1.00 GB"),
+        (1024**2 - 6 * 1024, "1,018.00 KB"),
         (1024**2, "1.00 MB"),
         (3355443, "3.20 MB"),
         (int(128.4 * 1024**2), "128.40 MB"),
