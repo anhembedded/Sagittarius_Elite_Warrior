@@ -1,7 +1,7 @@
 """
 Guards the two conventions that make custom indicator scripts safe to add
 (BOT-032). Pure static analysis (ast/glob) — no PySide6 import, no qapp,
-matching test_application_layer_structure.py / test_card_layer_structure.py.
+matching test_application_layer_structure.py.
 """
 
 import ast

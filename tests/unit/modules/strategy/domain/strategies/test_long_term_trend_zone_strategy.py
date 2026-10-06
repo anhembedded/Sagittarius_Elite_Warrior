@@ -18,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.long_term_
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 
 def _build_engine(trend_ema_len: int = 10) -> StrategyEngine:
@@ -63,12 +69,13 @@ def test_classify_trend_zone_is_none_when_price_exactly_equals_the_trend_ema(
     assert strategy.classify_trend_zone(context) is None
 
 
-def test_chart_line_colors_names_the_trend_ema_key():
+def test_chart_line_series_names_the_trend_ema_key_and_no_colour():
     strategy = LongTermTrendZoneStrategy()
 
-    colors = strategy.chart_line_colors()
+    series = strategy.chart_line_series()
 
-    assert set(colors.keys()) == {strategy.TREND_EMA_KEY}
+    assert series == {strategy.TREND_EMA_KEY: ChartSeries.LONG_TERM_TREND_EMA}
+    assert series_colour(ChartSeries.LONG_TERM_TREND_EMA) == "#9b59b6"
 
 
 def test_golden_signal_sequence_matches_a_real_engine_run(make_klines):

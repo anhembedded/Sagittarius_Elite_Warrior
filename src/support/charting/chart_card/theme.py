@@ -9,16 +9,25 @@ green because it closed up, a stop-loss line is the loss colour because it is
 where a loss is taken. Each meaning is a name below, and a reader asks for the
 meaning, never for a hex value.
 
-BULL and BEAR are the only fixed RGB values (`token-exempt`); every other
-meaning is either one of those two or a named colour Qt and SVG both define, so
-no second literal table exists to drift from this one. The package imports
-nothing from the application's former `Palette`, which `EPIC-033M` deleted, and
+BULL and BEAR are taken from `support/charting/contracts/series_colours.py`, the one
+table of data series colours; every other meaning is either one of those two or
+a named colour Qt and SVG both define, so no second literal table exists to
+drift from it. The package imports nothing from the application's former `Palette`, which `EPIC-033M` deleted, and
 nothing Qt-backed, so `StrategyChartOverlayService` can reach this file from the
 application layer without paying for a Qt import
 (`tests/unit/architecture/test_module_contribution_laziness.py`)."""
 
-BULL_COLOR = "#26a69a"  # token-exempt: candle/indicator series colour, not chrome
-BEAR_COLOR = "#ef5350"  # token-exempt: candle/indicator series colour, not chrome
+from __future__ import annotations
+
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
+
+BULL_COLOR = series_colour(ChartSeries.BULL)
+BEAR_COLOR = series_colour(ChartSeries.BEAR)
 #: A series that means "neither up nor down": the out-of-sample divider, the
 #: Monte Carlo paths. It was `CROSSHAIR_COLOR` until `EPIC-033G` moved the
 #: crosshair, which is chrome, to `QPalette` roles (`chart_chrome.py`).

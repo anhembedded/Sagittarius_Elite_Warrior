@@ -1,11 +1,17 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 from .base_indicator_script import (
     BaseIndicatorScript,
 )
 
-_BULL = "#0ECB81"
-_BEAR = "#F6465D"
+_BULL = series_colour(ChartSeries.TREND_UP_LINE)
+_BEAR = series_colour(ChartSeries.TREND_DOWN_LINE)
 
 
 class EmaCrossScript(BaseIndicatorScript):

@@ -22,9 +22,12 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 182 | 83.5% |
+| 🟢 **Completed** | 183 | 83.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 28 | 12.8% |
+| 🔴 **Backlog** | 27 | 12.4% |
+| ❌ **Cancelled** | 8 | 3.7% |
+| 📈 **Tổng số Task** | **218** | **100%** |
+| 🔴 **Backlog** | 26 | 12.0% |
 | ❌ **Cancelled** | 8 | 3.7% |
 | 📈 **Tổng số Task** | **218** | **100%** |
 
@@ -178,6 +181,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-161`](completed/BOT-161_one_table_of_series_colours.md) (every data series colour comes from one table, and the domain names no colour)**: [Decision: a sibling table in `support/charting/contracts/` (`series_colours.py`, named by `ChartSeries`) rather than `chart_card/theme.py`, because the indicator scripts are Qt-free and `chart_card` imports the toolkit, and a `contracts/` package is importable from anywhere under the boundary rules. Strategies name the series they draw (`chart_line_series()`), so no colour is left under `modules/*/domain`; `theme.py` takes bull and bear from the table, so a profit and an up candle stay one colour. `test_stock_controls_only.py` is a ban outright with the table as its single exemption, and `baseline_stock_controls.json` is deleted. A test per series reads the pre-change colour through the table.]
+- [x] **[`BUG-152`](bug_report/completed/BUG-152_sanity_run_ends_with_uncollectable_objects_warning.md) (a green gate's log no longer ends with uncollectable objects)**: [Root cause: PySide6 6.9–6.11 cannot collect a `QObject` class that declares a `QtCore.Property` at exit; after `EPIC-033M` the last such classes the app loaded were the Engine's `CardModel` and `BaseQmlViewModel`, brought in by `pyside_mvc`'s eager package import (Engine `BUG-023`, PR #235), by three view models inheriting `BaseQmlViewModel`, and by the boot-time engine-capability lookup of `create_quick_widget`. Fix: `UiModeViewModel` (plain properties, same contract) for the two FSM view models, `StatusMessageViewModel` a plain `QObject`, the obsolete capability dropped, `engine.ref` at `31a523e`, and the gate's run-log scan fails on the line. Regression: `tests/sanity/test_shutdown_leaves_nothing_uncollectable.py` (a fresh-interpreter scan of every `src` module, the view-model import, and a scan after the real boot), red before and green after; the sanity tier prints no `uncollectable` line.]
 - [x] **[`BUG-151`](bug_report/completed/BUG-151_status_bar_progress_bar_always_busy.md) (the status bar's progress bar no longer runs busy at rest)**: [Root cause: in the Engine, `WorkbenchShell._sync_status_widgets()` set each status widget visible by mode scope on every mode change, over its owner's own `hide()`; the Data mode's idle progress bar, indeterminate while hidden, ran in every mode. Fixed in the Engine (`BUG-021`, PR #233): each status widget sits in a `StatusSlot` whose scope the shell sets, its visibility staying the owner's. `engine.ref` moves to `68b4d29` (with engine `BUG-022`, the follow-up the sanity tier caught); the conformance suite's new `no_progress_at_rest` check was red in all six modes before and is green at every window size.]
 - [x] **[`EPIC-033M`](epics/EPIC-033_windows_workbench/completed/EPIC-033M_retire_kit.md) (the kit, Palette and the theme bootstrap are deleted)**: [Decision: three parts on one branch, A (`src/modules`) and B (`src/support`) in parallel sessions, C (deletions and bans) after both. About 10,300 lines go with their tests; the styling census is a ban at zero, every stock-controls rule but `color_literal` is a ban, the QQuickWidget guard a ban without exemption. Data series colours stay a ratchet (`BOT-161`) and the last 5 uncollectable objects, all from the Engine's QML layer, go to `BUG-152`, both by the user's decision.]
 - [x] **[`BOT-149`](completed/BOT-149_every_pair_history_reads_the_users_pairs_first.md) (an every-pair history reads the user's own pairs first)**: [Decision: the reader says why each active pair is active (`ActiveSymbol`, `ActiveReason`) and `history_scope` decides the order, because the order is policy and the reason is the venue's fact. A capped Spot page reads open-order pairs, then the desk's pair, then traded, then held; root cause of the old behaviour: both readers returned pairs alphabetically and the cap took the first five (`0GUSDT, 1000CATUSDT, …`). Futures and uncapped pages are unchanged. The desk's pair is carried by `HistoryRequest.desk_symbol`, set by `HistoryTabsLoader`.]

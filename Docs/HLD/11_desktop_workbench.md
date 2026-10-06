@@ -255,7 +255,7 @@ them, since this list once said "enforced" where no test existed.
 
 - **Static bans**, per line of code: `tests/unit/architecture/test_stock_controls_only.py` counts
   style sheets, hand-set sizes, per-view item-view configuration, font families, colour literals and
-  checkable push buttons; every count only falls and reaches zero when `EPIC-033M` closes.
+  checkable push buttons; every count is zero, a ban, since `EPIC-033M` and `BOT-161`. Data series colours are the one exemption: `support/charting/contracts/series_colours.py` is the single table that may write a hex value.
 - **The composed window**, per mode: `tests/integration/presentation/ui/test_workbench_conformance.py`
   boots the app and checks the menu-bar order, the system font, that each mode is a workbench host,
   that every dock has a View toggle, no style sheet, control heights at their size hint, no nested

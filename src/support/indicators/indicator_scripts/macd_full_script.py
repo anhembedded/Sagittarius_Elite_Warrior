@@ -1,4 +1,10 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 from .base_indicator_script import (
     BaseIndicatorScript,
@@ -45,6 +51,12 @@ class MacdFullScript(BaseIndicatorScript):
         reading = self.m(candle.close_price)
         if reading is None:
             return
-        self.plot(reading.macd, "MACD", color="#2980b9")
-        self.plot(reading.signal, "Signal", color="#e67e22")
-        self.plot(reading.histogram, "Histogram", color="#848E9C")
+        self.plot(reading.macd, "MACD", color=series_colour(ChartSeries.MACD_LINE))
+        self.plot(
+            reading.signal, "Signal", color=series_colour(ChartSeries.MACD_SIGNAL)
+        )
+        self.plot(
+            reading.histogram,
+            "Histogram",
+            color=series_colour(ChartSeries.MACD_HISTOGRAM),
+        )

@@ -182,6 +182,10 @@ def _support_may_import(
     # `StyleRole`, `apply_role` and `QmlOverlay` for a single consumer, and
     # the only other option is for the charting package to carry its own copy
     # of the kit, which is the duplication this epic exists to delete.
+    # (`EPIC-033M` deleted the kit, the palette, the QML embed host and
+    # `theme_bootstrap`; the chart card now reads `ui_kit`'s formatter, its
+    # display timezone service and a few small helpers, and the allowance
+    # stands for those.)
     #
     # PR 1.6g widened the *importing* side once, and only in the way the
     # rules already treat modules: a support package's own `ui/` sub-package is

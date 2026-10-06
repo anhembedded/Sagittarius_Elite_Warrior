@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -176,10 +179,11 @@ def test_assign_strategy_line_colors_cycles_past_the_palette():
 
 
 def test_assign_strategy_line_colors_prefers_override_for_named_lines():
-    # BOT-111: a strategy's own chart_line_colors() must win over the
+    # BOT-111: a strategy's own chart_line_series() must win over the
     # generic order-based palette for the lines it names.
     colors = assign_strategy_line_colors(
-        ["ema_long", "ema_entry"], {"ema_long": "#f6465d", "ema_entry": "#2962ff"}
+        ["ema_long", "ema_entry"],
+        {"ema_long": ChartSeries.LONG_TREND_EMA, "ema_entry": ChartSeries.ENTRY_EMA},
     )
 
     assert colors == {"ema_long": "#f6465d", "ema_entry": "#2962ff"}
@@ -189,9 +193,9 @@ def test_assign_strategy_line_colors_only_overrides_named_lines():
     # A strategy overriding some but not all of its lines must not skip
     # palette slots for the ones it left alone — they still get the next
     # slot in declaration order, as if the override didn't exist for them.
-    colors = assign_strategy_line_colors(["a", "b", "c"], {"b": "#123456"})
+    colors = assign_strategy_line_colors(["a", "b", "c"], {"b": ChartSeries.ENTRY_EMA})
 
-    assert colors["b"] == "#123456"
+    assert colors["b"] == "#2962ff"
     assert colors["a"] == assign_strategy_line_colors(["a", "c"])["a"]
     assert colors["c"] == assign_strategy_line_colors(["a", "c"])["c"]
 

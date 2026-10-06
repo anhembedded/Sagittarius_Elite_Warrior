@@ -5,9 +5,9 @@ class UIMode(str, Enum):
     """
     @brief Defines the operational modes of the Trading UI.
     @details Every screen's FSM (BasePresenter) transitions through these
-    values; each QML screen's ViewModel mirrors the current one as a
-    `uiMode` string property, which the QML binds `enabled:`/`visible:`
-    states against directly (e.g. `enabled: viewModel.uiMode !== "LOCKED"`).
+    values; a screen's ViewModel mirrors the current one as its `uiMode`
+    string, and its widgets read that (or the derived `controlsEnabled`) to
+    enable and show their controls.
     Using an Enum prevents magic string typos and ensures strict state
     transitions.
     """

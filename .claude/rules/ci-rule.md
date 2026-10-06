@@ -29,6 +29,6 @@ You are the verification gate controller for Sagittarius Elite Warrior. Verifica
 - **Prohibited Actions:** Never weaken assertions, skip failing tests, lower coverage thresholds, or add blanket suppressions (`.claude/CONSTITUTION.md` P8). `[review: E4]`
 - **Diagnostic Switches:** `-UnitOnly`, `-SkipLint` and `-TestnetOnly` are diagnostic; never use them to justify a commit or declare completion. `-SkipTests` is the commit tier of §1, never evidence of completion. `[review: B1]`
 - **Stall Diagnosis:** If a run appears hung, identify the culprit via `py-spy dump` on all worker processes; never guess. `[eye]`
-- **Log Scan Invariants:** The run log is scanned for `- (WARNING|ERROR|CRITICAL) -` records; any unhandled warning/error fails the run (`.claude/rules/logging-rule.md`). `[gate: run-log scan]`
+- **Log Scan Invariants:** The run log is scanned for `- (WARNING|ERROR|CRITICAL) -` records and for Python's `uncollectable objects at shutdown` line; any unhandled hit fails the run (`.claude/rules/logging-rule.md`). `[gate: run-log scan]`
 - **Wait on the Right Stream:** The verdict is the stdout block ending `===END_CI_LOCAL_RESULT===` (`RESULT:`, `FAILED_STEPS:`, `LOG_FILE:`). A wait loop on the wrong marker never terminates. `[eye]`
 

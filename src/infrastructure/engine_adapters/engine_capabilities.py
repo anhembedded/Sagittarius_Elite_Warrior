@@ -78,16 +78,12 @@ class RequiredEngineCapability:
 
 #: Declared dependencies on recently added engine APIs. See the module
 #: docstring for when to add one, and for why this list is deliberately short.
+#:
+#: `BUG-152` dropped `create_quick_widget(background=...)` (`BOT-132`): the
+#: app builds no QML widget since `EPIC-033M`, and looking the symbol up
+#: loaded the Engine's QML layer at every boot, whose `CardModel` is
+#: uncollectable at exit.
 REQUIRED_ENGINE_CAPABILITIES: tuple[RequiredEngineCapability, ...] = (
-    # BOT-132/BUG-115: every embedded QML scene clears to an opaque token
-    # colour. Without this parameter the app cannot construct a single QML
-    # widget — it raised `TypeError` inside `PositionsPanel` at boot.
-    RequiredEngineCapability(
-        module="sagittarius_engine.extensions.pyside_mvc",
-        attribute="create_quick_widget",
-        parameter="background",
-        since="TASK-042 (engine) / BOT-132 (app)",
-    ),
     # EPIC-025F PR 5.3: shell/contribution_registry.py's panel half is
     # rebuilt on this class rather than a hand-rolled copy of its logic.
     RequiredEngineCapability(

@@ -65,18 +65,26 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
             True,
         ),
         # --- the two UI support packages may use each other whole (PR 1.6f) --
-        ("support.charting.chart_card.chart_card", "support.ui_kit.kit", True),
-        ("support.ui_kit.kit.style", "support.charting.chart_card", True),
+        (
+            "support.charting.chart_card.chart_card",
+            "support.ui_kit.value_formatter",
+            True,
+        ),
+        ("support.ui_kit.readout_slot", "support.charting.chart_card", True),
         # ...and that allowance is for those two zones only, not support-wide
         (
             "support.binance_gateway.adapters.x",
-            "support.ui_kit.kit",
+            "support.ui_kit.value_formatter",
             False,
         ),
         # PR 1.6g — a support package's own `ui/` is display code, like a
         # module's; its mathematics is not.
         ("support.indicators.ui.list_model", "support.ui_kit.model_indexes", True),
-        ("support.indicators.indicator_scripts.ema", "support.ui_kit.kit", False),
+        (
+            "support.indicators.indicator_scripts.ema",
+            "support.ui_kit.value_formatter",
+            False,
+        ),
         ("support.indicators.ui.list_model", "modules.trading.contracts.x", False),
         # PR 2.1b — the indicator mathematics is readable by any module, and
         # this package's `ui/` still is not. Six edges, because the finding was

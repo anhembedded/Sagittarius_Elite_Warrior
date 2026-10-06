@@ -1,4 +1,10 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 from .base_indicator_script import (
     BaseIndicatorScript,
@@ -27,4 +33,8 @@ class Rsi14Script(BaseIndicatorScript):
         self.r = self.rsi(period)
 
     def execute(self, candle: MarketData) -> None:
-        self.plot(self.r(candle.close_price), "RSI 14", color="#8e44ad")
+        self.plot(
+            self.r(candle.close_price),
+            "RSI 14",
+            color=series_colour(ChartSeries.RSI_14),
+        )

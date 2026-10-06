@@ -28,8 +28,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
     FakeStrategyChartOverlay,
     StrategyChartOverlayContract,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing.contract_strategy_chart_overlay import (
+    _a_candle,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
+    EmaTrendPullbackStrategy,
 )
 
 
@@ -65,3 +71,26 @@ def test_the_fakes_scripted_overlay_is_what_the_next_read_returns() -> None:
     )
 
     assert result is overlay
+
+
+def test_the_real_service_colours_a_strategys_lines_by_the_series_it_names() -> None:
+    """`BOT-161`: the strategy names its lines' series and the service maps
+    them through the series table. Without that step every line would fall
+    back to the generic palette (review of PR #387)."""
+    registry = StrategyRegistry()
+    registry.register("ema_trend_pullback", EmaTrendPullbackStrategy)
+    config = LiveStrategyConfig(
+        strategy_key="ema_trend_pullback",
+        symbol="BTCUSDT",
+        interval="1m",
+        strategy_params={"ema_long_len": 20, "ema_entry_len": 10},
+    )
+    candles = [_a_candle(index, 100.0 + index) for index in range(40)]
+
+    overlay = StrategyChartOverlayService(registry).overlay_for(config, candles)
+
+    colours = {line.name: line.colour for line in overlay.lines}
+    assert colours == {
+        EmaTrendPullbackStrategy.EMA_LONG_KEY: "#f6465d",
+        EmaTrendPullbackStrategy.EMA_ENTRY_KEY: "#2962ff",
+    }
