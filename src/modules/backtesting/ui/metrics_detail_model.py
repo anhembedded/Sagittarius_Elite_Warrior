@@ -7,8 +7,10 @@ column instead, so the readout is a `SpecTable` like every other table and
 still reads section by section in the order the rules build. The Engine
 configures grouped trees too since `BOT-151`, but a tree's rows sort on their
 displayed value, which here is text in mixed units; the table sorts on
-`SORT_ROLE` instead. The values arrive formatted, so they
-pass through the formatter unchanged; a value is coloured by its tone and a
+`SORT_ROLE` instead. A row holds a raw figure of a kind (`MetricRow`); one
+column holds money beside a percent beside a ratio, and a column has one kind,
+so the model writes each figure with `write_value`, the formatter's entry for a
+value outside a column of its kind. A value is coloured by its tone and a
 verdict by its badge's, beside the words that say the same.
 
 Sorting: the values are formatted text in mixed units, so every column but

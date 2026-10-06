@@ -25,11 +25,16 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_char
     build_yearly_returns_rows,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    StatCardData,
     build_result_warning_text,
+    stat_cards_to_qml,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     build_trade_log_rows,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import ratio_key
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: This file's parent directory is `ui`, same as every other module's own
 #: `preview.py` — the fallback key `scripts/preview_qml.py::discover_previews()`
@@ -44,42 +49,49 @@ def build_preview() -> QWidget:
     view_model = BackTestViewModel()
     view_model.strategyName = "EmaCrossoverStrategy"
     view_model.run_result.set_stat_cards(
-        [
-            {
-                "title": "NET PROFIT",
-                "value": "+1,420.50 USDT",
-                "suffix": "+14.21%",
-                "positive": True,
-            },
-            {
-                "title": "MAX DRAWDOWN",
-                "value": "-3.45%",
-                "suffix": "",
-                "positive": False,
-            },
-            {
-                "title": "WIN RATE",
-                "value": "62.50%",
-                "suffix": "15/24",
-                "positive": True,
-            },
-            {
-                "title": "PROFIT FACTOR",
-                "value": "1.84",
-                "suffix": "",
-                "positive": True,
-            },
-        ],
-        [
-            {"title": "Total Trades", "value": "24", "suffix": ""},
-            {"title": "Winning Trades", "value": "15", "suffix": ""},
-            {"title": "Losing Trades", "value": "9", "suffix": ""},
-            {"title": "Gross Profit", "value": "3,120.00 USDT", "suffix": ""},
-            {"title": "Gross Loss", "value": "-1,699.50 USDT", "suffix": ""},
-            {"title": "Largest Winning Trade", "value": "450.00 USDT", "suffix": ""},
-            {"title": "Largest Losing Trade", "value": "-210.00 USDT", "suffix": ""},
-            {"title": "Average Profit/Loss", "value": "59.19 USDT", "suffix": ""},
-        ],
+        stat_cards_to_qml(
+            [
+                StatCardData(
+                    "net_pnl",
+                    "Net PnL",
+                    1420.50,
+                    ColumnKind.MONEY,
+                    Tone.POSITIVE,
+                    "USD",
+                    "Net PnL (%)",
+                    14.21,
+                    ColumnKind.PERCENT,
+                    Tone.POSITIVE,
+                ),
+                StatCardData(
+                    "max_drawdown",
+                    "Max Drawdown",
+                    345.0,
+                    ColumnKind.MONEY,
+                    Tone.NEGATIVE,
+                    "USD",
+                    "Max Drawdown (%)",
+                    -3.45,
+                    ColumnKind.PERCENT,
+                    Tone.NEGATIVE,
+                ),
+                StatCardData(
+                    "win_rate",
+                    "Win Rate",
+                    62.5,
+                    ColumnKind.PERCENT,
+                    Tone.POSITIVE,
+                ),
+                StatCardData(
+                    ratio_key("profit_factor"),
+                    "Profit Factor",
+                    1.84,
+                    ColumnKind.QUANTITY,
+                    Tone.POSITIVE,
+                ),
+            ]
+        ),
+        [],
     )
     sample_trades = [
         Trade(

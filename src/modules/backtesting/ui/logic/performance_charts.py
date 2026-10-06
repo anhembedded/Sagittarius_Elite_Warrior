@@ -26,6 +26,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _MONTHS_PER_YEAR = 12
 
@@ -43,9 +45,10 @@ def build_drawdown_chart_points(result: BacktestResult) -> list[dict[str, float]
     ]
 
 
-def _signed_percent(value: float) -> str:
-    sign = "+" if value >= 0 else ""
-    return f"{sign}{value:,.2f}%"
+def _percent_text(value: float) -> str:
+    """The return as the formatter writes a percent; its colour says gain or
+    loss beside the minus, so no plus is written."""
+    return write_value(ColumnKind.PERCENT, value)
 
 
 def _return_color(value: float) -> str:
@@ -59,7 +62,7 @@ def _month_cell(value: float | None) -> dict[str, str] | None:
     docstring)."""
     if value is None:
         return None
-    return {"text": _signed_percent(value), "color": _return_color(value)}
+    return {"text": _percent_text(value), "color": _return_color(value)}
 
 
 def build_yearly_returns_rows(result: BacktestResult) -> list[dict[str, Any]]:
@@ -75,7 +78,7 @@ def build_yearly_returns_rows(result: BacktestResult) -> list[dict[str, Any]]:
                 _month_cell(year_return.months.get(month))
                 for month in range(1, _MONTHS_PER_YEAR + 1)
             ],
-            "ytdText": _signed_percent(year_return.ytd_return_percent),
+            "ytdText": _percent_text(year_return.ytd_return_percent),
             "ytdColor": _return_color(year_return.ytd_return_percent),
         }
         for year_return in yearly

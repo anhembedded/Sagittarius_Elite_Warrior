@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -146,8 +147,22 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     presenter._view_model.run_result.set_extended_metrics_snapshot(
         ExtendedMetricsSnapshot(
             cards=(
-                StatCardData("Gross Profit", "100.00", _neutral, "USD", "", _neutral),
-                StatCardData("Gross Loss", "-50.00", _neutral, "USD", "", _neutral),
+                StatCardData(
+                    "gross_profit",
+                    "Gross Profit",
+                    100.0,
+                    ColumnKind.MONEY,
+                    _neutral,
+                    "USD",
+                ),
+                StatCardData(
+                    "gross_loss",
+                    "Gross Loss",
+                    -50.0,
+                    ColumnKind.MONEY,
+                    _neutral,
+                    "USD",
+                ),
             ),
             gross_profit=100.0,
             gross_loss=-50.0,

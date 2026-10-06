@@ -27,10 +27,20 @@ design `EPIC-015` worked to, and they are labelled as such here so nobody reads
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    ratio_key,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    DisplayValue,
+)
 
 from .performance_metrics_view import StatCardData
 
@@ -65,7 +75,6 @@ _GROUP_BY_TITLE: dict[str, str] = {
 #: Consecutive-loss count at which a warning appears. Invented: no rule in this
 #: repository names a threshold.
 _CONSECUTIVE_LOSSES_WARNING_THRESHOLD = 10
-_SECONDS_PER_DAY = 86_400
 
 #: `_ratio_verdict`'s bucket edges — see its docstring.
 _RATIO_GOOD_THRESHOLD = 1.0
@@ -81,17 +90,27 @@ _DRAWDOWN_DURATION_TITLE = "Max Drawdown Duration"
 @dataclass(frozen=True)
 class MetricRow:
     """One metric as the readout shows it: the figure, and the verdict — if
-    any — this module decided to put beside it."""
+    any — this module decided to put beside it.
 
+    The figure is raw with its kind (`EPIC-033N`); `value` is how
+    `AppValueFormatter` writes it, for the readout's table and the copied text.
+    """
+
+    key: str
     title: str
-    value: str
+    figure: DisplayValue
+    kind: ColumnKind
     suffix: str
     tone: Tone
     badge_text: str
     badge_tone: Tone
     #: A derived aside rather than a verdict — today only the drawdown
-    #: duration's "≈ N days", which needs the run's timeframe to compute.
+    #: duration's "≈ h:mm:ss", which needs the run's timeframe to compute.
     info: str = ""
+
+    @property
+    def value(self) -> str:
+        return write_value(self.kind, self.figure, self.key)
 
 
 @dataclass(frozen=True)
@@ -153,11 +172,12 @@ _VERDICT_BY_TITLE: Mapping[str, Callable[[float], tuple[str, Tone]]] = {
 }
 
 
-def _as_float(value: str) -> float | None:
-    try:
-        return float(value)
-    except ValueError:
+def _as_float(figure: DisplayValue) -> float | None:
+    """The figure as a number, or `None` for a figure that is not one — and
+    for NaN, which no verdict bucket orders."""
+    if isinstance(figure, bool) or not isinstance(figure, int | float):
         return None
+    return None if math.isnan(figure) else float(figure)
 
 
 def build_groups(
@@ -176,7 +196,7 @@ def build_groups(
         badge_text = card.badge_text
         badge_tone = card.badge_tone
         value_tone = card.value_tone
-        numeric = _as_float(card.value)
+        numeric = _as_float(card.figure)
         verdict = _VERDICT_BY_TITLE.get(card.title)
         if verdict is not None and numeric is not None:
             badge_text, badge_tone = verdict(numeric)
@@ -185,11 +205,16 @@ def build_groups(
             value_tone = badge_tone
         info = ""
         if card.title == _DRAWDOWN_DURATION_TITLE and numeric is not None:
-            info = f"≈ {numeric * seconds / _SECONDS_PER_DAY:.0f} days"
+            # Bars are a count; the time they span is a duration.
+            info = "≈ " + write_value(
+                ColumnKind.DURATION, timedelta(seconds=numeric * seconds)
+            )
         rows_by_group[group].append(
             MetricRow(
+                key=card.key,
                 title=card.title.upper(),
-                value=card.value,
+                figure=card.figure,
+                kind=card.kind,
                 suffix=card.suffix,
                 tone=value_tone,
                 badge_text=badge_text,
@@ -219,15 +244,19 @@ def build_gross_bar(
     loss = abs(gross_loss)
     total = profit + loss
     loss_per_profit_dollar = loss / profit if profit > 0 else 0.0
-    factor_text = "∞" if profit_factor == float("inf") else f"{profit_factor:.3f}"
+    factor_text = write_value(
+        ColumnKind.QUANTITY, profit_factor, ratio_key("profit_factor")
+    )
     return GrossBar(
-        profit_text=f"+{profit:,.2f}",
-        loss_text=f"-{loss:,.2f}",
+        profit_text=write_value(ColumnKind.MONEY, profit),
+        # The loss carries its minus; `-0.0` (no loss) reads `0.00`.
+        loss_text=write_value(ColumnKind.MONEY, -loss),
         # A run with neither profit nor loss splits the bar evenly rather than
         # reading as a total loss.
         profit_share=profit / total if total > 0 else 0.5,
         caption=(
-            f"Every $1 of profit comes with ${loss_per_profit_dollar:,.2f} of loss"
+            "Every $1 of profit comes with "
+            f"${write_value(ColumnKind.MONEY, loss_per_profit_dollar)} of loss"
             f" — profit factor {factor_text}"
         ),
     )
@@ -236,8 +265,9 @@ def build_gross_bar(
 def build_footer(*, total_closed_trades: int, fee_rate_percent: float) -> str:
     """The line that says what the numbers above were computed from."""
     return (
-        f"Based on {total_closed_trades:,} closed trades"
-        f" · fee {fee_rate_percent:g}% per trade"
+        f"Based on {write_value(ColumnKind.QUANTITY, total_closed_trades)}"
+        f" closed trades · fee {write_value(ColumnKind.PERCENT, fee_rate_percent)}"
+        " per trade"
     )
 
 

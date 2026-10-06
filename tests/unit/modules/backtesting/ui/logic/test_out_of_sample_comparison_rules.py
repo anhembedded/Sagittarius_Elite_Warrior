@@ -91,8 +91,7 @@ def test_split_description_names_both_shares_from_the_ratio():
 
     description = build_split_description(validation)
 
-    assert "70%" in description
-    assert "30%" in description
+    assert description == ("In-Sample: 70.00% of the range · Out-of-Sample: 30.00%")
 
 
 # ---------------------------------------------------------------------------
@@ -129,8 +128,8 @@ def test_warning_fires_and_names_the_threshold_once_divergence_exceeds_it():
     warning = build_overfit_warning(validation)
 
     assert warning != ""
-    assert f"{OUT_OF_SAMPLE_DIVERGENCE_WARNING_POINTS:.0f}" in warning
-    assert "40.0" in warning
+    assert f"{OUT_OF_SAMPLE_DIVERGENCE_WARNING_POINTS:.2f}%" in warning
+    assert "40.00%" in warning
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +144,7 @@ def test_metric_rows_compare_out_of_sample_against_in_sample():
     rows = build_out_of_sample_metric_rows(validation)
 
     row = next(r for r in rows if r.label == "Net Profit %")
-    assert row.value_a == "10.00%"
-    assert row.value_b == "5.00%"
+    assert (row.text(row.value_a), row.text(row.value_b)) == ("10.00%", "5.00%")
 
 
 # ---------------------------------------------------------------------------

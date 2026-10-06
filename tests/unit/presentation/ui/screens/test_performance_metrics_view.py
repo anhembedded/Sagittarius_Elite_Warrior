@@ -16,7 +16,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
     build_primary_stat_cards,
     build_result_warning_text,
     compute_max_drawdown_amount,
-    stat_cards_to_qml,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
@@ -128,11 +127,11 @@ def test_profitable_run_colors_every_card_bullish():
     by_title = {card.title: card for card in cards}
 
     net_pnl = by_title["Net PnL"]
-    assert net_pnl.value == "+40.00"
+    assert net_pnl.value == "40.00"
     assert net_pnl.value_tone is Tone.POSITIVE
 
     win_rate = by_title["Win Rate"]
-    assert win_rate.badge_text == "(1/2 trades)"
+    assert win_rate.badge_text == "1 / 2"
 
     profit_factor = by_title["Profit Factor"]
     assert profit_factor.value_tone is Tone.POSITIVE
@@ -173,10 +172,12 @@ def test_zero_trades_produces_four_cards_all_reading_zero_without_crashing():
 
     assert len(cards) == 4
     by_title = {card.title: card for card in cards}
-    assert by_title["Net PnL"].value == "+0.00"
+    assert by_title["Net PnL"].value == "0.00"
     assert by_title["Win Rate"].value == "0.00%"
-    assert by_title["Win Rate"].badge_text == "(0/0 trades)"
-    assert by_title["Profit Factor"].value == "0.000"
+    assert by_title["Win Rate"].badge_text == "0 / 0"
+    assert by_title["Profit Factor"].value == "0.00"
+    # A drawdown of nothing is not a minus zero.
+    assert by_title["Max Drawdown"].badge_text == "0.00%"
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +270,7 @@ def test_net_pnl_badge_is_always_the_plain_signed_percent():
 
     net_pnl = next(c for c in build_primary_stat_cards(result) if c.title == "Net PnL")
 
-    assert net_pnl.badge_text == "+4.00%"
+    assert net_pnl.badge_text == "4.00%"
     assert net_pnl.badge_tone is Tone.POSITIVE
 
 
@@ -292,7 +293,8 @@ def test_result_warning_text_names_fee_dominance_and_high_frequency_together():
 
     assert "Fees account for" in warning
     assert "High trade frequency" in warning
-    assert "10.0" in warning  # avg_bars_per_trade interpolated into the sentence
+    # avg_bars_per_trade, interpolated into the sentence as a two-decimal ratio.
+    assert "averaging only 10.00 bars/trade" in warning
 
 
 def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
@@ -355,8 +357,8 @@ def test_result_warning_text_includes_overfitting_note_when_divergence_is_high()
     warning = build_result_warning_text(result)
 
     assert "overfit" in warning
-    assert "+50.00%" in warning
-    assert "-20.00%" in warning
+    assert "In-sample 50.00%" in warning
+    assert "Out-of-sample -20.00%" in warning
 
 
 def test_result_warning_text_stays_empty_when_out_of_sample_is_close_to_in_sample():
@@ -373,23 +375,14 @@ def test_result_warning_text_stays_empty_when_out_of_sample_is_close_to_in_sampl
     assert build_result_warning_text(result) == ""
 
 
-def test_stat_cards_to_qml_uses_qml_property_names():
-    result = _result(trades=[_trade(50.0)], equity_curve=[(_T0, 1000.0), (_T1, 1050.0)])
-
-    qml_cards = stat_cards_to_qml(build_primary_stat_cards(result))
-
-    assert all(
-        set(card.keys())
-        == {"title", "value", "valueTone", "suffix", "badgeText", "badgeTone"}
-        for card in qml_cards
-    )
-
-
 def test_result_warning_text_reports_the_short_signals_a_spot_run_ignored():
     """EPIC-027D — "N short signals ignored (Spot)" when N > 0."""
     text = build_result_warning_text(replace(_result([], []), ignored_short_signals=4))
 
     assert "4 short/cover signal(s) ignored (Spot is long-only)." in text
+    assert "1,234 short" in build_result_warning_text(
+        replace(_result([], []), ignored_short_signals=1234)
+    )
 
 
 def test_result_warning_text_reports_entries_the_exchange_filters_rejected():

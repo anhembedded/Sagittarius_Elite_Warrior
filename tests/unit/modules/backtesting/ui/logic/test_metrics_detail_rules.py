@@ -27,13 +27,24 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
     StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import ratio_key
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _NEUTRAL = Tone.NEUTRAL
 _ONE_HOUR = 3600
+_RATIOS = ("Sharpe Ratio", "Sortino Ratio", "Calmar Ratio")
 
 
-def _card(title: str, value: str, suffix: str = "") -> StatCardData:
-    return StatCardData(title, value, _NEUTRAL, suffix, "", _NEUTRAL)
+def _card(
+    title: str,
+    figure: object,
+    suffix: str = "",
+    kind: ColumnKind = ColumnKind.QUANTITY,
+) -> StatCardData:
+    """A card as `build_extended_stat_cards` makes it: raw, of a kind."""
+    name = title.lower().replace(" ", "_")
+    key = ratio_key(name) if title in _RATIOS else name
+    return StatCardData(key, title, figure, kind, _NEUTRAL, suffix)  # type: ignore[arg-type]
 
 
 def _row(groups, title: str):
@@ -43,9 +54,9 @@ def _row(groups, title: str):
 def test_cards_are_split_into_their_sections_in_a_fixed_order():
     groups = build_groups(
         [
-            _card("Max Consecutive Wins", "4"),
-            _card("Sharpe Ratio", "1.5"),
-            _card("Gross Profit", "100"),
+            _card("Max Consecutive Wins", 4),
+            _card("Sharpe Ratio", 1.5),
+            _card("Gross Profit", 100.0, kind=ColumnKind.MONEY),
         ],
         timeframe_seconds=60,
     )
@@ -54,7 +65,9 @@ def test_cards_are_split_into_their_sections_in_a_fixed_order():
 
 
 def test_an_empty_section_is_dropped_rather_than_shown_with_nothing_under_it():
-    groups = build_groups([_card("Gross Profit", "100")], timeframe_seconds=60)
+    groups = build_groups(
+        [_card("Gross Profit", 100.0, kind=ColumnKind.MONEY)], timeframe_seconds=60
+    )
 
     assert [group.label for group in groups] == ["PROFIT & LOSS"]
 
@@ -62,16 +75,18 @@ def test_an_empty_section_is_dropped_rather_than_shown_with_nothing_under_it():
 def test_a_card_no_section_claims_falls_into_other_rather_than_vanishing():
     """Total Fees Paid and the in/out-of-sample figures are not in the design's
     four sections, and losing them would be worse than showing them last."""
-    groups = build_groups([_card("Total Fees Paid", "12.5")], timeframe_seconds=60)
+    groups = build_groups(
+        [_card("Total Fees Paid", 12.5, kind=ColumnKind.MONEY)], timeframe_seconds=60
+    )
 
     assert [group.label for group in groups] == ["OTHER"]
-    assert _row(groups, "TOTAL FEES PAID").value == "12.5"
+    assert _row(groups, "TOTAL FEES PAID").value == "12.50"
 
 
 def test_a_negative_sharpe_marks_both_the_figure_and_its_verdict():
     """The design colours "-63.24" itself red, not only its pill — so the
     verdict's tone is written onto the value as well as the badge."""
-    groups = build_groups([_card("Sharpe Ratio", "-63.24")], timeframe_seconds=60)
+    groups = build_groups([_card("Sharpe Ratio", -63.24)], timeframe_seconds=60)
     row = _row(groups, "SHARPE RATIO")
 
     assert row.badge_text == "Very Poor"
@@ -80,7 +95,7 @@ def test_a_negative_sharpe_marks_both_the_figure_and_its_verdict():
 
 
 def test_a_negative_calmar_reads_as_a_net_loss():
-    groups = build_groups([_card("Calmar Ratio", "-0.4")], timeframe_seconds=60)
+    groups = build_groups([_card("Calmar Ratio", -0.4)], timeframe_seconds=60)
 
     assert _row(groups, "CALMAR RATIO").badge_text == "Negative"
 
@@ -88,9 +103,9 @@ def test_a_negative_calmar_reads_as_a_net_loss():
 def test_the_ratio_buckets_are_the_ones_documented():
     groups = build_groups(
         [
-            _card("Sharpe Ratio", "0.5"),
-            _card("Sortino Ratio", "1.5"),
-            _card("Calmar Ratio", "2.5"),
+            _card("Sharpe Ratio", 0.5),
+            _card("Sortino Ratio", 1.5),
+            _card("Calmar Ratio", 2.5),
         ],
         timeframe_seconds=60,
     )
@@ -101,7 +116,7 @@ def test_the_ratio_buckets_are_the_ones_documented():
 
 
 def test_consecutive_losses_at_the_threshold_warn():
-    groups = build_groups([_card("Max Consecutive Losses", "10")], timeframe_seconds=60)
+    groups = build_groups([_card("Max Consecutive Losses", 10)], timeframe_seconds=60)
     row = _row(groups, "MAX CONSECUTIVE LOSSES")
 
     assert row.badge_text == "Warning"
@@ -109,7 +124,7 @@ def test_consecutive_losses_at_the_threshold_warn():
 
 
 def test_consecutive_losses_below_the_threshold_say_nothing():
-    groups = build_groups([_card("Max Consecutive Losses", "9")], timeframe_seconds=60)
+    groups = build_groups([_card("Max Consecutive Losses", 9)], timeframe_seconds=60)
 
     assert _row(groups, "MAX CONSECUTIVE LOSSES").badge_text == ""
 
@@ -118,14 +133,14 @@ def test_the_drawdown_duration_converts_bars_with_the_runs_own_timeframe():
     """24 bars is a day at 1h and an hour at 1m — the whole reason this
     function takes the timeframe rather than assuming one."""
     hourly = build_groups(
-        [_card("Max Drawdown Duration", "24", "bars")], timeframe_seconds=_ONE_HOUR
+        [_card("Max Drawdown Duration", 24, "bars")], timeframe_seconds=_ONE_HOUR
     )
     minutely = build_groups(
-        [_card("Max Drawdown Duration", "24", "bars")], timeframe_seconds=60
+        [_card("Max Drawdown Duration", 24, "bars")], timeframe_seconds=60
     )
 
-    assert _row(hourly, "MAX DRAWDOWN DURATION").info == "≈ 1 days"
-    assert _row(minutely, "MAX DRAWDOWN DURATION").info == "≈ 0 days"
+    assert _row(hourly, "MAX DRAWDOWN DURATION").info == "≈ 24:00:00"
+    assert _row(minutely, "MAX DRAWDOWN DURATION").info == "≈ 0:24:00"
 
 
 def test_a_non_numeric_value_gets_no_verdict_instead_of_raising():
@@ -139,10 +154,10 @@ def test_the_bar_divides_profit_against_loss():
         gross_profit=1148.19, gross_loss=-9341.72, profit_factor=0.123
     )
 
-    assert bar.profit_text == "+1,148.19"
+    assert bar.profit_text == "1,148.19"
     assert bar.loss_text == "-9,341.72"
     assert 0.1 < bar.profit_share < 0.12
-    assert "profit factor 0.123" in bar.caption
+    assert "profit factor 0.12" in bar.caption
 
 
 def test_a_gross_loss_stored_negative_is_not_zeroed_out():
@@ -158,6 +173,8 @@ def test_a_run_with_neither_profit_nor_loss_splits_the_bar_evenly():
     bar = build_gross_bar(gross_profit=0.0, gross_loss=0.0, profit_factor=0.0)
 
     assert bar.profit_share == 0.5
+    # No loss is zero, not a minus zero.
+    assert bar.loss_text == "0.00"
 
 
 def test_an_infinite_profit_factor_reads_as_infinity():
@@ -170,13 +187,16 @@ def test_an_infinite_profit_factor_reads_as_infinity():
 
 def test_the_footer_says_what_the_numbers_were_computed_from():
     assert build_footer(total_closed_trades=891, fee_rate_percent=0.1) == (
-        "Based on 891 closed trades · fee 0.1% per trade"
+        "Based on 891 closed trades · fee 0.10% per trade"
     )
 
 
 def test_the_clipboard_text_carries_every_section_row_and_the_summaries():
     groups = build_groups(
-        [_card("Gross Profit", "100", "USD"), _card("Sharpe Ratio", "2.5")],
+        [
+            _card("Gross Profit", 100.0, "USD", ColumnKind.MONEY),
+            _card("Sharpe Ratio", 2.5),
+        ],
         timeframe_seconds=60,
     )
     bar = build_gross_bar(gross_profit=100.0, gross_loss=-25.0, profit_factor=4.0)
@@ -185,6 +205,28 @@ def test_the_clipboard_text_carries_every_section_row_and_the_summaries():
     text = build_clipboard_text(groups, bar, footer)
 
     assert text.startswith("BACKTEST DETAIL METRICS")
-    assert "  GROSS PROFIT: 100 USD" in text
-    assert "  SHARPE RATIO: 2.5 [Excellent]" in text
+    assert "  GROSS PROFIT: 100.00 USD" in text
+    assert "  SHARPE RATIO: 2.50 [Excellent]" in text
     assert text.rstrip().endswith(footer)
+
+
+def test_a_figure_over_a_thousand_still_gets_its_verdict():
+    """The verdict read the card's text with `float()`, which a grouped
+    "1,234.56" is not: it now reads the raw figure."""
+    groups = build_groups([_card("Sharpe Ratio", 1234.56)], timeframe_seconds=60)
+
+    assert _row(groups, "SHARPE RATIO").badge_text == "Excellent"
+    assert _row(groups, "SHARPE RATIO").value == "1,234.56"
+
+
+def test_an_infinite_ratio_reads_as_infinity_beside_its_verdict():
+    groups = build_groups([_card("Sortino Ratio", float("inf"))], timeframe_seconds=60)
+
+    assert _row(groups, "SORTINO RATIO").value == "\u221e"
+    assert _row(groups, "SORTINO RATIO").badge_text == "Excellent"
+
+
+def test_a_nan_ratio_gets_no_verdict():
+    groups = build_groups([_card("Sharpe Ratio", float("nan"))], timeframe_seconds=60)
+
+    assert _row(groups, "SHARPE RATIO").badge_text == ""

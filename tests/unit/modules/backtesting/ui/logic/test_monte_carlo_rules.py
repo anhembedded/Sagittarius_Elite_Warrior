@@ -10,8 +10,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_sim
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.monte_carlo_rules import (
     build_drawdown_histogram_buckets,
     build_spaghetti_chart_series,
-    build_summary_lines,
+    build_summary_readout,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 def _result(**overrides) -> MonteCarloSimulationResult:
@@ -30,29 +32,49 @@ def _result(**overrides) -> MonteCarloSimulationResult:
 
 
 # ---------------------------------------------------------------------------
-# build_summary_lines
+# build_summary_readout
 # ---------------------------------------------------------------------------
 
 
-def test_summary_lines_name_every_headline_statistic():
-    lines = build_summary_lines(_result())
-    joined = " ".join(lines)
+def test_the_summary_names_every_headline_statistic_as_a_raw_value_of_its_kind():
+    readout = build_summary_readout(_result())
 
-    assert "5,000" in joined
-    assert "12.50%" in joined
-    assert "30.00%" in joined
-    assert "45.00%" in joined
-    assert "2.50%" in joined
-    assert "0.10%" in joined
+    assert [(spec.key, spec.kind) for spec in readout.specs] == [
+        ("iterations", ColumnKind.QUANTITY),
+        ("median_return", ColumnKind.PERCENT),
+        ("p95_drawdown", ColumnKind.PERCENT),
+        ("p99_drawdown", ColumnKind.PERCENT),
+        ("ruin_half", ColumnKind.PERCENT),
+        ("ruin_total", ColumnKind.PERCENT),
+    ]
+    assert readout.values == {
+        "iterations": 5000,
+        "median_return": 12.5,
+        "p95_drawdown": 30.0,
+        "p99_drawdown": 45.0,
+        "ruin_half": 2.5,
+        "ruin_total": 0.1,
+    }
 
 
-def test_summary_lines_sign_a_positive_return_but_not_a_negative_one():
-    positive = " ".join(build_summary_lines(_result(median_return_percent=5.0)))
-    negative = " ".join(build_summary_lines(_result(median_return_percent=-5.0)))
+def test_the_summary_is_written_by_the_formatter_in_one_form(qapp):
+    slot = ReadoutSlot()
+    slot.show_readout(build_summary_readout(_result(median_return_percent=-5.0)))
 
-    assert "+5.00%" in positive
-    assert "-5.00%" in negative
-    assert "+-5.00%" not in negative
+    assert slot.value_text("iterations") == "5,000"
+    assert slot.value_text("median_return") == "-5.00%"
+    assert slot.value_text("p95_drawdown") == "30.00%"
+    assert slot.value_text("p99_drawdown") == "45.00%"
+    assert slot.value_text("ruin_half") == "2.50%"
+    assert slot.value_text("ruin_total") == "0.10%"
+    slot.deleteLater()
+
+
+def test_what_a_ruin_threshold_means_is_in_its_title_not_in_a_sentence():
+    titles = {spec.key: spec.title for spec in build_summary_readout(_result()).specs}
+
+    assert "50% of starting capital" in titles["ruin_half"]
+    assert "total loss" in titles["ruin_total"]
 
 
 # ---------------------------------------------------------------------------

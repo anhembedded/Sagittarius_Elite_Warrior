@@ -1,6 +1,6 @@
-"""`BOT-107B` — pure formatting/bucketing logic for the Monte Carlo panel:
-the headline-statistics text, the max-drawdown histogram buckets, and the
-spaghetti-chart point series. No I/O and no Qt here — `monte_carlo_panel.py`
+"""`BOT-107B` — pure logic for the Monte Carlo panel: the headline statistics
+as a read-out of raw values (`AppValueFormatter` writes them, `EPIC-033N`), the
+max-drawdown histogram buckets, and the spaghetti-chart point series. No I/O and no Qt here — `monte_carlo_panel.py`
 and the two chart widgets are the only consumers, matching the
 `logic/*_rules.py` + view/widget split every other modal in this package
 already uses (`out_of_sample_comparison_rules.py`, `report_comparison_rules.py`).
@@ -13,6 +13,11 @@ from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_simulation import (
     MonteCarloSimulationResult,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
 )
 
 DEFAULT_HISTOGRAM_BUCKET_COUNT = 20
@@ -27,25 +32,43 @@ class DrawdownHistogramBucket:
     count: int
 
 
-def build_summary_lines(result: MonteCarloSimulationResult) -> list[str]:
-    """One line per headline statistic, in the order the task itself lists
-    them: median return, then the two drawdown percentiles, then the two
-    Risk-of-Ruin thresholds."""
-    sign = "+" if result.median_return_percent >= 0 else ""
-    return [
-        f"Simulations run: {result.iterations:,}",
-        f"Median Expected Return: {sign}{result.median_return_percent:.2f}%",
-        (
-            f"p95 / p99 Worst-Case Drawdown: "
-            f"{result.p95_max_drawdown_percent:.2f}% / "
-            f"{result.p99_max_drawdown_percent:.2f}%"
-        ),
-        (
-            f"Risk of Ruin: {result.risk_of_ruin_50_percent:.2f}% "
-            f"(account fell below 50% of starting capital) · "
-            f"{result.risk_of_ruin_100_percent:.2f}% (total loss)"
-        ),
-    ]
+_ITERATIONS = "iterations"
+_MEDIAN_RETURN = "median_return"
+_P95_DRAWDOWN = "p95_drawdown"
+_P99_DRAWDOWN = "p99_drawdown"
+_RUIN_HALF = "ruin_half"
+_RUIN_TOTAL = "ruin_total"
+
+#: The rows of the summary, in the order the task itself lists them: median
+#: return, then the two drawdown percentiles, then the two Risk-of-Ruin
+#: thresholds. What a threshold means sits in its title, where a unit would.
+_SUMMARY_SPECS: tuple[ColumnSpec, ...] = (
+    ColumnSpec(_ITERATIONS, "Simulations run", ColumnKind.QUANTITY),
+    ColumnSpec(_MEDIAN_RETURN, "Median expected return", ColumnKind.PERCENT),
+    ColumnSpec(_P95_DRAWDOWN, "Worst-case drawdown (p95)", ColumnKind.PERCENT),
+    ColumnSpec(_P99_DRAWDOWN, "Worst-case drawdown (p99)", ColumnKind.PERCENT),
+    ColumnSpec(
+        _RUIN_HALF,
+        "Risk of ruin (account below 50% of starting capital)",
+        ColumnKind.PERCENT,
+    ),
+    ColumnSpec(_RUIN_TOTAL, "Risk of ruin (total loss)", ColumnKind.PERCENT),
+)
+
+
+def build_summary_readout(result: MonteCarloSimulationResult) -> Readout:
+    """The headline statistics, raw: the panel's `ReadoutSlot` writes them."""
+    return Readout(
+        _SUMMARY_SPECS,
+        {
+            _ITERATIONS: result.iterations,
+            _MEDIAN_RETURN: result.median_return_percent,
+            _P95_DRAWDOWN: result.p95_max_drawdown_percent,
+            _P99_DRAWDOWN: result.p99_max_drawdown_percent,
+            _RUIN_HALF: result.risk_of_ruin_50_percent,
+            _RUIN_TOTAL: result.risk_of_ruin_100_percent,
+        },
+    )
 
 
 def build_drawdown_histogram_buckets(

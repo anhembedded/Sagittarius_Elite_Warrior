@@ -59,8 +59,8 @@ def test_formats_every_field_from_the_real_domain_object_not_a_summary():
     assert "1,000.00" in text  # initial_balance
     assert "1,010.00" in text  # final_balance
     assert "10.00" in text  # net_profit
-    assert "+1.00%" in text  # net_profit_percent
+    assert "(1.00%)" in text  # net_profit_percent, one percent format, no plus
     assert "0.50%" in text  # max_drawdown_percent
     assert "Closed trades: 1" in text
     assert "100.00%" in text  # percent_profitable
-    assert "99.000" in text  # profit_factor
+    assert "Profit factor: 99.00" in text  # profit_factor, a ratio: two decimals
