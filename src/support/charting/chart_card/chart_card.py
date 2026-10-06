@@ -343,13 +343,10 @@ class ChartCard(ChartFrame):
             last_t, open_p, _, _, close_p = data[-1]
             self.price_line.update_price(close_p, close_p >= open_p)
             self.viewport.notify_new_data(last_t)
-        # BUG-034: the y-axis half of this line is what the report needed and
-        # did not have. "Y axis reads -50..100 while price is ~2400" is only
-        # diagnosable by seeing the price the data actually carries next to
-        # the range the view actually took — x-range and candle count cannot
-        # distinguish "no data reached this card" from "data reached it and
-        # the range ignored it" (logging-rule §5: log what lets a layer be
-        # ruled out).
+        # BUG-034: the y-axis half of this line is what the report needed: the
+        # price the data carries next to the range the view took tells "no
+        # data reached this card" from "the range ignored it" (logging-rule
+        # §5: log what lets a layer be ruled out).
         (min_x, max_x), (min_y, max_y) = self.plot_layout.main_plot.vb.viewRange()
         lows = [candle[3] for candle in self._raw_history]
         highs = [candle[2] for candle in self._raw_history]
@@ -382,6 +379,8 @@ class ChartCard(ChartFrame):
         everything else. A short recent window keeps them readable from the
         moment data loads, not just after the user manually zooms in.
         """
+        if not data:  # `BUG-159`: nothing to fit; an empty draw only clears
+            return
         if len(data) <= _DEFAULT_INITIAL_VISIBLE_CANDLES:
             self.plot_layout.main_plot.autoRange()
             return

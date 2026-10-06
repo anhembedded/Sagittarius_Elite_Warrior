@@ -287,3 +287,29 @@ def test_a_settled_load_names_its_own_token() -> None:
     coordinator._run("BTCUSDT", "1m", token, False)
 
     callbacks.load_finished.assert_called_once_with(token)
+
+
+class _RefusingSync(FakeMarketDataSync):
+    """The exchange refusing the interval (`BUG-159`: Futures has no 1s)."""
+
+    def sync(self, request) -> None:
+        raise RuntimeError("APIError(code=-1120): Invalid interval.")
+
+
+def test_a_refused_sync_is_named_and_the_stored_candles_still_draw() -> None:
+    """`BUG-159`: the sync of an interval the exchange refuses raised out of
+    `_run` before any history was drawn, so the chart kept the previous
+    interval's candles under the new one's label."""
+    history = FakeHistoricalKlines()
+    callbacks = _callbacks()
+    feed = MarketDataCandleFeed(
+        _RefusingSync(), history, FakeMarketStream(), MarketType.FUTURES_USD_M
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, _OWNER)
+
+    coordinator._run("BTCUSDT", "1s", _FakeToken(), True)
+
+    (message,) = callbacks.stream_failed.call_args.args
+    assert "BTCUSDT" in message and "1s" in message and "Invalid interval" in message
+    assert history.reads[0].interval == TimeFrame.ONE_SECOND
+    callbacks.history_ready.assert_called_once_with("BTCUSDT", [], [], [])

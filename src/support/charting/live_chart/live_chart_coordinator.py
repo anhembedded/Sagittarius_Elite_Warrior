@@ -115,7 +115,14 @@ class LiveChartCoordinator:
             interval = TimeFrame(interval_str)
             if go_live:
                 report.log(f"Syncing {symbol} data from Binance...")
-                self._feed.sync(symbol, interval, token.is_cancelled)
+                try:
+                    self._feed.sync(symbol, interval, token.is_cancelled)
+                except Exception as exc:  # noqa: BLE001 - the exchange refusing an interval (`BUG-159`) must still leave the chart showing this interval's own candles, not the previous one's
+                    report.stream_failed(
+                        f"Could not sync {symbol} at {interval.value}: {exc}"
+                    )
+                    self._load_history(symbol, interval, report)
+                    return
                 if token.is_cancelled():
                     return
             else:
@@ -138,7 +145,14 @@ class LiveChartCoordinator:
     ) -> None:
         ordered = list(self._feed.load_history(symbol, interval, HISTORY_CANDLE_LIMIT))
         if not ordered:
-            report.log(f"No historical data for {symbol}.")
+            # `BUG-159`: nothing stored at this interval. Drawing nothing left
+            # the previous interval's candles on a chart whose toolbar already
+            # said this one, so the empty window is drawn too.
+            report.log(
+                f"No historical data for {symbol} at {interval.value}: "
+                "the chart shows no candles."
+            )
+            report.history_ready(symbol, [], [], [])
             return
         # `EPIC-022E` — the raw `MarketData` rows ride along beside the
         # chart-shaped tuples: an overlay replays them (it reads

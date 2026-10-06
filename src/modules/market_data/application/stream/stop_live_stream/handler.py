@@ -25,7 +25,11 @@ class StopLiveStreamCommandHandler(
                 success=True, message="Live stream stopped successfully."
             )
         else:
-            logger.warning("Failed to stop live stream. It might not be running.")
+            # `BUG-160`: every chart restarts with an unconditional stop
+            # (`LiveChartCoordinator.stop`), and an owner holding nothing is its
+            # ordinary case, not a fault a WARNING (which fails the run-log
+            # scan) should report.
+            logger.info("Owner %s held no live stream; nothing to stop.", request.owner)
             return StopLiveStreamResponse(
                 success=False,
                 message="Failed to stop live stream. It might not be running.",
