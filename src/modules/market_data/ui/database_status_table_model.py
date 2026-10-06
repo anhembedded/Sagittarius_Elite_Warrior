@@ -46,10 +46,8 @@ from PySide6.QtCore import (
     QModelIndex,
     QObject,
     QSortFilterProxyModel,
-    Qt,
     Signal,
 )
-from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
@@ -155,19 +153,11 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
         )
         return values[column]
 
-    def _role_data(self, row: DatabaseStatusRow, column: int, role: int) -> object:
+    def _is_emphasised(self, row: DatabaseStatusRow, column: int) -> bool:
         """A shard with holes in it gets a bold status cell — the one emphasis
         this table carries, and it replaces a colour: that row is the one the
         user came here to act on (ADR D21 — no palette of our own)."""
-        if (
-            role == Qt.ItemDataRole.FontRole
-            and column == self.STATUS_COLUMN
-            and not row.is_healthy
-        ):
-            font = QFont()
-            font.setBold(True)
-            return font
-        return None
+        return column == self.STATUS_COLUMN and not row.is_healthy
 
     def gap_targets(self) -> list[tuple[str, str]]:
         """`(symbol, interval)` of every shard whose status reports gaps."""

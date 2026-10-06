@@ -51,8 +51,6 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
     HoldingRow,
 )
@@ -68,12 +66,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnSpec,
     DisplayValue,
 )
-
-
-def _bold() -> QFont:
-    font = QFont()
-    font.setBold(True)
-    return font
 
 
 class PositionsTableModel(RowTableModel[PositionRow]):
@@ -110,16 +102,10 @@ class PositionsTableModel(RowTableModel[PositionRow]):
     def _symbol(self, row: PositionRow) -> str | None:
         return row.symbol
 
-    def _role_data(self, row: PositionRow, column: int, role: int) -> object:
+    def _is_emphasised(self, row: PositionRow, column: int) -> bool:
         """A losing position's PnL cell is bold. The one emphasis this table
         carries, and it replaces a colour (ADR D21)."""
-        if (
-            role == Qt.ItemDataRole.FontRole
-            and column == self.column("pnl")
-            and not row.pnl_is_profit
-        ):
-            return _bold()
-        return None
+        return column == self.column("pnl") and not row.pnl_is_profit
 
 
 class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):

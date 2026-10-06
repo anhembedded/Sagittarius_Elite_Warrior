@@ -17,7 +17,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex, Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFontDatabase
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.kline_inspector_table_model import (
     BEARISH_COLOR,
@@ -210,9 +210,11 @@ def test_no_other_cell_is_coloured(model):
         )
 
 
-def test_only_the_close_is_bold_and_no_cell_sets_a_font_family(model):
+def test_only_the_close_is_bold_and_no_cell_names_a_font_family(model):
     """`ui-presentation-rule.md` §1: a widget may derive size or weight from
-    the system font, never a family — the monospace family is gone."""
+    the system font, never name a family — the hard-coded monospace family
+    is gone. The close, a price, is in the platform's own fixed-pitch font
+    as every price is (`EPIC-033N`, D6), and bold."""
     model.set_klines([_kline(0)])
 
     time_font = model.data(
@@ -226,4 +228,6 @@ def test_only_the_close_is_bold_and_no_cell_sets_a_font_family(model):
 
     assert time_font is None
     assert close_font.bold() is True
-    assert close_font.family() == QFont().family()
+    assert close_font.family() == (
+        QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+    )

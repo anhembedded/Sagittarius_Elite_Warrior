@@ -43,7 +43,7 @@ from datetime import datetime
 from typing import ClassVar, Final
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
@@ -128,13 +128,12 @@ class KLineInspectorTableModel(RowTableModel[KLineDisplayRow]):
         )
         return values[column]
 
+    def _is_emphasised(self, row: KLineDisplayRow, column: int) -> bool:
+        """The close is the price a candle is read by."""
+        return self.COLUMNS[column].key == "close"
+
     def _role_data(self, row: KLineDisplayRow, column: int, role: int) -> object:
         key = self.COLUMNS[column].key
-        if role == Qt.ItemDataRole.FontRole and key == "close":
-            # The close is the price a candle is read by.
-            font = QFont()
-            font.setBold(True)
-            return font
         if role == Qt.ItemDataRole.ForegroundRole and key in self._DIRECTIONAL_KEYS:
             return BULLISH_COLOR if row.is_bullish else BEARISH_COLOR
         return None
