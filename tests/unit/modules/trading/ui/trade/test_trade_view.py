@@ -17,7 +17,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view
     ACCOUNT_SUMMARY_TITLE,
     EQUITY_CHART_TITLE,
     ORDER_ENTRY_TITLE,
-    STRATEGY_TITLE,
     TRADE_SURFACE,
     DeskView,
 )
@@ -36,15 +35,14 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_stack import ISurfaceS
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
-#: The Futures page's bottom panels, HLD §11.2.1's order, then Strategy
-#: until arming moves to the Bots mode.
+#: The Futures page's bottom panels, exactly HLD §11.2.1's, in its order:
+#: arming moved to the Bots mode (`EPIC-033K` stage 3).
 _BOTTOM_TITLES = (
     "Positions",
     "Open orders",
     "Order history",
     "Trade history",
     EQUITY_CHART_TITLE,
-    STRATEGY_TITLE,
 )
 
 

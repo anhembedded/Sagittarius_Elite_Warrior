@@ -1,6 +1,8 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
-fills and Fit levels.
+fills, Fit levels, and Arm strategy… / Disarm strategy for the Strategies
+panel's selected venue (`EPIC-033K` stage 3; HLD §11.2: a strategy armed on a
+venue is a row of the Bots mode until `EPIC-029L`).
 
 Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
 as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
@@ -37,6 +39,8 @@ _PREFIX = "bots.bots"
 NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
 FIT_LEVELS = f"{_PREFIX}.fit_levels"
+ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
+DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
@@ -95,4 +99,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         ),
         command(REFRESH_FILLS, "Refresh &fills", on_toolbar=False),
         command(FIT_LEVELS, "Fit &levels", on_toolbar=False),
+        # The Strategies panel's selected venue: M and I are free in the menu.
+        command(ARM_STRATEGY, "Ar&m strategy…", on_toolbar=False, needs_input=True),
+        command(DISARM_STRATEGY, "D&isarm strategy", on_toolbar=False),
     )

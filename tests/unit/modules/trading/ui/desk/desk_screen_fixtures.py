@@ -30,17 +30,8 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_read
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
     StrategyArmingControlAdapter,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
-    StrategyCatalogReaderAdapter,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
     StrategyChartOverlayReaderAdapter,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
-    StrategyCatalogService,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
     FakeArmedStrategy,
@@ -48,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing.fake_strategy_chart_overlay import (
     FakeStrategyChartOverlay,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
@@ -184,8 +172,6 @@ def desk_fakes(
     session.set_enabled(enabled=setup.trading_on)
     activity = FakeAccountActivity()
     arming, armed = FakeStrategyArming(), FakeArmedStrategy()
-    registry = StrategyRegistry()
-    registry.register(STRATEGY_KEY, EmaCrossoverStrategy)
     threads = InlineThreadManager()
     deps = DeskDependencies(
         ports=fake_venue_ports(
@@ -201,7 +187,6 @@ def desk_fakes(
             arming=StrategyArmingControlAdapter(arming),
             armed=ArmedStrategyReaderAdapter(armed),
         ),
-        catalog=StrategyCatalogReaderAdapter(StrategyCatalogService(registry)),
         chart=DeskChartPorts(
             thread_manager=threads,
             market_data_sync=world.sync,

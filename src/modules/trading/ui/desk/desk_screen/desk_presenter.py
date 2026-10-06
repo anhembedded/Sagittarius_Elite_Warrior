@@ -3,7 +3,7 @@ for one venue, one page of the Trade mode since `EPIC-033I`.
 
 @details Every part already exists and is tested on its own: the order panel
 (`EPIC-028H`/`028I`), the account tabs and summary (`EPIC-028J`), the TP/SL
-follower (`EPIC-028I`), the strategy card (`EPIC-022D`), the chart. This
+follower (`EPIC-028I`), the chart. This
 presenter builds each with the desk's own venue's ports and feeds, and wires
 what passes between them:
 
@@ -19,7 +19,10 @@ what passes between them:
 - each of the venue's fills is marked on the chart, and its equity curve is
   drawn below (both moved here from the single Trading screen, `EPIC-028M`);
 - an entry placed with TP/SL is handed to the follower (Futures only: the
-  Spot desk's TP/SL waits on `EPIC-026K`, ADR O2).
+  Spot desk's TP/SL waits on `EPIC-026K`, ADR O2);
+- the chart draws the strategy the venue has armed, re-read whenever an
+  `ArmedStrategyChangedEvent` names the venue: the Bots mode arms it since
+  `EPIC-033K` stage 3, and the desk keeps no strategy state of its own.
 
 The Trade mode's commands (Enable live trading, New order…, Emergency stop)
 are bound by the mode (`trade_command_binding.py`) to the desk of the venue
@@ -37,6 +40,9 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
+    ArmedStrategyChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.account_summary_presenter import (
     AccountSummaryPresenter,
@@ -58,9 +64,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_equi
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
     DeskSessionControls,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_strategy import (
-    DeskStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
     DeskViewModel,
@@ -152,7 +155,10 @@ class DeskPresenter(BasePresenter):
         self.session = DeskSessionControls(
             ports.trading_session, threads, profile.venue, self
         )
-        self.strategy = DeskStrategy(self.desk, deps.strategy, deps.catalog, self.chart)
+        # The chart draws what its venue has armed; the Bots mode arms it
+        # (`EPIC-033K` stage 3), and says so on the bus.
+        self._armed = deps.strategy.armed
+        self.subscribe(ArmedStrategyChangedEvent, self._on_armed_changed)
         self.follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             self.follower = ProtectiveOrderFollower(
@@ -169,7 +175,7 @@ class DeskPresenter(BasePresenter):
             # the old screen): its chart is live, as after the toggle, so the
             # order panel values orders at the live price (the PR 308 review).
             self.chart.go_live()
-        self.strategy.refresh()
+        self._draw_armed()
         self.summary.refresh()
         self.show_symbol(default_symbol(config, FALLBACK_SYMBOL))
 
@@ -264,6 +270,14 @@ class DeskPresenter(BasePresenter):
         """View → Hide other pairs: the account tables show this desk's
         symbol only."""
         self.view.account_tabs.set_hide_other_pairs(hide)
+
+    def _on_armed_changed(self, event: ArmedStrategyChangedEvent) -> None:
+        if event.venue is self._profile.venue:
+            self._draw_armed()
+
+    def _draw_armed(self) -> None:
+        """The chart's strategy lines follow what the session has armed."""
+        self.chart.set_armed_config(self._armed.armed().config)
 
     def _log(self, line: str) -> None:
         self.desk.write_log(line)

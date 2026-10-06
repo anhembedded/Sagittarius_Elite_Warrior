@@ -100,6 +100,7 @@ class DeskChart(LiveCandleChart):
             parent,
         )
         self._fills: dict[str, list[MarkerPoint]] = {}
+        self._armed: ArmedStrategyConfig | None = None
         self._overlay = StrategyOverlayCoordinator(
             get_chart=lambda: self._chart, chart_overlay=ports.overlay
         )
@@ -115,14 +116,40 @@ class DeskChart(LiveCandleChart):
         if symbol == self._symbol:
             self._draw_fills()
 
+    @property
+    def armed_config(self) -> ArmedStrategyConfig | None:
+        """What the venue has armed; `None` for nothing."""
+        return self._armed
+
+    @property
+    def drawn_strategy(self) -> ArmedStrategyConfig | None:
+        """The armed strategy whose lines are on the chart: the armed one
+        while the chart shows its symbol and timeframe, else `None`."""
+        return self._overlay.armed_config
+
     def set_armed_config(self, config: ArmedStrategyConfig | None) -> None:
-        """Draws the armed strategy's own lines over the candles."""
-        self._overlay.set_armed_config(config)
+        """What the venue has armed. Its lines are drawn only over its own
+        symbol and timeframe: replayed over another pair's candles they
+        would show signals the strategy never computes (PR #376 review,
+        `EPIC-033K` stage 3, where arming left the desk and with it the
+        guarantee that the chart showed the armed symbol)."""
+        self._armed = config
+        self._follow_armed()
+
+    def _follow_armed(self) -> None:
+        armed = self._armed
+        shown = armed is not None and (armed.symbol, armed.interval) == (
+            self._symbol,
+            self._interval,
+        )
+        self._overlay.set_armed_config(armed if shown else None)
 
     def _on_symbol_shown(self, symbol: str) -> None:
         self._draw_fills()
+        self._follow_armed()
 
     def _on_history_drawn(self, klines: Sequence[MarketData]) -> None:
+        self._follow_armed()
         self._overlay.set_history(klines)
         if klines:
             self.lastPriceChanged.emit(Decimal(str(klines[-1].close_price)))

@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
+    ArmedStrategyChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     TradingSessionSnapshot,
 )
@@ -57,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
     in_memory_config_store,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -105,16 +111,24 @@ class _Desk:
             _SPOT: _strategy_session(_SPOT),
         }
         self.sessions = VenueStrategySessions(lambda venue: by_venue[venue])
+        self.trading = {
+            _FUTURES: _trading_session(MarketType.FUTURES_USD_M),
+            _SPOT: _trading_session(MarketType.SPOT),
+        }
         ports = FakeVenueTradingPorts(
-            fake_venue_ports(
-                _FUTURES, trading_session=_trading_session(MarketType.FUTURES_USD_M)
-            ),
-            fake_venue_ports(_SPOT, trading_session=_trading_session(MarketType.SPOT)),
+            *(
+                fake_venue_ports(venue, trading_session=session)
+                for venue, session in self.trading.items()
+            )
         )
+        self.published = RecordingPublisher()
         self.arm = ArmStrategyCommandHandler(
-            self.sessions, ports, in_memory_config_store(DictConfig())
+            self.sessions,
+            ports,
+            in_memory_config_store(DictConfig()),
+            self.published,
         )
-        self.disarm = DisarmStrategyCommandHandler(self.sessions, ports)
+        self.disarm = DisarmStrategyCommandHandler(self.sessions, ports, self.published)
 
 
 def _config(key: str, symbol: str) -> LiveStrategyConfig:
@@ -160,3 +174,49 @@ def test_disarming_one_venue_leaves_the_other_armed() -> None:
     assert result.disarmed is True
     assert desk.sessions.get(_SPOT).is_armed is False
     assert desk.sessions.get(_FUTURES).is_armed is True
+
+
+def _enable_trading(desk: _Desk, venue: TradingVenue) -> None:
+    desk.trading[venue].answer_with(
+        TradingSessionSnapshot(
+            enabled=True,
+            orders_sent_this_session=0,
+            known_open_symbols=(),
+            market_type=MarketType.FUTURES_USD_M,
+        )
+    )
+
+
+def _changes(desk: _Desk) -> list[tuple[TradingVenue, bool]]:
+    return [
+        (event.venue, event.armed)
+        for event in desk.published.of_type(ArmedStrategyChangedEvent)
+    ]
+
+
+def test_an_arm_and_a_disarm_each_say_which_venue_changed() -> None:
+    """`EPIC-033K` stage 3: the Trade mode's chart draws its venue's armed
+    strategy, which the Bots mode arms; it hears of each change here."""
+    desk = _Desk()
+
+    desk.arm.execute(ArmStrategyCommand(_config(_LONG_ONLY, "ETHUSDT"), venue=_SPOT))
+    desk.disarm.execute(DisarmStrategyCommand(venue=_SPOT))
+
+    assert _changes(desk) == [(_SPOT, True), (_SPOT, False)]
+
+
+def test_a_refused_arm_or_disarm_says_nothing_changed() -> None:
+    desk = _Desk()
+
+    refused = desk.arm.execute(
+        ArmStrategyCommand(_config(_SHORT_CAPABLE, "BTCUSDT"), venue=_SPOT)
+    )
+    trading_on = desk.arm.execute(
+        ArmStrategyCommand(_config(_LONG_ONLY, "BTCUSDT"), venue=_FUTURES)
+    )
+    _enable_trading(desk, _FUTURES)
+    blocked = desk.disarm.execute(DisarmStrategyCommand(venue=_FUTURES))
+
+    assert refused.armed is False and trading_on.armed is True
+    assert blocked.disarmed is False
+    assert _changes(desk) == [(_FUTURES, True)]

@@ -83,6 +83,7 @@ class _Screen:
                 ask_new_bot=lambda _kinds, _venues: None,
                 ask_stop=self._ask_stop,
                 confirm_delete=lambda _bot: False,
+                ask_arm_strategy=lambda _venue, _form: False,
             ),
         )
         self.actions = bound_actions(

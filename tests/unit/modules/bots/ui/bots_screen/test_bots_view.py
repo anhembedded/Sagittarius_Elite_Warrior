@@ -77,6 +77,8 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
     assert surface.centralWidget() is view.chart_area
     assert areas == {
         "Bots": _AREA.LeftDockWidgetArea,
+        # `EPIC-033K` stage 3: each venue's armed strategy, under Bots.
+        "Strategies": _AREA.LeftDockWidgetArea,
         "Plan": _AREA.RightDockWidgetArea,
         "Orders": _AREA.BottomDockWidgetArea,
         "Fills": _AREA.BottomDockWidgetArea,

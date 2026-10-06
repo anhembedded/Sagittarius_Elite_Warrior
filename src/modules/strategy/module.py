@@ -105,9 +105,9 @@ about threading, not a preference.
 Each absence is a measurement, not an omission:
 
   · **no contribution** — the card's *state* is this module's since PR 2.1e; its
-    *widget* is one class, `StrategyCard`, which the Dev Board and each desk
-    build for themselves (`EPIC-028L`; the Trading screen's own copy left
-    with that screen in `EPIC-028M`). `EPIC-025C` §1 item 4 makes it one
+    *widget* is the Bots mode's Arm strategy dialog since `EPIC-033K` stage
+    3 (the desks' `StrategyCard` before it, the Dev Board's before
+    `EPIC-033P`). `EPIC-025C` §1 item 4 makes it one
     contributed widget: ADR D18 wants an assertion inventory first, and §2's
     done-when wants the user on Testnet. It travels with the screens.
   · **no `declare_cli()`, and `trade-once` still does not need one** —

@@ -47,8 +47,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
     SUGGEST_FROM_ATR,
     SUGGEST_FROM_BOLLINGER,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
+    StrategiesPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.strategies.strategy_fakes import (
+    VenueArming,
+    venue_strategies,
+)
 
 from .bots_screen_fixtures import BotsScreen, stored
 
@@ -90,7 +100,13 @@ def test_a_kind_command_follows_the_kind_s_toolbar_action(qtbot) -> None:
     menu = bound_actions(
         QObject(),
         bots_commands(BOTS_ROUTE),
-        lambda binder: bind_bots_commands(binder, view_model),
+        lambda binder: bind_bots_commands(
+            binder,
+            view_model,
+            venue_strategies(
+                StrategiesPanel(), (VenueArming(TradingVenue.SPOT_TESTNET),)
+            ),
+        ),
     )
     atr = menu.action(SUGGEST_FROM_ATR)
     bollinger = menu.action(SUGGEST_FROM_BOLLINGER)

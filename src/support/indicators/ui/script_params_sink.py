@@ -1,6 +1,7 @@
 """`BOT-063` — the `BotParamsSink` for one indicator script's params dialog.
 
-@details Unlike the live strategy's sink (`StrategyCardViewModel`, one
+@details Unlike the live strategy's sink (`ParamsSink` on the Bots mode's
+arming form, one
 permanent object whose target key changes as the user picks a different
 strategy from a combo), several indicator scripts can be enabled and
 independently edited at once, so there is no single "currently selected"
@@ -75,7 +76,7 @@ class IndicatorScriptParamsSink(QObject):
     def step_bot_param_value(
         self, field_name: str, raw_value: str, direction: int
     ) -> str:
-        """`ParamStepper` — mirrors `StrategyCardViewModel.step_bot_param_value`."""
+        """`ParamStepper` — mirrors `ParamsSink.step_bot_param_value`."""
         for group in self.botParamsGroups:
             for field in group.fields:
                 if field.name == field_name:

@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action impo
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
+    ArmedStrategyChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -76,6 +82,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         sessions: VenueStrategySessions,
         trading_ports: IVenueTradingPorts,
         config_store: LiveStrategyConfigStore,
+        publisher: IEventPublisher,
     ) -> None:
         self._sessions = sessions
         self._trading_ports = trading_ports
@@ -86,6 +93,9 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         #: lease that already gate `arm()`, so every caller through
         #: `IStrategyArming` gets it for free and none can forget it.
         self._config_store = config_store
+        #: `EPIC-033K` stage 3 — every screen drawing a venue's armed
+        #: strategy hears that it changed (`ArmedStrategyChangedEvent`).
+        self._publisher = publisher
 
     def execute(self, command: ArmStrategyCommand) -> ArmStrategyResult:
         config = command.config
@@ -169,4 +179,5 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 error_message=str(exc),
             )
         self._config_store.save(command.venue, config)
+        self._publisher.publish(ArmedStrategyChangedEvent(True, venue=command.venue))
         return ArmStrategyResult(armed=True)

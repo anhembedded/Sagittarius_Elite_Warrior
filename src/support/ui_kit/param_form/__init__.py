@@ -9,12 +9,14 @@ strategy card (`EPIC-022C`).
 from .numeric_step import step_numeric_param_value
 from .param_field import BotParamFieldWidget
 from .param_stepper import ParamStepper
+from .params_sink import ParamsSink
 from .strategy_params_dialog import BotParamsSink, StrategyParamsDialog
 
 __all__ = [
     "BotParamFieldWidget",
     "BotParamsSink",
     "ParamStepper",
+    "ParamsSink",
     "StrategyParamsDialog",
     "step_numeric_param_value",
 ]

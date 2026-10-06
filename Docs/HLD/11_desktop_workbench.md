@@ -47,7 +47,7 @@ around a chart).
 | :--- | :--- | :--- | :--- | :--- |
 | **Market** (Ctrl+1) | watch the live market | SPEC-002, SPEC-003 | chart, one tab per open symbol | right: Watchlist, Indicators (tabbed); bottom: Output (hidden) |
 | **Trade** (Ctrl+2) | trade one venue by hand and see the account | SPEC-004, 005, 006, 007, 012, 013 | chart of the traded symbol | right: Order entry, Account summary; bottom: Positions (Futures) or Assets (Spot), Open orders, Order history, Trade history, Equity (tabbed) |
-| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | the selected bot's chart (its levels, fills and price; `EPIC-029` D16) | left: Bots (the list); right: Plan (the kind's panel: parameters and verdicts); bottom: Orders, Fills, Log, Backtest (the kind's, `EPIC-029D`) (tabbed) |
+| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | the selected bot's chart (its levels, fills and price; `EPIC-029` D16) | left: Bots (the list), Strategies (a row per venue's armed strategy, `EPIC-033K` stage 3); right: Plan (the kind's panel: parameters and verdicts); bottom: Orders, Fills, Log, Backtest (the kind's, `EPIC-029D`) (tabbed) |
 | **Backtest** (Ctrl+4) | test a strategy on stored history | SPEC-009 | result chart | left: Run setup; right: Metrics; bottom: Trades, Drawdown, Monthly returns, Monte Carlo (tabbed) |
 | **Data** (Ctrl+5) | keep history complete | SPEC-001, SPEC-008 | coverage table (symbol × timeframe) | bottom: Gaps, Output |
 | **Developer** (Ctrl+6, developer mode only) | look inside the running app | SPEC-011 (developer part) | event log | right: probes |
@@ -55,7 +55,9 @@ around a chart).
 **Bots replaces a Strategies mode** (`EPIC-029`: the user asked for "a **Bots** tab", judged the
 six signal strategies "junk", put signal bots and DCA last, and wants the desks "manual only, with
 a takeover from a bot"). A strategy armed on a venue (SPEC-010) is listed in the Bots mode as
-its own row until `EPIC-029L` makes it a signal-bot kind; Trade stays manual. Each bot kind
+its own row until `EPIC-029L` makes it a signal-bot kind (the Strategies panel, under Bots:
+Bots → Arm strategy… asks what to arm in a dialog, Disarm strategy disarms); Trade stays manual,
+its chart drawing what the venue has armed. Each bot kind
 contributes its panel and its toolbar (`kind_panels`, SPEC-014: "each bot type has its own
 toolbar"); the kind's toolbar shows while a bot of that kind is selected and its commands stay in
 the Bots menu, disabled otherwise.
@@ -111,6 +113,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Delete bot… | — | — | yes |
 | | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
 | | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
+| | Ar&m strategy…, D&isarm strategy (the Strategies panel's selected venue; `EPIC-033K` stage 3) | — | — | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |
 | | &Repair gap, Repair a&ll gaps | — | Data (Repair gap) | — |
@@ -209,7 +212,7 @@ Which former widgets become what:
 | session card | a status-bar tile (enabled / orders this session) plus the Enable / Disable / Emergency-stop actions on the toolbar; one `DeskSessionControls` behind every screen's actions, each for one venue (`EPIC-028M`) | `trading/ui/` |
 | manual order card | the desks' **order panel** (`trading/ui/desk/order_entry/`), in each desk's rail; Trade → New order… (F9, as in MT5) focuses it (`EPIC-033R`) | `EPIC-028H`/`028I`; the card left in `EPIC-028M` |
 | equity chart | a panel hosting the chart widget | `trading/ui/panels/` |
-| strategy card, last-signal card | the Strategy panel (armed strategy, parameters button, last signal) | `strategy/ui/panels/` |
+| strategy card, last-signal card | a row per venue in the Bots mode's Strategies panel and the Arm strategy dialog; the last signal is shown nowhere (`BOT-158`) | `bots/ui/strategies/` |
 | strategy parameters dialog | a `QDialog` | `strategy/ui/dialogs/` |
 | Dev Board system controls | gone with the Dev Board (`EPIC-033P`): the Market mode's View menu holds Spot or Futures market, Load older candles, Load range… and Back to live | `trading/ui/market/` |
 | indicator checklist | the Market mode's Indicators panel | `trading/ui/market/` (`EPIC-033H`): the mode also runs SPEC-003's check through `trading`'s account port, and `market_data` may not depend on `trading` |

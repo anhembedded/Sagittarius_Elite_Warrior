@@ -1,5 +1,6 @@
-"""`EPIC-022D`/`EPIC-022F`/`EPIC-025` PR 4.3m — the shared
-`StrategyArmingCoordinator` both Trading and Dev Board construct.
+"""`EPIC-022D`/`EPIC-022F`/`EPIC-025` PR 4.3m — `StrategyArmingCoordinator`,
+which the Bots mode's strategy rows drive since `EPIC-033K` stage 3 (the
+Trading screen, the Dev Board and the desks drove it before).
 
 The assertions here are mostly about what must NOT happen: picking a
 strategy must not arm it, restoring config must not run anything, and a
@@ -21,8 +22,13 @@ copies were wrong.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_arming_coordinator import (
+    StrategyArmingCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
     StrategyArmingControlAdapter,
 )
@@ -61,9 +67,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
     DisarmStrategyBlockReason as TradingDisarmStrategyBlockReason,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
@@ -76,30 +79,32 @@ class _FakeCardViewModel:
     """The Protocol's exact shape, nothing more — a double built from the
     calls the coordinator makes would pass no matter what it forgot to
     apply (`pitfalls/tests.md` #5), so this implements what
-    `StrategyArmingCoordinator.StrategyCardViewModel` declares instead."""
+    `StrategyArmingCoordinator`'s `StrategyFormState` declares instead."""
 
     def __init__(self) -> None:
-        self.selectedStrategyKey = ""
-        self.liveInterval = ""
-        self.sizingPercent = 0.0
+        self.selected_strategy_key = ""
+        self.live_interval = ""
+        self.sizing_percent = 0.0
         self.leverage = 0.0
-        self.strategy_options: list[dict] = []
+        self.strategy_options: list[tuple[str, str]] = []
         self.interval_options: list[str] = []
         self.bot_params_groups: tuple[ParamGroup, ...] = ()
         self.bot_params_error = ""
 
     def set_strategy_options(
-        self, strategy_options: list[dict], interval_options: list[str]
+        self,
+        strategy_options: Sequence[tuple[str, str]],
+        interval_options: Sequence[str],
     ) -> None:
-        self.strategy_options = strategy_options
-        self.interval_options = interval_options
+        self.strategy_options = list(strategy_options)
+        self.interval_options = list(interval_options)
 
     def set_strategy_selection(
         self, strategy_key: str, interval: str, sizing_percent: float, leverage: float
     ) -> None:
-        self.selectedStrategyKey = strategy_key
-        self.liveInterval = interval
-        self.sizingPercent = sizing_percent
+        self.selected_strategy_key = strategy_key
+        self.live_interval = interval
+        self.sizing_percent = sizing_percent
         self.leverage = leverage
 
     def set_bot_params(self, groups: tuple[ParamGroup, ...]) -> None:
@@ -184,9 +189,9 @@ def test_restore_fills_the_card_without_arming(view_model, catalog, arming):
 
     coordinator.restore_into_view_model(_INTERVALS)
 
-    assert view_model.selectedStrategyKey == TEST_STRATEGY_KEY
-    assert view_model.liveInterval == "5m"
-    assert view_model.sizingPercent == 7.5
+    assert view_model.selected_strategy_key == TEST_STRATEGY_KEY
+    assert view_model.live_interval == "5m"
+    assert view_model.sizing_percent == 7.5
     assert view_model.leverage == 3.0
     assert arming.armed_with is None
 
@@ -214,7 +219,7 @@ def test_a_saved_key_that_no_longer_exists_falls_back_without_arming(
 
     coordinator.restore_into_view_model(_INTERVALS)
 
-    assert view_model.selectedStrategyKey == TEST_STRATEGY_KEY
+    assert view_model.selected_strategy_key == TEST_STRATEGY_KEY
     assert arming.armed_with is None
 
 
@@ -233,8 +238,8 @@ def test_picking_a_strategy_rebuilds_the_form_but_does_not_arm(
 def test_arming_calls_the_port_with_what_the_card_shows(view_model, catalog, arming):
     coordinator = _coordinator(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
-    view_model.liveInterval = "1h"
-    view_model.sizingPercent = 12.5
+    view_model.live_interval = "1h"
+    view_model.sizing_percent = 12.5
     view_model.leverage = 4.0
 
     coordinator.arm()
@@ -348,10 +353,10 @@ def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arm
 
     options = view_model.strategy_options
 
-    assert options[0]["key"] == TEST_STRATEGY_KEY
-    assert options[0]["label"] != options[0]["key"]
+    assert options[0][0] == TEST_STRATEGY_KEY
+    assert options[0][1] != options[0][0]
     assert coordinator.armed_summary(
         ArmedStrategyConfig(
             strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
         )
-    ).startswith(options[0]["label"])
+    ).startswith(options[0][1])

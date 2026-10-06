@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
     in_memory_config_store,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _KEY = "ema_crossover"
@@ -116,11 +119,7 @@ def _spot_state(
 
 
 def _config(**overrides) -> LiveStrategyConfig:
-    values = {
-        "strategy_key": _KEY,
-        "symbol": "BTCUSDT",
-        "interval": "1m",
-    }
+    values = {"strategy_key": _KEY, "symbol": "BTCUSDT", "interval": "1m"}
     values.update(overrides)
     return LiveStrategyConfig(**values)
 
@@ -148,7 +147,8 @@ def _disarm_handler(
     state: FakeTradingSession,
     venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
 ) -> DisarmStrategyCommandHandler:
-    return DisarmStrategyCommandHandler(_sessions(session), _ports(state, venue))
+    parts = (_sessions(session), _ports(state, venue))
+    return DisarmStrategyCommandHandler(*parts, RecordingPublisher())
 
 
 def _arm_handler(
@@ -156,14 +156,11 @@ def _arm_handler(
     state: FakeTradingSession,
     venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
 ) -> ArmStrategyCommandHandler:
-    """`EPIC-025` PR 4.3m: `ArmStrategyCommandHandler` now persists a
-    successful arming itself (`O6`), so every test needs a store — a real
-    one over the engine's own in-memory `IConfig`, never a `Mock`, since
-    the config keys it reads and writes are what `LiveStrategyConfigStore`
-    is for."""
-    return ArmStrategyCommandHandler(
-        _sessions(session), _ports(state, venue), in_memory_config_store(DictConfig())
-    )
+    """It persists a successful arming itself (PR 4.3m `O6`): a real store
+    over the engine's in-memory `IConfig`, never a `Mock`."""
+    parts = (_sessions(session), _ports(state, venue))
+    store = in_memory_config_store(DictConfig())
+    return ArmStrategyCommandHandler(*parts, store, RecordingPublisher())
 
 
 def test_arming_a_valid_config_arms_the_session() -> None:
