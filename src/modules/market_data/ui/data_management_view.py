@@ -133,6 +133,12 @@ class DataManagementView(OutputSourceView):
         self._records.setObjectName("frmStoredRecords")
         self._size = status_readout(_SIZE_SPECS)
         self._size.setObjectName("frmDatabaseSize")
+        for readout in (self._records, self._size):
+            # Hidden until its figure is known: a title with no value reads
+            # as a label beside nothing (review of PR #389). Parented here so
+            # showing it before the status bar takes it opens no window.
+            readout.setParent(self)
+            readout.hide()
         self._task = QLabel()
         self._task.setObjectName("lblDataTask")
         self._progress = QProgressBar()
@@ -265,7 +271,9 @@ class DataManagementView(OutputSourceView):
         if vm is None:
             return
         self._records.set_values({_RECORDS_ROW: vm.storedRecords})
+        self._records.setHidden(vm.storedRecords is None)
         self._size.set_values({BYTES_KEY: vm.databaseSize})
+        self._size.setHidden(vm.databaseSize is None)
 
     def _sync_progress(self) -> None:
         """A running task's progress in the status bar (`ui-presentation-rule.md`

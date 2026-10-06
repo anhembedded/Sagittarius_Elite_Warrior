@@ -76,6 +76,23 @@ def test_unknown_stats_are_blank_not_a_glyph(mode):
     assert size.value_text("bytes") == ""
 
 
+def test_a_stat_is_offered_only_once_its_figure_is_known(mode):
+    """A title with no value read as a label beside nothing (review of PR
+    #389): an unknown stat is hidden, and shown when its figure arrives."""
+    view_model, view = mode
+    records, size = view.status_widgets()[:2]
+
+    view_model.set_stats(None, None)
+    assert (records.isHidden(), size.isHidden()) == (True, True)
+
+    view_model.set_stats(1250, None)
+    assert (records.isHidden(), size.isHidden()) == (False, True)
+
+    view_model.set_stats(1250, 2048)
+    assert (records.isHidden(), size.isHidden()) == (False, False)
+    assert records.isWindow() is False
+
+
 def test_selecting_a_shard_is_recorded_in_the_selection(mode):
     """The selection is the one record of what the commands act on; the
     view model's symbol is written only when a command acts (review of
