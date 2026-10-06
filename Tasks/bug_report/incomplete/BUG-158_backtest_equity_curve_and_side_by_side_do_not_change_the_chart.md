@@ -21,6 +21,8 @@
 - The user's words: "chọn Equity, nhưng chart ko nhảy qua Equity, chọn Side by side cũng k có hiện tượng gì".
 - Screenshot, Equity curve checked and the unchanged chart outlined by the user: [`BUG-158_equity_curve_selected.webp`](BUG-158_equity_curve_selected.webp).
 
+- The Backtest Output log of the same run logs each choice (`[DEV] chart_mode_changed mode='equity'`, `'both'`, `'ohlc'`) while the chart stays the same ([BUG-161](BUG-161_backtest_does_not_run.md)).
+
 ## Root cause
 Not yet established. The user asked for the report only; no investigation was done.
 
