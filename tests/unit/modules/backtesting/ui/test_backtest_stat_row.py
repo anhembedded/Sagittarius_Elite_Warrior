@@ -30,7 +30,7 @@ from PySide6.QtWidgets import QLabel, QWidget
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_stat_row import (
     BacktestStatRow,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 
 def _card(**overrides: object) -> dict[str, object]:

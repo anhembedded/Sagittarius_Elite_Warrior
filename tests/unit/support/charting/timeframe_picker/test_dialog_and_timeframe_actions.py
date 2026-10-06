@@ -349,3 +349,12 @@ def test_the_timeframe_actions_are_exclusive(qapp, row):
     qapp.processEvents()
 
     assert [a.text() for a in row.timeframe_actions() if a.isChecked()] == ["1m"]
+
+
+def test_the_picker_is_a_stock_dialog_with_a_close_button(qapp, dialog):
+    from PySide6.QtWidgets import QDialogButtonBox, QWidget
+
+    assert dialog.windowTitle() == "Select Timeframe"
+    assert dialog.styleSheet() == ""
+    assert all(w.styleSheet() == "" for w in dialog.findChildren(QWidget))
+    assert dialog.findChild(QDialogButtonBox) is not None

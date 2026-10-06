@@ -28,29 +28,45 @@ from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
     ParamField,
     ParamKind,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
-from Sagittarius_Elite_Warrior.src.support.ui_kit.form_field_style import (
-    FIELD_STYLE,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
-    read_widget_value,
-    write_widget_value,
-)
 
 from .param_stepper import ParamStepper
 
 
 def _schema_value(kind: ParamKind, raw: object) -> object:
-    """A schema-declared value in the form the widget's USER property takes.
+    """A schema-declared value in the form its editing widget takes.
 
     Only `bool` needs real coercion: the schema may carry `True` or the
-    string `"true"`, and a `QCheckBox`'s `checked` property must receive an
-    actual bool — `"false"` is a non-empty string, so passing it through
-    would tick the box. Every other kind is edited as text.
+    string `"true"`, and a `QCheckBox` must receive an actual bool —
+    `"false"` is a non-empty string, so passing it through would tick the
+    box. Every other kind is edited as text.
     """
     if kind is ParamKind.BOOL:
         return raw is True or raw == "true"
     return str(raw)
+
+
+def _write_value(widget: QWidget, value: object) -> None:
+    """Puts `value` into the widget the field kind built: a check box takes a
+    bool, a combo selects the entry with that text, a line edit shows it."""
+    if isinstance(widget, QCheckBox):
+        widget.setChecked(bool(value))
+    elif isinstance(widget, QComboBox):
+        widget.setCurrentText(str(value))
+    elif isinstance(widget, QLineEdit):
+        widget.setText(str(value))
+    else:
+        raise TypeError(f"no value to write on a {type(widget).__name__}")
+
+
+def _read_value(widget: QWidget) -> object:
+    """The value the user edited: a bool for a check box, the text otherwise."""
+    if isinstance(widget, QCheckBox):
+        return widget.isChecked()
+    if isinstance(widget, QComboBox):
+        return widget.currentText()
+    if isinstance(widget, QLineEdit):
+        return widget.text()
+    raise TypeError(f"no value to read on a {type(widget).__name__}")
 
 
 class _NumericStepLineEdit(QLineEdit):
@@ -98,13 +114,9 @@ class _NumericStepLineEdit(QLineEdit):
         event.accept()
 
 
-class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
-    """Port of `BotParamField.qml`: picks a widget purely from
-    `field.kind`, mirroring exactly what the QML `Loader` did.
-
-    **Not a `Surface`**: it is a caption stacked over one input, with zero
-    margins and no chrome — the same shape as `components/app_progress_bar.py`,
-    which carries the same marker for the same reason."""
+class BotParamFieldWidget(QWidget):
+    """One parameter: a caption stacked over a stock input chosen from
+    `field.kind`. It has no chrome of its own."""
 
     def __init__(
         self,
@@ -117,11 +129,9 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
         self._field = field
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
 
         label_text = field.label + (f" ({field.suffix})" if field.suffix else "")
         label = QLabel(label_text)
-        label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 10px;")
         layout.addWidget(label)
 
         kind = field.kind
@@ -155,16 +165,12 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
         else:
             self._input = QLineEdit()
 
-        # One value write for every widget kind, instead of a setChecked /
-        # setCurrentIndex / constructor-argument per branch above (BUG-064).
-        # The branches now only choose WHICH widget to build; what goes in it
-        # is Qt's own USER property, resolved by `kit.widget_value`.
-        write_widget_value(self._input, _schema_value(kind, field.value))
+        # One value write for every widget kind (BUG-064): the branches above
+        # only choose WHICH widget to build; what goes in it is `_write_value`.
+        _write_value(self._input, _schema_value(kind, field.value))
 
         self._input.setObjectName(f"fldBotParam_{self.field_name}")
-        self._input.setFixedHeight(32)
-        if isinstance(self._input, (QLineEdit, QComboBox)):
-            self._input.setStyleSheet(FIELD_STYLE)
+        label.setBuddy(self._input)
         layout.addWidget(self._input)
 
     @property
@@ -175,12 +181,8 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
         return self._input
 
     def value(self) -> object:
-        """BUG-064 — was a three-branch `isinstance` chain. Qt already
-        declares which property holds each widget kind's value; see
-        `kit.widget_value`."""
-        return read_widget_value(self._input)
+        """What the user typed or picked: the text, or a bool for a check box."""
+        return _read_value(self._input)
 
     def reset_to_default(self) -> None:
-        write_widget_value(
-            self._input, _schema_value(self._field.kind, self._field.default)
-        )
+        _write_value(self._input, _schema_value(self._field.kind, self._field.default))

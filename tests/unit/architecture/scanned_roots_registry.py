@@ -166,10 +166,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_screen_layer_structure.py",
         (("src/presentation/ui", "*.py"),),
     ),
-    (
-        "tests/unit/architecture/test_card_layer_structure.py",
-        UI_TREE_ROWS,
-    ),
     # Permanent ban, not a ratchet, since PR 4.4e: `EPIC-025` Phase 4 deleted
     # `src/presentation/ui/screens/` for good (settings was the last screen),
     # exactly as this guard's own `test_screens_root_is_where_we_think_it_is`

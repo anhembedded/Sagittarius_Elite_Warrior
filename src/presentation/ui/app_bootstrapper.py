@@ -82,7 +82,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from_config import (
     environment_banner_content_for,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_garbage_collector import (
     MainThreadGarbageCollector,
 )
@@ -102,9 +101,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -197,29 +193,14 @@ def build() -> AppRuntime:
     # its own; standard controls render in the platform's theme. Colour is used
     # only where it carries meaning, per widget. `qdarktheme`'s global dark
     # sheet used to be applied here.
-    # EPIC-006F removed `configure_app_qml()` here ("no QML left in this
-    # app"); EPIC-015 brought QML back as embedded widgets and nobody
-    # restored it — so for a year every host re-wired `Theme` by hand and
-    # bypassed the engine's `create_quick_widget()` factory (BUG-115 §4.1).
-    # Restored: `qml/embed/QuickSurface` builds every embedded scene through
-    # that factory, which requires this one-time registration. Also primes
-    # the theme bridge `apply_role()` reads — `get_theme_bridge()` is a
-    # first-caller-wins singleton, so the palette passed here is the one
-    # both QtWidgets QSS and QML `Theme.*` bindings render from.
-    seed_app_theme()
 
     # EPIC-021K — the global "which venue am I in" banner, computed once
     # from the boot config. `set_environment_banner_factory` is the *one*
-    # place this reaches every screen.
-    #
-    # Registered on **both** shells (a screen not yet converted is a
-    # `PageShell`, a converted one a `WorkbenchSurface`, `EPIC-025` PR
-    # 1.4c-2) — goes back to one registration when the last `PageShell` is
-    # gone in Phase 4; `test_environment_banner_all_screens.py` fails if a
-    # screen changes shell and its banner does not come along.
+    # place this reaches every screen: every screen is a `WorkbenchSurface`
+    # since `EPIC-033M` deleted `PageShell`; `test_environment_banner_all_screens.py`
+    # fails if a screen loses its banner.
     # `EPIC-028K` — names every enabled venue (`banner_from_config.py`).
     banner_content = environment_banner_content_for(config_manager)
-    PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(banner_content))
     WorkbenchSurface.set_environment_banner_factory(
         lambda: EnvironmentBanner(banner_content)
     )

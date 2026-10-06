@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
@@ -244,7 +244,7 @@ class BackTestViewModel(BaseQmlViewModel):
     # DashboardQmlViewModel.scriptModel).
     # ------------------------------------------------------------------ #
 
-    @Property(QObject, constant=True)
+    @property
     def scriptModel(self) -> IndicatorScriptListModel:
         return self._script_model
 
@@ -262,7 +262,7 @@ class BackTestViewModel(BaseQmlViewModel):
     # the state (`vm.run_progress.backtestProgressPercent`), one group at a
     # time, before any forwarding member is deleted.
     #
-    # Plain `@property`, not `Property(QObject, constant=True)`: `EPIC-006`
+    # Plain `@property`: `EPIC-006`
     # removed every `.qml` from this app, so nothing marshals these to QML
     # and the Qt wrapper would be ceremony. Read-only on purpose — a
     # sub-ViewModel is constructed once, in `__init__`, and reseating one
@@ -297,14 +297,12 @@ class BackTestViewModel(BaseQmlViewModel):
     # Symbol selection (BOT-102)
     # ------------------------------------------------------------------ #
 
-    def _get_symbol_options(self) -> list[str]:
-        return self._symbol_options
-
     #: Read-only from QML. Set by the Presenter after
     #: `ISymbolCatalog.list_symbols()` resolves — see symbolOptionsChanged.
-    symbolOptions = Property(
-        "QStringList", _get_symbol_options, notify=symbolOptionsChanged
-    )
+
+    @property
+    def symbolOptions(self) -> list[str]:
+        return self._symbol_options
 
     @Slot("QStringList")
     def set_symbol_options(self, options: list[str]) -> None:
@@ -315,23 +313,18 @@ class BackTestViewModel(BaseQmlViewModel):
     # Session run history (BOT-095G)
     # ------------------------------------------------------------------ #
 
-    def _get_session_run_history(self) -> list[dict[str, str]]:
-        return self._session_run_history
-
     #: One `{"run_id": ..., "label": ...}` dict per cached run, newest
     #: first — the dropdown needs nothing else. Set by the Presenter after
     #: every push/evict on `SessionRunHistoryCache`.
-    sessionRunHistory = Property(
-        "QVariantList", _get_session_run_history, notify=sessionRunHistoryChanged
-    )
+
+    @property
+    def sessionRunHistory(self) -> list[dict[str, str]]:
+        return self._session_run_history
 
     @Slot("QVariantList")
     def set_session_run_history(self, entries: list[dict[str, str]]) -> None:
         self._session_run_history = entries
         self.sessionRunHistoryChanged.emit()
-
-    def _get_selected_symbol(self) -> str:
-        return self._selected_symbol
 
     def _set_selected_symbol(self, value: str) -> None:
         if value != self._selected_symbol:
@@ -344,40 +337,35 @@ class BackTestViewModel(BaseQmlViewModel):
     #: `_on_symbol_selection_changed`). Kept a plain attribute rather than
     #: reading this property from background threads, matching the existing
     #: "Presenter workers never touch the ViewModel directly" rule.
-    selectedSymbol = Property(
-        str,
-        _get_selected_symbol,
-        _set_selected_symbol,
-        notify=selectedSymbolChanged,
-    )
+
+    @property
+    def selectedSymbol(self) -> str:
+        return self._selected_symbol
+
+    @selectedSymbol.setter
+    def selectedSymbol(self, value: str) -> None:
+        self._set_selected_symbol(value)
 
     # ------------------------------------------------------------------ #
     # Capital / timeframe
     # ------------------------------------------------------------------ #
-
-    def _get_initial_capital_text(self) -> str:
-        return self._initial_capital_text
 
     def _set_initial_capital_text(self, value: str) -> None:
         if value != self._initial_capital_text:
             self._initial_capital_text = value
             self.initialCapitalTextChanged.emit()
 
-    initialCapitalText = Property(
-        str,
-        _get_initial_capital_text,
-        _set_initial_capital_text,
-        notify=initialCapitalTextChanged,
-    )
+    @property
+    def initialCapitalText(self) -> str:
+        return self._initial_capital_text
 
-    def _get_capital_validation_message(self) -> str:
+    @initialCapitalText.setter
+    def initialCapitalText(self, value: str) -> None:
+        self._set_initial_capital_text(value)
+
+    @property
+    def capitalValidationMessage(self) -> str:
         return self._capital_validation_message
-
-    capitalValidationMessage = Property(
-        str,
-        _get_capital_validation_message,
-        notify=capitalValidationMessageChanged,
-    )
 
     @Slot(str)
     def set_capital_validation_message(self, message: str) -> None:
@@ -385,23 +373,13 @@ class BackTestViewModel(BaseQmlViewModel):
             self._capital_validation_message = message
             self.capitalValidationMessageChanged.emit()
 
-    def _get_market_rule_verification_status(self) -> str:
+    @property
+    def marketRuleVerificationStatus(self) -> str:
         return self._market_rule_verification_status
 
-    marketRuleVerificationStatus = Property(
-        str,
-        _get_market_rule_verification_status,
-        notify=marketRuleVerificationStatusChanged,
-    )
-
-    def _get_market_rule_explanation(self) -> str:
+    @property
+    def marketRuleExplanation(self) -> str:
         return self._market_rule_explanation
-
-    marketRuleExplanation = Property(
-        str,
-        _get_market_rule_explanation,
-        notify=marketRuleExplanationChanged,
-    )
 
     @Slot(str, str)
     def set_market_rule_verification(self, status: str, explanation: str) -> None:
@@ -412,26 +390,24 @@ class BackTestViewModel(BaseQmlViewModel):
             self._market_rule_explanation = explanation
             self.marketRuleExplanationChanged.emit()
 
-    def _get_selected_currency(self) -> str:
-        return self._selected_currency
-
     def _set_selected_currency(self, value: str) -> None:
         if value != self._selected_currency:
             self._selected_currency = value
             self.selectedCurrencyChanged.emit()
 
-    selectedCurrency = Property(
-        str,
-        _get_selected_currency,
-        _set_selected_currency,
-        notify=selectedCurrencyChanged,
-    )
+    @property
+    def selectedCurrency(self) -> str:
+        return self._selected_currency
 
-    @Property("QStringList", constant=True)
+    @selectedCurrency.setter
+    def selectedCurrency(self, value: str) -> None:
+        self._set_selected_currency(value)
+
+    @property
     def currencyOptions(self) -> list[str]:
         return Currency.list_values()
 
-    @Property("QStringList", constant=True)
+    @property
     def timeframeOptions(self) -> list[str]:
         """Every timeframe the domain declares, shortest first.
 
@@ -445,23 +421,18 @@ class BackTestViewModel(BaseQmlViewModel):
         """
         return [option.code for option in all_timeframe_options()]
 
-    def _get_selected_timeframe(self) -> str:
-        return self._selected_timeframe
-
     def _set_selected_timeframe(self, value: str) -> None:
         if value != self._selected_timeframe:
             self._selected_timeframe = value
             self.selectedTimeframeChanged.emit()
 
-    selectedTimeframe = Property(
-        str,
-        _get_selected_timeframe,
-        _set_selected_timeframe,
-        notify=selectedTimeframeChanged,
-    )
+    @property
+    def selectedTimeframe(self) -> str:
+        return self._selected_timeframe
 
-    def _get_execution_mode(self) -> str:
-        return self._execution_mode
+    @selectedTimeframe.setter
+    def selectedTimeframe(self, value: str) -> None:
+        self._set_selected_timeframe(value)
 
     def _set_execution_mode(self, value: str) -> None:
         # Reject silently-wrong values from QML rather than let an invalid
@@ -480,15 +451,14 @@ class BackTestViewModel(BaseQmlViewModel):
     #: QML-facing values are the enum's own string values (BacktestExecutionMode
     #: is itself a str Enum), so OrderExecutionModal.qml can bind/write this
     #: directly without a separate translation layer.
-    executionMode = Property(
-        str,
-        _get_execution_mode,
-        _set_execution_mode,
-        notify=executionModeChanged,
-    )
 
-    def _get_calc_on_order_fills(self) -> bool:
-        return self._calc_on_order_fills
+    @property
+    def executionMode(self) -> str:
+        return self._execution_mode
+
+    @executionMode.setter
+    def executionMode(self, value: str) -> None:
+        self._set_execution_mode(value)
 
     def _set_calc_on_order_fills(self, value: bool) -> None:
         if value != self._calc_on_order_fills:
@@ -497,12 +467,14 @@ class BackTestViewModel(BaseQmlViewModel):
 
     #: BOT-077 — only takes effect when executionMode is HISTORICAL_TICK;
     #: `OrderExecutionDialog`'s "On order fill" row is the only writer.
-    calcOnOrderFills = Property(
-        bool,
-        _get_calc_on_order_fills,
-        _set_calc_on_order_fills,
-        notify=calcOnOrderFillsChanged,
-    )
+
+    @property
+    def calcOnOrderFills(self) -> bool:
+        return self._calc_on_order_fills
+
+    @calcOnOrderFills.setter
+    def calcOnOrderFills(self, value: bool) -> None:
+        self._set_calc_on_order_fills(value)
 
     # ------------------------------------------------------------------ #
     # Broker simulation & sizing (BOT-104)
@@ -521,23 +493,18 @@ class BackTestViewModel(BaseQmlViewModel):
     # currently showing, which is a screen-level fact, not a run result.
     # ------------------------------------------------------------------ #
 
-    def _get_show_extended_metrics(self) -> bool:
-        return self._show_extended_metrics
-
     def _set_show_extended_metrics(self, value: bool) -> None:
         if value != self._show_extended_metrics:
             self._show_extended_metrics = value
             self.showExtendedMetricsChanged.emit()
 
-    showExtendedMetrics = Property(
-        bool,
-        _get_show_extended_metrics,
-        _set_show_extended_metrics,
-        notify=showExtendedMetricsChanged,
-    )
+    @property
+    def showExtendedMetrics(self) -> bool:
+        return self._show_extended_metrics
 
-    def _get_is_chart_preview(self) -> bool:
-        return self._is_chart_preview
+    @showExtendedMetrics.setter
+    def showExtendedMetrics(self, value: bool) -> None:
+        self._set_show_extended_metrics(value)
 
     #: BUG-032 — True whenever the chart currently shows candles loaded by
     #: `_request_chart_preview()` (opening the screen / changing symbol,
@@ -546,7 +513,10 @@ class BackTestViewModel(BaseQmlViewModel):
     #: `render_historical_data`/`render_historical_volume` calls, so the view
     #: needs this flag to tell the user which one they are looking at.
     #: Read-only from the view by design.
-    isChartPreview = Property(bool, _get_is_chart_preview, notify=isChartPreviewChanged)
+
+    @property
+    def isChartPreview(self) -> bool:
+        return self._is_chart_preview
 
     @Slot(bool)
     def set_chart_preview_mode(self, value: bool) -> None:
@@ -680,7 +650,7 @@ class BackTestViewModel(BaseQmlViewModel):
     # ------------------------------------------------------------------ #
     # Log model — exposed to LogPanel.qml, mutated by BacktestEventLogger.
     # ------------------------------------------------------------------ #
-    @Property(QObject, constant=True)
+    @property
     def logModel(self) -> LogListModel:
         return self._log_model
 
@@ -697,17 +667,13 @@ class BackTestViewModel(BaseQmlViewModel):
         super().set_ui_mode(mode)
         self.isConfigDirtyChanged.emit()
 
-    def _get_is_config_dirty(self) -> bool:
+    @property
+    def isConfigDirty(self) -> bool:
         return self._ui_mode == BacktestUiState.CONFIG_DIRTY.value
-
-    isConfigDirty = Property(bool, _get_is_config_dirty, notify=isConfigDirtyChanged)
 
     @property
     def is_config_dirty(self) -> bool:
-        return self._get_is_config_dirty()
-
-    def _get_config_diff_summary(self) -> str:
-        return self._config_diff_summary
+        return self.isConfigDirty
 
     def _set_config_diff_summary(self, value: str) -> None:
         val = str(value)
@@ -715,12 +681,13 @@ class BackTestViewModel(BaseQmlViewModel):
             self._config_diff_summary = val
             self.configDiffSummaryChanged.emit()
 
-    configDiffSummary = Property(
-        str,
-        _get_config_diff_summary,
-        _set_config_diff_summary,
-        notify=configDiffSummaryChanged,
-    )
+    @property
+    def configDiffSummary(self) -> str:
+        return self._config_diff_summary
+
+    @configDiffSummary.setter
+    def configDiffSummary(self, value: str) -> None:
+        self._set_config_diff_summary(value)
 
     @Slot(str)
     def setConfigDiffSummary(self, value: str) -> None:
@@ -730,8 +697,9 @@ class BackTestViewModel(BaseQmlViewModel):
     def config_diff_summary(self) -> str:
         return self._config_diff_summary
 
-    def _get_imported_report_banner_text(self) -> str:
-        return self._imported_report_banner_text
+    @config_diff_summary.setter
+    def config_diff_summary(self, value: str) -> None:
+        self._set_config_diff_summary(value)
 
     def _set_imported_report_banner_text(self, value: str) -> None:
         val = str(value)
@@ -739,12 +707,13 @@ class BackTestViewModel(BaseQmlViewModel):
             self._imported_report_banner_text = val
             self.importedReportBannerTextChanged.emit()
 
-    importedReportBannerText = Property(
-        str,
-        _get_imported_report_banner_text,
-        _set_imported_report_banner_text,
-        notify=importedReportBannerTextChanged,
-    )
+    @property
+    def importedReportBannerText(self) -> str:
+        return self._imported_report_banner_text
+
+    @importedReportBannerText.setter
+    def importedReportBannerText(self, value: str) -> None:
+        self._set_imported_report_banner_text(value)
 
     @Slot()
     def requestImportReport(self) -> None:
@@ -757,25 +726,19 @@ class BackTestViewModel(BaseQmlViewModel):
         (`BOT-115C`)."""
         self.exitImportedReportViewRequested.emit()
 
-    @config_diff_summary.setter
-    def config_diff_summary(self, value: str) -> None:
-        self._set_config_diff_summary(value)
-
-    def _get_last_run_summary(self) -> str:
-        return self._last_run_summary
-
     def _set_last_run_summary(self, value: str) -> None:
         val = str(value)
         if self._last_run_summary != val:
             self._last_run_summary = val
             self.lastRunSummaryChanged.emit()
 
-    lastRunSummary = Property(
-        str,
-        _get_last_run_summary,
-        _set_last_run_summary,
-        notify=lastRunSummaryChanged,
-    )
+    @property
+    def lastRunSummary(self) -> str:
+        return self._last_run_summary
+
+    @lastRunSummary.setter
+    def lastRunSummary(self, value: str) -> None:
+        self._set_last_run_summary(value)
 
     @Slot(str)
     def setLastRunSummary(self, value: str) -> None:

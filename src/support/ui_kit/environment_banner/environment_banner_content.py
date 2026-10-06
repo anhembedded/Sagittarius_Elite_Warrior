@@ -14,6 +14,7 @@ projection, not a reactive ViewModel.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -21,31 +22,42 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import StyleRole
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
+
+
+class BannerSeverity(Enum):
+    """@brief How alarming the venue situation is, named by what it means.
+
+    @details The banner shows it with the icon and the weight of its text,
+    never by colour alone (`ui-presentation-rule.md` §1).
+    """
+
+    INFO = "info"
+    WARN = "warn"
+    DANGER = "danger"
+
 
 #: English copy, translated from the task's own worked mock (`EPIC-021K`
 #: §2.1's table).
-_CONTENT: dict[VenueAlignment, tuple[str, str, StyleRole]] = {
+_CONTENT: dict[VenueAlignment, tuple[str, str, BannerSeverity]] = {
     VenueAlignment.TRADING_DISABLED: (
         "⏸",
         "Trading is OFF. Data view only.",
-        Severity.INFO,
+        BannerSeverity.INFO,
     ),
     VenueAlignment.ALIGNED: (
         "ⓘ",
         "TESTNET — simulated funds.",
-        Severity.WARN,
+        BannerSeverity.WARN,
     ),
     VenueAlignment.MARKET_MISMATCH: (
         "⚠",
         "Chart is showing a different market than your orders trade in. Price shown is not the order's fill market.",
-        Severity.DANGER,
+        BannerSeverity.DANGER,
     ),
     VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: (
         "⚠",
         "Chart is showing MAINNET prices, orders fill on TESTNET. Price shown ≠ fill price.",
-        Severity.DANGER,
+        BannerSeverity.DANGER,
     ),
 }
 
@@ -58,7 +70,7 @@ class EnvironmentBannerContent:
 
     icon: str
     message: str
-    severity: StyleRole
+    severity: BannerSeverity
 
 
 def venue_alignment_banner_content(

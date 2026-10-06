@@ -24,7 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
 from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (

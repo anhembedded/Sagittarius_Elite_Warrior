@@ -1,36 +1,48 @@
+"""The dialog an uncaught exception ends in: what failed, and its traceback.
+
+Stock parts in the platform's look (`ui-presentation-rule.md` §1, §7): the
+platform's critical icon, the message in the system font made bold, a
+"Show details" check box for the traceback (state is a check box, never a
+checkable push button, §6), and a `QDialogButtonBox` whose one commit
+button is Close, because a problem is never "OK" (§4). The details are in
+the platform's fixed-pitch font, as every column of digits is. Nothing sets
+a size the style should decide (§3); the dialog opens at a size that shows
+the message and grows with its details.
+"""
+
 from __future__ import annotations
 
 import traceback
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QGuiApplication
+from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSizePolicy,
     QStyle,
     QTextEdit,
     QVBoxLayout,
+    QWidget,
 )
 
 _DEFAULT_DIALOG_WIDTH: int = 620
 _DEFAULT_DIALOG_HEIGHT: int = 320
-_MIN_DIALOG_WIDTH: int = 540
-_MIN_DIALOG_HEIGHT: int = 240
-_EXPANDED_MIN_WIDTH: int = 650
-_EXPANDED_MIN_HEIGHT: int = 480
 _EXPANDED_HEIGHT_DELTA: int = 200
-_COLLAPSED_MIN_HEIGHT: int = 260
 _DEFAULT_ICON_SIZE: int = 40
+SHOW_DETAILS_TEXT = "Show details"
+COPY_TEXT = "Copy error"
+COPIED_TEXT = "Copied"
 
 
 class CriticalErrorDialog(QDialog):
     """
     @brief Resizable critical error dialog for uncaught UI and system exceptions.
-    @details Allows user to freely resize, maximize, toggle details, and copy full
-    tracebacks to clipboard without getting clipped or locked to a rigid fixed size.
+    @details The person can resize and maximize it, show or hide the
+    traceback, and copy the whole error to the clipboard.
     """
 
     def __init__(
@@ -39,11 +51,10 @@ class CriticalErrorDialog(QDialog):
         message: str = "An unexpected error occurred in the UI layer.",
         error_details: str = "",
         traceback_str: str = "",
-        parent=None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.setMinimumSize(_MIN_DIALOG_WIDTH, _MIN_DIALOG_HEIGHT)
         self.resize(_DEFAULT_DIALOG_WIDTH, _DEFAULT_DIALOG_HEIGHT)
         self.setSizeGripEnabled(True)
         self.setWindowFlags(
@@ -51,94 +62,71 @@ class CriticalErrorDialog(QDialog):
             | Qt.WindowType.WindowMaximizeButtonHint
             | Qt.WindowType.WindowCloseButtonHint
         )
-
         self._traceback_str = traceback_str
         self._error_details = error_details
+        self._show_details = QCheckBox(SHOW_DETAILS_TEXT, self)
+        self._show_details.setObjectName("chkShowErrorDetails")
+        self._details_edit = QTextEdit(self)
+        self._details_edit.setObjectName("txtErrorDetails")
+        self._buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        self._btn_copy = self._buttons.addButton(
+            COPY_TEXT, QDialogButtonBox.ButtonRole.ActionRole
+        )
+        self._build(message, error_details, traceback_str)
 
-        self._init_ui(message, error_details, traceback_str)
+    @property
+    def copy_button(self) -> QPushButton:
+        return self._btn_copy
 
-    def _init_ui(self, message: str, error_details: str, traceback_str: str) -> None:
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
+    @property
+    def show_details(self) -> QCheckBox:
+        return self._show_details
 
-        # Header Row with Icon and Error Summary
-        header_row = QHBoxLayout()
-        header_row.setSpacing(14)
-        header_row.setAlignment(Qt.AlignmentFlag.AlignTop)
+    @property
+    def details(self) -> QTextEdit:
+        return self._details_edit
 
+    def _build(self, message: str, error_details: str, traceback_str: str) -> None:
+        column = QVBoxLayout(self)
+        header = QHBoxLayout()
+        header.setAlignment(Qt.AlignmentFlag.AlignTop)
         icon_label = QLabel(self)
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)
         icon_label.setPixmap(icon.pixmap(_DEFAULT_ICON_SIZE, _DEFAULT_ICON_SIZE))
-        icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        header_row.addWidget(icon_label)
-
-        text_layout = QVBoxLayout()
-        text_layout.setSpacing(6)
-
+        header.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
+        text = QVBoxLayout()
         title_lbl = QLabel(message, self)
-        title_font = QFont()
+        title_font = title_lbl.font()
         title_font.setBold(True)
-        title_font.setPointSize(10)
         title_lbl.setFont(title_font)
         title_lbl.setWordWrap(True)
-        text_layout.addWidget(title_lbl)
-
+        text.addWidget(title_lbl)
         if error_details:
             details_lbl = QLabel(error_details, self)
             details_lbl.setWordWrap(True)
-            text_layout.addWidget(details_lbl)
-
-        header_row.addLayout(text_layout)
-        main_layout.addLayout(header_row)
-
-        # Action Buttons Row
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
-        btn_row.addStretch()
-
-        self._btn_copy = QPushButton("Copy Error", self)
-        self._btn_copy.clicked.connect(self._copy_to_clipboard)
-        btn_row.addWidget(self._btn_copy)
-
-        self._btn_details = QPushButton("Show Details...", self)
-        self._btn_details.setCheckable(True)
-        self._btn_details.clicked.connect(self._toggle_details)
-        btn_row.addWidget(self._btn_details)
-
-        self._btn_ok = QPushButton("OK", self)
-        self._btn_ok.setDefault(True)
-        self._btn_ok.clicked.connect(self.accept)
-        btn_row.addWidget(self._btn_ok)
-
-        main_layout.addLayout(btn_row)
-
-        # Details Text Edit (Hidden initially, expandable when toggled)
-        self._details_edit = QTextEdit(self)
+            text.addWidget(details_lbl)
+        header.addLayout(text, 1)
+        column.addLayout(header)
+        column.addWidget(self._show_details)
         self._details_edit.setReadOnly(True)
-        font = QFont("Consolas", 9)
-        font.setStyleHint(QFont.StyleHint.Monospace)
-        self._details_edit.setFont(font)
+        self._details_edit.setFont(
+            QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        )
         self._details_edit.setText(traceback_str or error_details)
-        self._details_edit.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-        )
         self._details_edit.setVisible(False)
-        main_layout.addWidget(self._details_edit, 1)
+        column.addWidget(self._details_edit, 1)
+        column.addWidget(self._buttons)
+        self._buttons.button(QDialogButtonBox.StandardButton.Close).setDefault(True)
+        self._buttons.rejected.connect(self.reject)
+        self._btn_copy.clicked.connect(self._copy_to_clipboard)
+        self._show_details.toggled.connect(self._toggle_details)
 
-    def _toggle_details(self) -> None:
-        is_visible = self._btn_details.isChecked()
-        self._details_edit.setVisible(is_visible)
-        self._btn_details.setText(
-            "Hide Details..." if is_visible else "Show Details..."
-        )
-        if is_visible:
-            self.resize(
-                max(self.width(), _EXPANDED_MIN_WIDTH),
-                max(self.height() + _EXPANDED_HEIGHT_DELTA, _EXPANDED_MIN_HEIGHT),
-            )
+    def _toggle_details(self, shown: bool) -> None:
+        self._details_edit.setVisible(shown)
+        if shown:
+            self.resize(self.width(), self.height() + _EXPANDED_HEIGHT_DELTA)
         else:
-            self.resize(self.width(), max(self.minimumHeight(), _COLLAPSED_MIN_HEIGHT))
+            self.adjustSize()
 
     def _copy_to_clipboard(self) -> None:
         full_text = (
@@ -147,7 +135,7 @@ class CriticalErrorDialog(QDialog):
             else self._error_details
         )
         QGuiApplication.clipboard().setText(full_text)
-        self._btn_copy.setText("Copied!")
+        self._btn_copy.setText(COPIED_TEXT)
 
 
 def show_critical_error_dialog(
@@ -156,7 +144,7 @@ def show_critical_error_dialog(
     exc_tb,
     title: str = "Critical System Error",
     message: str = "An unexpected error occurred in the UI layer.",
-    parent=None,
+    parent: QWidget | None = None,
 ) -> int:
     """Convenience helper to construct and show a CriticalErrorDialog from an exception."""
     tb_str = (

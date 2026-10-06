@@ -12,7 +12,7 @@ abstraction levels and do not share a file — the same split
 
 @par Where each of the six data-bearing callbacks comes from
 `BackTestViewModel.extended_metrics_snapshot()` (an `ExtendedMetricsSnapshot`,
-plain Python accessor, not a QML `Property` — see that type's own module
+plain Python accessor — see that type's own module
 docstring) is `BackTestPresenter._on_backtest_succeeded`'s one retention of
 the just-finished run's real `BacktestMetrics` fields, set at the same place
 `set_stat_cards(...)` already runs. `None` before the first successful run

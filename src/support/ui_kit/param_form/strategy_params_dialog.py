@@ -19,7 +19,7 @@ look and validate identically wherever they are edited.
 
 `EPIC-023C` moved this out of `screens/trading/` and replaced the
 `DeskViewModel` type hint with `BotParamsSink` below: every screen's
-ViewModel that carries the `EPIC-022D` strategy-card Qt Property/Signal
+ViewModel that carries the `EPIC-022D` strategy-card Signal
 block satisfies it structurally, the same `ParamStepper` precedent
 `param_stepper.py` already set for `BotParamFieldWidget`.
 
@@ -34,34 +34,26 @@ now renders the strategy's declared groups directly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, Protocol
 
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QFrame,
+    QGroupBox,
     QLabel,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
-    StyledButton,
-    StyleRole,
-)
 
 from .param_field import BotParamFieldWidget
 from .param_stepper import ParamStepper
 
-if TYPE_CHECKING:
-    from PySide6.QtWidgets import QHBoxLayout
-
 _TITLE = "Strategy Parameters"
 _EMPTY_TEXT = "This strategy does not declare any parameters."
-_SAVE_TEXT = "Save"
-_CANCEL_TEXT = "Cancel"
-_RESTORE_TEXT = "Restore Defaults"
 
 
 class BotParamsSink(ParamStepper, Protocol):
@@ -83,8 +75,15 @@ class BotParamsSink(ParamStepper, Protocol):
     def requestBotParamsSave(self, values: dict) -> None: ...
 
 
-class StrategyParamsDialog(Overlay):
-    """@brief Edits the selected strategy's declared parameters."""
+class StrategyParamsDialog(QDialog):
+    """@brief Edits the selected strategy's declared parameters.
+
+    @details A stock `QDialog`: the parameters scroll once, in the middle; the
+    commit buttons are a `QDialogButtonBox`, so the platform orders them
+    (`ui-presentation-rule.md` §7). Save is the default button, Esc and the
+    title-bar close act as Cancel, and Restore Defaults resets the fields in
+    place without saving.
+    """
 
     def __init__(
         self,
@@ -96,55 +95,75 @@ class StrategyParamsDialog(Overlay):
         per-script params dialog can say "Indicator Parameters" rather
         than "Strategy Parameters" while reusing this exact class; every
         existing caller keeps the strategy wording by leaving it unset."""
-        super().__init__(title, parent=parent)
+        super().__init__(parent)
         self.setObjectName("strategyParamsDialog")
+        self.setWindowTitle(title)
         self._vm = view_model
         self._field_widgets: list[BotParamFieldWidget] = []
-        self.resize(520, 560)
 
         self._content = QWidget()
         self._content_layout = QVBoxLayout(self._content)
         self._content_layout.setObjectName("strategyParamsContent")
-        self._content_layout.setSpacing(14)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(self._content)
-        self.body_layout.addWidget(scroll)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setWidget(self._content)
 
         self._error_label = QLabel()
         self._error_label.setObjectName("lblStrategyParamsError")
         self._error_label.setWordWrap(True)
-        self._error_label.setStyleSheet(f"color: {Palette.DANGER}; font-size: 11px;")
         self._error_label.setVisible(False)
-        self.body_layout.addWidget(self._error_label)
+
+        self._buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+            | QDialogButtonBox.StandardButton.RestoreDefaults
+        )
+        self._restore_button = self._named_button(
+            QDialogButtonBox.StandardButton.RestoreDefaults, "btnStrategyParamsRestore"
+        )
+        self._cancel_button = self._named_button(
+            QDialogButtonBox.StandardButton.Cancel, "btnStrategyParamsCancel"
+        )
+        self._save_button = self._named_button(
+            QDialogButtonBox.StandardButton.Save, "btnStrategyParamsSave"
+        )
+        self._save_button.setDefault(True)
+        self._restore_button.clicked.connect(self._on_restore_clicked)
+        self._buttons.accepted.connect(self._on_save_clicked)
+        self._buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self._scroll, 1)
+        layout.addWidget(self._error_label)
+        layout.addWidget(self._buttons)
 
         self._vm.botParamsChanged.connect(self._sync_from_view_model)
         self._sync_from_view_model()
 
-    def _build_buttons(self) -> QHBoxLayout:
-        from PySide6.QtWidgets import QHBoxLayout as _QHBoxLayout
+    def _named_button(self, which: QDialogButtonBox.StandardButton, name: str):
+        button = self._buttons.button(which)
+        button.setObjectName(name)
+        return button
 
-        row = _QHBoxLayout()
-        self._restore_button = StyledButton(
-            _RESTORE_TEXT, role=StyleRole.SECONDARY_BUTTON
+    @property
+    def title(self) -> str:
+        return self.windowTitle()
+
+    def sizeHint(self) -> QSize:
+        """Wide and tall enough for the fields as they are, never taller than
+        the screen allows: the content decides, not a number written here."""
+        base = super().sizeHint()
+        content = self._content.sizeHint()
+        scrollbar = self._scroll.verticalScrollBar().sizeHint().width()
+        screen = self.screen()
+        limit = (
+            screen.availableGeometry().height() * 3 // 4 if screen else base.height()
         )
-        self._restore_button.setObjectName("btnStrategyParamsRestore")
-        self._restore_button.clicked.connect(self._on_restore_clicked)
-        self._cancel_button = StyledButton(
-            _CANCEL_TEXT, role=StyleRole.SECONDARY_BUTTON
-        )
-        self._cancel_button.setObjectName("btnStrategyParamsCancel")
-        self._cancel_button.clicked.connect(self.reject)
-        self._save_button = StyledButton(_SAVE_TEXT, role=StyleRole.PRIMARY_BUTTON)
-        self._save_button.setObjectName("btnStrategyParamsSave")
-        self._save_button.clicked.connect(self._on_save_clicked)
-        row.addWidget(self._restore_button)
-        row.addStretch(1)
-        row.addWidget(self._cancel_button)
-        row.addWidget(self._save_button)
-        return row
+        chrome = base.height() - self._scroll.sizeHint().height()
+        height = min(content.height() + chrome, limit)
+        return QSize(max(base.width(), content.width() + scrollbar), max(height, 1))
 
     def _on_restore_clicked(self) -> None:
         """`BOT-063` — resets every visible field to its own declared
@@ -194,20 +213,19 @@ class StrategyParamsDialog(Overlay):
         self._field_widgets = []
 
         if not groups:
-            empty = QLabel(_EMPTY_TEXT)
-            empty.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-            self._content_layout.addWidget(empty)
+            self._content_layout.addWidget(QLabel(_EMPTY_TEXT))
             self._content_layout.addStretch(1)
             return
 
         for group in groups:
-            header = QLabel(group.label)
-            header.setStyleSheet(
-                f"color: {Palette.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;"
-            )
-            self._content_layout.addWidget(header)
+            if group.label:
+                box = QGroupBox(group.label)
+                container = QVBoxLayout(box)
+                self._content_layout.addWidget(box)
+            else:
+                container = self._content_layout
             for field in group.fields:
                 field_widget = BotParamFieldWidget(field, self._vm)
                 self._field_widgets.append(field_widget)
-                self._content_layout.addWidget(field_widget)
+                container.addWidget(field_widget)
         self._content_layout.addStretch(1)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 from unittest.mock import MagicMock
 
 from PySide6.QtWidgets import QApplication, QLabel, QWidget
@@ -12,28 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_top_panel imp
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
-
-
-def _ensure_theme_bridge(qapp: QApplication) -> None:
-    """One entry point (`BOT-133`), and the `suppress` is load-bearing.
-
-    `get_theme_bridge()` inside `seed_app_theme()` is a first-caller-wins
-    singleton that raises `ValueError` when a second caller offers a different
-    palette — which happens whenever this file runs in the same process as a
-    suite that seeded a placeholder one (`kit/conftest.py` does, deliberately).
-    Either palette is fine for the layout assertions below; what matters is
-    that *some* theme exists before the panel is built.
-    """
-    with contextlib.suppress(ValueError):
-        seed_app_theme()
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 
 def test_top_panel_initial_state_shows_result_box(qapp: QApplication) -> None:
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)
@@ -52,7 +33,6 @@ def test_top_panel_initial_state_shows_result_box(qapp: QApplication) -> None:
 def test_top_panel_with_cards_shows_header_cards_and_expand_button(
     qapp: QApplication,
 ) -> None:
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)
@@ -108,7 +88,6 @@ def test_top_panel_imported_report_banner_shows_only_while_viewing(
 ) -> None:
     """`BOT-115C` — the banner is visible only in `VIEWING_IMPORTED_REPORT`
     with real text, and its action emits the exit-view request."""
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)
@@ -144,7 +123,6 @@ def test_session_run_history_combo_starts_disabled_with_only_the_placeholder(
     qapp: QApplication,
 ) -> None:
     """`BOT-095G` — nothing has run yet, so there is nothing to redisplay."""
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)
@@ -166,7 +144,6 @@ def test_session_run_history_combo_populates_and_selecting_an_entry_requests_res
     that run's `run_id`. A real Qt signal connection, not a mock standing
     in for it: breaking the `currentIndexChanged.connect(...)` line in
     `backtest_top_panel.py` makes this test fail."""
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)
@@ -204,7 +181,6 @@ def test_session_run_history_combo_resets_to_placeholder_on_refresh(
     """A refresh (a new run pushed, or the oldest slot evicted) must not
     leave a stale selection highlighted — `vm.sessionRunHistory` no longer
     describes "the run picked last time" as the thing currently on screen."""
-    _ensure_theme_bridge(qapp)
     vm = BackTestViewModel()
     panel = BackTestTopPanel(vm)
     panel.resize(1200, 350)

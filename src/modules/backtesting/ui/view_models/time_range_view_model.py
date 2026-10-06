@@ -26,7 +26,7 @@ of "open a modal" signals, the same call made in `003F2` for
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.time_range_preset import (
     TimeRangePreset,
 )
@@ -56,7 +56,7 @@ class TimeRangeViewModel(QObject):
     # Preset
     # ------------------------------------------------------------------ #
 
-    @Property("QVariantList", constant=True)
+    @property
     def presetOptions(self) -> list[dict[str, str]]:
         return [
             {"value": TimeRangePreset.LAST_7_DAYS.value, "label": "Last 7 days"},
@@ -67,70 +67,65 @@ class TimeRangeViewModel(QObject):
             {"value": TimeRangePreset.CUSTOM.value, "label": "Custom"},
         ]
 
-    def _get_preset(self) -> str:
+    @property
+    def preset(self) -> str:
         return self._preset
 
-    def _set_preset(self, value: str) -> None:
+    @preset.setter
+    def preset(self, value: str) -> None:
         if value != self._preset:
             self._preset = value
             self.presetChanged.emit()
 
-    preset = Property(str, _get_preset, _set_preset, notify=presetChanged)
-
-    def _get_selected_preset_label(self) -> str:
+    @property
+    def selectedPresetLabel(self) -> str:
+        """Falls back to the raw value rather than to a placeholder: a preset
+        the option list does not know about is a bug worth seeing on screen,
+        not one worth hiding behind "Tuỳ chỉnh"."""
         for opt in self.presetOptions:
             if opt.get("value") == self._preset:
                 return opt.get("label", self._preset)
         return self._preset
 
-    #: Falls back to the raw value rather than to a placeholder: a preset
-    #: the option list does not know about is a bug worth seeing on screen,
-    #: not one worth hiding behind "Tuỳ chỉnh".
-    selectedPresetLabel = Property(
-        str, _get_selected_preset_label, notify=presetChanged
-    )
-
     # ------------------------------------------------------------------ #
     # Custom window
     # ------------------------------------------------------------------ #
 
-    def _get_custom_start_text(self) -> str:
+    @property
+    def customStartText(self) -> str:
         return self._custom_start_text
 
-    def _set_custom_start_text(self, value: str) -> None:
+    @customStartText.setter
+    def customStartText(self, value: str) -> None:
         if value != self._custom_start_text:
             self._custom_start_text = value
             self.customStartTextChanged.emit()
 
-    customStartText = Property(
-        str,
-        _get_custom_start_text,
-        _set_custom_start_text,
-        notify=customStartTextChanged,
-    )
-
-    def _get_custom_end_text(self) -> str:
+    @property
+    def customEndText(self) -> str:
         return self._custom_end_text
 
-    def _set_custom_end_text(self, value: str) -> None:
+    @customEndText.setter
+    def customEndText(self, value: str) -> None:
         if value != self._custom_end_text:
             self._custom_end_text = value
             self.customEndTextChanged.emit()
-
-    customEndText = Property(
-        str, _get_custom_end_text, _set_custom_end_text, notify=customEndTextChanged
-    )
 
     # ------------------------------------------------------------------ #
     # Display timezone (BOT-097)
     # ------------------------------------------------------------------ #
 
-    @Property("QVariantList", constant=True)
+    @property
     def displayTimezoneOptions(self) -> list[dict[str, str]]:
         return get_supported_timezones()
 
-    def _get_display_timezone(self) -> str:
+    @property
+    def displayTimezone(self) -> str:
         return self._display_timezone
+
+    @displayTimezone.setter
+    def displayTimezone(self, value: str) -> None:
+        self.set_display_timezone(value)
 
     @Slot(str)
     def set_display_timezone(self, value: str) -> None:
@@ -138,16 +133,6 @@ class TimeRangeViewModel(QObject):
             self._display_timezone = value
             self.displayTimezoneChanged.emit()
 
-    displayTimezone = Property(
-        str,
-        _get_display_timezone,
-        set_display_timezone,
-        notify=displayTimezoneChanged,
-    )
-
-    def _get_display_timezone_label(self) -> str:
+    @property
+    def displayTimezoneLabel(self) -> str:
         return get_display_timezone_label(self._display_timezone)
-
-    displayTimezoneLabel = Property(
-        str, _get_display_timezone_label, notify=displayTimezoneChanged
-    )

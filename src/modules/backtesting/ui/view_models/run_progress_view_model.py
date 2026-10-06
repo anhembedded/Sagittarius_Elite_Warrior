@@ -19,7 +19,7 @@ cannot accidentally reset it to a *non-*empty text and leave a stale
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 
 #: What "no job running" looks like on either bar.
 IDLE_PERCENT = 0.0
@@ -47,19 +47,13 @@ class RunProgressViewModel(QObject):
     # Backtest run
     # ------------------------------------------------------------------ #
 
-    def _get_backtest_percent(self) -> float:
+    @property
+    def backtestProgressPercent(self) -> float:
         return self._backtest_percent
 
-    backtestProgressPercent = Property(
-        float, _get_backtest_percent, notify=backtestProgressChanged
-    )
-
-    def _get_backtest_text(self) -> str:
+    @property
+    def backtestProgressText(self) -> str:
         return self._backtest_text
-
-    backtestProgressText = Property(
-        str, _get_backtest_text, notify=backtestProgressChanged
-    )
 
     @Slot(float, str)
     def set_backtest_progress(self, percent: float, text: str) -> None:
@@ -75,15 +69,13 @@ class RunProgressViewModel(QObject):
     # Data sync
     # ------------------------------------------------------------------ #
 
-    def _get_sync_percent(self) -> float:
+    @property
+    def syncProgressPercent(self) -> float:
         return self._sync_percent
 
-    syncProgressPercent = Property(float, _get_sync_percent, notify=syncProgressChanged)
-
-    def _get_sync_text(self) -> str:
+    @property
+    def syncProgressText(self) -> str:
         return self._sync_text
-
-    syncProgressText = Property(str, _get_sync_text, notify=syncProgressChanged)
 
     @Slot(float, str)
     def set_sync_progress(self, percent: float, text: str) -> None:

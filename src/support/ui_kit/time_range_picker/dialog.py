@@ -43,14 +43,18 @@ from datetime import UTC, datetime
 
 from PySide6.QtCore import QDate, QDateTime, Qt, Signal
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QCalendarWidget,
+    QDateTimeEdit,
+    QDialog,
+    QDialogButtonBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
+    QRadioButton,
+    QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import DateTimeField, Overlay
 
 from .range_rules import (
     PRESET_LABELS,
@@ -63,7 +67,7 @@ from .range_rules import (
     seed_range,
 )
 
-_DEFAULT_TITLE = "DATA TIME RANGE"
+_DEFAULT_TITLE = "Data Time Range"
 _FROM_LABEL = "From"
 _TO_LABEL = "To"
 
@@ -90,7 +94,7 @@ def _from_qdatetime(value: QDateTime) -> datetime:
     )
 
 
-class TimeRangePickerDialog(Overlay):
+class TimeRangePickerDialog(QDialog):
     """
     @brief A start and an end instant, chosen by preset, calendar or typed
     text — all three write the same two values.
@@ -117,9 +121,11 @@ class TimeRangePickerDialog(Overlay):
         title: str = _DEFAULT_TITLE,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(title, parent=parent)
+        super().__init__(parent)
         self.setObjectName("timeRangePickerDialog")
-        self.resize(720, 480)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self._body_layout = QVBoxLayout(self)
 
         self._get_from_text = get_from_text
         self._get_to_text = get_to_text
@@ -138,35 +144,41 @@ class TimeRangePickerDialog(Overlay):
         self._build_calendars()
         self._build_fields()
         self._build_summary_row()
+        self._build_buttons()
+
+    @property
+    def title(self) -> str:
+        return self.windowTitle()
 
     # -- construction ------------------------------------------------------
 
     def _build_presets(self) -> None:
         row = QHBoxLayout()
-        row.setSpacing(6)
-        self._preset_buttons: dict[RangePresetKind, QPushButton] = {}
+        # One preset at a time: radio buttons in an exclusive group, not
+        # checkable push buttons (`ui-presentation-rule.md` §6).
+        self._preset_group = QButtonGroup(self)
+        self._preset_buttons: dict[RangePresetKind, QRadioButton] = {}
         for kind in PRESET_ORDER:
-            button = QPushButton(PRESET_LABELS[kind])
+            button = QRadioButton(PRESET_LABELS[kind])
             button.setObjectName(f"btnTimeRangePreset_{kind.value}")
-            button.setCheckable(True)
             button.clicked.connect(
                 lambda _checked=False, k=kind: self._choose_preset(k)
             )
+            self._preset_group.addButton(button)
             row.addWidget(button)
             self._preset_buttons[kind] = button
         row.addStretch(1)
-        self.body_layout.addLayout(row)
+        self._body_layout.addLayout(row)
 
     def _build_calendars(self) -> None:
         grid = QGridLayout()
-        grid.setSpacing(8)
         self._from_calendar = self._calendar("calFrom", self._on_from_date)
         self._to_calendar = self._calendar("calTo", self._on_to_date)
         grid.addWidget(self._heading(_FROM_LABEL), 0, 0)
         grid.addWidget(self._heading(_TO_LABEL), 0, 1)
         grid.addWidget(self._from_calendar, 1, 0)
         grid.addWidget(self._to_calendar, 1, 1)
-        self.body_layout.addLayout(grid, 1)
+        self._body_layout.addLayout(grid, 1)
 
     def _calendar(self, name: str, on_clicked: Callable[[QDate], None]):
         calendar = QCalendarWidget()
@@ -183,52 +195,41 @@ class TimeRangePickerDialog(Overlay):
 
     def _build_fields(self) -> None:
         row = QHBoxLayout()
-        row.setSpacing(12)
-        self._from_field = DateTimeField()
+        self._from_field = QDateTimeEdit()
         self._from_field.setObjectName("fldTimeRangeFrom")
         self._from_field.dateTimeChanged.connect(self._on_from_field)
-        self._to_field = DateTimeField()
+        self._to_field = QDateTimeEdit()
         self._to_field.setObjectName("fldTimeRangeTo")
         self._to_field.dateTimeChanged.connect(self._on_to_field)
         row.addWidget(self._heading(_FROM_LABEL))
         row.addWidget(self._from_field, 1)
         row.addWidget(self._heading(_TO_LABEL))
         row.addWidget(self._to_field, 1)
-        self.body_layout.addLayout(row)
+        self._body_layout.addLayout(row)
 
     def _build_summary_row(self) -> None:
         self._summary_label = QLabel()
         self._summary_label.setObjectName("lblTimeRangeSummary")
-        self.body_layout.addWidget(self._summary_label)
+        self._body_layout.addWidget(self._summary_label)
 
     @staticmethod
     def _heading(text: str) -> QLabel:
-        """A plain `QLabel`, deliberately.
-
-        `apply_role(..., StyleRole.CAPTION)` is what every other dialog in this
-        repository would use here, and this one does not: `apply_role` **is**
-        the app's own styling layer, HLD §11.4 deletes it in this phase, and
-        `test_app_styling_only_shrinks.py` holds those four numbers shrink-only.
-        A widget written *in* Phase 4 that added to the count it exists to drive
-        to zero would be raising a ratchet with a new file, which
-        `ci-rule.md` §5.5 forbids outright. It renders in the OS theme, which is
-        the target state (ADR D21).
-        """
         return QLabel(text)
 
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.addStretch(1)
-        cancel = QPushButton("Cancel")
-        cancel.setObjectName("btnCancelTimeRange")
-        cancel.clicked.connect(self.reject)
-        row.addWidget(cancel)
-        self._btn_apply = QPushButton("Apply")
+    def _build_buttons(self) -> None:
+        """OK applies the pair; it is disabled while the pair cannot be
+        applied. Cancel and Esc close without applying."""
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self._btn_apply = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self._btn_apply.setObjectName("btnApplyTimeRange")
-        self._btn_apply.setDefault(True)
-        self._btn_apply.clicked.connect(self._apply)
-        row.addWidget(self._btn_apply)
-        return row
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setObjectName(
+            "btnCancelTimeRange"
+        )
+        buttons.accepted.connect(self._apply)
+        buttons.rejected.connect(self.reject)
+        self._body_layout.addWidget(buttons)
 
     # -- host-facing -------------------------------------------------------
 
@@ -330,8 +331,7 @@ class TimeRangePickerDialog(Overlay):
         """
         self._syncing = True
         try:
-            for kind, button in self._preset_buttons.items():
-                button.setChecked(kind is self._preset)
+            self._preset_buttons[self._preset].setChecked(True)
 
             has_range = self._start is not None and self._end is not None
             for calendar, field, value in (

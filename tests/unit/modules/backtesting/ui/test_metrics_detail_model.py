@@ -15,7 +15,11 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.metrics_detail_model i
     detail_rows,
     metrics_detail_table,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 _PROFIT = MetricRow(
     "Net profit", "1,200.00", "USD", Tone.POSITIVE, "Good", Tone.POSITIVE
@@ -57,9 +61,9 @@ def test_value_and_verdict_are_coloured_by_their_tones(qapp):
     def colour(row: int, column: int) -> object:
         return model.data(model.index(row, column), Qt.ItemDataRole.ForegroundRole)
 
-    assert colour(0, 2) == QColor(semantic_colour("success"))
-    assert colour(0, 3) == QColor(semantic_colour("success"))
-    assert colour(1, 2) == QColor(semantic_colour("danger"))
+    assert colour(0, 2) == QColor(BULL_COLOR)
+    assert colour(0, 3) == QColor(BULL_COLOR)
+    assert colour(1, 2) == QColor(BEAR_COLOR)
     assert colour(1, 3) is None  # an aside, not a verdict
     assert colour(2, 2) is None
     assert colour(0, 1) is None

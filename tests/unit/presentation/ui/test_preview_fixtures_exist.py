@@ -18,9 +18,6 @@ import os
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.scripts.preview_qml import discover_previews
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -40,12 +37,6 @@ def test_all_discovered_previews_build_cleanly(qapp):
     """
     Constructs every discovered preview in offscreen Qt mode and asserts 0 QML errors.
     """
-    # Idempotent, and the session fixture in `tests/conftest.py` has already
-    # run it — kept because a preview is the one thing here that loads QML
-    # from a bare build function, and `seed_app_theme()` is what makes the
-    # engine's QML factory usable (`BOT-132` turned its absence into a hard
-    # failure). One call, not the engine pair spelled out again (`BOT-133`).
-    seed_app_theme()
     previews = discover_previews()
     assert len(previews) > 0, "No previews discovered"
 

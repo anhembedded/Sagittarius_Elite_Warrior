@@ -78,18 +78,16 @@ class RunProgressStatus(QObject):
             self.bar.setRange(0, 0)
             return
         self.bar.setRange(0, _FULL)
-        # The view model's fields are Qt `Property`s, which mypy cannot read
-        # through (`EPIC-002D`); they are read by name.
         if mode == _SYNCING:
-            self._show_progress(progress, "syncProgressText", "syncProgressPercent")
+            self._show_progress(progress.syncProgressText, progress.syncProgressPercent)
         elif mode == _RUNNING:
             self._show_progress(
-                progress, "backtestProgressText", "backtestProgressPercent"
+                progress.backtestProgressText, progress.backtestProgressPercent
             )
 
-    def _show_progress(self, progress: QObject, text: str, percent: str) -> None:
-        self.text.setText(str(progress.property(text)))
-        self.bar.setValue(clamp_percent(float(progress.property(percent))))
+    def _show_progress(self, text: str, percent: float) -> None:
+        self.text.setText(text)
+        self.bar.setValue(clamp_percent(percent))
 
     def _set_progress_visible(self, visible: bool) -> None:
         self.text.setVisible(visible)

@@ -37,9 +37,6 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -126,13 +123,6 @@ def main() -> None:
             app_instance if isinstance(app_instance, QApplication) else QApplication([])
         )
         app.setQuitOnLastWindowClosed(False)
-        # EPIC-006F: no QML left in this app — apply_role() is the only
-        # Any process that builds this app's widgets seeds its theme the
-        # same way the bootstrapper does — one call, one place
-        # (`theme_bootstrap.py`). BOT-132: this used to be a partial copy
-        # here (bridge only, no `configure_app_qml()`), which the QML
-        # embedding rework turned from silently-wrong into a hard failure.
-        seed_app_theme()
         # `EPIC-025F` PR 5.2: every screen (the shell's own Welcome/Settings,
         # and every module's, Database included) now arrives through the
         # same `assemble_contributions()` the real GUI entry point calls —
