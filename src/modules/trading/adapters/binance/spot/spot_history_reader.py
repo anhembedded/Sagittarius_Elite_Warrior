@@ -45,6 +45,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_hi
     map_spot_history_order,
     map_spot_trade,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveReason,
+    ActiveSymbol,
+    active_symbols_from,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -142,7 +147,7 @@ class SpotHistoryReader(IAccountHistoryReader):
             )
             return tuple(map_spot_trade(row) for row in rows)
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         # `since` is checked, not used: no Spot endpoint answers "traded
         # since" (see `known_gaps`).
         span_ms(since, self._clock())
@@ -153,7 +158,12 @@ class SpotHistoryReader(IAccountHistoryReader):
             listed = self._listed_symbols.among(
                 f"{asset}{_QUOTE_ASSET}" for asset in _held_assets(account)
             )
-            return tuple(sorted(listed | {row["symbol"] for row in open_orders}))
+            return active_symbols_from(
+                [
+                    (ActiveReason.OPEN_ORDER, {row["symbol"] for row in open_orders}),
+                    (ActiveReason.HELD, listed),
+                ]
+            )
 
     def every_symbol_scan_limit(self) -> int | None:
         return SPOT_EVERY_SYMBOL_SCAN_LIMIT

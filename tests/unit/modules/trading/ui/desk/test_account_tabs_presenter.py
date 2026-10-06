@@ -91,7 +91,9 @@ def test_both_histories_open_on_every_pair_over_the_last_seven_days(qtbot) -> No
 
     desk.presenter.show_symbol("BTCUSDT")
 
-    expected = HistoryRequest(symbol=None, since=NOW - DESK_HISTORY_SPAN)
+    expected = HistoryRequest(
+        symbol=None, since=NOW - DESK_HISTORY_SPAN, desk_symbol="BTCUSDT"
+    )
     assert desk.activity.order_requests == [expected]
     assert desk.activity.trade_requests == [expected]
     model = desk.panel.history_panel(HistoryKind.ORDERS).table.model().sourceModel()
@@ -109,7 +111,7 @@ def test_paging_keeps_the_span_the_history_opened_with(qtbot) -> None:
     desk.panel.historyPageRequested.emit(HistoryKind.ORDERS.value, 2)
 
     assert desk.activity.order_requests[-1] == HistoryRequest(
-        symbol=None, since=NOW - DESK_HISTORY_SPAN, page=2
+        symbol=None, since=NOW - DESK_HISTORY_SPAN, page=2, desk_symbol="BTCUSDT"
     )
 
 
@@ -120,7 +122,9 @@ def test_hide_other_pairs_reopens_the_histories_on_the_desks_symbol(qtbot) -> No
 
     desk.panel.set_hide_other_pairs(True)
 
-    expected = HistoryRequest(symbol="BTCUSDT", since=desk.now - DESK_HISTORY_SPAN)
+    expected = HistoryRequest(
+        symbol="BTCUSDT", since=desk.now - DESK_HISTORY_SPAN, desk_symbol="BTCUSDT"
+    )
     assert desk.activity.order_requests[-1] == expected
     assert desk.activity.trade_requests[-1] == expected
 

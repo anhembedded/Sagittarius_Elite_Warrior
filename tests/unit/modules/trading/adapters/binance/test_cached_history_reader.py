@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_histo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -63,7 +66,7 @@ class _CountingReader(FakeAccountHistoryReader):
         self._count("trades")
         return super().trade_history(symbol, since)
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         self._count("symbols")
         return super().active_symbols(since)
 
@@ -205,8 +208,8 @@ def test_active_symbols_are_reused_for_the_same_since_only() -> None:
     reader.active_symbols(_START)
     later = reader.active_symbols(_START + timedelta(hours=4))
 
-    assert first == ("BTCUSDT", "ETHUSDT")
-    assert later == ("BTCUSDT", "ETHUSDT")
+    assert [pair.symbol for pair in first] == ["BTCUSDT", "ETHUSDT"]
+    assert later == first
     assert inner.reads["symbols"] == 2
 
 

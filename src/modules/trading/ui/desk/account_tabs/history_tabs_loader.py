@@ -87,12 +87,17 @@ class HistoryTabsLoader(QObject):
         }
         self._read.connect(self._on_read)
 
-    def open(self, symbol: str | None) -> None:
+    def open(self, symbol: str | None, desk_symbol: str | None = None) -> None:
         """Starts both histories over: a new `since`, page one.
-        @param symbol One pair, or `None` for every active pair."""
+        @param symbol One pair, or `None` for every active pair.
+        @param desk_symbol The desk's own pair, which a capped every-pair page
+            reads right after the pairs with an open order (`BOT-149`)."""
         since = self._clock() - DESK_HISTORY_SPAN
         for kind in HistoryKind:
-            self._load(kind, HistoryRequest(symbol=symbol, since=since))
+            self._load(
+                kind,
+                HistoryRequest(symbol=symbol, since=since, desk_symbol=desk_symbol),
+            )
 
     def turn_to(self, kind: HistoryKind, page: int) -> None:
         """Shows another page of `kind`, over the same span."""

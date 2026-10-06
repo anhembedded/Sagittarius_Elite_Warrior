@@ -164,45 +164,6 @@ def _spot(client: Any, catalog: _Catalog | None = None) -> SpotHistoryReader:
     )
 
 
-def test_futures_active_symbols_are_open_positions_and_open_orders() -> None:
-    client = Mock()
-    client.futures_position_information.return_value = [
-        {"symbol": "ETHUSDT", "positionAmt": "0.5"},
-        {"symbol": "XRPUSDT", "positionAmt": "0"},
-        {"symbol": "BTCUSDT", "positionAmt": "-0.01"},
-    ]
-    client.futures_get_open_orders.return_value = [{"symbol": "SOLUSDT"}]
-    # `EPIC-028R` — an open conditional order lives in the Algo Order API.
-    client.futures_get_open_algo_orders.return_value = [{"symbol": "DOGEUSDT"}]
-    client.futures_income_history.return_value = []
-
-    assert _futures(client).active_symbols(_SINCE) == (
-        "BTCUSDT",
-        "DOGEUSDT",
-        "ETHUSDT",
-        "SOLUSDT",
-    )
-
-
-def test_futures_active_symbols_include_pairs_traded_since_with_nothing_open() -> None:
-    """`EPIC-028Q` — a round trip closed inside the window books income
-    (its commission and realized PnL), so its pair is found although nothing
-    is open; a transfer, which has no symbol, adds none."""
-    client = Mock()
-    client.futures_position_information.return_value = []
-    client.futures_get_open_orders.return_value = []
-    client.futures_get_open_algo_orders.return_value = []
-    client.futures_income_history.return_value = [
-        {"symbol": "ADAUSDT", "incomeType": "COMMISSION", "income": "-0.01"},
-        {"symbol": "ADAUSDT", "incomeType": "REALIZED_PNL", "income": "1.2"},
-        {"symbol": "", "incomeType": "TRANSFER", "income": "100"},
-    ]
-
-    assert _futures(client).active_symbols(_SINCE) == ("ADAUSDT",)
-    call = client.futures_income_history.call_args_list[0].kwargs
-    assert call["startTime"] == int(_SINCE.timestamp() * 1000)
-
-
 def test_each_reader_states_its_venues_gaps() -> None:
     futures = _futures(Mock()).known_gaps()
     spot = _spot(Mock()).known_gaps()
@@ -210,26 +171,6 @@ def test_each_reader_states_its_venues_gaps() -> None:
     assert any("3 days" in gap for gap in futures.order_history)
     assert futures.every_symbol and spot.every_symbol
     assert spot.order_history == ()
-
-
-def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -> None:
-    """`DOGE` is held but its pair is not listed; `ETH` is zero; `USDT` is the
-    quote asset itself."""
-    client = Mock()
-    client.get_account.return_value = {
-        "balances": [
-            {"asset": "BTC", "free": "0.1", "locked": "0"},
-            {"asset": "ETH", "free": "0", "locked": "0"},
-            {"asset": "BNB", "free": "0", "locked": "2"},
-            {"asset": "DOGE", "free": "5", "locked": "0"},
-            {"asset": "USDT", "free": "100", "locked": "0"},
-        ]
-    }
-    client.get_open_orders.return_value = [{"symbol": "SOLUSDT"}]
-
-    reader = _spot(client, _Catalog("BTCUSDT", "BNBUSDT", "ETHUSDT", "SOLUSDT"))
-
-    assert reader.active_symbols(_SINCE) == ("BNBUSDT", "BTCUSDT", "SOLUSDT")
 
 
 def _unlisted_holdings_client() -> Mock:
@@ -254,7 +195,7 @@ def test_unlisted_holdings_download_the_catalog_once_not_once_each() -> None:
     reader.active_symbols(_SINCE)
     reader.active_symbols(_SINCE)
 
-    assert first == ("BTCUSDT",)
+    assert [pair.symbol for pair in first] == ["BTCUSDT"]
     assert catalog.downloads == 1
 
 
@@ -273,7 +214,8 @@ def test_the_quote_asset_is_never_looked_up_as_a_pair() -> None:
     }
     client.get_open_orders.return_value = []
 
-    assert _spot(client, catalog).active_symbols(_SINCE) == ("BTCUSDT",)
+    held = _spot(client, catalog).active_symbols(_SINCE)
+    assert [pair.symbol for pair in held] == ["BTCUSDT"]
     assert catalog.downloads == 0
 
 

@@ -50,6 +50,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -80,11 +83,14 @@ class IAccountHistoryReader(ABC):
         first. Raises as `order_history` does."""
 
     @abstractmethod
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         """@brief The pairs a history of "every symbol" covers: those the
         account holds or has an open order on, plus every pair the venue can
-        tell was traded from `since` on. Sorted. What a venue cannot tell is
-        in `known_gaps().every_symbol`.
+        tell was traded from `since` on, each once with its strongest reason
+        (`ActiveReason`), sorted by symbol. The order carries no priority:
+        which pairs a capped read takes first is `history_scope`'s policy
+        (`BOT-149`). What a venue cannot tell is in
+        `known_gaps().every_symbol`.
         @throws ValueError `since` is older than `MAX_HISTORY_LOOKBACK`.
         @throws AccountHistoryUnavailableError The exchange did not answer."""
 

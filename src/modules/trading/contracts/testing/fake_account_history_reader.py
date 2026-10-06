@@ -15,6 +15,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveReason,
+    ActiveSymbol,
+    active_symbols_from,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -40,6 +45,7 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         orders: Iterable[OrderRecord] = (),
         trades: Iterable[TradeRecord] = (),
         open_symbols: Iterable[str] = (),
+        held_symbols: Iterable[str] = (),
         *,
         now: datetime,
         gaps: HistoryGaps | None = None,
@@ -49,6 +55,7 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         self._orders = tuple(orders)
         self._trades = tuple(trades)
         self._open = frozenset(open_symbols)
+        self._held = frozenset(held_symbols)
         self._gaps = gaps or HistoryGaps()
         self._scan_limit = scan_limit
 
@@ -70,14 +77,20 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         )
         return tuple(sorted(rows, key=lambda record: (record.time, record.trade_id)))
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
-        """What is open, and every pair with a fill from `since` on — what
-        the Futures reader finds through income (`EPIC-028Q`). A pair with
-        only unfilled orders and nothing open is not named, as on the real
-        venues."""
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
+        """What is open, what is held, and every pair with a fill from
+        `since` on — what the Futures reader finds through income
+        (`EPIC-028Q`). A pair with only unfilled orders and nothing open is
+        not named, as on the real venues."""
         require_within_lookback(since, self._now)
         traded = {record.symbol for record in self._trades if record.time >= since}
-        return tuple(sorted(self._open | traded))
+        return active_symbols_from(
+            [
+                (ActiveReason.OPEN_ORDER, self._open),
+                (ActiveReason.TRADED, traded),
+                (ActiveReason.HELD, self._held),
+            ]
+        )
 
     def every_symbol_scan_limit(self) -> int | None:
         return self._scan_limit

@@ -20,6 +20,9 @@ class GetOrderHistoryQuery:
     since: datetime = field(kw_only=True)
     #: Zero-based.
     page: int = field(default=0, kw_only=True)
+    #: The desk's own pair, read after the pairs with an open order when an
+    #: every-pair page is capped (`BOT-149`).
+    desk_symbol: str | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if self.since.tzinfo is None:

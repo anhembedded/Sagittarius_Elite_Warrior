@@ -50,6 +50,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_wind
     HistoryWindowRules,
     fetch_span,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveReason,
+    ActiveSymbol,
+    active_symbols_from,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -143,7 +148,7 @@ class FuturesHistoryReader(IAccountHistoryReader):
             )
             return tuple(map_futures_trade(row) for row in rows)
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         start, end = span_ms(since, self._clock())
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
             client = self._client()
@@ -167,7 +172,13 @@ class FuturesHistoryReader(IAccountHistoryReader):
             }
             traded = {row["symbol"] for row in income if row["symbol"]}
             waiting = {row["symbol"] for row in open_orders + open_algo_orders}
-            return tuple(sorted(held | traded | waiting))
+            return active_symbols_from(
+                [
+                    (ActiveReason.OPEN_ORDER, waiting),
+                    (ActiveReason.TRADED, traded),
+                    (ActiveReason.HELD, held),
+                ]
+            )
 
     def every_symbol_scan_limit(self) -> int | None:
         # A seven-day tab is one window per pair, and only pairs actually

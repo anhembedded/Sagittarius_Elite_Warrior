@@ -29,6 +29,10 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveReason,
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -154,18 +158,36 @@ class AccountHistoryReaderContract:
             ("BTCUSDT", 20),
         ]
 
-    def test_active_symbols_are_sorted_and_cover_the_fills_since(
+    def test_active_symbols_are_sorted_once_each_and_cover_the_fills_since(
         self, given_history: GivenHistory
     ) -> None:
         reader = given_history(
             [contract_order("SOLUSDT", 1)],
-            [contract_trade("BTCUSDT", 10), contract_trade("ETHUSDT", 30)],
+            [
+                contract_trade("ETHUSDT", 30),
+                contract_trade("BTCUSDT", 10),
+                contract_trade("BTCUSDT", 12),
+            ],
         )
 
         active = reader.active_symbols(_START + timedelta(hours=5))
 
-        assert list(active) == sorted(active)
-        assert {"BTCUSDT", "ETHUSDT"} <= set(active)
+        symbols = [pair.symbol for pair in active]
+        assert symbols == sorted(set(symbols))
+        assert {"BTCUSDT", "ETHUSDT"} <= set(symbols)
+
+    def test_active_symbols_state_why_each_pair_is_active(
+        self, given_history: GivenHistory
+    ) -> None:
+        """`BOT-149`: the reason is the venue's fact, so a pair known only
+        from a fill since `since` is `TRADED`; the order a capped page reads
+        them in is the application's policy, so no order but the symbol's is
+        promised."""
+        reader = given_history([], [contract_trade("BTCUSDT", 10)])
+
+        active = reader.active_symbols(_START + timedelta(hours=5))
+
+        assert active == (ActiveSymbol("BTCUSDT", ActiveReason.TRADED),)
 
     def test_the_every_symbol_scan_limit_is_none_or_positive(
         self, given_history: GivenHistory

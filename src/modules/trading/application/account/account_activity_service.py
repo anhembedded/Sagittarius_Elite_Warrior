@@ -74,6 +74,7 @@ class AccountActivityService(IAccountActivity):
             symbol=request.symbol,
             since=request.since,
             page=request.page,
+            desk_symbol=request.desk_symbol,
         )
         return _typed(
             query, self._dispatcher.dispatch(GetOrderHistoryQuery, query), HistoryPage
@@ -85,6 +86,7 @@ class AccountActivityService(IAccountActivity):
             symbol=request.symbol,
             since=request.since,
             page=request.page,
+            desk_symbol=request.desk_symbol,
         )
         return _typed(
             query, self._dispatcher.dispatch(GetTradeHistoryQuery, query), HistoryPage
