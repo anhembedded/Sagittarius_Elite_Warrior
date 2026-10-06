@@ -22,20 +22,17 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import QModelIndex, Qt, Signal
+from PySide6.QtCore import QModelIndex, QSize, Qt, Signal
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QTabBar,
     QTableView,
+    QVBoxLayout,
     QWidget,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
-    StyledField,
-    StyleRole,
-    Tab,
-    TabBar,
-    apply_role,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
@@ -54,7 +51,7 @@ from .filtering import (
 )
 from .symbol_table_model import SymbolTableModel
 
-_TITLE = "SELECT SYMBOL"
+_TITLE = "Select Symbol"
 _SEARCH_PLACEHOLDER = "Search symbol (e.g. BTC)"
 _LOADING_TEXT = "Loading symbol list from the exchange..."
 _NO_MATCH_TEXT = "No symbol matches the current filter."
@@ -62,6 +59,12 @@ _NO_MATCH_TEXT = "No symbol matches the current filter."
 _RESULT_COUNT_TEXT = "{count} results"
 _CURRENT_FOOTER_TEXT = "Current: {symbol}"
 _KEY_HINTS = "↑↓ move   ↵ select   ☆ favourite"
+
+#: How much of the list a fresh dialog shows, in average characters wide and
+#: text lines tall of the system font, so the size follows the font and not a
+#: pixel count written here.
+_WIDTH_CHARS = 64
+_HEIGHT_LINES = 26
 
 _SCOPE_TABS = (
     (Scope.ALL, "All"),
@@ -81,7 +84,24 @@ _MAX_QUOTE_TABS = 3
 RECENT_LIMIT = 8
 
 
-class SymbolPickerOverlay(Overlay):
+def _fill_tabs(bar: QTabBar, tabs: Sequence[tuple[str, str]], current_id: str) -> None:
+    """Shows `tabs` (id, label) in `bar` with `current_id` selected, without
+    raising `currentChanged`: only the user's click is a selection."""
+    bar.blockSignals(True)
+    try:
+        while bar.count():
+            bar.removeTab(0)
+        for tab_id, label in tabs:
+            bar.setTabData(bar.addTab(label), tab_id)
+        for index in range(bar.count()):
+            if bar.tabData(index) == current_id:
+                bar.setCurrentIndex(index)
+                break
+    finally:
+        bar.blockSignals(False)
+
+
+class SymbolPickerOverlay(QDialog):
     """
     @brief A modal, searchable, filterable grid of tradable pairs.
 
@@ -118,9 +138,11 @@ class SymbolPickerOverlay(Overlay):
         get_current: Callable[[], str],
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(_TITLE, parent=parent)
+        super().__init__(parent)
         self.setObjectName("symbolPickerModal")
-        self.resize(720, 620)
+        self.setWindowTitle(_TITLE)
+        self.setModal(True)
+        self._body_layout = QVBoxLayout(self)
 
         self._get_symbols = get_symbols
         self._get_favourites = get_favourites
@@ -135,6 +157,16 @@ class SymbolPickerOverlay(Overlay):
         self._build_filter_rows()
         self._build_results_area()
         self._build_footer_row()
+        self._build_button_box()
+
+    def sizeHint(self) -> QSize:
+        """Sized by the system font: a screenful of rows, never a pixel count."""
+        base = super().sizeHint()
+        metrics = self.fontMetrics()
+        return QSize(
+            max(base.width(), metrics.averageCharWidth() * _WIDTH_CHARS),
+            max(base.height(), metrics.lineSpacing() * _HEIGHT_LINES),
+        )
 
     # ------------------------------------------------------------------ #
     # Construction
@@ -142,8 +174,7 @@ class SymbolPickerOverlay(Overlay):
 
     def _build_search_row(self) -> None:
         row = QHBoxLayout()
-        row.setSpacing(12)
-        self._search_field = StyledField()
+        self._search_field = QLineEdit()
         self._search_field.setObjectName("txtSymbolSearch")
         self._search_field.setPlaceholderText(_SEARCH_PLACEHOLDER)
         self._search_field.setClearButtonEnabled(True)
@@ -152,33 +183,38 @@ class SymbolPickerOverlay(Overlay):
 
         self._result_count = QLabel()
         self._result_count.setObjectName("lblSymbolResultCount")
-        apply_role(self._result_count, StyleRole.CAPTION)
         row.addWidget(self._result_count)
-        self.body_layout.addLayout(row)
+        self._body_layout.addLayout(row)
 
     def _build_filter_rows(self) -> None:
         row = QHBoxLayout()
-        row.setSpacing(12)
 
-        self._scope_tabs = TabBar()
+        self._scope_tabs = QTabBar()
         self._scope_tabs.setObjectName("tabsSymbolScope")
-        self._scope_tabs.tab_selected.connect(self._on_scope_selected)
+        self._scope_tabs.currentChanged.connect(
+            lambda index: self._on_scope_selected(
+                index, str(self._scope_tabs.tabData(index))
+            )
+        )
         row.addWidget(self._scope_tabs)
 
         row.addStretch(1)
 
-        self._quote_tabs = TabBar()
+        self._quote_tabs = QTabBar()
         self._quote_tabs.setObjectName("tabsSymbolQuote")
-        self._quote_tabs.tab_selected.connect(self._on_quote_selected)
+        self._quote_tabs.currentChanged.connect(
+            lambda index: self._on_quote_selected(
+                index, str(self._quote_tabs.tabData(index))
+            )
+        )
         row.addWidget(self._quote_tabs)
-        self.body_layout.addLayout(row)
+        self._body_layout.addLayout(row)
 
     def _build_results_area(self) -> None:
         self._status_label = QLabel(_LOADING_TEXT)
         self._status_label.setObjectName("lblSymbolStatus")
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        apply_role(self._status_label, StyleRole.CAPTION)
-        self.body_layout.addWidget(self._status_label)
+        self._body_layout.addWidget(self._status_label)
 
         self._table = QTableView()
         self._table.setObjectName("tblSymbolResults")
@@ -198,21 +234,28 @@ class SymbolPickerOverlay(Overlay):
         # the header also cannot re-sort the list, whose order is the picker's.
         self._table.horizontalHeader().setVisible(False)
         self._table.clicked.connect(self._on_cell_clicked)
-        apply_role(self._table, StyleRole.LIST_SURFACE)
-        self.body_layout.addWidget(self._table, 1)
+        self._body_layout.addWidget(self._table, 1)
 
     def _build_footer_row(self) -> None:
         row = QHBoxLayout()
         hints = QLabel(_KEY_HINTS)
         hints.setObjectName("lblSymbolKeyHints")
-        apply_role(hints, StyleRole.CAPTION)
         row.addWidget(hints)
         row.addStretch(1)
         self._current_label = QLabel()
         self._current_label.setObjectName("lblSymbolCurrent")
-        apply_role(self._current_label, StyleRole.CAPTION)
         row.addWidget(self._current_label)
-        self.body_layout.addLayout(row)
+        self._body_layout.addLayout(row)
+
+    def _build_button_box(self) -> None:
+        """Close is the only commit button: choosing is a click or Enter on a
+        row, and Esc closes as well."""
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close = buttons.button(QDialogButtonBox.StandardButton.Close)
+        close.setObjectName("btnSymbolPickerClose")
+        close.setAutoDefault(False)
+        buttons.rejected.connect(self.reject)
+        self._body_layout.addWidget(buttons)
 
     # ------------------------------------------------------------------ #
     # Data
@@ -252,35 +295,35 @@ class SymbolPickerOverlay(Overlay):
 
     def _sync_scope_tabs(self) -> None:
         favourite_count = sum(1 for entry in self._entries if entry.is_favourite)
-        self._scope_tabs.set_tabs(
+        _fill_tabs(
+            self._scope_tabs,
             [
-                Tab(
-                    id=scope.value,
-                    label=label,
-                    badge=str(favourite_count)
+                (
+                    scope.value,
+                    f"{label} ({favourite_count})"
                     if scope is Scope.FAVOURITES and favourite_count
-                    else "",
+                    else label,
                 )
                 for scope, label in _SCOPE_TABS
-            ]
+            ],
+            self._filter.scope.value,
         )
-        self._scope_tabs.set_current_id(self._filter.scope.value)
 
     def _sync_quote_tabs(self) -> None:
         quotes = available_quotes(self._entries)[:_MAX_QUOTE_TABS]
-        self._quote_tabs.set_tabs(
-            [Tab(id=QUOTE_ANY, label=_QUOTE_ANY_LABEL)]
-            + [Tab(id=quote, label=quote) for quote in quotes]
-        )
         # A quote tab can vanish between opens (the exchange delists the last
-        # pair in it). Falling back to "Tất cả" beats leaving the filter set
+        # pair in it). Falling back to "All" beats leaving the filter set
         # to something with no tab, which would render an empty grid the user
         # cannot undo.
         if self._filter.quote != QUOTE_ANY and self._filter.quote not in quotes:
             self._filter = FilterState(
                 query=self._filter.query, scope=self._filter.scope, quote=QUOTE_ANY
             )
-        self._quote_tabs.set_current_id(self._filter.quote)
+        _fill_tabs(
+            self._quote_tabs,
+            [(QUOTE_ANY, _QUOTE_ANY_LABEL), *((quote, quote) for quote in quotes)],
+            self._filter.quote,
+        )
 
     # ------------------------------------------------------------------ #
     # Rendering
