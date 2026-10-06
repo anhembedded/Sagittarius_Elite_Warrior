@@ -296,3 +296,66 @@ def test_a_colour_outside_the_series_table_is_counted(tmp_path: Path) -> None:
         "src/elsewhere.py": 1,
         "src/support/charting/other.py": 1,
     }
+
+
+# --- the detectors: each rule sees its call, and stock code is not counted.
+# They test `findings()`, not a baseline, so the ban does not pass vacuously
+# when a rule stops matching (review of PR #387).
+
+
+def test_a_colour_inside_rich_text_or_qss_is_seen_and_a_docstring_is_not() -> None:
+    source = (
+        '"""Fixes PR #268 and #abc."""\n'
+        'lbl.setText("<span style=\\"color:#F3BA2F\\">up</span>")\n'
+        'SHEET = "QFrame { border: 1px solid #1a2b3c; }"\n'
+    )
+    assert findings(source) == Counter({"color_literal": 2})
+
+
+def test_each_rule_is_seen() -> None:
+    source = (
+        "w.setStyleSheet('x')\nb.setFixedHeight(40)\nv.setSortingEnabled(True)\n"
+        "f = QFont('Consolas')\nc = QColor('#1a2b3c')\nb.setCheckable(True)\n"
+        "app.setFont(f)\n"
+    )
+    found = findings(source)
+    assert found == Counter(
+        {
+            "style_sheet": 1,
+            "fixed_size": 1,
+            "item_view_config": 1,
+            "font_family": 2,
+            "color_literal": 1,
+            "checkable_button": 1,
+        }
+    )
+
+
+def test_a_checkable_action_is_not_a_checkable_button() -> None:
+    source = (
+        "action = QAction('&Box zoom', self)\naction.setCheckable(True)\n"
+        "self.box = QAction('&Box', self)\nself.box.setCheckable(True)\n"
+        "def _make(text) -> QAction:\n    return QAction(text)\n"
+        "self.made = self._make('&Made')\nself.made.setCheckable(True)\n"
+        "button = QPushButton('&Box')\nbutton.setCheckable(True)\n"
+    )
+    assert findings(source) == Counter({"checkable_button": 1})
+
+
+def test_an_action_in_one_method_does_not_excuse_a_button_in_another() -> None:
+    """Review of PR #351: the exemption once matched names module-wide."""
+    source = (
+        "class A:\n"
+        "    def build(self):\n"
+        "        self.toggle = QAction('&Toggle', self)\n"
+        "        self.toggle.setCheckable(True)\n"
+        "    def other(self, panel):\n"
+        "        panel.toggle = QPushButton('&Toggle')\n"
+        "        panel.toggle.setCheckable(True)\n"
+    )
+    assert findings(source) == Counter({"checkable_button": 1})
+
+
+def test_stock_code_is_not_counted() -> None:
+    source = "b = QPushButton('&Run')\nt = QTableView()\nf = QFont(app.font())\n"
+    assert findings(source) == Counter()
