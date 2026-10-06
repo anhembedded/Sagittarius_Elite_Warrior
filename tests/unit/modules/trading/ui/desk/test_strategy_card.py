@@ -7,6 +7,8 @@ and names no screen's view model: it reads only its `StrategyCardBinding`.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import (
@@ -15,6 +17,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLabel,
     QPushButton,
+    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -189,3 +192,33 @@ def test_the_armed_summary_is_said_in_words(qtbot) -> None:
     strategy.set_armed_summary("EMA crossover on 1m", busy=False)
 
     assert summary.text() == "EMA crossover on 1m"
+
+
+#: Where the card reads the dialog: the top of its own module.
+_DIALOG_PATH = (
+    "Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.strategy_card."
+    "strategy_card.StrategyParamsDialog"
+)
+
+
+def test_strategy_parameters_opens_its_dialog_over_a_widget(qtbot) -> None:
+    """`BUG-134` regression, re-homed from the Dev Board when it was deleted
+    (`EPIC-033P` stage 3): the card's opener once handed the dialog a
+    `QObject` (the Dev Board's panel) as its Qt parent, and `QDialog` raised
+    `TypeError` on every click before anything showed. The dialog is patched
+    because its real `exec()` is modal and nobody dismisses it offscreen;
+    the parent it is handed must therefore be checked to be a widget, the
+    window the card is placed in."""
+    card, _, _ = _card(qtbot)
+    host = QWidget()
+    qtbot.addWidget(host)
+    QVBoxLayout(host).addWidget(card)
+
+    with patch(_DIALOG_PATH) as dialog_cls:
+        _child(card, QPushButton, "btnStrategyParams").click()
+
+    dialog_cls.assert_called_once()
+    parent = dialog_cls.call_args[0][1]
+    assert isinstance(parent, QWidget)
+    assert parent is host
+    dialog_cls.return_value.exec.assert_called_once()

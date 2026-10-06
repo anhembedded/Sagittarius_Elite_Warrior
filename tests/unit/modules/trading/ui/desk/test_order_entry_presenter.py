@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
+    format_execute_order_block_reason,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -289,6 +292,34 @@ def test_a_blocked_order_says_which_gate_refused() -> None:
     assert panel.vm.message_is_error
     assert "Trading is OFF" in panel.vm.message
     assert panel.vm.entry(EntrySide.BUY).quantity == 1  # kept, to retry
+
+
+def test_a_leased_symbol_is_refused_in_the_operators_own_words() -> None:
+    """`PRO-003` §4.1.2, on the order path since `EPIC-025` PR 2.1f: a symbol
+    an armed strategy holds refuses a hand-placed order, and the refusal
+    names why. Re-homed from the Dev Board's F9 dialog (`EPIC-033P`), which
+    hosted this same panel."""
+    panel = presented_panel()
+    panel.presenter.show_symbol(SYMBOL)
+    panel.vm.set_price(EntrySide.BUY, "100")
+    panel.vm.set_quantity(EntrySide.BUY, "1")
+    panel.submission.preview_answers(canned_preview(OrderSide.BUY, "1", "100"))
+    panel.submission.submit_answers(
+        ExecuteOrderResult(
+            blocked_by=ExecuteOrderSafetyGate.SYMBOL_LEASED,
+            preview=None,
+            limit_checks=(),
+            submitted_order=None,
+        )
+    )
+
+    panel.vm.request_submit(EntrySide.BUY)
+
+    assert panel.vm.message_is_error
+    assert (
+        format_execute_order_block_reason(ExecuteOrderSafetyGate.SYMBOL_LEASED)
+        in panel.vm.message
+    )
 
 
 def test_a_second_submit_while_one_is_out_is_refused() -> None:
