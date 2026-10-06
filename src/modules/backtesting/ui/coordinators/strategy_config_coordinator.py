@@ -15,6 +15,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
     IStrategyCatalog,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
 from ..logic.pre_backtest_assertions import (
@@ -245,9 +247,11 @@ class StrategyConfigCoordinator:
             return
 
         if metadata.is_stale():
+            fetched = write_value(ColumnKind.TIMESTAMP, metadata.fetched_at)
             self._view_model.set_market_rule_verification(
                 MetadataVerificationStatus.UNVERIFIED_STALE.value,
-                f"Not verified against exchange rules (metadata is stale, fetched at {metadata.fetched_at.strftime('%Y-%m-%d %H:%M:%S UTC')}).",
+                "Not verified against exchange rules "
+                f"(metadata is stale, fetched at {fetched} UTC).",
             )
             return
 

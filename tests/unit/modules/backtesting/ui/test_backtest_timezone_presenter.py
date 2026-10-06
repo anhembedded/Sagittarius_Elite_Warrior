@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.trade_table_model import (
     TradeTableModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -83,6 +86,8 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
         if "IStrategyChartOverlay" in str(key)
         else config
         if "IConfig" in str(key)
+        else InMemorySymbolMarketMetadataCache()
+        if "ISymbolMarketMetadataCache" in str(key)
         else MagicMock()
     )
 

@@ -8,7 +8,6 @@ including the Up/Down-key numeric stepper `BotParamField.qml` had.
 """
 
 import os
-from unittest.mock import Mock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -21,29 +20,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter imp
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
-    StrategyCatalogService,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
-    StrategyChartOverlayService,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
-    IStrategyCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
-    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
 )
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
-    IndicatorScriptRegistry,
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest_screen_container import (
+    backtest_screen_container,
 )
 
 
@@ -62,35 +46,7 @@ class _RichParamsStrategy(BaseStrategy):
 def bot_params_presenter(qapp, request):
     registry = StrategyRegistry()
     registry.register("rich_strategy", _RichParamsStrategy)
-    container = Mock()
-
-    def resolve_mock(interface):
-        from sagittarius_engine.interfaces.i_config import IConfig
-        from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-        from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-        if interface == IThreadManager:
-            return Mock()
-        if interface == IDispatcher:
-            return Mock()
-        if interface == IConfig:
-            cfg = Mock()
-            cfg.get_all.return_value = {}
-            cfg.get.return_value = None
-            return cfg
-        if interface == StrategyRegistry:
-            return registry
-        if interface == IStrategyCatalog:
-            return StrategyCatalogService(registry)
-        if interface == IStrategyChartOverlay:
-            return StrategyChartOverlayService(registry)
-        if interface == IndicatorScriptRegistry:
-            return IndicatorScriptRegistry()
-        if interface == BacktestChartHostFactory:
-            return BacktestChartHostFactory()
-        return Mock()
-
-    container.resolve.side_effect = resolve_mock
+    container = backtest_screen_container(registry)
     view = BackTestView()
     view.resize(1400, 800)
     view.show()

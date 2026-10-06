@@ -20,6 +20,12 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
     ArmedStrategyReaderAdapter,
 )
@@ -183,6 +189,10 @@ def health_mock_container(qapp):
             return mock_health_query
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        # `BUG-127`: the real in-memory cache, never the `Mock()` below, whose
+        # `get()` answers a truthy object with a truthy `is_stale()`.
+        if interface == ISymbolMarketMetadataCache:
+            return InMemorySymbolMarketMetadataCache()
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect

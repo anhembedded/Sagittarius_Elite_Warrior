@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_vie
     _LONG_EXIT_LABEL,
     trade_flag_markers,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -91,6 +94,8 @@ def test_backtest_truthful_markers_integration(qtbot, sample_long_only_result) -
         if "IConfig" in str(key)
         else real_chart_host_factory
         if "BacktestChartHostFactory" in str(key)
+        else InMemorySymbolMarketMetadataCache()
+        if "ISymbolMarketMetadataCache" in str(key)
         else MagicMock()
     )
 

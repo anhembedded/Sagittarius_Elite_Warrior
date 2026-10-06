@@ -149,11 +149,13 @@ def test_no_coverage_falls_back_to_the_requested_start() -> None:
 
 
 def test_coverage_message_names_the_specific_shortfall() -> None:
-    assert "Missing candles from" in DataSyncCoordinator.format_coverage_message(
-        _coverage(missing=[datetime(2026, 8, 15, tzinfo=UTC)])
-    )
-    assert "duplicate-timestamp" in DataSyncCoordinator.format_coverage_message(
-        _coverage(duplicates=3)
+    # A moment is written as every timestamp is (`AppValueFormatter`), a count
+    # as a quantity.
+    assert DataSyncCoordinator.format_coverage_message(
+        _coverage(missing=[datetime(2026, 8, 15, 9, 30, tzinfo=UTC)])
+    ) == ("Missing candles from 2026-08-15 09:30:00 UTC.")
+    assert DataSyncCoordinator.format_coverage_message(_coverage(duplicates=3_000)) == (
+        "Data has 3,000 duplicate-timestamp candles."
     )
     assert "unclosed candle" in DataSyncCoordinator.format_coverage_message(
         _coverage(unclosed=True)

@@ -111,8 +111,8 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._progress_maximum = 0
         self._progress_visible = False
         self._progress_text = ""
-        self._stored_records = "—"
-        self._database_size = "—"
+        self._stored_records: int | None = None
+        self._database_size: int | None = None
 
         # Gap Inspector State
         self.gapInspectorSymbol = ""
@@ -257,19 +257,19 @@ class DataManagementViewModel(BaseQmlViewModel):
         self.set_progress(0, 0, False, "")
 
     # ------------------------------------------------------------------ #
-    # Stat tiles
+    # Stat tiles: candles stored and bytes on disk, `None` while unknown
     # ------------------------------------------------------------------ #
 
     @property
-    def storedRecords(self) -> str:
+    def storedRecords(self) -> int | None:
         return self._stored_records
 
     @property
-    def databaseSize(self) -> str:
+    def databaseSize(self) -> int | None:
         return self._database_size
 
-    @Slot(str, str)
-    def set_stats(self, stored_records: str, database_size: str) -> None:
+    @Slot(object, object)
+    def set_stats(self, stored_records: int | None, database_size: int | None) -> None:
         self._stored_records = stored_records
         self._database_size = database_size
         self.statsChanged.emit()

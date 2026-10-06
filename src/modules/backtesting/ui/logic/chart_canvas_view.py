@@ -25,6 +25,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     TAKE_PROFIT_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
 class TradeMarkerType(str, Enum):
@@ -173,9 +175,8 @@ def trade_marker_badges_for_trades(trades: Sequence[Trade]) -> list[str | None]:
 
 
 def _exit_badge(trade: Trade) -> str:
-    sign = "+" if trade.pnl_percent >= 0 else ""
     reason_code = _EXIT_REASON_SHORT_CODES.get(trade.exit_reason, "Exit")
-    return f"{reason_code} {sign}{trade.pnl_percent:.2f}%"
+    return f"{reason_code} {write_value(ColumnKind.PERCENT, trade.pnl_percent)}"
 
 
 def filter_trades_for_markers(
@@ -222,8 +223,8 @@ def build_trade_link(
     entry_point = (trade.entry_time.timestamp(), trade.entry_price)
     exit_point = (trade.exit_time.timestamp(), trade.exit_price)
     color = BULL_COLOR if trade.pnl > 0 else BEAR_COLOR
-    sign = "+" if trade.pnl_percent >= 0 else ""
-    label = f"{sign}{trade.pnl_percent:.2f}% ({sign}{trade.pnl:,.2f})"
+    percent = write_value(ColumnKind.PERCENT, trade.pnl_percent)
+    label = f"{percent} ({write_value(ColumnKind.MONEY, trade.pnl)})"
     return entry_point, exit_point, color, label
 
 
