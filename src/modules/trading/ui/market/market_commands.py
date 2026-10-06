@@ -22,6 +22,9 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
   beyond its first window (`EPIC-033S`), in View beside the market choice
   for the same reason; Load range… asks a UTC span first, so it ends with
   "…". Off while no chart is open and while the one in front loads.
+- **View → Back to live:** a chart showing a range draws its newest first
+  window again and follows the stream, in one request (`EPIC-033T`); off
+  while the chart in front shows no range and while it loads.
 - **Tools → Indicator parameters…:** edits the parameters of the script
   selected in the Indicators panel, in the dialog the Dev Board used for it
   (`BOT-063`), which the Dev Board's deletion (`EPIC-033P`) would otherwise
@@ -47,6 +50,7 @@ SHOW_SPOT = "trading.market.show_spot"
 SHOW_FUTURES = "trading.market.show_futures"
 LOAD_OLDER = "trading.market.load_older"
 LOAD_RANGE = "trading.market.load_range"
+BACK_TO_LIVE = "trading.market.back_to_live"
 INDICATOR_PARAMS = "trading.market.indicator_params"
 #: The `exclusive_group` of Spot and Futures.
 MARKET_CHOICE = "trading.market.market"
@@ -99,6 +103,14 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             mode=route,
             on_toolbar=True,
             needs_input=True,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=BACK_TO_LIVE,
+            text="Back to l&ive",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
         ),
         CommandContribution(
             contributor_id="trading",

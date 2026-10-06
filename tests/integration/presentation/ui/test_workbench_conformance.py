@@ -6,13 +6,16 @@ the rest by hand: no menu bar, one mode with docks, styled and oversized
 controls, scroll areas inside scroll areas, labels whose `&` turned into a
 mnemonic. These are properties of the composed window, which no file scan
 sees, so this suite boots the real app (`main_window`) and checks every
-navigable mode. Each check cites `ui-presentation-rule.md`, which cites its
-source (Microsoft's Windows UX guidelines, KDE HIG, Qt).
+navigable mode, at each of `WINDOW_SIZES` (`EPIC-033C`). The checks live in
+`workbench_widget_checks.py` and `workbench_layout_checks.py`; each cites
+`ui-presentation-rule.md`, which cites its source (Microsoft's Windows UX
+guidelines, KDE HIG, Qt).
 
 **The ratchet** is `baseline_workbench_conformance.json`: mode -> the checks it
-fails today. A check failing that is not listed fails the suite; a listed
-check that now passes fails too, until its line is removed. The baseline is
-empty when EPIC-033M closes.
+fails today at every size, `mode@WxH` -> those it fails at that size only. A
+check failing that is not listed fails the suite; a listed check that now
+passes fails too, until its line is removed. The baseline is empty when
+EPIC-033M closes.
 
 Retire when: the baseline is empty and every check is a plain assertion.
 """
@@ -20,215 +23,46 @@ Retire when: the baseline is empty and every check is a plain assertion.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QAction, QFontDatabase
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QAbstractButton,
-    QAbstractItemView,
-    QAbstractSpinBox,
-    QApplication,
-    QComboBox,
     QDockWidget,
-    QGroupBox,
-    QLineEdit,
     QMainWindow,
+    QMenu,
     QPushButton,
-    QScrollArea,
-    QTabBar,
-    QTableView,
     QToolBar,
-    QTreeView,
     QWidget,
-    QWidgetAction,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
-    CONFIGURED_PROPERTY,
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
+    fit_problems,
+    object_name_problems,
+    reset_layout_problems,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
-    WorkbenchShell,
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
+    LONE_AMPERSAND,
+    Check,
+    control_height_problems,
+    duplicate_button_problems,
+    font_problems,
+    item_view_problems,
+    menu_bar_problems,
+    mnemonic_problems,
+    nested_scroll_problems,
+    perspective_problems,
+    style_sheet_problems,
+    toolbar_problems,
+    view_menu_problems,
+    workbench_problems,
 )
 
 _BASELINE_FILE = Path(__file__).with_name("baseline_workbench_conformance.json")
 _SHELL = "shell"
-#: The Windows desktop menu order (MS uxguide `cmd-menus`); module menus sit
-#: between View and Tools, so only these anchors' relative order is checked.
-_MENU_ANCHORS = ("File", "Edit", "View", "Tools", "Window", "Help")
-_LONE_AMPERSAND = re.compile(r"(?<!&)&(?!&)(?=\s|$)")
-_HEIGHT_SLACK = 2
-
-Check = Callable[[QMainWindow, QWidget], list[str]]
-
-
-def _visible(root: QWidget) -> list[QWidget]:
-    return [w for w in root.findChildren(QWidget) if w.isVisible()]
-
-
-def _plain(text: str) -> str:
-    return text.replace("&&", "\0").replace("&", "").replace("\0", "&")
-
-
-# -- shell checks ------------------------------------------------------------
-
-
-def menu_bar_problems(window: QMainWindow) -> list[str]:
-    titles = [_plain(a.text()) for a in window.menuBar().actions()]
-    anchors = [t for t in titles if t in _MENU_ANCHORS]
-    if anchors != list(_MENU_ANCHORS):
-        return [f"menu bar {titles}: needs {list(_MENU_ANCHORS)} in this order"]
-    return []
-
-
-def font_problems(window: QMainWindow) -> list[str]:
-    system = QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont).family()
-    app = QApplication.font().family()
-    return (
-        [] if app == system else [f"application font {app!r}, system font {system!r}"]
-    )
-
-
-# -- per-mode checks -----------------------------------------------------------
-
-
-def workbench_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    hosts = [page] if isinstance(page, QMainWindow) else page.findChildren(QMainWindow)
-    return [] if hosts else ["the mode is not a workbench host (no QMainWindow)"]
-
-
-def view_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    # The workbench fills View for the showing mode when it opens (`EPIC-033C`).
-    view = (
-        window.menu("&View")
-        if isinstance(window, WorkbenchShell)
-        else next(
-            (
-                a.menu()
-                for a in window.menuBar().actions()
-                if _plain(a.text()) == "View"
-            ),
-            None,
-        )
-    )
-    listed = set(view.actions()) if view is not None else set()
-    return [
-        f"dock {d.windowTitle()!r} has no toggle in View"
-        for d in page.findChildren(QDockWidget)
-        if d.toggleViewAction() not in listed
-    ]
-
-
-def style_sheet_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    return [
-        f"{type(w).__name__} {w.objectName()!r} has a style sheet"
-        for w in _visible(page)
-        if w.styleSheet()
-    ]
-
-
-def control_height_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    kinds = (QAbstractButton, QLineEdit, QComboBox, QAbstractSpinBox)
-    return [
-        f"{type(w).__name__} {w.objectName()!r} is {w.height()}px, its size hint "
-        f"{w.sizeHint().height()}px"
-        for w in _visible(page)
-        if isinstance(w, kinds) and w.height() > w.sizeHint().height() + _HEIGHT_SLACK
-    ]
-
-
-def nested_scroll_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    found = []
-    for area in page.findChildren(QScrollArea):
-        parent = area.parentWidget()
-        while parent is not None and parent is not page:
-            if isinstance(parent, QScrollArea):
-                found.append(f"scroll area {area.objectName()!r} inside another")
-                break
-            parent = parent.parentWidget()
-    return found
-
-
-def toolbar_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    return [
-        f"toolbar {bar.windowTitle()!r} holds a button widget, not an action"
-        for bar in page.findChildren(QToolBar)
-        for action in bar.actions()
-        if isinstance(action, QWidgetAction)
-        and isinstance(action.defaultWidget(), QAbstractButton)
-    ]
-
-
-def _command_name(text: str) -> str:
-    return _plain(text).rstrip("…").strip().casefold()
-
-
-def duplicate_button_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    """A push button named like one of this mode's commands performs it a
-    second way (`EPIC-033D`, HLD §11.5): one `QAction` per command (MS
-    `cmd-menus`). This mode's commands are the actions the shell keeps live
-    on the window for it (`WorkbenchShell._sync_live_actions`), less the
-    shell's own (`action::workbench.`).
-
-    It matches names only. A button that triggers a command's request under
-    another name (the Dev Board's Load History beside Reload history, found
-    in the PR #350 review) passes it; that case is review's (H3)."""
-    commands = {
-        _command_name(action.text())
-        for action in window.actions()
-        if action.objectName().startswith("action::")
-        and not action.objectName().startswith("action::workbench.")
-    }
-    return [
-        f"button {button.text()!r} duplicates the command of the same name"
-        for button in page.findChildren(QPushButton)
-        if _command_name(button.text()) in commands
-    ]
-
-
-def item_view_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    """Every visible table or tree came through the Engine's
-    `configure_item_view` (`EPIC-033N`), and behaves the one way it sets."""
-    found = []
-    for view in page.findChildren(QAbstractItemView):
-        if not isinstance(view, QTableView | QTreeView) or not view.isVisible():
-            continue
-        name = f"{type(view).__name__} {view.objectName()!r}"
-        if not view.property(CONFIGURED_PROPERTY):
-            found.append(f"{name}: not configured from its column specs")
-        if view.selectionBehavior() != QAbstractItemView.SelectionBehavior.SelectRows:
-            found.append(f"{name}: not full-row selection")
-        if view.editTriggers() != QAbstractItemView.EditTrigger.NoEditTriggers:
-            found.append(f"{name}: editable")
-        if isinstance(view, QTableView) and not view.isSortingEnabled():
-            found.append(f"{name}: not sortable")
-    return found
-
-
-def mnemonic_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    texts: list[str] = [
-        w.text() for w in _visible(page) if isinstance(w, QAbstractButton)
-    ]
-    texts += [g.title() for g in _visible(page) if isinstance(g, QGroupBox)]
-    texts += [d.windowTitle() for d in page.findChildren(QDockWidget)]
-    texts += [a.text() for a in page.findChildren(QAction)]
-    for bar in page.findChildren(QTabBar):
-        texts += [bar.tabText(i) for i in range(bar.count())]
-    return [
-        f"{t!r}: a lone & becomes a mnemonic"
-        for t in texts
-        if _LONE_AMPERSAND.search(t)
-    ]
-
-
-def perspective_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    hosts = [page] if isinstance(page, QMainWindow) else page.findChildren(QMainWindow)
-    return [
-        f"{h.objectName()!r} cannot restore its own saved layout"
-        for h in hosts
-        if not h.restoreState(h.saveState(1), 1)
-    ]
+#: The rule's minimum usable size (§3), a common laptop and a full-HD screen.
+WINDOW_SIZES = ((1024, 700), (1366, 768), (1920, 1080))
 
 
 MODE_CHECKS: dict[str, Check] = {
@@ -242,11 +76,18 @@ MODE_CHECKS: dict[str, Check] = {
     "item_view_conventions": item_view_problems,
     "mnemonics_escaped": mnemonic_problems,
     "perspective_round_trip": perspective_problems,
+    "bars_named_uniquely": object_name_problems,
+    # Last: it rearranges the mode, then puts the default back.
+    "reset_layout_restores_default": reset_layout_problems,
 }
 SHELL_CHECKS: dict[str, Callable[[QMainWindow], list[str]]] = {
     "menu_bar_order": menu_bar_problems,
     "system_font": font_problems,
 }
+
+
+def _size_label(size: QSize) -> str:
+    return f"{size.width()}x{size.height()}"
 
 
 def _read_baseline() -> dict[str, list[str]]:
@@ -257,7 +98,7 @@ def _read_baseline() -> dict[str, list[str]]:
 
 
 def measure(
-    window: QMainWindow, navigate: Callable[[str], dict], qapp
+    window: QMainWindow, navigate: Callable[[str], dict], qapp, size: QSize
 ) -> dict[str, dict[str, list[str]]]:
     """mode -> check -> problems, for the shell and every navigable mode."""
     report: dict[str, dict[str, list[str]]] = {
@@ -273,32 +114,58 @@ def measure(
         report[route] = {
             name: check(window, page) for name, check in MODE_CHECKS.items()
         }
+        report[route]["fits_the_window"] = fit_problems(window, page, size)
     return report
 
 
 def ratchet_problems(
-    baseline: dict[str, list[str]], report: dict[str, dict[str, list[str]]]
+    baseline: dict[str, list[str]],
+    report: dict[str, dict[str, list[str]]],
+    size: QSize,
 ) -> list[str]:
+    """`mode` lists what a mode fails at every size, `mode@WxH` what it fails
+    at that size only."""
+    label = _size_label(size)
     problems = []
     for mode, checks in sorted(report.items()):
-        listed = set(baseline.get(mode, []))
+        everywhere = set(baseline.get(mode, []))
+        listed = everywhere | set(baseline.get(f"{mode}@{label}", []))
         for check, found in sorted(checks.items()):
             if found and check not in listed:
-                problems.append(f"{mode}/{check}: " + "; ".join(found[:5]))
+                problems.append(f"{mode}@{label}/{check}: " + "; ".join(found[:5]))
+            elif not found and check in everywhere:
+                problems.append(
+                    f"{mode}/{check}: passes at {label} — list it under the "
+                    "sizes it still fails at, or remove it from the baseline"
+                )
             elif not found and check in listed:
                 problems.append(
-                    f"{mode}/{check}: passes now — remove it from the baseline"
+                    f"{mode}@{label}/{check}: passes now — remove it from the baseline"
                 )
-    for mode in sorted(set(baseline) - set(report)):
-        problems.append(f"{mode}: no such mode any more — remove it from the baseline")
+    sizes = {_size_label(QSize(*s)) for s in WINDOW_SIZES}
+    for key in sorted(baseline):
+        mode, _, at = key.partition("@")
+        if at and at not in sizes:
+            problems.append(f"{key}: no such window size — remove it from the baseline")
+        elif mode not in report and at in ("", label):
+            problems.append(
+                f"{key}: no such mode any more — remove it from the baseline"
+            )
     return problems
 
 
+@pytest.mark.parametrize(
+    "size", [QSize(*s) for s in WINDOW_SIZES], ids=[f"{w}x{h}" for w, h in WINDOW_SIZES]
+)
 @pytest.mark.parametrize("app_engine", [True], indirect=True)
-def test_workbench_conformance(qapp, main_window, navigate) -> None:
-    main_window.resize(1366, 768)
+def test_workbench_conformance(qapp, main_window, navigate, size: QSize) -> None:
+    """Each check at each size. While a mode does not fit (`fits_the_window`)
+    the window stays at its own minimum, bigger than `size`, and the other
+    checks measure there."""
+    main_window.resize(size)
     main_window.show()
-    problems = ratchet_problems(_read_baseline(), measure(main_window, navigate, qapp))
+    report = measure(main_window, navigate, qapp, size)
+    problems = ratchet_problems(_read_baseline(), report, size)
     assert not problems, "\n".join(problems)
 
 
@@ -309,17 +176,36 @@ def test_a_new_failure_fails_and_a_fixed_one_must_leave_the_baseline() -> None:
             "control_height": [],
         }
     }
-    problems = ratchet_problems({"trade": ["control_height"]}, report)
+    problems = ratchet_problems({"trade": ["control_height"]}, report, QSize(1366, 768))
     assert problems == [
-        "trade/control_height: passes now — remove it from the baseline",
-        "trade/no_style_sheet: QLabel 'x' has a style sheet",
+        (
+            "trade/control_height: passes at 1366x768 — list it under the sizes "
+            "it still fails at, or remove it from the baseline"
+        ),
+        "trade@1366x768/no_style_sheet: QLabel 'x' has a style sheet",
+    ]
+
+
+def test_a_size_key_counts_at_its_own_size_only() -> None:
+    report = {"backtest": {"fits_the_window": ["needs 1400x600"]}}
+    baseline = {"backtest@1024x700": ["fits_the_window"], "old@1920x1080": ["x"]}
+
+    assert ratchet_problems(baseline, report, QSize(1024, 700)) == []
+    assert ratchet_problems(baseline, report, QSize(1366, 768)) == [
+        "backtest@1366x768/fits_the_window: needs 1400x600"
+    ]
+    assert ratchet_problems(baseline, {"backtest": {}}, QSize(1920, 1080)) == [
+        "old@1920x1080: no such mode any more — remove it from the baseline"
+    ]
+    assert ratchet_problems({"x@800x600": []}, {}, QSize(1024, 700)) == [
+        "x@800x600: no such window size — remove it from the baseline"
     ]
 
 
 def test_a_lone_ampersand_is_a_mnemonic_and_a_doubled_one_is_not() -> None:
-    assert _LONE_AMPERSAND.search("Data & stream")
-    assert not _LONE_AMPERSAND.search("Data && stream")
-    assert not _LONE_AMPERSAND.search("&File")
+    assert LONE_AMPERSAND.search("Data & stream")
+    assert not LONE_AMPERSAND.search("Data && stream")
+    assert not LONE_AMPERSAND.search("&File")
 
 
 def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:
@@ -357,3 +243,71 @@ def test_a_button_named_like_a_contributed_command_is_seen(qtbot) -> None:
     assert duplicate_button_problems(window, page) == [
         "button 'Run backtest' duplicates the command of the same name"
     ]
+
+
+def test_a_nameless_dock_and_two_toolbars_sharing_a_name_are_seen(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.setObjectName("host")
+    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, QDockWidget("Orders"))
+    for title in ("Top", "Chart"):
+        bar = QToolBar(title)
+        bar.setObjectName("bar")
+        window.addToolBar(bar)
+    named = QDockWidget("Fills")
+    named.setObjectName("fills")
+    # A toolbar inside a panel is the panel's content, not the window's.
+    named.setWidget(QToolBar("Inside"))
+    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, named)
+
+    assert object_name_problems(window, window) == [
+        "QDockWidget 'Orders' in 'host' has no object name",
+        "'bar' names 2 bars in 'host'",
+    ]
+
+
+def _window_with_reset_layout(qtbot) -> tuple[QMainWindow, QAction]:
+    """A dock, a toolbar, and a Window → Reset layout that does nothing yet."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.setCentralWidget(QWidget())
+    dock = QDockWidget("Orders")
+    dock.setObjectName("orders")
+    window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+    bar = QToolBar("Top")
+    bar.setObjectName("top")
+    window.addToolBar(bar)
+    window.show()
+    menu = QMenu("&Window", window)
+    window.menuBar().addMenu(menu)
+    reset = QAction("&Reset layout", window)
+    menu.addAction(reset)
+    return window, reset
+
+
+def test_a_reset_layout_that_restores_nothing_is_seen(qtbot) -> None:
+    good, reset = _window_with_reset_layout(qtbot)
+    default = good.saveState()
+    reset.triggered.connect(lambda: good.restoreState(default))
+    broken, _ = _window_with_reset_layout(qtbot)
+    bare = QMainWindow()
+    qtbot.addWidget(bare)
+
+    assert reset_layout_problems(good, good) == []
+    found = reset_layout_problems(broken, broken)
+    assert any(line.startswith("/orders is ") for line in found), found
+    assert any(line.startswith("/top is ") for line in found), found
+    assert reset_layout_problems(bare, bare) == ["no Window → Reset layout command"]
+
+
+def test_a_mode_wider_than_the_window_is_seen(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    page = QWidget()
+    window.setCentralWidget(page)
+    assert fit_problems(window, page, QSize(1024, 700)) == []
+
+    page.setMinimumWidth(1100)
+
+    assert fit_problems(window, page, QSize(1024, 700))
+    assert fit_problems(window, page, QSize(1366, 768)) == []
