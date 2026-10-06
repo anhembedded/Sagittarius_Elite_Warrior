@@ -12,8 +12,11 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDockWidget,
+    QHBoxLayout,
+    QLabel,
     QMainWindow,
     QMenu,
+    QProgressBar,
     QPushButton,
     QStackedWidget,
     QToolBar,
@@ -29,6 +32,9 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layou
     rearrange,
     reset_layout_problems,
     restart_problems,
+)
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_status_checks import (
+    status_at_rest_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     LONE_AMPERSAND,
@@ -305,3 +311,61 @@ def test_a_dock_with_no_view_toggle_is_seen_on_the_surface_that_shows(qtbot) -> 
     stack.setCurrentWidget(hidden)
 
     assert view_menu_problems(window, stack) == ["dock 'Assets' has no toggle in View"]
+
+
+def _status_slot(*widgets: QWidget) -> QWidget:
+    """A status-bar item as the shell builds one: a box laid out around its widgets."""
+    slot = QWidget()
+    layout = QHBoxLayout(slot)
+    for widget in widgets:
+        layout.addWidget(widget)
+    return slot
+
+
+def test_a_progress_bar_or_an_empty_item_at_rest_is_seen(qtbot) -> None:
+    """`BUG-151`: an idle progress bar shown, and the empty task label beside
+    it, whether it sits in a slot or straight in the bar as before the fix."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.setCentralWidget(QWidget())
+    bar = window.statusBar()
+    progress = QProgressBar()
+    progress.setObjectName("prgTask")
+    bar.addPermanentWidget(_status_slot(progress))
+    empty = _status_slot(QLabel(""))
+    empty.setObjectName("slotTask")
+    bar.addPermanentWidget(empty)
+    loose = QLabel("  ")
+    loose.setObjectName("lblLoose")
+    bar.addWidget(loose)
+    stale = QLabel("Syncing BTCUSDT")
+    left_open = _status_slot(stale)
+    left_open.setObjectName("slotLeftOpen")
+    bar.addPermanentWidget(left_open)
+    window.show()
+    stale.hide()
+
+    found = status_at_rest_problems(window, window.centralWidget())
+
+    assert "progress bar prgTask is shown with no task running" in found, found
+    assert "status-bar item slotTask is shown empty" in found, found
+    assert "status-bar item lblLoose is shown empty" in found, found
+    assert "status-bar item slotLeftOpen is shown empty" in found, found
+
+
+def test_a_status_text_or_a_hidden_task_at_rest_is_not_a_finding(qtbot) -> None:
+    """A status item that says or offers something is fine; a task its owner
+    hid, with the slot that follows it (the Engine's `StatusSlot`), shows
+    nothing."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.setCentralWidget(QWidget())
+    bar = window.statusBar()
+    bar.addPermanentWidget(_status_slot(QLabel("Market data: live")))
+    bar.addPermanentWidget(_status_slot(QPushButton("Reconnect")))
+    task = _status_slot(QLabel(""), QProgressBar())
+    bar.addPermanentWidget(task)
+    window.show()
+    task.hide()
+
+    assert status_at_rest_problems(window, window.centralWidget()) == []
