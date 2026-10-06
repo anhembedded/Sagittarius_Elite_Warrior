@@ -15,7 +15,7 @@ those options folded in, and every change there repaints the panel too.
 `BOT-152`: the class holds the signals and the reads. What the user does to the
 panel is `intents` (`OrderEntryUserIntents`) and what the presenter tells it is
 `presenter_side()` (`OrderEntryPresenterWriter`), both over one shared
-`OrderEntryState`, so the view cannot call the presenter's writes.
+`OrderEntryState`, so the view has no reason to call the presenter's writes and a test fails if it does.
 
 `EPIC-028O`: a side sized by quote (a Spot market buy) keeps a typed total
 instead of a quantity, and its slider moves the total; a stop-limit side keeps

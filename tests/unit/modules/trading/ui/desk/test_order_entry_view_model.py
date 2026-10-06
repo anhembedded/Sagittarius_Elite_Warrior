@@ -273,17 +273,46 @@ def test_the_three_halves_each_stay_under_the_public_method_threshold() -> None:
         assert len(public) <= _PUBLIC_METHOD_LIMIT, (cls.__name__, public)
 
 
-def test_no_view_reaches_the_presenters_writes() -> None:
-    """The writes are held by presenters and their helpers; the view's files
-    never ask for them."""
-    order_entry = Path(__file__).parents[6] / "src/modules/trading/ui/desk"
-    views = [
-        "order_entry/order_entry_panel.py",
-        "order_entry/order_side_form.py",
-        "order_entry/order_options_bar.py",
-        "order_entry/two_column_sides.py",
-        "desk_screen/desk_view.py",
-    ]
-    for name in views:
-        assert "presenter_side" not in (order_entry / name).read_text(encoding="utf-8")
+#: The files under `ui/desk` that may ask for the presenter's writes: the
+#: definition, the presenters and their helpers, and the previews that load a
+#: panel by hand. A new file asking for them fails the test below until a
+#: person decides it is a presenter side.
+_MAY_ASK_FOR_PRESENTER_SIDE = frozenset(
+    {
+        "desk_screen/preview.py",
+        "order_entry/best_price_filler.py",
+        "order_entry/futures_settings_changer.py",
+        "order_entry/order_entry_presenter.py",
+        "order_entry/order_entry_presenter_writer.py",
+        "order_entry/order_entry_view_model.py",
+        "order_entry/preview.py",
+    }
+)
+
+
+def test_only_the_presenter_side_asks_for_the_presenters_writes() -> None:
+    """The writes are held by presenters and their helpers; any other file
+    under `ui/desk`, a view included, that asks for them fails here."""
+    desk = Path(__file__).parents[6] / "src/modules/trading/ui/desk"
+    asking = {
+        path.relative_to(desk).as_posix()
+        for path in desk.rglob("*.py")
+        if "presenter_side" in path.read_text(encoding="utf-8")
+    }
+    assert asking == _MAY_ASK_FOR_PRESENTER_SIDE
     assert not hasattr(OrderEntryViewModel, "begin_symbol")
+
+
+def test_submit_and_best_price_intents_reach_the_view_models_signals() -> None:
+    """The presenter connects `submitRequested` and `bestPriceRequested` on the
+    view model; the intents must emit them there."""
+    vm = _loaded()
+    submitted: list[str] = []
+    best: list[str] = []
+    vm.submitRequested.connect(submitted.append)
+    vm.bestPriceRequested.connect(best.append)
+
+    vm.intents.request_submit(_BUY)
+    vm.intents.use_best_price(_SELL)
+
+    assert (submitted, best) == (["BUY"], ["SELL"])

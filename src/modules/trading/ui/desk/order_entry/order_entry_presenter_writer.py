@@ -2,7 +2,7 @@
 terms, the last price, the outcome of an order.
 
 @details The half of the view model only presenters and their helpers hold
-(`OrderEntryViewModel.presenter_side`); the view is given no way to call it.
+(`OrderEntryViewModel.presenter_side`); a view does not ask for it, and a test fails if one does.
 """
 
 from __future__ import annotations

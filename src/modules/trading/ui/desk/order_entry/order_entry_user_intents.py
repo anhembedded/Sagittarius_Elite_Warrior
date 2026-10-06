@@ -2,8 +2,8 @@
 buttons.
 
 @details The half of the view model the view calls to change state. Apart from
-the presenter's writes (`OrderEntryPresenterWriter`), which the view cannot
-reach, and from the reads the view repaints from (`OrderEntryViewModel`).
+the presenter's writes (`OrderEntryPresenterWriter`), which a view does not
+ask for, and from the reads the view repaints from (`OrderEntryViewModel`).
 """
 
 from __future__ import annotations
