@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 3 |
-| ✅ **Đã sửa / đã đóng** | 142 |
-| 📈 **Tổng** | **145** |
+| ✅ **Đã sửa / đã đóng** | 143 |
+| 📈 **Tổng** | **146** |
 
 ---
 
@@ -88,6 +88,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-153](completed/BUG-153_engine_pin_check_trusts_a_sidecar_a_reinstall_leaves_behind.md)** | `engine_pin.py check` passed after the engine was replaced by a manual `pip install` / `uv pip install`, because the commit it trusted lived in a sidecar file bound to nothing. Fixed by recording a hash of the installed distribution's `RECORD` beside the commit: a replaced distribution no longer matches. | 🟡 P2 | 2026-10-06 | ✅ 2026-10-06 |
 | **[BUG-142](completed/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | After one manual Spot order, every later order on that symbol was refused with `MAX_POSITIONS_PER_SYMBOL` until trading was enabled again: the handler marked the symbol open and nothing on Spot (no positions) ever cleared it. On a venue without positions (`TradingVenue.has_positions`) an order no longer marks its symbol open. | 🟡 P2 | 2026-10-03 | `fix(bug-142)` |
 | **[BUG-150](completed/BUG-150_closed_market_tab_reports_on_its_deleted_chart.md)** | A Market tab closed while its first window loaded let the load's worker emit on the deleted chart (`RuntimeError: Signal source has been deleted`): `LiveChartCoordinator` checked its token only between steps and always called `load_finished`. Fixed at the shared seam: a cancelled load reports nothing, `load_finished` names its token, and the chart settles the request it cancels itself. | 🟢 P3 | 2026-10-05 | ✅ 2026-10-05 |
 | **[BUG-149](completed/BUG-149_bots_screen_reads_after_shutdown.md)** | A bot write queued from another thread when the Bots screen closed re-armed its coalesced re-read, which then submitted into the app's pool after it had shut down (`RuntimeError: cannot schedule new futures after shutdown`, CI run 37282507866 on PR #356). Fixed: `FencedReads` refuses every read after `drop_all()`, and the presenter's change handler arms nothing after `shutdown()`. | 🟢 P3 | 2026-10-05 | ✅ 2026-10-05 |
