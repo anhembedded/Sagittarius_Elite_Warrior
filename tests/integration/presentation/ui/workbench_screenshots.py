@@ -17,9 +17,10 @@ a dark palette, once the app follows one.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QSize
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QMainWindow
 
@@ -27,10 +28,24 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 #: writes them to its own temporary directory.
 SCREENSHOT_DIR_ENV = "SEW_UI_SCREENSHOTS"
 
-#: Fewer distinct colours than this, over a sampled grid, is a blank picture
-#: (one flat background with maybe a frame), not a drawn mode.
+#: Fewer distinct colours than this is a blank picture (one flat background
+#: with maybe a frame), not a drawn mode.
 _MIN_COLOURS = 8
-_SAMPLE_STEP = 16
+#: The picture is shrunk to this width, smoothly, before its colours are
+#: counted, so every pixel is read at once and a thin line of text (an empty
+#: view's instruction) still shows as the greys it blurs into.
+_SAMPLE_WIDTH = 240
+
+
+@dataclass(frozen=True)
+class Screenshot:
+    """One mode's picture, and its centre drawn alone: the window's frame
+    (menu bar, mode bar, status bar) holds enough colours by itself to make
+    a blank mode look drawn (review of PR #372)."""
+
+    route: str
+    path: Path
+    centre: QImage
 
 
 def screenshot_name(route: str, size: QSize) -> str:
@@ -42,7 +57,7 @@ def capture_modes(
     navigate: Callable[[str], object],
     size: QSize,
     out_dir: Path,
-) -> list[Path]:
+) -> list[Screenshot]:
     """Shows each navigable mode at `size` and saves the whole window."""
     out_dir.mkdir(parents=True, exist_ok=True)
     window.resize(size)
@@ -55,18 +70,18 @@ def capture_modes(
         path = out_dir / screenshot_name(route, size)
         if not window.grab().save(str(path)):
             raise OSError(f"could not write {path}")
-        saved.append(path)
+        centre = window.hosts[route].centralWidget()
+        saved.append(Screenshot(route, path, centre.grab().toImage()))
     return saved
 
 
 def distinct_colours(image: QImage) -> int:
-    """How many colours a grid of samples over `image` holds."""
+    """How many colours `image` holds, shrunk to `_SAMPLE_WIDTH`."""
+    small = image.scaledToWidth(
+        _SAMPLE_WIDTH, Qt.TransformationMode.SmoothTransformation
+    )
     return len(
-        {
-            image.pixel(x, y)
-            for x in range(0, image.width(), _SAMPLE_STEP)
-            for y in range(0, image.height(), _SAMPLE_STEP)
-        }
+        {small.pixel(x, y) for x in range(small.width()) for y in range(small.height())}
     )
 
 

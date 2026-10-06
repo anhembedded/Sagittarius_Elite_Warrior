@@ -4,7 +4,7 @@ reviewer can judge its layout by eye (`pr-review` SKILL §5.1).
 Runs on every gate: the pictures go to a temporary directory, or to the one
 `SEW_UI_SCREENSHOTS` names, which CI keeps as the `ui-screenshots`
 artifact. The assertions keep the pictures worth looking at: one per mode,
-none blank.
+none whose centre is blank.
 
 Retire when: a reviewer no longer judges the UI from pictures of it.
 """
@@ -40,9 +40,13 @@ def test_every_mode_is_pictured_at_each_size(
     saved = capture_modes(main_window, navigate, size, out_dir)
 
     routes = main_window.navigation.modes()
-    assert [path.name for path in saved] == [screenshot_name(r, size) for r in routes]
-    blank = [path.name for path in saved if is_blank(QImage(str(path)))]
-    assert not blank, f"blank pictures: {blank}"
+    assert [shot.path.name for shot in saved] == [
+        screenshot_name(r, size) for r in routes
+    ]
+    unreadable = [s.path.name for s in saved if QImage(str(s.path)).isNull()]
+    blank = [shot.route for shot in saved if is_blank(shot.centre)]
+    assert not unreadable, f"unreadable pictures: {unreadable}"
+    assert not blank, f"modes whose centre is blank: {blank}"
 
 
 def test_a_flat_picture_is_blank_and_a_drawn_one_is_not(qapp) -> None:
