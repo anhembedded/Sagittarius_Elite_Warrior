@@ -2,8 +2,8 @@
 
 - **Reported:** 2026-10-06 (the owner, in chat, Vietnamese: why does the live stream run by itself when trading is not enabled and the key fails the connection check; is it a red flag)
 - **Severity:** 🟡 P2 — no order can be sent, but a `--dev` log is buried (about 24 lines a second for three symbols) and an armed strategy reads the account with the venue key while trading is OFF
-- **Status:** Open
-- **Board:** The Market stream's ticks log two DEBUG lines each (`App.LiveStream`, `App.TradingStrategy`), about 24 a second for three symbols; with a strategy armed and trading OFF each signal still fetched metadata and read the account with the key before the switch refused it. Not fixed yet.
+- **Status:** ✅ Fixed (2026-10-06)
+- **Board:** Fixed: the Market stream is by design (started by the user's open of the Market mode); its per-tick lines were DEBUG, now TRACE (`logging-rule.md` §6), and a strategy signal with trading OFF now stops before any metadata or account read (the key) and tells the desk, instead of reading first.
 - **Context:** `Docs/SPEC/` Market data view → `src/modules/strategy/` (`application/event_handlers/`, `application/services/`) and `src/modules/market_data/adapters/binance/`
 - **Environment:** Windows (the owner's desktop), Futures Testnet venue, a mainnet key (`-2015`, shown as KEY_EXPIRED). Reproduced on Linux, master-warrior at 2a5c739, Python 3.12.
 
@@ -31,15 +31,22 @@ Four updates a second per symbol (Binance pushes the forming kline about every 2
 No net was green-and-wrong in a way that earns a case study: the test that pinned DEBUG pinned the fault.
 
 ## Fix
-Not yet.
+- `live_trading_coordinator.py`: `handle()` asks the trading switch first (`_is_ignored`, with the symbol check that was already there). With trading OFF it publishes `LiveOrderBlockedEvent("Trading is OFF — …")` for the desk and returns before the metadata fetch and `check_connection()`; the order it would have refused anyway is untouched, so nothing that sent an order before is changed. The mechanism is the gate order the submission handler already uses, applied where the strategy's signal enters, not a flag at one caller.
+- `market_tick_event_handler.py`, `binance_websocket_service.py`: the per-tick lines are `TRACE` behind `isEnabledFor`, so a `--dev` run no longer carries them and a normal run pays no formatting cost.
+- Scanned for the same shapes: no other per-tick DEBUG on the bus path (`BotEventRouter.on_tick`, both Qt tick feeds log nothing); the other coordinator-style entry (`BotOrderGateway`) already refuses on the switch first.
 
 ## Regression test
-Not yet.
+- `tests/unit/modules/strategy/application/services/test_live_trading_coordinator_trading_off.py::test_a_signal_with_trading_off_reads_no_account_and_no_metadata` — red before the fix: `Expected 'check_connection' to not have been called. Called 1 times.`; green after. Real coordinator, real stdlib logging untouched; only the ports are doubles, and the account reader is the one whose call is asserted.
+- `tests/unit/modules/strategy/application/event_handlers/test_market_tick_event_handler.py::test_a_tick_logs_nothing_above_trace` and `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py::test_kline_tick_logs_at_trace_only` — red before (one DEBUG record each), green after. They replace the two tests that pinned DEBUG and are stronger: no record at DEBUG or above, one at TRACE (5).
 
 ## Verification
-Not run.
+- The three tests above, red then green; `tests/unit/modules/strategy`, `tests/unit/modules/market_data/adapters`, `tests/unit/architecture`: 982 passed.
+- Commit tier (`ci-local.ps1 -SkipTests`): PASS. The first run of the architecture guards caught two growths of mine (`C901` on `handle`, the god-file ceiling on its test file); fixed by extracting `_is_ignored` and moving the test to its own file.
+- Positive proof the new mechanism ran: the `caplog` tests capture the `App.TradingStrategy` and `App.LiveStream` records at TRACE and none at DEBUG, and the blocked event is published once with the "Trading is OFF" reason.
+- `tests/integration/presentation/ui/test_main_window_state.py`: 14 passed on the unchanged tree, so nothing starts the stream at launch.
+- Not run: the real application with a real stream (no network). GitHub Actions' `ci-local.ps1 -Full` on the PR.
 
-## Suggested next steps
+## Follow-ups (not part of this fix)
 - Owner decision, not changed here: the Market mode's Watchlist keeps streaming after the user leaves the mode (no hide hook releases it until the window closes). Recommendation: release it when the mode is hidden, restart on the next open.
 - Owner decision: a saved complete strategy is re-armed at boot, so an armed strategy exists at start without a click.
 - Separate defect, to file as BUG-164 once the coordinating session confirms the number: `LiveStrategySession.dispatch_tick` (`live_strategy_session.py:198`) feeds forming candles (`is_closed=False`) into `StrategyEngine.on_tick`, committing indicator state per update where the docstrings say closed candles.
