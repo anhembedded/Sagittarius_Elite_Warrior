@@ -41,7 +41,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
     object_name_problems,
+    rearrange,
     reset_layout_problems,
+    restart_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     LONE_AMPERSAND,
@@ -324,6 +326,23 @@ def test_a_reset_layout_that_restores_nothing_is_seen(qtbot) -> None:
     assert any(line.startswith("/orders is ") for line in found), found
     assert any(line.startswith("/top is ") for line in found), found
     assert reset_layout_problems(bare, bare) == ["no Window → Reset layout command"]
+
+
+def test_a_host_that_does_not_restore_after_a_restart_is_seen(qtbot) -> None:
+    """The probe for `restart_problems`, which `test_main_window_state.py`
+    runs on the booted app: a second window that restores the first one's
+    saved state passes; one that restores nothing is named, bar by bar."""
+    closing, _ = _window_with_reset_layout(qtbot)
+    closed_with = rearrange(closing)
+    saved = closing.saveState()
+    restoring, _ = _window_with_reset_layout(qtbot)
+    forgetting, _ = _window_with_reset_layout(qtbot)
+
+    assert restoring.restoreState(saved)
+    assert restart_problems(closed_with, restoring) == []
+    found = restart_problems(closed_with, forgetting)
+    assert any(line.startswith("/orders is ") for line in found), found
+    assert any(line.startswith("/top is ") for line in found), found
 
 
 def test_a_mode_wider_than_the_window_is_seen(qtbot) -> None:

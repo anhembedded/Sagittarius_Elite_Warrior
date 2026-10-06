@@ -52,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
     UiStateCoordinator,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
+    rearrange,
+    restart_problems,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
@@ -262,3 +266,30 @@ def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
     dock = reopened.hosts["dashboard"].findChild(QDockWidget, closed)
     assert dock is not None
     assert dock.isHidden()
+
+
+def test_every_modes_rearranged_layout_survives_a_restart(windows, tmp_path):
+    """`ui-presentation-rule.md` §8, the restart half the conformance suite
+    cannot run on its shared window: every mode is rearranged (each dock and
+    toolbar moved, every other one hidden), the window closes, and a second
+    window over the same file shows each mode as it was left. It found the
+    commands toolbar of every mode with a surface back on top and shown,
+    because only the surface's layout was saved (`ModeHost.remembered_hosts`)."""
+    window = windows.open(_coordinator_over(tmp_path))
+    closed_with = {}
+    for route in window.navigation.modes():
+        window.switch_screen(route)
+        closed_with[route] = rearrange(window.hosts[route])
+    windows.close(window)
+
+    reopened = windows.open(_coordinator_over(tmp_path))
+
+    problems = []
+    for route, layout in closed_with.items():
+        reopened.switch_screen(route)
+        assert layout, f"{route} lays out no dock or toolbar to rearrange"
+        problems += [
+            f"{route}: {line}"
+            for line in restart_problems(layout, reopened.hosts[route])
+        ]
+    assert not problems, "\n".join(problems)

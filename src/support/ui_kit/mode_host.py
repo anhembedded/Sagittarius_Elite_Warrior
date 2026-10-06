@@ -8,14 +8,18 @@ shell needs, with the view as its central widget, until each mode is laid out
 as a workbench of its own (`EPIC-033H`-`033L`, `033P`), when this class goes.
 
 When the view draws on a surface (a `RegionHost` that is its direct child),
-that surface is where the panels are, so the
-View menu's panel and toolbar toggles and the mode's layout (save, restore,
-Reset layout) are the surface's. A view without one has no panels: its View
-entries are empty and its layout is the central widget alone.
+that surface is where the panels are, so the View menu's panel toggles are the
+surface's. A view without one has no panels: its View entries are empty and
+its layout is the central widget alone.
 
 Every mode also has a commands toolbar (`EPIC-033D`): the window places each
 contributed command marked for the toolbar there, as the action its menu entry
 shares. View → Toolbars lists it beside the surface's own toolbars.
+
+The mode's layout is both: this host's own (the commands toolbar) and the
+surface's (the panels). Window → Reset layout resets both, and the window
+remembers both across a restart, one saved layout per host
+(`remembered_hosts`).
 """
 
 from __future__ import annotations
@@ -61,7 +65,6 @@ class ModeHost(RegionHost):
         self.setObjectName(f"workbench::mode::{mode_id}")
         self._view = view
         self._inner = _surface_of(view)
-        self._own_default = b""
         self.place_widget(_SCREEN_PLACE, view)
 
     @property
@@ -83,33 +86,28 @@ class ModeHost(RegionHost):
             return (*self._inner.toolbar_toggle_actions(), *own)
         return own
 
-    @property
-    def layout_version(self) -> int:
+    def remembered_hosts(self) -> tuple[RegionHost, ...]:
+        """The hosts whose layouts are saved on exit and restored on start
+        (`ui-presentation-rule.md` §8): this one, for the commands toolbar,
+        then the view's surface, for the panels. This host comes first: when
+        its saved layout no longer applies, its reset also resets the
+        surface, and the surface's own saved layout, restored after it, wins.
+        """
         if self._inner is not None:
-            return self._inner.layout_version
-        return super().layout_version
+            return (self, self._inner)
+        return (self,)
 
     def capture_default_perspective(self) -> None:
         # The commands toolbar is this host's own, outside the view's
         # surface: its default is captured, and reset, here as well.
-        self._own_default = RegionHost.save_perspective(self)
+        super().capture_default_perspective()
         if self._inner is not None:
             self._inner.capture_default_perspective()
 
     def reset_perspective(self) -> bool:
         """Window → Reset layout: the commands toolbar and the surface's
         panels both go back to the default (`EPIC-033C`)."""
-        own = RegionHost.restore_perspective(self, self._own_default)
+        own = super().reset_perspective()
         if self._inner is not None:
             return self._inner.reset_perspective() and own
         return own
-
-    def save_perspective(self) -> bytes:
-        if self._inner is not None:
-            return self._inner.save_perspective()
-        return super().save_perspective()
-
-    def restore_perspective(self, blob: bytes) -> bool:
-        if self._inner is not None:
-            return self._inner.restore_perspective(blob)
-        return super().restore_perspective(blob)

@@ -185,7 +185,8 @@ class MainWindow(WorkbenchShell):
         self.navigation.mode_changed.connect(self._on_mode_changed)
         self.finish_setup()
         for host in self._hosts.values():
-            self._perspectives.register(host)
+            for remembered in host.remembered_hosts():
+                self._perspectives.register(remembered)
 
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self._perspectives)
