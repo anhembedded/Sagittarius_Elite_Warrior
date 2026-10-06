@@ -15,6 +15,12 @@ the account's order book (`code/quality.md` §3's Single-Scope Cohesion,
 against `architecture-rule.md` §5's rule about abstraction *levels*, which is
 not about count).
 
+**Prices and sizes in the symbol's own tick and step (`EPIC-033N`).**
+Each model names the columns quoted in its row's symbol (`SYMBOL_QUOTED`);
+the desk gives the tables its venue's filters
+(`OrderMetadataPrecisions`). Holdings name an asset, not a symbol, so they
+keep the magnitude rule.
+
 **Columns are specs (`EPIC-033N`).** Each model declares its `COLUMNS` — key,
 title, kind — and serves raw values; the Engine's `configure_item_view`
 aligns, sorts and writes them by kind. Sorting is numeric because the value
@@ -86,6 +92,10 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         ColumnSpec("leverage", "Leverage (x)", ColumnKind.QUANTITY),
         ColumnSpec("liquidation", "Liquidation", ColumnKind.PRICE),
     )
+    #: The leverage is a quantity, but not of the symbol.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset(
+        {"size", "entry", "mark", "liquidation"}
+    )
 
     def _value(self, row: PositionRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -99,6 +109,9 @@ class PositionsTableModel(RowTableModel[PositionRow]):
             display_number(row.liquidation_price),
         )
         return values[column]
+
+    def _symbol(self, row: PositionRow) -> str | None:
+        return row.symbol
 
     def _role_data(self, row: PositionRow, column: int, role: int) -> object:
         """A losing position's PnL cell is bold. The one emphasis this table
@@ -124,6 +137,7 @@ class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):
         ColumnSpec("status", "Status", ColumnKind.STATUS),
         ColumnSpec("time", "Order time", ColumnKind.TIMESTAMP),
     )
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"quantity", "price"})
 
     def _value(self, row: OpenOrderRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -136,6 +150,9 @@ class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):
             row.order_time,
         )
         return values[column]
+
+    def _symbol(self, row: OpenOrderRow) -> str | None:
+        return row.symbol
 
 
 class HoldingsTableModel(RowTableModel[HoldingRow]):

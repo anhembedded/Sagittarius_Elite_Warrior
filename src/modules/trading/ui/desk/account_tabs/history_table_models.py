@@ -5,7 +5,8 @@
 for its three: the same abstraction level and the same one reason to change,
 the shape of a row of the account's history. Columns are specs and cells
 raw values (`EPIC-033N`), so "1,000.00" sorts after "9.00" because both are
-numbers.
+numbers. A price or a size is written in its symbol's tick or step
+(`SYMBOL_QUOTED`); a fee is a quantity of its own asset and is not.
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ class OrderHistoryTableModel(RowTableModel[OrderHistoryRow]):
         ColumnSpec("filled", "Filled", ColumnKind.QUANTITY),
         ColumnSpec("status", "Status", ColumnKind.STATUS),
     )
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset(
+        {"price", "stop", "average", "quantity", "filled"}
+    )
 
     def _value(self, row: OrderHistoryRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -58,6 +62,9 @@ class OrderHistoryTableModel(RowTableModel[OrderHistoryRow]):
         )
         return values[column]
 
+    def _symbol(self, row: OrderHistoryRow) -> str | None:
+        return row.symbol
+
 
 class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
     """@brief One page of the account's fills, one per row."""
@@ -73,6 +80,8 @@ class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
         ColumnSpec("fee_asset", "Fee asset", ColumnKind.TEXT),
         ColumnSpec("pnl", "Realized PnL", ColumnKind.MONEY),
     )
+    #: The fee is a quantity of its own asset, not of the symbol.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"price", "quantity"})
 
     def _value(self, row: TradeHistoryRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -87,3 +96,6 @@ class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
             display_number(row.realized_pnl),
         )
         return values[column]
+
+    def _symbol(self, row: TradeHistoryRow) -> str | None:
+        return row.symbol

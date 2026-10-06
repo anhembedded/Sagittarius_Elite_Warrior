@@ -4,6 +4,7 @@ Boundary values per kind: zero, negative, sub-unit, very large, and `None`.
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -13,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     FormatContext,
+    Precision,
 )
 
 _CONTEXT = FormatContext("cell")
@@ -109,3 +111,58 @@ def test_a_timeframe_column_reads_as_its_code_and_sorts_by_its_length():
     assert formatter.format(ColumnKind.DURATION, 90, context) == "0:01:30"
     # The same length in any other column is a plain duration.
     assert _text(ColumnKind.DURATION, 60) == "0:01:00"
+
+
+def _quoted(kind: ColumnKind, value: object, quantum: str) -> str:
+    context = FormatContext("cell", Precision(Decimal(quantum)))
+    return AppValueFormatter().format(kind, value, context)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("value", "quantum", "expected"),
+    [
+        # A tick coarser than the magnitude rule's two decimals.
+        (64250.1, "0.1", "64,250.1"),
+        # Finer than its four: a five-decimal tick on a unit price.
+        (3.14159265, "0.00001", "3.14159"),
+        # Trailing zeros the tick asks for stay: the exchange quotes them.
+        (2.5, "0.001", "2.500"),
+        # Half a tick, half to even; just over half rounds up.
+        (0.125, "0.01", "0.12"),
+        (0.12500001, "0.01", "0.13"),
+        # A tick that is not a power of ten, and one above one.
+        (101.37, "0.05", "101.35"),
+        (64253.0, "10", "64,250"),
+        # Below half a tick is zero, never negative zero.
+        (-0.004, "0.01", "0.00"),
+        (-1500.55, "0.1", "-1,500.6"),
+    ],
+)
+def test_a_price_with_its_symbols_tick_is_written_in_whole_ticks(
+    value, quantum, expected
+):
+    assert _quoted(ColumnKind.PRICE, value, quantum) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "quantum", "expected"),
+    [
+        (0.0153, "0.001", "0.015"),
+        (1250.0, "1", "1,250"),
+        (1.0, "0.00001", "1.00000"),
+        (0.0, "0.001", "0.000"),
+    ],
+)
+def test_a_quantity_with_its_symbols_step_is_written_in_whole_steps(
+    value, quantum, expected
+):
+    assert _quoted(ColumnKind.QUANTITY, value, quantum) == expected
+
+
+def test_a_precision_leaves_money_percent_and_non_finite_values_to_their_rules():
+    assert _quoted(ColumnKind.MONEY, 1234.567, "0.1") == "1,234.57"
+    assert _quoted(ColumnKind.PERCENT, 12.5, "1") == "12.50%"
+    assert _quoted(ColumnKind.PRICE, float("inf"), "0.01") == _text(
+        ColumnKind.PRICE, float("inf")
+    )
+    assert _quoted(ColumnKind.PRICE, None, "0.01") == ""
