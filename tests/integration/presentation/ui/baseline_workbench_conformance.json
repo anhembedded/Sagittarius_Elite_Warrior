@@ -4,7 +4,7 @@
     "Read by test_workbench_conformance.py. 'mode' lists a check failed at every window size, 'mode@WxH' one failed at that size only.",
     "Only shrinks; empty when EPIC-033M closes.",
     "Owner of the remaining fits_the_window entry: dashboard@1024x700 leaves with the Dev Board (EPIC-033P).",
-    "toolbar_actions_in_a_menu (2026-10-06, as found): the shared chart toolbar's timeframe, zoom and Go live actions in Market, the Dev Board and Backtest, and the Dev Board's Cancel order, reach no menu (ui-presentation-rule.md §6). The Backtest chart controls' own actions are in View → Chart (BOT-155)."
+    "toolbar_actions_in_a_menu (2026-10-06, as found): the shared chart toolbar's timeframe, zoom and Go live actions in Market, the Dev Board and Backtest, and the Dev Board's Cancel order, reach no menu (ui-presentation-rule.md §6). The Backtest chart controls' own actions are in View → Chart (BOT-155). Owner of the market and backtest rows: BOT-156; the dashboard row leaves with the Dev Board (EPIC-033P)."
   ],
   "failing": {
     "backtest": [
