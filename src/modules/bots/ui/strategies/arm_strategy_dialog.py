@@ -67,8 +67,10 @@ class ArmStrategyDialog(QDialog):
         self.setWindowTitle("Arm Strategy")
         self._form = form
         self.strategy = _combo("cboArmStrategy")
+        # Not editable: only a listed symbol is armed (PR #376 review). The
+        # arm handler checks a symbol is present, not that it trades, and a
+        # typo would arm a strategy that never ticks yet read "Armed".
         self.symbol = _combo("cboArmSymbol")
-        self.symbol.setEditable(True)
         self.interval = _combo("cboArmInterval")
         self.sizing = QDoubleSpinBox()
         self.sizing.setObjectName("spnArmSizingPercent")
@@ -141,6 +143,20 @@ class ArmStrategyDialog(QDialog):
             self.interval.setCurrentText(form.live_interval)
         self.sizing.setValue(form.sizing_percent)
         self.leverage.setValue(form.leverage)
+        self._adopt_what_is_shown()
+
+    def _adopt_what_is_shown(self) -> None:
+        """A choice the form lacks takes what its field shows, so Arm
+        strategy sends what the person sees (PR #376 review: a first arming
+        showed `1m` while the form held no timeframe, and the session
+        refused the arm for a missing one)."""
+        form = self._form
+        if not form.selected_strategy_key and self.strategy.count():
+            form.request_strategy(self.strategy.currentData() or "")
+        if not form.live_interval:
+            form.request_interval(self.interval.currentText())
+        if not form.selected_symbol:
+            form.request_symbol(self.symbol.currentText())
 
 
 def ask_arm_with_dialog(

@@ -17,9 +17,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
@@ -36,9 +33,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
-    IBotKindCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
@@ -84,9 +78,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests im
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -101,12 +92,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.single_shot_timer import (
 from sagittarius_engine.extensions.fsm.declarative_state_machine import (
     DeclarativeStateMachine,
 )
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from ..strategies.strategies_wiring import strategies_for
 from .bots_command_binding import bind_bots_commands
+from .bots_dependencies import bots_dependencies_for
 from .kind_command_binding import KindCommands
-from .spot_candle_feed import spot_candle_feed
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -131,7 +121,8 @@ def _utc_now() -> datetime:
 class BotsPresenter(CommandPresenter):
     """@brief Orchestrates the Bots screen."""
 
-    # The engine declares both untyped `None`s: an "incompatible override".
+    # The engine declares both as plain `None` defaults, untyped, so any real
+    # value is an "incompatible override" to mypy; the FSM reads them as-is.
     INITIAL_STATE = BotsUiState.NO_SELECTION  # type: ignore[assignment]
     UI_TRANSITION_MATRIX = BOTS_UI_TRANSITIONS  # type: ignore[assignment]
 
@@ -144,14 +135,13 @@ class BotsPresenter(CommandPresenter):
         now: Callable[[], datetime] = _utc_now,
     ) -> None:
         super().__init__(view, container)
-        threads = container.resolve(IThreadManager)
+        deps = bots_dependencies_for(container)
+        threads, commands, feed = deps.threads, deps.commands, deps.candles
         self._model = view.model
         self._dialogs = dialogs or dialogs_for(view)
         self._now = now
-        self._catalog = container.resolve(IBotKindCatalog)
-        self._venues = container.resolve(IVenueTradingPorts)
+        self._catalog, self._venues = deps.kinds, deps.venues
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
-        sync, feed = spot_candle_feed(container)
         self._charts = BotChartHost(BotChartPorts(threads, feed, self._ticks))
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
@@ -159,9 +149,8 @@ class BotsPresenter(CommandPresenter):
         self._actions: ActionOwnershipTracker[str, PendingAction, BotsUiState] = (
             ActionOwnershipTracker()
         )
-        commands = container.resolve(ICommandDispatcher)
         self._backtests = KindBacktests(
-            BacktestPorts(threads, commands, sync, feed), view.set_backtest_page
+            BacktestPorts(threads, commands, deps.sync, feed), view.set_backtest_page
         )
         self._queries = BotQueries(commands, self._reads)
         self._commands = BotActionsCoordinator(commands, threads)
@@ -176,10 +165,13 @@ class BotsPresenter(CommandPresenter):
         self._clock.setInterval(_CLOCK_MS)
         ask, status = self._dialogs.ask_arm_strategy, self._model.set_status
         self.strategies = strategies_for(container, view.strategies, ask, status)
-        self.subscribe(*self.strategies.subscription)
+        for event_type, handler in self.strategies.subscriptions:
+            self.subscribe(event_type, handler)
         self._connect()
         self._clock.start()
         self._queries.bots()
+
+    # -- wiring ------------------------------------------------------------ #
 
     def _connect(self) -> None:
         model = self._model
@@ -201,7 +193,8 @@ class BotsPresenter(CommandPresenter):
     # -- reads ------------------------------------------------------------- #
 
     def _on_bot_changed(self, _bot_id: str, _removed: bool) -> None:
-        """A write lands queued, maybe after `shutdown()`: then nothing (`BUG-149`)."""
+        """A write reaches the screen queued from the writer's thread, so it
+        can land after `shutdown()`; it then arms nothing (`BUG-149`)."""
         if self._closed:
             logger.debug("Bots screen: a bot change after shutdown is ignored")
             return
@@ -386,7 +379,8 @@ class BotsPresenter(CommandPresenter):
         self._model.set_action_in_flight(self._busy())
 
     def shutdown(self) -> None:
-        """Drops answers in flight; releases streams; cancels nothing remote."""
+        """Answers in flight are dropped; the chart's stream and the log
+        handler are released; nothing is cancelled at the exchange."""
         self._closed = True
         self._actions.invalidate_active()
         self._reads.drop_all()

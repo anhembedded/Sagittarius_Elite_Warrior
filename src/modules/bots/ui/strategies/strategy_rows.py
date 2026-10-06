@@ -36,6 +36,11 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 
 #: The panel's title, which is also its View toggle's text.
 STRATEGIES_DOCK = "Strategies"
+#: A venue as a person reads it; the enum's value is an identifier.
+VENUE_TITLES = {
+    TradingVenue.FUTURES_TESTNET: "Futures Testnet",
+    TradingVenue.SPOT_TESTNET: "Spot Testnet",
+}
 ARMED_TEXT = "Armed"
 NOT_ARMED_TEXT = "Not armed"
 NO_VENUE_TEXT = (
@@ -63,15 +68,17 @@ class StrategyRow:
 class StrategyRowsModel(RowTableModel[StrategyRow]):
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
         ColumnSpec("venue", "Venue", ColumnKind.TEXT),
-        ColumnSpec("strategy", "Strategy", ColumnKind.TEXT, stretch=True),
+        # The state before the long summary, so a narrow panel cuts the
+        # summary, never the state (PR #376 review).
         ColumnSpec("state", "State", ColumnKind.STATUS),
+        ColumnSpec("strategy", "Strategy", ColumnKind.TEXT, stretch=True),
     )
 
     def _value(self, row: StrategyRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
-            row.venue.value,
-            row.summary or "—",
+            VENUE_TITLES.get(row.venue, row.venue.value),
             ARMED_TEXT if row.armed else NOT_ARMED_TEXT,
+            row.summary or "—",
         )
         return values[column]
 

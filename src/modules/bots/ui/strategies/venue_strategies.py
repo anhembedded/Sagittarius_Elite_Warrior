@@ -8,13 +8,15 @@ the primary venue), its own form (`StrategyFormViewModel`) and its own
 
 - **Bots → Arm strategy…** fills the selected venue's form from its saved
   arming, asks through `ArmStrategyDialog`, and arms on Arm strategy. It is
-  enabled while a row is selected, nothing is armed there and no arm or
-  disarm is in flight. The session refuses an arm while trading is on; the
-  refusal is said on the Bots panel's status line, in the coordinator's words.
+  enabled while a row is selected, nothing is armed there, that venue's
+  trading is off and no arm or disarm is in flight.
 - **Bots → Disarm strategy** disarms the selected venue; enabled while a
-  strategy is armed there and nothing is in flight. It takes no
-  confirmation: nothing is sold or cancelled, and the session refuses it
-  while trading is on.
+  strategy is armed there, that venue's trading is off and nothing is in
+  flight. It takes no confirmation: nothing is sold or cancelled.
+
+Both are off while the venue trades: the visible half of `EPIC-022` §4.1's
+rule, which the desks' card kept (`EPIC-023D`) and the session enforces
+regardless (PR #376 review). They follow `TradingSwitchChangedEvent`.
 
 The rows show what the session has armed, never what a form shows: they are
 re-read from `IArmedStrategyReader` after each arm or disarm and whenever an
@@ -40,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_conf
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
@@ -82,6 +87,8 @@ class StrategyPorts:
     ask: AskArmStrategy
     #: The Bots panel's status line: `(text, is_error)`.
     set_status: Callable[[str, bool], None]
+    #: Whether a venue's live trading is on now.
+    trading_on: Callable[[TradingVenue], bool]
 
 
 class _Venue:
@@ -167,19 +174,23 @@ class VenueStrategies(QObject):
     def _in_flight(self) -> bool:
         return any(venue.busy for venue in self._venues.values())
 
-    def can_arm(self) -> bool:
+    def _changeable(self) -> _Venue | None:
+        """The selected venue, while its strategy may change: its trading
+        off and no arm or disarm in flight."""
         selected = self._selected()
-        return (
-            selected is not None and selected.armed() is None and not self._in_flight()
-        )
+        if selected is None or self._in_flight():
+            return None
+        if self._ports.trading_on(selected.controls.venue):
+            return None
+        return selected
+
+    def can_arm(self) -> bool:
+        selected = self._changeable()
+        return selected is not None and selected.armed() is None
 
     def can_disarm(self) -> bool:
-        selected = self._selected()
-        return (
-            selected is not None
-            and selected.armed() is not None
-            and not self._in_flight()
-        )
+        selected = self._changeable()
+        return selected is not None and selected.armed() is not None
 
     # -- the commands -------------------------------------------------- #
 
@@ -226,13 +237,17 @@ class VenueStrategies(QObject):
     # -- what the rows show --------------------------------------------- #
 
     @property
-    def subscription(
-        self,
-    ) -> tuple[
-        type[ArmedStrategyChangedEvent], Callable[[ArmedStrategyChangedEvent], None]
-    ]:
+    def subscriptions(self) -> tuple[tuple[type, Callable[..., None]], ...]:
         """What the presenter subscribes, for its lifetime (`self.subscribe`)."""
-        return ArmedStrategyChangedEvent, self.on_changed
+        return (
+            (ArmedStrategyChangedEvent, self.on_changed),
+            (TradingSwitchChangedEvent, self.on_trading_switched),
+        )
+
+    def on_trading_switched(self, event: TradingSwitchChangedEvent) -> None:
+        """A venue's trading turned on or off: the commands follow."""
+        if event.venue in self._venues:
+            self.commands_changed.emit()
 
     def on_changed(self, event: ArmedStrategyChangedEvent) -> None:
         """A venue's armed strategy changed, from here or elsewhere."""

@@ -131,6 +131,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     FakeVenueTradingPorts,
     fake_venue_ports,
@@ -263,6 +266,8 @@ class BotsScreen:
     actions: ActionRegistry
     #: The venue's live strategy, armed from the Strategies panel.
     strategy: VenueArming
+    #: The venue's trading switch.
+    trading_session: FakeTradingSession
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -338,9 +343,14 @@ def open_screen(
     container.singleton(IDispatcher, dispatcher)
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IThreadManager, pool)
+    trading_session = FakeTradingSession()
     container.singleton(
         IVenueTradingPorts,
-        FakeVenueTradingPorts(fake_venue_ports(VENUE, order_entry_terms=terms())),
+        FakeVenueTradingPorts(
+            fake_venue_ports(
+                VENUE, order_entry_terms=terms(), trading_session=trading_session
+            )
+        ),
     )
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
@@ -363,4 +373,6 @@ def open_screen(
         view, container, dialogs=answers.dialogs(), now=lambda: NOW
     )
     actions = bound_actions(view, bots_commands(BOTS_ROUTE), presenter.bind_commands)
-    return BotsScreen(view, presenter, pool, store, answers, bus, actions, strategy)
+    return BotsScreen(
+        view, presenter, pool, store, answers, bus, actions, strategy, trading_session
+    )

@@ -72,9 +72,10 @@ def test_a_strategy_armed_on_one_venue_is_drawn_on_that_desk_only(qtbot, qapp) -
     world.bus.emit(ArmedStrategyChangedEvent(True, venue=SPOT))
     qapp.processEvents()
 
-    spot_drawn = spot.presenter.chart.armed_config
+    spot_drawn = spot.presenter.chart.drawn_strategy
     assert spot_drawn is not None and spot_drawn.symbol == "BTCUSDT"
     assert futures.presenter.chart.armed_config is None
+    assert futures.presenter.chart.drawn_strategy is None
 
 
 def test_a_disarm_on_the_bus_clears_that_desks_strategy_lines(qtbot, qapp) -> None:
@@ -90,6 +91,27 @@ def test_a_disarm_on_the_bus_clears_that_desks_strategy_lines(qtbot, qapp) -> No
     qapp.processEvents()
 
     assert spot.presenter.chart.armed_config is None
+    assert spot.presenter.chart.drawn_strategy is None
+
+
+def test_an_armed_strategy_is_drawn_only_over_its_own_symbol(qtbot, qapp) -> None:
+    """PR #376 review: the strategy's lines replayed over another pair's
+    candles would show signals it never computes. The desk shows BTCUSDT
+    1m; the venue arms ETHUSDT 1m from the Bots mode."""
+    world, _futures, spot = _two_desks(qtbot)
+    spot.armed.seed(
+        LiveStrategyConfig(strategy_key=STRATEGY_KEY, symbol="ETHUSDT", interval="1m")
+    )
+    world.bus.emit(ArmedStrategyChangedEvent(True, venue=SPOT))
+    qapp.processEvents()
+    chart = spot.presenter.chart
+
+    assert chart.armed_config is not None and chart.drawn_strategy is None
+
+    spot.presenter.show_symbol("ETHUSDT")
+
+    drawn = chart.drawn_strategy
+    assert drawn is not None and drawn.symbol == "ETHUSDT"
 
 
 def test_each_desk_streams_its_own_market_and_enabling_one_leaves_the_other(

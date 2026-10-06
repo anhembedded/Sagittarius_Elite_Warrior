@@ -30,6 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -163,3 +167,32 @@ def test_the_form_opens_on_the_saved_arming_and_never_arms_by_itself(rows) -> No
     assert (form.selected_symbol, form.live_interval) == ("SOLUSDT", "15m")
     assert form.symbol_options[0] == "SOLUSDT"
     assert rows.spot.arming.armed_with is None
+
+
+def test_arm_and_disarm_wait_while_the_venue_trades(rows) -> None:
+    """PR #376 review: the desks' card locked while trading was on
+    (`EPIC-023D`); the session refuses either way, but the commands must
+    not offer what it will refuse."""
+    rows.select(SPOT)
+    rows.spot.trading_on = True
+    rows.strategies.on_trading_switched(
+        TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=SPOT)
+    )
+
+    assert not rows.strategies.can_arm()
+    rows.spot.trading_on = False
+    rows.strategies.arm_selected()
+    rows.spot.trading_on = True
+    assert not rows.strategies.can_disarm()
+
+    rows.spot.trading_on = False
+    assert rows.strategies.can_disarm()
+
+
+def test_a_venue_reads_as_a_title_and_the_state_comes_before_the_summary(
+    rows,
+) -> None:
+    columns = [spec.key for spec in rows.panel.model.COLUMNS]
+
+    assert columns.index("state") < columns.index("strategy")
+    assert rows.cell(FUTURES, "venue") == "Futures Testnet"

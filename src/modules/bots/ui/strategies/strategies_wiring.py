@@ -1,10 +1,10 @@
 """The Bots presenter's strategy rows, built from the app's container
 (`EPIC-033K` stage 3).
 
-One function, so `BotsPresenter` (at its size threshold) names the rows in
-three lines and a test builds `VenueStrategies` from fakes instead: the
-venues this run serves, each venue's own strategy ports, the strategy
-catalog and the app's symbol list. The question is the presenter's
+One function, so `BotsPresenter` names the rows in a line and a test builds
+`VenueStrategies` from fakes instead: the venues this run serves, each
+venue's own strategy ports and trading switch, the strategy catalog and the
+app's symbol list. The question is the presenter's
 (`BotsDialogs.ask_arm_strategy`), so a test answers it as it answers Stop.
 """
 
@@ -41,7 +41,8 @@ def strategies_for(
 ) -> VenueStrategies:
     """The rows of every venue this run serves, shown in `panel`."""
     controls = container.resolve(IVenueStrategyControls)
-    venues = container.resolve(IVenueTradingPorts).enabled()
+    trading = container.resolve(IVenueTradingPorts)
+    venues = trading.enabled()
     config = container.resolve(IConfig).get_all()
     return VenueStrategies(
         panel,
@@ -51,6 +52,9 @@ def strategies_for(
             symbol_options=default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS),
             ask=ask,
             set_status=set_status,
+            trading_on=lambda venue: (
+                trading.get(venue).trading_session.snapshot().enabled
+            ),
         ),
         panel,
     )

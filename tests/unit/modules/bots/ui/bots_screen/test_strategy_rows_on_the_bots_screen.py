@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
+)
 
 from ..strategies.strategy_fakes import STRATEGY_KEY
 from .bots_screen_fixtures import VENUE, Answers
@@ -79,3 +83,22 @@ def test_the_rows_follow_an_arming_announced_on_the_bus(open_bots_screen, qapp) 
     assert row.armed and "BTCUSDT 1m" in row.summary
     table = screen.view.strategies.table
     assert table.text(0, screen.view.strategies.model.column("state")) == ARMED_TEXT
+
+
+def test_the_commands_follow_the_venues_trading_switch_on_the_bus(
+    open_bots_screen, qapp
+) -> None:
+    """PR #376 review: arming waits while the venue trades."""
+    screen = open_bots_screen()
+    _select_the_venue(screen)
+    arm = screen.actions.action(ARM_STRATEGY)
+    assert arm.isEnabled()
+    session = screen.trading_session
+    session.set_enabled(enabled=True)
+
+    screen.bus.emit(
+        TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=VENUE)
+    )
+    qapp.processEvents()
+
+    assert not arm.isEnabled()

@@ -66,7 +66,7 @@ def test_each_edit_reaches_the_form_and_arms_nothing(qtbot, form) -> None:
     form.strategy_changed.connect(lambda: changed.append(True))
 
     dialog.strategy.setCurrentIndex(dialog.strategy.findData("ema_crossover"))
-    dialog.symbol.setCurrentText("btcusdt")
+    dialog.symbol.setCurrentText("BTCUSDT")
     dialog.interval.setCurrentText("1h")
     dialog.sizing.setValue(7.0)
     dialog.leverage.setValue(10.0)
@@ -100,3 +100,31 @@ def test_a_saved_symbol_missing_from_the_list_is_offered_first() -> None:
 
     assert form.symbol_options == ("SOLUSDT", "BTCUSDT", "ETHUSDT")
     assert form.selected_symbol == "SOLUSDT"
+
+
+def test_only_a_listed_symbol_can_be_chosen(qtbot, form) -> None:
+    """PR #376 review: a typed `BTCUSDX` was armed and read "Armed"."""
+    dialog = _dialog(qtbot, TradingVenue.FUTURES_TESTNET, form)
+
+    assert not dialog.symbol.isEditable()
+    assert [dialog.symbol.itemText(i) for i in range(dialog.symbol.count())] == [
+        "BTCUSDT",
+        "ETHUSDT",
+    ]
+
+
+def test_a_first_arming_sends_the_timeframe_and_strategy_it_shows(qtbot) -> None:
+    """PR #376 review: with nothing saved the form held no timeframe while
+    the dialog showed `1m`, and the session refused the arm."""
+    form = StrategyFormViewModel()
+    form.set_strategy_options(_KEYS, ("1m", "15m"))
+    form.set_strategy_selection("", "", 1.0, 1.0)
+    form.set_symbol("", ("BTCUSDT",))
+
+    dialog = _dialog(qtbot, TradingVenue.FUTURES_TESTNET, form)
+
+    assert form.live_interval == dialog.interval.currentText() == "1m"
+    assert (
+        form.selected_strategy_key == dialog.strategy.currentData() == "ema_crossover"
+    )
+    assert form.selected_symbol == "BTCUSDT"
