@@ -5,10 +5,12 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
+    BannerSeverity as Severity,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
     EnvironmentBannerContent,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
 
 
 def test_renders_the_given_content(qapp) -> None:

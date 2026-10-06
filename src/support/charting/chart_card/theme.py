@@ -1,57 +1,46 @@
-"""Shared color constants for the chart_card package — single source of truth so
-candlestick, volume, price-line and crosshair rendering stay visually consistent.
+"""Shared colour constants for the chart_card package — the one table of what
+a series colour *means*, so candlestick, volume, price-line and crosshair
+rendering stay consistent.
 
-This module used to say the package "doesn't import the app's global Palette
-(kept portable/standalone), so the value is duplicated here rather than
-imported". That stopped being true before anyone noticed: `indicator_manager`
-imports `src.domain.indicator_scripts`, so the package already depends on the
-app it was supposed to be portable from. EPIC-007D settled it in the direction
-the code had already gone — chrome reads `Palette`, and the duplication is
-gone.
+Chart chrome (background, axes, crosshair, tags) is not here: it comes from the
+widget's `QPalette` roles (`chart_chrome.py`), so the chart follows the
+operating system's theme. What is here is colour that encodes data: a candle is
+green because it closed up, a stop-loss line is the loss colour because it is
+where a loss is taken. Each meaning is a name below, and a reader asks for the
+meaning, never for a hex value.
 
-What stays a literal here is what is genuinely not chrome: a candle body is
-green because it closed up, not because the theme says so. Those two carry
-`token-exempt` with that reason. If this package is ever made portable for
-real, the import above is the thing to remove, and these two are already in
-the right shape.
-
-`EPIC-025` PR 4.3m: imports `Palette` from `ui_kit/palette.py` rather than
-the `assets` package, whose `__init__` also imports `icon_loader` —
-Qt-backed, unlike `Palette`'s plain hex strings. `assets/__init__.py`
-importing anything runs its own top, so reaching `Palette` through
-`assets.palette` would still have paid for `icon_loader`'s `PySide6`
-import; only a module outside that package avoids it.
-`StrategyChartOverlayService` now reaches this file from the application
-layer, wired eagerly in `strategy`'s composition root, and that Qt import
-would have landed on every run, headless included
+BULL and BEAR are the only fixed RGB values (`token-exempt`); every other
+meaning is either one of those two or a named colour Qt and SVG both define, so
+no second literal table exists to drift from this one. The package imports
+nothing from the application's former `Palette`, which `EPIC-033M` deleted, and
+nothing Qt-backed, so `StrategyChartOverlayService` can reach this file from the
+application layer without paying for a Qt import
 (`tests/unit/architecture/test_module_contribution_laziness.py`)."""
-
-from Sagittarius_Elite_Warrior.src.support.ui_kit.palette import Palette
 
 BULL_COLOR = "#26a69a"  # token-exempt: candle/indicator series colour, not chrome
 BEAR_COLOR = "#ef5350"  # token-exempt: candle/indicator series colour, not chrome
 #: A series that means "neither up nor down": the out-of-sample divider, the
 #: Monte Carlo paths. It was `CROSSHAIR_COLOR` until `EPIC-033G` moved the
 #: crosshair, which is chrome, to `QPalette` roles (`chart_chrome.py`).
-NEUTRAL_SERIES_COLOR = Palette.MUTED
+NEUTRAL_SERIES_COLOR = "gray"
 #: BOT-111 — take-profit exit markers get their own color, distinct from the
 #: plain bull/bear entry/exit scheme, so a broker-level TP fill reads
 #: differently from a strategy-decided exit at a glance. The domain name is
-#: kept even though the value is just the accent token: what a reader needs
-#: here is "this is the TP colour", not "this is gold".
-TAKE_PROFIT_COLOR = Palette.ACCENT
+#: kept even though the value is just a gold: what a reader needs here is
+#: "this is the TP colour", not "this is gold".
+TAKE_PROFIT_COLOR = "goldenrod"
 #: `EPIC-029G` — what a bot's horizontal lines and bands mean, read at a
 #: glance (`PriceLevelLayer`, `bots/ui/chart/overlay_items.py`). Each is a
 #: series colour with a meaning, named for it, like the take-profit colour.
 #: A price label's text: light on a dark fill, dark on a light one, chosen
 #: per fill so the text never matches its own background (the PR 321
 #: review: a light range-edge fill under light text read as a blank box).
-PRICE_LEVEL_LABEL_COLOR = Palette.TEXT_PRIMARY
-PRICE_LEVEL_LABEL_DARK_COLOR = Palette.BG
-EMPTY_LEVEL_COLOR = Palette.MUTED
-PARTIAL_LEVEL_COLOR = Palette.WARNING
-STOP_LOSS_COLOR = Palette.DANGER
-RANGE_EDGE_COLOR = Palette.TEXT_PRIMARY
-AVERAGE_COST_COLOR = Palette.ACCENT
-SUGGESTION_BAND_COLOR = Palette.MUTED
-INDICATOR_BAND_COLOR = Palette.ACCENT
+PRICE_LEVEL_LABEL_COLOR = "white"
+PRICE_LEVEL_LABEL_DARK_COLOR = "black"
+EMPTY_LEVEL_COLOR = "gray"
+PARTIAL_LEVEL_COLOR = "darkorange"
+STOP_LOSS_COLOR = BEAR_COLOR
+RANGE_EDGE_COLOR = "steelblue"
+AVERAGE_COST_COLOR = "goldenrod"
+SUGGESTION_BAND_COLOR = "gray"
+INDICATOR_BAND_COLOR = "goldenrod"

@@ -9,10 +9,12 @@ screen charts its own venue's market since `EPIC-028C`.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
+    BannerSeverity as Severity,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from_config import (
     environment_banner_content_for,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 

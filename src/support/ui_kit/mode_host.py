@@ -2,7 +2,7 @@
 (`EPIC-033C`).
 
 The Engine's `WorkbenchShell` switches between `RegionHost`s. Today's screens
-are views, not hosts: most draw a `PageShell`, and Bots draws a
+are views, not hosts: Bots draws a
 `WorkbenchSurface` of its own inside the view (the Dev Board did too, until
 `EPIC-033P` deleted it). `ModeHost` is the host the
 shell needs, with the view as its central widget, until each mode is laid out

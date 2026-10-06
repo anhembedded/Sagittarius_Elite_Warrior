@@ -7,9 +7,11 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_align
     VenueAlignment,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
+    BannerSeverity as Severity,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     venue_alignment_banner_content,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
 
 
 def test_every_alignment_state_has_content() -> None:
@@ -17,12 +19,7 @@ def test_every_alignment_state_has_content() -> None:
         content = venue_alignment_banner_content(alignment)
         assert content.message
         assert content.icon
-        assert content.severity in (
-            Severity.INFO,
-            Severity.WARN,
-            Severity.DANGER,
-            Severity.SUCCESS,
-        )
+        assert content.severity in tuple(Severity)
 
 
 def test_trading_disabled_says_view_only() -> None:

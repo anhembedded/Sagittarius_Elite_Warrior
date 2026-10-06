@@ -24,23 +24,18 @@
       "src/support/ui_kit/kit/surfaces/data_row.py": 6,
       "src/support/ui_kit/kit/surfaces/progress_banner.py": 1,
       "src/support/ui_kit/kit/surfaces/tab_bar.py": 1,
-      "src/support/ui_kit/kit/surfaces/table_card.py": 5,
-      "src/support/ui_kit/param_form/param_field.py": 2,
-      "src/support/ui_kit/param_form/strategy_params_dialog.py": 6,
-      "src/support/ui_kit/symbol_picker/overlay.py": 5
+      "src/support/ui_kit/kit/surfaces/table_card.py": 5
     },
     "fixed_size": {
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 3,
       "src/modules/trading/ui/settings/trading_settings_view.py": 2,
       "src/presentation/ui/components/critical_error_dialog.py": 1,
-      "src/support/ui_kit/kit/preferred_height_scroll_area.py": 1,
-      "src/support/ui_kit/param_form/param_field.py": 1
+      "src/support/ui_kit/kit/preferred_height_scroll_area.py": 1
     },
     "item_view_config": {},
     "checkable_button": {
       "src/modules/trading/ui/settings/trading_settings_view.py": 1,
-      "src/presentation/ui/components/critical_error_dialog.py": 1,
-      "src/support/ui_kit/time_range_picker/dialog.py": 1
+      "src/presentation/ui/components/critical_error_dialog.py": 1
     },
     "font_family": {
       "src/presentation/ui/components/critical_error_dialog.py": 1
@@ -49,7 +44,6 @@
       "src/modules/strategy/domain/strategies/ema_trend_pullback_strategy.py": 2,
       "src/modules/strategy/domain/strategies/long_term_trend_zone_strategy.py": 1,
       "src/modules/strategy/ui/strategy_overlay/strategy_indicator_lines.py": 8,
-      "src/support/charting/chart_card/__main__.py": 2,
       "src/support/charting/chart_card/theme.py": 2,
       "src/support/indicators/indicator_scripts/dev_indicator_script.py": 4,
       "src/support/indicators/indicator_scripts/ema_100_script.py": 1,
