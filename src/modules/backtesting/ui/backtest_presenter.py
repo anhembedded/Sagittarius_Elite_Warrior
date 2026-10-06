@@ -617,7 +617,7 @@ class BackTestPresenter(CommandPresenter):
     # ================================================================== #
 
     def bind_commands(self, binder: ICommandBinder) -> None:
-        bind_backtest_commands(binder, self._view_model)
+        bind_backtest_commands(binder, self._view_model, self.view.chart_controls)
 
     def _connect_ui_signals(self) -> None:
         connect_ui_signals(self)

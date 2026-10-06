@@ -1,5 +1,5 @@
-from PySide6 import QtCore, QtGui, QtWidgets
-from PySide6.QtGui import QAction
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtGui import QAction, QActionGroup
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
@@ -36,6 +36,12 @@ _SIDE_LABELS = EnumLabels(
 #: hide — 100% would let one control blank the chart along with the
 #: trade-flags checkbox already doing that job, which is no longer "filter".
 _MAX_MIN_PNL_PERCENT = 99.0
+
+#: The keys of `display_actions()` for the three layers; the chart modes are
+#: keyed by their `ChartDisplayMode` value.
+LAYER_INDICATORS = "indicators"
+LAYER_VOLUME = "volume"
+LAYER_TRADE_FLAGS = "trade_flags"
 
 
 class BacktestChartControls(QtWidgets.QToolBar):
@@ -76,7 +82,7 @@ class BacktestChartControls(QtWidgets.QToolBar):
         # One chart mode at a time is a state: checkable actions in one
         # exclusive group (`ui-presentation-rule.md` §6).
         self._mode_actions: dict[ChartDisplayMode, QAction] = {}
-        self._mode_group = QtGui.QActionGroup(self)
+        self._mode_group = QActionGroup(self)
         self._mode_group.setExclusive(True)
         for mode in ChartDisplayMode:
             action = self._add_checkable(
@@ -123,6 +129,15 @@ class BacktestChartControls(QtWidgets.QToolBar):
         self._marker_min_pnl_spin.setSingleStep(0.5)
         self._marker_min_pnl_spin.valueChanged.connect(self._emit_marker_filter_changed)
         self.addWidget(self._marker_min_pnl_spin)
+
+    def display_actions(self) -> dict[str, QAction]:
+        """The chart mode's and the layers' actions, by key, for View →
+        Chart to drive and follow (`BOT-155`)."""
+        actions = {mode.value: action for mode, action in self._mode_actions.items()}
+        actions[LAYER_INDICATORS] = self._ema_action
+        actions[LAYER_VOLUME] = self._volume_action
+        actions[LAYER_TRADE_FLAGS] = self._trade_flags_action
+        return actions
 
     def show_sides_for(self, market: MarketType) -> None:
         """EPIC-027D — a Spot screen offers no "Short Only" marker filter:

@@ -11,6 +11,12 @@ filling (`ui-presentation-rule.md` §10). Save report…, Export trades… (the
 trades the Trades panel lists, as CSV; a button on that panel until
 `EPIC-033L`) and the two that ask for a file end with "…"; the comparison and Monte Carlo windows take none.
 
+View → Chart holds what the chart shows (`BOT-155`): the chart mode, one
+choice of three, and the three layers. The chart's own toolbar holds the same
+choices; a toolbar's buttons take no keyboard focus, so the menu is how a
+keyboard reaches them (`ui-presentation-rule.md` §2, §6). A submenu, so its
+access keys are its own.
+
 Qt-free, because `BacktestingModule.contribute()` imports it on a headless
 run (`test_module_contribution_laziness.py`); the presenter's side is
 `backtest_command_binding.py`.
@@ -36,6 +42,15 @@ COMPARE_REPORTS = f"{_PREFIX}.compare_reports"
 OUT_OF_SAMPLE = f"{_PREFIX}.out_of_sample"
 MONTE_CARLO = f"{_PREFIX}.monte_carlo"
 EXPORT_TRADES = f"{_PREFIX}.export_trades"
+#: View → Chart (`BOT-155`).
+CHART_MENU = ("&View", "C&hart")
+CHART_MODE = f"{_PREFIX}.chart_mode"
+SHOW_CANDLESTICK = f"{_PREFIX}.show_candlestick"
+SHOW_EQUITY = f"{_PREFIX}.show_equity"
+SHOW_SIDE_BY_SIDE = f"{_PREFIX}.show_side_by_side"
+SHOW_INDICATORS = f"{_PREFIX}.show_indicators"
+SHOW_VOLUME = f"{_PREFIX}.show_volume"
+SHOW_TRADE_FLAGS = f"{_PREFIX}.show_trade_flags"
 
 
 def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
@@ -69,4 +84,29 @@ def backtest_commands(route: str) -> tuple[CommandContribution, ...]:
         command(OUT_OF_SAMPLE, "In-sample vs out-of-sa&mple"),
         command(MONTE_CARLO, "Monte Car&lo"),
         command(EXPORT_TRADES, "Export &trades…", needs_input=True),
+        *_chart_commands(route),
+    )
+
+
+def _chart_commands(route: str) -> tuple[CommandContribution, ...]:
+    """View → Chart: the chart mode (one of three) and the three layers."""
+
+    def choice(command_id: str, text: str, group: str | None) -> CommandContribution:
+        return CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=command_id,
+            text=text,
+            menu_path=CHART_MENU,
+            mode=route,
+            checkable=True,
+            exclusive_group=group,
+        )
+
+    return (
+        choice(SHOW_CANDLESTICK, "&Candlestick", CHART_MODE),
+        choice(SHOW_EQUITY, "&Equity curve", CHART_MODE),
+        choice(SHOW_SIDE_BY_SIDE, "&Side by side", CHART_MODE),
+        choice(SHOW_INDICATORS, "Strategy &indicators", None),
+        choice(SHOW_VOLUME, "&Volume", None),
+        choice(SHOW_TRADE_FLAGS, "&Buy/Sell flags", None),
     )

@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator impor
 )
 
 from .backtest_state_fields import BACKTEST_STATE_FIELDS, read_notifier
+from .chart_display_commands import ChartDisplayCommands
 
 
 def connect_ui_signals(presenter) -> None:
@@ -188,6 +189,7 @@ def connect_chart_controls(presenter) -> None:
     chart-mutation logic (which needs `presenter._active_strategy_lines`'s
     state) lives here, not in the View."""
     controls = presenter.view.chart_controls
+    ChartDisplayCommands.follow_controls_of(presenter._view_model, controls)
     if controls is None:
         return
     controls.sig_mode_changed.connect(presenter._on_chart_mode_changed)

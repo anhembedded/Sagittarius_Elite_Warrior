@@ -53,7 +53,7 @@ def _actions(view_model: BackTestViewModel):
     return bound_actions(
         view_model,
         backtest_commands(BACKTEST_ROUTE),
-        lambda binder: bind_backtest_commands(binder, view_model),
+        lambda binder: bind_backtest_commands(binder, view_model, None),
     )
 
 
