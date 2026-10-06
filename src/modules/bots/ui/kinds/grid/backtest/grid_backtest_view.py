@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from PySide6.QtCore import QDateTime, Qt, QTimeZone, Signal
+from PySide6.QtCore import QDateTime, QSize, Qt, QTimeZone, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDateTimeEdit,
@@ -159,6 +159,7 @@ class GridBacktestView(QWidget):
         self.equity.show_equity(equity)
         self.summary.show_readout(summary.readout)
         self.notes.setText("\n".join(summary.notes))
+        self._figures.updateGeometry()
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
@@ -194,18 +195,25 @@ class GridBacktestView(QWidget):
         period.addStretch(1)
         # The figures scroll in their own pane: a dozen form rows would
         # otherwise set the Bots mode's minimum height (PR #361 review).
-        figures = QScrollArea()
+        figures = _FiguresPane()
         figures.setObjectName("scrollGridBacktestFigures")
         figures.setWidgetResizable(True)
+        # The figures scroll down, never across: the pane asks for its
+        # read-out's width, and the chart takes what is left.
+        figures.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         rows = QWidget()
         column = QVBoxLayout(rows)
         column.addWidget(self.summary)
         column.addWidget(self.notes)
         column.addStretch(1)
         figures.setWidget(rows)
+        self._figures = figures
         lower = QSplitter()
+        lower.setChildrenCollapsible(False)
         lower.addWidget(self.equity)
         lower.addWidget(figures)
+        lower.setStretchFactor(0, 1)
+        lower.setStretchFactor(1, 0)
         body = QSplitter(Qt.Orientation.Vertical)
         body.addWidget(self.card)
         body.addWidget(lower)
@@ -213,6 +221,26 @@ class GridBacktestView(QWidget):
         layout.addLayout(period)
         layout.addWidget(self.status)
         layout.addWidget(body, 1)
+
+
+class _FiguresPane(QScrollArea):
+    """The figures' scroll area, asking for its content's width.
+
+    A `QScrollArea` asks for almost nothing, so the splitter gave the equity
+    chart every pixel and left the figures a strip about 70 px wide at any
+    window size, labels cut and no value shown (review of PR #378). Asking
+    for the content's width lets the splitter, which keeps its children
+    whole, leave room for every figure.
+    """
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - Qt override
+        hint = super().minimumSizeHint()
+        content = self.widget()
+        if content is None:
+            return hint
+        bar = self.verticalScrollBar().sizeHint().width()
+        width = content.sizeHint().width() + bar + 2 * self.frameWidth()
+        return QSize(max(hint.width(), width), hint.height())
 
 
 def _datetime_edit(name: str, value: datetime) -> QDateTimeEdit:
