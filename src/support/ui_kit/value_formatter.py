@@ -158,6 +158,27 @@ def _quantity_text(value: float) -> str:
     )
 
 
+def _number_text(kind: ColumnKind, number: float, context: FormatContext) -> str | None:
+    """A number of a numeric `kind`, or `None` for the plain formatter's way."""
+    if kind is ColumnKind.QUANTITY and _is_ratio_key(context.key):
+        return _ratio_text(number)
+    if (
+        context.precision is not None
+        and kind in _SYMBOL_QUANTIZED
+        and math.isfinite(number)
+    ):
+        return _quantized_text(number, context.precision)
+    if kind is ColumnKind.PRICE:
+        return _price_text(number)
+    if kind is ColumnKind.QUANTITY:
+        if context.key == BYTES_KEY and math.isfinite(number):
+            return _bytes_text(number)
+        return _quantity_text(number)
+    if kind is ColumnKind.MONEY:
+        return _without_negative_zero(f"{number:,.2f}")
+    return None
+
+
 class AppValueFormatter:
     """The application's `IValueFormatter`; see the module docstring."""
 
@@ -181,28 +202,8 @@ class AppValueFormatter:
             return _TIMEFRAME_CODES[int(value)]
         if isinstance(value, str | timedelta) or not kind.is_numeric:
             return self._plain.format(kind, value, context)
-        number = float(value)
-        if kind is ColumnKind.QUANTITY and _is_ratio_key(context.key):
-            return _ratio_text(number)
-        if (
-            context.precision is not None
-            and kind in _SYMBOL_QUANTIZED
-            and math.isfinite(number)
-        ):
-            return _quantized_text(number, context.precision)
-        if kind is ColumnKind.PRICE:
-            return _price_text(number)
-        if (
-            kind is ColumnKind.QUANTITY
-            and context.key == BYTES_KEY
-            and math.isfinite(number)
-        ):
-            return _bytes_text(number)
-        if kind is ColumnKind.QUANTITY:
-            return _quantity_text(number)
-        if kind is ColumnKind.MONEY:
-            return _without_negative_zero(f"{number:,.2f}")
-        return self._plain.format(kind, value, context)
+        text = _number_text(kind, float(value), context)
+        return self._plain.format(kind, value, context) if text is None else text
 
 
 #: The one instance every table and read-out of this application writes with.
