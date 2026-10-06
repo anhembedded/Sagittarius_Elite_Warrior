@@ -26,13 +26,18 @@ whole IDs of their own — `BOT-042A` does not collide with `BOT-042`.
 from __future__ import annotations
 
 import collections
+import hashlib
 import re
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.scripts.render_task_counts import (
-    count_tasks,
-    render_rows,
+import pytest
+from Sagittarius_Elite_Warrior.scripts.render_board import (
+    ENTRY_ID,
+    HISTORY_DIR,
+    missing_board_lines,
+    render_board,
 )
+from Sagittarius_Elite_Warrior.scripts.render_task_counts import POOLS, TOTAL_LABEL
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASKS = _REPO_ROOT / "Tasks"
@@ -53,9 +58,9 @@ _FLAT_POOLS = (
 #: Per-epic sub-task directories, under `Tasks/epics/EPIC-XXX_*/`.
 _EPIC_POOLS = ("incomplete", "completed", "cancelled")
 
-#: `BOT-095H`, `EPIC-003F6`, `BUG-058`, `BOLT-001` — the whole stem before the
-#: first underscore, so a sub-task letter is part of the identity.
-_ID = re.compile(r"^([A-Z]+-\d+[A-Z]?\d*)(?:_|\.md$)")
+#: The renderer's own id pattern, so the two can never disagree on which files
+#: are tasks (`BOT-098F6E` once matched neither).
+_ID = ENTRY_ID
 
 
 def _task_files() -> list[Path]:
@@ -99,39 +104,88 @@ def test_no_two_task_files_share_an_id() -> None:
     )
 
 
-#: Which board makes each pool's files *visible*. The bug board is the only
-#: place an open bug is listed (`fix-bug-rule.md` §7); `ROADMAP.md` is the only
-#: place a task is. `proposal/` is absent on purpose: a proposal is accepted
-#: onto the board by becoming a task, not by being listed.
-_POOL_BOARDS: tuple[tuple[str, str], ...] = (
-    ("backlog", "ROADMAP.md"),
-    ("in_progress", "ROADMAP.md"),
-    ("completed", "ROADMAP.md"),
-    ("cancelled", "ROADMAP.md"),
-    ("bug_report/incomplete", "bug_report/README.md"),
-    ("bug_report/completed", "bug_report/README.md"),
-)
-
-
-def test_every_task_file_is_mentioned_on_its_board() -> None:
+def test_every_task_and_bug_file_carries_its_board_line() -> None:
     """The other half of the two checks above. A dangling link is a row with no
-    file; this is a file with no row — which reads, to anyone who only opens
-    the board, as a task that does not exist. Matching by id rather than by
-    link is deliberate: an id cited inside another row's prose still tells the
-    reader what to `ls` for. When this was written (2026-09-16) eight files had
-    no mention at all — three in `backlog/`, five in `completed/`, two of those
-    the output of scheduled agents whose runs never touched the board."""
-    boards = {name: (_TASKS / name).read_text("utf-8") for _, name in _POOL_BOARDS}
-    invisible: list[str] = []
-    for pool, board_name in _POOL_BOARDS:
-        for path in sorted((_TASKS / pool).glob("*.md")):
-            match = _ID.match(path.name)
-            if match and match.group(1) not in boards[board_name]:
-                invisible.append(f"{pool}/{path.name} -> not on {board_name}")
+    file; this is a file with no row, which reads, to anyone who only opens
+    the board, as a task that does not exist. The board is generated from each
+    file's `**Board:**` field (`BOT-163`), so the file must carry one; a closed
+    file the frozen history in `Tasks/history/` already lists is exempt, an
+    open one never is."""
+    missing = missing_board_lines(_TASKS)
 
-    assert invisible == [], (
-        "task files with no row on their board — add the row, the board is the "
-        f"only place a reader looks: {invisible}"
+    assert missing == [], (
+        "task or bug files with no `**Board:**` line: add the one line the board "
+        f"shows for it (ONBOARDING §6): {missing}"
+    )
+
+
+#: The hand-written boards. A list or a count table written into either brings
+#: back the shared lines every pull request edited (`BOT-163`).
+_HAND_WRITTEN_BOARDS = ("ROADMAP.md", "bug_report/README.md")
+
+#: A list item (bulleted or numbered) or a table row that names a task or bug:
+#: the shape of every listed entry, whatever its link. Prose and blockquotes
+#: may still cite a task.
+_LISTED = re.compile(r"^\s*(?:[-*+]|\d+[.)]|\|).*?(?<![A-Za-z0-9])[A-Z]+-\d+(?![a-z])")
+
+
+@pytest.mark.parametrize(
+    ("line", "listed"),
+    [
+        ("- [x] **BOT-300** done", True),
+        ("| BOT-301 | `backlog/BOT-301_x.md` |", True),
+        ("- [BOT-302](epics/EPIC-1/completed/a.md)", True),
+        ("1. [BOT-303](completed/BOT-303_x.md)", True),
+        ("  + [BOT-304](completed/x.md)", True),
+        ("| ✅ **[BOT-098F6E](completed/x.md)** |", True),
+        ("> The owner settled it in `BOT-008`.", False),
+        ("| 🟢 **`S (Fast Agent)`** | **Fast** *(GPT-4o-mini)* |", False),
+        ("- **Names:** `BUG-XXX_slug.md`, numbered one above the highest.", False),
+    ],
+)
+def test_a_listed_entry_is_caught_in_every_list_shape(line: str, listed: bool) -> None:
+    assert bool(_LISTED.search(line)) is listed
+
+
+def test_no_board_list_is_written_by_hand() -> None:
+    labels = [label for _, label in POOLS] + [TOTAL_LABEL]
+    found: list[str] = []
+    for name in _HAND_WRITTEN_BOARDS:
+        for number, line in enumerate(
+            (_TASKS / name).read_text("utf-8").splitlines(), 1
+        ):
+            if any(label in line for label in labels) or _LISTED.search(line):
+                found.append(f"{name}:{number}: {line[:80]}")
+
+    assert found == [], (
+        "a list or count table is written into a hand-written board; it is generated "
+        f"by `python3 scripts/render_board.py` from the files instead ({len(found)} "
+        f"lines): {found[:10]}"
+    )
+
+
+#: The hand-written boards frozen when the boards became generated, by the
+#: SHA-256 of their text with `\n` line ends (a Windows checkout writes `\r\n`).
+_FROZEN_HISTORY = {
+    "BUG_BOARD_until_2026-10-06.md": "1a2ca27d243c415efb671071213aa8ebe3d2b1b79904d0e18e9dce324c335bcd",
+    "ROADMAP_until_2026-10-06.md": "970a3f82cb7e34814f324acca56501453025a5fdede57aa4b03cce1c04629f51",
+}
+
+
+def test_the_history_is_frozen() -> None:
+    """A closed file the history lists needs no `**Board:**` line, so an edit
+    to the history would change what the board shows without touching a task
+    file. Nothing is ever added to it; a new entry is a file's board line."""
+    found = {
+        path.name: hashlib.sha256(
+            path.read_text("utf-8").replace("\r\n", "\n").encode("utf-8")
+        ).hexdigest()
+        for path in sorted((_TASKS / HISTORY_DIR).glob("*.md"))
+    }
+
+    assert found == _FROZEN_HISTORY, (
+        "Tasks/history/ changed; it is frozen: write the change into the task or "
+        "bug file's own `**Board:**` line instead"
     )
 
 
@@ -153,27 +207,18 @@ def test_every_epic_sub_task_is_mentioned_in_its_epic_readme() -> None:
     )
 
 
-def test_the_count_table_is_the_directories() -> None:
-    """`ONBOARDING.md` §6 says the count table is recomputed from disk, never by
-    hand. `scripts/render_task_counts.py` is the one implementation of that
-    computation; this test holds `ROADMAP.md` to its output, so a task moved
-    without the recount is caught at merge instead of by the next reader."""
-    roadmap = (_TASKS / "ROADMAP.md").read_text("utf-8")
-    missing = [row for row in render_rows(count_tasks(_TASKS)) if row not in roadmap]
-
-    assert missing == [], (
-        "ROADMAP.md's count table disagrees with the directories; paste the output of "
-        f"`python3 scripts/render_task_counts.py`. Rows not found: {missing}"
-    )
-
-
 def test_every_board_link_resolves() -> None:
     """A renumber that misses a link leaves the board pointing at a file that
     no longer exists — which reads exactly like a task nobody finished."""
-    boards = (_TASKS / "ROADMAP.md", _TASKS / "bug_report" / "README.md")
+    boards = [
+        (_TASKS / name, (_TASKS / name).read_text("utf-8"))
+        for name in _HAND_WRITTEN_BOARDS
+    ]
+    # The generated board's links come from the files' `**Board:**` lines.
+    boards.append((_TASKS / "BOARD.md", render_board(_TASKS)))
     dangling: list[str] = []
-    for board in boards:
-        for target in re.findall(r"\]\(([^)#][^)]*\.md)\)", board.read_text("utf-8")):
+    for board, text in boards:
+        for target in re.findall(r"\]\(([^)#][^)]*\.md)\)", text):
             if not (board.parent / target).exists():
                 dangling.append(f"{board.name} -> {target}")
 

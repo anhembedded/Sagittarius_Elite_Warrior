@@ -3,6 +3,7 @@
 - **Reported:** 2026-10-04 (the user's `-TestnetOnly` run on `master-warrior` `e5ca8226`, pasted in chat)
 - **Severity:** 🟢 P3. No order or state is lost; the process prints asyncio and aiohttp warnings at shutdown, and the stream's connection is dropped rather than closed.
 - **Status:** Open
+- **Board:** Stopping the app with the Spot user-data stream live prints `Task was destroyed but it is pending!` and `Unclosed client session`: the stream's tasks are destroyed while cancelling, so its connection is dropped, not closed. Seen in the user's first live grid round trip. Cause: the engine's `AsyncRuntime.stop()` stopped the loop before cancelling tasks. Fixed in the engine (`934b830`, engine `BUG-017`) and pinned by `engine.ref`; awaiting a live run that stops cleanly. Waiting on: User's `-TestnetOnly` run (`EPIC-029H`).
 - **Context:** [SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (run a Grid bot on Spot) → `Sagittarius_Engine` `runtime/async_runtime/async_runtime.py` (`AsyncRuntime.stop`); seen through `src/modules/trading/adapters/binance/spot/spot_user_data_stream.py`
 - **Environment:** Windows, Python 3.14.6, `python-binance` 1.0.37, `websockets` 17.2, engine `engine.ref` `ea2d330c`. Spot Testnet only enabled.
 

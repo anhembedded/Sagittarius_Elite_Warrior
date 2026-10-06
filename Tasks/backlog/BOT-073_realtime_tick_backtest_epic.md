@@ -1,5 +1,9 @@
 # Epic: Realtime Backtest — chạy backtest theo tick, song song với Static
 
+**Board:** **Đã hoàn thành — cả 4 task con (`BOT-074`/`BOT-075`/`BOT-076`/`BOT-077`) đều ✅ trong bảng chi tiết bên dưới.** `BOT-103` (GIL contention lúc chạy Realtime) là bug hiệu năng riêng, vẫn mở, không chặn epic này. App giờ có **2 chế độ backtest dùng song song**, chung `PaperExchange`/`BacktestResult`.
+**Complexity:** 🔴 **`L (Thinking)`**
+**Depends on:** `BOT-021` ✅
+
 > Sinh ra từ yêu cầu trực tiếp của user: *"The backtest we use is something like
 > static backtest, as TradingView. It could not describe what the bot trading real
 > behaviour. Indicator could set on tf 1m, but realtime data feed every 1s. So every

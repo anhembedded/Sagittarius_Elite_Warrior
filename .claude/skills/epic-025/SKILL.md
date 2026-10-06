@@ -18,7 +18,7 @@ flowchart TD
     Board --> Seam["3. Architectural Seam & Pattern<br/>Define interface seam (P7) & apply vetted pattern"]
     Seam --> Migrate["4. Code & Test Migration<br/>Move code, migrate tests, keep sanity tier zero"]
     Migrate --> Gate["5. Boundary & Fast Gate<br/>Run architecture guards & verify allowlist shrinks"]
-    Gate --> Sync["6. Bookkeeping & Sync<br/>Update task file, TRACKING.md, ROADMAP.md & report"]
+    Gate --> Sync["6. Bookkeeping & Sync<br/>Update task file, epic README, TRACKING.md & report"]
     Sync --> Done(["Done"])
 ```
 
@@ -71,7 +71,7 @@ Follow these 12 steps in exact order:
     - Update affected `.puml` diagrams in `Docs/HLD/diagrams/` or `Docs/SDD/diagrams/`.
     - If port signature diverged from draft, update `Docs/SDD/05_module_contracts.md` in same commit.
     - If use case flow changed, update corresponding spec under `Docs/SPEC/`.
-11. **Bookkeeping:** Update task file status, `Tasks/ROADMAP.md`, `Tasks/epics/README.md`, and Gantt tracking in `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md`.
+11. **Bookkeeping:** Update task file status, the epic `README.md` (the child's board, ONBOARDING §6), `Tasks/epics/README.md`, and Gantt tracking in `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md`.
 12. **Structured Report:** Report execution results per Section 6.
 
 ## 5. Escalation & Stop Triggers

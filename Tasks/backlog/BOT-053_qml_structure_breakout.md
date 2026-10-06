@@ -1,5 +1,9 @@
 # Nhiệm vụ: Chiến lược QML Structure Breakout
 
+**Board:** Nhận diện price-action pattern (Quasimodo), sinh "QML Score" cho Trade Logs + QML Signal Badges. Cần hạ tầng **swing high/low detection** (chưa có trong `domain/scripting/`).
+**Complexity:** 🔴 **`L (Thinking)`**
+**Depends on:** `BOT-046` ✅
+
 > Thuộc [BOT-043](BOT-043_named_strategy_library.md), Epic
 > [BOT-040](BOT-040_backtest_screen_full_feature_epic.md).
 > Phụ thuộc `BOT-026` ✅, [`BOT-046`](../completed/BOT-046_strategy_param_plumbing.md).

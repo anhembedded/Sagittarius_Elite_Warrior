@@ -1,6 +1,8 @@
 # BOT-148 — Every contribution defers its factories through `Deferred`, and the PLC0415 ratchet loses 32 hits
 
 **Status:** 🔵 Backlog
+**Priority:** P3
+**Board:** *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall.
 **Source:** PR #333 review, finding 2 (2026-10-04). The user delegated the decision: "dựa vào hiến pháp mà quyết" ("decide by the Constitution"). Decision: P8 forbids a new baseline line, and P6 says to fix the mechanism, so `Deferred` was built and the Bots screen uses it. This task moves the remaining contributions onto it.
 **Risk:** 🟡 — a mistyped target fails only when its screen first opens; `test_deferred_targets_resolve.py` catches that for module contributions, but not yet for the shell's own screens.
 **Complexity:** M — ten files; two screens close over a container, so their factories need a different shape.

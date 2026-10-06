@@ -1,5 +1,10 @@
 # BOT-098 — Backtest Chart: Pan/Zoom mượt theo frame budget
 
+**Priority:** P1
+**Board:** Retained native candle geometry đã hoàn thành; tiếp tục axis/camera, volume/indicator và interaction layers trong `BOT-098F` trước production migration. Không dùng TradingView Lightweight Charts/WebEngine.
+**Complexity:** ⚡ **`L (Bolt / Thinking)`**
+**Depends on:** `BOT-098A`…`BOT-098F2` ✅; liên quan `BOT-091`, `BOT-096` ✅
+
 **Ưu tiên:** P1 — usability/performance defect tái hiện được  
 **Liên quan:** `BOT-091`, `BOT-096`  
 **Bằng chứng:** [`BOT-098 Backtest Chart Performance Investigation`](../reports/BOT-098_backtest_chart_interaction_performance_investigation.md)

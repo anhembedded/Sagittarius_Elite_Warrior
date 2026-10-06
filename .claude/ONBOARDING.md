@@ -29,7 +29,7 @@ Path-scoped rules load automatically when touching matching files; unscoped rule
 | 16 | `.claude/rules/create-bug-report-rule.md` | `Tasks/bug_report/**/*.md` | Bug filing, board updates, unique IDs |
 | — | `Docs/VOCABULARY/README.md` | Coining or reading terminology | Canonical repository vocabulary |
 | — | `Docs/SPEC/README.md` | Changing user flows | Use case specifications |
-| — | `Tasks/epics/README.md` · `Tasks/ROADMAP.md` · `Tasks/bug_report/README.md` | Session start | Active epics, roadmap, open bugs |
+| — | `Tasks/epics/README.md` · `Tasks/ROADMAP.md` · `python3 scripts/render_board.py` | Session start | Active epics, direction, the generated task and bug board |
 
 Security standards: `ruff` ruleset `S` and `.claude/rules/domain-truth-rule.md`.
 
@@ -40,7 +40,7 @@ Security standards: `ruff` ruleset `S` and `.claude/rules/domain-truth-rule.md`.
 Execute tasks via `.claude/skills/execute-task/SKILL.md`:
 1. **Creation:** Standalone tasks: `Tasks/backlog/BOT-{nnn}_{slug}.md` from `.claude/templates/task.md`. Epics: `Tasks/epics/EPIC-{nnn}_{slug}/` from `.claude/templates/epic.md` (`README.md`, `incomplete/`, `completed/`). Decisions: `DECISION_{date}_{slug}.md` from `.claude/templates/decision.md`. Proposals: `Tasks/proposal/PRO-{nnn}.md` from `.claude/templates/proposal.md`.
 2. **Execution:** Define acceptance criteria, write regression/unit tests, implement code.
-3. **Completion:** Move file to `completed/`, update status to `✅ Done (YYYY-MM-DD)`, document real implementation notes, and update `Tasks/ROADMAP.md` (ONBOARDING §6).
+3. **Completion:** Move file to `completed/`, update status to `✅ Done (YYYY-MM-DD)`, document real implementation notes, and write its `**Board:**` line, or for an epic child its epic README row (ONBOARDING §6).
 
 ## 4. Defect Handling Protocol
 - **Filing:** Managed by `.claude/rules/create-bug-report-rule.md` (unique IDs, observed logs, honest unknowns, Bug Board entries).
@@ -57,10 +57,10 @@ grep -nE "FAILED|ERROR|Traceback|ResourceWarning" "$(grep -m1 'LOG_FILE:' /tmp/c
 - Never judge verification by `| tail` on console output. Inspect the actual log file, local or GitHub Actions'.
 
 ## 6. Board Bookkeeping
-Upon finishing any task or defect fix:
-1. Add one entry at the top of `🟢 Completed` in `Tasks/ROADMAP.md` stating the root cause or decision.
-2. Recompute board count tables using: `python3 scripts/render_task_counts.py` (never by hand).
-3. If part of an epic, update the epic's `README.md` and row in `Tasks/epics/README.md`.
+The task and bug boards are generated from the files (`python3 scripts/render_board.py`); no pull request edits a shared list or count. Upon creating, finishing or cancelling a standalone task, or filing or fixing a bug: `[guard: test_task_board_is_consistent.py]`
+1. Put the file in the folder of its state and set its `**Status:**` (`✅ Done (YYYY-MM-DD)`, a bug's `Fixed (YYYY-MM-DD)`).
+2. Write its one-line `**Board:**` field under the status: for a finished task the decision or the root cause, for a bug the symptom and, once fixed, the cause and the fix; a backlog task may add `**Priority:**`. Links in it are relative to `Tasks/`, as the board renders them there.
+3. An epic child carries no `**Board:**` line: its board is its epic's `README.md`, so update that and the epic's row in `Tasks/epics/README.md` (`test_every_epic_sub_task_is_mentioned_in_its_epic_readme`).
 
 ## 7. Authority & Delegation Matrix
 | Action | Authority Level | Constraint / Protocol |
@@ -104,7 +104,7 @@ Communicate as a solution architect: state outcomes, architectural impact, trade
 
 ## 12. Picking Up Work & Session Start
 1. Run: `git -C . status` · `git -C ../Sagittarius_Engine status` · `cat Tasks/epics/README.md`.
-2. **State Sources:** Epic progress in `Tasks/epics/README.md`, open bugs in `Tasks/bug_report/README.md`, rationale in `git log`, dirty state in `git status`/`git diff`.
+2. **State Sources:** Epic progress in `Tasks/epics/README.md`, the task and bug board from `python3 scripts/render_board.py`, rationale in `git log`, dirty state in `git status`/`git diff`.
 3. **Engine Standards:** Event: inherit `BaseEvent` · Presenter subscription: `self.subscribe(...)` · Presenter cleanup: override `shutdown()` · Handler failures: `report_handler_failure` · Fallback logging: `resolve_bus_logger`.
 4. **Principles:** The Constitutional invariants and supreme rule precedence are codified in [`.claude/CONSTITUTION.md`](CONSTITUTION.md).
 

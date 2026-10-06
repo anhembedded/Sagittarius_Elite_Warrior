@@ -1,5 +1,7 @@
 # Nhiệm vụ: Optimization Leaderboard & 2D Parameter Heatmap UI
 
+**Board:** Leaderboard and 2D parameter heatmap for an optimisation run (Epic `BOT-108`); depends on `BOT-108A`.
+
 **Mã Task:** `BOT-108B`  
 **Thuộc Epic:** [`BOT-108`](BOT-108_strategy_parameter_optimization_epic.md)  
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  

@@ -1,5 +1,9 @@
 # Nhiệm vụ BOT-092: UI Event Logger ra Terminal ở Dev Mode (Hỗ trợ Tái hiện Bug)
 
+**Priority:** P2
+**Board:** *(row added 2026-09-16 — the file had no row anywhere.)* Written when the screens were QML: `--dev` button-click auto-logging reached only the old monitor card, never stdout, so a crash took the trail with it. Re-scope before starting: the QML premise is gone (ADR D20) and `--dev`/`--debug` logging changed since (`logging-rule.md` §7, `BOT-133`). Touches both repositories.
+**Complexity:** 🟡 **`M`**
+
 > **Mã định danh:** `BOT-092`  
 > **Trạng thái:** Backlog  
 > **Độ ưu tiên:** P2 (Developer Experience & Bug Reproduction Infrastructure)  

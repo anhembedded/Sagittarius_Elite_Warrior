@@ -7,6 +7,7 @@ description: The format of a bug report under Tasks/bug_report/incomplete/ (crea
 - **Reported:** {YYYY-MM-DD} ({by whom and where: chat, a review, a scheduled run})
 - **Severity:** {🔴 P1 / 🟡 P2 / 🟢 P3} — {what it costs the user}
 - **Status:** {Open / ✅ Fixed (YYYY-MM-DD)}
+- **Board:** {one line the generated Bug Board shows: the symptom while Open; the root cause and the fix once Fixed. Links relative to `Tasks/`.}
 - **Context:** {Use Case (`Docs/SPEC/` link or user journey) → Module (`src/modules/<name>/`, `shell/`, `presentation/`, `core/`) → Sub-module / Layer (`domain/`, `application/`, `ui/`, `adapters/`)}
 - **Environment:** {OS, app and engine commit/version, relevant configuration; Unknown if not captured. Never include credentials.}
 

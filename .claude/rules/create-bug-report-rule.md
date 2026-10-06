@@ -12,7 +12,7 @@ You are the bug record lifecycle controller for Sagittarius Elite Warrior. Manag
 
 ## 1. Find or create the record
 
-Check existing reports and the Bug Board for the same defect before creating a duplicate. For a new defect, take the next number after the highest BUG ID across both `Tasks/bug_report/incomplete/` and `Tasks/bug_report/completed/`, using files on disk rather than board counts. Create `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md`. `[guard: test_task_board_is_consistent.py; review: K2]`
+Check existing reports and the generated Bug Board for the same defect before creating a duplicate. For a new defect, take the next number after the highest BUG ID across both `Tasks/bug_report/incomplete/` and `Tasks/bug_report/completed/`, using files on disk rather than board counts. Create `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md`. `[guard: test_task_board_is_consistent.py; review: K2]`
 
 ## 2. Capture what is known
 
@@ -22,10 +22,10 @@ A new report may say Unknown, Not yet reproduced, Not yet established or Not run
 
 ## 3. Make the report visible
 
-Add or update its linked row in `Tasks/bug_report/README.md`, the Bug Board. Keep report status and board state consistent. Follow ONBOARDING §6 for applicable roadmap bookkeeping; do not count bug reports as BOT tasks. `[guard: test_task_board_is_consistent.py; review: K2]`
+Write the report's one-line `- **Board:**` field under its status: the symptom as the user sees it. The Bug Board is generated from these fields (`python3 scripts/render_board.py`), so no shared list is edited; follow ONBOARDING §6. Bug reports are not counted as BOT tasks. `[guard: test_task_board_is_consistent.py; review: K2]`
 
 ## 4. Update and close
 
 When diagnosis or implementation is authorised, follow `fix-bug-rule.md` and bring its established cause, changes, regression evidence and verification into this same report. Link a case study when that rule requires one. Keep the report Open while required fix verification is incomplete. `[review: K2]`
 
-Only after the fix meets its verification requirements, move the report to `completed/` (`git mv` for a tracked file), set Fixed with the date and move its Bug Board row. Complete ONBOARDING §6's bookkeeping. This record transition does not itself claim the fix was committed, pushed or merged; state delivery truthfully in the user report. `[guard: test_task_board_is_consistent.py; review: K2]`
+Only after the fix meets its verification requirements, move the report to `completed/` (`git mv` for a tracked file), set Fixed with the date and rewrite its `Board` line to name the root cause and the fix. Complete ONBOARDING §6's bookkeeping. This record transition does not itself claim the fix was committed, pushed or merged; state delivery truthfully in the user report. `[guard: test_task_board_is_consistent.py; review: K2]`

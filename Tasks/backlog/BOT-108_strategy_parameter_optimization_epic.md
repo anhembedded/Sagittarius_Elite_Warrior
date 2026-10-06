@@ -1,5 +1,8 @@
 # Epic: Tối ưu hóa Tham số Chiến lược Tự động (Strategy Parameter Optimization Epic)
 
+**Board:** Quét lưới tham số đa tiến trình ProcessPool (`BOT-108A`), bảng xếp hạng Leaderboard + Bản đồ nhiệt tham số 2D tìm vùng bình nguyên ổn định (`BOT-108B`).
+**Depends on:** `BOT-044` ✅, `BOT-095C` ✅
+
 **Mã Epic:** `BOT-108`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** 🔴 **Backlog**  

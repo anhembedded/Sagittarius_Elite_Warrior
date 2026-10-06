@@ -23,7 +23,7 @@ Execute the mechanical checks in sequence; collect raw output as unedited eviden
 ```bash
 python3 scripts/measure_process.py                      # metrics, line counts, guard count, allowlist size
 python3 scripts/check_skill_prompt_references.py        # verify all cited paths resolve
-python3 scripts/render_task_counts.py                   # verify ROADMAP.md board count table
+python3 scripts/render_board.py > /dev/null            # every task and bug file has a Board line
 python3 scripts/render_claude_manifest.py               # verify .claude/README.md inventory
 PYTHONPATH=.. python3 -m pytest tests/unit/test_task_board_is_consistent.py tests/unit/test_rule_navigation_is_complete.py tests/unit/architecture/test_claude_tree_is_wired.py tests/unit/architecture/test_case_study_index_is_consistent.py tests/unit/architecture/test_spec_index_is_consistent.py -q
 ```

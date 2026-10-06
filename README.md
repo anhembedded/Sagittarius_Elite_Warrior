@@ -11,7 +11,7 @@ Trading bot for **Binance USD-M Futures**, consisting of a **PySide6 desktop app
 | **UI** | PySide6 (QtWidgets) + pyqtgraph for charts; **no QML for new code** (ADR D20, 2026-09-13) — legacy QML is being removed by `EPIC-025`, with a guard blocking new `.qml` files |
 | **Storage** | SQLite (WAL) via SQLAlchemy |
 | **Mandatory Verification Gate** | [`scripts/ci-local.ps1 -Full`](scripts/ci-local.ps1) + [GitHub Actions](.github/workflows/ci.yml) |
-| **Status / Roadmap** | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) · [Bug Board](Tasks/bug_report/README.md) |
+| **Status / Roadmap** | `python3 scripts/render_board.py` (task and bug board) · [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) (direction) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
 
 ---
 
@@ -73,7 +73,7 @@ Sagittarius_Elite_Warrior/
 │   └── main.py              # CLI entry point (headless + interactive shell)
 ├── tests/                   # unit/ · integration/ · sanity/ · testnet/ (opt-in)
 ├── scripts/                 # ci-local.ps1, run.ps1, run-ui.ps1, preview-qml.ps1, probe/benchmark
-├── Tasks/                   # ROADMAP.md, epics/, bug_report/, backlog/, completed/, reports/
+├── Tasks/                   # ROADMAP.md, epics/, bug_report/, backlog/, completed/, history/, reports/
 ├── Docs/                    # Architecture diagrams, project intent, detailed design
 ├── .claude/                 # ONBOARDING.md, rules/, skills/, agents/, templates/ — workflow for human & AI agents
 └── database/                # trading.db (uncommitted)
@@ -253,8 +253,8 @@ Numbers (task count, test count, bug count) **constantly shift** — do not trus
 | Question | Source |
 | :--- | :--- |
 | Active epics and progress | [`Tasks/epics/README.md`](Tasks/epics/README.md) |
-| Open bugs | [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) |
-| Overall task board | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) |
+| Open bugs and the overall task board | `python3 scripts/render_board.py` (generated from each file's `**Board:**` line) |
+| Direction the owner settled | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) |
 | What recently happened and why | `git log` (commit bodies in this repo include rationale) |
 | What is currently in progress | `git status` + diff, in **both** repos |
 

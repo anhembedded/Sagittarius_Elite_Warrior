@@ -34,7 +34,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |
 | Scaffolding and tracking an epic | [`.claude/skills/create-epic/SKILL.md`](.claude/skills/create-epic/SKILL.md) |
 | The scheduled audits | [`.claude/skills/test-health/SKILL.md`](.claude/skills/test-health/SKILL.md) · [`.claude/skills/process-drift/SKILL.md`](.claude/skills/process-drift/SKILL.md) |
-| Where the system stands | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
+| Where the system stands | `python3 scripts/render_board.py` (the task and bug board) · [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
 | What is under `.claude/`, what loads it and when | [`.claude/README.md`](.claude/README.md) |
 
 ## Four things that cost half a day if you get them wrong once

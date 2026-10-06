@@ -1,5 +1,10 @@
 # Nhiệm vụ: Realtime Backtest (BOT-076) làm UI đơ khi chạy — GIL contention, không phải chạy trên UI thread
 
+**Priority:** P2
+**Board:** User báo trực tiếp khi dùng thật: "chạy realtime tính toán... đang chạy trên UI thread kìa" (2026-08-19). Đã verify code trước khi ghi task: `_run_backtest` (cả 2 nhánh Static/Realtime) **đã** dispatch qua `IThreadManager.submit()` → `ThreadPoolExecutor` thật, không phải Qt UI thread; `progress_callback` cũng đã throttle mỗi 256 tick, không phải signal-flood. Nguyên nhân thật: `_simulate()` (`run_realtime_backtest/handler.py`) là vòng `for` Python CPU-bound tới hàng trăm nghìn tick không có điểm nhường CPU, giữ GIL gần liên tục khiến main/UI thread đói CPU — đúng triệu chứng user thấy dù kiến trúc đã đúng. 3 hướng đề xuất trong task (nhường GIL định kỳ / chuyển sang `ProcessPoolExecutor` / giảm chi phí mỗi tick), chưa chốt hướng nào.
+**Complexity:** 🟡 **`M (Standard)`**
+**Depends on:** `BOT-076` ✅
+
 > **Update 2026-09-22 — still in backlog, not done.** Before picking a
 > direction, option (a) (`time.sleep(0)` periodically, including this
 > task's own suggested N=256) was really measured with a synthetic
