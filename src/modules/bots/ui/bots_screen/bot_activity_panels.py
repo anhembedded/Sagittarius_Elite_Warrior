@@ -102,7 +102,7 @@ class BotLogPanel(QPlainTextEdit):
         self.setReadOnly(True)
         self.setPlaceholderText("The selected bot has written no log line yet.")
         self._model = model
-        model.selection_changed.connect(self._show_log)
+        # A new selection emits `log_changed` too (`BotsViewModel.set_selected`).
         model.log_changed.connect(self._show_log)
         self._show_log()
 

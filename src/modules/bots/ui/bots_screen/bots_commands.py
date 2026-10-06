@@ -7,14 +7,15 @@ venue is a row of the Bots mode until `EPIC-029L`).
 Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
 as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
 its toolbar, and Save bot is the platform's Save (Ctrl+S on Windows).
-Refresh fills and Fit levels are not in the catalogue yet; Fit levels was a
-push button over the chart until `EPIC-033K` made the chart the centre. The
+Fit levels was a push button over the chart until `EPIC-033K` made the chart
+the centre; it and Refresh fills joined the catalogue in `EPIC-033K` stage 4
+(`test_bots_mode_catalogue.py` holds the menu and the toolbar to it). The
 lifecycle commands act on the selected bot and follow its availability
 (`bot_action_rules.py`). Stop… and Delete ask through the presenter's own
 dialogs (`command_for`), because Stop asks how to stop; so neither carries
 the Engine's confirmation. New bot… and Stop… ask for input, so they end
 with "…"; Delete bot only confirms, so it takes none (`ui-presentation-rule.md`
-§4), where the catalogue wrote "Delete bot…".
+§4).
 
 Qt-free, because `BotsModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`); the presenter's side is
