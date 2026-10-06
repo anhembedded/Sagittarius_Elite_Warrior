@@ -2,9 +2,15 @@
 
 Every parameter is a field the user owns (the user's rule, 2026-10-03: the
 parameters are the user's; the bot judges them, never fixes them). The two
-suggestion buttons are the one exception to "never fills a field", and only
-on a click: they copy the planner's ATR or Bollinger range into the range
-fields, rounded to the symbol's tick, and the user may change them again.
+suggestions are the one exception to "never fills a field", and only when
+asked: they copy the planner's ATR or Bollinger range into the range fields,
+rounded to the symbol's tick, and the user may change them again.
+
+They are the Grid's own commands (`EPIC-033K` stage 2; SPEC-014: "each bot
+type has its own toolbar"): two actions on the Grid toolbar at the top of
+this editor, which is shown only while a Grid is selected, and the same
+commands in the Bots menu (`kind_commands.py`). They were push buttons under
+the fields.
 
 The fields read and write the definition's strings (`GridParams.to_config`
 spells them): an exit is `off`, `price:<p>` or `percent:<n>`.
@@ -16,13 +22,14 @@ from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QHBoxLayout,
     QLineEdit,
-    QPushButton,
     QSpinBox,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -36,6 +43,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
+    SUGGEST_FROM_ATR,
+    SUGGEST_FROM_BOLLINGER,
 )
 
 #: Binance's own floor for a Spot grid; the planner refuses fewer anyway.
@@ -97,6 +108,7 @@ class GridPanel(BotKindPanel):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._market: PlannerMarket | None = None
+        self._editable = True
         self.lower_price = _decimal_field("editGridLower")
         self.upper_price = _decimal_field("editGridUpper")
         self.grid_count = QSpinBox()
@@ -110,10 +122,13 @@ class GridPanel(BotKindPanel):
         self.capital = _decimal_field("editGridCapital")
         self.stop_loss = _ExitField("StopLoss")
         self.take_profit = _ExitField("TakeProfit")
-        self.suggest_atr = QPushButton("Suggest from ATR")
-        self.suggest_atr.setObjectName("btnSuggestAtr")
-        self.suggest_bollinger = QPushButton("Suggest from Bollinger")
-        self.suggest_bollinger.setObjectName("btnSuggestBollinger")
+        self.toolbar = QToolBar("Grid")
+        self.toolbar.setObjectName("toolbarGridKind")
+        # Worded as the Bots menu's commands, without their access keys.
+        self.suggest_atr = self._add_action("actSuggestAtr", "Suggest from ATR")
+        self.suggest_bollinger = self._add_action(
+            "actSuggestBollinger", "Suggest from Bollinger"
+        )
         self._build_field_layout()
         self._connect()
         self.set_planner_market(None)
@@ -147,10 +162,13 @@ class GridPanel(BotKindPanel):
 
     def set_planner_market(self, market: PlannerMarket | None) -> None:
         self._market = market
-        _offer(self.suggest_atr, market.atr_range if market else None, "ATR")
-        _offer(
-            self.suggest_bollinger, market.bollinger if market else None, "Bollinger"
-        )
+        self._offer_suggestions()
+
+    def kind_actions(self) -> Mapping[str, QAction]:
+        return {
+            SUGGEST_FROM_ATR: self.suggest_atr,
+            SUGGEST_FROM_BOLLINGER: self.suggest_bollinger,
+        }
 
     def set_editable(self, editable: bool) -> None:
         for field in (
@@ -163,13 +181,29 @@ class GridPanel(BotKindPanel):
             self.take_profit,
         ):
             field.setEnabled(editable)
-        if editable:
-            self.set_planner_market(self._market)
-        else:
+        self._editable = editable
+        self._offer_suggestions()
+
+    # -- internals -------------------------------------------------------- #
+
+    def _offer_suggestions(self) -> None:
+        """A suggestion is offered while the planner has its range and the
+        fields can take it: the planner may answer after the editor was made
+        read-only."""
+        market = self._market
+        _offer(self.suggest_atr, market.atr_range if market else None, "ATR")
+        _offer(
+            self.suggest_bollinger, market.bollinger if market else None, "Bollinger"
+        )
+        if not self._editable:
             self.suggest_atr.setEnabled(False)
             self.suggest_bollinger.setEnabled(False)
 
-    # -- internals -------------------------------------------------------- #
+    def _add_action(self, object_name: str, text: str) -> QAction:
+        action = QAction(text, self)
+        action.setObjectName(object_name)
+        self.toolbar.addAction(action)
+        return action
 
     def _build_field_layout(self) -> None:
         form = QFormLayout()
@@ -180,14 +214,10 @@ class GridPanel(BotKindPanel):
         form.addRow("Capital (quote)", self.capital)
         form.addRow("Stop loss", self.stop_loss)
         form.addRow("Take profit", self.take_profit)
-        suggestions = QHBoxLayout()
-        suggestions.addWidget(self.suggest_atr)
-        suggestions.addWidget(self.suggest_bollinger)
-        suggestions.addStretch(1)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.toolbar)
         layout.addLayout(form)
-        layout.addLayout(suggestions)
 
     def _connect(self) -> None:
         for field in (self.lower_price, self.upper_price, self.capital):
@@ -197,8 +227,8 @@ class GridPanel(BotKindPanel):
         self.spacing.activated.connect(self._emit)
         self.stop_loss.edited.connect(self._emit)
         self.take_profit.edited.connect(self._emit)
-        self.suggest_atr.clicked.connect(lambda: self._fill_range(self._atr()))
-        self.suggest_bollinger.clicked.connect(
+        self.suggest_atr.triggered.connect(lambda: self._fill_range(self._atr()))
+        self.suggest_bollinger.triggered.connect(
             lambda: self._fill_range(self._bollinger())
         )
 
@@ -230,12 +260,12 @@ def _decimal_field(name: str) -> QLineEdit:
     return field
 
 
-def _offer(button: QPushButton, suggested: SuggestedRange | None, name: str) -> None:
-    button.setEnabled(suggested is not None)
+def _offer(action: QAction, suggested: SuggestedRange | None, name: str) -> None:
+    action.setEnabled(suggested is not None)
     if suggested is None:
-        button.setToolTip(_NO_RANGE_YET.format(name=name))
+        action.setToolTip(_NO_RANGE_YET.format(name=name))
     else:
-        button.setToolTip(f"Fill the range with {suggested.lower} – {suggested.upper}.")
+        action.setToolTip(f"Fill the range with {suggested.lower} – {suggested.upper}.")
 
 
 def _to_tick(price: Decimal, tick: Decimal | None) -> Decimal:

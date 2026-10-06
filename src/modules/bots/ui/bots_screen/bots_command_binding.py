@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedSt
 from .bot_action_rules import BotAction
 from .bots_commands import FIT_LEVELS, NEW_BOT, REFRESH_FILLS, lifecycle_id
 from .bots_view_model import BotsViewModel
+from .kind_command_binding import KindCommands
 
 
 def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> None:
@@ -64,6 +65,9 @@ def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> Non
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)
+    # The selected kind's own commands follow its toolbar; the presenter
+    # hands each new editor over (`KindCommands.follow_panel_of`).
+    KindCommands(view_model).bind_commands(binder)
 
 
 def _bind_lifecycle(

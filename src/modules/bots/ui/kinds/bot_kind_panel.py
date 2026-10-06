@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
@@ -42,3 +43,10 @@ class BotKindPanel(QWidget):
     def set_editable(self, editable: bool) -> None:
         """Read-only while the bot runs, or while an action is in flight."""
         raise NotImplementedError(f"{type(self).__name__}.set_editable")
+
+    def kind_actions(self) -> Mapping[str, QAction]:
+        """The actions of the kind's own toolbar, by the command id
+        `kind_commands.py` declares for each; the Bots menu's command of the
+        same id triggers it and is enabled while it is. A kind with no
+        commands of its own keeps this default."""
+        return {}
