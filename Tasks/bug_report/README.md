@@ -58,8 +58,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 144 |
+| 🔴 **Đang mở** | 1 |
+| ✅ **Đã sửa / đã đóng** | 145 |
 | 📈 **Tổng** | **146** |
 
 ---
@@ -68,7 +68,6 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tên | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
-| **[BUG-152](incomplete/BUG-152_sanity_run_ends_with_uncollectable_objects_warning.md)** | A green gate's log ends with `ResourceWarning: gc: 5 uncollectable objects at shutdown`, so the prescribed `ResourceWarning` grep matches on every run | 🟢 P3 | 2026-10-06 | Found by the CI timing measurement. Root cause: a PySide6 teardown defect, any `QObject` class with a `QtCore.Property` alive at exit (6.9–6.11); fixed at the source by `EPIC-033M`, not here. |
 | **[BUG-143](incomplete/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md)** | Stopping the app with the Spot user-data stream live prints `Task was destroyed but it is pending!` and `Unclosed client session`: the stream's tasks are destroyed while cancelling, so its connection is dropped, not closed. Seen in the user's first live grid round trip. Cause: the engine's `AsyncRuntime.stop()` stopped the loop before cancelling tasks. Fixed in the engine (`934b830`, engine `BUG-017`) and pinned by `engine.ref`; awaiting a live run that stops cleanly. | 🟢 P3 | 2026-10-04 | User's `-TestnetOnly` run (`EPIC-029H`) |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
@@ -87,6 +86,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-152](completed/BUG-152_sanity_run_ends_with_uncollectable_objects_warning.md)** | A green gate's log ended with `ResourceWarning: gc: 5 uncollectable objects at shutdown`: PySide6 cannot collect a `QObject` class with a `QtCore.Property` at exit, and the app loaded the Engine's QML layer (`CardModel`, `BaseQmlViewModel`) through three view models and a boot-time capability lookup. Fixed with Engine `BUG-023` (lazy QML layer, PR #235) and `UiModeViewModel` here; the gate's log scan now fails on the line. | 🟢 P3 | 2026-10-06 | ✅ 2026-10-06 |
 | **[BUG-151](completed/BUG-151_status_bar_progress_bar_always_busy.md)** | The status bar's progress bar showed "busy" from start-up in every mode, with no task running: the Engine shell's mode switch called `setVisible()` on every status widget over its owner's `hide()`, so the Data mode's idle, indeterminate bar ran in every mode. Fixed in the Engine (`BUG-021`, `StatusSlot`, PR #233) and pinned here; the conformance suite's `no_progress_at_rest` check guards it. | 🟡 P2 | 2026-10-06 | ✅ 2026-10-06 |
 | **[BUG-153](completed/BUG-153_engine_pin_check_trusts_a_sidecar_a_reinstall_leaves_behind.md)** | `engine_pin.py check` passed after the engine was replaced by a manual `pip install` / `uv pip install`, because the commit it trusted lived in a sidecar file bound to nothing. Fixed by recording a hash of the installed distribution's `RECORD` beside the commit: a replaced distribution no longer matches. | 🟡 P2 | 2026-10-06 | ✅ 2026-10-06 |
 | **[BUG-142](completed/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | After one manual Spot order, every later order on that symbol was refused with `MAX_POSITIONS_PER_SYMBOL` until trading was enabled again: the handler marked the symbol open and nothing on Spot (no positions) ever cleared it. On a venue without positions (`TradingVenue.has_positions`) an order no longer marks its symbol open. | 🟡 P2 | 2026-10-03 | `fix(bug-142)` |

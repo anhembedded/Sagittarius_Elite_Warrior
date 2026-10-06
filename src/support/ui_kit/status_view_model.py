@@ -2,7 +2,9 @@
 error — and the property/signal wiring every consumer needed identically.
 
 The two readers are plain Python properties and `statusChanged` is the change
-notification: no `QtCore.Property` is declared (`BUG-152`).
+notification: no `QtCore.Property` is declared, and the class is a plain
+`QObject`, not the Engine's `BaseQmlViewModel`, whose two Properties it
+inherited unused (`BUG-152`).
 
 `DeskViewModel`, `TradingSettingsViewModel` and `MarketDataSettingsViewModel`
 all defined `set_status()`/`_get_status_message()`/`_get_status_is_error()`
@@ -19,10 +21,9 @@ raise.
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal, Slot
-from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 
-class StatusMessageViewModel(BaseQmlViewModel):
+class StatusMessageViewModel(QObject):
     """@brief A single status line (message + error flag) a screen's
     ViewModel shows after a save or another user-triggered action
     completes."""

@@ -11,10 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.observed_attribute imp
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL_OPTIONS,
 )
-from sagittarius_engine.extensions.pyside_mvc import (
-    BaseQmlViewModel,
-    LogListModel,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.ui_mode_view_model import (
+    UiModeViewModel,
 )
+from sagittarius_engine.extensions.pyside_mvc import LogListModel
 
 from .database_status_table_model import DatabaseStatusTableModel
 from .kline_inspector_table_model import KLineInspectorTableModel
@@ -28,7 +28,7 @@ _SUPPORTED_INTERVALS = [tf.value for tf in TimeFrame]
 _EXPORT_FORMATS = [fmt.value for fmt in ExportFileFormat]
 
 
-class DataManagementViewModel(BaseQmlViewModel):
+class DataManagementViewModel(UiModeViewModel):
     """
     @brief QML-facing state for the Database screen (Storage Vault).
 
