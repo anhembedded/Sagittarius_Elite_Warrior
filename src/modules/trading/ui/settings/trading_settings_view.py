@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
@@ -11,32 +10,16 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    Palette,
-    get_icon_loader,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    StyledButton,
-    StyledField,
-    StyleRole,
-)
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
     from .trading_settings_view_model import TradingSettingsViewModel
-
-_FIELD_HEIGHT = 34
-#: Credentials are opaque strings a user compares character by character; a
-#: monospace face is what makes that possible. Carried over from the
-#: monolithic screen this section split off.
-_FIELD_FONT_FAMILY = "Consolas"
 
 #: `BOT-125` — carried over from the monolithic screen this section split off.
 _VENUE_LOCKED_TEXT = (
@@ -82,8 +65,14 @@ class TradingSettingsView(BaseView):
         )
         self._apply_venues(view_model.enabledVenues, view_model.venueLocked)
 
-        self._api_key_field.textEdited.connect(self._on_api_key_edited)
-        self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
+        def edit_api_key(text: str) -> None:
+            view_model.apiKey = text
+
+        def edit_api_secret(text: str) -> None:
+            view_model.apiSecret = text
+
+        self._api_key_field.textEdited.connect(edit_api_key)
+        self._api_secret_field.textEdited.connect(edit_api_secret)
         self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
         for venue, toggle in self._venue_toggles.items():
             toggle.toggled.connect(
@@ -119,16 +108,8 @@ class TradingSettingsView(BaseView):
             )
         )
 
-    def _on_api_key_edited(self, text: str) -> None:
-        self._view_model.apiKey = text
-
-    def _on_api_secret_edited(self, text: str) -> None:
-        self._view_model.apiSecret = text
-
     def _apply_status(self, message: str, is_error: bool) -> None:
-        self._status_label.setText(message)
-        color = Palette.DANGER if is_error else Palette.SUCCESS
-        self._status_label.setStyleSheet(f"color: {color};")
+        self._status_label.setText(_worded(message, is_error))
 
     def _apply_credentials_source(self, label: str, locked: bool) -> None:
         """`EPIC-021B` §2.3 — when an environment variable is what is in
@@ -145,9 +126,7 @@ class TradingSettingsView(BaseView):
         self._check_connection_button.setText(
             "Checking..." if checking else "Check Connection"
         )
-        self._connection_result_label.setText(result_text)
-        color = Palette.DANGER if result_is_error else Palette.SUCCESS
-        self._connection_result_label.setStyleSheet(f"color: {color}; font-size: 11px;")
+        self._connection_result_label.setText(_worded(result_text, result_is_error))
 
     def _apply_venues(self, enabled_venues: list[str], locked: bool) -> None:
         for venue, toggle in self._venue_toggles.items():
@@ -161,14 +140,6 @@ class TradingSettingsView(BaseView):
     def _toggle_secret_reveal(self, checked: bool) -> None:
         self._api_secret_field.setEchoMode(
             QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
-        )
-        icon_name = "eye-off" if checked else "eye"
-        self._reveal_button.setIcon(
-            get_icon_loader().get_icon(icon_name, Palette.MUTED)
-        )
-        self._reveal_button.setToolTip("Hide secret" if checked else "Show secret")
-        self._reveal_button.setAccessibleName(
-            "Hide secret" if checked else "Show secret"
         )
 
     def _build_ui(self) -> None:
@@ -184,7 +155,6 @@ class TradingSettingsView(BaseView):
         )
         warning.setObjectName("lblTradingSettingsWarning")
         warning.setWordWrap(True)
-        warning.setStyleSheet(f"color: {Palette.ACCENT}; font-size: 11px;")
         layout.addWidget(warning)
 
         grid = QGridLayout()
@@ -204,24 +174,17 @@ class TradingSettingsView(BaseView):
         self._credentials_source_label = QLabel()
         self._credentials_source_label.setObjectName("lblCredentialsSource")
         self._credentials_source_label.setWordWrap(True)
-        self._credentials_source_label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px;"
-        )
         grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
         row += 1
 
-        self._check_connection_button = StyledButton(
-            "Check Connection", role=StyleRole.SECONDARY_BUTTON
-        )
+        self._check_connection_button = QPushButton("Check Connection")
         self._check_connection_button.setObjectName("btnCheckConnection")
-        self._check_connection_button.setCursor(Qt.CursorShape.PointingHandCursor)
         grid.addWidget(self._check_connection_button, row, 0, 1, 2)
         row += 1
 
         self._connection_result_label = QLabel()
         self._connection_result_label.setObjectName("lblConnectionResult")
         self._connection_result_label.setWordWrap(True)
-        self._connection_result_label.setFont(QFont(_FIELD_FONT_FAMILY))
         grid.addWidget(self._connection_result_label, row, 0, 1, 2)
         row += 1
 
@@ -232,11 +195,9 @@ class TradingSettingsView(BaseView):
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
 
-    def _make_field(self, object_name: str) -> StyledField:
-        field = StyledField()
+    def _make_field(self, object_name: str) -> QLineEdit:
+        field = QLineEdit()
         field.setObjectName(object_name)
-        field.setMinimumHeight(_FIELD_HEIGHT)
-        field.setFont(QFont(_FIELD_FONT_FAMILY))
         return field
 
     def _add_venue_row(self, grid: QGridLayout, row: int) -> int:
@@ -262,9 +223,6 @@ class TradingSettingsView(BaseView):
         self._venue_lock_label = QLabel()
         self._venue_lock_label.setObjectName("lblTradingVenueLocked")
         self._venue_lock_label.setWordWrap(True)
-        self._venue_lock_label.setStyleSheet(
-            f"color: {Palette.WARNING}; font-size: 11px;"
-        )
         self._venue_lock_label.setVisible(False)
         grid.addWidget(self._venue_lock_label, row, 0, 1, 2)
         return row + 1
@@ -275,29 +233,21 @@ class TradingSettingsView(BaseView):
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(6)
 
         self._api_secret_field = self._make_field("txtApiSecret")
         self._api_secret_field.setEchoMode(QLineEdit.EchoMode.Password)
         row_layout.addWidget(self._api_secret_field, 1)
 
-        self._reveal_button = QPushButton()
+        self._reveal_button = QCheckBox("Show secret")
         self._reveal_button.setObjectName("btnRevealSecret")
-        self._reveal_button.setCheckable(True)
-        self._reveal_button.setFixedSize(36, 34)
-        self._reveal_button.setIcon(get_icon_loader().get_icon("eye", Palette.MUTED))
-        self._reveal_button.setToolTip("Show secret")
-        self._reveal_button.setAccessibleName("Show secret")
-        self._reveal_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
-        self._reveal_button.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; "
-            f"border: 1px solid {Palette.BORDER}; border-radius: 6px; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
         self._reveal_button.toggled.connect(self._toggle_secret_reveal)
         row_layout.addWidget(self._reveal_button)
 
         grid.addWidget(row_widget, row, 1)
         return row + 1
+
+
+def _worded(message: str, is_error: bool) -> str:
+    """An error is named in words, never by weight or colour alone
+    (`ui-presentation-rule.md` §1)."""
+    return f"Error: {message}" if is_error and message else message

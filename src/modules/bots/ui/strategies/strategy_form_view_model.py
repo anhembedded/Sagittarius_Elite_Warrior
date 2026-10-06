@@ -18,9 +18,8 @@ Every `request_*` method only records a choice. Arming is the dialog's own
 button, through `VenueStrategies`; a pick that armed would be `BUG-101`
 again (work run by a setter the person did not mean as a command).
 
-@par Plain attributes, not Qt properties
-The desks' card was bound to QML-era `@Property`s; the dialog reads plain
-values, so `mypy` checks this class and its readers.
+@par Plain attributes
+The dialog reads plain values, so `mypy` checks this class and its readers.
 """
 
 from __future__ import annotations
