@@ -10,15 +10,9 @@ selection, no editing, sorting, the header and the values written by the
 application's formatter. A header click orders each group's intervals among
 themselves; a group's rows stay under its heading.
 
-@par Why the rows are plain items, not `SpecTreeItem`s
-Every value here is text, and text is what Qt's own item order compares, so a
-plain `QTreeWidgetItem` sorts exactly as a `SpecTreeItem` would. A
-`SpecTreeItem` comparing two texts hands them to `QTreeWidgetItem.__lt__`,
-which in Engine 6c6eab6 calls its own Python override again: the recursion
-ends in a segmentation fault on the first header click (measured, 2026-10-06;
-`test_sorting_orders_each_groups_rows_and_keeps_them_under_it`). A row that
-holds a number, a `Decimal` or a moment becomes a `SpecTreeItem` once that is
-fixed in the Engine.
+Each interval row is a `SpecTreeItem`, so a header click orders the rows by
+the values the cells hold, the same rule as every other configured view; a
+heading stays a plain `QTreeWidgetItem` and is never compared with a row.
 
 ## Choose-and-close, and no footer buttons of its own
 
@@ -58,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
+    SpecTreeItem,
     configure_item_view,
 )
 
@@ -294,8 +289,7 @@ class TimeframePickerDialog(Overlay):
             self._filling = False
 
     def _row_item(self, row) -> QTreeWidgetItem:
-        # Plain, not a `SpecTreeItem`: see the module docstring.
-        item = QTreeWidgetItem([row.code, row.label, ""])
+        item = SpecTreeItem([row.code, row.label, ""])
         item.setData(_INTERVAL_COLUMN, _CODE_ROLE, row.code)
         self._write_row(item, row)
         return item
