@@ -356,14 +356,8 @@ exclude = [
     # their call sites are missing, not as a side effect of this move.
     # `EPIC-028M` deleted `ui/trading/`; its five entries left this list in
     # `EPIC-028S`'s follow-up (they matched nothing; user-approved 2026-10-02).
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_panel\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_presenter\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view_model\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_dialog\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_source\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]history_pagination_controller\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]preview\\.py$",
+    # `EPIC-033P` deleted `trading/ui/dashboard/`; its eight entries left with
+    # it (they matched nothing; user-approved 2026-10-06).
 
     # `EPIC-025` PR 4.4d, sixth re-key on PR 0.4a's precedent: `screens/backtest`
     # (79 files) + `base_event_logger.py` left `presentation/` for
