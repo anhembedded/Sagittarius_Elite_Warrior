@@ -24,7 +24,9 @@ update its row, in the same commit.
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from fnmatch import fnmatch
+from functools import cache
+from pathlib import Path, PurePosixPath
 
 import pytest
 from Sagittarius_Elite_Warrior.tests.unit.architecture.git_tracked_paths import (
@@ -42,6 +44,14 @@ _PARENTS_RE = re.compile(r"Path\(__file__\)\.resolve\(\)\.parents\[")
 _SCAN_RE = re.compile(r"\.(?:rglob|glob|iterdir)\(")
 #: Well below the 30 registered in Phase 0; fewer means the regexes broke.
 _MINIMUM_GUARDS_EXPECTED = 20
+
+
+@cache
+def _tracked() -> frozenset[str]:
+    """The repository's answer, read once per run: every case asks the same
+    question of the same index, and `git ls-files` plus a fresh `rglob()` per
+    case made this file an eighth of the unit tier's time (`BOT-159`)."""
+    return frozenset(tracked_paths(_REPO_ROOT))
 
 
 def _registered_files() -> set[str]:
@@ -81,13 +91,20 @@ def test_scanned_root_exists_and_is_not_empty(
         # zero files never survives a fresh clone as a directory at all.
         return
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
-    matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
     # The repository's answer, not this disk's — see `git_tracked_paths`.
     # Raises rather than falling back to `rglob()` alone when git cannot
     # answer, so this guard fails loudly instead of silently trusting the
-    # filesystem again (`BUG-129`, `CS-005`).
-    tracked = tracked_paths(_REPO_ROOT)
-    matches = [p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked]
+    # filesystem again (`BUG-129`, `CS-005`). Every registered pattern names
+    # a file, so `rglob(pattern)` is a name match below the root; a path the
+    # index holds but this disk has lost does not count, as before.
+    prefix = f"{PurePosixPath(root).as_posix()}/"
+    matches = [
+        path
+        for path in _tracked()
+        if path.startswith(prefix)
+        and fnmatch(PurePosixPath(path).name, pattern)
+        and (_REPO_ROOT / path).exists()
+    ]
     assert matches, (
         f"{guard} scans {root} for {pattern} and would find nothing in a fresh "
         f"clone — retarget the guard (a leftover `__pycache__` shell on your "
