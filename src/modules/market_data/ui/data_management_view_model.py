@@ -268,6 +268,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     def databaseSize(self) -> int | None:
         return self._database_size
 
+    @Slot(object, object)
     def set_stats(self, stored_records: int | None, database_size: int | None) -> None:
         self._stored_records = stored_records
         self._database_size = database_size

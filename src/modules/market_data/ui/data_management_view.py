@@ -43,18 +43,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    APP_VALUE_FORMATTER,
-    BYTES_KEY,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.status_readout import status_readout
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import BYTES_KEY
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench import (
-    ColumnKind,
-    ColumnSpec,
-    ReadoutForm,
-)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 from .data_management_widgets.database_status_panel import DatabaseStatusPanel
@@ -135,9 +129,9 @@ class DataManagementView(OutputSourceView):
         self.gaps = GapsPanel()
         self._status_panel: DatabaseStatusPanel | None = None
         self._kline_inspector: KlineInspectorDialog | None = None
-        self._records = ReadoutForm(_RECORDS_SPECS, APP_VALUE_FORMATTER)
+        self._records = status_readout(_RECORDS_SPECS)
         self._records.setObjectName("frmStoredRecords")
-        self._size = ReadoutForm(_SIZE_SPECS, APP_VALUE_FORMATTER)
+        self._size = status_readout(_SIZE_SPECS)
         self._size.setObjectName("frmDatabaseSize")
         self._task = QLabel()
         self._task.setObjectName("lblDataTask")
