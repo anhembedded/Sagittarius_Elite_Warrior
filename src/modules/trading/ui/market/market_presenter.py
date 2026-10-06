@@ -177,6 +177,8 @@ class MarketPresenter(CommandPresenter):
         """Releases this mode's streams — the Watchlist's and each chart's,
         never another mode's (each owner is this mode's own)."""
         self._checks.invalidate_active()
+        if self._filters is not None:
+            self._filters.drop()
         for chart in self._charts.values():
             chart.shutdown()
             chart.release_stream()
@@ -326,7 +328,7 @@ class MarketPresenter(CommandPresenter):
         watchlist.use_precisions(
             MarketMetadataPrecisions(deps.filters.cache, lambda: self.choice.current)
         )
-        filters = WatchlistFilters(deps.filters.provider, deps.thread_manager, self)
+        filters = WatchlistFilters(deps.filters.provider, deps.thread_manager)
         filters.fetched.connect(watchlist.refresh_precisions)
         return filters
 
