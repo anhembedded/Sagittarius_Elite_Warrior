@@ -17,6 +17,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import NoReturn
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
@@ -138,7 +141,7 @@ class UnarrangedHistoryReader(IAccountHistoryReader):
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         _not_arranged("IAccountHistoryReader")
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         _not_arranged("IAccountHistoryReader")
 
     def every_symbol_scan_limit(self) -> int | None:

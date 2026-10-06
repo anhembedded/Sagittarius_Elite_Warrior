@@ -23,6 +23,10 @@ class HistoryRequest:
     since: datetime
     #: Zero-based.
     page: int = 0
+    #: The desk's own pair, read right after the pairs with an open order when
+    #: an every-pair page must leave pairs out (`BOT-149`). Ignored when
+    #: `symbol` is set.
+    desk_symbol: str | None = None
 
     def __post_init__(self) -> None:
         if self.since.tzinfo is None:

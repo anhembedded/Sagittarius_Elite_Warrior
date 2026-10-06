@@ -54,6 +54,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_se
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client import (
     SpotTradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveReason,
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -191,7 +195,10 @@ def test_spot_active_symbols_are_the_listed_pairs_of_what_the_account_holds() ->
     with _fake_exchange():
         _, history = _spot()
 
-        assert history.active_symbols(_week_ago()) == ("BTCUSDT", "ETHUSDT")
+        assert history.active_symbols(_week_ago()) == (
+            ActiveSymbol("BTCUSDT", ActiveReason.HELD),
+            ActiveSymbol("ETHUSDT", ActiveReason.HELD),
+        )
 
 
 def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
@@ -211,7 +218,7 @@ def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
         rows = history.order_history("BTCUSDT", _week_ago())
         fills = history.trade_history("BTCUSDT", _week_ago())
 
-    assert active_while_open == ("BTCUSDT",)
+    assert active_while_open == (ActiveSymbol("BTCUSDT", ActiveReason.OPEN_ORDER),)
     assert [(row.order.client_order_id, row.order.status) for row in rows] == [
         (ClientOrderId("SEW-hist-fut-lim01"), OrderStatus.CANCELED)
     ]

@@ -42,7 +42,7 @@ class GetTradeHistoryQueryHandler(
 
     def execute(self, query: GetTradeHistoryQuery) -> HistoryPage[TradeRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        scope = history_scope(reader, query.symbol, query.since)
+        scope = history_scope(reader, query.symbol, query.since, query.desk_symbol)
         symbols = scope.symbols
         logger.debug(
             "Handling GetTradeHistoryQuery on %s: %s since %s, page %d",

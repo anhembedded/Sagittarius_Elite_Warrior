@@ -52,7 +52,7 @@ class GetOrderHistoryQueryHandler(
 
     def execute(self, query: GetOrderHistoryQuery) -> HistoryPage[OrderRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        scope = history_scope(reader, query.symbol, query.since)
+        scope = history_scope(reader, query.symbol, query.since, query.desk_symbol)
         symbols = scope.symbols
         logger.debug(
             "Handling GetOrderHistoryQuery on %s: %s since %s, page %d",

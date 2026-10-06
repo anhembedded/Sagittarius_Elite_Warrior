@@ -23,6 +23,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
     CachedAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
@@ -64,7 +67,7 @@ class _HeldReader(FakeAccountHistoryReader):
         self._hold("trades")
         return super().trade_history(symbol, since)
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         self._hold("symbols")
         return super().active_symbols(since)
 

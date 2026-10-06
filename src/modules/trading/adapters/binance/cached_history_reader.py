@@ -36,6 +36,9 @@ from datetime import datetime, timedelta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_reads import (
     utc_now,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
+    ActiveSymbol,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
@@ -179,7 +182,7 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
         self._trades = _SymbolHistoryCache[TradeRecord](
             "trades", inner.trade_history, lambda row: row.time, self._lock
         )
-        self._symbols: _Entry[tuple[str, ...]] | None = None
+        self._symbols: _Entry[tuple[ActiveSymbol, ...]] | None = None
         self._symbols_in_flight = _ReadsInFlight[datetime]("active symbols", self._lock)
 
     @property
@@ -193,17 +196,17 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         return self._trades.rows(symbol, since, self._freshness(since))
 
-    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         freshness = self._freshness(since)
 
-        def cached() -> tuple[str, ...] | None:
+        def cached() -> tuple[ActiveSymbol, ...] | None:
             entry = self._symbols
             if entry is None or entry.since != since or not freshness.fresh(entry):
                 return None
             logger.debug("[history-cache] active symbols since %s: cached", since)
             return entry.value
 
-        def read() -> tuple[str, ...]:
+        def read() -> tuple[ActiveSymbol, ...]:
             logger.debug("[history-cache] active symbols since %s: read", since)
             symbols = self._inner.active_symbols(since)
             with self._lock:
