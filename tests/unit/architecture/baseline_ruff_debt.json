@@ -25,7 +25,6 @@
       "src/modules/market_data/module.py": 3,
       "src/modules/market_data/ui/logic/ui_mode_transitions.py": 1,
       "src/modules/market_data/ui/market_tick_feed.py": 1,
-      "src/modules/market_data/ui/qml_property.py": 2,
       "src/modules/market_data/ui/sync_progress_feed.py": 1,
       "src/modules/strategy/domain/strategies/base_strategy.py": 5,
       "src/modules/strategy/module.py": 2,
