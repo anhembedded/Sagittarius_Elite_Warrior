@@ -18,7 +18,7 @@ not about count).
 **Prices and sizes in the symbol's own tick and step (`EPIC-033N`).**
 Each model names the columns quoted in its row's symbol (`SYMBOL_QUOTED`);
 the desk gives the tables its venue's filters
-(`OrderMetadataPrecisions`). Holdings name an asset, not a symbol, so they
+(`FilterPrecisions`). Holdings name an asset, not a symbol, so they
 keep the magnitude rule.
 
 **Columns are specs (`EPIC-033N`).** Each model declares its `COLUMNS` — key,

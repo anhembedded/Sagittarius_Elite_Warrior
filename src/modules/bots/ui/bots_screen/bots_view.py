@@ -18,6 +18,7 @@ watching a bot and editing its plan were never on screen together.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import override
 
 from PySide6.QtCore import QItemSelectionModel, QSize, Qt
@@ -45,12 +46,21 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot_precisions import (
+    SelectedBotPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows import (
     STRATEGIES_DOCK,
     StrategiesPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
@@ -139,6 +149,15 @@ class BotsView(BaseView):
         self.plan.set_kind_panel(panel)
         if panel is not None:
             panel.set_editable(self._mode is BotsUiState.EDITING_DRAFT)
+
+    def use_venue_filters(
+        self, filters: Mapping[TradingVenue, ISymbolPrecisions]
+    ) -> None:
+        """Writes the selected bot's orders and fills in its own venue's
+        symbol filters (`EPIC-033N`)."""
+        precisions = SelectedBotPrecisions(filters, lambda: self.model.selected)
+        self.orders.use_precisions(precisions)
+        self.fills.use_precisions(precisions)
 
     def set_chart(self, chart: QWidget | None) -> None:
         replace_in(self._chart_slot, chart or _note(NO_CHART_TEXT))

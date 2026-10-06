@@ -34,14 +34,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     desk_dependencies_for,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.order_metadata_precisions import (
-    OrderMetadataPrecisions,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
+    FilterPrecisions,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import fake_container
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -106,7 +106,7 @@ def test_the_desk_reads_its_own_venues_filters():
 
 
 def test_the_desk_hands_its_filters_to_the_account_tabs(qtbot):
-    desk = build_desk(qtbot, FUTURES, precisions=OrderMetadataPrecisions(_cache()))
+    desk = build_desk(qtbot, FUTURES, precisions=FilterPrecisions(_cache()))
 
     desk.view.account_tabs.set_positions([_position()])
 

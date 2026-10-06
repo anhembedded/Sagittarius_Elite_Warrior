@@ -138,6 +138,7 @@ class BotsPresenter(CommandPresenter):
         deps = bots_dependencies_for(container)
         threads, commands, feed = deps.threads, deps.commands, deps.candles
         self._model = view.model
+        view.use_venue_filters(deps.filters)
         self._dialogs = dialogs or dialogs_for(view)
         self._now = now
         self._catalog, self._venues = deps.kinds, deps.venues

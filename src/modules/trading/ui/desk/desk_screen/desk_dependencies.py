@@ -44,15 +44,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_confirmation import (
     ConfirmOrder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.order_metadata_precisions import (
-    OrderMetadataPrecisions,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     default_interval,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
+    FilterPrecisions,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
@@ -112,7 +112,7 @@ def desk_dependencies_for(
             interval=interval,
         ),
         thread_manager=threads,
-        precisions=OrderMetadataPrecisions(
+        precisions=FilterPrecisions(
             container.resolve(IVenueContexts).get(venue).metadata_cache
         ),
     )

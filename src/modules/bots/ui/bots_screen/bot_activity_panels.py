@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
 NO_ORDERS_TEXT = "The selected bot has no resting orders."
@@ -41,9 +44,16 @@ class BotOrdersPanel(QWidget):
         model.facts_changed.connect(self._show_orders)
         self._show_orders()
 
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Quotes the orders in the selected bot's symbol filters."""
+        self.orders.use_precisions(precisions)
+
     def _show_orders(self) -> None:
         bot = self._model.selected
-        self.orders.set_rows(bot.progress.orders if bot and bot.progress else ())
+        if bot is None:
+            self.orders.show_rows(None, ())
+            return
+        self.orders.show_rows(bot.symbol, bot.progress.orders if bot.progress else ())
 
 
 class BotFillsPanel(QWidget):
@@ -66,9 +76,13 @@ class BotFillsPanel(QWidget):
         model.fills_changed.connect(self._show_fills)
         self._show_fills()
 
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Quotes the fills in the selected bot's symbol filters."""
+        self.fills.use_precisions(precisions)
+
     def _show_fills(self) -> None:
-        fills = self._model.fills
-        self.fills.set_rows(fills.fills)
+        fills, bot = self._model.fills, self._model.selected
+        self.fills.show_rows(bot.symbol if bot else None, fills.fills)
         if self._model.selected is None:
             self.note.setText("")
         elif fills.problem:

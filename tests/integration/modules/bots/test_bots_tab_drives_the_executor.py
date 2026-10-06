@@ -50,7 +50,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    PRECISION_ROLE,
+    Precision,
+)
 
 from .grid_fake_exchange import (
     GRID,
@@ -164,3 +171,27 @@ def test_start_pause_resume_and_stop_from_the_tab_reach_the_exchange(
     # stop itself: on the fake both answers leave nothing resting.
     assert app.runtime(bot_id).sell_base_on_stop
     assert resting(app.urls) == {}
+
+
+def test_a_running_bots_orders_are_quoted_in_its_venues_filters(
+    screen: _Screen,
+) -> None:
+    """`EPIC-033N`, on the composed app: the Orders panel answers each price
+    with the tick size the venue's own metadata cache holds once the bot has
+    read its terms, so a price prints in whole ticks."""
+    app = screen.app
+    bot_id = _created(app)
+    screen.select(bot_id)
+    screen.press(BotAction.START)
+    screen.wait_for(bot_id, S.RUNNING)
+    orders = screen.view.orders.orders
+    screen.qtbot.waitUntil(lambda: bool(orders.rows), timeout=_WAIT_MS)
+
+    context = app.engine.context.container.resolve(IVenueContexts).get(SPOT)
+    filters = context.metadata_cache.get(SYMBOL)
+    price = orders.index(0, orders.column("price"))
+    quantity = orders.index(0, orders.column("quantity"))
+
+    assert filters is not None
+    assert orders.data(price, PRECISION_ROLE) == Precision(filters.tick_size)
+    assert orders.data(quantity, PRECISION_ROLE) == Precision(filters.step_size)
