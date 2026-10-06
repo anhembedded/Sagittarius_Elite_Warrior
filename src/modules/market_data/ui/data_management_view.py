@@ -43,8 +43,17 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+    BYTES_KEY,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    ReadoutForm,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
@@ -72,6 +81,12 @@ DATA_SURFACE = Surface(
 )
 
 _CANCELLING_MODE = "CANCELLING"
+
+#: The stat tiles of the status bar, each a one-row read-out; the size's key
+#: tells the formatter its value is bytes.
+_RECORDS_ROW = "records"
+_RECORDS_SPECS = (ColumnSpec(_RECORDS_ROW, "Records", ColumnKind.QUANTITY),)
+_SIZE_SPECS = (ColumnSpec(BYTES_KEY, "Database", ColumnKind.QUANTITY),)
 
 
 class DataSelection(QObject):
@@ -120,10 +135,10 @@ class DataManagementView(OutputSourceView):
         self.gaps = GapsPanel()
         self._status_panel: DatabaseStatusPanel | None = None
         self._kline_inspector: KlineInspectorDialog | None = None
-        self._records = QLabel()
-        self._records.setObjectName("lblStoredRecords")
-        self._size = QLabel()
-        self._size.setObjectName("lblDatabaseSize")
+        self._records = ReadoutForm(_RECORDS_SPECS, APP_VALUE_FORMATTER)
+        self._records.setObjectName("frmStoredRecords")
+        self._size = ReadoutForm(_SIZE_SPECS, APP_VALUE_FORMATTER)
+        self._size.setObjectName("frmDatabaseSize")
         self._task = QLabel()
         self._task.setObjectName("lblDataTask")
         self._progress = QProgressBar()
@@ -255,8 +270,8 @@ class DataManagementView(OutputSourceView):
         vm = self._view_model
         if vm is None:
             return
-        self._records.setText(f"Records: {vm.storedRecords}")
-        self._size.setText(f"Database: {vm.databaseSize}")
+        self._records.set_values({_RECORDS_ROW: vm.storedRecords})
+        self._size.set_values({BYTES_KEY: vm.databaseSize})
 
     def _sync_progress(self) -> None:
         """A running task's progress in the status bar (`ui-presentation-rule.md`

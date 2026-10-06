@@ -69,7 +69,7 @@ from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdat
 from .data_management_view_model import DataManagementViewModel
 from .logic.coordinator_factory import build_coordinators
 from .logic.data_file_dialogs import DataFileDialogs
-from .logic.stats import database_size_text, stored_records_text
+from .logic.stats import database_size_bytes, stored_records
 from .logic.ui_mode_transitions import install_transitions
 
 if TYPE_CHECKING:
@@ -613,8 +613,8 @@ class DataManagementPresenter(CommandPresenter):
 
     def _refresh_stats(self) -> None:
         """Recomputes stat tiles from rows and SQLite files on disk."""
-        stored = stored_records_text(
+        stored = stored_records(
             row.total_candles for row in self._view_model.status_model.rows
         )
         raw_dir = self.config.get(_DATABASE_DIR_CONFIG_KEY, None)
-        self._view_model.set_stats(stored, database_size_text(raw_dir))
+        self._view_model.set_stats(stored, database_size_bytes(raw_dir))

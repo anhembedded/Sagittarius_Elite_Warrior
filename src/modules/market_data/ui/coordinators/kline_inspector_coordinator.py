@@ -17,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -108,20 +110,22 @@ class KLineInspectorCoordinator:
                 )
                 return
 
+            checked = write_value(ColumnKind.QUANTITY, result.total_checked)
             if result.is_clean:
                 summary = (
-                    f"Data is 100% intact! Checked {result.total_checked:,} candles, "
+                    f"Data is 100% intact! Checked {checked} candles, "
                     f"no faulty candles found."
                 )
             else:
+                found = write_value(ColumnKind.QUANTITY, result.anomaly_count)
                 summary = (
-                    f"Warning: Found {result.anomaly_count:,} anomalous candles out of "
-                    f"{result.total_checked:,} candles checked."
+                    f"Warning: Found {found} anomalous candles out of "
+                    f"{checked} candles checked."
                 )
 
             anomalies_list = [
                 {
-                    "timestamp": a.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    "timestamp": a.timestamp,
                     "type": a.anomaly_type,
                     "description": a.description,
                     "raw": str(a.raw_values),
