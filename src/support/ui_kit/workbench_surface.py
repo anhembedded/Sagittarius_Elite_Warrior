@@ -88,12 +88,10 @@ class WorkbenchSurface(RegionHost):
 
     #: The global "which venue am I in" banner, set once by the composition
     #: root and never here: this package knows no domain concept, so it holds
-    #: a bare widget factory and never `VenueAlignment` itself. `PageShell`
-    #: carries the identical mechanism for the screens not yet converted, and
+    #: a bare widget factory and never `VenueAlignment` itself.
     #: `test_environment_banner_all_screens.py` scans every navigable route
-    #: for the widget — a screen that moves from one shell to the other must
-    #: keep showing it, which is why the host has the slot at all rather than
-    #: each converted View remembering to add a banner itself.
+    #: for the widget, which is why the host has the slot at all rather than
+    #: each View remembering to add a banner itself.
     #:
     #: A `QWidget` cannot be shared across parents, so each surface calls the
     #: factory for its own instance; `None` (the default) means no banner,
