@@ -47,6 +47,9 @@ class TradeDependencies:
     #: How the account tables ask before a cancel or a close; `None` asks
     #: with the real dialogs.
     confirmations: AccountTabConfirmations | None = None
+    #: Asked before trading is turned on, with the venue's title; `None`
+    #: asks with the real dialog (`TradeView.ask_to_enable`).
+    confirm_enable: Callable[[str], bool] | None = None
 
 
 def trade_dependencies_for(container: IContainer) -> TradeDependencies:

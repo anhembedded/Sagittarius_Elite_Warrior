@@ -5,15 +5,8 @@
     "Only shrinks; empty when EPIC-033M closes.",
     "The Dev Board's rows left with it (EPIC-033P); Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156).",
     "The Futures and Spot desks' rows left with them (EPIC-033I): one Trade mode, on workbench surfaces.",
-    "'failing_with_venues' is the Trade mode measured with both venues built (test_trade_mode_conformance.py), mode~venue -> checks: the account tables' own toolbars hold Cancel order, Cancel all and Close at market, which are in no menu until EPIC-033I stage 3 makes them Trade menu commands."
+    "'failing_with_venues' is the Trade mode measured with both venues built (test_trade_mode_conformance.py), mode~venue -> checks; empty since EPIC-033I stage 3 made the tables' Cancel and Close actions Trade menu commands."
   ],
   "failing": {},
-  "failing_with_venues": {
-    "trade~futures_testnet": [
-      "toolbar_actions_in_a_menu"
-    ],
-    "trade~spot_testnet": [
-      "toolbar_actions_in_a_menu"
-    ]
-  }
+  "failing_with_venues": {}
 }

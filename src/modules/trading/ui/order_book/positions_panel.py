@@ -19,7 +19,7 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QTableView, QToolBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QTableView, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
@@ -53,13 +53,8 @@ class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
         self._table.view.selectionModel().selectionChanged.connect(
             self.selectionChanged
         )
-        self._toolbar = QToolBar()
-        self._toolbar.setObjectName("tbrPositions")
-        self._toolbar.hide()
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._toolbar)
         layout.addWidget(self._table.body)
 
     def set_rows(self, rows: Sequence[PositionRow]) -> None:
@@ -74,9 +69,8 @@ class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
         self._model.use_precisions(precisions)
 
     def add_action(self, action: QAction) -> None:
-        """Shows a host's action in the toolbar and the row's context menu."""
-        self._toolbar.addAction(action)
-        self._toolbar.show()
+        """Repeats a host's command in the row's context menu; the command is
+        in a menu (`EPIC-033I` stage 3: Trade → Close position)."""
         self._table.view.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
         self._table.view.addAction(action)
 

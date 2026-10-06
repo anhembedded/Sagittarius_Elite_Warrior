@@ -7,6 +7,9 @@
   listed: it has no session, no account and no order path in this run, and
   turning it on needs a restart (Tools → Options → Trading).
 - **Enable live trading:** checkable, on the toolbar, for the chosen venue.
+  Turning it on asks first (HLD §11.2.3: "on enable"); turning it off does
+  not. The Engine's action would ask on every trigger, so the mode asks
+  itself (`TradeCommandBinding`, `TradeView.ask_to_enable`).
 - **New order… (F9):** moves the keyboard focus to the chosen venue's order
   entry and places nothing; the order is placed by the entry's own button,
   which asks first (`order_confirmation.py`). It ends with "…" because the
@@ -14,6 +17,13 @@
 - **View → Hide other pairs:** the chosen venue's account tables show its
   symbol only (`EPIC-033I` stage 2; a check box beside the tabs before the
   tables became panels). Checkable; it follows the chosen venue.
+- **Cancel order (Del), Cancel all orders, Close position** (`EPIC-033I`
+  stage 3): the chosen venue's account tables' own actions, which ask
+  first with their verbs and act on what the table selects or shows; Cancel
+  all orders is also on the toolbar (HLD §11.2.3). Close position is not in
+  the catalogue's table, which predates the tables leaving their toolbars;
+  it is the Positions table's action, off on Spot. None ends with "…": each
+  only confirms.
 - **Emergency stop (F8):** in the Trade menu and on every mode's toolbar
   (`mode=None`), HLD §11.2.2: the one command that must never be a menu
   away. It stops every enabled venue, not only the one chosen: from another
@@ -27,8 +37,8 @@ configuration (`TradingModule.boot`); this file is Qt-free, because
 (`test_module_contribution_laziness.py`).
 
 Plausible extensions, each a local change: a third venue (a profile in
-`desk_profile.py`, nothing here); Cancel order and Cancel all orders (two
-commands in `_TRADE_MENU` order, `EPIC-033I` stage 3).
+`desk_profile.py`, nothing here); a table action the menu should drive
+(one command here and one key in `AccountTabsPanel.menu_actions()`).
 """
 
 from __future__ import annotations
@@ -59,6 +69,9 @@ ENABLE_TRADING = "trading.trade.enable_trading"
 HIDE_OTHER_PAIRS = "trading.trade.hide_other_pairs"
 VIEW_MENU = ("&View",)
 NEW_ORDER = "trading.trade.new_order"
+CANCEL_ORDER = "trading.trade.cancel_order"
+CANCEL_ALL = "trading.trade.cancel_all"
+CLOSE_POSITION = "trading.trade.close_position"
 EMERGENCY_STOP = "trading.emergency_stop"
 #: The `exclusive_group` of the venue choices.
 VENUE_CHOICE = "trading.trade.venue"
@@ -101,6 +114,29 @@ def trade_commands(
             on_toolbar=True,
             shortcut="F9",
             needs_input=True,
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=CANCEL_ORDER,
+            text="Cancel &order",
+            menu_path=TRADE_MENU,
+            mode=route,
+            standard_shortcut="Delete",
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=CANCEL_ALL,
+            text="Cancel a&ll orders",
+            menu_path=TRADE_MENU,
+            mode=route,
+            on_toolbar=True,
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=CLOSE_POSITION,
+            text="&Close position",
+            menu_path=TRADE_MENU,
+            mode=route,
         ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,

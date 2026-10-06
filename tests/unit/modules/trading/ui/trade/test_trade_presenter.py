@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
     FakeOrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
+    CANCEL_ALL,
+    CANCEL_ORDER,
+    CLOSE_POSITION,
     HIDE_OTHER_PAIRS,
     venue_choice_id,
 )
@@ -184,3 +187,60 @@ def test_a_cancels_outcome_is_said_on_the_venues_status_line(qtbot) -> None:
 
     assert page.status_text == "Cancelled 2 orders."
     assert trade.view.venue_page(FUTURES).status_text != "Cancelled 2 orders."
+
+
+def test_enable_asks_before_turning_trading_on_and_not_before_off(qtbot) -> None:
+    trade = build_trade(qtbot, BOTH)
+    trade.choose(SPOT)
+
+    trade.enable_trading.trigger()
+    assert trade.enable_asked == ["Spot"]
+    assert trade.fakes[SPOT].session.enables == 1
+
+    trade.enable_trading.trigger()
+    assert trade.enable_asked == ["Spot"]
+    assert trade.fakes[SPOT].session.disables == 1
+
+
+def test_a_declined_enable_leaves_trading_off_and_unchecked(qtbot) -> None:
+    trade = build_trade(qtbot, BOTH)
+    trade.enable_answer[0] = False
+
+    trade.enable_trading.trigger()
+
+    assert trade.enable_asked == ["Futures"]
+    assert trade.fakes[FUTURES].session.enables == 0
+    assert not trade.enable_trading.isChecked()
+
+
+def test_the_table_commands_drive_the_chosen_venues_tables(qtbot) -> None:
+    trade = build_trade(qtbot, BOTH)
+    tables = {venue: trade.view.venue_page(venue).account_tabs for venue in BOTH}
+    actions = {venue: tables[venue].menu_actions() for venue in BOTH}
+    fired: list[tuple[TradingVenue, str]] = []
+    for venue in BOTH:
+        for key, action in actions[venue].items():
+            action.setEnabled(True)
+            action.triggered.connect(
+                lambda _c=False, v=venue, k=key: fired.append((v, k))
+            )
+
+    trade.choose(SPOT)
+    trade.action(CANCEL_ORDER).trigger()
+    trade.action(CANCEL_ALL).trigger()
+
+    assert fired == [(SPOT, "cancel_order"), (SPOT, "cancel_all")]
+    assert not trade.action(CLOSE_POSITION).isEnabled()
+    trade.choose(FUTURES)
+    assert trade.action(CLOSE_POSITION).isEnabled()
+    trade.action(CLOSE_POSITION).trigger()
+    assert fired[-1] == (FUTURES, "close_position")
+
+
+def test_a_table_command_is_off_while_its_table_cannot_act(qtbot) -> None:
+    """Nothing selected, nothing shown: Cancel order and Cancel all orders
+    are off, as the tables' own actions are."""
+    trade = build_trade(qtbot, BOTH)
+
+    assert not trade.action(CANCEL_ORDER).isEnabled()
+    assert not trade.action(CANCEL_ALL).isEnabled()

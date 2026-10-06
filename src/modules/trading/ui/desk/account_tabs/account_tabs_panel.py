@@ -21,10 +21,13 @@ Binance's own Spot desk. The histories are re-read for one pair or every
 pair instead (`hideOtherPairsChanged`), because a page of every pair is not
 a page of one.
 
-**Two actions join the existing panels' own**: "Cancel all" cancels the open
-orders the tab shows (filtered or not), and "Close at market" closes the
-selected position. Both ask first (`account_tab_confirmations.py`); the
-cancel of one row stays `OpenOrdersPanel`'s.
+**Two actions join the existing panels' own**: "Cancel all orders" cancels
+the open orders the table shows (filtered or not), and "Close position"
+closes the selected position at market. Both ask first, with their verbs
+(`account_tab_confirmations.py`); the cancel of one row stays
+`OpenOrdersPanel`'s. Since `EPIC-033I` stage 3 the three are the Trade
+menu's commands (`menu_actions()`), repeated in the rows' context menus;
+the tables have no toolbar.
 """
 
 from __future__ import annotations
@@ -40,9 +43,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_clos
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_confirmations import (
     AccountTabConfirmations,
-    ask_with_message_box,
-    cancel_all_question,
-    close_position_question,
+    ask_to_cancel_all,
+    ask_to_close,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_panel import (
     HistoryPanel,
@@ -80,10 +82,14 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
 
-_CANCEL_ALL_TEXT = "Cancel all"
-_CLOSE_TEXT = "Close at market"
+_CANCEL_ALL_TEXT = "Cancel all orders"
+_CLOSE_TEXT = "Close position"
 
 
+#: The keys of `menu_actions()`.
+CANCEL_ORDER_ACTION = "cancel_order"
+CANCEL_ALL_ACTION = "cancel_all"
+CLOSE_POSITION_ACTION = "close_position"
 #: The title of each table's panel, by what it lists.
 OPEN_ORDERS_TITLE = "Open orders"
 ORDER_HISTORY_TITLE = "Order history"
@@ -125,12 +131,10 @@ class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
         self._open_orders_panel = OpenOrdersPanel(confirm_cancel=asks.cancel_one)
         # Asked over the panel the person acted in: this object is not drawn.
         self._confirm_cancel_all = asks.cancel_all or (
-            lambda rows: ask_with_message_box(
-                self._open_orders_panel, _CANCEL_ALL_TEXT, cancel_all_question(rows)
-            )
+            lambda rows: ask_to_cancel_all(self._open_orders_panel, rows)
         )
         self._open_orders_panel.cancelRequested.connect(self.cancelRequested)
-        self._cancel_all = QAction(f"{_CANCEL_ALL_TEXT}...", self)
+        self._cancel_all = QAction(_CANCEL_ALL_TEXT, self)
         self._cancel_all.setObjectName("actCancelAllOrders")
         self._cancel_all.setToolTip("Cancel every open order this tab shows")
         self._cancel_all.triggered.connect(self._request_cancel_all)
@@ -138,11 +142,9 @@ class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
 
         self._positions_panel = PositionsPanel()
         self._confirm_close = asks.close_position or (
-            lambda row: ask_with_message_box(
-                self._positions_panel, _CLOSE_TEXT, close_position_question(row)
-            )
+            lambda row: ask_to_close(self._positions_panel, row)
         )
-        self._close = QAction(f"{_CLOSE_TEXT}...", self)
+        self._close = QAction(_CLOSE_TEXT, self)
         self._close.setObjectName("actClosePosition")
         self._close.setToolTip("Close the selected position with a market order")
         self._close.triggered.connect(self._request_close)
@@ -192,6 +194,18 @@ class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
         self._positions_panel.use_precisions(precisions)
         for panel in self._histories.values():
             panel.use_precisions(precisions)
+
+    def menu_actions(self) -> dict[str, QAction]:
+        """The tables' own actions the Trade menu drives, by what they do
+        (`trade_command_binding.py`): cancel the selected order, cancel the
+        orders shown and, where positions are held, close the selected one."""
+        actions = {
+            CANCEL_ORDER_ACTION: self._open_orders_panel.cancel_action,
+            CANCEL_ALL_ACTION: self._cancel_all,
+        }
+        if self._held_tab is HeldTab.POSITIONS:
+            actions[CLOSE_POSITION_ACTION] = self._close
+        return actions
 
     def panels(self) -> tuple[tuple[str, QWidget], ...]:
         """Each table's panel and its title, in HLD §11.2.1's order: what

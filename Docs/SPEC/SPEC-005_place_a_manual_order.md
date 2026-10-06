@@ -48,8 +48,8 @@ goes."*
 5. To go further without sending anything, the actor runs `order-dry-run`: the app sends the
    normalised order to the exchange's **test** endpoint, which validates the signature,
    permissions and payload and creates nothing.
-6. To submit, the actor confirms a live order — the panel's Buy/Long or Sell/Short, then Yes in
-   the confirmation that names the order, or
+6. To submit, the actor confirms a live order — the panel's Buy/Long or Sell/Short, then Place
+   order in the confirmation that names the order (Cancel is its default, `EPIC-033I`), or
    `trade-once --live`. The
    app then runs, in order and under one guard held across the whole decision:
    1. **three safety gates** — the venue is enabled, the trading switch is on, the connection is

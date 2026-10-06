@@ -61,7 +61,12 @@ class TradePresenter(CommandPresenter):
             self.desks[venue] = DeskPresenter(
                 page, container, profile, dependencies.desk(venue)
             )
-        self.commands = TradeCommandBinding(self.desks, self.choice, self)
+        self.commands = TradeCommandBinding(
+            self.desks,
+            self.choice,
+            dependencies.confirm_enable or view.ask_to_enable,
+            self,
+        )
         self.choice.changed.connect(self._show)
         if self.choice.current is not None:
             view.show_venue(self.choice.current)

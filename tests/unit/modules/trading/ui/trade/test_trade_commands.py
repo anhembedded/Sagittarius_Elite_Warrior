@@ -11,6 +11,9 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
+    CANCEL_ALL,
+    CANCEL_ORDER,
+    CLOSE_POSITION,
     EMERGENCY_STOP,
     ENABLE_TRADING,
     HIDE_OTHER_PAIRS,
@@ -55,6 +58,9 @@ def test_the_trade_menu_reads_as_the_catalogue_lists_it() -> None:
         "&Spot",
         "&Enable live trading",
         "&New order…",
+        "Cancel &order",
+        "Cancel a&ll orders",
+        "&Close position",
         "Emergency &stop",
     ]
 
@@ -124,3 +130,23 @@ def test_hide_other_pairs_is_a_checkable_view_command_of_the_mode() -> None:
 
     assert hide.menu_path == ("&View",)
     assert (hide.mode, hide.checkable, hide.on_toolbar) == (TRADE_ROUTE, True, False)
+
+
+def test_the_table_commands_take_their_keys_and_ask_through_their_tables() -> None:
+    """Cancel order is the platform's Delete; Cancel all orders is on the
+    toolbar; each asks with its own verbs in its table's dialog, so none
+    declares the Engine's confirmation."""
+    commands = _by_id((FUTURES,))
+    cancel, cancel_all, close = (
+        commands[CANCEL_ORDER],
+        commands[CANCEL_ALL],
+        commands[CLOSE_POSITION],
+    )
+
+    assert cancel.standard_shortcut == "Delete"
+    assert cancel_all.on_toolbar
+    assert not close.on_toolbar
+    for command in (cancel, cancel_all, close):
+        assert command.mode == TRADE_ROUTE
+        assert command.confirm is None
+        assert not command.needs_input

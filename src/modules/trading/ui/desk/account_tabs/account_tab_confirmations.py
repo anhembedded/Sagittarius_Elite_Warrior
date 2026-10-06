@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -22,6 +22,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     write_value,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
+    VerbQuestion,
+    ask_with_verbs,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
@@ -56,12 +60,27 @@ def close_position_question(row: PositionRow) -> str:
     )
 
 
-def ask_with_message_box(parent: QWidget, title: str, question: str) -> bool:
-    answer = QMessageBox.question(
+def ask_to_cancel_all(parent: QWidget, rows: Sequence[OpenOrderRow]) -> bool:
+    """Cancel all orders, asked with its verbs, Keep orders the default."""
+    return ask_with_verbs(
         parent,
-        title,
-        question,
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        QMessageBox.StandardButton.No,
+        VerbQuestion(
+            title="Cancel All Orders",
+            question=cancel_all_question(rows),
+            act="Cancel all orders",
+            keep="Keep orders",
+        ),
     )
-    return answer == QMessageBox.StandardButton.Yes
+
+
+def ask_to_close(parent: QWidget, row: PositionRow) -> bool:
+    """Close position, asked with its verbs, Keep position the default."""
+    return ask_with_verbs(
+        parent,
+        VerbQuestion(
+            title="Close Position",
+            question=close_position_question(row),
+            act="Close position",
+            keep="Keep position",
+        ),
+    )

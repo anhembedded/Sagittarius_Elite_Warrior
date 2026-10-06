@@ -70,7 +70,9 @@ def bind_desk_actions(owner: QWidget, presenter: DeskPresenter) -> DeskActions:
     confirmer = RecordingConfirmer()
     binding_owner = QObject(owner)
     choice = VenueChoice((venue,), None, binding_owner)
-    binding = TradeCommandBinding({venue: presenter}, choice, binding_owner)
+    binding = TradeCommandBinding(
+        {venue: presenter}, choice, lambda _title: True, binding_owner
+    )
 
     def bind(binder: ICommandBinder) -> None:
         choice.bind_commands(binder)

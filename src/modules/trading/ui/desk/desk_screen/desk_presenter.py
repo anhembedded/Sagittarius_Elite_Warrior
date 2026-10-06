@@ -36,6 +36,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.account_summary_presenter import (
     AccountSummaryPresenter,
@@ -245,6 +246,15 @@ class DeskPresenter(BasePresenter):
     def request_new_order(self) -> None:
         """New order…: the keyboard focus to the order entry's first field."""
         self.orders.request_focus()
+
+    @property
+    def title(self) -> str:
+        """The venue's title, as the Trade menu names it."""
+        return self._profile.title
+
+    def table_actions(self) -> dict[str, QAction]:
+        """The account tables' actions the Trade menu drives."""
+        return self.view.account_tabs.menu_actions()
 
     @property
     def hides_other_pairs(self) -> bool:
