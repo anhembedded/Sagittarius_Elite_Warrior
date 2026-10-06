@@ -1,6 +1,6 @@
 # EPIC-033I — Trade mode: one mode for both venues, laid out as HLD §11.2.1 designs it
 
-**Status:** 🔵 Backlog
+**Status:** 🔵 Backlog (planned in 4 stages)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🔴 — the money-moving mode
 **Complexity:** L
@@ -32,6 +32,16 @@ The mode's wireframe approved in EPIC-033O is the design; this task builds it on
 
 ## 5. Testing
 Integration: conformance suite for the mode, the SPEC journeys. Desktop E2E: open, use, rearrange, restart.
+
+## Stages
+Reviewable pull requests, as `EPIC-033L` (Backtest) and `EPIC-033K` (Bots) were delivered. Each leaves the app working.
+
+| Stage | Pull request | What |
+| :--- | :--- | :--- |
+| 1 | this task's first PR | **One Trade mode** (`trade`, the default mode) replaces the routes `trading.futures` and `trading.spot`. One page per enabled venue, each a `WorkbenchSurface` of its own (`trade.<venue>`) so each keeps its own saved layout; the shell's mode host follows the page shown (`ISurfaceStack`). The page: the chart central; the symbol and the status line on its header toolbar; Order entry above Account summary on the right; Account (today's tab panel), Equity and Strategy tabbed at the bottom. Trade → Venue › Futures, Spot (only enabled venues, exclusive, remembered) on the mode's toolbar; Enable live trading and New order… (F9) act on the venue chosen; Emergency stop (F8) is on every mode's toolbar and stops every enabled venue. The desks' screens, factories, command file and disabled-desk presenter are deleted; their `no_style_sheet` baseline rows go. |
+| 2 | next | **The bottom panels HLD §11.2.1 lists.** The account tab panel becomes Positions (Futures) or Assets (Spot), Open orders, Order history and Trade history docks, tabbed with Equity, each table from its column specs; "Hide other pairs" becomes a checkable command; the tables' outcome line moves to the venue's status line. |
+| 3 | next | **The Trade menu complete, and its confirmations.** Cancel order (Del) and Cancel all orders (toolbar) become Trade menu commands acting on the chosen venue's Open orders, and Close position… on its Positions; the tables' own toolbars go, which takes the mode's `failing_with_venues` baseline rows to zero. Every confirmation of the mode asks with its verb and the safe default, never OK/Cancel or Yes/No: Place order (today a Yes/No box), Cancel order, Cancel all, Close position, and Enable live trading on enable only (HLD §11.2.3), which the Engine's action confirms on every trigger today. |
+| 4 | last | **Close.** The Strategy panel leaves with arming (`EPIC-033K` stage 3, coordinated: the Bots mode lists an armed strategy per venue); the SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart); the user's Testnet round trip per venue; the task closes. |
 
 ## Implementation notes (written when done)
 Not started.
