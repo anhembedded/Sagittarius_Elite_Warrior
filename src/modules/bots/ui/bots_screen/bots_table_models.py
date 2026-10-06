@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import Tone, tone_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -72,7 +69,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
             row.venue.value,
             row.symbol,
             state_text(row.state),
-            display_number(row.progress.realised_profit if row.progress else None),
+            row.progress.realised_profit if row.progress else None,
         )
         return values[column]
 
@@ -97,9 +94,9 @@ class BotOrdersTableModel(RowTableModel[BotOrderLine]):
         values: tuple[DisplayValue, ...] = (
             row.level,
             row.side.capitalize(),
-            display_number(row.price),
-            display_number(row.quantity),
-            display_number(row.executed),
+            row.price,
+            row.quantity,
+            row.executed,
             row.client_order_id,
         )
         return values[column]
@@ -118,8 +115,8 @@ class BotFillsTableModel(RowTableModel[BotFill]):
         values: tuple[DisplayValue, ...] = (
             row.time,
             row.side.capitalize(),
-            display_number(row.price),
-            display_number(row.quantity),
+            row.price,
+            row.quantity,
             row.client_order_id,
         )
         return values[column]

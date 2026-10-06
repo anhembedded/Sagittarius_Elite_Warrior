@@ -143,12 +143,14 @@ class _StampsModel(RowTableModel[_Stamp]):
 
 
 def test_a_timestamp_column_sorts_by_time_and_still_reads_as_a_timestamp(qapp):
-    """Review of PR #351: a Python `datetime` reaches Qt as an opaque object
-    the proxy cannot order, so a timestamp column did not sort at all."""
+    """Review of PR #351: Qt's own proxy cannot order a Python `datetime`, so
+    a timestamp column did not sort at all. The Engine's `SpecProxyModel`
+    orders the raw moment, so the cell holds the `datetime` itself."""
     table = SpecTable(_StampsModel(), object_name="tblStamps", empty_text="None.")
+    first = datetime(2026, 1, 6, tzinfo=UTC)
     table.model.set_rows(
         [
-            _Stamp("c", datetime(2026, 1, 6, tzinfo=UTC)),
+            _Stamp("c", first),
             # A naive moment reads as UTC, this application's convention.
             _Stamp("a", datetime(2026, 1, 2, tzinfo=UTC).replace(tzinfo=None)),
             _Stamp("e", None),
@@ -156,6 +158,7 @@ def test_a_timestamp_column_sorts_by_time_and_still_reads_as_a_timestamp(qapp):
             _Stamp("b", datetime(2026, 1, 4, tzinfo=UTC)),
         ]
     )
+    assert table.model.data(table.model.index(0, 1)) == first
 
     table.view.sortByColumn(1, Qt.SortOrder.AscendingOrder)
     ascending = [table.text(row, 0) for row in range(5)]
@@ -267,3 +270,40 @@ def test_filters_that_become_known_rewrite_the_cells(qapp):
 
     assert changed
     assert table.text(1, 1) == "64,250"
+
+
+@dataclass(frozen=True)
+class _Lot:
+    name: str
+    size: Decimal | None
+
+
+class _LotsModel(RowTableModel[_Lot]):
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("name", "Name", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("size", "Size", ColumnKind.QUANTITY),
+    )
+
+    def _value(self, row: _Lot, column: int) -> DisplayValue:
+        return (row.name, row.size)[column]
+
+
+def test_a_decimal_column_holds_the_decimal_and_sorts_by_value(qapp):
+    """A `Decimal` reaches the cell exactly, never through a float, and sorts
+    as a number: `10` after `9.5`, which text would put first."""
+    table = SpecTable(_LotsModel(), object_name="tblLots", empty_text="None.")
+    table.model.set_rows(
+        [
+            _Lot("c", Decimal(10)),
+            _Lot("a", Decimal("-0.1")),
+            _Lot("d", None),
+            _Lot("b", Decimal("9.5")),
+        ]
+    )
+
+    table.sort_by(_LotsModel.column("size"))
+
+    assert [table.text(row, 0) for row in range(4)] == ["a", "b", "c", "d"]
+    held = table.model.data(table.model.index(0, 1))
+    assert isinstance(held, Decimal)
+    assert held == Decimal(10)

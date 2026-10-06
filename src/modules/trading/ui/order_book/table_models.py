@@ -63,9 +63,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
     PositionRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -101,12 +98,12 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         values: tuple[DisplayValue, ...] = (
             row.symbol,
             row.side.value.upper(),
-            display_number(row.quantity),
-            display_number(row.entry_price),
-            display_number(row.mark_price),
-            display_number(row.unrealized_pnl),
+            row.quantity,
+            row.entry_price,
+            row.mark_price,
+            row.unrealized_pnl,
             row.leverage,
-            display_number(row.liquidation_price),
+            row.liquidation_price,
         )
         return values[column]
 
@@ -144,8 +141,8 @@ class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):
             row.symbol,
             row.side.value.upper(),
             row.order_type,
-            display_number(row.quantity),
-            display_number(row.price),
+            row.quantity,
+            row.price,
             row.status,
             row.order_time,
         )
@@ -174,8 +171,8 @@ class HoldingsTableModel(RowTableModel[HoldingRow]):
     def _value(self, row: HoldingRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
             row.asset,
-            display_number(row.free),
-            display_number(row.locked),
-            display_number(row.value),
+            row.free,
+            row.locked,
+            row.value,
         )
         return values[column]

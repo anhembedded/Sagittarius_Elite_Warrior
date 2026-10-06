@@ -57,14 +57,13 @@ every value itself — which is how one price came to print two ways on two
 screens. `SORT_ROLE`, `as_number()`, `HEADERS`, `RIGHT_ALIGNED`,
 `_display_text()` and `_sort_value()` are gone with that.
 
-@par A moment is a number to Qt
-Qt compares a cell's value to sort it, and a Python `datetime` reaches it as
-an opaque object it cannot order — the first version of this class handed it
-over as is, and no timestamp column sorted (the review of PR #351). `data()`
-therefore serves a `datetime` as its POSIX seconds, a float Qt orders; a naive
-one is UTC, this application's convention. The formatter writes a number in a
-`TIMESTAMP` column as the moment it is. One place, for every table; a subclass
-still returns the `datetime` its row holds.
+@par Raw values sort as themselves
+Qt's own `lessThan` cannot order a Python `datetime` or `Decimal`, so this
+class once served a moment as POSIX seconds and its subclasses a `Decimal` as
+a float (the review of PR #351). The Engine's `SpecProxyModel` now orders
+every display value itself — numbers and `Decimal`s by value, `datetime`s by
+moment (a naive one as UTC), `None` last — so `data()` serves the value the
+row holds, exactly.
 
 @par Precision per symbol (`EPIC-033N`)
 A price is quoted in its symbol's tick size and a quantity traded in its step
@@ -94,7 +93,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from typing import ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QObject, Qt
@@ -112,14 +110,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     DisplayValue,
     Precision,
 )
-
-
-def _sortable(value: DisplayValue) -> DisplayValue:
-    """A `datetime` as POSIX seconds, which Qt can order; anything else as is."""
-    if isinstance(value, datetime):
-        moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
-        return moment.timestamp()
-    return value
 
 
 class RowTableModel[TRow](QAbstractTableModel):
@@ -189,7 +179,7 @@ class RowTableModel[TRow](QAbstractTableModel):
         if row is None:
             return None
         if role == Qt.ItemDataRole.DisplayRole:
-            return _sortable(self._value(row, index.column()))
+            return self._value(row, index.column())
         if role == PRECISION_ROLE:
             return self._precision(row, index.column())
         return self._role_data(row, index.column(), role)

@@ -16,7 +16,7 @@ one screen and four on another.
 | quantity | up to eight decimals, trailing zeros dropped | `1,250`, `0.0015` |
 | money | two decimals | `1,234.56`, `-9.00` |
 | percent | two decimals and `%` | `12.50%` |
-| timestamp (a `datetime`, or POSIX seconds) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
+| timestamp (a `datetime`; a naive one is UTC) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
 | duration | `h:mm:ss` | `1:05:00` |
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
 | text, side, status | as given | `LONG` |
@@ -44,14 +44,12 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Final
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,
-    format_display_timestamp,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -123,9 +121,6 @@ class AppValueFormatter:
             return ""
         if isinstance(value, datetime):
             return format_display_datetime(value, tz_name=self._time_zone)
-        if kind is ColumnKind.TIMESTAMP and isinstance(value, int | float):
-            # A table cell holds a moment as POSIX seconds (`RowTableModel`).
-            return format_display_timestamp(float(value), tz_name=self._time_zone)
         if (
             kind is ColumnKind.DURATION
             and context.key == TIMEFRAME_KEY
@@ -171,16 +166,6 @@ class ZonedValueFormatter:
         self, kind: ColumnKind, value: DisplayValue, context: FormatContext
     ) -> str:
         return AppValueFormatter(self._time_zone()).format(kind, value, context)
-
-
-def display_number(value: Decimal | None) -> float | None:
-    """A domain `Decimal` as the float a table cell holds.
-
-    Qt compares a cell's value to sort it, and it can compare a float but not
-    a wrapped Python `Decimal`. A float holds every digit the formatter
-    writes; the `Decimal` stays the truth everywhere a value is computed.
-    """
-    return None if value is None else float(value)
 
 
 def write_value(kind: ColumnKind, value: DisplayValue, key: str = "") -> str:

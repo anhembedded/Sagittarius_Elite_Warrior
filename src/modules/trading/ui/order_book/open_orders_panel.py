@@ -44,7 +44,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -62,9 +61,9 @@ type ConfirmCancel = Callable[[OpenOrderRow], bool]
 def cancel_question(row: OpenOrderRow) -> str:
     """What the confirmation asks, with the order's values written as the
     table writes them; a market order has no price to name."""
-    quantity = write_value(ColumnKind.QUANTITY, display_number(row.quantity))
+    quantity = write_value(ColumnKind.QUANTITY, row.quantity)
     at_price = (
-        f" @ {write_value(ColumnKind.PRICE, display_number(row.price))}"
+        f" @ {write_value(ColumnKind.PRICE, row.price)}"
         if row.price is not None
         else ""
     )

@@ -20,9 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
     SideFigures,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 
 #: The key of the estimated liquidation price row, which carries a tooltip.
@@ -70,13 +67,11 @@ def side_readout(figures: SideFigures | None, units: SideUnits) -> Readout:
         return Readout(tuple(specs), {spec.key: None for spec in specs})
     liquidation = figures.liquidation.price if figures.liquidation else None
     values = {
-        "available": display_number(figures.available),
-        "maximum": display_number(
-            figures.max_total if by_quote else figures.max_quantity
-        ),
-        "total": display_number(figures.total),
-        "fee": display_number(figures.fee),
-        "cost": display_number(figures.cost),
-        LIQUIDATION_KEY: display_number(liquidation),
+        "available": figures.available,
+        "maximum": figures.max_total if by_quote else figures.max_quantity,
+        "total": figures.total,
+        "fee": figures.fee,
+        "cost": figures.cost,
+        LIQUIDATION_KEY: liquidation,
     }
     return Readout(tuple(specs), {spec.key: values[spec.key] for spec in specs})

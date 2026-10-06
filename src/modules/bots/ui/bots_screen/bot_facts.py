@@ -27,7 +27,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     KIND_CAPITAL_KEYS,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -37,11 +36,11 @@ NO_VALUE = "—"
 
 
 def _price(value: Decimal | None) -> str:
-    return write_value(ColumnKind.PRICE, display_number(value))
+    return write_value(ColumnKind.PRICE, value)
 
 
 def _quantity(value: Decimal) -> str:
-    return write_value(ColumnKind.QUANTITY, display_number(value))
+    return write_value(ColumnKind.QUANTITY, value)
 
 
 def _money(value: Decimal | None) -> str:
