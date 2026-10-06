@@ -35,7 +35,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -74,17 +73,11 @@ from .market_chart import ChartSources, MarketChart
 from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
 from .market_dependencies import MarketDependencies, market_dependencies_for
-from .market_metadata_precisions import MarketMetadataPrecisions
 from .market_view import IndicatorChoice, MarketView
-from .watchlist_filters import WatchlistFilters
+from .watchlist_stream import WATCHLIST_INTERVAL, WatchlistStream
 
 logger = logging.getLogger("App.Trading.Market")
 
-#: The Watchlist's own owner on `IMarketStream`; each chart has its own
-#: (`market_chart.stream_owner_for`).
-WATCHLIST_STREAM_OWNER = "market.watchlist"
-#: The Watchlist's candles: a row's change is its minute's change.
-WATCHLIST_INTERVAL = TimeFrame.ONE_MINUTE
 _CHECK = "check_connection"
 _NOT_LIVE = "Market data: not live. Choose Market on the mode bar to start."
 
@@ -123,7 +116,9 @@ class MarketPresenter(CommandPresenter):
         )
         self._params.edited.connect(self._redraw_indicator)
         view.watchlist.set_symbols(list(dependencies.symbols))
-        self._filters = self._watchlist_filters(dependencies)
+        self._watchlist = WatchlistStream(
+            view, dependencies, lambda: self.choice.current
+        )
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
         view.set_stream_text("Market data: not live")
@@ -157,17 +152,26 @@ class MarketPresenter(CommandPresenter):
 
     def on_mode_shown(self, source: NavigationSource) -> None:
         """`IShownAsMode`: the first showing opens a chart from local history;
-        the user's own open starts the stream (`BUG-104`)."""
+        the user's own open starts the stream (`BUG-104`); a return after
+        leaving restarts the one it released (`BOT-165`)."""
         if not self._opened:
             self._opened = True
             if self._deps.symbols:
                 self._open_chart(self._deps.symbols[0])
         if self._live:
+            if not self._watchlist.running:
+                self._watchlist.start()
             return
         if source is not NavigationSource.USER_INTENT:
             self.view.set_stream_text(_NOT_LIVE)
             return
         self._go_live()
+
+    def on_mode_hidden(self) -> None:
+        """`IHiddenAsMode` (`BOT-165`): releases the Watchlist's own owner
+        only; a chart, a bot or an armed strategy holding the same symbol
+        keeps its stream (`IMarketStream.stop` is per owner)."""
+        self._watchlist.pause()
 
     @property
     def charts(self) -> dict[str, MarketChart]:
@@ -177,12 +181,11 @@ class MarketPresenter(CommandPresenter):
         """Releases this mode's streams — the Watchlist's and each chart's,
         never another mode's (each owner is this mode's own)."""
         self._checks.invalidate_active()
-        if self._filters is not None:
-            self._filters.drop()
+        self._watchlist.drop_filters()
         for chart in self._charts.values():
             chart.shutdown()
             chart.release_stream()
-        self._deps.stream.stop(WATCHLIST_STREAM_OWNER)
+        self._watchlist.release()
 
     # -- View → Spot market, Futures market (`EPIC-033Q`) ----------------------------------
 
@@ -196,8 +199,8 @@ class MarketPresenter(CommandPresenter):
         for symbol in symbols:
             self._close_chart(symbol)
         self.view.watchlist.set_symbols(list(self._deps.symbols))
-        if self._live:
-            self._start_watchlist_stream()
+        if self._watchlist.running:
+            self._watchlist.start()
         for symbol in symbols:
             self._open_chart(symbol)
         if current:
@@ -319,47 +322,11 @@ class MarketPresenter(CommandPresenter):
 
     # -- the stream -------------------------------------------------------------
 
-    def _watchlist_filters(self, deps: MarketDependencies) -> WatchlistFilters | None:
-        """The Watchlist writes prices and volumes in the chosen market's
-        tick and step sizes, read once it goes live (`EPIC-033N`)."""
-        if deps.filters is None:
-            return None
-        watchlist = self.view.watchlist
-        watchlist.use_precisions(
-            MarketMetadataPrecisions(deps.filters.cache, lambda: self.choice.current)
-        )
-        filters = WatchlistFilters(deps.filters.provider, deps.thread_manager)
-        filters.fetched.connect(watchlist.refresh_precisions)
-        return filters
-
     def _go_live(self) -> None:
         self._live = True
-        self._start_watchlist_stream()
+        self._watchlist.start()
         for chart in self._charts.values():
             chart.go_live()
-
-    def _start_watchlist_stream(self) -> None:
-        """Streams the chosen market's symbols; a second start replaces the
-        first (`IMarketStream.start`), so a new market needs no stop."""
-        symbols = list(self._deps.symbols)
-        outcome = self._deps.stream.start(
-            WATCHLIST_STREAM_OWNER, self.choice.current, symbols, WATCHLIST_INTERVAL
-        )
-        if outcome.success:
-            if self._filters is not None:
-                self._filters.fetch(self.choice.current, self._deps.symbols)
-            self.view.set_stream_text("Market data: live")
-            self.view.log.append(f"Live for {', '.join(symbols)}.")
-            return
-        # SPEC-002 §4/§5: a stream that did not start says so, or it reads
-        # as "no tick yet".
-        logger.warning(
-            "[market] watchlist stream did not start for %s: %s",
-            symbols,
-            outcome.message,
-        )
-        self.view.set_stream_text("Market data: failed to start")
-        self.view.log.append(f"Failed to start stream: {outcome.message}", "error")
 
     def _on_tick(self, event: MarketTickEvent) -> None:
         if event.market_type is not self.choice.current:

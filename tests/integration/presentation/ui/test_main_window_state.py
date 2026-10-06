@@ -37,14 +37,16 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QDockWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
-    WATCHLIST_STREAM_OWNER,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
     MARKET_ROUTE,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_stream import (
+    WATCHLIST_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
@@ -229,6 +231,36 @@ def test_a_click_on_the_market_mode_starts_its_watchlist_stream(windows, market_
     window.switch_screen(MARKET_ROUTE)
 
     assert _watchlist_streams(market_stream) is True
+
+
+def test_leaving_the_market_mode_stops_its_watchlist_and_returning_starts_it(
+    windows, market_stream
+):
+    """`BOT-165` on the composed window: the shell tells the mode it leaves,
+    and only the Watchlist's own owner is released."""
+    window = windows.open()
+    window.switch_screen(MARKET_ROUTE)
+    assert market_stream.held_by(WATCHLIST_STREAM_OWNER) is not None
+
+    window.switch_screen("trade")
+
+    assert market_stream.held_by(WATCHLIST_STREAM_OWNER) is None
+    assert ("stop", WATCHLIST_STREAM_OWNER) in market_stream.calls
+
+    window.switch_screen(MARKET_ROUTE)
+
+    assert market_stream.held_by(WATCHLIST_STREAM_OWNER) is not None
+
+
+def test_leaving_the_market_mode_keeps_another_owners_stream(windows, market_stream):
+    window = windows.open()
+    window.switch_screen(MARKET_ROUTE)
+    market_stream.start("bot.other", MarketType.SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+
+    window.switch_screen("trade")
+
+    assert market_stream.held_by("bot.other") is not None
+    assert ("stop", "bot.other") not in market_stream.calls
 
 
 @pytest.mark.parametrize("retired", ["trading", "trading.futures", "trading.spot"])

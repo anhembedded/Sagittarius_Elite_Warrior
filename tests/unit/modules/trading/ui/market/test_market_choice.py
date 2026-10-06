@@ -25,11 +25,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands imp
     market_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
-    WATCHLIST_STREAM_OWNER,
     MarketPresenter,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
     MARKET_ROUTE,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_stream import (
+    WATCHLIST_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
     InMemoryStateStore,
