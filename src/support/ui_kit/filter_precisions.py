@@ -14,15 +14,23 @@ shaped.
 @par Why it lives in `support/ui_kit`
 Two modules write a venue's filters into their tables: trading (the desk's
 account tabs) and bots (a bot's orders and fills). `support/ui_kit` imports
-no module, so the cache is described here by the two members a table needs
-(`SymbolFilterSource`), which the trading contract has; it was trading's own
-`OrderMetadataPrecisions` until the Bots mode needed the same reading.
+no module, so the cache is described here by the two members a table needs.
+
+@par Why `SymbolFilterSource` and `SymbolFilters` are Protocols
+`architecture-rule.md` §2's reason (b), a second base the rules forbid. The
+cache's implementers (`InMemorySymbolOrderMetadataCache`, the testing
+`UnarrangedMetadataCache`) already derive from trading's
+`ISymbolOrderMetadataCache`, and §2 allows no second base. The filters'
+implementer, `SymbolOrderMetadata`, is a trading contract, and a contract
+imports only the shared kernel
+(`test_module_inside_imports_only_the_shared_kernel.py`), so it cannot derive
+from a class here.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
@@ -30,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import Precision
 
 
+@runtime_checkable
 class SymbolFilters(Protocol):
     """One symbol's price and quantity filters, as an exchange states them."""
 
@@ -40,6 +49,7 @@ class SymbolFilters(Protocol):
     def step_size(self) -> Decimal: ...
 
 
+@runtime_checkable
 class SymbolFilterSource(Protocol):
     """One venue's cached filters: a symbol's, or `None` while unknown."""
 
