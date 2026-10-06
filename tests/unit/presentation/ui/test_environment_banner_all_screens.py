@@ -18,7 +18,7 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QToolBar, QWidget
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
@@ -67,6 +67,38 @@ def test_every_screen_shows_the_environment_banner(
             f"itself, `WorkbenchSurface`, so this means that screen's View "
             f"builds none, or builds a layout of its own."
         )
+    finally:
+        view.deleteLater()
+        qapp.processEvents()
+
+
+@pytest.mark.parametrize("route", _navigable_routes())
+def test_the_user_can_neither_move_nor_hide_the_banner(
+    qapp, route, _environment_banner_factory_registered
+) -> None:
+    """A warning the user can switch off stops working. The banner row was
+    locked in place but still listed in the toolbar menu every `QMainWindow`
+    offers on a right click, so one click hid it; a restart showed it again,
+    which is how the workbench's desktop E2E found it (`EPIC-033I`)."""
+    from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+
+    view = real_screen_registry(Mock()).get(route).view_factory()
+    try:
+        surface = view.findChild(WorkbenchSurface)
+        banners = [
+            bar
+            for bar in surface.findChildren(QToolBar)
+            if bar.objectName().endswith("::environment")
+        ]
+        assert banners, f"{route}: no environment banner row"
+        menu = surface.createPopupMenu()
+        actions = menu.actions() if menu else []
+        listed = [action.text() for action in actions if action.isVisible()]
+        for banner in banners:
+            assert (banner.isMovable(), banner.isFloatable()) == (False, False)
+            assert banner.toggleViewAction().text() not in listed, (
+                f"{route}: the right-click toolbar menu can hide the banner"
+            )
     finally:
         view.deleteLater()
         qapp.processEvents()

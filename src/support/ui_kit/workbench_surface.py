@@ -203,7 +203,7 @@ class WorkbenchSurface(RegionHost):
         `QMainWindow` has no layout of its own to put one in, and the top
         toolbar area is the part of a `QMainWindow` that spans the full width
         above everything else. Not movable and not floatable — a warning the
-        user can drag into a corner is a warning that stops working.
+        user can drag into a corner, or switch off, is a warning that stops working.
         """
         factory = type(self)._environment_banner_factory
         if factory is None:
@@ -212,6 +212,9 @@ class WorkbenchSurface(RegionHost):
         self._banner.setObjectName(f"{self.objectName()}::environment")
         self._banner.setMovable(False)
         self._banner.setFloatable(False)
+        # Nor hidden: the right-click toolbar menu lists every toolbar's
+        # toggle, and a warning one click switches off stops working.
+        self._banner.toggleViewAction().setVisible(False)
         self._banner.addWidget(factory())
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._banner)
         self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
