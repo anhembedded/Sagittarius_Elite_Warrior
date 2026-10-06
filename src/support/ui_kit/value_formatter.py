@@ -19,6 +19,7 @@ one screen and four on another.
 | timestamp (a `datetime`; a naive one is UTC) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
 | duration | `h:mm:ss` | `1:05:00` |
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
+| quantity under a `ratio_key` (a ratio: Sharpe, profit factor) | two decimals; infinity reads `∞` | `1.50`, `-63.24`, `∞` |
 | text, side, status | as given | `LONG` |
 
 A timeframe is a duration — it sorts by length, so `1m` comes before `15m`
@@ -63,6 +64,27 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 #: in seconds (`ColumnKind.DURATION`).
 TIMEFRAME_KEY: Final = "timeframe"
 
+#: The last part of the key of a column, or read-out row, that holds a ratio of
+#: two figures (`ColumnKind.QUANTITY`): a profit factor, a Sharpe ratio. It has
+#: no unit and a trader reads it to two decimals, not by magnitude; a profit
+#: factor with no losing trade is infinite, which reads `∞`. A read-out has
+#: several ratios and a key is unique in it, so a row says it with
+#: `ratio_key("sharpe")`, which is `"sharpe.ratio"`.
+RATIO_KEY: Final = "ratio"
+
+
+def ratio_key(name: str) -> str:
+    """The key of a read-out row named `name` that holds a ratio."""
+    return f"{name}.{RATIO_KEY}"
+
+
+def _is_ratio_key(key: str) -> bool:
+    return key == RATIO_KEY or key.endswith(f".{RATIO_KEY}")
+
+
+_INFINITY: Final = "∞"
+_RATIO_DECIMALS: Final = 2
+
 _TIMEFRAME_CODES: Final = {frame.to_seconds(): frame.value for frame in TimeFrame}
 
 #: The kinds a symbol's filters quantize: a price in ticks, a quantity in
@@ -101,6 +123,12 @@ def _quantized_text(value: float, precision: Precision) -> str:
     return f"{precision.quantize(value):,.{precision.decimals}f}"
 
 
+def _ratio_text(value: float) -> str:
+    if math.isinf(value):
+        return _INFINITY if value > 0 else f"-{_INFINITY}"
+    return _without_negative_zero(f"{value:,.{_RATIO_DECIMALS}f}")
+
+
 def _quantity_text(value: float) -> str:
     return _without_negative_zero(
         _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
@@ -131,6 +159,8 @@ class AppValueFormatter:
         if isinstance(value, str | timedelta) or not kind.is_numeric:
             return self._plain.format(kind, value, context)
         number = float(value)
+        if kind is ColumnKind.QUANTITY and _is_ratio_key(context.key):
+            return _ratio_text(number)
         if (
             context.precision is not None
             and kind in _SYMBOL_QUANTIZED

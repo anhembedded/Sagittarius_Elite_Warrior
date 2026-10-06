@@ -8,8 +8,10 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    RATIO_KEY,
     TIMEFRAME_KEY,
     AppValueFormatter,
+    ratio_key,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -166,3 +168,45 @@ def test_a_precision_leaves_money_percent_and_non_finite_values_to_their_rules()
         ColumnKind.PRICE, float("inf")
     )
     assert _quoted(ColumnKind.PRICE, None, "0.01") == ""
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (1.5, "1.50"),
+        (2.0, "2.00"),
+        (1234.5678, "1,234.57"),
+        (-63.2412, "-63.24"),
+        (-0.001, "0.00"),
+        (0, "0.00"),
+        (float("inf"), "\u221e"),
+        (float("-inf"), "-\u221e"),
+    ],
+)
+def test_a_ratio_has_two_decimals_and_infinity_reads_as_the_symbol(value, expected):
+    formatter = AppValueFormatter()
+
+    assert (
+        formatter.format(ColumnKind.QUANTITY, value, FormatContext(ratio_key("sharpe")))
+        == expected
+    )
+
+
+def test_a_ratio_is_a_quantity_only_under_its_own_key():
+    # The same number in an ordinary quantity column keeps the magnitude rule.
+    assert _text(ColumnKind.QUANTITY, 1.5) == "1.5"
+
+
+def test_a_ratio_key_names_the_row_and_ends_in_the_rule():
+    formatter = AppValueFormatter()
+
+    assert ratio_key("sharpe") == "sharpe.ratio"
+    for key in (RATIO_KEY, ratio_key("profit_factor")):
+        assert (
+            formatter.format(ColumnKind.QUANTITY, 3.14159, FormatContext(key)) == "3.14"
+        )
+    # A key that only contains the word is an ordinary quantity.
+    assert (
+        formatter.format(ColumnKind.QUANTITY, 3.14159, FormatContext("ratio_x"))
+        == "3.14159"
+    )
