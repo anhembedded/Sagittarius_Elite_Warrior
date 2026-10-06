@@ -39,9 +39,9 @@ from .order_entry_fixtures import SYMBOL, spot_context
 
 def _panel(qtbot, *, loaded: bool = True, free_base: Decimal = Decimal("0.5")):
     vm = OrderEntryViewModel(desk_profile_for(TradingVenue.SPOT_TESTNET))
-    vm.begin_symbol(SYMBOL)
+    vm.presenter_side().begin_symbol(SYMBOL)
     if loaded:
-        vm.set_context(spot_context(free_base=free_base))
+        vm.presenter_side().set_context(spot_context(free_base=free_base))
     panel = OrderEntryPanel(vm)
     qtbot.addWidget(panel)
     return vm, panel
@@ -127,7 +127,7 @@ def test_a_busy_panel_locks_its_inputs_and_says_why(qtbot) -> None:
     qtbot.keyClicks(_child(panel, QLineEdit, "txtPriceBuy"), "100")
     qtbot.keyClicks(_child(panel, QLineEdit, "txtAmountBuy"), "1")
 
-    vm.set_busy(True, "Sending order...")
+    vm.presenter_side().set_busy(True, "Sending order...")
 
     assert not _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
     assert not _child(panel, QTabBar, "tabOrderType").isEnabled()
@@ -161,7 +161,7 @@ def test_the_stop_price_field_shows_only_on_the_stop_limit_tab(qtbot) -> None:
 
 def test_a_market_buy_takes_a_total_and_a_market_sell_an_amount(qtbot) -> None:
     vm, panel = _panel(qtbot)
-    vm.set_last_price(Decimal(250))
+    vm.presenter_side().set_last_price(Decimal(250))
     _child(panel, QTabBar, "tabOrderType").setCurrentIndex(1)
 
     total = _child(panel, QLineEdit, "txtTotalBuy")
@@ -196,8 +196,8 @@ def test_the_best_price_button_asks_for_its_side_and_hides_on_market(qtbot) -> N
 
 def test_the_maximum_respects_the_app_notional_limit(qtbot) -> None:
     vm = OrderEntryViewModel(desk_profile_for(TradingVenue.SPOT_TESTNET))
-    vm.begin_symbol(SYMBOL)
-    vm.set_context(spot_context(notional_limit=Decimal(500)))
+    vm.presenter_side().begin_symbol(SYMBOL)
+    vm.presenter_side().set_context(spot_context(notional_limit=Decimal(500)))
     panel = OrderEntryPanel(vm)
     qtbot.addWidget(panel)
 

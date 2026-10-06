@@ -54,7 +54,7 @@ def _click_box(qtbot, box: QCheckBox) -> None:
 
 def _panel(qtbot, venue: TradingVenue = TradingVenue.FUTURES_TESTNET):
     vm = OrderEntryViewModel(desk_profile_for(venue))
-    vm.begin_symbol("BTCUSDT")
+    vm.presenter_side().begin_symbol("BTCUSDT")
     panel = OrderEntryPanel(vm)
     qtbot.addWidget(panel)
     panel.show()
@@ -111,14 +111,14 @@ def test_reduce_only_is_one_box_for_both_sides(qtbot) -> None:
 
 def test_the_cost_and_the_liquidation_estimate_are_shown(qtbot) -> None:
     vm, panel = _panel(qtbot)
-    vm.set_context(
+    vm.presenter_side().set_context(
         futures_context(
             available=Decimal(100), reads=futures_reads(wallet=Decimal(100))
         )
     )
-    vm.set_last_price(MARK)
-    vm.set_price(EntrySide.BUY, "60000")
-    vm.set_quantity(EntrySide.BUY, "0.01")
+    vm.presenter_side().set_last_price(MARK)
+    vm.intents.set_price(EntrySide.BUY, "60000")
+    vm.intents.set_quantity(EntrySide.BUY, "0.01")
 
     figures = panel.findChild(ReadoutSlot, "roFiguresBuy")
     cost = figures.value_text("cost")

@@ -86,14 +86,14 @@ def test_the_first_field_follows_the_order_type(qtbot, venue) -> None:
     desk = _shown(qtbot, _desk(qtbot, venue))
     orders = desk.presenter.orders
 
-    orders.set_order_type(OrderType.MARKET)
+    orders.intents.set_order_type(OrderType.MARKET)
     desk.actions.new_order.trigger()
     amount = _field(desk, "txtAmountBuy")
     total = _field(desk, "txtTotalBuy")
     first = amount if amount.isVisible() else total
     qtbot.waitUntil(lambda: QApplication.focusWidget() is first)
 
-    orders.set_order_type(OrderType.STOP_LIMIT)
+    orders.intents.set_order_type(OrderType.STOP_LIMIT)
     desk.actions.new_order.trigger()
     stop = _field(desk, "txtStopPriceBuy")
     qtbot.waitUntil(lambda: QApplication.focusWidget() is stop)
@@ -103,7 +103,7 @@ def test_the_first_field_follows_the_order_type(qtbot, venue) -> None:
 def test_new_order_selects_what_the_first_field_holds(qtbot, venue) -> None:
     """Typing after F9 replaces the price instead of appending to it."""
     desk = _shown(qtbot, _desk(qtbot, venue))
-    desk.presenter.orders.set_price(EntrySide.BUY, "60000")
+    desk.presenter.orders.intents.set_price(EntrySide.BUY, "60000")
     price = _field(desk, "txtPriceBuy")
     assert price.text() == "60000"
 
@@ -121,10 +121,10 @@ def test_new_order_is_disabled_while_the_order_entry_cannot_take_an_order(
     orders = desk.presenter.orders
     new_order = desk.actions.new_order
 
-    orders.set_busy(True, "Placing the order...")
+    orders.presenter_side().set_busy(True, "Placing the order...")
     assert not new_order.isEnabled()
-    orders.show_result("Placed.", is_error=False)
+    orders.presenter_side().show_result("Placed.", is_error=False)
     assert new_order.isEnabled()
 
-    orders.begin_symbol("ETHUSDT")
+    orders.presenter_side().begin_symbol("ETHUSDT")
     assert not new_order.isEnabled()

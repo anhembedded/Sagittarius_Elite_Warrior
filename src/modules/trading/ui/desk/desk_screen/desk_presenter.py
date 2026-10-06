@@ -251,7 +251,7 @@ class DeskPresenter(BasePresenter):
 
     def request_new_order(self) -> None:
         """New order…: the keyboard focus to the order entry's first field."""
-        self.orders.request_focus()
+        self.orders.intents.request_focus()
 
     @property
     def title(self) -> str:

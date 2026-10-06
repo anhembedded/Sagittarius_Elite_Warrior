@@ -12,6 +12,11 @@ treating it as zero.
 Futures chips (`OrderOptionsViewModel`); the figures see a side's entry with
 those options folded in, and every change there repaints the panel too.
 
+`BOT-152`: the class holds the signals and the reads. What the user does to the
+panel is `intents` (`OrderEntryUserIntents`) and what the presenter tells it is
+`presenter_side()` (`OrderEntryPresenterWriter`), both over one shared
+`OrderEntryState`, so the view cannot call the presenter's writes.
+
 `EPIC-028O`: a side sized by quote (a Spot market buy) keeps a typed total
 instead of a quantity, and its slider moves the total; a stop-limit side keeps
 a stop price; the best-price button asks the presenter for the book through
@@ -20,7 +25,6 @@ a stop price; the best-price button asks the presenter for the book through
 
 from __future__ import annotations
 
-from dataclasses import replace
 from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
@@ -28,17 +32,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     DeskProfile,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_text import (
-    parse_amount,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_presenter_writer import (
+    OrderEntryPresenterWriter,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
-    QUOTE_STEP,
     EntrySide,
     OrderEntryContext,
     SideFigures,
     SideInput,
     percent_of_max,
-    quantity_at_percent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_state import (
+    OrderEntryState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_user_intents import (
+    OrderEntryUserIntents,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_options_view_model import (
     OrderOptionsViewModel,
@@ -46,14 +54,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_opt
 
 
 class OrderEntryViewModel(QObject):
-    """@brief The order panel's state, one instance per panel."""
+    """@brief The order panel's signals and reads, one instance per panel."""
 
     changed = Signal()
     #: A side's submit button was pressed; carries `EntrySide.value`.
     submitRequested = Signal(str)
     #: `EPIC-028O` — a side's best-price button was pressed; carries
     #: `EntrySide.value`. The presenter reads the book and answers with
-    #: `set_price_value`.
+    #: `OrderEntryPresenterWriter.set_price_value`.
     bestPriceRequested = Signal(str)
     #: `EPIC-033R` — New order… (F9) asks the panel to put the keyboard focus
     #: on its first field.
@@ -61,190 +69,87 @@ class OrderEntryViewModel(QObject):
 
     def __init__(self, profile: DeskProfile, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._profile = profile
-        self._order_type = profile.order_types[0]
-        self._symbol = ""
-        self._context: OrderEntryContext | None = None
-        self._last_price: Decimal | None = None
-        self._entries = {side: SideInput() for side in EntrySide}
-        self._busy = False
-        self._message = ""
-        self._message_is_error = False
-        self._loading = False
+        self._state = OrderEntryState(profile, profile.order_types[0])
         #: `EPIC-028I` — how this panel's orders are sent.
         self.options = OrderOptionsViewModel(self)
         self.options.changed.connect(self.changed)
+        #: `BOT-152` — what the user does to the panel.
+        self.intents = OrderEntryUserIntents(
+            self._state,
+            figures=self.figures,
+            changed=self.changed,
+            submit_requested=self.submitRequested,
+            best_price_requested=self.bestPriceRequested,
+            focus_requested=self.focusRequested,
+        )
+        self._presenter_side = OrderEntryPresenterWriter(
+            self._state, self.options, self.changed
+        )
 
-    # -- read ---------------------------------------------------------- #
+    def presenter_side(self) -> OrderEntryPresenterWriter:
+        """@return What the presenter tells the panel. Held by presenters and
+        their helpers only; a view has no use for it."""
+        return self._presenter_side
 
     @property
     def profile(self) -> DeskProfile:
-        return self._profile
+        return self._state.profile
 
     @property
     def order_symbol(self) -> str:
-        return self._symbol
+        return self._state.symbol
 
     @property
     def order_type(self) -> OrderType:
-        return self._order_type
+        return self._state.order_type
 
     @property
     def context(self) -> OrderEntryContext | None:
-        return self._context
+        return self._state.context
 
     @property
     def last_price(self) -> Decimal | None:
-        return self._last_price
+        return self._state.last_price
 
     @property
     def busy(self) -> bool:
-        return self._busy
+        return self._state.busy
 
     @property
     def can_take_order(self) -> bool:
         """Whether the fields take input: the symbol's terms are read and no
         order is in flight."""
-        return not self._busy and self._context is not None
+        return not self._state.busy and self._state.context is not None
 
     @property
     def message(self) -> str:
-        return self._message
+        return self._state.message
 
     @property
     def message_is_error(self) -> bool:
-        return self._message_is_error
+        return self._state.message_is_error
 
     def entry(self, side: EntrySide) -> SideInput:
-        return self._entries[side]
+        return self._state.entries[side]
 
     def figures(self, side: EntrySide) -> SideFigures | None:
         """@return The side's figures, or `None` until the symbol's terms
         have been read."""
-        if self._context is None:
+        state = self._state
+        if state.context is None:
             return None
-        return self._profile.figures(
+        return state.profile.figures(
             side,
-            self._order_type,
-            self.options.apply_to(side, self._entries[side]),
-            self._context,
-            self._last_price,
+            state.order_type,
+            self.options.apply_to(side, state.entries[side]),
+            state.context,
+            state.last_price,
         )
 
     def percent(self, side: EntrySide) -> int:
         figures = self.figures(side)
-        entry = self._entries[side]
+        entry = self._state.entries[side]
         if figures is not None and figures.sized_by_quote:
             return percent_of_max(entry.total, figures.max_total)
         maximum = figures.max_quantity if figures is not None else None
         return percent_of_max(entry.quantity, maximum)
-
-    # -- the user ------------------------------------------------------ #
-
-    def set_order_type(self, order_type: OrderType) -> None:
-        if order_type not in self._profile.order_types:
-            raise ValueError(f"{order_type} is not offered on this desk")
-        if order_type is not self._order_type:
-            self._order_type = order_type
-            self.changed.emit()
-
-    def set_price(self, side: EntrySide, text: str) -> None:
-        self._store(side, replace(self._entries[side], price=parse_amount(text)))
-
-    def set_quantity(self, side: EntrySide, text: str) -> None:
-        self._store(side, replace(self._entries[side], quantity=parse_amount(text)))
-
-    def set_stop_price(self, side: EntrySide, text: str) -> None:
-        self._store(side, replace(self._entries[side], stop_price=parse_amount(text)))
-
-    def set_total(self, side: EntrySide, text: str) -> None:
-        self._store(side, replace(self._entries[side], total=parse_amount(text)))
-
-    def set_percent(self, side: EntrySide, percent: int) -> None:
-        """Sets the amount (or, on a side sized by quote, the total) to
-        `percent` of the side's maximum. Does nothing while the maximum is
-        unknown."""
-        figures = self.figures(side)
-        if figures is not None and figures.sized_by_quote:
-            if figures.max_total is not None:
-                total = quantity_at_percent(percent, figures.max_total, QUOTE_STEP)
-                self._store(side, replace(self._entries[side], total=total))
-            return
-        if figures is None or figures.max_quantity is None or self._context is None:
-            return
-        step = self._context.terms.rules.step_size_for(self._order_type)
-        quantity = quantity_at_percent(percent, figures.max_quantity, step)
-        self._store(side, replace(self._entries[side], quantity=quantity))
-
-    def use_last_price(self, side: EntrySide) -> None:
-        if self._last_price is not None:
-            self._store(side, replace(self._entries[side], price=self._last_price))
-
-    def use_best_price(self, side: EntrySide) -> None:
-        self.bestPriceRequested.emit(side.value)
-
-    def request_submit(self, side: EntrySide) -> None:
-        self.submitRequested.emit(side.value)
-
-    def request_focus(self) -> None:
-        """New order… (`EPIC-033R`): places nothing, only asks for the focus."""
-        self.focusRequested.emit()
-
-    # -- the presenter ------------------------------------------------- #
-
-    def begin_symbol(self, symbol: str) -> None:
-        """A new symbol: its terms are unknown until read, and what was typed
-        for the previous one no longer applies."""
-        self._symbol = symbol
-        self._context = None
-        self._last_price = None
-        self._entries = {side: SideInput() for side in EntrySide}
-        self.options.clear_levels()
-        self.options.show_setting(None)
-        self._loading = True
-        self._set_message(f"Loading {symbol}...", is_error=False)
-
-    def set_context(self, context: OrderEntryContext) -> None:
-        """The symbol's terms, read. Clears the "Loading" line of a new
-        symbol only: a re-read after an order or a leverage change keeps
-        what the panel said about it (`EPIC-028I`)."""
-        self._context = context
-        if self._loading:
-            self._loading = False
-            self._set_message("", is_error=False)
-        else:
-            self.changed.emit()
-
-    def set_last_price(self, price: Decimal | None) -> None:
-        if price != self._last_price:
-            self._last_price = price
-            self.changed.emit()
-
-    def set_price_value(self, side: EntrySide, price: Decimal) -> None:
-        """The best price the presenter read for `side`."""
-        self._store(side, replace(self._entries[side], price=price))
-
-    def set_busy(self, busy: bool, message: str) -> None:
-        self._busy = busy
-        self._set_message(message, is_error=False)
-
-    def show_error(self, message: str) -> None:
-        self._busy = False
-        self._set_message(message, is_error=True)
-
-    def show_result(self, message: str, *, is_error: bool) -> None:
-        self._busy = False
-        self._set_message(message, is_error=is_error)
-
-    def clear_amount(self, side: EntrySide) -> None:
-        self._store(side, replace(self._entries[side], quantity=None, total=None))
-
-    def _store(self, side: EntrySide, updated: SideInput) -> None:
-        if updated != self._entries[side]:
-            self._entries[side] = updated
-            self.changed.emit()
-
-    def _set_message(self, message: str, *, is_error: bool) -> None:
-        self._message = message
-        self._message_is_error = is_error
-        self.changed.emit()

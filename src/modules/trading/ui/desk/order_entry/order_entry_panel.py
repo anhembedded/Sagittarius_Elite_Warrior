@@ -90,7 +90,7 @@ class OrderEntryPanel(QWidget):  # base-exempt: a container, not a surface
         for order_type in self._order_types:
             self._tabs.addTab(_TAB_TEXT[order_type])
         self._tabs.currentChanged.connect(
-            lambda index: view_model.set_order_type(self._order_types[index])
+            lambda index: view_model.intents.set_order_type(self._order_types[index])
         )
         self._tp_sl = QCheckBox("TP/SL")
         self._tp_sl.setObjectName("chkTpSl")
