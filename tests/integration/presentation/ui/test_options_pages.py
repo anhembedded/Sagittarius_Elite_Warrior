@@ -11,15 +11,21 @@ from __future__ import annotations
 
 import json
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtWidgets import QDialogButtonBox, QLabel, QLineEdit, QPushButton
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
 from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_pages
+from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.main_window_fakes import (
+    DisposeLog,
+    engine,
+    three_screens,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.options_dialog import (
     OptionsDialog,
 )
@@ -186,3 +192,20 @@ def test_ok_after_a_write_that_fails_keeps_the_dialog_open(
     message = dialog.findChild(QLabel, "workbench::options::message")
     assert message is not None
     assert message.text() == "Market Data: the changes could not be applied."
+
+
+def test_tools_options_opens_again_after_it_was_closed(qtbot, qapp, app_engine) -> None:
+    """`BUG-162` — the shell deletes the Options dialog when it closes, and
+    the dialog owns the pages' widgets, which are built once; the second
+    Tools → Options then added a deleted widget ("already deleted")."""
+    log = DisposeLog()
+    window = MainWindow(engine(), three_screens(log))
+    qtbot.addWidget(window)
+    for page in _pages(app_engine):
+        window.add_options_page(page)
+
+    for _opening in range(2):
+        QTimer.singleShot(0, lambda: window.findChild(OptionsDialog).reject())
+        dialog = window.show_options()
+        qapp.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        assert dialog is not None
