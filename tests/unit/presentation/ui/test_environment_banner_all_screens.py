@@ -8,8 +8,9 @@ is covered automatically, and this file never has to be told about it.
 
 Only `create_view()` is exercised (a `Mock()` container is enough — see
 `_navigable_routes()`'s own docstring in `test_composition_root.py`): the
-banner is `PageShell.set_environment_banner_factory`'s job, which every View
-picks up purely by constructing a `PageShell`, with no Presenter involved.
+banner is `WorkbenchSurface.set_environment_banner_factory`'s job, which every
+View picks up purely by constructing its `WorkbenchSurface`, with no Presenter
+involved (`EPIC-033M` deleted the other shell, `PageShell`).
 """
 
 from __future__ import annotations
@@ -25,7 +26,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
     venue_alignment_banner_content,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -43,18 +43,10 @@ def _environment_banner_factory_registered():
     """Mirrors what `app_bootstrapper.build()` does at boot — registered
     here directly (not via a full app boot) because `create_view()` needs
     nothing else `booted_app` would provide.
-
-    Both shells, because the app registers on both: a screen not yet
-    converted is a `PageShell`, a converted one is a `WorkbenchSurface`
-    (`EPIC-025` PR 1.4c-2). Registering only one would make this guard pass
-    for the wrong reason — it would stop being able to fail for a screen on
-    the other shell.
     """
     content = venue_alignment_banner_content(VenueAlignment.ALIGNED)
-    PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(content))
     WorkbenchSurface.set_environment_banner_factory(lambda: EnvironmentBanner(content))
     yield
-    PageShell.set_environment_banner_factory(None)
     WorkbenchSurface.set_environment_banner_factory(None)
 
 
@@ -72,8 +64,8 @@ def test_every_screen_shows_the_environment_banner(
         assert banner is not None, (
             f"Route '{route}' built a View with no environmentBanner widget "
             f"in its tree. Every screen sits on a shell that fills the slot "
-            f"itself — `PageShell` or `WorkbenchSurface` — so this means that "
-            f"screen's View builds neither, or builds a layout of its own."
+            f"itself, `WorkbenchSurface`, so this means that screen's View "
+            f"builds none, or builds a layout of its own."
         )
     finally:
         view.deleteLater()

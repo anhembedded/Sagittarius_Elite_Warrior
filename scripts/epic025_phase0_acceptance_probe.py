@@ -89,9 +89,6 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     create_app,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 from Sagittarius_Elite_Warrior.tests.conftest import (
     real_screen_registry,
 )
@@ -148,13 +145,6 @@ def main() -> int:
     # the screen it means to check would report success for two of three.
     config_manager, _dev_mode = load_app_config([sys.argv[0], "--dev"])
     app_qt = QApplication.instance() or QApplication(sys.argv)
-    # What `app_bootstrapper.py` does before building any widget, and the step
-    # this probe was missing on its first run: `apply_role()` reads a
-    # first-caller-wins theme-bridge singleton, so a window built before the
-    # palette is seeded dies in `_build_qss` rather than painting. The failure
-    # was the probe's, not the app's — worth the comment, because a probe that
-    # skips a bootstrap step reports a defect that is not there.
-    seed_app_theme()
     app = create_app(config_manager)
 
     _SHOTS.mkdir(parents=True, exist_ok=True)

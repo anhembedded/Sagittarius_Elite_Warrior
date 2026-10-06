@@ -1,11 +1,17 @@
-"""`BUG-115`/`BOT-133` guards — the two app-wide UI mechanisms are reached
-through their one entry point, or the build fails naming that entry point.
+"""`BUG-115`/`BOT-133` guards, bans since `EPIC-033M`: the application builds
+no `QQuickWidget` and seeds no QML theme, anywhere.
 
-1. A `QQuickWidget` is constructed, subclassed, or given a clear colour in
-   exactly one place: `src/presentation/ui/qml/embed/`.
-2. The theme is seeded through `theme_bootstrap.seed_app_theme()`, not by
-   spelling out the engine's `configure_app_qml()`/`get_theme_bridge(palette)`
-   pair again.
+1. No `QQuickWidget` is constructed or subclassed, and no host sets a clear
+   colour. Until `EPIC-033M` the one exception was `support/ui_kit/embed/`,
+   the embedding contract `BUG-115` forced; the app embeds no QML scene any
+   more and that package is deleted, so the exception went with it.
+2. Nobody seeds the engine's QML theme (`configure_app_qml()` /
+   `get_theme_bridge(palette)`). `theme_bootstrap.seed_app_theme()` was the
+   one place allowed to; it is deleted with `Palette`, so the call is
+   forbidden everywhere, `tests/` included.
+
+The file keeps its name because the rules and the scanned-roots registry cite
+it; what it says is in this docstring.
 
 Why guards and not a rule in a document: both defects spread by copy-paste
 from the previous file, written by someone who read that file as the pattern
@@ -35,11 +41,8 @@ it, each for its own reason:
   (`BUG-115` §2.4 measured every `grab()` as correct while the screen was
   wrong). Forbidding it there would force those tests through an abstraction
   whose whole subject is something they do not exercise.
-- **Seeding the theme** is confined everywhere, `tests/` included. A test
-  process needs the theme before it builds a widget exactly as the app does,
-  which makes a test fixture the seventh place tempted to spell the pair out;
-  `tests/conftest.py` calls `seed_app_theme()` for the whole session instead.
-  `_SEEDING_EXEMPT` names the one file that legitimately does not.
+- **Seeding the theme** is forbidden everywhere, `tests/` included: nothing
+  in the app has a QML theme to seed since `EPIC-033M`.
 
 **These read the syntax tree, not the raw text.** An earlier draft used
 regexes and went red on the *documentation* of these very APIs — `style.py`'s
@@ -62,14 +65,6 @@ from .ui_trees import UI_TREES
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 _TESTS_ROOT = _REPO_ROOT / "tests"
-#: `support/ui_kit/embed` since `EPIC-025` PR 1.6e. The one place a
-#: `QQuickWidget` may be built follows the code, not the directory it used to
-#: sit in; the landmark test below is what failed and said so.
-#: Derived from the seam like everything else here: naming the tree a second
-#: time is how a retargeted guard rots on the *next* move, which is the
-#: failure `ui_trees.py` exists to end.
-_EMBED_DIR = _REPO_ROOT / "src" / "support" / "ui_kit" / "embed"
-
 #: Where a `QQuickWidget` may not be built: everything that runs as the real
 #: application. See the module docstring for why `tests/` is absent.
 #:
@@ -93,28 +88,11 @@ _SEEDING_ROOTS = (*UI_TREES, _SCRIPTS_ROOT, _TESTS_ROOT)
 #: anywhere; it is the palette-carrying call that must live in one place.
 _SEEDING_CALLS = frozenset({"configure_app_qml", "get_theme_bridge"})
 
-#: Repository-relative paths allowed to seed the theme themselves, each with
-#: the reason it is not a copy of the app's wiring.
-_SEEDING_EXEMPT: dict[str, str] = {
-    # The mechanism itself.
-    "src/support/ui_kit/theme_bootstrap.py": "this file *is* seed_app_theme()",
-    # A deliberately DIFFERENT palette: every token distinct, so this package
-    # can assert that two roles render differently. `seed_app_theme()` would
-    # install the real palette and defeat the point, and the file's own
-    # docstring explains why the shared singleton cannot be relied on here.
-    "tests/unit/support/ui_kit/kit/conftest.py": (
-        "a placeholder palette with per-token distinct values — a test double, "
-        "not a copy of the app's wiring"
-    ),
-}
-
 
 def _python_files(*roots: Path) -> list[Path]:
     seen: dict[Path, None] = {}
     for root in roots:
         for path in sorted(root.rglob("*.py")):
-            if _EMBED_DIR in path.parents:
-                continue
             if "__pycache__" in path.parts:
                 continue
             seen.setdefault(path, None)
@@ -122,17 +100,13 @@ def _python_files(*roots: Path) -> list[Path]:
 
 
 def _widget_scan_files() -> list[Path]:
-    """`src/presentation/ui` and `scripts/`, minus the embed package — and
-    minus the `tests/` packages that live inside `src/` (one `.qml` file per
+    """The UI trees and `scripts/`, minus the `tests/` packages that live inside `src/` (one `.qml` file per
     directory keeps its tests beside it), for the reason in the docstring."""
     return [path for path in _python_files(*_WIDGET_ROOTS) if "tests" not in path.parts]
 
 
 def _seeding_scan_files() -> list[Path]:
-    exempt = {(_REPO_ROOT / name).resolve() for name in _SEEDING_EXEMPT}
-    return [
-        path for path in _python_files(*_SEEDING_ROOTS) if path.resolve() not in exempt
-    ]
+    return _python_files(*_SEEDING_ROOTS)
 
 
 def _where(path: Path) -> str:
@@ -204,13 +178,6 @@ def test_the_scanned_trees_are_where_this_guard_expects_them():
         assert root.is_dir(), f"{root} is gone — retarget this guard"
         assert _python_files(root), f"no .py under {root}"
 
-    assert (_EMBED_DIR / "quick_surface.py").is_file()
-    for name in _SEEDING_EXEMPT:
-        assert (_REPO_ROOT / name).is_file(), (
-            f"{name} is exempt from the seeding rule but does not exist — an "
-            "exemption for a deleted file silently widens the rule's blind spot"
-        )
-
     # The scopes really do differ, and each really does reach its own root.
     scanned_for_widgets = {_where(p).split("/")[0] for p in _widget_scan_files()}
     assert {"src", "scripts"} <= scanned_for_widgets, scanned_for_widgets
@@ -218,35 +185,28 @@ def test_the_scanned_trees_are_where_this_guard_expects_them():
     assert {"src", "scripts", "tests"} <= scanned_for_seeding, scanned_for_seeding
 
 
-def test_no_qquickwidget_is_built_or_subclassed_outside_embed():
+def test_no_qquickwidget_is_built_or_subclassed():
     built, _ = _scan_widgets()
     assert not built, (
-        "QQuickWidget constructed or subclassed outside qml/embed/ — embed the "
-        "scene through `QuickSurface` instead, which clears it to the token of "
-        "the `StyleRole` it sits on (BUG-115):\n" + "\n".join(built)
+        "QQuickWidget constructed or subclassed — the app is QtWidgets only "
+        "(ui-presentation-rule.md §1, EPIC-033M): build the screen from stock "
+        "widgets instead:\n" + "\n".join(built)
     )
 
 
 def test_no_host_sets_a_clear_colour():
     _, cleared = _scan_widgets()
     assert not cleared, (
-        "setClearColor() outside qml/embed/ — the clear colour is the surface "
-        "token `QuickSurface` resolves, never a per-host choice; a transparent "
-        "one renders black on a real screen (BUG-115):\n" + "\n".join(cleared)
+        "setClearColor() — the app embeds no QML scene (EPIC-033M), so nothing "
+        "has a clear colour to set:\n" + "\n".join(cleared)
     )
 
 
-def test_the_theme_is_seeded_through_the_one_function():
-    """`theme_bootstrap.py` itself is where the engine calls legitimately
-    live — that file *is* the mechanism. Everywhere else, naming them starts
-    the seventh partial copy (`BOT-133`); `_SEEDING_EXEMPT` carries the one
-    reasoned exception and why it is not a copy."""
+def test_nobody_seeds_the_qml_theme():
+    """`EPIC-033M` deleted `theme_bootstrap.seed_app_theme()` with `Palette`:
+    the app renders in the platform's theme and seeds nothing."""
     seeded = _scan_seeding()
     assert not seeded, (
-        "the theme is seeded in more than one place — call "
-        "`theme_bootstrap.seed_app_theme()` instead (BOT-133):\n"
-        + "\n".join(seeded)
-        + "\n\nA test that needs a DIFFERENT palette (distinct token values) is "
-        "a test double, not a copy of the app's wiring: add it to "
-        "`_SEEDING_EXEMPT` with that reason."
+        "the engine's QML theme is seeded — the app applies no palette of its "
+        "own (ADR D21, EPIC-033M); remove the call:\n" + "\n".join(seeded)
     )

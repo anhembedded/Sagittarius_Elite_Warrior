@@ -37,9 +37,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_lod import (
     marker_display_capacity,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 _PAN_PIXELS = 120
 _WHEEL_DELTA = 120
@@ -62,7 +59,6 @@ def main() -> None:
     previous_handler = qInstallMessageHandler(capture_message)
     app = QApplication.instance() or QApplication([])
     app.setQuitOnLastWindowClosed(False)
-    seed_app_theme()
     view = BackTestView()
     try:
         view.resize(1600, 1000)
