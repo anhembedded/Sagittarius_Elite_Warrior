@@ -333,8 +333,9 @@ def _published_venues(event_publisher: Mock) -> set[TradingVenue | None]:
 
 
 def test_a_live_engine_stamps_its_venue_on_every_signal_it_publishes():
-    """`EPIC-028K` — the desk's `SignalFeed` forwards only its own venue's
-    signals; an engine that forgot its venue would reach no desk at all."""
+    """`EPIC-028K` — a reader tells one venue's signals from another's by
+    this field; an engine that forgot its venue would publish signals no
+    venue claims."""
     event_publisher = Mock()
     engine = StrategyEngine(
         indicators={"rsi": RSI(period=14)},

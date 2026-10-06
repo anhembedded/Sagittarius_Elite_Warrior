@@ -87,7 +87,6 @@ class _FakeCardViewModel:
         self.interval_options: list[str] = []
         self.bot_params_groups: tuple[ParamGroup, ...] = ()
         self.bot_params_error = ""
-        self.last_signal_text = ""
 
     def set_strategy_options(
         self, strategy_options: list[dict], interval_options: list[str]
@@ -108,9 +107,6 @@ class _FakeCardViewModel:
 
     def set_bot_params_error(self, message: str) -> None:
         self.bot_params_error = message
-
-    def set_last_signal_text(self, text: str) -> None:
-        self.last_signal_text = text
 
 
 @pytest.fixture
@@ -359,64 +355,3 @@ def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arm
             strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
         )
     ).startswith(options[0]["label"])
-
-
-def _signal_event(symbol: str):
-    from datetime import UTC, datetime
-
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
-        SignalAction,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
-        SignalGeneratedEvent,
-    )
-
-    signal = Signal(
-        symbol=symbol,
-        action=SignalAction.BUY,
-        reason="RSI Oversold",
-        price=64000.0,
-        time=datetime(2026, 9, 8, 12, 0, 0, tzinfo=UTC),
-    )
-    return SignalGeneratedEvent(signal=signal)
-
-
-def test_on_signal_generated_updates_the_card_for_the_armed_symbol(
-    view_model, catalog, arming
-):
-    """`SignalFeed.signalGenerated` connects straight to this method now
-    (`EPIC-025` PR 4.3m) — no per-screen `_on_signal_generated` wrapper
-    left to duplicate."""
-    armed = ArmedStrategyConfig(
-        strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
-    )
-    coordinator = _coordinator(view_model, catalog, arming, armed=armed)
-
-    coordinator.on_signal_generated(_signal_event("BTCUSDT"))
-
-    assert "BUY" in view_model.last_signal_text
-    assert "RSI Oversold" in view_model.last_signal_text
-
-
-def test_on_signal_generated_for_a_different_symbol_is_ignored(
-    view_model, catalog, arming
-):
-    """A backtest run's own `StrategyEngine` publishes on the same bus —
-    this is the filter that keeps its output off a live card."""
-    armed = ArmedStrategyConfig(
-        strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
-    )
-    coordinator = _coordinator(view_model, catalog, arming, armed=armed)
-
-    coordinator.on_signal_generated(_signal_event("ETHUSDT"))
-
-    assert view_model.last_signal_text == ""
-
-
-def test_on_signal_generated_with_nothing_armed_is_ignored(view_model, catalog, arming):
-    coordinator = _coordinator(view_model, catalog, arming, armed=None)
-
-    coordinator.on_signal_generated(_signal_event("BTCUSDT"))
-
-    assert view_model.last_signal_text == ""

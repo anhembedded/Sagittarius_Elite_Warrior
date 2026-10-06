@@ -140,6 +140,15 @@ def test_a_desk_refuses_another_venues_ports(qtbot) -> None:
         build_desk(qtbot, FUTURES, ports_venue=SPOT)
 
 
+def test_a_desk_refuses_another_venues_strategy(qtbot) -> None:
+    """`BOT-158` — a Futures desk arming Spot's strategy would show Spot's
+    armed state on a screen titled Futures."""
+    with pytest.raises(
+        ValueError, match="Futures desk was given spot_testnet's strategy"
+    ):
+        build_desk(qtbot, FUTURES, strategy_venue=SPOT)
+
+
 @pytest.mark.parametrize("venue", [FUTURES, SPOT])
 def test_a_desk_whose_venue_is_off_says_so_and_holds_nothing_that_sends(
     qtbot, venue

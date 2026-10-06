@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 179 | 82.9% |
+| 🟢 **Completed** | 180 | 83.3% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 29 | 13.4% |
+| 🔴 **Backlog** | 28 | 13.0% |
 | ❌ **Cancelled** | 8 | 3.7% |
 | 📈 **Tổng số Task** | **216** | **100%** |
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-158`](completed/BOT-158_desk_plumbing_only_the_dev_board_read.md) (the desks drop the plumbing only the Dev Board read)**: [Decision: the strategy card's last-signal line, its `SignalFeed` and `DeskSessionControls.accountReconciled` had no reader once the Dev Board was deleted, and the user had decided the last signal is shown nowhere. The desks' isolation proof moved first, onto the armed summary a desk still shows, and `DeskPresenter` now refuses another venue's strategy as it refused another venue's ports; both were mutation-checked by crossing the venues.]
 - [x] **[`BOT-157`](completed/BOT-157_menu_groups_with_separators.md) (a menu's related commands are grouped, a separator between groups)**: [Decision: a command names its group (`CommandContribution.group`, passed to the Engine's `ActionDescriptor.group`), and the Engine's menu filler draws one separator between adjacent groups (PR #230); no separator pseudo-command, since the menu bar is the catalogue of commands. Backtest's View → Chart reads chart mode, layers, navigation; Market's View sets the market choice apart from the chart's history loads. The conformance suite now fails a separator at either end of a menu or two together.]
 - [x] **[`BOT-151`](completed/BOT-151_grouped_trees_from_specs.md) (grouped trees are configured from column specs like every table)**: [Decision: the Engine's `configure_item_view` configures a `QTreeWidget` in place (PR #230), so the timeframe picker declares its columns and stops setting its own header; the stock-controls `item_view_config` count falls to zero. Its rows are `SpecTreeItem`s on Engine 5a11c02, which fixed the recursion that crashed a header click in 6c6eab6. The three Backtest read-outs were already flat tables from column specs since `EPIC-033L`.]
 - [x] **[`BOT-160`](completed/BOT-160_gate_in_two_parallel_parts.md) (the GitHub gate runs in two parallel parts)**: [Decision: the user chose to split the gate after the measurement. `ci-local.ps1 -Part Unit|Rest` runs the two halves on two runners; the required `ci-local.ps1 -Full` check keeps its name, needs both, runs even when one fails, and enforces the 80% floor on their combined coverage. Nothing is dropped, and a local `-Full` is unchanged.]
@@ -495,7 +496,6 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
-| **P3** | **[BOT-158](backlog/BOT-158_desk_plumbing_only_the_dev_board_read.md)** | **The desks drop the plumbing only the Dev Board read** | 🟢 **`S (Small)`** | — | *(added 06/10, PR #372 review)* The Last-signal pipe and `accountReconciled` have no reader since the Dev Board was deleted. |
 | **P3** | **[BOT-152](backlog/BOT-152_split_order_entry_view_model.md)** | **The order entry's view model splits what the presenter sets from what the view asks** | 🟢 **`S (Small)`** | — | *(added 05/10, PR #358 review)* `OrderEntryViewModel` holds 30 public members, over `PLR0904`'s 20; the ratchet counts the file, not the members. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |

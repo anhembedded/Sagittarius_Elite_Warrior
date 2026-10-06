@@ -44,7 +44,7 @@ class SignalGeneratedEvent(BaseEvent):
     """@brief Domain event: a strategy produced one `Signal`."""
 
     signal: Signal
-    #: `EPIC-028K` — the venue whose live strategy produced it, so each desk
-    #: shows only its own venue's signals (`SignalFeed`). `None` for an
-    #: engine no venue runs: a backtest, a preview, `trade-once`.
+    #: `EPIC-028K` — the venue whose live strategy produced it, so a reader
+    #: can tell one venue's signals from another's. `None` for an engine no
+    #: venue runs: a backtest, a preview, `trade-once`.
     venue: TradingVenue | None = field(default=None, kw_only=True)

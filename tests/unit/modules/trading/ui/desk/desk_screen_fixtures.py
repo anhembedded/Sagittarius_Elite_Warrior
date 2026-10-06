@@ -152,13 +152,15 @@ def build_desk(
     world: DeskWorld | None = None,
     *,
     ports_venue: TradingVenue | None = None,
+    strategy_venue: TradingVenue | None = None,
     account_snapshot: FakeAccountSnapshot | None = None,
     order_entry_terms: FakeOrderEntryTerms | None = None,
     trading_on: bool = False,
     precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS,
 ) -> Desk:
-    """`venue`'s desk, every order confirmed Yes. `ports_venue` hands it
-    another venue's ports, which the desk must refuse."""
+    """`venue`'s desk, every order confirmed Yes. `ports_venue` and
+    `strategy_venue` hand it another venue's ports or strategy, which the
+    desk must refuse."""
     world = world or DeskWorld()
     profile = desk_profile_for(venue)
     market = venue.market_type
@@ -180,7 +182,7 @@ def build_desk(
             order_entry_terms=order_entry_terms,
         ),
         strategy=VenueStrategyControls(
-            venue=venue,
+            venue=strategy_venue or venue,
             arming=StrategyArmingControlAdapter(arming),
             armed=ArmedStrategyReaderAdapter(armed),
         ),

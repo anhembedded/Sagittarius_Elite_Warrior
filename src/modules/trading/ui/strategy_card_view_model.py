@@ -64,8 +64,6 @@ class StrategyCardViewModel(QObject):
     #: user is typing into is not the same event as the card's own state
     #: changing.
     botParamsChanged = Signal()
-    #: The most recent `SignalGeneratedEvent`.
-    lastSignalChanged = Signal()
 
     #: "Nạp chiến lược". Deliberately NOT emitted when the user merely picks
     #: a different strategy in the combo: picking and arming are two actions,
@@ -94,7 +92,6 @@ class StrategyCardViewModel(QObject):
         self._strategy_busy = False
         self._bot_params_groups: tuple[ParamGroup, ...] = ()
         self._bot_params_error = ""
-        self._last_signal_text = ""
 
     # ------------------------------------------------------------------ #
     # Strategy card
@@ -233,16 +230,3 @@ class StrategyCardViewModel(QObject):
     @Slot("QVariantMap")
     def requestBotParamsSave(self, values: dict) -> None:
         self.botParamsSaveRequested.emit(values)
-
-    # ------------------------------------------------------------------ #
-    # Last signal
-    # ------------------------------------------------------------------ #
-
-    @Property(str, notify=lastSignalChanged)
-    def lastSignalText(self) -> str:
-        return self._last_signal_text
-
-    @Slot(str)
-    def set_last_signal_text(self, text: str) -> None:
-        self._last_signal_text = text
-        self.lastSignalChanged.emit()

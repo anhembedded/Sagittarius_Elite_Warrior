@@ -40,8 +40,6 @@
       "src/modules/trading/module.py": 3,
       "src/modules/trading/ui/equity_feed.py": 1,
       "src/modules/trading/ui/order_feed.py": 7,
-      "src/modules/trading/ui/signal_feed.py": 1,
-      "src/modules/trading/ui/strategy_arming_coordinator.py": 1,
       "src/shell/registering_container.py": 3,
       "src/support/binance_gateway/contracts/i_spot_session_factory.py": 9,
       "src/support/binance_gateway/contracts/i_trading_session_factory.py": 20,

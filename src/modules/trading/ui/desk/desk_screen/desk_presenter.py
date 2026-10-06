@@ -22,8 +22,8 @@ what passes between them:
   Spot desk's TP/SL waits on `EPIC-026K`, ADR O2).
 
 Nothing here is shared with the other desk: each desk's ports, feeds, chart
-stream and strategy are its own venue's, so an order, a signal or a candle
-on one never reaches the other (`EPIC-028L`).
+stream and strategy are its own venue's, so an order, an armed strategy or a
+candle on one never reaches the other (`EPIC-028L`).
 """
 
 from __future__ import annotations
@@ -76,7 +76,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
     ProtectiveOrderFollower,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -109,6 +108,11 @@ class DeskPresenter(CommandPresenter):
         if deps.ports.venue is not profile.venue:
             raise ValueError(
                 f"the {profile.title} desk was given {deps.ports.venue.value}'s ports"
+            )
+        if deps.strategy.venue is not profile.venue:
+            raise ValueError(
+                f"the {profile.title} desk was given {deps.strategy.venue.value}'s "
+                "strategy"
             )
         self._profile = profile
         config = self.config.get_all()
@@ -152,7 +156,7 @@ class DeskPresenter(CommandPresenter):
             self.order_entry.entryPlaced.connect(
                 lambda placed: follower.expect(*placed)
             )
-        self._wire(feeds.signals)
+        self._wire()
         self.desk.set_trading_state(self.session.is_enabled, False)
         if self.session.is_enabled:
             # Trading was turned on before this desk opened (another visit, or
@@ -177,7 +181,7 @@ class DeskPresenter(CommandPresenter):
         self.chart.shutdown()
         super().shutdown()
 
-    def _wire(self, signals: SignalFeed) -> None:
+    def _wire(self) -> None:
         desk, session, chart = self.desk, self.session, self.chart
         desk.symbolChangeRequested.connect(self.show_symbol)
         self.order_entry.orderAccepted.connect(self.tabs.list_accepted_order)
@@ -190,7 +194,6 @@ class DeskPresenter(CommandPresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
-        self.strategy.listen(signals)
 
     def bind_commands(self, binder: ICommandBinder) -> None:
         """Enable live trading, Emergency stop and New order…
