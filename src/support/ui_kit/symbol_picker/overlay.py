@@ -29,11 +29,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QTabBar,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.font_extent import font_extent
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -49,6 +49,7 @@ from .filtering import (
     build_entries,
     partition_favourites,
 )
+from .id_tab_bar import IdTabBar
 from .symbol_table_model import SymbolTableModel
 
 _TITLE = "Select Symbol"
@@ -60,9 +61,7 @@ _RESULT_COUNT_TEXT = "{count} results"
 _CURRENT_FOOTER_TEXT = "Current: {symbol}"
 _KEY_HINTS = "↑↓ move   ↵ select   ☆ favourite"
 
-#: How much of the list a fresh dialog shows, in average characters wide and
-#: text lines tall of the system font, so the size follows the font and not a
-#: pixel count written here.
+#: A fresh dialog's size, in characters and lines of the system font.
 _WIDTH_CHARS = 64
 _HEIGHT_LINES = 26
 
@@ -82,23 +81,6 @@ _MAX_QUOTE_TABS = 3
 #: here, next to the picker that gives the list its meaning, so every screen
 #: remembers the same depth.
 RECENT_LIMIT = 8
-
-
-def _fill_tabs(bar: QTabBar, tabs: Sequence[tuple[str, str]], current_id: str) -> None:
-    """Shows `tabs` (id, label) in `bar` with `current_id` selected, without
-    raising `currentChanged`: only the user's click is a selection."""
-    bar.blockSignals(True)
-    try:
-        while bar.count():
-            bar.removeTab(0)
-        for tab_id, label in tabs:
-            bar.setTabData(bar.addTab(label), tab_id)
-        for index in range(bar.count()):
-            if bar.tabData(index) == current_id:
-                bar.setCurrentIndex(index)
-                break
-    finally:
-        bar.blockSignals(False)
 
 
 class SymbolPickerOverlay(QDialog):
@@ -161,12 +143,7 @@ class SymbolPickerOverlay(QDialog):
 
     def sizeHint(self) -> QSize:
         """Sized by the system font: a screenful of rows, never a pixel count."""
-        base = super().sizeHint()
-        metrics = self.fontMetrics()
-        return QSize(
-            max(base.width(), metrics.averageCharWidth() * _WIDTH_CHARS),
-            max(base.height(), metrics.lineSpacing() * _HEIGHT_LINES),
-        )
+        return font_extent(self, super().sizeHint(), _WIDTH_CHARS, _HEIGHT_LINES)
 
     # ------------------------------------------------------------------ #
     # Construction
@@ -188,25 +165,14 @@ class SymbolPickerOverlay(QDialog):
 
     def _build_filter_rows(self) -> None:
         row = QHBoxLayout()
-
-        self._scope_tabs = QTabBar()
+        self._scope_tabs = IdTabBar()
         self._scope_tabs.setObjectName("tabsSymbolScope")
-        self._scope_tabs.currentChanged.connect(
-            lambda index: self._on_scope_selected(
-                index, str(self._scope_tabs.tabData(index))
-            )
-        )
+        self._scope_tabs.id_selected.connect(self._on_scope_selected)
         row.addWidget(self._scope_tabs)
-
         row.addStretch(1)
-
-        self._quote_tabs = QTabBar()
+        self._quote_tabs = IdTabBar()
         self._quote_tabs.setObjectName("tabsSymbolQuote")
-        self._quote_tabs.currentChanged.connect(
-            lambda index: self._on_quote_selected(
-                index, str(self._quote_tabs.tabData(index))
-            )
-        )
+        self._quote_tabs.id_selected.connect(self._on_quote_selected)
         row.addWidget(self._quote_tabs)
         self._body_layout.addLayout(row)
 
@@ -295,8 +261,7 @@ class SymbolPickerOverlay(QDialog):
 
     def _sync_scope_tabs(self) -> None:
         favourite_count = sum(1 for entry in self._entries if entry.is_favourite)
-        _fill_tabs(
-            self._scope_tabs,
+        self._scope_tabs.show_tabs(
             [
                 (
                     scope.value,
@@ -319,8 +284,7 @@ class SymbolPickerOverlay(QDialog):
             self._filter = FilterState(
                 query=self._filter.query, scope=self._filter.scope, quote=QUOTE_ANY
             )
-        _fill_tabs(
-            self._quote_tabs,
+        self._quote_tabs.show_tabs(
             [(QUOTE_ANY, _QUOTE_ANY_LABEL), *((quote, quote) for quote in quotes)],
             self._filter.quote,
         )
@@ -425,18 +389,8 @@ class SymbolPickerOverlay(QDialog):
         self.accept()
 
     def keyPressEvent(self, event) -> None:
-        """Arrow keys move the highlight, Enter chooses it.
-
-        Typing stays in the search box the whole time — a list of this size is
-        faster typed than clicked, and forcing the user to leave the field to
-        reach the result they just narrowed to would undo that. So the dialog
-        intercepts the arrows rather than giving the table focus; the table is
-        what *shows* the highlight, and `setCurrentIndex` is what moves it.
-
-        The wrap-around is kept from the card grid: at the bottom of a
-        fourteen-hundred-row list, Down reaching the top again is faster than
-        scrolling back.
-        """
+        """Arrows move the highlight (wrapping) and Enter chooses it, while typing
+        stays in the search box: a list this size is faster typed than clicked."""
         key = event.key()
         count = self._model.rowCount()
         if key in (Qt.Key.Key_Down, Qt.Key.Key_Up) and count:

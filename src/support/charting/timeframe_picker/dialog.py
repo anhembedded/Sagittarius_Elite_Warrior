@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.font_extent import font_extent
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -186,13 +187,8 @@ class TimeframePickerDialog(QDialog):
         self._render()
 
     def sizeHint(self) -> QSize:
-        """Sized by the system font: the groups as a screenful of rows."""
-        base = super().sizeHint()
-        metrics = self.fontMetrics()
-        return QSize(
-            max(base.width(), metrics.averageCharWidth() * _WIDTH_CHARS),
-            max(base.height(), metrics.lineSpacing() * _HEIGHT_LINES),
-        )
+        """Sized by the system font: a screenful of rows, never a pixel count."""
+        return font_extent(self, super().sizeHint(), _WIDTH_CHARS, _HEIGHT_LINES)
 
     @classmethod
     def from_callbacks(
