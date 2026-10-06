@@ -14,12 +14,13 @@ Each interval row is a `SpecTreeItem`, so a header click orders the rows by
 the values the cells hold, the same rule as every other configured view; a
 heading stays a plain `QTreeWidgetItem` and is never compared with a row.
 
-## Choose-and-close, and no footer buttons of its own
+## Choose-and-close, and one Close button
 
 Picking an interval closes the dialog, as it has in every version of this
-widget: there is no separate Apply step, and Escape or the window's close
-control is how a caller backs out without choosing. So `Overlay`'s default empty
-footer is exactly right and this class does not override `_build_buttons()`.
+widget: there is no separate Apply step, and Close, Escape or the window's close
+control is how a caller backs out without choosing. The Close button is a
+stock `QDialogButtonBox` button, never the default one, so Enter picks the row
+it is on and not the button.
 
 Pinning is the one interaction that does **not** close: a user pinning three
 intervals to their chart header is doing something other than choosing one, and
@@ -38,14 +39,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QLabel,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Overlay
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -58,7 +61,11 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 
 from .selection import TimeframeSelection
 
-_DEFAULT_TITLE = "SELECT TIMEFRAME"
+_DEFAULT_TITLE = "Select Timeframe"
+#: How much of the tree a fresh dialog shows, in average characters wide and
+#: text lines tall of the system font.
+_WIDTH_CHARS = 56
+_HEIGHT_LINES = 24
 _INTERVAL_COLUMN = 0
 _PIN_COLUMN = 2
 #: The tree's columns. A heading writes its group's label and caption in
@@ -110,7 +117,7 @@ class PinnedTimeframes:
             self._codes.discard(code)
 
 
-class TimeframePickerDialog(Overlay):
+class TimeframePickerDialog(QDialog):
     """
     @brief Choose a candle interval, and pin the ones worth keeping to hand.
 
@@ -130,9 +137,10 @@ class TimeframePickerDialog(Overlay):
         title: str = _DEFAULT_TITLE,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(title, _PIN_HINT, parent=parent)
+        super().__init__(parent)
         self.setObjectName("timeframePickerDialog")
-        self.resize(560, 520)
+        self.setWindowTitle(title)
+        self.setModal(True)
         self._selection = selection
         #: Set while this widget writes check states itself, so the
         #: `itemChanged` those writes raise is not read back as a user ticking
@@ -152,20 +160,39 @@ class TimeframePickerDialog(Overlay):
         self._tree.itemActivated.connect(self._on_activated)
         self._tree.itemClicked.connect(self._on_clicked)
         self._tree.itemChanged.connect(self._on_item_changed)
-        self.body_layout.addWidget(self._tree, 1)
+
+        body = QVBoxLayout(self)
+        body.addWidget(QLabel(_PIN_HINT))
+        body.addWidget(self._tree, 1)
 
         self._warning = QLabel(_WARNING_TEXT)
         self._warning.setObjectName("lblTimeframeWarning")
         self._warning.setWordWrap(True)
-        self.body_layout.addWidget(self._warning)
+        body.addWidget(self._warning)
 
         self._current = QLabel()
         self._current.setObjectName("lblTimeframeCurrent")
-        self.body_layout.addWidget(self._current)
+        body.addWidget(self._current)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close = buttons.button(QDialogButtonBox.StandardButton.Close)
+        close.setObjectName("btnTimeframePickerClose")
+        close.setAutoDefault(False)
+        buttons.rejected.connect(self.reject)
+        body.addWidget(buttons)
 
         selection.stateChanged.connect(self._render)
         selection.chosen.connect(self._on_chosen)
         self._render()
+
+    def sizeHint(self) -> QSize:
+        """Sized by the system font: the groups as a screenful of rows."""
+        base = super().sizeHint()
+        metrics = self.fontMetrics()
+        return QSize(
+            max(base.width(), metrics.averageCharWidth() * _WIDTH_CHARS),
+            max(base.height(), metrics.lineSpacing() * _HEIGHT_LINES),
+        )
 
     @classmethod
     def from_callbacks(
