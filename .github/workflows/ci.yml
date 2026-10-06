@@ -80,6 +80,11 @@ jobs:
         # file's failure lines are printed too: the job log is where a red run
         # is diagnosed (ci-rule.md §1), and the artifact sits on a host a
         # session reading the job log cannot always reach.
+        env:
+          # The booted workbench's pictures, one per mode and window size,
+          # for the reviewer and the user to judge by eye (pr-review SKILL
+          # §5.1, test_workbench_screenshots.py).
+          SEW_UI_SCREENSHOTS: ${{ github.workspace }}/ui-screenshots
         run: |
           set +e
           pwsh -NoProfile -File scripts/ci-local.ps1 -Full > gate-stdout.log 2>&1
@@ -101,4 +106,12 @@ jobs:
           path: |
             logs/
             gate-stdout.log
+          if-no-files-found: warn
+
+      - name: Keep the UI pictures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: ui-screenshots/
           if-no-files-found: warn

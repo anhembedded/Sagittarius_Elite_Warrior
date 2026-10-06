@@ -68,7 +68,7 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **H1** | Verify UI styling guards: no stylesheet, palette library or theme tokens; colour only where it carries meaning, through `QPalette` roles or a per-widget property (`.claude/rules/ui-presentation-rule.md` §1). |
 | **H2** | Enforce shrink-only styling baselines. |
 | **H3** | Verify standard desktop navigation and keyboard shortcut bindings. |
-| **H4** | Check content overflow behavior and responsive widget layouts under resize. |
+| **H4** | Check content overflow behavior and responsive widget layouts under resize, on the booted workbench's pictures at the three window sizes for a UI change (`.claude/skills/pr-review/SKILL.md` §5.1). |
 | **H5** | Verify `preview.py` coverage for new or modified UI components. |
 | **H6** | Check table column autosizing, header formatting, and visual alignment. |
 | **H7** | Verify actionable user feedback: progress bars, spinners, and clear error notifications. |
