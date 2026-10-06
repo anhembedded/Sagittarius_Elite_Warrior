@@ -8,7 +8,8 @@ severity, a platform frame) and its stock dialogs were in no picture (review
 of PR #383). Each is built here as its screen builds it, shown at its own
 size hint (a banner at the narrowest window's width) and saved under
 `SEW_UI_SCREENSHOTS`, named `dialog~<what>.png`.
-The assertion keeps each picture worth opening: none is blank.
+The assertions keep each picture worth opening: none is blank, and none
+hides content behind a scrolling tab row or a sideways scroll bar.
 
 Retire when: a reviewer no longer judges the UI from pictures of it.
 """
@@ -21,7 +22,13 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import (
+    QAbstractScrollArea,
+    QApplication,
+    QTabBar,
+    QToolButton,
+    QWidget,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
     ParamField,
     ParamGroup,
@@ -163,6 +170,24 @@ _PICTURED: dict[str, Callable[[], QWidget]] = {
 }
 
 
+def _clipped(widget: QWidget) -> list[str]:
+    """What a window shown at its own size still scrolls to reach: a tab row
+    showing its scroll arrows, or a view showing a horizontal scroll bar
+    (review of PR #385: both passed a "not blank" picture)."""
+    tab_rows = [
+        f"tab row {bar.objectName() or type(bar).__name__} scrolls"
+        for bar in widget.findChildren(QTabBar)
+        if bar.isVisible()
+        and any(arrow.isVisible() for arrow in bar.findChildren(QToolButton))
+    ]
+    views = [
+        f"view {view.objectName() or type(view).__name__} scrolls sideways"
+        for view in widget.findChildren(QAbstractScrollArea)
+        if view.isVisible() and view.horizontalScrollBar().isVisible()
+    ]
+    return tab_rows + views
+
+
 @pytest.mark.parametrize("name", list(_PICTURED))
 def test_each_dialog_and_banner_is_pictured(qapp, name: str, tmp_path: Path) -> None:
     out_dir = Path(os.environ.get(SCREENSHOT_DIR_ENV) or tmp_path)
@@ -182,6 +207,7 @@ def test_each_dialog_and_banner_is_pictured(qapp, name: str, tmp_path: Path) -> 
         assert picture.save(str(path)), f"could not write {path}"
 
         assert not is_blank(picture.toImage()), f"{name} is pictured blank"
+        assert _clipped(widget) == [], f"{name} hides content at its own size"
     finally:
         widget.close()
         widget.deleteLater()
