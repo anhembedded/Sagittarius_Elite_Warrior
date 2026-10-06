@@ -3,14 +3,14 @@
 ## One state object, two views — and that is why it survived the QML
 
 `EPIC-015` wrote this as `TimeframeVM`, a `QObject` publishing everything as
-`Property` declarations for `TimeframeToolbar.qml` (the compact pill row) and
+Qt properties for `TimeframeToolbar.qml` (the compact pill row) and
 `TimeframePicker.qml` (the full grouped grid) to bind to. The user's own
 instruction shaped it: *"2 widget, common nếu reuse được"* — pinning a timeframe
 in one view has to show in the other at once, so the two views share one state
 object rather than each holding a copy.
 
 `EPIC-025` PR 4.3k deletes both `.qml` files (ADR D21) and keeps exactly that:
-one `QObject` two widgets read, with its `Property`/`Slot` decorations dropped
+one `QObject` two widgets read, with its property and slot decorations dropped
 because nothing binds to it any more. What is left is a small model — plain
 Python properties, two signals, and the four calls a view makes — and it is the
 reason a `QPushButton` row and a `QTreeWidget` dialog cannot drift apart.

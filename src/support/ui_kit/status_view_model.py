@@ -1,6 +1,9 @@
 """A ViewModel's status line — one message plus whether it reads as an
 error — and the property/signal wiring every consumer needed identically.
 
+The two readers are plain Python properties and `statusChanged` is the change
+notification: no `QtCore.Property` is declared (`BUG-152`).
+
 `DeskViewModel`, `TradingSettingsViewModel` and `MarketDataSettingsViewModel`
 all defined `set_status()`/`_get_status_message()`/`_get_status_is_error()`
 byte-for-byte before this class existed — three copies of a four-line
@@ -15,7 +18,7 @@ raise.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
 
@@ -31,15 +34,13 @@ class StatusMessageViewModel(BaseQmlViewModel):
         self._status_message = ""
         self._status_is_error = False
 
-    def _get_status_message(self) -> str:
+    @property
+    def statusMessage(self) -> str:
         return self._status_message
 
-    statusMessage = Property(str, _get_status_message, notify=statusChanged)
-
-    def _get_status_is_error(self) -> bool:
+    @property
+    def statusIsError(self) -> bool:
         return self._status_is_error
-
-    statusIsError = Property(bool, _get_status_is_error, notify=statusChanged)
 
     @Slot(str, bool)
     def set_status(self, message: str, is_error: bool) -> None:
