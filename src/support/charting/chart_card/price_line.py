@@ -30,6 +30,11 @@ class LastPriceLine:
         self._line.hide()
         plot.addItem(self._line, ignoreBounds=True)
 
+    @property
+    def item(self) -> pg.InfiniteLine:
+        """The line on the plot, so a caller can tell it from its own lines."""
+        return self._line
+
     def update_price(self, price: float, is_bullish: bool) -> None:
         color = theme.BULL_COLOR if is_bullish else theme.BEAR_COLOR
         self._line.setPen(pg.mkPen(color, width=1, style=QtCore.Qt.DashLine))
