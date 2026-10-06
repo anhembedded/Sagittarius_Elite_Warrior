@@ -8,9 +8,6 @@ import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 from .chart_card import ChartCard
 
@@ -18,11 +15,8 @@ _TICKS_PER_CANDLE = 20
 
 app = QApplication(sys.argv)
 
-# The card carries no style of its own (`ChartFrame`, EPIC-033H); the theme
-# this call seeds is still read by the chart's own parts, and it is one
-# function for every entry point that builds this app's widgets (BOT-133);
-# this file used to spell out its own half of it.
-seed_app_theme()
+# The card carries no style of its own (`ChartFrame`, EPIC-033H): it draws in
+# the platform's look, so nothing seeds a theme here.
 
 card = ChartCard("BTCUSDT")
 card.resize(1000, 700)
@@ -39,11 +33,11 @@ base_price = 60000.0
 # 1. SETUP INDICATORS
 card.add_overlay_indicator(
     "SMA_20",
-    color="#f39c12",  # token-exempt: candle/indicator series colour, not chrome
+    color="orange",
 )
 card.add_subplot_indicator(
     "RSI_14",
-    color="#9b59b6",  # token-exempt: candle/indicator series colour, not chrome
+    color="purple",
     height_ratio=1,
 )
 
