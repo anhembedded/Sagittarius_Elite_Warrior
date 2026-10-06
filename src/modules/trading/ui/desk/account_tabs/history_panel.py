@@ -9,7 +9,7 @@ exactly the sentence that says some fills are missing.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
     HistoryView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
@@ -69,10 +70,7 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
             self._table, model, model.COLUMNS, formatter=APP_VALUE_FORMATTER
         )
 
-        self._empty = QLabel(_LOADING_TEXT)
-        self._empty.setObjectName(f"lbl{name}Empty")
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty.setWordWrap(True)
+        self._empty = empty_page(_LOADING_TEXT, f"lbl{name}Empty")
         self._body = QStackedWidget()
         self._body.addWidget(self._empty)
         self._body.addWidget(self._table)

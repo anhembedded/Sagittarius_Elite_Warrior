@@ -25,6 +25,9 @@ from PySide6.QtWidgets import (
     QTableView,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import (
+    frame_instruction_page,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -74,7 +77,9 @@ class SpecTable[TRow]:
             formatter=formatter,
             selection=selection,
         )
-        self.body: QWidget = EmptyStateStack(self.view, empty_text)
+        stack = EmptyStateStack(self.view, empty_text)
+        frame_instruction_page(stack)
+        self.body: QWidget = stack
         self.body.setObjectName(f"{object_name}Body")
 
     def row_at(self, proxy_index: AnyIndex) -> TRow | None:

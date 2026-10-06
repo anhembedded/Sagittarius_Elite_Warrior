@@ -59,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_rows impo
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
@@ -160,11 +161,16 @@ class BotsView(BaseView):
         self.fills.use_precisions(precisions)
 
     def set_chart(self, chart: QWidget | None) -> None:
-        replace_in(self._chart_slot, chart or _note(NO_CHART_TEXT))
+        replace_in(
+            self._chart_slot, chart or empty_page(NO_CHART_TEXT, "lblBotsNoChart")
+        )
 
     def set_backtest_page(self, page: QWidget | None) -> None:
         """The kind's backtest page; `None` leaves the instruction."""
-        replace_in(self._backtest_slot, page or _note(NO_BACKTEST_TEXT))
+        replace_in(
+            self._backtest_slot,
+            page or empty_page(NO_BACKTEST_TEXT, "lblBotsNoBacktest"),
+        )
 
     # -- internals -------------------------------------------------------- #
 
@@ -274,9 +280,3 @@ class _BacktestSlot(QWidget):
     @override
     def sizeHint(self) -> QSize:
         return self.minimumSizeHint()
-
-
-def _note(text: str) -> QLabel:
-    note = QLabel(text)
-    note.setWordWrap(True)
-    return note

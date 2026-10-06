@@ -25,8 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_confirmations import (
     AccountTabConfirmations,
@@ -41,6 +40,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
@@ -70,10 +70,7 @@ class TradeView(OutputSourceView):
         super().__init__(parent)
         self.log = LogListModel(self)
         self._pages: dict[TradingVenue, DeskView] = {}
-        self._no_venue = QLabel(NO_VENUE_TEXT)
-        self._no_venue.setObjectName("lblNoVenue")
-        self._no_venue.setWordWrap(True)
-        self._no_venue.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._no_venue = empty_page(NO_VENUE_TEXT, "lblNoVenue")
         self._idle = WorkbenchSurface(TRADE_SURFACE)
         self._idle.place_widget(Place.WORKSPACE, self._no_venue)
         self._stack = QStackedWidget()

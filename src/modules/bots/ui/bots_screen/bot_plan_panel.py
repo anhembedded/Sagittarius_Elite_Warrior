@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -83,9 +84,7 @@ class BotPlanPanel(QStackedWidget):
         replace_in(self._panel_slot, panel)
 
     def _build(self) -> None:
-        empty = QLabel(EMPTY_TEXT)
-        empty.setObjectName("lblBotsEmpty")
-        empty.setWordWrap(True)
+        empty = empty_page(EMPTY_TEXT, "lblBotsEmpty")
         plan = QWidget()
         column = QVBoxLayout(plan)
         column.addWidget(self.title)

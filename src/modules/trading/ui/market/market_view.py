@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.script_params_sink import (
     IndicatorScriptParamsSink,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
@@ -110,10 +111,7 @@ class MarketView(OutputSourceView):
         self.tabs.setDocumentMode(True)
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
-        self._no_chart = QLabel(_NO_CHART_TEXT)
-        self._no_chart.setObjectName("lblNoChart")
-        self._no_chart.setWordWrap(True)
-        self._no_chart.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._no_chart = empty_page(_NO_CHART_TEXT, "lblNoChart")
         self._central = QStackedWidget()
         self._central.addWidget(self._no_chart)
         self._central.addWidget(self.tabs)
