@@ -25,6 +25,11 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
 - **View → Back to live:** a chart showing a range draws its newest first
   window again and follows the stream, in one request (`EPIC-033T`); off
   while the chart in front shows no range and while it loads.
+- **Tools → Indicator parameters…:** edits the parameters of the script
+  selected in the Indicators panel, in the dialog the Dev Board used for it
+  (`BOT-063`), which the Dev Board's deletion (`EPIC-033P`) would otherwise
+  take with it. In Tools, beside Options, as a dialog of settings; off while
+  the selected script declares no input.
 
 Qt-free, because `TradingModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`).
@@ -46,6 +51,7 @@ SHOW_FUTURES = "trading.market.show_futures"
 LOAD_OLDER = "trading.market.load_older"
 LOAD_RANGE = "trading.market.load_range"
 BACK_TO_LIVE = "trading.market.back_to_live"
+INDICATOR_PARAMS = "trading.market.indicator_params"
 #: The `exclusive_group` of Spot and Futures.
 MARKET_CHOICE = "trading.market.market"
 
@@ -105,6 +111,14 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=VIEW_MENU,
             mode=route,
             on_toolbar=True,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=INDICATOR_PARAMS,
+            text="&Indicator parameters…",
+            menu_path=TOOLS_MENU,
+            mode=route,
+            needs_input=True,
         ),
         CommandContribution(
             contributor_id="trading",

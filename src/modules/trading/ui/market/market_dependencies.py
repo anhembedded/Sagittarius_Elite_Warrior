@@ -80,14 +80,17 @@ class MarketDependencies:
     history: IHistoricalKlines
     thread_manager: IThreadManager
     scripts: IndicatorScriptRegistry
-    #: A script's saved parameters (Tools → the Dev Board's script dialog),
-    #: read on each build so an edit applies to the next chart drawn.
+    #: A script's saved parameters, read on each build so an edit applies to
+    #: the next chart drawn.
     script_params: ScriptParams
     account: IAccountSnapshot
     symbols: tuple[str, ...]
     interval: str
     #: Where the chosen market is remembered; `None` keeps the default.
     state: UiStateCoordinator | None = None
+    #: Where Tools → Indicator parameters… saves a script's parameters, the
+    #: store `script_params` reads; `None` leaves the command off.
+    params_store: IndicatorScriptParamsStore | None = None
 
 
 def market_dependencies_for(container: IContainer) -> MarketDependencies:
@@ -111,4 +114,5 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
         symbols=tuple(default_symbol_options(values, FALLBACK_SYMBOLS)),
         interval=default_interval(values, FALLBACK_INTERVAL),
         state=find_state_coordinator(container),
+        params_store=params,
     )

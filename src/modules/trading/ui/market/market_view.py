@@ -33,8 +33,14 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.script_params_sink import (
+    IndicatorScriptParamsSink,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
+    StrategyParamsDialog,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
@@ -83,6 +89,9 @@ class MarketView(OutputSourceView):
     current_chart_changed = Signal(str)
     #: The checked indicators, in list order (a tuple of keys).
     indicators_changed = Signal(tuple)
+    #: The script selected in the Indicators panel changed (its key, `""`
+    #: for none): what Tools → Indicator parameters… edits.
+    indicator_selected = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -139,6 +148,13 @@ class MarketView(OutputSourceView):
         return tuple(self._symbol_at(i) for i in range(self.tabs.count()))
 
     @property
+    def selected_indicator(self) -> str:
+        """The key of the script selected in the Indicators panel, `""` for
+        none."""
+        item = self.indicators.currentItem()
+        return "" if item is None else str(item.data(Qt.ItemDataRole.UserRole))
+
+    @property
     def current_symbol(self) -> str:
         return self._symbol_at(self.tabs.currentIndex())
 
@@ -163,7 +179,10 @@ class MarketView(OutputSourceView):
             self._central.setCurrentWidget(self._no_chart)
 
     def set_indicator_choices(self, choices: Sequence[IndicatorChoice]) -> None:
-        """Fills the checklist without reporting it as the user's choice."""
+        """Fills the checklist without reporting it as the user's choice;
+        the selection the refill dropped is reported, so a command acting
+        on the selected script never stays on for a script no longer
+        selected."""
         self.indicators.blockSignals(True)
         self.indicators.clear()
         for choice in choices:
@@ -179,6 +198,7 @@ class MarketView(OutputSourceView):
             )
             self.indicators.addItem(item)
         self.indicators.blockSignals(False)
+        self.indicator_selected.emit(self.selected_indicator)
 
     def set_connection_text(self, text: str) -> None:
         self.connection.setText(text)
@@ -198,6 +218,15 @@ class MarketView(OutputSourceView):
         finally:
             dialog.deleteLater()
 
+    def edit_indicator_params(self, sink: IndicatorScriptParamsSink) -> None:
+        """Tools → Indicator parameters…: the Dev Board's dialog (`BOT-063`),
+        modal over the window; returns once it closes."""
+        dialog = StrategyParamsDialog(sink, self.window(), title="Indicator Parameters")
+        try:
+            dialog.exec()
+        finally:
+            dialog.deleteLater()
+
     def show_connection_failure(self, text: str) -> None:
         """The check the user asked for failed: said where they are looking,
         not only in the status bar (`ui-presentation-rule.md` §10)."""
@@ -212,6 +241,11 @@ class MarketView(OutputSourceView):
             lambda _index: self.current_chart_changed.emit(self.current_symbol)
         )
         self.indicators.itemChanged.connect(self._on_indicator_changed)
+        self.indicators.currentItemChanged.connect(
+            lambda _current, _previous: self.indicator_selected.emit(
+                self.selected_indicator
+            )
+        )
 
     def _on_watchlist_activated(self, index: QModelIndex) -> None:
         row: WatchlistRow | None = self._watchlist.row_at(index)

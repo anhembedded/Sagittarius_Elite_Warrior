@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 172 | 81.9% |
+| 🟢 **Completed** | 173 | 82.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 30 | 14.3% |
+| 🔴 **Backlog** | 30 | 14.2% |
 | ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **210** | **100%** |
+| 📈 **Tổng số Task** | **211** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-153`](completed/BOT-153_market_indicator_parameters.md) (the Market mode edits an indicator script's parameters)**: [Decision: the Dev Board's per-script parameters button (`BOT-063`) becomes one command, Tools → Indicator parameters…, for the script selected in the Market mode's Indicators panel, over the same dialog and sink, so `EPIC-033P` can delete the Dev Board without losing it. Saved values redraw the open charts drawing the script.]
 - [x] **[`BUG-150`](bug_report/completed/BUG-150_closed_market_tab_reports_on_its_deleted_chart.md) (a closed Market tab's load reported on its deleted chart)**: [Root cause: `LiveChartCoordinator._run` checked its cancellation token only between steps and called `load_finished` unconditionally, so a tab closed during its first window had the worker emit on a `MarketChart` already `deleteLater`'d. Fixed at the seam all charts share: a cancelled load reports nothing, `load_finished` carries the load's token, and `LiveCandleChart` settles the request it cancels itself and ignores a settle of a replaced request.]
 - [x] **`EPIC-033T` (a Market chart showing a range goes back to live in one step)**: [Decision: View → Back to l&ive is a command on the chart in front, not a re-pick of the active timeframe. It asks the chart for its newest first window at the timeframe it shows through `LiveCandleChart.show_newest_window()`, which a desk or bot chart can use too, so the chart is restarted once instead of twice through another timeframe. The command is on only while the chart in front shows a range and is not loading. That needs its own `showingRangeChanged` signal, because a range's load reports "not loading" before the range is drawn.]
 - [x] **`EPIC-033L` (the Backtest mode: test a strategy on stored history on one workbench)**: [Decision: the run is set up in a Run setup dock on the left (a form of stock fields; strategy, timeframe, range and time zone are drop-down lists, the range's "Custom…" asks for dates), read in a Metrics dock on the right and a tabbed bottom area (Trades, Drawdown, Monthly returns, Monte Carlo), with the result chart central. Progress is the status bar's; Run and Stop are Tools commands. Every dialog is a stock `QDialog` with a `QDialogButtonBox`, titled after its command; Strategy Parameters has Close, not Cancel, because both its tabs apply as they are edited. Every table is built from column specs; the comparison and Metrics Detail tables, whose values are formatted text in mixed units, sort back to their own order. Notices are `NoticeBar`s with the platform's icons, so a failed run is an error notice rather than red text alone. Measured over the epic: style-sheet calls 61 in the mode at the start → 0 in it; the mode has no row left in the conformance or stock-controls baselines. Left for others: trees from column specs (`BOT-151`) and the mode's type and size debt (`EPIC-033M`).]
