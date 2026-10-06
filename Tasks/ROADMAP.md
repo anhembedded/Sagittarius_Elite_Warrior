@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 182 | 84.3% |
+| 🟢 **Completed** | 182 | 83.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 26 | 12.0% |
+| 🔴 **Backlog** | 27 | 12.4% |
 | ❌ **Cancelled** | 8 | 3.7% |
-| 📈 **Tổng số Task** | **216** | **100%** |
+| 📈 **Tổng số Task** | **217** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`EPIC-033M`](epics/EPIC-033_windows_workbench/completed/EPIC-033M_retire_kit.md) (the kit, Palette and the theme bootstrap are deleted)**: [Decision: three parts on one branch, A (`src/modules`) and B (`src/support`) in parallel sessions, C (deletions and bans) after both. About 10,300 lines go with their tests; the styling census is a ban at zero, every stock-controls rule but `color_literal` is a ban, the QQuickWidget guard a ban without exemption. Data series colours stay a ratchet (`BOT-161`) and the last 5 uncollectable objects, all from the Engine's QML layer, go to `BUG-152`, both by the user's decision.]
 - [x] **[`BOT-149`](completed/BOT-149_every_pair_history_reads_the_users_pairs_first.md) (an every-pair history reads the user's own pairs first)**: [Decision: the reader says why each active pair is active (`ActiveSymbol`, `ActiveReason`) and `history_scope` decides the order, because the order is policy and the reason is the venue's fact. A capped Spot page reads open-order pairs, then the desk's pair, then traded, then held; root cause of the old behaviour: both readers returned pairs alphabetically and the cap took the first five (`0GUSDT, 1000CATUSDT, …`). Futures and uncapped pages are unchanged. The desk's pair is carried by `HistoryRequest.desk_symbol`, set by `HistoryTabsLoader`.]
 - [x] **[`BOT-152`](completed/BOT-152_split_order_entry_view_model.md) (the order entry's view model splits what the view asks from what the presenter sets)**: [Root cause: one class held reads, the user's intents and the presenter's writes (31 public members, one `PLR0904` entry the ratchet could not see grow). Decision: split along its own section comments into `OrderEntryViewModel` (signals and reads, 14), `OrderEntryUserIntents` (`vm.intents`, 10) and `OrderEntryPresenterWriter` (`vm.presenter_side()`, 8) over one `OrderEntryState`; the signals stay on the view model so no connection moved, and a guard fails if a view reaches the writes. The `PLR0904` baseline entry is gone.]
 - [x] **[`BUG-153`](bug_report/completed/BUG-153_engine_pin_check_trusts_a_sidecar_a_reinstall_leaves_behind.md) (the Engine Pin check passed after a manual engine reinstall)**: [Root cause: `engine_pin.py` trusted a sidecar file, `<prefix>/sagittarius_engine.ref`, bound to nothing, so any install that replaced the engine without `install` left it naming the pinned commit. Fixed by recording a hash of the installed distribution's `RECORD` beside the commit and honouring the commit only while the hash still matches.]
@@ -502,6 +503,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P3** | **[BOT-161](backlog/BOT-161_one_table_of_series_colours.md)** | **Every data series colour comes from one table, and the domain names no colour** | 🟡 **`M (Standard)`** | — | *(added 06/10, EPIC-033M)* The last stock-controls ratchet, `color_literal`: about 34 hex strings of indicator lines, strategy markers and the chart's bull and bear, two files of them in `strategy/domain`. One table, then the guard is a ban outright. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |
