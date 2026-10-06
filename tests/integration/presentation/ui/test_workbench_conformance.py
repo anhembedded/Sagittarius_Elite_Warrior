@@ -48,6 +48,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layou
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     LONE_AMPERSAND,
     Check,
+    access_key_problems,
     control_height_problems,
     duplicate_button_problems,
     font_problems,
@@ -78,6 +79,7 @@ MODE_CHECKS: dict[str, Check] = {
     "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
     "mnemonics_escaped": mnemonic_problems,
+    "access_keys_unique": access_key_problems,
     "perspective_round_trip": perspective_problems,
     "bars_named_uniquely": object_name_problems,
     # Last: it rearranges the mode, then puts the default back.
@@ -209,6 +211,24 @@ def test_a_lone_ampersand_is_a_mnemonic_and_a_doubled_one_is_not() -> None:
     assert LONE_AMPERSAND.search("Data & stream")
     assert not LONE_AMPERSAND.search("Data && stream")
     assert not LONE_AMPERSAND.search("&File")
+
+
+def test_a_shared_or_missing_access_key_is_seen(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    menu = QMenu("&File", window)
+    window.menuBar().addMenu(menu)
+    for text in ("&Open", "&Options", "Save", "&Print", "Pop"):
+        menu.addAction(text)
+    recent = QMenu("&Recent", menu)
+    menu.addMenu(recent)
+    recent.addAction("Clear")
+
+    assert access_key_problems(window, window) == [
+        "File: ['Open', 'Options'] share the access key 'o'",
+        "File → 'Save' has no access key",
+        "File → Recent → 'Clear' has no access key",
+    ]
 
 
 def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:

@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QPushButton,
     QScrollArea,
     QTabBar,
@@ -30,6 +31,9 @@ from PySide6.QtWidgets import (
     QTreeView,
     QWidget,
     QWidgetAction,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
+    access_keys,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
     CONFIGURED_PROPERTY,
@@ -210,6 +214,55 @@ def mnemonic_problems(window: QMainWindow, page: QWidget) -> list[str]:
     return [
         f"{t!r}: a lone & becomes a mnemonic" for t in texts if LONE_AMPERSAND.search(t)
     ]
+
+
+def top_menus(window: QMainWindow) -> list[tuple[str, QMenu]]:
+    """Each menu of the menu bar with its title, filled for the showing mode
+    as opening it would (the workbench fills a menu when it opens)."""
+    menus = []
+    for item in window.menuBar().actions():
+        menu = (
+            window.menu(item.text())
+            if isinstance(window, WorkbenchShell)
+            else item.menu()
+        )
+        if menu is not None:
+            menus.append((plain_text(item.text()), menu))
+    return menus
+
+
+def _menu_key_problems(menu: QMenu, path: str) -> list[str]:
+    items = [a for a in menu.actions() if not a.isSeparator() and a.text()]
+    owners: dict[str, list[str]] = {}
+    for item in items:
+        for key in access_keys(item.text()):
+            owners.setdefault(key, []).append(plain_text(item.text()))
+    found = [
+        f"{path}: {texts} share the access key {key!r}"
+        for key, texts in owners.items()
+        if len(texts) > 1
+    ]
+    for item in items:
+        text = plain_text(item.text())
+        letters = {c.lower() for c in text if c.isalnum()}
+        if not access_keys(item.text()) and not letters <= owners.keys():
+            found.append(f"{path} → {text!r} has no access key")
+        submenu = item.menu()
+        if submenu is not None:
+            found += _menu_key_problems(submenu, f"{path} → {text}")
+    return found
+
+
+def access_key_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§4: every menu item has an access key unique in its menu (MS
+    `cmd-menus`), in the menus as the showing mode fills them. An item goes
+    without one only when every letter of its text is already another
+    item's key there, which is what the Engine's `assign_access_keys` does
+    when the letters run out (Backtest's View → Trades, 2026-10-06)."""
+    found = []
+    for title, menu in top_menus(window):
+        found += _menu_key_problems(menu, title)
+    return found
 
 
 def perspective_problems(window: QMainWindow, page: QWidget) -> list[str]:

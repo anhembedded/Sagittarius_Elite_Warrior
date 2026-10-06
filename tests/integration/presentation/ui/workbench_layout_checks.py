@@ -16,10 +16,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QToolBar, QWidget
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     command_name,
-    plain_text,
-)
-from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
-    WorkbenchShell,
+    top_menus,
 )
 
 
@@ -61,19 +58,12 @@ def object_name_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def _reset_layout_action(window: QMainWindow) -> QAction | None:
-    for item in window.menuBar().actions():
-        if plain_text(item.text()) != "Window":
-            continue
-        # The workbench fills a menu for the showing mode when it opens.
-        menu = (
-            window.menu(item.text())
-            if isinstance(window, WorkbenchShell)
-            else item.menu()
-        )
-        return next(
-            (a for a in menu.actions() if command_name(a.text()) == "reset layout"),
-            None,
-        )
+    for title, menu in top_menus(window):
+        if title == "Window":
+            return next(
+                (a for a in menu.actions() if command_name(a.text()) == "reset layout"),
+                None,
+            )
     return None
 
 

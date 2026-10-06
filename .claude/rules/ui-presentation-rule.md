@@ -42,9 +42,10 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
 ## 4. Text, icons and terminology
-- Menus and buttons in sentence case, dialog titles in title case (MS); every menu item has an access key unique in its menu. `[review: H3]`
+- Menus and buttons in sentence case, dialog titles in title case (MS). `[review: H3]`
+- Every menu item has an access key unique in its menu (MS `cmd-menus`); an item goes without one only when every letter of its text is already another item's key there, as the Engine's `assign_access_keys` leaves it. The Engine refuses a command that marks no key, two keys, or a key another command in its menu has; the suite reads every menu as each mode fills it. `[guard: test_workbench_conformance.py]`
 - A literal ampersand in a label is written `&&`, never left to become an access key. `[guard: test_workbench_conformance.py]`
-- A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). `[review: H3]`
+- A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). The Engine's `ActionDescriptor` refuses "..." and an ellipsis that disagrees with the command's declared `needs_input`, so the booted suite fails on either; whether a command needs input is review. `[guard: test_workbench_conformance.py; review: H3]`
 - OK is spelled "OK"; problems are never "OK" — use Close (MS `mess-confirm`). `[review: H3]`
 - Icons: SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
 
@@ -81,5 +82,5 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 - Confirm only risky or irreversible actions (Emergency Stop, Place Order, Cancel All, Delete Data): specific verbs, never OK/Cancel, the safe choice default, no "don't ask again" (MS `mess-confirm`). `[review: H7]`
 
 ## 11. Keyboard
-- Standard shortcuts keep their meaning (Ctrl+C/V/Z/F, F1, F5, Alt+F4); new ones come from Ctrl+G/J/K/L/M/Q/R/T, Ctrl+digit, F7/F8/F9/F12; no Ctrl+Alt (MS `inter-keyboard`, `cmd-menus`). `[review: H3]`
+- Standard shortcuts keep their meaning (Ctrl+C/V/Z/F, F1, F5, Alt+F4): a standard command takes its `QKeySequence.StandardKey`. New ones come from Ctrl+J, Ctrl+L, Ctrl+digit, F7/F8/F9/F12; Microsoft also leaves Ctrl+G/K/M/Q/R/T free, but KDE, GNOME or macOS bind them (the Engine's `shortcut_policy`); no Ctrl+Alt (MS `inter-keyboard`, `cmd-menus`). The Engine's `ActionDescriptor` refuses any other key, so the booted suite fails on one; whether a command is the standard one is review. `[guard: test_workbench_conformance.py; review: H3]`
 - Tab order follows reading order; initial focus is the likely control (MS `inter-keyboard`). `[review: H3]`
