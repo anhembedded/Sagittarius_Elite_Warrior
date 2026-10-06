@@ -1330,7 +1330,7 @@ def test_script_markers_are_drawn_as_triangle_marker_items_on_the_main_plot(
     assert len(items) == 1
     assert isinstance(items[0], TriangleMarkerItem)
     assert items[0] in card.plot_layout.main_plot.items
-    assert "Buy @ 100.00" in items[0].toolTip()
+    assert "Buy @ 100.0000" in items[0].toolTip()
 
 
 def test_setting_markers_again_replaces_rather_than_accumulates(qapp):

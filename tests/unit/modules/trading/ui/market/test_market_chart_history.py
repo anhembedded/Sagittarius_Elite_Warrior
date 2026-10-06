@@ -26,12 +26,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
     MARKET_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
     START,
     candle,
     tick,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _MINUTE = timedelta(minutes=1)
 
@@ -294,6 +296,42 @@ def test_a_range_draws_exactly_its_candles(opened, threads, monkeypatch):
     assert len(chart.chart._raw_history) == 10
     assert chart.showing_range
     assert asked[0] == HistoryRange(START, START + 60 * _MINUTE)
+
+
+def _shown(instant) -> str:
+    return write_value(ColumnKind.TIMESTAMP, instant)
+
+
+def test_a_range_says_what_it_shows_in_the_formatters_text(
+    opened, threads, monkeypatch
+):
+    presenter, _load_older, load_range = opened
+    span = HistoryRange(START - 50 * _MINUTE, START - 41 * _MINUTE)
+    _choose(presenter, monkeypatch, span)
+
+    load_range.trigger()
+    threads.run_all()
+
+    assert _logged(
+        presenter,
+        f"Showing 10 candles of BTCUSDT from {_shown(span.start)} "
+        f"to {_shown(span.end)} UTC.",
+    )
+
+
+def test_an_empty_range_says_which_span_holds_nothing(opened, threads, monkeypatch):
+    presenter, _load_older, load_range = opened
+    span = HistoryRange(START - 900 * _MINUTE, START - 800 * _MINUTE)
+    _choose(presenter, monkeypatch, span)
+
+    load_range.trigger()
+    threads.run_all()
+
+    assert _logged(
+        presenter,
+        f"No candles of BTCUSDT are stored from {_shown(span.start)} "
+        f"to {_shown(span.end)} UTC.",
+    )
 
 
 def test_a_drawn_range_takes_no_live_candle(opened, threads, monkeypatch, event_bus):
