@@ -3676,7 +3676,7 @@ def test_selecting_a_trade_shows_its_journal(
 
     assert not details.isHidden()
     labels = [label.text() for label in details.findChildren(QLabel)]
-    assert "Exit reason:" in labels
+    assert "Exit reason" in labels
 
     panel.table.view.clearSelection()
     assert details.isHidden()
