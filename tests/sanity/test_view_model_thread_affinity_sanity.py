@@ -86,11 +86,10 @@ def test_every_view_model_subclass_in_this_app_is_covered_by_this_list() -> None
 
     Filters to classes defined under `Sagittarius_Elite_Warrior.src.` —
     running the full suite, `BaseQmlViewModel.__subclasses__()` also picks up
-    test-only doubles other test files define for their own purposes (e.g.
-    test_shared_ui_state_foundation.py's `_ProbeViewModel`, a local class
-    inside one test function, used only to exercise the FSM/uiMode wiring
-    mechanism generically) — those aren't screens this app ships and have
-    nothing to do with this scan."""
+    test-only doubles other test files define for their own purposes (a
+    local probe subclass inside one test function, used only to exercise the
+    FSM/uiMode wiring mechanism generically) — those aren't screens this app
+    ships and have nothing to do with this scan."""
     from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel
 
     def all_subclasses(cls: type) -> set[type]:

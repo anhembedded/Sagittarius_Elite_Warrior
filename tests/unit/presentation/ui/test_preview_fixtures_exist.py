@@ -1,7 +1,9 @@
 """
 UI Preview Convention (BOT-031), the half that needs Qt: every `build_preview()`
 `scripts/preview_qml.py` discovers builds cleanly in offscreen mode, with zero
-exceptions and zero QML errors.
+exceptions. (It also read each preview's QML errors until `EPIC-033M` deleted
+the last `.qml`; `test_quick_widget_only_in_embed.py` now bans `QQuickWidget`
+from `src/` outright, so there is no QML left to report one.)
 
 The static half — every presenter package has a `preview.py` defining
 `build_preview`, and no preview uses a relative import — moved to
@@ -15,7 +17,6 @@ from __future__ import annotations
 
 import os
 
-from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.scripts.preview_qml import discover_previews
 
@@ -35,7 +36,7 @@ def test_discover_previews_finds_all_targets():
 
 def test_all_discovered_previews_build_cleanly(qapp):
     """
-    Constructs every discovered preview in offscreen Qt mode and asserts 0 QML errors.
+    Constructs every discovered preview in offscreen Qt mode.
     """
     previews = discover_previews()
     assert len(previews) > 0, "No previews discovered"
@@ -45,16 +46,6 @@ def test_all_discovered_previews_build_cleanly(qapp):
         assert isinstance(widget, QWidget), (
             f"Preview for '{name}' did not return a QWidget"
         )
-
-        if hasattr(widget, "errors"):
-            errors = widget.errors()
-            assert errors == [], f"QML errors in preview for '{name}': {errors}"
-
-        for child_qw in widget.findChildren(QQuickWidget):
-            errors = child_qw.errors()
-            assert errors == [], (
-                f"QML errors in child QQuickWidget of '{name}': {errors}"
-            )
 
         widget.deleteLater()
         qapp.processEvents()
