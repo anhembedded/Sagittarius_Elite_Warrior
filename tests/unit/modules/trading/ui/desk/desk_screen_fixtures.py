@@ -12,6 +12,7 @@ stream, as the two routes do in the running app.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
@@ -146,27 +147,41 @@ class Desk:
     actions: DeskActions
 
 
-def build_desk(
-    qtbot,
-    venue: TradingVenue,
-    world: DeskWorld | None = None,
-    *,
-    ports_venue: TradingVenue | None = None,
-    strategy_venue: TradingVenue | None = None,
-    account_snapshot: FakeAccountSnapshot | None = None,
-    order_entry_terms: FakeOrderEntryTerms | None = None,
-    trading_on: bool = False,
-    precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS,
-) -> Desk:
-    """`venue`'s desk, every order confirmed Yes. `ports_venue` and
-    `strategy_venue` hand it another venue's ports or strategy, which the
-    desk must refuse."""
-    world = world or DeskWorld()
-    profile = desk_profile_for(venue)
+@dataclass
+class DeskFakes:
+    """The fakes behind one venue's desk, and the dependencies built on them."""
+
+    session: FakeTradingSession
+    submission: FakeOrderSubmission
+    activity: FakeAccountActivity
+    arming: FakeStrategyArming
+    armed: FakeArmedStrategy
+    deps: DeskDependencies
+
+
+@dataclass(frozen=True)
+class DeskSetup:
+    """How a test wants one desk's fakes: `ports_venue` and `strategy_venue`
+    hand it another venue's ports or strategy, which the desk must refuse."""
+
+    ports_venue: TradingVenue | None = None
+    strategy_venue: TradingVenue | None = None
+    account_snapshot: FakeAccountSnapshot | None = None
+    order_entry_terms: FakeOrderEntryTerms | None = None
+    trading_on: bool = False
+    precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS
+
+
+def desk_fakes(
+    world: DeskWorld, venue: TradingVenue, setup: DeskSetup | None = None
+) -> DeskFakes:
+    """`venue`'s desk dependencies over verified fakes, every order
+    confirmed Yes."""
+    setup = setup or DeskSetup()
     market = venue.market_type
     assert market is not None
     session, submission = FakeTradingSession(), FakeOrderSubmission()
-    session.set_enabled(enabled=trading_on)
+    session.set_enabled(enabled=setup.trading_on)
     activity = FakeAccountActivity()
     arming, armed = FakeStrategyArming(), FakeArmedStrategy()
     registry = StrategyRegistry()
@@ -174,15 +189,15 @@ def build_desk(
     threads = InlineThreadManager()
     deps = DeskDependencies(
         ports=fake_venue_ports(
-            ports_venue or venue,
+            setup.ports_venue or venue,
             trading_session=session,
             order_submission=submission,
             account_activity=activity,
-            account_snapshot=account_snapshot,
-            order_entry_terms=order_entry_terms,
+            account_snapshot=setup.account_snapshot,
+            order_entry_terms=setup.order_entry_terms,
         ),
         strategy=VenueStrategyControls(
-            venue=strategy_venue or venue,
+            venue=setup.strategy_venue or venue,
             arming=StrategyArmingControlAdapter(arming),
             armed=ArmedStrategyReaderAdapter(armed),
         ),
@@ -199,22 +214,67 @@ def build_desk(
         ),
         thread_manager=threads,
         confirm=lambda _confirmation: True,
-        precisions=precisions,
+        precisions=setup.precisions,
     )
-    view = DeskView(
-        profile,
-        confirmations=AccountTabConfirmations(
-            cancel_one=lambda _row: True,
-            cancel_all=lambda _rows: True,
-            close_position=lambda _row: True,
+    return DeskFakes(session, submission, activity, arming, armed, deps)
+
+
+#: The account tables' questions, answered Yes.
+YES_TO_EVERY_TABLE_QUESTION = AccountTabConfirmations(
+    cancel_one=lambda _row: True,
+    cancel_all=lambda _rows: True,
+    close_position=lambda _row: True,
+)
+
+
+def world_container(world: DeskWorld) -> Mock:
+    """The container a desk's presenter resolves its bus and config from."""
+    return fake_container({IEventBus: world.bus, IConfig: world.config})
+
+
+def build_desk(
+    qtbot,
+    venue: TradingVenue,
+    world: DeskWorld | None = None,
+    *,
+    ports_venue: TradingVenue | None = None,
+    strategy_venue: TradingVenue | None = None,
+    account_snapshot: FakeAccountSnapshot | None = None,
+    order_entry_terms: FakeOrderEntryTerms | None = None,
+    trading_on: bool = False,
+    precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS,
+) -> Desk:
+    """`venue`'s desk, every order confirmed Yes. `ports_venue` and
+    `strategy_venue` hand it another venue's ports or strategy, which the
+    desk must refuse."""
+    world = world or DeskWorld()
+    fakes = desk_fakes(
+        world,
+        venue,
+        DeskSetup(
+            ports_venue,
+            strategy_venue,
+            account_snapshot,
+            order_entry_terms,
+            trading_on,
+            precisions,
         ),
     )
+    profile = desk_profile_for(venue)
+    view = DeskView(profile, confirmations=YES_TO_EVERY_TABLE_QUESTION)
     qtbot.addWidget(view)
-    container = fake_container({IEventBus: world.bus, IConfig: world.config})
-    presenter = DeskPresenter(view, container, profile, deps)
-    actions = bind_desk_actions(view, presenter, venue)
+    presenter = DeskPresenter(view, world_container(world), profile, fakes.deps)
+    actions = bind_desk_actions(view, presenter)
     return Desk(
-        venue, view, presenter, session, submission, activity, arming, armed, actions
+        venue,
+        view,
+        presenter,
+        fakes.session,
+        fakes.submission,
+        fakes.activity,
+        fakes.arming,
+        fakes.armed,
+        actions,
     )
 
 

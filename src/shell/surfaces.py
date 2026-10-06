@@ -70,6 +70,13 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "market", owner="trading", accepts=frozenset({Place.WORKSPACE, Place.RAIL})
     ),
+    # `EPIC-033I` — the Trade mode's places; each venue's page is a surface of
+    # these places under its own id, so each keeps its own layout.
+    Surface(
+        "trade",
+        owner="trading",
+        accepts=frozenset({Place.WORKSPACE, Place.HEADER, Place.RAIL, Place.CONSOLE}),
+    ),
     Surface(
         "data_management",
         owner="market_data",

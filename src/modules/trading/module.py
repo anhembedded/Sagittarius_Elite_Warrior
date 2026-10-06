@@ -98,17 +98,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
-    desk_commands,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
-    FUTURES_DESK_ROUTE,
-    futures_desk_screen,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
-    SPOT_DESK_ROUTE,
-    spot_desk_screen,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
     market_commands,
 )
@@ -118,6 +107,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
+    trade_commands,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+    trade_screen,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -184,14 +180,17 @@ class TradingModule(BoundedContextModule):
 
     def __init__(self) -> None:
         super().__init__()
-        #: Stashed by `boot()`, read by `contribute()`'s desk screens
+        #: Stashed by `boot()`; `contribute()` refuses to run before it
         #: (`EPIC-025F` PR 5.2 began it for the Dev Board, which `EPIC-033P`
-        #: deleted). `boot()`
+        #: deleted, and the desks' screens read it until `EPIC-033I`). `boot()`
         #: always runs before `contribute()` (`BoundedContextModule`'s own
         #: hook table), and this is the same single container the app has
         #: for its whole lifetime — see `boot()`'s own docstring for why it
         #: must come from there and not from `register()`.
         self._container: IContainer | None = None
+        #: The venues enabled in this run, read by `boot()` from
+        #: `IVenueContexts`: the Trade menu lists them (`EPIC-033I`).
+        self._venues: tuple[TradingVenue, ...] = ()
 
     def register(self, context: Any) -> None:
         """This module's own adapters, state, commands, queries, and the
@@ -225,9 +224,8 @@ class TradingModule(BoundedContextModule):
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
 
-        The two desks' screens need the container `boot()` stashed (see
-        `__init__`'s docstring): each desk reads which venues are enabled
-        when its presenter is built.
+        The Trade mode's commands list the venues `boot()` read as enabled
+        (`EPIC-033I`): only an enabled venue can be chosen.
         """
         if self._container is None:
             raise RuntimeError("TradingModule.contribute() called before boot()")
@@ -251,15 +249,14 @@ class TradingModule(BoundedContextModule):
         )
         # `EPIC-033H` — the Market mode, first on the mode bar.
         registry.contribute_screen(market_screen())
-        # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
-        # single Trading screen they replace.
-        registry.contribute_screen(futures_desk_screen(self._container))
-        registry.contribute_screen(spot_desk_screen(self._container))
-        # `EPIC-033D` — each screen's commands.
+        # `EPIC-033I` — one Trade mode for every venue, replacing the two
+        # desks of `EPIC-028K`/`028L`.
+        registry.contribute_screen(trade_screen())
+        # `EPIC-033D` — each screen's commands; the Trade menu lists the
+        # venues `boot()` read as enabled.
         for command in (
             *market_commands(MARKET_ROUTE),
-            *desk_commands(FUTURES_DESK_ROUTE, TradingVenue.FUTURES_TESTNET),
-            *desk_commands(SPOT_DESK_ROUTE, TradingVenue.SPOT_TESTNET),
+            *trade_commands(TRADE_ROUTE, self._venues),
         ):
             registry.contribute_command(command)
 
@@ -279,9 +276,9 @@ class TradingModule(BoundedContextModule):
            its venue's trading is disabled, so nothing else needs to start
            or stop it alongside Enable/Disable/Emergency-Stop.
 
-        `EPIC-025F` PR 5.2 added the second: stashing `container` for
-        `contribute()`'s desk screens (see
-        `__init__`'s docstring). Stashed here, not in `register()` — the
+        `EPIC-025F` PR 5.2 added the second: stashing `container` (see
+        `__init__`'s docstring), and since `EPIC-033I` the venues enabled in
+        this run, which the Trade menu lists. Stashed here, not in `register()` — the
         `context.container` `register()` receives is `RegisteringContainer`,
         a spy that raises on every `resolve()` call **forever**, not only
         during registration (`shell/registering_container.py`'s own
@@ -295,6 +292,7 @@ class TradingModule(BoundedContextModule):
         """
         container = context.container
         self._container = container
+        self._venues = tuple(container.resolve(IVenueContexts).enabled())
 
         config = container.resolve(IConfig)
         scheduler = container.resolve(Scheduler)

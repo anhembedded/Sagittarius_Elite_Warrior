@@ -1,17 +1,13 @@
-"""`EPIC-033R` — each desk's Trade → New order… (F9) moves the keyboard focus
-to its order entry's first field and places nothing; it is disabled while the
-desk cannot trade."""
+"""`EPIC-033R` — Trade → New order… (F9) moves the keyboard focus to the
+chosen venue's order entry's first field and places nothing; it is disabled
+while that desk cannot trade (`EPIC-033I`: one command for the mode). What
+the module contributes is `trade/test_trade_commands.py`'s."""
 
 from __future__ import annotations
 
-from unittest.mock import Mock
-
 import pytest
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QApplication, QLabel, QLineEdit
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
+from PySide6.QtWidgets import QApplication, QLineEdit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
@@ -19,29 +15,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
-    new_order_id,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
-    FUTURES_DESK_ROUTE,
-    futures_desk_screen,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
-    SPOT_DESK_ROUTE,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import fake_container, real_contributions
 
-from .desk_actions import bind_desk_actions
 from .desk_screen_fixtures import Desk, build_desk
 from .futures_entry_fixtures import futures_status, futures_terms
 from .order_entry_fixtures import TERMS, spot_status
@@ -81,19 +61,6 @@ def _field(desk: Desk, name: str) -> QLineEdit:
     field = desk.view.findChild(QLineEdit, name)
     assert field is not None
     return field
-
-
-def test_the_trading_module_contributes_new_order_on_f9_to_each_desk() -> None:
-    commands = {
-        command.command_id: command for command in real_contributions(Mock()).commands()
-    }
-
-    for venue, route in ((FUTURES, FUTURES_DESK_ROUTE), (SPOT, SPOT_DESK_ROUTE)):
-        command = commands[new_order_id(venue)]
-        assert command.mode == route
-        assert command.shortcut == "F9"
-        assert command.text == "&New order…"
-        assert command.menu_path == ("T&rade",)
 
 
 @pytest.mark.parametrize("venue", VENUES)
@@ -161,21 +128,3 @@ def test_new_order_is_disabled_while_the_order_entry_cannot_take_an_order(
 
     orders.begin_symbol("ETHUSDT")
     assert not new_order.isEnabled()
-
-
-def test_new_order_is_disabled_for_the_whole_run_on_a_venue_that_is_off(
-    qtbot,
-) -> None:
-    container = fake_container(
-        {IVenueTradingPorts: FakeVenueTradingPorts(fake_venue_ports(SPOT))}
-    )
-    screen = futures_desk_screen(container)
-    view = screen.view_factory()
-    qtbot.addWidget(view)
-    presenter = screen.presenter_factory(view, container)
-    assert view.findChild(QLabel, "lblDeskDisabled") is not None
-
-    actions = bind_desk_actions(view, presenter, FUTURES)
-
-    assert actions.registry.unbound() == ()
-    assert not actions.new_order.isEnabled()

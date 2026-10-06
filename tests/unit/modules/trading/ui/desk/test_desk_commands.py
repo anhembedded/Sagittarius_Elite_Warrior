@@ -1,46 +1,22 @@
-"""`EPIC-033D` — a desk's Enable live trading and Emergency stop are actions.
+"""`EPIC-033D`, `EPIC-033I` — the Trade mode's Enable live trading and
+Emergency stop, on one desk.
 
-The commands the trading module really contributes (`real_contributions`),
-and the actions one desk's presenter binds (`desk_actions.py`): enabled while
-the session can take a toggle, checked while trading is on, Emergency stop
-only after its confirmation is accepted.
+The actions the mode binds to the venue chosen (`desk_actions.py`): enabled
+while the session can take a toggle, checked while trading is on, Emergency
+stop only after its confirmation is accepted. What the module contributes is
+`trade/test_trade_commands.py`'s.
 """
 
 from __future__ import annotations
 
-from unittest.mock import Mock
-
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
-    emergency_stop_id,
-    enable_trading_id,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
-    FUTURES_DESK_ROUTE,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
-    SPOT_DESK_ROUTE,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
 
 from .desk_screen_fixtures import build_desk
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
-
-
-def test_the_trading_module_contributes_each_desks_commands_to_its_own_mode() -> None:
-    modes = {
-        command.command_id: command.mode
-        for command in real_contributions(Mock()).commands()
-    }
-
-    assert modes[enable_trading_id(FUTURES)] == FUTURES_DESK_ROUTE
-    assert modes[emergency_stop_id(FUTURES)] == FUTURES_DESK_ROUTE
-    assert modes[enable_trading_id(SPOT)] == SPOT_DESK_ROUTE
-    assert modes[emergency_stop_id(SPOT)] == SPOT_DESK_ROUTE
 
 
 def test_enable_is_disabled_while_a_toggle_is_in_flight(qtbot) -> None:
@@ -67,7 +43,7 @@ def test_a_declined_emergency_stop_stops_nothing(qtbot) -> None:
     assert desk.session.snapshot().enabled is True
 
 
-def test_emergency_stop_says_what_it_closes_on_each_market(qtbot) -> None:
+def test_emergency_stop_says_what_it_closes_on_the_desks_market(qtbot) -> None:
     futures, spot = build_desk(qtbot, FUTURES), build_desk(qtbot, SPOT)
 
     futures.actions.emergency_stop.trigger()
@@ -75,14 +51,15 @@ def test_emergency_stop_says_what_it_closes_on_each_market(qtbot) -> None:
 
     (futures_asked,) = futures.actions.confirmer.asked
     (spot_asked,) = spot.actions.confirmer.asked
-    assert "every position is closed" in futures_asked.consequence
+    assert "every Futures position is closed" in futures_asked.consequence
     assert "sold at market" in spot_asked.consequence
     assert futures_asked.accept_text == spot_asked.accept_text == "Stop everything"
+    assert futures.session.emergency_stops == spot.session.emergency_stops == 1
 
 
 def test_a_desk_built_while_trading_is_on_shows_enable_checked(qtbot) -> None:
     """The presenter announces the session's state in `__init__`, before the
-    window binds its commands; `bind_commands` says it again (the PR #350
+    window binds the mode's commands; binding says it again (the PR #350
     review)."""
     desk = build_desk(qtbot, SPOT, trading_on=True)
 

@@ -134,7 +134,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 
 - The table's menus, names and shortcuts hold where a screen already has the command: Trade's Enable live trading, Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
 - Delete bot carries no "…": it only confirms, and "…" marks a command that asks for more input (§4 of the rule).
-- Emergency stop is on each desk's toolbar, for that desk's venue, not on every mode's: one Emergency stop for every venue comes with the single Trade mode (`EPIC-033I`).
+- Emergency stop is on every mode's toolbar since the single Trade mode (`EPIC-033I` stage 1), and stops every enabled venue: from another mode no venue shows, and the person pressing it wants trading stopped. Its confirmation names each venue and what it closes there.
+- Trade's Cancel order (Del) and Cancel all orders are still the account tables' own toolbar buttons, outside any menu, until `EPIC-033I` stage 3 makes them Trade menu commands; the Trade mode's conformance with both venues built ratchets that (`baseline_workbench_conformance.json`, `failing_with_venues`).
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
   - Bots: Refresh fills and Fit levels (`EPIC-033K`).

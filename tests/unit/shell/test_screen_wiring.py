@@ -29,10 +29,9 @@ from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_regis
 _EXPECTED_ROUTES = (
     # `EPIC-033H` — the Market mode, `trading`'s first contribution.
     "market",
-    # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
-    # single Trading screen (`"trading"`) they replace.
-    "trading.futures",
-    "trading.spot",
+    # `EPIC-033I` — one Trade mode for every venue, replacing the two desks
+    # of `EPIC-028K`/`028L` (which had replaced the single Trading screen).
+    "trade",
     "data_management",
     "backtest",
     # `EPIC-029F` — bots contribute last, `MODULES` order.
@@ -79,8 +78,7 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
     by_route = {screen.route: screen.contributor_id for screen in registry.screens()}
     assert by_route == {
         "market": "trading",
-        "trading.futures": "trading",
-        "trading.spot": "trading",
+        "trade": "trading",
         "data_management": "market_data",
         "backtest": "backtesting",
         "bots": "bots",
@@ -88,15 +86,16 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
 
 
 def test_the_default_route_survives_the_round_trip() -> None:
-    """The Futures desk (`EPIC-033C`): the first run opens there, as the
-    deleted Welcome screen's Start did. The round trip is the point: a
+    """The Trade mode (`EPIC-033I`, the Futures desk before it,
+    `EPIC-033C`): the first run opens there, as the deleted Welcome
+    screen's Start did. The round trip is the point: a
     default declared on a contribution is still the default once
     `ScreenRegistry` has it."""
     registry = ContributionRegistry(dev_mode=False)
     _contribute_screens(registry, container=object())
 
-    assert registry.default_route() == "trading.futures"
-    assert build_screen_registry(registry).get_default_route() == "trading.futures"
+    assert registry.default_route() == "trade"
+    assert build_screen_registry(registry).get_default_route() == "trade"
 
 
 def test_no_view_is_built_while_contributing() -> None:
@@ -104,7 +103,7 @@ def test_no_view_is_built_while_contributing() -> None:
     laziness is what keeps boot from importing every screen's dependency
     tree. `container=object()` (not even a `Mock()`) is the proof: a
     factory that ran eagerly would crash on it immediately, since
-    the desks' and `backtest_screen`'s factories call
+    `backtest_screen`'s factories call
     `container.resolve(...)`, which a plain `object()` cannot answer."""
     registry = ContributionRegistry(dev_mode=False)
     _contribute_screens(registry, container=object())
@@ -124,8 +123,7 @@ def test_the_modes_keep_the_sidebars_order() -> None:
 
     assert [mode.route for mode in modes] == [
         "market",
-        "trading.futures",
-        "trading.spot",
+        "trade",
         "bots",
         "data_management",
         "backtest",

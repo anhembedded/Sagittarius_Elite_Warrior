@@ -7,9 +7,10 @@
   notional was never wired into the live path). The desks' order panel (`EPIC-028H`/`028I`)
   replaced the Dev Board's own card in `EPIC-028M`, and the Dev Board itself was deleted in
   `EPIC-033P`.
-- **Surfaces:** each desk's order panel (the Futures desk for Futures Testnet, the Spot desk for
-  Spot Testnet), reached by mouse or by the desk's Trade → New order… (`F9`, `EPIC-033R`), which
-  moves the keyboard focus to the panel's first field ·
+- **Surfaces:** the Trade mode's Order entry panel for the venue chosen on its toolbar (Trade →
+  Venue › Futures or Spot, `EPIC-033I`; each venue's page was its own desk before), reached by
+  mouse or by Trade → New order… (`F9`, `EPIC-033R`), which moves the keyboard focus to the
+  chosen venue's first field ·
   `order-preview` · `order-dry-run` · `trade-once --live` at the command line and the
   interactive prompt.
 
@@ -141,8 +142,8 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
 | An order a desk's panel placed joins that desk's Open orders; a leased symbol is refused in the operator's own words; a Futures entry with TP/SL is protected once it fills | `tests/unit/modules/trading/ui/desk/test_desk_journeys.py`, `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py`, `tests/unit/modules/trading/ui/desk/test_protective_order_follower.py` | unit |
-| A desk whose venue is off says so and holds nothing that sends | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
-| In the real app with Spot Testnet on, against a fake Binance server: the Spot desk's `F9` focuses an entry that read the venue's balance; a Buy while trading is off is refused in words and never sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_spot_desk_against_fake_server.py` | integration |
-| Each desk's Trade → New order… (`F9`) focuses the order panel's first field for the order type, places nothing, and is disabled while the panel cannot take an order or the venue is off | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py` | unit |
+| A venue that is not enabled is not offered; with none enabled the Trade mode says so and holds nothing that sends | `tests/unit/modules/trading/ui/trade/test_trade_presenter.py`, `tests/unit/modules/trading/ui/trade/test_trade_commands.py` | unit |
+| In the real app with Futures and Spot Testnet on, against a fake Binance server, Spot chosen in the Trade mode: `F9` focuses an entry that read the venue's balance; a Buy while trading is off is refused in words and never sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_trade_mode_against_fake_server.py` | integration |
+| Trade → New order… (`F9`) focuses the chosen venue's first field for the order type, places nothing, and is disabled while that panel cannot take an order or no venue is enabled | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py`, `tests/unit/modules/trading/ui/trade/test_trade_presenter.py` | unit |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
-| Submitting one order by hand | **the user runs it**: enable trading on the Futures desk, submit a small order from its panel (`F9` focuses it), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |
+| Submitting one order by hand | **the user runs it**: in the Trade mode with Futures chosen, enable trading, submit a small order from its panel (`F9` focuses it), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |

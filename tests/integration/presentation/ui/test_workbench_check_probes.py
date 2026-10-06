@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QPushButton,
+    QStackedWidget,
     QToolBar,
     QToolButton,
     QWidget,
@@ -38,6 +39,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     style_sheet_problems,
     toolbar_in_menu_problems,
     toolbar_problems,
+    view_menu_problems,
 )
 
 
@@ -275,3 +277,31 @@ def test_a_mode_wider_than_the_window_is_seen(qtbot) -> None:
 
     assert fit_problems(window, page, QSize(1024, 700))
     assert fit_problems(window, page, QSize(1366, 768)) == []
+
+
+def test_a_dock_with_no_view_toggle_is_seen_on_the_surface_that_shows(qtbot) -> None:
+    """`EPIC-033I`: a mode with a surface per venue shows one; a dock of the
+    hidden one is measured when it shows, a dock of the shown one now, and
+    a dock the person closed is still measured."""
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    window.menuBar().addMenu(QMenu("&View", window))
+    stack = QStackedWidget()
+    window.setCentralWidget(stack)
+    shown, hidden = QMainWindow(), QMainWindow()
+    for surface, title in ((shown, "Orders"), (hidden, "Assets")):
+        surface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, QDockWidget(title))
+        stack.addWidget(surface)
+    closed = QDockWidget("Fills")
+    shown.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, closed)
+    window.show()
+    closed.hide()
+
+    assert view_menu_problems(window, stack) == [
+        "dock 'Orders' has no toggle in View",
+        "dock 'Fills' has no toggle in View",
+    ]
+
+    stack.setCurrentWidget(hidden)
+
+    assert view_menu_problems(window, stack) == ["dock 'Assets' has no toggle in View"]

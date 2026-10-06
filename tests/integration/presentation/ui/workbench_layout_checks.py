@@ -21,8 +21,11 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
 
 
 def _hosts(page: QWidget) -> list[QMainWindow]:
-    """The main windows a mode lays out: its host and any surface inside."""
-    nested = page.findChildren(QMainWindow)
+    """The main windows a mode lays out and shows: its host and any surface
+    inside that shows. A surface the mode keeps but does not show (Trade's
+    other venue, `ISurfaceStack`) is measured when it shows: Qt lays out a
+    hidden window's restored state only once it shows."""
+    nested = [host for host in page.findChildren(QMainWindow) if host.isVisibleTo(page)]
     return [page, *nested] if isinstance(page, QMainWindow) else nested
 
 

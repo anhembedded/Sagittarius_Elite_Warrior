@@ -67,7 +67,7 @@ class DeskStrategy(QObject):
             tracker=ActionOwnershipTracker(),
             arm_action_kind=_ARM,
             set_status=desk.set_status,
-            append_log=lambda line: desk.log_model.append(line, level="info"),
+            append_log=desk.write_log,
             on_armed_changed=self._armed_changed,
         )
         strategy = desk.strategy_card

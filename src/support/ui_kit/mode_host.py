@@ -21,6 +21,11 @@ The mode's layout is both: this host's own (the commands toolbar) and the
 surface's (the panels). Window → Reset layout resets both, and the window
 remembers both across a restart, one saved layout per host
 (`remembered_hosts`).
+
+A view that holds several surfaces and shows one at a time (`ISurfaceStack`:
+the Trade mode, a surface per venue, `EPIC-033I`) answers for itself: View
+lists the panels of the surface that shows, every surface's layout is
+remembered under its own id, and Reset layout resets the one that shows.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_stack import ISurfaceStack
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_host import RegionHost
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_kind import RegionKind
 from sagittarius_engine.extensions.pyside_mvc.runtime.surface_declaration import (
@@ -64,6 +70,7 @@ class ModeHost(RegionHost):
         )
         self.setObjectName(f"workbench::mode::{mode_id}")
         self._view = view
+        self._stack = view if isinstance(view, ISurfaceStack) else None
         self._inner = _surface_of(view)
         self.place_widget(_SCREEN_PLACE, view)
 
@@ -72,8 +79,9 @@ class ModeHost(RegionHost):
         return self._view
 
     def dock_toggle_actions(self) -> tuple[QAction, ...]:
-        if self._inner is not None:
-            return self._inner.dock_toggle_actions()
+        shown = self._shown_surface()
+        if shown is not None:
+            return shown.dock_toggle_actions()
         return super().dock_toggle_actions()
 
     def add_command(self, action: QAction) -> None:
@@ -82,32 +90,47 @@ class ModeHost(RegionHost):
 
     def toolbar_toggle_actions(self) -> tuple[QAction, ...]:
         own = super().toolbar_toggle_actions()
-        if self._inner is not None:
-            return (*self._inner.toolbar_toggle_actions(), *own)
+        shown = self._shown_surface()
+        if shown is not None:
+            return (*shown.toolbar_toggle_actions(), *own)
         return own
 
     def remembered_hosts(self) -> tuple[RegionHost, ...]:
         """The hosts whose layouts are saved on exit and restored on start
         (`ui-presentation-rule.md` §8): this one, for the commands toolbar,
-        then the view's surface, for the panels. This host comes first: when
+        then the view's surfaces, for the panels. This host comes first: when
         its saved layout no longer applies, its reset also resets the
-        surface, and the surface's own saved layout, restored after it, wins.
+        surfaces, and their own saved layouts, restored after it, win.
         """
-        if self._inner is not None:
-            return (self, self._inner)
-        return (self,)
+        return (self, *self._surfaces())
 
     def capture_default_perspective(self) -> None:
         # The commands toolbar is this host's own, outside the view's
-        # surface: its default is captured, and reset, here as well.
+        # surfaces: its default is captured, and reset, here as well.
         super().capture_default_perspective()
-        if self._inner is not None:
-            self._inner.capture_default_perspective()
+        for surface in self._surfaces():
+            surface.capture_default_perspective()
 
     def reset_perspective(self) -> bool:
-        """Window → Reset layout: the commands toolbar and the surface's
-        panels both go back to the default (`EPIC-033C`)."""
+        """Window → Reset layout: the commands toolbar and the shown
+        surface's panels go back to the default (`EPIC-033C`). A surface
+        not showing keeps its own layout, as each venue of the Trade mode
+        keeps its own (`ISurfaceStack`); it is reset when it shows. Qt also
+        lays out a hidden window's restored state only once it shows, and
+        leaves the tab bars of the state it replaced drawn over the panels
+        (measured 2026-10-06, `EPIC-033I`)."""
         own = super().reset_perspective()
-        if self._inner is not None:
-            return self._inner.reset_perspective() and own
+        shown = self._shown_surface()
+        if shown is not None:
+            return shown.reset_perspective() and own
         return own
+
+    def _surfaces(self) -> tuple[RegionHost, ...]:
+        if self._stack is not None:
+            return tuple(self._stack.surfaces())
+        return (self._inner,) if self._inner is not None else ()
+
+    def _shown_surface(self) -> RegionHost | None:
+        if self._stack is not None:
+            return self._stack.shown_surface()
+        return self._inner
