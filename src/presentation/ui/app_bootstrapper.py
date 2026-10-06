@@ -77,7 +77,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
     TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
-    EnvironmentBanner,
+    environment_banner_factory,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from_config import (
     environment_banner_content_for,
@@ -202,7 +202,7 @@ def build() -> AppRuntime:
     # `EPIC-028K` — names every enabled venue (`banner_from_config.py`).
     banner_content = environment_banner_content_for(config_manager)
     WorkbenchSurface.set_environment_banner_factory(
-        lambda: EnvironmentBanner(banner_content)
+        environment_banner_factory(banner_content)
     )
 
     # ------------------------------------------------------------------ #
