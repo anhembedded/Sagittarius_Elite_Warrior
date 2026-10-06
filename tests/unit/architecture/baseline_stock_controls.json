@@ -36,9 +36,7 @@
       "src/support/ui_kit/kit/preferred_height_scroll_area.py": 1,
       "src/support/ui_kit/param_form/param_field.py": 1
     },
-    "item_view_config": {
-      "src/support/charting/timeframe_picker/dialog.py": 3
-    },
+    "item_view_config": {},
     "checkable_button": {
       "src/modules/trading/ui/settings/trading_settings_view.py": 1,
       "src/presentation/ui/components/critical_error_dialog.py": 1,

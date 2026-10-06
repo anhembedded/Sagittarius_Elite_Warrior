@@ -10,7 +10,9 @@ keeps every one of those and deletes the `.qml`: HLD §11.3 maps a readout like
 this to *a dialog with a table*. It was a `QTreeWidget`, the platform's
 answer to "rows under headings"; since `EPIC-033L` stage 5 it is a
 `SpecTable` built from column specs (`metrics_detail_model.py`), the section
-its first column, until trees from column specs exist (`BOT-151`).
+its first column. It stays a table now that the Engine configures grouped
+trees too (`BOT-151`): its values are text in mixed units, which a tree would
+sort as text, and the table sorts them back to the read-out's own order.
 
 Three things the QML version needed and this does not: a `QQuickWidget` host
 supplying modality that `kit/DialogShell.qml` had no way to provide, a
@@ -138,8 +140,8 @@ class MetricsDetailDialogWidget(QDialog):
 
     def _build_tree(self) -> None:
         # A table with the section as its first column since `EPIC-033L`
-        # stage 5 (`metrics_detail_model.py`): a tree from column specs
-        # waits for `BOT-151`.
+        # stage 5 (`metrics_detail_model.py`); see the module docstring for
+        # why it is not a grouped tree.
         self._table = metrics_detail_table(_NO_METRICS_TEXT)
         self.body_layout.addWidget(self._table.body, 1)
 
