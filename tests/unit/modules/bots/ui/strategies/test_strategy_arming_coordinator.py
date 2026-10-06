@@ -344,6 +344,25 @@ def test_the_armed_summary_distinguishes_two_armings_of_one_strategy(
     assert coordinator.armed_summary(None) == ""
 
 
+def test_the_armed_summarys_figures_are_written_by_the_formatter(
+    view_model, catalog, arming
+):
+    """`EPIC-033N`: the sizing is a percent and the leverage a figure, as
+    every percent and quantity of the app reads."""
+    coordinator = _coordinator(view_model, catalog, arming)
+    armed = ArmedStrategyConfig(
+        strategy_key=TEST_STRATEGY_KEY,
+        symbol="BTCUSDT",
+        interval="1m",
+        sizing_percent=2.5,
+        leverage=10,
+    )
+
+    parts = coordinator.armed_summary(armed).split(" · ")
+
+    assert parts[2:4] == ["2.50%/order", "10x"]
+
+
 def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arming):
     """The combo shows a label but must arm by key — deriving one from the
     other by string surgery is how a renamed strategy stops being

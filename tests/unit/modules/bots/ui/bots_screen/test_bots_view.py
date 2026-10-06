@@ -5,6 +5,7 @@ action and no scroll area inside another."""
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import timedelta
 from unittest.mock import Mock
 
 import pytest
@@ -196,7 +197,7 @@ def test_the_bots_figures_are_a_read_out(view) -> None:
             grid_profit="12.50",
             unrealised="10.00 at 65,000.00",
             inventory="0.01 at an average 64,000.00",
-            running_time="1h 05m",
+            running_time=timedelta(hours=1, minutes=5),
         )
     )
 
@@ -204,6 +205,7 @@ def test_the_bots_figures_are_a_read_out(view) -> None:
     assert isinstance(facts, ReadoutForm)
     assert facts.value_text("symbol") == "BTCUSDT"
     assert facts.value_text("unrealised") == "10.00 at 65,000.00"
+    assert facts.value_text("running_time") == "1:05:00"
     assert view.plan.state.text() == "Running"
 
     view.model.set_facts(None)

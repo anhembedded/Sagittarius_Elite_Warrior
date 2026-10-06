@@ -52,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 logger = logging.getLogger("App.StrategyArming")
 
@@ -317,8 +321,8 @@ class StrategyArmingCoordinator:
         parts = [
             self._label_for(config.strategy_key),
             f"{config.symbol} {config.interval}",
-            f"{config.sizing_percent:g}%/order",
-            f"{config.leverage:g}x",
+            f"{write_value(ColumnKind.PERCENT, config.sizing_percent)}/order",
+            f"{write_value(ColumnKind.QUANTITY, config.leverage)}x",
         ]
         if config.strategy_params:
             parts.append(

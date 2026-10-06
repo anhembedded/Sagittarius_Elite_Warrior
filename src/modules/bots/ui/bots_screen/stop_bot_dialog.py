@@ -25,6 +25,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: The answer, or `None` when the user cancelled.
 type AskStop = Callable[[BotSnapshot], BaseHandling | None]
@@ -35,7 +39,7 @@ STOP_BUTTON_TEXT = "Stop bot"
 def stop_question(bot: BotSnapshot) -> str:
     held = bot.progress.inventory if bot.progress is not None else None
     holding = (
-        f"It holds {held.normalize():f} {bot.symbol} base."
+        f"It holds {write_value(ColumnKind.QUANTITY, held)} {bot.symbol} base."
         if held is not None and held > 0
         else "It holds no base the run bought."
     )

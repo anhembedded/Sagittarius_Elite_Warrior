@@ -86,7 +86,7 @@ def build_preview() -> QWidget:
 def _bot(index: int, state: BotLifecycleState) -> BotSnapshot:
     ran = state not in (BotLifecycleState.DRAFT,)
     return BotSnapshot(
-        bot_id=f"a{index:05d}",
+        bot_id="a" + str(index).zfill(5),
         name=f"BTC grid {state.value.lower()}",
         kind="grid",
         venue=TradingVenue.SPOT_TESTNET,
