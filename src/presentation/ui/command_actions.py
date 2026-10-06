@@ -48,6 +48,7 @@ def action_descriptor(command: CommandContribution) -> ActionDescriptor:
             else None
         ),
         surface_id=command.mode,
+        group=command.group,
     )
 
 

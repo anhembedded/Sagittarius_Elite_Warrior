@@ -94,6 +94,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.no_symbol_precisions import (
+    NO_SYMBOL_PRECISIONS,
+)
 from Sagittarius_Elite_Warrior.tests.conftest import fake_container
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
@@ -149,6 +155,7 @@ def build_desk(
     account_snapshot: FakeAccountSnapshot | None = None,
     order_entry_terms: FakeOrderEntryTerms | None = None,
     trading_on: bool = False,
+    precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS,
 ) -> Desk:
     """`venue`'s desk, every order confirmed Yes. `ports_venue` hands it
     another venue's ports, which the desk must refuse."""
@@ -190,6 +197,7 @@ def build_desk(
         ),
         thread_manager=threads,
         confirm=lambda _confirmation: True,
+        precisions=precisions,
     )
     view = DeskView(
         profile,

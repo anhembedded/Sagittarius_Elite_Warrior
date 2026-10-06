@@ -9,8 +9,8 @@ _MODE_LABELS = EnumLabels(
     ChartDisplayMode,
     {
         ChartDisplayMode.OHLC: "Candlestick",
-        ChartDisplayMode.EQUITY: "Equity Curve",
-        ChartDisplayMode.BOTH: "Side by Side",
+        ChartDisplayMode.EQUITY: "Equity curve",
+        ChartDisplayMode.BOTH: "Side by side",
     },
 )
 
@@ -18,8 +18,8 @@ _OUTCOME_LABELS = EnumLabels(
     MarkerOutcomeFilter,
     {
         MarkerOutcomeFilter.ALL: "All",
-        MarkerOutcomeFilter.WINS_ONLY: "Wins Only",
-        MarkerOutcomeFilter.LOSSES_ONLY: "Losses Only",
+        MarkerOutcomeFilter.WINS_ONLY: "Wins only",
+        MarkerOutcomeFilter.LOSSES_ONLY: "Losses only",
     },
 )
 
@@ -27,8 +27,8 @@ _SIDE_LABELS = EnumLabels(
     MarkerSideFilter,
     {
         MarkerSideFilter.ALL: "All",
-        MarkerSideFilter.LONG_ONLY: "Long Only",
-        MarkerSideFilter.SHORT_ONLY: "Short Only",
+        MarkerSideFilter.LONG_ONLY: "Long only",
+        MarkerSideFilter.SHORT_ONLY: "Short only",
     },
 )
 
@@ -97,12 +97,12 @@ class BacktestChartControls(QtWidgets.QToolBar):
 
         # BOT-060: no longer a fixed "4 EMA" — draws whatever the selected
         # strategy's own build_indicators() declares (name/count vary).
-        self._ema_action = self._add_layer("actChartEma", "Strategy Indicators")
+        self._ema_action = self._add_layer("actChartEma", "Strategy indicators")
         self._ema_action.toggled.connect(self.sig_ema_toggled.emit)
         self._volume_action = self._add_layer("actChartVolume", "Volume")
         self._volume_action.toggled.connect(self.sig_volume_toggled.emit)
         self._trade_flags_action = self._add_layer(
-            "actChartTradeFlags", "Buy/Sell Flags"
+            "actChartTradeFlags", "Buy/sell flags"
         )
         self._trade_flags_action.toggled.connect(self.sig_trade_flags_toggled.emit)
 
@@ -140,7 +140,7 @@ class BacktestChartControls(QtWidgets.QToolBar):
         return actions
 
     def show_sides_for(self, market: MarketType) -> None:
-        """EPIC-027D — a Spot screen offers no "Short Only" marker filter:
+        """EPIC-027D — a Spot screen offers no "Short only" marker filter:
         Spot is long-only (ADR D3). A selected one falls back to "All" first,
         which re-emits the filter so the chart redraws its markers."""
         combo = self._marker_side_combo

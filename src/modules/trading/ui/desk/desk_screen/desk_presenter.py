@@ -128,6 +128,7 @@ class DeskPresenter(CommandPresenter):
         self.tabs = AccountTabsPresenter(
             view.account_tabs, ports, feeds.orders, threads
         )
+        view.account_tabs.use_precisions(deps.precisions)
         self.summary = AccountSummaryPresenter(
             view.account_summary, ports.account_activity, feeds.orders, threads
         )

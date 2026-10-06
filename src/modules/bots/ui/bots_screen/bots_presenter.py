@@ -104,6 +104,7 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .bots_command_binding import bind_bots_commands
+from .kind_command_binding import KindCommands
 from .spot_candle_feed import spot_candle_feed
 
 if TYPE_CHECKING:
@@ -274,6 +275,7 @@ class BotsPresenter(CommandPresenter):
         if panel is not None:
             panel.config_changed.connect(self._on_config_edited)
         self.view.set_kind_panel(panel)
+        KindCommands.follow_panel_of(self._model, panel)
         self._refresh_detail()
         if bot is not None:
             self._queries.planner(bot)

@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     PositionsTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
 _EMPTY_TEXT = "No open positions."
@@ -65,6 +68,10 @@ class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
         self._model.set_rows(rows)
         # A reset clears the selection without a `selectionChanged`.
         self.selectionChanged.emit()
+
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Writes prices and sizes in each row's symbol's tick and step."""
+        self._model.use_precisions(precisions)
 
     def add_action(self, action: QAction) -> None:
         """Shows a host's action in the toolbar and the row's context menu."""

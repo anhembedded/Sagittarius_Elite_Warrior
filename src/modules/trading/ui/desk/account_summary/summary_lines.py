@@ -24,9 +24,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     SpotAccountSummary,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import Readout
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, ColumnSpec
 
 _UNPRICED = "unknown: a holding could not be priced"
@@ -43,7 +40,7 @@ def summary_readout(summary: AccountSummary | None) -> Readout | None:
         return None
     return Readout(
         (_money("available", "Available", "USDT"),),
-        {"available": display_number(summary.available_balance)},
+        {"available": summary.available_balance},
     )
 
 
@@ -61,10 +58,10 @@ def _futures_readout(summary: FuturesAccountSummary) -> Readout:
         _money("margin_balance", "Margin balance", unit),
     )
     values = {
-        "available": display_number(summary.available_balance),
-        "wallet": display_number(summary.wallet_balance),
-        "unrealized_pnl": display_number(summary.unrealized_pnl),
-        "margin_balance": display_number(summary.margin_balance),
+        "available": summary.available_balance,
+        "wallet": summary.wallet_balance,
+        "unrealized_pnl": summary.unrealized_pnl,
+        "margin_balance": summary.margin_balance,
     }
     if not multi:
         return Readout(specs, values)
@@ -90,10 +87,8 @@ def _spot_readout(summary: SpotAccountSummary) -> Readout:
             equity,
         ),
         {
-            "available": display_number(summary.quote_free),
-            "in_orders": display_number(summary.quote_locked),
-            "equity": display_number(summary.equity)
-            if summary.equity is not None
-            else _UNPRICED,
+            "available": summary.quote_free,
+            "in_orders": summary.quote_locked,
+            "equity": summary.equity if summary.equity is not None else _UNPRICED,
         },
     )

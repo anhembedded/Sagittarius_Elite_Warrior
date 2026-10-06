@@ -57,14 +57,22 @@ every value itself — which is how one price came to print two ways on two
 screens. `SORT_ROLE`, `as_number()`, `HEADERS`, `RIGHT_ALIGNED`,
 `_display_text()` and `_sort_value()` are gone with that.
 
-@par A moment is a number to Qt
-Qt compares a cell's value to sort it, and a Python `datetime` reaches it as
-an opaque object it cannot order — the first version of this class handed it
-over as is, and no timestamp column sorted (the review of PR #351). `data()`
-therefore serves a `datetime` as its POSIX seconds, a float Qt orders; a naive
-one is UTC, this application's convention. The formatter writes a number in a
-`TIMESTAMP` column as the moment it is. One place, for every table; a subclass
-still returns the `datetime` its row holds.
+@par Raw values sort as themselves
+Qt's own `lessThan` cannot order a Python `datetime` or `Decimal`, so this
+class once served a moment as POSIX seconds and its subclasses a `Decimal` as
+a float (the review of PR #351). The Engine's `SpecProxyModel` now orders
+every display value itself — numbers and `Decimal`s by value, `datetime`s by
+moment (a naive one as UTC), `None` last — so `data()` serves the value the
+row holds, exactly.
+
+@par Precision per symbol (`EPIC-033N`)
+A price is quoted in its symbol's tick size and a quantity traded in its step
+size. A table whose rows name a symbol says which of its columns are quoted
+in it (`SYMBOL_QUOTED`) and which symbol a row is (`_symbol()`); `data()`
+answers the Engine's `PRECISION_ROLE` for those cells from the
+`ISymbolPrecisions` it was given (`use_precisions()`), and the delegate hands
+that `Precision` to the formatter. A table never given one, or a symbol whose
+filters are unknown, answers `None` and the formatter rounds by magnitude.
 
 @par `@abstractmethod` without `ABC`, the `BaseFeed` pattern
 `QAbstractTableModel`'s metaclass is Shiboken's, and mixing `ABCMeta` into it
@@ -85,23 +93,23 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from typing import ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QObject, Qt
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
+from Sagittarius_Elite_Warrior.src.support.ui_kit.no_symbol_precisions import (
+    NO_SYMBOL_PRECISIONS,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    PRECISION_ROLE,
+    ColumnKind,
     ColumnSpec,
     DisplayValue,
+    Precision,
 )
-
-
-def _sortable(value: DisplayValue) -> DisplayValue:
-    """A `datetime` as POSIX seconds, which Qt can order; anything else as is."""
-    if isinstance(value, datetime):
-        moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
-        return moment.timestamp()
-    return value
 
 
 class RowTableModel[TRow](QAbstractTableModel):
@@ -111,8 +119,14 @@ class RowTableModel[TRow](QAbstractTableModel):
     #: `columnCount()`; `configure_item_view` takes it as the view's specs.
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = ()
 
+    #: The keys of the columns quoted in the row's symbol: a `PRICE` column
+    #: in its tick size, a `QUANTITY` column in its step size. A quantity of
+    #: something else (a leverage, a fee in another asset) is not listed.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset()
+
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
+        self._precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS
         #: A list rather than a tuple, so a subclass that updates rows in
         #: place can. `DatabaseStatusTableModel` re-scans one `(symbol,
         #: interval)` shard at a time and emits `dataChanged` for that row
@@ -165,7 +179,9 @@ class RowTableModel[TRow](QAbstractTableModel):
         if row is None:
             return None
         if role == Qt.ItemDataRole.DisplayRole:
-            return _sortable(self._value(row, index.column()))
+            return self._value(row, index.column())
+        if role == PRECISION_ROLE:
+            return self._precision(row, index.column())
         return self._role_data(row, index.column(), role)
 
     # -- reading and writing whole rows ------------------------------------
@@ -199,6 +215,38 @@ class RowTableModel[TRow](QAbstractTableModel):
     def clear(self) -> None:
         self.set_rows(())
 
+    # -- precision per symbol -------------------------------------------------
+
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Quotes the `SYMBOL_QUOTED` columns in `precisions` from now on,
+        and writes every cell again."""
+        self._precisions = precisions
+        self.refresh_precisions()
+
+    def refresh_precisions(self) -> None:
+        """Writes every cell again: a symbol's filters became known (a
+        catalog was fetched), so its cells now have a precision."""
+        if not self._rows:
+            return
+        self.dataChanged.emit(
+            self.index(0, 0),
+            self.index(len(self._rows) - 1, len(self.COLUMNS) - 1),
+            [PRECISION_ROLE],
+        )
+
+    def _precision(self, row: TRow, column: int) -> Precision | None:
+        spec = self.COLUMNS[column]
+        if spec.key not in self.SYMBOL_QUOTED:
+            return None
+        symbol = self._symbol(row)
+        if not symbol:
+            return None
+        if spec.kind is ColumnKind.PRICE:
+            return self._precisions.tick(symbol)
+        if spec.kind is ColumnKind.QUANTITY:
+            return self._precisions.step(symbol)
+        return None
+
     # -- what a particular table decides -----------------------------------
 
     @abstractmethod
@@ -206,6 +254,11 @@ class RowTableModel[TRow](QAbstractTableModel):
         """The raw value in this cell, of its column's kind; `None` when the
         value is unknown. The formatter writes it, the proxy sorts on it."""
         raise NotImplementedError("_value")
+
+    def _symbol(self, row: TRow) -> str | None:
+        """The symbol a row is about, which its `SYMBOL_QUOTED` columns are
+        quoted in; `None` for a table whose rows name none."""
+        return None
 
     def _role_data(self, row: TRow, column: int, role: int) -> object:
         """Any role beyond the value — a bold cell, a tooltip. `None` means

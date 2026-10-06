@@ -40,8 +40,9 @@ sound, I start it, and I watch what it does."*
 4. The trader sets the parameters in the Plan panel, the kind's editor (lower and upper price, grids, spacing,
    capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
    one verdict is Refused and names them. The verdicts and the preview follow each edit.
-   **Suggest from ATR** or **Suggest from Bollinger** fills the range only when clicked, rounded
-   to the tick. Start waits until the edits are saved with **Save bot** (Ctrl+S). The parameters can be
+   **Suggest from ATR** or **Suggest from Bollinger**, the Grid's own commands (Bots menu, and the
+   Grid toolbar at the top of the editor, shown while a Grid is selected), fills the range only
+   when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. Start waits until the edits are saved with **Save bot** (Ctrl+S). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
 5. While any verdict is Refused, Start is disabled and the Plan panel's verdicts name the refusal
    ("Start is blocked: …").
@@ -127,7 +128,8 @@ available while it runs.
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
-| Suggestions fill only on a click, rounded to the tick | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
+| Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
+| The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |

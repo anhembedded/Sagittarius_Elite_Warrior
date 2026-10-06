@@ -39,6 +39,10 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layou
     object_name_problems,
     reset_layout_problems,
 )
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_text_checks import (
+    column_problems,
+    combo_problems,
+)
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     Check,
     access_key_problems,
@@ -50,9 +54,11 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     mnemonic_problems,
     nested_scroll_problems,
     perspective_problems,
+    separator_problems,
     style_sheet_problems,
     toolbar_in_menu_problems,
     toolbar_problems,
+    toolbar_text_problems,
     view_menu_problems,
     workbench_problems,
 )
@@ -71,10 +77,14 @@ MODE_CHECKS: dict[str, Check] = {
     "no_nested_scroll": nested_scroll_problems,
     "toolbar_actions_only": toolbar_problems,
     "toolbar_actions_in_a_menu": toolbar_in_menu_problems,
+    "toolbar_text_matches_menu": toolbar_text_problems,
     "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
+    "columns_shown_whole": column_problems,
+    "combo_text_shown_whole": combo_problems,
     "mnemonics_escaped": mnemonic_problems,
     "access_keys_unique": access_key_problems,
+    "menu_separators_between_groups": separator_problems,
     "perspective_round_trip": perspective_problems,
     "bars_named_uniquely": object_name_problems,
     # Last: it rearranges the mode, then puts the default back.

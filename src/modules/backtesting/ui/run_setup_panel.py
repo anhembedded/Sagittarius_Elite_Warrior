@@ -81,6 +81,10 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self.timeframe = _choice_field("comboBacktestTimeframe")
         self.time_range = _choice_field("comboBacktestRange")
         self.timezone = _choice_field("comboBacktestTimezone")
+        # The time zone's names are long and few ("UTC (Coordinated Universal
+        # Time)"); sized to the column, the chosen one was cut off. Sized to
+        # its longest item, the field shows any choice whole.
+        self.timezone.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.timezone.setToolTip(_TIMEZONE_TIP)
         self.capital = _value_button("btnBacktestCapital")
         self.execution = QPushButton("E&xecution…")

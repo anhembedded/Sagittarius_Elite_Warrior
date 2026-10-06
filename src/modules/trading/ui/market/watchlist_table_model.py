@@ -66,6 +66,8 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
         ColumnSpec("change", "% Change", ColumnKind.PERCENT),
         ColumnSpec("volume", "Volume", ColumnKind.QUANTITY),
     )
+    #: A volume is a sum of the symbol's traded quantities, so its step.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"last_price", "volume"})
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -118,6 +120,9 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
             row.volume,
         )
         return values[column]
+
+    def _symbol(self, row: WatchlistRow) -> str | None:
+        return row.symbol
 
     def _role_data(self, row: WatchlistRow, column: int, role: int) -> object:
         if column != self.PERCENT_CHANGE_COLUMN:

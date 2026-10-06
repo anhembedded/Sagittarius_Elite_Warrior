@@ -5,7 +5,8 @@
 for its three: the same abstraction level and the same one reason to change,
 the shape of a row of the account's history. Columns are specs and cells
 raw values (`EPIC-033N`), so "1,000.00" sorts after "9.00" because both are
-numbers.
+numbers. A price or a size is written in its symbol's tick or step
+(`SYMBOL_QUOTED`); a fee is a quantity of its own asset and is not.
 """
 
 from __future__ import annotations
@@ -17,9 +18,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
     TradeHistoryRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     ColumnSpec,
@@ -42,6 +40,9 @@ class OrderHistoryTableModel(RowTableModel[OrderHistoryRow]):
         ColumnSpec("filled", "Filled", ColumnKind.QUANTITY),
         ColumnSpec("status", "Status", ColumnKind.STATUS),
     )
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset(
+        {"price", "stop", "average", "quantity", "filled"}
+    )
 
     def _value(self, row: OrderHistoryRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
@@ -49,14 +50,17 @@ class OrderHistoryTableModel(RowTableModel[OrderHistoryRow]):
             row.symbol,
             row.side.value.upper(),
             row.order_type,
-            display_number(row.price),
-            display_number(row.stop_price),
-            display_number(row.average_price),
-            display_number(row.quantity),
-            display_number(row.filled),
+            row.price,
+            row.stop_price,
+            row.average_price,
+            row.quantity,
+            row.filled,
             row.status,
         )
         return values[column]
+
+    def _symbol(self, row: OrderHistoryRow) -> str | None:
+        return row.symbol
 
 
 class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
@@ -73,17 +77,22 @@ class TradeHistoryTableModel(RowTableModel[TradeHistoryRow]):
         ColumnSpec("fee_asset", "Fee asset", ColumnKind.TEXT),
         ColumnSpec("pnl", "Realized PnL", ColumnKind.MONEY),
     )
+    #: The fee is a quantity of its own asset, not of the symbol.
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"price", "quantity"})
 
     def _value(self, row: TradeHistoryRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
             row.time,
             row.symbol,
             row.side.value.upper(),
-            display_number(row.price),
-            display_number(row.quantity),
-            display_number(row.quote_quantity),
-            display_number(row.fee),
+            row.price,
+            row.quantity,
+            row.quote_quantity,
+            row.fee,
             row.fee_asset,
-            display_number(row.realized_pnl),
+            row.realized_pnl,
         )
         return values[column]
+
+    def _symbol(self, row: TradeHistoryRow) -> str | None:
+        return row.symbol

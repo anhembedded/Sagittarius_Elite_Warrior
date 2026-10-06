@@ -68,6 +68,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
     PositionsPanel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 
 _CANCEL_ALL_TEXT = "Cancel all"
 _CLOSE_TEXT = "Close at market"
@@ -175,6 +178,14 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
         self._holdings_panel.set_rows(rows)
 
     # -- the presenter ------------------------------------------------- #
+
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """The venue's tick and step sizes: every table of a symbol's
+        orders, positions or fills writes its prices and sizes in them."""
+        self._open_orders_panel.use_precisions(precisions)
+        self._positions_panel.use_precisions(precisions)
+        for panel in self._histories.values():
+            panel.use_precisions(precisions)
 
     def set_desk_symbol(self, symbol: str) -> None:
         self._desk_symbol = symbol

@@ -92,7 +92,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | S&pot market, Futures mar&ket (Market mode: one exclusive choice of the market its Watchlist and charts show, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
 | | Load o&lder candles, Load ran&ge… (Market mode: the chart in front prepends the stored window before its oldest candle, or draws a chosen UTC span; off while it loads; `EPIC-033S`) | — | Market | — |
 | | Back to l&ive (Market mode: a chart showing a range of the past redraws its newest first window and follows the stream, one request; off while the chart in front shows no range or loads; `EPIC-033T`) | — | Market | — |
-| | C&hart › &Candlestick, &Equity curve, &Side by side (Backtest mode: one exclusive choice of what the chart draws), Strategy &indicators, &Volume, &Buy/Sell flags (Backtest: the chart's layers, checkable); `BOT-155` | — | the chart's own toolbar | — |
+| | C&hart › &Candlestick, &Equity curve, &Side by side (Backtest mode: one exclusive choice of what the chart draws), Strategy &indicators, &Volume, &Buy/sell flags (Backtest: the chart's layers, checkable); `BOT-155` | — | the chart's own toolbar | — |
 | | C&hart › &More timeframes…, Zoom i&n, Zoom &out, Zoom in ver&tically, Zoom out verticall&y, Box &zoom (checkable), &Reset zoom, &Go live (Market and Backtest: the chart in front's own toolbar, kept in step with it; Go live scrolls a chart the person panned back to the live edge, where Back to live reloads a chart showing a past range; the pinned timeframes are reached through More timeframes…; `BOT-156`) | Zoom in `QKeySequence.ZoomIn`, Zoom out `QKeySequence.ZoomOut` (Ctrl++, Ctrl+-) | the chart's own toolbar | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
@@ -109,7 +109,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
 | | &Delete bot… | — | — | yes |
-| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger, &Fit levels) | — | the kind's toolbar | — |
+| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
+| | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |
 | | &Repair gap, Repair a&ll gaps | — | Data (Repair gap) | — |

@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -17,6 +20,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
@@ -25,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_metadata_provider import (
+    FakeSymbolMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
@@ -123,3 +135,22 @@ def test_the_parameters_command_saves_where_the_charts_read(qapp):
     dependencies.params_store.save("ema_20", {"period": 5})
 
     assert dependencies.script_params("ema_20") == {"period": 5}
+
+
+def test_the_watchlist_reads_the_filters_the_provider_fills(qapp):
+    """The Watchlist reads the cache on every paint and the provider fills
+    it once live: they must be the one cache the market-data module binds,
+    or the rows never learn their tick sizes (`EPIC-033N`)."""
+    cache = InMemorySymbolMarketMetadataCache()
+    provider = FakeSymbolMetadataProvider()
+    dependencies = market_dependencies_for(
+        _container(
+            FakeHistoricalKlines(),
+            FakeMarketStream(),
+            {ISymbolMarketMetadataCache: cache, ISymbolMetadataProvider: provider},
+        )
+    )
+
+    assert dependencies.filters is not None
+    assert dependencies.filters.cache is cache
+    assert dependencies.filters.provider is provider

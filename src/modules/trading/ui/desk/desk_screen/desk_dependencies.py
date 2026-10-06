@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_controls import (
     IVenueStrategyControls,
 )
@@ -44,12 +47,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_confirmation import (
     ConfirmOrder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.order_metadata_precisions import (
+    OrderMetadataPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     default_interval,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.no_symbol_precisions import (
+    NO_SYMBOL_PRECISIONS,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -59,8 +71,8 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 @dataclass(frozen=True)
 class DeskDependencies:
     """One desk's ports: its venue's trading and strategy ports, the
-    strategy catalog, the chart's market data, and how an order is
-    confirmed."""
+    strategy catalog, the chart's market data, how an order is
+    confirmed, and the symbols' filters its tables write numbers in."""
 
     ports: VenueTradingPorts
     strategy: VenueStrategyControls
@@ -69,6 +81,9 @@ class DeskDependencies:
     thread_manager: IThreadManager
     #: `None` asks with the real dialog (`confirm_with_message_box`).
     confirm: ConfirmOrder | None = None
+    #: The venue's tick and step sizes the account tabs write prices and
+    #: sizes in; none known keeps the formatter's magnitude rule.
+    precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS
 
 
 def stream_owner_for(venue: TradingVenue) -> str:
@@ -102,4 +117,7 @@ def desk_dependencies_for(
             interval=interval,
         ),
         thread_manager=threads,
+        precisions=OrderMetadataPrecisions(
+            container.resolve(IVenueContexts).get(venue).metadata_cache
+        ),
     )

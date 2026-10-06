@@ -15,7 +15,9 @@ Qt-free, because a module's `contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`).
 
 The access keys avoid the letters of the Backtest mode's View → Chart items
-(c, e, s, i, v, b), which share its submenu.
+(c, e, s, i, v, b), which share its submenu. The commands are one menu group,
+the chart's navigation (`NAVIGATION_GROUP`, `BOT-157`), so a separator
+divides them from a mode's own chart commands in the same menu.
 """
 
 from __future__ import annotations
@@ -27,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 #: The dynamic property a toolbar action carries when its command is in a
 #: menu under another name: the text of that menu command.
 MENU_EQUIVALENT = "menuEquivalent"
+
+#: The menu group of the chart's navigation commands (`BOT-157`).
+NAVIGATION_GROUP = "chart.navigation"
 
 MORE_TIMEFRAMES = "more_timeframes"
 ZOOM_IN = "zoom_in"
@@ -75,6 +80,7 @@ def chart_commands(
             checkable=key in CHECKABLE,
             needs_input=key == MORE_TIMEFRAMES,
             standard_shortcut=_STANDARD_KEYS.get(key),
+            group=NAVIGATION_GROUP,
         )
         for key, text in _TEXTS
     )

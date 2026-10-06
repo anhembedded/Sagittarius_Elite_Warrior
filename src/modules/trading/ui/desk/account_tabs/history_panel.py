@@ -22,6 +22,9 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
     HistoryView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
@@ -95,6 +98,10 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         layout.addWidget(self._body, 1)
         layout.addLayout(pager)
         self.show_loading()
+
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Writes prices and sizes in each row's symbol's tick and step."""
+        self._model.use_precisions(precisions)
 
     def show_loading(self) -> None:
         """While a page is being read: the pager waits with it."""

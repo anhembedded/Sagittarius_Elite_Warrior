@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 BACKTEST_ROUTE = "backtest"
 
 _NAV = NavMetadata(
-    title="Backtest Engine",
+    title="Backtest engine",
     icon="bar-chart-2",
     section_key="QUANT ENGINE",
     section_sequence=20,

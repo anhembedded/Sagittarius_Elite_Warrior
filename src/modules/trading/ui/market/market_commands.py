@@ -25,6 +25,9 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
 - **View → Back to live:** a chart showing a range draws its newest first
   window again and follows the stream, in one request (`EPIC-033T`); off
   while the chart in front shows no range and while it loads.
+- **Groups (`BOT-157`):** in View the market choice is one menu group and
+  the three history loads another, so a separator sets the choice of market
+  apart from the chart commands.
 - **View → Chart:** the chart toolbar's own actions (More timeframes…, the
   zooms, Go live) as commands, since a toolbar's buttons take no keyboard
   focus (`BOT-156`, `chart_commands.py`); they act on the chart in front.
@@ -60,8 +63,11 @@ LOAD_OLDER = "trading.market.load_older"
 LOAD_RANGE = "trading.market.load_range"
 BACK_TO_LIVE = "trading.market.back_to_live"
 INDICATOR_PARAMS = "trading.market.indicator_params"
-#: The `exclusive_group` of Spot and Futures.
+#: The `exclusive_group` of Spot and Futures, and their menu group.
 MARKET_CHOICE = "trading.market.market"
+#: The menu group of what the chart in front shows beyond its first window
+#: (`BOT-157`): set apart from the market choice by a separator.
+CHART_HISTORY = "trading.market.chart_history"
 
 
 def market_commands(route: str) -> tuple[CommandContribution, ...]:
@@ -84,6 +90,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             checkable=True,
             exclusive_group=MARKET_CHOICE,
+            group=MARKET_CHOICE,
         ),
         CommandContribution(
             contributor_id="trading",
@@ -94,6 +101,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             checkable=True,
             exclusive_group=MARKET_CHOICE,
+            group=MARKET_CHOICE,
         ),
         CommandContribution(
             contributor_id="trading",
@@ -102,6 +110,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=VIEW_MENU,
             mode=route,
             on_toolbar=True,
+            group=CHART_HISTORY,
         ),
         CommandContribution(
             contributor_id="trading",
@@ -110,6 +119,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=VIEW_MENU,
             mode=route,
             on_toolbar=True,
+            group=CHART_HISTORY,
             needs_input=True,
         ),
         CommandContribution(
@@ -119,6 +129,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=VIEW_MENU,
             mode=route,
             on_toolbar=True,
+            group=CHART_HISTORY,
         ),
         *chart_commands("trading", CHART_PREFIX, route, CHART_MENU),
         CommandContribution(

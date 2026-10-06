@@ -1,5 +1,6 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
-lifecycle actions, Refresh fills and Fit levels.
+lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
+fills and Fit levels.
 
 Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
 as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
@@ -22,6 +23,9 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
+    all_kind_commands,
 )
 
 from .bot_action_rules import BotAction
@@ -83,6 +87,11 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
                 standard_shortcut="Save" if action is BotAction.SAVE else None,
             )
             for action, text, on_toolbar in _LIFECYCLE
+        ),
+        # On the kind's own toolbar, not the mode's (HLD §11.2.3).
+        *(
+            command(kind_command.command_id, kind_command.text, on_toolbar=False)
+            for kind_command in all_kind_commands()
         ),
         command(REFRESH_FILLS, "Refresh &fills", on_toolbar=False),
         command(FIT_LEVELS, "Fit &levels", on_toolbar=False),

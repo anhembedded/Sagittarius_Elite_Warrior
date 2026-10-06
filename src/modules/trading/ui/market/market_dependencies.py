@@ -26,6 +26,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
     MarketDataCandleFeed,
 )
@@ -69,6 +75,15 @@ ScriptParams = Callable[[str], Mapping[str, Any] | None]
 
 
 @dataclass(frozen=True)
+class MarketFilters:
+    """Where the Watchlist's tick and step sizes come from: the cache it
+    reads on every paint, and the provider that fills it once live."""
+
+    cache: ISymbolMarketMetadataCache
+    provider: ISymbolMetadataProvider
+
+
+@dataclass(frozen=True)
 class MarketDependencies:
     """The stream, the charts' candles, the indicator scripts, the account
     the connection check asks, and where to start."""
@@ -91,6 +106,9 @@ class MarketDependencies:
     #: Where Tools → Indicator parameters… saves a script's parameters, the
     #: store `script_params` reads; `None` leaves the command off.
     params_store: IndicatorScriptParamsStore | None = None
+    #: The exchange filters the Watchlist writes prices and volumes in;
+    #: `None` rounds them by magnitude (`EPIC-033N`).
+    filters: MarketFilters | None = None
 
 
 def market_dependencies_for(container: IContainer) -> MarketDependencies:
@@ -115,4 +133,8 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
         interval=default_interval(values, FALLBACK_INTERVAL),
         state=find_state_coordinator(container),
         params_store=params,
+        filters=MarketFilters(
+            container.resolve(ISymbolMarketMetadataCache),
+            container.resolve(ISymbolMetadataProvider),
+        ),
     )

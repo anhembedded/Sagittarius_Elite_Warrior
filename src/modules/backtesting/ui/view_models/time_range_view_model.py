@@ -63,7 +63,7 @@ class TimeRangeViewModel(QObject):
             {"value": TimeRangePreset.LAST_30_DAYS.value, "label": "Last 30 days"},
             {"value": TimeRangePreset.LAST_90_DAYS.value, "label": "Last 90 days"},
             {"value": TimeRangePreset.LAST_365_DAYS.value, "label": "Last 365 days"},
-            {"value": TimeRangePreset.ALL_HISTORY.value, "label": "All History"},
+            {"value": TimeRangePreset.ALL_HISTORY.value, "label": "All history"},
             {"value": TimeRangePreset.CUSTOM.value, "label": "Custom"},
         ]
 

@@ -39,9 +39,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     OpenOrdersTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
+    ISymbolPrecisions,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    display_number,
     write_value,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -59,9 +61,9 @@ type ConfirmCancel = Callable[[OpenOrderRow], bool]
 def cancel_question(row: OpenOrderRow) -> str:
     """What the confirmation asks, with the order's values written as the
     table writes them; a market order has no price to name."""
-    quantity = write_value(ColumnKind.QUANTITY, display_number(row.quantity))
+    quantity = write_value(ColumnKind.QUANTITY, row.quantity)
     at_price = (
-        f" @ {write_value(ColumnKind.PRICE, display_number(row.price))}"
+        f" @ {write_value(ColumnKind.PRICE, row.price)}"
         if row.price is not None
         else ""
     )
@@ -151,6 +153,10 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         """So a surface can put the same action in its own header or menu —
         one `QAction` per user action, wherever it is shown."""
         return self._cancel_action
+
+    def use_precisions(self, precisions: ISymbolPrecisions) -> None:
+        """Writes prices and sizes in each row's symbol's tick and step."""
+        self._model.use_precisions(precisions)
 
     def add_action(self, action: QAction) -> None:
         """Puts a host's own action beside "Cancel order", in the toolbar

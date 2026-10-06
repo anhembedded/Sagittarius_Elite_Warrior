@@ -74,7 +74,9 @@ from .market_chart import ChartSources, MarketChart
 from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
 from .market_dependencies import MarketDependencies, market_dependencies_for
+from .market_metadata_precisions import MarketMetadataPrecisions
 from .market_view import IndicatorChoice, MarketView
+from .watchlist_filters import WatchlistFilters
 
 logger = logging.getLogger("App.Trading.Market")
 
@@ -121,6 +123,7 @@ class MarketPresenter(CommandPresenter):
         )
         self._params.edited.connect(self._redraw_indicator)
         view.watchlist.set_symbols(list(dependencies.symbols))
+        self._filters = self._watchlist_filters(dependencies)
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
         view.set_stream_text("Market data: not live")
@@ -314,6 +317,19 @@ class MarketPresenter(CommandPresenter):
 
     # -- the stream -------------------------------------------------------------
 
+    def _watchlist_filters(self, deps: MarketDependencies) -> WatchlistFilters | None:
+        """The Watchlist writes prices and volumes in the chosen market's
+        tick and step sizes, read once it goes live (`EPIC-033N`)."""
+        if deps.filters is None:
+            return None
+        watchlist = self.view.watchlist
+        watchlist.use_precisions(
+            MarketMetadataPrecisions(deps.filters.cache, lambda: self.choice.current)
+        )
+        filters = WatchlistFilters(deps.filters.provider, deps.thread_manager, self)
+        filters.fetched.connect(watchlist.refresh_precisions)
+        return filters
+
     def _go_live(self) -> None:
         self._live = True
         self._start_watchlist_stream()
@@ -328,6 +344,8 @@ class MarketPresenter(CommandPresenter):
             WATCHLIST_STREAM_OWNER, self.choice.current, symbols, WATCHLIST_INTERVAL
         )
         if outcome.success:
+            if self._filters is not None:
+                self._filters.fetch(self.choice.current, self._deps.symbols)
             self.view.set_stream_text("Market data: live")
             self.view.log.append(f"Live for {', '.join(symbols)}.")
             return

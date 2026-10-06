@@ -114,7 +114,7 @@ def test_suggestions_wait_for_the_planner_and_fill_only_on_a_click(qtbot) -> Non
     assert panel.suggest_atr.isEnabled() and not panel.suggest_bollinger.isEnabled()
     heard: list[dict[str, str]] = []
     panel.config_changed.connect(heard.append)
-    panel.suggest_atr.click()
+    panel.suggest_atr.trigger()
     assert (panel.config()["lower"], panel.config()["upper"]) == (
         "61234.57",
         "68765.43",
@@ -133,3 +133,19 @@ def test_a_read_only_panel_offers_no_edit_and_no_suggestion(qtbot) -> None:
     assert not panel.suggest_atr.isEnabled()
     panel.set_editable(True)
     assert panel.suggest_atr.isEnabled()
+
+
+def test_a_read_only_panel_offers_no_suggestion_when_the_planner_answers_late(
+    qtbot,
+) -> None:
+    """A running Grid's editor is read-only from the moment it is shown; the
+    planner's numbers arrive after that, and once re-offered the suggestion
+    as if the fields could take it (found by `EPIC-033K` stage 2, when the
+    Bots menu began to follow the action)."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.set_editable(False)
+
+    panel.set_planner_market(_market(SuggestedRange(Decimal(1), Decimal(2)), None))
+
+    assert not panel.suggest_atr.isEnabled()

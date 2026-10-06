@@ -2,10 +2,12 @@
 stage 5, `EPIC-033N`).
 
 The readout was a `QTreeWidget`: a bold heading per section, its metrics
-under it, the view configured by hand. A tree built from column specs waits
-for `BOT-151`; until then the section is the table's first column, so the
-readout is a `SpecTable` like every other table and still reads section by
-section in the order the rules build. The values arrive formatted, so they
+under it, the view configured by hand. The section is the table's first
+column instead, so the readout is a `SpecTable` like every other table and
+still reads section by section in the order the rules build. The Engine
+configures grouped trees too since `BOT-151`, but a tree's rows sort on their
+displayed value, which here is text in mixed units; the table sorts on
+`SORT_ROLE` instead. The values arrive formatted, so they
 pass through the formatter unchanged; a value is coloured by its tone and a
 verdict by its badge's, beside the words that say the same.
 

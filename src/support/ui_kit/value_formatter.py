@@ -16,7 +16,7 @@ one screen and four on another.
 | quantity | up to eight decimals, trailing zeros dropped | `1,250`, `0.0015` |
 | money | two decimals | `1,234.56`, `-9.00` |
 | percent | two decimals and `%` | `12.50%` |
-| timestamp (a `datetime`, or POSIX seconds) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
+| timestamp (a `datetime`; a naive one is UTC) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
 | duration | `h:mm:ss` | `1:05:00` |
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
 | text, side, status | as given | `LONG` |
@@ -29,32 +29,34 @@ half of 0.00000001 rounds to `0`: eight decimals is the finest any exchange
 quotes. `None` is an empty cell: the value is
 unknown, and a blank says so without a glyph to mistake for a number.
 
-@par Precision per symbol is not here yet
-The magnitude rule matches the exchange's tick size for the common symbols but
-not for every one. Exact precision needs the row's symbol, and the Engine's
-`FormatContext` carries only the column key; widening it is an Engine change,
-recorded as the open criterion in `EPIC-033N`. The seam is this class: a
-symbol-aware rule replaces `_price_text` and no caller changes.
+@par Precision per symbol
+A price or a quantity whose cell knows its symbol's filters arrives with a
+`FormatContext.precision` — the tick size or the step size, answered by the
+table model per cell (`RowTableModel.SYMBOL_QUOTED`, the Engine's
+`PRECISION_ROLE`). It is then rounded to that quantum and written with
+exactly its decimals: `64,250.1` at a tick of 0.1, `0.015` at a step of
+0.001, `3.14160` at a tick of 0.00001. Without one (filters not fetched yet, a
+table whose rows carry no symbol) the magnitude rule above decides.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Final
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,
-    format_display_timestamp,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     DisplayValue,
     FormatContext,
     PlainValueFormatter,
+    Precision,
 )
 
 #: The key of a column, or read-out row, that holds a timeframe as its length
@@ -62,6 +64,10 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 TIMEFRAME_KEY: Final = "timeframe"
 
 _TIMEFRAME_CODES: Final = {frame.to_seconds(): frame.value for frame in TimeFrame}
+
+#: The kinds a symbol's filters quantize: a price in ticks, a quantity in
+#: steps. Money keeps its two decimals, whatever the cell knows.
+_SYMBOL_QUANTIZED: Final = frozenset({ColumnKind.PRICE, ColumnKind.QUANTITY})
 
 _LARGE_PRICE: Final = 1_000
 _UNIT_PRICE: Final = 1
@@ -90,6 +96,11 @@ def _price_text(value: float) -> str:
     )
 
 
+def _quantized_text(value: float, precision: Precision) -> str:
+    """`value` in whole quanta, with exactly the quantum's decimals."""
+    return f"{precision.quantize(value):,.{precision.decimals}f}"
+
+
 def _quantity_text(value: float) -> str:
     return _without_negative_zero(
         _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
@@ -110,9 +121,6 @@ class AppValueFormatter:
             return ""
         if isinstance(value, datetime):
             return format_display_datetime(value, tz_name=self._time_zone)
-        if kind is ColumnKind.TIMESTAMP and isinstance(value, int | float):
-            # A table cell holds a moment as POSIX seconds (`RowTableModel`).
-            return format_display_timestamp(float(value), tz_name=self._time_zone)
         if (
             kind is ColumnKind.DURATION
             and context.key == TIMEFRAME_KEY
@@ -123,6 +131,12 @@ class AppValueFormatter:
         if isinstance(value, str | timedelta) or not kind.is_numeric:
             return self._plain.format(kind, value, context)
         number = float(value)
+        if (
+            context.precision is not None
+            and kind in _SYMBOL_QUANTIZED
+            and math.isfinite(number)
+        ):
+            return _quantized_text(number, context.precision)
         if kind is ColumnKind.PRICE:
             return _price_text(number)
         if kind is ColumnKind.QUANTITY:
@@ -152,16 +166,6 @@ class ZonedValueFormatter:
         self, kind: ColumnKind, value: DisplayValue, context: FormatContext
     ) -> str:
         return AppValueFormatter(self._time_zone()).format(kind, value, context)
-
-
-def display_number(value: Decimal | None) -> float | None:
-    """A domain `Decimal` as the float a table cell holds.
-
-    Qt compares a cell's value to sort it, and it can compare a float but not
-    a wrapped Python `Decimal`. A float holds every digit the formatter
-    writes; the `Decimal` stays the truth everywhere a value is computed.
-    """
-    return None if value is None else float(value)
 
 
 def write_value(kind: ColumnKind, value: DisplayValue, key: str = "") -> str:

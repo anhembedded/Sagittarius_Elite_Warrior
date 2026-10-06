@@ -25,11 +25,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QAbstractItemView
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
     TimeframeActions,
     TimeframePickerDialog,
     TimeframeSelection,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
+    CONFIGURED_PROPERTY,
 )
 
 _PIN_COLUMN = 2
@@ -113,6 +117,50 @@ def test_clicking_a_group_heading_chooses_nothing(qapp, dialog):
 
     assert heard == []
     assert dialog.isVisible() is True
+
+
+def _tree_rows(dialog) -> list[tuple[str, list[str]]]:
+    """Each heading's label, then its rows' codes, as the tree shows them."""
+    tree = dialog._tree
+    groups = []
+    for index in range(tree.topLevelItemCount()):
+        heading = tree.topLevelItem(index)
+        groups.append(
+            (
+                heading.text(0),
+                [heading.child(row).text(0) for row in range(heading.childCount())],
+            )
+        )
+    return groups
+
+
+def test_the_tree_is_configured_from_its_column_specs(qapp, dialog):
+    """`BOT-151`: the Engine configures the tree like every table, rather
+    than the dialog setting its own selection, sorting and header."""
+    tree = dialog._tree
+
+    assert tree.property(CONFIGURED_PROPERTY) is True
+    assert tree.selectionBehavior() is QAbstractItemView.SelectionBehavior.SelectRows
+    assert tree.editTriggers() == QAbstractItemView.EditTrigger.NoEditTriggers
+    assert tree.isSortingEnabled() is True
+    assert [tree.headerItem().text(column) for column in range(3)] == [
+        "Interval",
+        "Description",
+        "Pinned",
+    ]
+
+
+def test_sorting_orders_each_groups_rows_and_keeps_them_under_it(qapp, dialog, seed):
+    seed.codes = ["1m", "15m", "3m", "1h", "4h", "2h"]
+    dialog.open_dialog()
+    before = {label: sorted(codes) for label, codes in _tree_rows(dialog)}
+
+    dialog._tree.sortByColumn(0, Qt.SortOrder.DescendingOrder)
+
+    after = _tree_rows(dialog)
+    assert {label: sorted(codes) for label, codes in after} == before
+    for _label, codes in after:
+        assert codes == sorted(codes, reverse=True)
 
 
 def test_cancel_closes_without_emitting(qapp, dialog):
