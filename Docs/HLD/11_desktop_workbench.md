@@ -134,10 +134,12 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 
 - The table's menus, names and shortcuts hold where a screen already has the command: Trade's Enable live trading, Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
 - Delete bot carries no "…": it only confirms, and "…" marks a command that asks for more input (§4 of the rule).
-- Emergency stop is on each desk's toolbar, for that desk's venue, not on every mode's: one Emergency stop for every venue comes with the single Trade mode (`EPIC-033I`).
+- Emergency stop is on every mode's toolbar since the single Trade mode (`EPIC-033I` stage 1), and stops every enabled venue: from another mode no venue shows, and the person pressing it wants trading stopped. Its confirmation names each venue and what it closes there.
+- Trade's Cancel order (Del) and Cancel all orders drive the chosen venue's account tables, which ask with their verbs (Cancel order / Keep order, Cancel all orders / Keep orders); the tables have no toolbar, and their rows' context menus repeat the commands (`EPIC-033I` stage 3). Enable live trading asks on enable only (Enable trading / Keep it off), which the mode does itself because the Engine's action confirms on every trigger; placing an order asks Place order / Cancel.
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
   - Bots: Refresh fills and Fit levels (`EPIC-033K`).
+  - Trade: &Close position (the Futures position selected in Positions, at market; asks Close position / Keep position) and, in View, Hide other pair&s (the chosen venue's tables show its symbol only) (`EPIC-033I`).
 
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 

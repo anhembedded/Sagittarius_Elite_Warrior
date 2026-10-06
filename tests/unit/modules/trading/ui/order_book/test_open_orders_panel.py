@@ -3,7 +3,8 @@ rows.
 
 `OpenOrderRow.qml` put a "Huỷ" button in every row and fired it straight at
 the Presenter. Two things changed and both are pinned here: the action is one
-`QAction` operating on the selected row (toolbar *and* context menu, `Del`),
+`QAction` operating on the selected row (the Trade menu's Cancel order, `Del`,
+since `EPIC-033I`, and the context menu),
 and it asks before it sends. What did **not** change is the signal the two
 screens hosting this panel connect to — `cancelRequested(symbol,
 client_order_id)` — which is why neither had to be touched.
@@ -19,6 +20,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QToolBar
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
@@ -155,14 +157,16 @@ class TestTheCancelAction:
 
         assert panel.cancel_action.isEnabled() is True
 
-    def test_it_reaches_the_row_from_the_toolbar_and_the_context_menu(
+    def test_it_reaches_the_row_from_the_context_menu_and_owns_no_toolbar(
         self, qapp
     ) -> None:
-        """One `QAction` per user action, shown in both places — the
-        Consistency principle of `Docs/HLD/11_desktop_workbench.md`."""
+        """`EPIC-033I` stage 3: the command is Trade → Cancel order, which
+        owns Del and drives this action; the row's context menu repeats it,
+        and the panel draws no toolbar of its own."""
         panel, _ = _panel(order())
 
-        assert panel.cancel_action in panel._toolbar.actions()
+        assert panel.findChildren(QToolBar) == []
+        assert panel.cancel_action.shortcut().isEmpty()
         assert panel.cancel_action in panel.table.actions()
         assert (
             panel.table.contextMenuPolicy() is Qt.ContextMenuPolicy.ActionsContextMenu

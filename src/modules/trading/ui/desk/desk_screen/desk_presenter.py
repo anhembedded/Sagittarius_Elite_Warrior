@@ -1,5 +1,5 @@
 """`EPIC-028K`/`028L` — one desk's presenter: a composition of the desk kit
-for one venue.
+for one venue, one page of the Trade mode since `EPIC-033I`.
 
 @details Every part already exists and is tested on its own: the order panel
 (`EPIC-028H`/`028I`), the account tabs and summary (`EPIC-028J`), the TP/SL
@@ -21,9 +21,13 @@ what passes between them:
 - an entry placed with TP/SL is handed to the follower (Futures only: the
   Spot desk's TP/SL waits on `EPIC-026K`, ADR O2).
 
+The Trade mode's commands (Enable live trading, New order…, Emergency stop)
+are bound by the mode (`trade_command_binding.py`) to the desk of the venue
+chosen; this presenter offers what they act on (`desk`, `orders`).
+
 Nothing here is shared with the other desk: each desk's ports, feeds, chart
-stream and strategy are its own venue's, so an order, a signal or a candle
-on one never reaches the other (`EPIC-028L`).
+stream and strategy are its own venue's, so an order, an armed strategy or a
+candle on one never reaches the other (`EPIC-028L`).
 """
 
 from __future__ import annotations
@@ -31,6 +35,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.account_summary_presenter import (
     AccountSummaryPresenter,
@@ -43,11 +49,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart import (
     DeskChart,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
-    emergency_stop_id,
-    enable_trading_id,
-    new_order_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     DeskDependencies,
@@ -76,27 +77,29 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
     ProtectiveOrderFollower,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
     default_symbol,
     default_symbol_options,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import ICommandBinder
-from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
-    CommandPresenter,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+        TradingVenue,
+    )
     from sagittarius_engine.interfaces.i_container import IContainer
 
     from .desk_view import DeskView
 
 
-class DeskPresenter(CommandPresenter):
+class DeskPresenter(BasePresenter):
     """@brief Presenter for one desk (`EPIC-028K`/`028L`)."""
+
+    #: What the Trade mode's commands show for this desk changed: trading
+    #: on or off, a toggle in flight, the order entry able to take an order.
+    commandStateChanged = Signal()
 
     def __init__(
         self,
@@ -110,9 +113,16 @@ class DeskPresenter(CommandPresenter):
             raise ValueError(
                 f"the {profile.title} desk was given {deps.ports.venue.value}'s ports"
             )
+        if deps.strategy.venue is not profile.venue:
+            raise ValueError(
+                f"the {profile.title} desk was given {deps.strategy.venue.value}'s "
+                "strategy"
+            )
         self._profile = profile
         config = self.config.get_all()
-        self.desk = DeskViewModel(self)
+        self.desk = DeskViewModel(
+            self, log_model=view.log_model, log_prefix=f"{profile.title}: "
+        )
         self.desk.set_symbol_options(
             default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS)
         )
@@ -152,7 +162,7 @@ class DeskPresenter(CommandPresenter):
             self.order_entry.entryPlaced.connect(
                 lambda placed: follower.expect(*placed)
             )
-        self._wire(feeds.signals)
+        self._wire()
         self.desk.set_trading_state(self.session.is_enabled, False)
         if self.session.is_enabled:
             # Trading was turned on before this desk opened (another visit, or
@@ -177,9 +187,16 @@ class DeskPresenter(CommandPresenter):
         self.chart.shutdown()
         super().shutdown()
 
-    def _wire(self, signals: SignalFeed) -> None:
+    def _wire(self) -> None:
         desk, session, chart = self.desk, self.session, self.chart
         desk.symbolChangeRequested.connect(self.show_symbol)
+        desk.tradingStateChanged.connect(self.commandStateChanged)
+        # A cancel's or a close's outcome is said on the page's status line:
+        # the tables are panels of their own (`EPIC-033I` stage 2).
+        self.view.account_tabs.messageShown.connect(
+            lambda text: desk.set_status(text, False)
+        )
+        self.orders.changed.connect(self.commandStateChanged)
         self.order_entry.orderAccepted.connect(self.tabs.list_accepted_order)
         desk.toggleRequested.connect(session.toggle)
         desk.emergencyStopRequested.connect(session.emergency_stop)
@@ -190,40 +207,6 @@ class DeskPresenter(CommandPresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
-        self.strategy.listen(signals)
-
-    def bind_commands(self, binder: ICommandBinder) -> None:
-        """Enable live trading, Emergency stop and New order…
-        (`desk_commands.py`)."""
-        desk, orders, venue = self.desk, self.orders, self._profile.venue
-        available = DerivedState(
-            desk.tradingStateChanged, lambda: not desk.toggleBusy, desk
-        )
-        trading_on = DerivedState(
-            desk.tradingStateChanged, lambda: bool(desk.enabled), desk
-        )
-        binder.bind(
-            enable_trading_id(venue),
-            lambda _checked: desk.requestToggle(),
-            enabled=available.changed,
-            checked=trading_on.changed,
-            initially_enabled=available.value,
-        )
-        # `__init__` set the session's state before this binding existed, so a
-        # desk built while trading is on would otherwise show it unchecked.
-        trading_on.announce()
-        binder.bind(
-            emergency_stop_id(venue), lambda _checked: desk.requestEmergencyStop()
-        )
-        can_take_order = DerivedState(
-            orders.changed, lambda: orders.can_take_order, orders
-        )
-        binder.bind(
-            new_order_id(venue),
-            lambda _checked: orders.request_focus(),
-            enabled=can_take_order.changed,
-            initially_enabled=can_take_order.value,
-        )
 
     def _on_last_price(self, price: Decimal) -> None:
         self.order_entry.update_last_price(price)
@@ -234,5 +217,53 @@ class DeskPresenter(CommandPresenter):
         self.summary.refresh()
         self.order_entry.refresh()
 
+    @property
+    def venue(self) -> TradingVenue:
+        return self._profile.venue
+
+    # -- what the Trade mode's commands act on (`trade_command_binding.py`) --
+
+    @property
+    def trading_enabled(self) -> bool:
+        return bool(self.desk.enabled)
+
+    @property
+    def toggle_busy(self) -> bool:
+        return bool(self.desk.toggleBusy)
+
+    @property
+    def can_take_order(self) -> bool:
+        return self.orders.can_take_order
+
+    def request_toggle(self) -> None:
+        """Enable live trading: turns this venue's trading on or off."""
+        self.desk.requestToggle()
+
+    def request_emergency_stop(self) -> None:
+        """Emergency stop, already confirmed: stops this venue."""
+        self.desk.requestEmergencyStop()
+
+    def request_new_order(self) -> None:
+        """New order…: the keyboard focus to the order entry's first field."""
+        self.orders.request_focus()
+
+    @property
+    def title(self) -> str:
+        """The venue's title, as the Trade menu names it."""
+        return self._profile.title
+
+    def table_actions(self) -> dict[str, QAction]:
+        """The account tables' actions the Trade menu drives."""
+        return self.view.account_tabs.menu_actions()
+
+    @property
+    def hides_other_pairs(self) -> bool:
+        return self.view.account_tabs.hides_other_pairs
+
+    def set_hide_other_pairs(self, hide: bool) -> None:
+        """View → Hide other pairs: the account tables show this desk's
+        symbol only."""
+        self.view.account_tabs.set_hide_other_pairs(hide)
+
     def _log(self, line: str) -> None:
-        self.desk.log_model.append(line, level="info")
+        self.desk.write_log(line)

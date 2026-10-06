@@ -98,9 +98,9 @@ def test_a_limit_placed_on_the_desk_is_listed_then_cancelled(qtbot) -> None:
     desk.submission.cancel_answers(
         CancelOrderResult(None, replace(accepted, status=OrderStatus.CANCELED))
     )
-    table = desk.view.account_tabs.findChild(QTableView, "tblOpenOrders")
+    table = desk.view.findChild(QTableView, "tblOpenOrders")
     table.selectRow(0)
-    desk.view.account_tabs.findChild(QAction, "actCancelOrder").trigger()
+    desk.view.findChild(QAction, "actCancelOrder").trigger()
 
     assert desk.submission.cancelled == [("BTCUSDT", order_id)]
     assert _open_order_ids(desk) == []

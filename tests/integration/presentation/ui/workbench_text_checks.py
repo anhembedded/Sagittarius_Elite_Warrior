@@ -54,10 +54,15 @@ def column_problems(_window: QWidget, page: QWidget) -> list[str]:
 
 def combo_problems(_window: QWidget, page: QWidget) -> list[str]:
     """§3: a visible drop-down list shows its chosen item whole; the style,
-    not a fixed width, decides how wide it is (Qt `QComboBox` elides it)."""
+    not a fixed width, decides how wide it is (Qt `QComboBox` elides it).
+    A panel tabbed behind another is not drawn: Qt keeps it "visible" but
+    parks it outside the window at its minimum width (`EPIC-033I`, the Trade
+    mode's Strategy panel), and it is measured when its tab is in front."""
     found = []
     for combo in page.findChildren(QComboBox):
         if not combo.isVisible() or combo.isEditable() or not combo.currentText():
+            continue
+        if combo.visibleRegion().isEmpty():
             continue
         # Where the style paints the text, and so where Qt elides it.
         option = QStyleOptionComboBox()

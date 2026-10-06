@@ -106,7 +106,7 @@ market data, trading or a strategy.
 | The switch writes and saves only on Apply, offers the restart only after the write, and puts itself back on a failed save | `tests/unit/shell/test_developer_options_page.py` | unit |
 | What the next process is told, including the stripped `--dev` | `tests/unit/shell/test_developer_mode_restart.py` | unit |
 | A failed start leaves this session running | `tests/unit/shell/test_developer_mode_restart.py` | unit |
-| The Futures desk is the default route, and survives the round trip into `ScreenRegistry` | `tests/unit/shell/test_screen_wiring.py` | unit |
+| The Trade mode is the default route, and survives the round trip into `ScreenRegistry` | `tests/unit/shell/test_screen_wiring.py` | unit |
 | Launching with any mode remembered opens no market stream and dispatches no `StartLiveStreamCommand`; a restored Market mode does not start its Watchlist stream, a clicked one does; the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | The version shown is the version the project declares | `tests/unit/architecture/test_app_version_matches_pyproject.py` | unit |
 | A gated screen is dropped with its mode's commands when developer mode is off, and is a mode when it is on; the shell contributes the Developer mode | `tests/unit/shell/test_contribution_registry.py`, `tests/unit/shell/test_contribution_assembly.py` | unit |

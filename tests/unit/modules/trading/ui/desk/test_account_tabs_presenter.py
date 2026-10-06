@@ -12,7 +12,7 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
-from PySide6.QtWidgets import QCheckBox, QLabel
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
 )
@@ -118,7 +118,7 @@ def test_hide_other_pairs_reopens_the_histories_on_the_desks_symbol(qtbot) -> No
     desk.presenter.show_symbol("BTCUSDT")
     desk.now = NOW + timedelta(minutes=5)
 
-    desk.panel.findChild(QCheckBox, "chkHideOtherPairs").setChecked(True)
+    desk.panel.set_hide_other_pairs(True)
 
     expected = HistoryRequest(symbol="BTCUSDT", since=desk.now - DESK_HISTORY_SPAN)
     assert desk.activity.order_requests[-1] == expected

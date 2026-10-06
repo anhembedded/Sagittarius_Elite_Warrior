@@ -3,14 +3,10 @@
     "Checks each mode fails, AS FOUND (EPIC-033B, 2026-10-04; window sizes EPIC-033C, 2026-10-05).",
     "Read by test_workbench_conformance.py. 'mode' lists a check failed at every window size, 'mode@WxH' one failed at that size only.",
     "Only shrinks; empty when EPIC-033M closes.",
-    "The Dev Board's rows left with it (EPIC-033P); Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156)."
+    "The Dev Board's rows left with it (EPIC-033P); Market's and Backtest's chart toolbars are in View → Chart (BOT-155, BOT-156).",
+    "The Futures and Spot desks' rows left with them (EPIC-033I): one Trade mode, on workbench surfaces.",
+    "'failing_with_venues' is the Trade mode measured with both venues built (test_trade_mode_conformance.py), mode~venue -> checks; empty since EPIC-033I stage 3 made the tables' Cancel and Close actions Trade menu commands."
   ],
-  "failing": {
-    "trading.futures": [
-      "no_style_sheet"
-    ],
-    "trading.spot": [
-      "no_style_sheet"
-    ]
-  }
+  "failing": {},
+  "failing_with_venues": {}
 }

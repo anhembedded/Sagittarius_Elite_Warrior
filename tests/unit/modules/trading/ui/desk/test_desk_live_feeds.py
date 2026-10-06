@@ -20,7 +20,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from PySide6.QtWidgets import QComboBox, QLabel
+from PySide6.QtWidgets import QComboBox
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
@@ -183,8 +183,7 @@ def test_a_blocked_order_of_the_venue_is_said_on_the_desk(qtbot, qapp) -> None:
         LiveOrderBlockedEvent(symbol="BTCUSDT", reason="below min notional", venue=SPOT)
     )
     qapp.processEvents()
-    message = desk.view.findChild(QLabel, "lblAccountTabsMessage")
-    assert "below min notional" not in message.text()
+    assert "below min notional" not in desk.view.status_text
 
     world.bus.emit(
         LiveOrderBlockedEvent(
@@ -192,7 +191,7 @@ def test_a_blocked_order_of_the_venue_is_said_on_the_desk(qtbot, qapp) -> None:
         )
     )
     qapp.processEvents()
-    assert message.text() == "Live order blocked (BTCUSDT): below min notional"
+    assert desk.view.status_text == "Live order blocked (BTCUSDT): below min notional"
 
 
 def test_only_its_markets_candle_at_its_interval_reaches_the_chart(

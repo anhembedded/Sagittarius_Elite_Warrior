@@ -160,14 +160,13 @@ def _watchlist_streams(market_stream) -> bool:
 def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
     window = windows.open()
 
-    assert window.current_mode == "trading.futures"
+    assert window.current_mode == "trade"
     assert window.last_source is ShellNavigationSource.RESTORE
 
 
 _EVERY_MODE = (
     "market",
-    "trading.futures",
-    "trading.spot",
+    "trade",
     "bots",
     "data_management",
     "backtest",
@@ -232,14 +231,18 @@ def test_a_click_on_the_market_mode_starts_its_watchlist_stream(windows, market_
     assert _watchlist_streams(market_stream) is True
 
 
-def test_a_mode_retired_since_the_last_session_opens_the_default(windows, tmp_path):
-    """`"trading"` is what a session from before `EPIC-028M` left stored."""
+@pytest.mark.parametrize("retired", ["trading", "trading.futures", "trading.spot"])
+def test_a_mode_retired_since_the_last_session_opens_the_default(
+    windows, tmp_path, retired
+):
+    """`"trading"` is what a session from before `EPIC-028M` left stored;
+    a desk's route, what one from before `EPIC-033I` left."""
     coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(StateScope(key="shell"), {"mode": "trading"})
+    coordinator._store.write(StateScope(key="shell"), {"mode": retired})
 
     window = windows.open(coordinator)
 
-    assert window.current_mode == "trading.futures"
+    assert window.current_mode == "trade"
 
 
 def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):

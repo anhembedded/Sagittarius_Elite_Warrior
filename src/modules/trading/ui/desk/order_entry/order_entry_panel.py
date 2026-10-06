@@ -18,7 +18,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QLabel,
-    QMessageBox,
     QTabBar,
     QVBoxLayout,
     QWidget,
@@ -40,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_opt
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.two_column_sides import (
     TwoColumnSides,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
+    VerbQuestion,
+    ask_with_verbs,
+)
 
 _TAB_TEXT = {
     OrderType.LIMIT: "Limit",
@@ -54,20 +57,20 @@ _SIDE_LAYOUTS: dict[SideLayout, Callable[[OrderEntryViewModel], TwoColumnSides]]
 
 
 def confirm_with_message_box(parent: QWidget) -> ConfirmOrder:
-    """@return The real dialog: Yes sends the order, No (the default) does
-    not."""
+    """@return The real dialog: Place order sends the order, Cancel (the
+    default, and Esc) does not (`ui-presentation-rule.md` §10)."""
 
     def ask(confirmation: OrderConfirmation) -> bool:
-        box = QMessageBox(
-            QMessageBox.Icon.Question,
-            confirmation.title,
-            confirmation.question,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        return ask_with_verbs(
             parent,
+            VerbQuestion(
+                title=confirmation.title.title(),
+                question=confirmation.question,
+                act="Place order",
+                keep="Cancel",
+                details=confirmation.details,
+            ),
         )
-        box.setInformativeText(confirmation.details)
-        box.setDefaultButton(QMessageBox.StandardButton.No)
-        return box.exec() == QMessageBox.StandardButton.Yes
 
     return ask
 

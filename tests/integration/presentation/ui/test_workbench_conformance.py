@@ -63,7 +63,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     workbench_problems,
 )
 
-_BASELINE_FILE = Path(__file__).with_name("baseline_workbench_conformance.json")
+BASELINE_FILE = Path(__file__).with_name("baseline_workbench_conformance.json")
 _SHELL = "shell"
 #: The rule's minimum usable size (§3), a common laptop and a full-HD screen.
 WINDOW_SIZES = ((1024, 700), (1366, 768), (1920, 1080))
@@ -101,7 +101,7 @@ def _size_label(size: QSize) -> str:
 
 
 def _read_baseline() -> dict[str, list[str]]:
-    data: dict[str, list[str]] = json.loads(_BASELINE_FILE.read_text(encoding="utf-8"))[
+    data: dict[str, list[str]] = json.loads(BASELINE_FILE.read_text(encoding="utf-8"))[
         "failing"
     ]
     return data

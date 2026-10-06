@@ -7,7 +7,6 @@ pool runs inline unless a test hands in a held one."""
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
@@ -87,4 +86,4 @@ class AccountTabsDesk:
         return sorted(row.symbol for row in model.rows)
 
     def message(self) -> str:
-        return self.panel.findChild(QLabel, "lblAccountTabsMessage").text()
+        return self.panel.message_text

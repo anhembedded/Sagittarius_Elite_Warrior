@@ -88,7 +88,8 @@ class each, not one copy per screen (a first attempt at the latter measured as
 *more* duplication, not less; see that file's own docstring and
 `DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
 §7). `signal_feed` moved there too, for the same "both screens want it"
-reason `sync_progress_feed.py` already established in that directory.
+reason `sync_progress_feed.py` already established in that directory; `BOT-158`
+deleted it with the strategy card's last-signal line, its last reader.
 
 @par `boot()` owns the live tick path since PR 2.1c-2
 `MarketTickEventHandler` moved out of `src/application/event_handlers/
@@ -124,12 +125,9 @@ Each absence is a measurement, not an omission:
     calls this one — the state `contribute()` was in before PR 1.4c-4), and the
     `QtEventBridge` it hands over would be the wrong mechanism for the tick
     path anyway, because that bridge marshals onto the Qt main thread and the
-    headless entry point has no Qt. `signal_feed` is the subscription that
-    genuinely wants it, being a Qt normaliser — but the Presenter that owns its
-    lifetime is still a legacy screen, and a feed subscribed here while a
-    screen still constructs one would put two normalisers on one event. So the
-    hook stays unimplemented, and whether it should exist at all is a question
-    for the pull request that moves the screens.
+    headless entry point has no Qt. `signal_feed`, the one Qt normaliser that
+    might have wanted it, was deleted with its last reader (`BOT-158`). So the
+    hook stays unimplemented until a subscription needs it.
 """
 
 from __future__ import annotations

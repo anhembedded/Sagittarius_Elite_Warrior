@@ -152,3 +152,21 @@ def test_a_failed_read_keeps_the_magnitude_rule(live, threads, exchange, caplog)
 
     assert _last_price_precision(presenter) is None
     assert "could not read spot filters" in caplog.text.lower()
+
+
+def test_a_read_finishing_after_the_mode_shut_down_writes_nothing(
+    live, threads, exchange
+):
+    """Review of PR #374: the worker reported on an object the mode owned, so
+    a read still running when the mode was torn down emitted on a deleted
+    object. The answer is now dropped once the mode has shut down."""
+    presenter = live()
+    model = presenter.view.watchlist
+    rewritten: list[object] = []
+    model.dataChanged.connect(lambda *args: rewritten.append(args))
+
+    presenter.shutdown()
+    threads.run_all()
+
+    assert exchange.reads == [(MarketType.SPOT, "BTCUSDT")]
+    assert rewritten == []

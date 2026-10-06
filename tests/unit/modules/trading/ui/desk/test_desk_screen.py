@@ -10,30 +10,14 @@ its commands' real actions (`desk_actions.py`, `EPIC-033D`).
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
-)
+from PySide6.QtWidgets import QComboBox, QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     desk_profile_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view import (
-    DeskView,
-    disabled_text,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
-    futures_desk_screen,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import fake_container
 
-from .desk_actions import bind_desk_actions
 from .desk_screen_fixtures import DeskWorld, build_desk, market_of
 
 FUTURES = TradingVenue.FUTURES_TESTNET
@@ -117,7 +101,7 @@ def test_emergency_stop_reaches_this_desks_session_and_rereads_its_account(
 
     desk.actions.emergency_stop.trigger()
 
-    assert [asked.title for asked in desk.actions.confirmer.asked] == ["Emergency stop"]
+    assert [asked.title for asked in desk.actions.confirmer.asked] == ["Emergency Stop"]
     assert desk.session.emergency_stops == 1
     assert desk.activity.open_order_reads > reads_before
 
@@ -140,62 +124,26 @@ def test_a_desk_refuses_another_venues_ports(qtbot) -> None:
         build_desk(qtbot, FUTURES, ports_venue=SPOT)
 
 
+def test_a_desk_refuses_another_venues_strategy(qtbot) -> None:
+    """`BOT-158` — a Futures desk arming Spot's strategy would show Spot's
+    armed state on a screen titled Futures."""
+    with pytest.raises(
+        ValueError, match="Futures desk was given spot_testnet's strategy"
+    ):
+        build_desk(qtbot, FUTURES, strategy_venue=SPOT)
+
+
 @pytest.mark.parametrize("venue", [FUTURES, SPOT])
-def test_a_desk_whose_venue_is_off_says_so_and_holds_nothing_that_sends(
+def test_a_desks_lines_go_to_the_log_it_was_given_naming_its_venue(
     qtbot, venue
 ) -> None:
-    profile = desk_profile_for(venue)
-    view = DeskView(profile)
-    qtbot.addWidget(view)
-    view.show_venue_disabled()
-
-    notice = view.findChild(QLabel, "lblDeskDisabled")
-    assert notice is not None
-    assert notice.text() == disabled_text(profile)
-    assert view.findChildren(QPushButton) == []
-
-
-@pytest.mark.parametrize("venue", [FUTURES, SPOT])
-def test_a_desks_log_is_its_channel_of_the_output_pane(qtbot, venue) -> None:
-    """`EPIC-033F`: no log card of its own; its lines are one channel."""
+    """`EPIC-033F`, `EPIC-033I`: no log card of its own; its lines are the
+    Trade mode's one channel, each saying which venue it is about."""
     desk = build_desk(qtbot, venue)
 
-    channel = desk.view.output_channel()
+    desk.actions.enable_trading.trigger()
 
-    assert channel is not None
-    assert channel.channel_id == f"desk.{venue.value}"
-    assert channel.title == desk_profile_for(venue).title
-    assert channel.model is desk.presenter.desk.log_model
-
-
-def test_a_desk_whose_venue_is_off_offers_no_channel(qtbot) -> None:
-    view = DeskView(desk_profile_for(FUTURES))
-    qtbot.addWidget(view)
-    view.show_venue_disabled()
-
-    assert view.output_channel() is None
-
-
-def test_the_futures_route_opens_the_notice_when_only_spot_is_served(qtbot) -> None:
-    """The view reads no service (every screen's view builds on a bare
-    container); the presenter side, which has the container, decides."""
-    container = fake_container(
-        {IVenueTradingPorts: FakeVenueTradingPorts(fake_venue_ports(SPOT))}
-    )
-    screen = futures_desk_screen(container)
-    view = screen.view_factory()
-    qtbot.addWidget(view)
-    assert view.findChild(QLabel, "lblDeskDisabled") is None
-
-    presenter = screen.presenter_factory(view, container)
-
-    notice = view.findChild(QLabel, "lblDeskDisabled")
-    assert notice is not None
-    assert notice.text() == disabled_text(desk_profile_for(FUTURES))
-    assert view.findChildren(QPushButton) == []
-    # `EPIC-033D`: its commands are bound, so boot reports none unbound, and
-    # disabled, so nothing can enable or stop a venue this run does not serve.
-    actions = bind_desk_actions(view, presenter, FUTURES)
-    assert actions.registry.unbound() == ()
-    assert not actions.enable_trading.isEnabled()
-    assert not actions.emergency_stop.isEnabled()
+    assert desk.presenter.desk.log_model is desk.view.log_model
+    lines = [entry.message for entry in desk.view.log_model.entries]
+    assert lines
+    assert all(line.startswith(f"{desk_profile_for(venue).title}: ") for line in lines)

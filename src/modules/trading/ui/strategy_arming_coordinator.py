@@ -115,8 +115,6 @@ class StrategyCardViewModel(Protocol):
 
     def set_bot_params_error(self, message: str) -> None: ...
 
-    def set_last_signal_text(self, text: str) -> None: ...
-
 
 class StrategyArmingCoordinator:
     """@brief Strategy selection, parameters, arming and persistence for
@@ -362,30 +360,6 @@ class StrategyArmingCoordinator:
                 )
             )
         return " · ".join(parts)
-
-    def on_signal_generated(self, event: Any) -> None:
-        """`SignalFeed.signalGenerated`'s handler — connected directly to
-        that signal by the constructing Presenter, so `DeskStrategy` and
-        `DashboardPresenter` need no `_on_signal_generated` method of
-        their own to define identically (`tests/unit/architecture/
-        test_presenter_duplication_only_shrinks.py`).
-
-        Filtered to the armed symbol on purpose: `SignalGeneratedEvent`
-        goes out on the same `IEventBus` a *backtest* run's own
-        `StrategyEngine` publishes on, and an unfiltered card would show a
-        backtest's output as if it were live.
-        """
-        signal = getattr(event, "signal", None)
-        if signal is None:
-            return
-        config = self._get_armed_config()
-        if config is None or signal.symbol != config.symbol:
-            return
-        action = getattr(signal.action, "value", str(signal.action))
-        when = signal.time.strftime("%H:%M:%S")
-        self._view_model.set_last_signal_text(
-            f"{when} · {action} @ {signal.price:g} — {signal.reason}"
-        )
 
     def _label_for(self, key: str) -> str:
         """`options()` already returns each key's display label —

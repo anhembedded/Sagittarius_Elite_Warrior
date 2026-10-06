@@ -91,6 +91,11 @@ def workbench_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def view_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """Every dock of the surface the mode shows has its toggle in View. A
+    mode that keeps a surface per venue shows one at a time (Trade,
+    `ISurfaceStack`, `EPIC-033I`); a dock of a surface not shown has its
+    toggle in View when that surface shows, which is measured by showing it.
+    A dock the person closed is still on a shown surface, and still checked."""
     # The workbench fills View for the showing mode when it opens (`EPIC-033C`).
     view = (
         window.menu("&View")
@@ -108,8 +113,14 @@ def view_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
     return [
         f"dock {d.windowTitle()!r} has no toggle in View"
         for d in page.findChildren(QDockWidget)
-        if d.toggleViewAction() not in listed
+        if d.toggleViewAction() not in listed and _on_a_shown_surface(d, page)
     ]
+
+
+def _on_a_shown_surface(dock: QDockWidget, page: QWidget) -> bool:
+    """Is the main window `dock` belongs to shown within `page`?"""
+    host = dock.parentWidget()
+    return host is None or host is page or host.isVisibleTo(page)
 
 
 def style_sheet_problems(window: QMainWindow, page: QWidget) -> list[str]:
@@ -360,7 +371,11 @@ def separator_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def perspective_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    hosts = [page] if isinstance(page, QMainWindow) else page.findChildren(QMainWindow)
+    """Each main window the mode shows restores its own saved layout; one it
+    keeps but does not show is measured when it shows (`_hosts` in
+    `workbench_layout_checks.py`)."""
+    nested = [host for host in page.findChildren(QMainWindow) if host.isVisibleTo(page)]
+    hosts = [page] if isinstance(page, QMainWindow) else nested
     return [
         f"{h.objectName()!r} cannot restore its own saved layout"
         for h in hosts

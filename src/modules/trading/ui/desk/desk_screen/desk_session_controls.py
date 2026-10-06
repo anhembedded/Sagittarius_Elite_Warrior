@@ -15,21 +15,16 @@ Stop is never disabled and never `@safe_ui_action` (a failure must be seen);
 a second click while one runs is answered in words, never sent twice.
 
 Emergency Stop stops the venue's user-data stream in its first step, so no
-event reports what its later steps did (`BUG-093`). Two signals say so, one
-per kind of host: `accountChanged` asks a host to read its tables again (a
-desk's account tabs read the venue), and `accountReconciled` hands over the
-positions and open orders the session itself confirmed, for a host that
-keeps its tables from events and these answers alone (the Dev Board, until
-`EPIC-033P`; no host listens now, `BOT-158`). An
-unconfirmed final state hands over nothing, and nor does an enable refused
-before the venue was read: an empty answer from a failed or skipped read is
-not "flat".
+event reports what its later steps did (`BUG-093`). `accountChanged` says so:
+the host reads its tables again from the venue (a desk's account tabs).
+A second signal once handed over the positions and orders the session
+confirmed, for a host that kept its tables from events alone; that host was
+the Dev Board, and the signal went with its last reader (`BOT-158`).
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
@@ -41,10 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
-    LivePosition,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
     ENABLE_BLOCK_MESSAGES,
     emergency_stop_log_lines,
@@ -64,15 +55,6 @@ _TOGGLE = "toggle_trading"
 _STOP = "emergency_stop"
 
 
-@dataclass(frozen=True)
-class ReconciledAccount:
-    """What the venue holds, as the session confirmed it in an enable or an
-    Emergency Stop."""
-
-    positions: tuple[LivePosition, ...]
-    open_orders: tuple[Order, ...]
-
-
 class DeskSessionControls(QObject):
     """@brief Enables, disables and emergency-stops one venue's trading."""
 
@@ -86,8 +68,6 @@ class DeskSessionControls(QObject):
     tradingEnabled = Signal()
     #: The account changed in ways no event reports: read the tables again.
     accountChanged = Signal()
-    #: A `ReconciledAccount` the session confirmed: the tables' new content.
-    accountReconciled = Signal(object)
 
     _enabled = Signal(object)
     _disabled = Signal(object)
@@ -159,12 +139,6 @@ class DeskSessionControls(QObject):
 
     def _show_enable_result(self, result: EnableTradingResult) -> None:
         self.stateChanged.emit(result.enabled, False)
-        if result.account_was_read:
-            self.accountReconciled.emit(
-                ReconciledAccount(
-                    result.reconciled_positions, result.reconciled_open_orders
-                )
-            )
         if result.enabled:
             self.statusChanged.emit("Trading enabled.", False)
             self.tradingEnabled.emit()
@@ -237,11 +211,7 @@ class DeskSessionControls(QObject):
         self.stateChanged.emit(self.is_enabled, False)
         for line in emergency_stop_log_lines(result):
             self.logged.emit(line)
-        if result.final_state_confirmed:
-            self.accountReconciled.emit(
-                ReconciledAccount(result.final_positions, result.final_open_orders)
-            )
-        else:
+        if not result.final_state_confirmed:
             self.logged.emit(
                 "[WARNING] Could not confirm the account after the emergency "
                 "stop; the tables are read again but may lag."

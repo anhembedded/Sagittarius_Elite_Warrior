@@ -2,9 +2,9 @@
 
 @details Built through `LiveStrategyFactory.build()` over a real
 `StrategyRegistry` and a real strategy, so the venue has to travel the whole
-way: factory -> `build_engine` -> `StrategyEngine`. Each desk's `SignalFeed`
-forwards only its own venue's signals, so a factory that dropped the venue
-would leave both desks' strategy cards silent.
+way: factory -> `build_engine` -> `StrategyEngine`. A reader tells one
+venue's signals from another's by that field, so a factory that dropped the
+venue would publish signals no venue claims.
 """
 
 from __future__ import annotations

@@ -5,8 +5,8 @@ the Trading screen and the Dev Board drove (both since deleted); what differs
 is the arming it is
 given. A desk passes its venue's own (`VenueStrategyControls`), so the Spot
 desk arms Spot, and the summary line and the chart's strategy lines follow
-that venue's armed state. Signals reach the card from the desk's own
-`SignalFeed`, which forwards only its venue's (`SignalGeneratedEvent.venue`).
+that venue's armed state. The card shows no signal: the user decided on
+2026-10-05 that the last signal is shown nowhere (`BOT-158`).
 """
 
 from __future__ import annotations
@@ -28,7 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
     DeskViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
 )
@@ -68,7 +67,7 @@ class DeskStrategy(QObject):
             tracker=ActionOwnershipTracker(),
             arm_action_kind=_ARM,
             set_status=desk.set_status,
-            append_log=lambda line: desk.log_model.append(line, level="info"),
+            append_log=desk.write_log,
             on_armed_changed=self._armed_changed,
         )
         strategy = desk.strategy_card
@@ -79,10 +78,6 @@ class DeskStrategy(QObject):
             self._coordinator.on_strategy_selection_changed
         )
         self._coordinator.restore_into_view_model(list(SUPPORTED_LIVE_INTERVALS))
-
-    def listen(self, signals: SignalFeed) -> None:
-        """Shows this venue's strategy signals on the card."""
-        signals.signalGenerated.connect(self._coordinator.on_signal_generated)
 
     def refresh(self) -> None:
         """Shows the venue's armed state as it is now."""

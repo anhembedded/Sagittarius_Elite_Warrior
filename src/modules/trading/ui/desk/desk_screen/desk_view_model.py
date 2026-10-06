@@ -48,13 +48,25 @@ class DeskViewModel(StatusMessageViewModel):
     #: Emitted when the user confirms Emergency stop (`EPIC-021K`, `EPIC-033D`).
     emergencyStopRequested = Signal()
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        parent: QObject | None = None,
+        *,
+        log_model: LogListModel | None = None,
+        log_prefix: str = "",
+    ) -> None:
+        """@param log_model Where `write_log` writes: the Trade mode's one Output
+        channel, which every venue shares (`EPIC-033I`); `None` keeps a log
+        of its own.
+        @param log_prefix What starts each line `write_log` writes (the venue),
+        so a shared log says which venue a line is about."""
         super().__init__(parent)
         self._symbol_options: list[str] = []
         self._symbol = ""
         self._enabled = False
         self._toggle_busy = False
-        self._log_model = LogListModel(self)
+        self._log_model = log_model if log_model is not None else LogListModel(self)
+        self._log_prefix = log_prefix
         #: `EPIC-025` PR 2.1e — the strategy card is one object owned once
         #: (`presentation/ui/common/`), not nineteen members copied into
         #: this class and into `DashboardViewModel`. Parented to `self`,
@@ -131,13 +143,13 @@ class DeskViewModel(StatusMessageViewModel):
 
     @Slot()
     def requestToggle(self) -> None:
-        """Called by the desk's Enable live trading action (`desk_commands.py`)."""
+        """Called by the Trade mode's Enable live trading (`trade_commands.py`)."""
         self.toggleRequested.emit()
 
     @Slot()
     def requestEmergencyStop(self) -> None:
         """Called by the desk's Emergency stop action once confirmed
-        (`desk_commands.py`)."""
+        (`trade_commands.py`)."""
         self.emergencyStopRequested.emit()
 
     # ------------------------------------------------------------------ #
@@ -177,3 +189,7 @@ class DeskViewModel(StatusMessageViewModel):
     def log_model(self) -> LogListModel:
         """Pythonic accessor for the Presenter (mirrors logModel)."""
         return self._log_model
+
+    def write_log(self, line: str, level: str = "info") -> None:
+        """Adds `line` to the log, after the venue's prefix."""
+        self._log_model.append(f"{self._log_prefix}{line}", level=level)

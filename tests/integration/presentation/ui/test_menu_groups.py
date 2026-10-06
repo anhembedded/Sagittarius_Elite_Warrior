@@ -68,3 +68,20 @@ def test_market_view_sets_the_market_choice_apart_from_the_chart_commands(
     assert ["Spot market", "Futures market"] in groups
     loads = next(group for group in groups if "Load older candles" in group)
     assert loads[:3] == ["Load older candles", "Load range…", "Back to live"]
+
+
+def test_market_view_keeps_chart_and_toolbars_out_of_the_chart_history(
+    main_window, navigate
+):
+    """Review of PR #374: Toolbars › and Chart › fell into the chart-history
+    group after Back to live, and Toolbars › stood apart from Status bar
+    (HLD §11.2.3 lists `Toolbars ›, Status bar` as one row)."""
+    navigate(MARKET_ROUTE)
+
+    groups = _view_groups(main_window)
+
+    loads = next(group for group in groups if "Back to live" in group)
+    assert loads == ["Load older candles", "Load range…", "Back to live"]
+    assert ["Chart"] in groups
+    assert ["Toolbars", "Status bar"] in groups
+    assert all("Status bar" not in group for group in groups if "Market" in group)

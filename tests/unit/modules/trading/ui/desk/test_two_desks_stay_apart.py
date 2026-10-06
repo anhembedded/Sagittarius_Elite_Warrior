@@ -1,6 +1,6 @@
 """`EPIC-028L` — the Futures and the Spot desk open together, and nothing on
-one reaches the other: not an order, not a signal, not a chart stream, not
-an Enable.
+one reaches the other: not an order, not an armed strategy, not a chart
+stream, not an Enable.
 
 @details Both desks are built on one `DeskWorld`, so they share the bus and
 the market stream exactly as the two routes do in the running app; each has
@@ -9,21 +9,13 @@ its own venue's fakes behind its ports (`desk_screen_fixtures.py`).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
-    SignalAction,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
-    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -46,19 +38,6 @@ def _open_order_ids(desk: Desk) -> list[str]:
     return sorted(row.client_order_id for row in model.rows)
 
 
-def _signal(symbol: str, venue: TradingVenue | None) -> SignalGeneratedEvent:
-    return SignalGeneratedEvent(
-        signal=Signal(
-            symbol=symbol,
-            action=SignalAction.BUY,
-            reason=f"cross on {venue.value if venue else 'a backtest'}",
-            price=100.0,
-            time=datetime(2026, 10, 2, 9, 30, tzinfo=UTC),
-        ),
-        venue=venue,
-    )
-
-
 def test_an_order_on_one_venue_is_listed_on_that_desk_only(qtbot, qapp) -> None:
     world, futures, spot = _two_desks(qtbot)
 
@@ -76,29 +55,27 @@ def test_an_order_on_one_venue_is_listed_on_that_desk_only(qtbot, qapp) -> None:
     assert _open_order_ids(futures) == []
 
 
-def test_a_signal_reaches_its_own_venues_strategy_card_only(qtbot, qapp) -> None:
-    """Both desks armed the same symbol; a backtest's signal (`venue=None`)
-    reaches neither."""
-    world = DeskWorld()
-    desks = {}
-    for venue in (FUTURES, SPOT):
-        desk = build_desk(qtbot, venue, world)
-        desk.armed.seed(
-            LiveStrategyConfig(
-                strategy_key=STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
-            )
-        )
-        desk.presenter.strategy.refresh()
-        desks[venue] = desk
+def test_a_strategy_armed_on_one_venue_shows_on_that_desk_only(qtbot) -> None:
+    """`BOT-158` — what a desk shows of its strategy is its venue's armed
+    state: arming on the Spot desk reaches Spot's arming and Spot's armed
+    summary, and the Futures desk, read again, still says nothing is armed.
+    (A signal reaches no desk since the last-signal line was removed; this
+    is the isolation a desk still shows.)"""
+    _, futures, spot = _two_desks(qtbot)
+    card = spot.presenter.desk.strategy_card
+    card.requestStrategySelection(STRATEGY_KEY)
+    # What the venue's live session holds once the arm went through.
+    spot.armed.seed(
+        LiveStrategyConfig(strategy_key=STRATEGY_KEY, symbol="BTCUSDT", interval="1m")
+    )
 
-    world.bus.emit(_signal("BTCUSDT", None))
-    world.bus.emit(_signal("BTCUSDT", SPOT))
-    qapp.processEvents()
+    card.requestArm()
+    futures.presenter.strategy.refresh()
 
-    spot_text = desks[SPOT].presenter.desk.strategy_card.lastSignalText
-    assert "cross on" in spot_text
-    assert "spot_testnet" in spot_text
-    assert desks[FUTURES].presenter.desk.strategy_card.lastSignalText == ""
+    assert spot.arming.armed_with is not None
+    assert futures.arming.armed_with is None
+    assert "BTCUSDT" in card.armedSummary
+    assert futures.presenter.desk.strategy_card.armedSummary == ""
 
 
 def test_each_desk_streams_its_own_market_and_enabling_one_leaves_the_other(

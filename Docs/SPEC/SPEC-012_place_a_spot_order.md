@@ -7,8 +7,8 @@
 - **Origin:** `EPIC-027K` (the Spot order path itself), `EPIC-027O` (Holdings table, BUY/SELL
   labels, SELL gated on a real holding), `EPIC-027P` (this SPEC, and the real Spot Testnet round
   trip that proves it).
-- **Surfaces:** the Spot desk's order panel (`EPIC-028H`/`028L`), which the desk's Trade → New
-  order… (`F9`, `EPIC-033R`) focuses (it replaced the manual-order card of `EPIC-027O` in
+- **Surfaces:** the Trade mode's Order entry with Spot chosen (`EPIC-028H`/`028L`, one mode
+  since `EPIC-033I`), which Trade → New order… (`F9`, `EPIC-033R`) focuses (it replaced the manual-order card of `EPIC-027O` in
   `EPIC-028M`) · `trade-once --live` at the command line, venue-agnostic like
   every other caller of `ExecuteOrderCommand`.
 

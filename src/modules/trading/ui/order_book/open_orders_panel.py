@@ -1,6 +1,12 @@
 """The Open Orders panel — a `QTableView` over every pending order, plus the
 one action that operates on the selected one.
 
+**Since `EPIC-033I` stage 3** the action is no longer a button above the
+table: a panel holds its content and its commands are in a menu
+(`ui-presentation-rule.md` §6, §8). Trade → Cancel order (Del) drives this
+action for the venue chosen; the row's context menu repeats it. It asks
+with its own verbs, Keep order the default (§10).
+
 **What this replaces.** `OpenOrdersTable.qml` + `OpenOrderRow.qml`, whose every
 row carried a "Huỷ" button. That shape comes from QML, where a delegate is the
 only way to put a control in a row; on the desktop it is what ADR D20 rules
@@ -25,14 +31,8 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import (
-    QMessageBox,
-    QTableView,
-    QToolBar,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QTableView, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     write_value,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
+    VerbQuestion,
+    ask_with_verbs,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
@@ -74,15 +78,16 @@ def cancel_question(row: OpenOrderRow) -> str:
 
 
 def _ask_with_message_box(parent: QWidget, row: OpenOrderRow) -> bool:
-    answer = QMessageBox.question(
+    return ask_with_verbs(
         parent,
-        _CANCEL_TEXT,
-        f"{cancel_question(row)}\n\n"
-        "The order is cancelled at the exchange and cannot be restored.",
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        QMessageBox.StandardButton.No,
+        VerbQuestion(
+            title="Cancel Order",
+            question=cancel_question(row),
+            act=_CANCEL_TEXT,
+            keep="Keep order",
+            details="The order is cancelled at the exchange and cannot be restored.",
+        ),
     )
-    return answer == QMessageBox.StandardButton.Yes
 
 
 class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
@@ -107,16 +112,9 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
 
         self._cancel_action = QAction(_CANCEL_TEXT, self)
         self._cancel_action.setObjectName("actCancelOrder")
-        self._cancel_action.setShortcut(QKeySequence.StandardKey.Delete)
-        self._cancel_action.setToolTip(
-            "Cancel the selected order at the exchange (Del)"
-        )
+        self._cancel_action.setToolTip("Cancel the selected order at the exchange")
         self._cancel_action.setEnabled(False)
         self._cancel_action.triggered.connect(self._request_cancel)
-
-        self._toolbar = QToolBar()
-        self._toolbar.setObjectName("tbrOpenOrders")
-        self._toolbar.addAction(self._cancel_action)
 
         # Symbol ascending, for the reason `positions_panel.py` records.
         self._table = SpecTable(
@@ -124,7 +122,8 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         )
         self._table.sort_by(OpenOrdersTableModel.column("symbol"))
         view = self._table.view
-        # The same action, reachable the two ways a desktop user expects it.
+        # The row's context menu repeats the menu command (Trade → Cancel
+        # order), which owns Del.
         view.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
         view.addAction(self._cancel_action)
         view.doubleClicked.connect(self._request_cancel)
@@ -132,7 +131,6 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._toolbar)
         layout.addWidget(self._table.body)
 
     def set_rows(self, rows: Sequence[OpenOrderRow]) -> None:
@@ -159,9 +157,8 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         self._model.use_precisions(precisions)
 
     def add_action(self, action: QAction) -> None:
-        """Puts a host's own action beside "Cancel order", in the toolbar
-        and the row's context menu (`EPIC-028J`'s "Cancel all")."""
-        self._toolbar.addAction(action)
+        """Puts a host's own action beside "Cancel order" in the row's
+        context menu (`EPIC-028J`'s "Cancel all orders")."""
         self._table.view.addAction(action)
 
     def selected_row(self) -> OpenOrderRow | None:

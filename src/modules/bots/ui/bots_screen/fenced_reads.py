@@ -18,7 +18,7 @@ import logging
 from collections.abc import Callable, Mapping
 from enum import Enum
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -38,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.ui_thread_relay import UiThreadRelay
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.Bots.Screen")
@@ -52,7 +53,7 @@ class ReadKind(str, Enum):
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
 
 
-class FencedReads(QObject):
+class FencedReads(UiThreadRelay):
     """@brief Runs one read per kind at a time; delivers only the newest."""
 
     #: The kind, the read's label, and its answer.
@@ -60,14 +61,11 @@ class FencedReads(QObject):
     #: The kind, the read's label, and what went wrong, in words.
     failed = Signal(object, str, str)
 
-    _done = Signal(object)
-
     def __init__(self, thread_manager: IThreadManager, trackers: ReadTrackers) -> None:
         super().__init__()
         self._threads = thread_manager
         self._trackers = trackers
         self._dropped = False
-        self._done.connect(self._deliver)
 
     def read(self, kind: ReadKind, label: str, task: Callable[[], object]) -> None:
         if self._dropped:
@@ -91,13 +89,13 @@ class FencedReads(QObject):
         self, kind: ReadKind, action_id: int, label: str, task: Callable[[], object]
     ) -> None:
         try:
-            self._done.emit((kind, action_id, label, task(), None))
+            self._report((kind, action_id, label, task(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is shown in words, not lost to a pool thread
-            self._done.emit(
-                (kind, action_id, label, None, str(exc) or type(exc).__name__)
-            )
+            self._report((kind, action_id, label, None, str(exc) or type(exc).__name__))
 
-    def _deliver(self, payload: tuple) -> None:
+    def _deliver(self, payload: object) -> None:
+        if not isinstance(payload, tuple):
+            raise TypeError(f"a read answers a tuple, not {type(payload).__name__}")
         kind, action_id, label, answer, error = payload
         tracker = self._trackers[kind]
         if not tracker.is_current_pending(action_id, kind):
