@@ -190,6 +190,11 @@ class DeskPresenter(BasePresenter):
         desk, session, chart = self.desk, self.session, self.chart
         desk.symbolChangeRequested.connect(self.show_symbol)
         desk.tradingStateChanged.connect(self.commandStateChanged)
+        # A cancel's or a close's outcome is said on the page's status line:
+        # the tables are panels of their own (`EPIC-033I` stage 2).
+        self.view.account_tabs.messageShown.connect(
+            lambda text: desk.set_status(text, False)
+        )
         self.orders.changed.connect(self.commandStateChanged)
         self.order_entry.orderAccepted.connect(self.tabs.list_accepted_order)
         desk.toggleRequested.connect(session.toggle)
@@ -240,6 +245,15 @@ class DeskPresenter(BasePresenter):
     def request_new_order(self) -> None:
         """New order…: the keyboard focus to the order entry's first field."""
         self.orders.request_focus()
+
+    @property
+    def hides_other_pairs(self) -> bool:
+        return self.view.account_tabs.hides_other_pairs
+
+    def set_hide_other_pairs(self, hide: bool) -> None:
+        """View → Hide other pairs: the account tables show this desk's
+        symbol only."""
+        self.view.account_tabs.set_hide_other_pairs(hide)
 
     def _log(self, line: str) -> None:
         self.desk.write_log(line)

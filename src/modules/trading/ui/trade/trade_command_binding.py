@@ -1,9 +1,9 @@
 """The Trade mode's commands, bound to the desk of the venue chosen
 (`EPIC-033I`).
 
-Enable live trading and New order… act on the venue the mode trades: their
-enabled and checked states follow that venue's desk, and follow the next one
-when the person chooses another venue. Emergency stop acts on every enabled
+Enable live trading, New order… and View → Hide other pairs act on the
+venue the mode trades: their enabled and checked states follow that venue's
+desk, and follow the next one when the person chooses another venue. Emergency stop acts on every enabled
 venue (`trade_commands.py`), and is off only while no venue is enabled. The
 chart's commands (View → Chart) drive the chosen venue's chart.
 
@@ -31,7 +31,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
 
-from .trade_commands import CHART_PREFIX, EMERGENCY_STOP, ENABLE_TRADING, NEW_ORDER
+from .trade_commands import (
+    CHART_PREFIX,
+    EMERGENCY_STOP,
+    ENABLE_TRADING,
+    HIDE_OTHER_PAIRS,
+    NEW_ORDER,
+)
 from .venue_choice import VenueChoice
 
 
@@ -41,6 +47,8 @@ class TradeCommandBinding(QObject):
     enableEnabled = Signal(bool)
     enableChecked = Signal(bool)
     newOrderEnabled = Signal(bool)
+    venueChosen = Signal(bool)
+    hideOtherPairsChecked = Signal(bool)
 
     def __init__(
         self,
@@ -72,6 +80,13 @@ class TradeCommandBinding(QObject):
             initially_enabled=desk is not None and desk.can_take_order,
         )
         binder.bind(
+            HIDE_OTHER_PAIRS,
+            self._on_hide_other_pairs,
+            enabled=self.venueChosen,
+            checked=self.hideOtherPairsChecked,
+            initially_enabled=desk is not None,
+        )
+        binder.bind(
             EMERGENCY_STOP,
             lambda _checked: self._on_emergency_stop(),
             initially_enabled=bool(self._desks),
@@ -97,6 +112,8 @@ class TradeCommandBinding(QObject):
         self.enableEnabled.emit(desk is not None and not desk.toggle_busy)
         self.enableChecked.emit(desk is not None and desk.trading_enabled)
         self.newOrderEnabled.emit(desk is not None and desk.can_take_order)
+        self.venueChosen.emit(desk is not None)
+        self.hideOtherPairsChecked.emit(desk is not None and desk.hides_other_pairs)
 
     def _on_toggle(self) -> None:
         desk = self._chosen()
@@ -110,6 +127,11 @@ class TradeCommandBinding(QObject):
         desk = self._chosen()
         if desk is not None:
             desk.request_new_order()
+
+    def _on_hide_other_pairs(self, checked: bool) -> None:
+        desk = self._chosen()
+        if desk is not None:
+            desk.set_hide_other_pairs(checked)
 
     def _on_emergency_stop(self) -> None:
         for desk in self._desks.values():

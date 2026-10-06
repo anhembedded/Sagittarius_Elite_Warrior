@@ -6,10 +6,10 @@
   error reads "Error: …", as the order entry's does).
 - **Right:** Order entry above Account summary, both in view; the order
   entry scrolls, once, at its panel.
-- **Bottom, tabbed:** Account (the open orders, the histories and Positions
-  on Futures or Assets on Spot, as tabs until stage 2 makes each a panel),
-  Equity, and Strategy until arming moves to the Bots mode (`EPIC-033K`
-  stage 3); the tables in front.
+- **Bottom, tabbed:** Positions (Futures) or Assets (Spot), Open orders,
+  Order history, Trade history and Equity, as HLD §11.2.1 lists them, what
+  is held in front; and Strategy until arming moves to the Bots mode
+  (`EPIC-033K` stage 3).
 
 Each venue's page is a `WorkbenchSurface` of its own (`trade.<venue>`), so
 each keeps its own layout (HLD §11.2.1, `ISurfaceStack`). Stock controls,
@@ -85,7 +85,6 @@ TRADE_SURFACE = Surface(
 ORDER_ENTRY_TITLE = "Order entry"
 ACCOUNT_SUMMARY_TITLE = "Account summary"
 STRATEGY_TITLE = "Strategy"
-ACCOUNT_TITLE = "Account"
 #: The equity chart's title: the curve is the venue's account, not a symbol.
 EQUITY_CHART_TITLE = "Equity"
 
@@ -121,7 +120,11 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         self.log_model = log if log is not None else LogListModel(self)
         self.chart = ChartCard(FALLBACK_SYMBOL)
         self.equity_chart = _equity_chart()
-        self.account_tabs = AccountTabsPanel(profile.held_tab, confirmations)
+        self.account_tabs = AccountTabsPanel(
+            profile.held_tab, confirmations, parent=self
+        )
+        # It owns the tables and draws none of them: each is a panel.
+        self.account_tabs.hide()
         self.account_summary = AccountSummaryPanel()
         self._symbol = QComboBox()
         self._symbol.setObjectName("cboDeskSymbol")
@@ -170,16 +173,16 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         surface.place_widget(Place.WORKSPACE, self.chart)
         surface.place_widget(Place.HEADER, self._context_bar())
         self._place_right(_scrolling(order_entry, "scrollOrderEntry"))
-        account = MinimumHintSlot(self.account_tabs)
-        surface.place_widget(Place.CONSOLE, account, title=ACCOUNT_TITLE)
-        surface.place_widget(
-            Place.CONSOLE, MinimumHintSlot(self.equity_chart), title=EQUITY_CHART_TITLE
-        )
-        surface.place_widget(
-            Place.CONSOLE, _scrolling(strategy, "scrollStrategy"), title=STRATEGY_TITLE
-        )
-        # The account's tables are what an order changes: in front.
-        surface.dock_of(account).raise_()
+        bottom: list[tuple[str, QWidget]] = [
+            (title, MinimumHintSlot(table))
+            for title, table in self.account_tabs.panels()
+        ]
+        bottom.append((EQUITY_CHART_TITLE, MinimumHintSlot(self.equity_chart)))
+        bottom.append((STRATEGY_TITLE, _scrolling(strategy, "scrollStrategy")))
+        for title, widget in bottom:
+            surface.place_widget(Place.CONSOLE, widget, title=title)
+        # What the account holds is what an order changes: in front.
+        surface.dock_of(bottom[0][1]).raise_()
 
     def _place_right(self, entry: QWidget) -> None:
         """Order entry above Account summary, both in view, never tabbed.
@@ -195,10 +198,10 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         surface.place_widget(Place.RAIL, entry, title=ORDER_ENTRY_TITLE)
         entry_dock = surface.dock_of(entry)
         surface.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, entry_dock)
-        surface.place_widget(
-            Place.RAIL, self.account_summary, title=ACCOUNT_SUMMARY_TITLE
-        )
-        summary_dock = surface.dock_of(self.account_summary)
+        # The summary asks for its few lines only; the entry takes the rest.
+        summary = MinimumHintSlot(self.account_summary)
+        surface.place_widget(Place.RAIL, summary, title=ACCOUNT_SUMMARY_TITLE)
+        summary_dock = surface.dock_of(summary)
         surface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, entry_dock)
         surface.splitDockWidget(entry_dock, summary_dock, Qt.Orientation.Vertical)
 

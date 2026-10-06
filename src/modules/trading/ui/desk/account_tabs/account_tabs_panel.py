@@ -1,10 +1,18 @@
-"""`EPIC-028J` — a desk's bottom tabs: Open orders, Order history, Trade
-history, and Positions (Futures) or Assets (Spot).
+"""`EPIC-028J` — a desk's account tables: Positions (Futures) or Assets
+(Spot), Open orders, Order history and Trade history.
 
 @details Composes the existing order-book panels (`ui/order_book/`) and two
 `HistoryPanel`s; the `DeskProfile`'s `held_tab` decides Positions or Assets.
 It implements `OrderBookDisplay`, so `LiveOrderBookCoordinator` drives its
 live tables exactly as it drives the older screens'.
+
+**Each table is a panel of its own** since `EPIC-033I` stage 2 (HLD
+§11.2.1: the Trade mode's bottom panels, tabbed): `panels()` hands them to
+the page, in the HLD's order, and this object keeps what they share. It
+lays nothing out itself. What used to sit beside the tabs moved where a
+panel's command and a page's words belong: Hide other pairs is the Trade
+mode's View → Hide other pairs (`set_hide_other_pairs`), and the outcome of
+the last cancel or close is the page's status line (`messageShown`).
 
 **Hide other pairs** filters the pair-keyed live tables (open orders,
 positions) to the desk's symbol here, on rows already held, so the toggle
@@ -24,9 +32,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QCheckBox, QLabel, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
     ConfirmedClose,
 )
@@ -76,8 +84,15 @@ _CANCEL_ALL_TEXT = "Cancel all"
 _CLOSE_TEXT = "Close at market"
 
 
-class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
-    """@brief One desk's account tabs."""
+#: The title of each table's panel, by what it lists.
+OPEN_ORDERS_TITLE = "Open orders"
+ORDER_HISTORY_TITLE = "Order history"
+TRADE_HISTORY_TITLE = "Trade history"
+_HELD_TITLE = {HeldTab.POSITIONS: "Positions", HeldTab.ASSETS: "Assets"}
+
+
+class AccountTabsPanel(QWidget):  # base-exempt: the tables' owner, not drawn
+    """@brief One desk's account tables."""
 
     #: `(symbol, client_order_id)` of one order to cancel, already confirmed.
     cancelRequested = Signal(str, str)
@@ -86,6 +101,9 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
     #: The `ConfirmedClose` of the position to close at market.
     closePositionRequested = Signal(object)
     hideOtherPairsChanged = Signal(bool)
+    #: The outcome of the last cancel or close, in words, for the page's
+    #: status line.
+    messageShown = Signal(str)
     #: `(HistoryKind value, zero-based page)`.
     historyPageRequested = Signal(str, int)
 
@@ -97,22 +115,20 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
     ) -> None:
         super().__init__(parent)
         asks = confirmations or AccountTabConfirmations()
-        self._confirm_cancel_all = asks.cancel_all or (
-            lambda rows: ask_with_message_box(
-                self, _CANCEL_ALL_TEXT, cancel_all_question(rows)
-            )
-        )
-        self._confirm_close = asks.close_position or (
-            lambda row: ask_with_message_box(
-                self, _CLOSE_TEXT, close_position_question(row)
-            )
-        )
         self._held_tab = held_tab
         self._desk_symbol = ""
+        self._hide_other_pairs = False
+        self._message = ""
         self._open_orders: tuple[OpenOrderRow, ...] = ()
         self._positions: tuple[PositionRow, ...] = ()
 
         self._open_orders_panel = OpenOrdersPanel(confirm_cancel=asks.cancel_one)
+        # Asked over the panel the person acted in: this object is not drawn.
+        self._confirm_cancel_all = asks.cancel_all or (
+            lambda rows: ask_with_message_box(
+                self._open_orders_panel, _CANCEL_ALL_TEXT, cancel_all_question(rows)
+            )
+        )
         self._open_orders_panel.cancelRequested.connect(self.cancelRequested)
         self._cancel_all = QAction(f"{_CANCEL_ALL_TEXT}...", self)
         self._cancel_all.setObjectName("actCancelAllOrders")
@@ -121,6 +137,11 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
         self._open_orders_panel.add_action(self._cancel_all)
 
         self._positions_panel = PositionsPanel()
+        self._confirm_close = asks.close_position or (
+            lambda row: ask_with_message_box(
+                self._positions_panel, _CLOSE_TEXT, close_position_question(row)
+            )
+        )
         self._close = QAction(f"{_CLOSE_TEXT}...", self)
         self._close.setObjectName("actClosePosition")
         self._close.setToolTip("Close the selected position with a market order")
@@ -137,31 +158,16 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
             panel.pageRequested.connect(
                 lambda page, kind=kind: self.historyPageRequested.emit(kind.value, page)
             )
+        # Owned here until the page places them; the one not placed (Assets
+        # on Futures, Positions on Spot) stays here, hidden.
+        for table in (
+            self._open_orders_panel,
+            self._positions_panel,
+            self._holdings_panel,
+            *self._histories.values(),
+        ):
+            table.setParent(self)
 
-        self._tabs = QTabWidget()
-        self._tabs.setObjectName("tabAccount")
-        self._tabs.addTab(self._open_orders_panel, "Open orders")
-        self._tabs.addTab(self._histories[HistoryKind.ORDERS], "Order history")
-        self._tabs.addTab(self._histories[HistoryKind.TRADES], "Trade history")
-        if held_tab is HeldTab.POSITIONS:
-            self._tabs.addTab(self._positions_panel, "Positions")
-        else:
-            self._tabs.addTab(self._holdings_panel, "Assets")
-
-        self._hide_other_pairs = QCheckBox("Hide other pairs")
-        self._hide_other_pairs.setObjectName("chkHideOtherPairs")
-        self._hide_other_pairs.toggled.connect(self._on_hide_other_pairs)
-        self._tabs.setCornerWidget(self._hide_other_pairs, Qt.Corner.TopRightCorner)
-
-        self._message = QLabel()
-        self._message.setObjectName("lblAccountTabsMessage")
-        self._message.setWordWrap(True)
-        self._message.hide()
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._tabs, 1)
-        layout.addWidget(self._message)
         self._apply_action_state()
 
     # -- OrderBookDisplay ---------------------------------------------- #
@@ -187,13 +193,37 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
         for panel in self._histories.values():
             panel.use_precisions(precisions)
 
+    def panels(self) -> tuple[tuple[str, QWidget], ...]:
+        """Each table's panel and its title, in HLD §11.2.1's order: what
+        is held, then the open orders, then the histories."""
+        held = (
+            self._positions_panel
+            if self._held_tab is HeldTab.POSITIONS
+            else self._holdings_panel
+        )
+        return (
+            (_HELD_TITLE[self._held_tab], held),
+            (OPEN_ORDERS_TITLE, self._open_orders_panel),
+            (ORDER_HISTORY_TITLE, self._histories[HistoryKind.ORDERS]),
+            (TRADE_HISTORY_TITLE, self._histories[HistoryKind.TRADES]),
+        )
+
     def set_desk_symbol(self, symbol: str) -> None:
         self._desk_symbol = symbol
         self._render_live_tables()
 
     @property
     def hides_other_pairs(self) -> bool:
-        return self._hide_other_pairs.isChecked()
+        return self._hide_other_pairs
+
+    def set_hide_other_pairs(self, hide: bool) -> None:
+        """View → Hide other pairs: the live tables show the desk's symbol
+        only, and the histories are read again for it."""
+        if hide == self._hide_other_pairs:
+            return
+        self._hide_other_pairs = hide
+        self._render_live_tables()
+        self.hideOtherPairsChanged.emit(hide)
 
     def show_history(self, kind: HistoryKind, view: HistoryView[object]) -> None:
         self._histories[kind].show_view(view)
@@ -206,14 +236,14 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
 
     def show_message(self, text: str) -> None:
         """The outcome of the last cancel or close, in words."""
-        self._message.setText(text)
-        self._message.setVisible(bool(text))
-
-    # -- for a host and its tests -------------------------------------- #
+        self._message = text
+        self.messageShown.emit(text)
 
     @property
-    def tabs(self) -> QTabWidget:
-        return self._tabs
+    def message_text(self) -> str:
+        return self._message
+
+    # -- for a host and its tests -------------------------------------- #
 
     @property
     def open_orders_panel(self) -> OpenOrdersPanel:
@@ -231,10 +261,6 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
         return self._histories[kind]
 
     # -- internals ----------------------------------------------------- #
-
-    def _on_hide_other_pairs(self, hide: bool) -> None:
-        self._render_live_tables()
-        self.hideOtherPairsChanged.emit(hide)
 
     def _shown[TRow: (OpenOrderRow, PositionRow)](
         self, rows: tuple[TRow, ...]

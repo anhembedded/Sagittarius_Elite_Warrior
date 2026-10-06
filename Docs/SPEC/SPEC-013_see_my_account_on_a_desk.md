@@ -32,11 +32,13 @@ I did, and how the account is doing."*
 3. The summary shows the venue's own figures. Futures: available balance, wallet balance, margin
    balance and unrealised PnL, in USDT (or USD, said so, on a Multi-Assets account), and the
    position mode. Spot: the quote asset free and locked, and the account's value when it is known.
-4. The tabs show the account: **Open orders** (with cancel one and cancel all), **Order history**
+4. The bottom panels (tabbed, `EPIC-033I` stage 2) show the account: **Positions** (Futures,
+   with close at market) or **Assets** (Spot holdings), **Open orders** (with cancel one and cancel
+   all), **Order history**
    and **Trade history** (the pairs read over the last seven days, named in the tab, paged; with
-   "Hide other pairs" off, every active pair, except that Spot reads at most five of them and says
-   how many it left out, because each Spot pair costs request weight, `BUG-145`), and
-   **Positions** (Futures, with close at market) or **Assets** (Spot holdings).
+   View → Hide other pairs off, every active pair, except that Spot reads at most five of them and
+   says how many it left out, because each Spot pair costs request weight, `BUG-145`). A cancel's
+   or a close's outcome is said on the venue's status line.
 5. Below the chart, the **Equity** chart draws the venue's equity curve, the session's backlog first
    and then each new sample.
 6. While the desk is open, the venue's events keep it current: a fill updates Open orders,

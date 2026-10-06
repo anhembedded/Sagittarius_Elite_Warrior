@@ -15,7 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view import (
     ACCOUNT_SUMMARY_TITLE,
-    ACCOUNT_TITLE,
     EQUITY_CHART_TITLE,
     ORDER_ENTRY_TITLE,
     STRATEGY_TITLE,
@@ -37,6 +36,16 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_stack import ISurfaceS
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
+#: The Futures page's bottom panels, HLD §11.2.1's order, then Strategy
+#: until arming moves to the Bots mode.
+_BOTTOM_TITLES = (
+    "Positions",
+    "Open orders",
+    "Order history",
+    "Trade history",
+    EQUITY_CHART_TITLE,
+    STRATEGY_TITLE,
+)
 
 
 def _trade(qtbot) -> TradeView:
@@ -79,7 +88,7 @@ def test_a_page_is_laid_out_as_the_mode_lists_it(qtbot) -> None:
     bottom = Qt.DockWidgetArea.BottomDockWidgetArea
     for title in (ORDER_ENTRY_TITLE, ACCOUNT_SUMMARY_TITLE):
         assert surface.dockWidgetArea(_dock(page, title)) == right, title
-    for title in (ACCOUNT_TITLE, EQUITY_CHART_TITLE, STRATEGY_TITLE):
+    for title in _BOTTOM_TITLES:
         assert surface.dockWidgetArea(_dock(page, title)) == bottom, title
 
 
@@ -94,7 +103,7 @@ def test_order_entry_stands_above_the_summary_and_the_bottom_is_tabbed(
     surface = page.surface
     entry = _dock(page, ORDER_ENTRY_TITLE)
     summary = _dock(page, ACCOUNT_SUMMARY_TITLE)
-    account = _dock(page, ACCOUNT_TITLE)
+    positions = _dock(page, "Positions")
     view.resize(1200, 700)
     view.show()
     qtbot.waitExposed(view)
@@ -102,11 +111,10 @@ def test_order_entry_stands_above_the_summary_and_the_bottom_is_tabbed(
     assert surface.tabifiedDockWidgets(entry) == []
     assert surface.tabifiedDockWidgets(summary) == []
     assert entry.geometry().bottom() < summary.geometry().top()
-    assert set(surface.tabifiedDockWidgets(account)) == {
-        _dock(page, EQUITY_CHART_TITLE),
-        _dock(page, STRATEGY_TITLE),
+    assert set(surface.tabifiedDockWidgets(positions)) == {
+        _dock(page, title) for title in _BOTTOM_TITLES[1:]
     }
-    assert not account.visibleRegion().isEmpty()
+    assert not positions.visibleRegion().isEmpty()
 
 
 def test_a_page_draws_one_tab_bar_for_its_tabbed_panels(qtbot) -> None:

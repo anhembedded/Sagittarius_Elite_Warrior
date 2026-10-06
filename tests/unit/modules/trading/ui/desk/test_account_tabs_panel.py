@@ -11,7 +11,7 @@ from collections.abc import Sequence
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QCheckBox, QLabel, QPushButton
+from PySide6.QtWidgets import QLabel, QPushButton
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
     ConfirmedClose,
 )
@@ -80,8 +80,8 @@ def _panel(
     return panel, answers
 
 
-def _tab_titles(panel: AccountTabsPanel) -> list[str]:
-    return [panel.tabs.tabText(i) for i in range(panel.tabs.count())]
+def _panel_titles(panel: AccountTabsPanel) -> list[str]:
+    return [title for title, _table in panel.panels()]
 
 
 def _shown_symbols(rows: Sequence[OpenOrderRow | PositionRow]) -> list[str]:
@@ -99,19 +99,21 @@ def _position_symbols(panel: AccountTabsPanel) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    ("held_tab", "last_tab"),
+    ("held_tab", "held_title"),
     [(HeldTab.POSITIONS, "Positions"), (HeldTab.ASSETS, "Assets")],
 )
-def test_the_profile_decides_positions_or_assets(
-    qtbot, held_tab: HeldTab, last_tab: str
+def test_the_profile_decides_positions_or_assets_listed_first(
+    qtbot, held_tab: HeldTab, held_title: str
 ) -> None:
+    """HLD §11.2.1's order of the Trade mode's bottom panels (`EPIC-033I`
+    stage 2): what is held, then the open orders, then the histories."""
     panel, _ = _panel(qtbot, held_tab)
 
-    assert _tab_titles(panel) == [
+    assert _panel_titles(panel) == [
+        held_title,
         "Open orders",
         "Order history",
         "Trade history",
-        last_tab,
     ]
 
 
@@ -119,23 +121,23 @@ def test_hide_other_pairs_filters_the_live_tables_to_the_desks_symbol(qtbot) -> 
     panel, _ = _panel(qtbot)
     toggled: list[bool] = []
     panel.hideOtherPairsChanged.connect(toggled.append)
-    check = panel.findChild(QCheckBox, "chkHideOtherPairs")
 
     assert _open_order_symbols(panel) == ["BTCUSDT", "ETHUSDT"]
-    qtbot.mouseClick(check, Qt.MouseButton.LeftButton)
+    panel.set_hide_other_pairs(True)
 
     assert _open_order_symbols(panel) == ["BTCUSDT"]
     assert _position_symbols(panel) == ["BTCUSDT"]
     assert toggled == [True]
 
-    qtbot.mouseClick(check, Qt.MouseButton.LeftButton)
+    panel.set_hide_other_pairs(True)
+    panel.set_hide_other_pairs(False)
     assert _open_order_symbols(panel) == ["BTCUSDT", "ETHUSDT"]
     assert toggled == [True, False]
 
 
 def test_cancel_all_asks_about_and_sends_only_the_orders_shown(qtbot) -> None:
     panel, answers = _panel(qtbot)
-    panel.findChild(QCheckBox, "chkHideOtherPairs").setChecked(True)
+    panel.set_hide_other_pairs(True)
     sent: list[tuple[OpenOrderRow, ...]] = []
     panel.cancelAllRequested.connect(sent.append)
 

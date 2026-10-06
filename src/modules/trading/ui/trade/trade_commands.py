@@ -11,6 +11,9 @@
   entry and places nothing; the order is placed by the entry's own button,
   which asks first (`order_confirmation.py`). It ends with "…" because the
   order needs input before it is sent.
+- **View → Hide other pairs:** the chosen venue's account tables show its
+  symbol only (`EPIC-033I` stage 2; a check box beside the tabs before the
+  tables became panels). Checkable; it follows the chosen venue.
 - **Emergency stop (F8):** in the Trade menu and on every mode's toolbar
   (`mode=None`), HLD §11.2.2: the one command that must never be a menu
   away. It stops every enabled venue, not only the one chosen: from another
@@ -53,6 +56,8 @@ CHART_MENU = ("&View", "C&hart")
 #: The prefix of the chart's commands' ids (`chart_command_id`).
 CHART_PREFIX = "trading.trade"
 ENABLE_TRADING = "trading.trade.enable_trading"
+HIDE_OTHER_PAIRS = "trading.trade.hide_other_pairs"
+VIEW_MENU = ("&View",)
 NEW_ORDER = "trading.trade.new_order"
 EMERGENCY_STOP = "trading.emergency_stop"
 #: The `exclusive_group` of the venue choices.
@@ -110,6 +115,14 @@ def trade_commands(
                 consequence=emergency_stop_consequence(venues),
                 accept_text="Stop everything",
             ),
+        ),
+        CommandContribution(
+            contributor_id=_CONTRIBUTOR,
+            command_id=HIDE_OTHER_PAIRS,
+            text="Hide other pair&s",
+            menu_path=VIEW_MENU,
+            mode=route,
+            checkable=True,
         ),
         *chart_commands(_CONTRIBUTOR, CHART_PREFIX, route, CHART_MENU),
     )

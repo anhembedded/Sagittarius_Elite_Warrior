@@ -13,6 +13,7 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
     EMERGENCY_STOP,
     ENABLE_TRADING,
+    HIDE_OTHER_PAIRS,
     NEW_ORDER,
     VENUE_CHOICE,
     emergency_stop_consequence,
@@ -116,3 +117,10 @@ def test_emergency_stop_names_every_venue_and_what_it_closes_on_each() -> None:
     assert "every Futures position is closed at market" in both
     assert "sold at market" in both
     assert "Futures" not in emergency_stop_consequence((SPOT,))
+
+
+def test_hide_other_pairs_is_a_checkable_view_command_of_the_mode() -> None:
+    hide = _by_id((FUTURES,))[HIDE_OTHER_PAIRS]
+
+    assert hide.menu_path == ("&View",)
+    assert (hide.mode, hide.checkable, hide.on_toolbar) == (TRADE_ROUTE, True, False)

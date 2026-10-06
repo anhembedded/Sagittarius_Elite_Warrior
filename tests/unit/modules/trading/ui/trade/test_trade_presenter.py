@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
     FakeOrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
+    HIDE_OTHER_PAIRS,
     venue_choice_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_view import (
@@ -155,3 +156,31 @@ def test_one_venue_enabled_offers_that_venue_alone(qtbot) -> None:
     assert set(trade.presenter.desks) == {SPOT}
     assert trade.view.shown_venue is SPOT
     assert trade.enable_trading.isEnabled()
+
+
+def test_hide_other_pairs_filters_the_chosen_venues_tables_only(qtbot) -> None:
+    """`EPIC-033I` stage 2: a check box beside the tabs before the tables
+    became panels; a View command now, following the venue chosen."""
+    trade = build_trade(qtbot, BOTH)
+    hide = trade.action(HIDE_OTHER_PAIRS)
+    tables = {venue: trade.view.venue_page(venue).account_tabs for venue in BOTH}
+
+    trade.choose(SPOT)
+    hide.trigger()
+
+    assert tables[SPOT].hides_other_pairs
+    assert not tables[FUTURES].hides_other_pairs
+    trade.choose(FUTURES)
+    assert not hide.isChecked()
+    trade.choose(SPOT)
+    assert hide.isChecked()
+
+
+def test_a_cancels_outcome_is_said_on_the_venues_status_line(qtbot) -> None:
+    trade = build_trade(qtbot, BOTH)
+    page = trade.view.venue_page(SPOT)
+
+    page.account_tabs.show_message("Cancelled 2 orders.")
+
+    assert page.status_text == "Cancelled 2 orders."
+    assert trade.view.venue_page(FUTURES).status_text != "Cancelled 2 orders."
