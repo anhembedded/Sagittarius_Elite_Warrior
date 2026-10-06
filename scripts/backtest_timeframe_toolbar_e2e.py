@@ -39,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
     RangeCoverageSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 _SYMBOL = "BTCUSDT"
 _CANDLE_COUNT = 240
@@ -258,7 +255,6 @@ def main() -> None:
     try:
         app = QApplication.instance() or QApplication([])
         app.setQuitOnLastWindowClosed(False)
-        seed_app_theme()
         with tempfile.TemporaryDirectory(prefix="sagittarius-timeframe-e2e-") as db_dir:
             engine = create_app(_load_config(project_root, db_dir))
             engine.boot()

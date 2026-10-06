@@ -5,8 +5,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
-from ..palette import Palette
-
 logger = logging.getLogger("App.IconLoader")
 
 _ICONS_DIR = Path(__file__).parent / "icons"
@@ -15,17 +13,17 @@ _DEFAULT_SIZE = 20
 
 class IconTheme:
     """
-    @brief Fixed palette icons are recolored against — matches the Binance-style dark
-    theme already used across the UI (chart_card bull/bear colors, accent color).
-    @details Values sourced from `Palette` (the single cross-widgets/QML source of
-    truth, see palette.py) — kept as its own class since existing code imports
-    `IconTheme` specifically for icon coloring.
+    @brief The few colours an icon is recoloured with, named for what the icon
+    says (done, failed, quiet, noteworthy).
+    @details CSS colour names both SVG and Qt define, not RGB literals
+    (`ui-presentation-rule.md` §1). An icon also differs by shape, so its colour
+    is never the only signal.
     """
 
-    ACCENT = Palette.ACCENT
-    SUCCESS = Palette.SUCCESS
-    DANGER = Palette.DANGER
-    MUTED = Palette.MUTED
+    ACCENT = "goldenrod"
+    SUCCESS = "seagreen"
+    DANGER = "crimson"
+    MUTED = "gray"
 
 
 class IconLoader:

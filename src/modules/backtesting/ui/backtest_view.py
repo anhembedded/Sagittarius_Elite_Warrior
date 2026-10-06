@@ -7,10 +7,12 @@ from PySide6.QtWidgets import QDockWidget, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    NEUTRAL_SERIES_COLOR,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
@@ -39,9 +41,7 @@ from .run_progress_status import RunProgressStatus
 from .run_setup_panel import RunSetupPanel
 
 _EQUITY_SUBPLOT_KEY = "equity"
-_EQUITY_SUBPLOT_COLOR = (
-    Palette.ACCENT  # Theme.accent's hex — chart_card has no Qt theme singleton access
-)
+_EQUITY_SUBPLOT_COLOR = NEUTRAL_SERIES_COLOR  # an equity curve has no verdict
 _TRADE_FLAGS_KEY = "backtest_trades"
 
 #: This mode's surface. Declared here because a module may not import
@@ -66,9 +66,9 @@ class BackTestView(OutputSourceView):
 
     @details Before `EPIC-033L` the same parts were stacked in a `QSplitter`
     with minimum heights adding up to 1000 px, inside a page scroll area,
-    under a `PageShell` header: the chart scrolled with the page and the
-    pickers' row scrolled sideways inside it. Docks size to the window, and
-    the person moves, tabs or hides them; the mode's perspective keeps it.
+    under a page header: the chart scrolled with the page and the pickers'
+    row scrolled sideways inside it. Docks size to the window, and the
+    person moves, tabs or hides them; the mode's perspective keeps it.
     """
 
     chartPreviewRendered = Signal()

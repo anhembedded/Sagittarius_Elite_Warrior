@@ -8,7 +8,13 @@ from __future__ import annotations
 import os
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QLabel,
+    QPushButton,
+    QWidget,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
     ParamField,
     ParamGroup,
@@ -73,3 +79,60 @@ def test_restore_defaults_resets_a_changed_field_without_saving(qapp):
 
     assert dialog.collect_values() == {"period": "20"}
     assert sink.saved_values is None
+
+
+def test_commit_buttons_are_one_platform_ordered_button_box(qapp):
+    sink = _FakeSink(_int_group("period", 20, 20))
+    dialog = StrategyParamsDialog(sink)
+
+    boxes = dialog.findChildren(QDialogButtonBox)
+    assert len(boxes) == 1
+    standard = {
+        QDialogButtonBox.StandardButton.Save,
+        QDialogButtonBox.StandardButton.Cancel,
+        QDialogButtonBox.StandardButton.RestoreDefaults,
+    }
+    assert {boxes[0].standardButton(b) for b in boxes[0].buttons()} == standard
+    assert dialog.findChild(QPushButton, "btnStrategyParamsSave").isDefault()
+
+
+def test_save_asks_the_view_model_and_closes_when_it_accepts(qapp):
+    sink = _FakeSink(_int_group("period", 20, 99))
+    dialog = StrategyParamsDialog(sink)
+
+    dialog.findChild(QPushButton, "btnStrategyParamsSave").click()
+
+    assert sink.saved_values == {"period": "99"}
+    assert dialog.result() == QDialog.DialogCode.Accepted
+
+
+def test_save_stays_open_when_the_view_model_reports_an_error(qapp):
+    sink = _FakeSink(_int_group("period", 20, 99))
+    sink.botParamsError = "period must be positive"
+    dialog = StrategyParamsDialog(sink)
+
+    dialog.findChild(QPushButton, "btnStrategyParamsSave").click()
+
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert dialog.findChild(QLabel, "lblStrategyParamsError").text() == (
+        "period must be positive"
+    )
+
+
+def test_cancel_rejects_without_saving(qapp):
+    sink = _FakeSink(_int_group("period", 20, 99))
+    dialog = StrategyParamsDialog(sink)
+
+    dialog.findChild(QPushButton, "btnStrategyParamsCancel").click()
+
+    assert dialog.result() == QDialog.DialogCode.Rejected
+    assert sink.saved_values is None
+
+
+def test_a_dialog_has_no_style_sheet_and_no_fixed_size(qapp):
+    sink = _FakeSink(_int_group("period", 20, 20))
+    dialog = StrategyParamsDialog(sink)
+
+    assert dialog.styleSheet() == ""
+    assert all(w.styleSheet() == "" for w in dialog.findChildren(QWidget))
+    assert dialog.minimumSize().width() == 0

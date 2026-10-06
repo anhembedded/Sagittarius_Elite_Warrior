@@ -9,7 +9,7 @@ screen that knew both.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, Signal, Slot
+from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -30,50 +30,40 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
         self._default_sync_days = 1
         self._market_data_venue = ""
 
-    def _get_default_symbols(self) -> str:
+    @property
+    def defaultSymbols(self) -> str:
         return self._default_symbols
 
-    def _set_default_symbols(self, value: str) -> None:
+    @defaultSymbols.setter
+    def defaultSymbols(self, value: str) -> None:
         if value != self._default_symbols:
             self._default_symbols = value
             self.defaultSymbolsChanged.emit()
 
-    defaultSymbols = Property(
-        str, _get_default_symbols, _set_default_symbols, notify=defaultSymbolsChanged
-    )
-
-    def _get_default_interval(self) -> str:
+    @property
+    def defaultInterval(self) -> str:
         return self._default_interval
 
-    def _set_default_interval(self, value: str) -> None:
+    @defaultInterval.setter
+    def defaultInterval(self, value: str) -> None:
         if value != self._default_interval:
             self._default_interval = value
             self.defaultIntervalChanged.emit()
 
-    defaultInterval = Property(
-        str, _get_default_interval, _set_default_interval, notify=defaultIntervalChanged
-    )
-
-    def _get_default_sync_days(self) -> int:
+    @property
+    def defaultSyncDays(self) -> int:
         return self._default_sync_days
 
-    def _set_default_sync_days(self, value: int) -> None:
+    @defaultSyncDays.setter
+    def defaultSyncDays(self, value: int) -> None:
         if value != self._default_sync_days:
             self._default_sync_days = value
             self.defaultSyncDaysChanged.emit()
 
-    defaultSyncDays = Property(
-        int,
-        _get_default_sync_days,
-        _set_default_sync_days,
-        notify=defaultSyncDaysChanged,
-    )
-
-    @Property(str, notify=venueChanged)
+    @property
     def marketDataVenue(self) -> str:
         return self._market_data_venue
 
-    @Slot(str)
     def requestMarketDataVenue(self, venue: str) -> None:
         if venue and venue != self._market_data_venue:
             self._market_data_venue = venue
@@ -86,8 +76,8 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
         default_sync_days: int,
         market_data_venue: str,
     ) -> None:
-        self._set_default_symbols(default_symbols)
-        self._set_default_interval(default_interval)
-        self._set_default_sync_days(default_sync_days)
+        self.defaultSymbols = default_symbols
+        self.defaultInterval = default_interval
+        self.defaultSyncDays = default_sync_days
         self._market_data_venue = market_data_venue
         self.venueChanged.emit()

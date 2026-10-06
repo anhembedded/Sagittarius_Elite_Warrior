@@ -33,18 +33,16 @@ overlapping literal spelling, not a relocation.
 
 **What this cannot resolve, measured against all 41 registered guards (this
 file's own row included), named here rather than silently skipped
-(`testing-rule.md`'s `Retire when:` convention) — 19 guards fall into one of
+(`testing-rule.md`'s `Retire when:` convention) — 18 guards fall into one of
 these:**
 
 - **Imported root table** — roots come from a tuple imported from another
   module (`ui_trees.py`'s `UI_TREES`/`UI_TREE_ROWS`/`existing_ui_trees()`),
-  not literal in the guard's own AST: `test_card_layer_structure.py`,
-  `test_quick_widget_only_in_embed.py`.
+  not literal in the guard's own AST: `test_quick_widget_only_in_embed.py`.
 - **Root behind a function parameter** — the call's receiver is a plain
   parameter (`def _iter_python_files(root): ... root.rglob(...)`); the real
   value only exists at each call site, which this file-local check does not
-  cross: `test_screen_layer_structure.py` (same helper as
-  `test_card_layer_structure.py`, doubly out of scope there).
+  cross: `test_screen_layer_structure.py`.
 - **Bare-string tuple joined at the call site** — `(_REPO_ROOT /
   root).rglob(pattern)` where `root` iterates a tuple of plain strings
   (`("src", "scripts")`), not pre-built `/`-chains:
@@ -118,7 +116,6 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/unit/architecture/test_a_bus_subscriber_is_constructed.py": "root joined from a bare-string tuple (`_REFERENCE_ROOTS`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_no_root_is_found_by_counting.py": "root joined from a bare-string tuple (`_SCAN_ROOTS`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_screen_layer_structure.py": "`.rglob()`'s receiver is `_iter_python_files(root)`'s plain parameter, not a literal chain visible at the call site.",
-    "tests/unit/architecture/test_card_layer_structure.py": "same `_iter_python_files(root)` helper as above, called with an imported `UI_TREES`/`existing_ui_trees()` root table — doubly out of scope.",
     "tests/unit/architecture/test_no_cross_screen_imports.py": "scans `package_dir.rglob(...)` where `package_dir` is a subdirectory name discovered by `.iterdir()` at runtime.",
     "tests/unit/architecture/test_quick_widget_only_in_embed.py": "roots include `*UI_TREE_ROWS`, imported from `ui_trees.py`, spread into a tuple this file does not itself define.",
     "tests/unit/config/test_binance_endpoint_config_keys_are_dead.py": "reads named files directly (`.read_text()`) — no glob/rglob/iterdir call.",

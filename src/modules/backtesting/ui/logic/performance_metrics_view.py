@@ -6,14 +6,14 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 _INFINITY_DISPLAY = "∞"  # "∞" — profit_factor is float("inf") with 0 losers
 _LOSING_PROFIT_FACTOR_BADGE = "Risk"
 #: A figure with no verdict attached — a raw number in the extended dump,
-#: or a drawdown of exactly zero. `Tone.NEUTRAL` resolves to `textPrimary`,
-#: which is what the old empty-string sentinel meant before the widget layer
-#: could express "no verdict" directly.
+#: or a drawdown of exactly zero. `Tone.NEUTRAL` leaves the platform's
+#: text colour, which is what the old empty-string sentinel meant before a
+#: tone could express "no verdict" directly.
 _NEUTRAL = Tone.NEUTRAL
 _WIN_RATE_SUCCESS_THRESHOLD = 50.0
 

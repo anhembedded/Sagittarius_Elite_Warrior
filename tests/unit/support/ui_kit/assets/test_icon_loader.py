@@ -66,3 +66,20 @@ def test_clear_cache_empties_the_cache(qapp, loader):
 def test_get_icon_loader_returns_shared_singleton(qapp):
     """get_icon_loader() is the app-wide instance shared by UI components."""
     assert get_icon_loader() is get_icon_loader()
+
+
+def test_every_icon_theme_colour_renders_a_visible_icon(qapp, loader):
+    """The theme's colours are CSS names substituted into the SVG; one the SVG
+    renderer did not know would paint nothing, so each is checked by pixels."""
+    for color in (
+        IconTheme.ACCENT,
+        IconTheme.SUCCESS,
+        IconTheme.DANGER,
+        IconTheme.MUTED,
+    ):
+        image = loader.get_icon("play", color=color).pixmap(20, 20).toImage()
+        assert any(
+            image.pixelColor(x, y).alpha() > 0
+            for x in range(image.width())
+            for y in range(image.height())
+        ), color

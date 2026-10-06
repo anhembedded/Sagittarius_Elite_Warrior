@@ -41,7 +41,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QDialogButtonBox, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPickerOverlay,
     SymbolTableModel,
@@ -340,3 +340,43 @@ def test_a_long_symbol_list_creates_no_widget_per_symbol(qapp, qtbot):
 
     small_dialog.close()
     large_dialog.close()
+
+
+def test_scope_tabs_are_stock_tabs_and_the_favourites_tab_counts(qapp, qtbot):
+    dialog = _Source(favourites=["BTCUSDT", "ETHBTC"]).build(qapp, qtbot)
+
+    labels = [dialog._scope_tabs.tabText(i) for i in range(dialog._scope_tabs.count())]
+    assert labels == ["All", "Favourites (2)", "Recent"]
+    dialog.close()
+
+
+def test_picking_a_scope_tab_filters_to_the_favourites(qapp, qtbot):
+    dialog = _Source(favourites=["ETHBTC"]).build(qapp, qtbot)
+
+    dialog._scope_tabs.setCurrentIndex(1)
+    qapp.processEvents()
+
+    assert _shown_symbols(dialog) == ["ETHBTC"]
+    dialog.close()
+
+
+def test_refreshing_the_tabs_is_not_a_user_selection(qapp, qtbot):
+    """Filling the tabs on open must not look like the user picking one, or a
+    reopened picker would reset its own filter."""
+    dialog = _Source(favourites=["ETHBTC"]).build(qapp, qtbot)
+    dialog._scope_tabs.setCurrentIndex(1)
+    dialog.refresh()
+
+    assert dialog._scope_tabs.currentIndex() == 1
+    assert _shown_symbols(dialog) == ["ETHBTC"]
+    dialog.close()
+
+
+def test_the_dialog_is_stock_with_a_close_button(qapp, qtbot):
+    dialog = _Source().build(qapp, qtbot)
+
+    assert dialog.windowTitle() == "Select Symbol"
+    assert dialog.styleSheet() == ""
+    assert all(w.styleSheet() == "" for w in dialog.findChildren(QWidget))
+    assert dialog.findChild(QDialogButtonBox) is not None
+    dialog.close()

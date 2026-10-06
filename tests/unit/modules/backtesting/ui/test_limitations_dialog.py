@@ -13,14 +13,13 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QLabel
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
     LimitationsDialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PickerOverlay
 
 
 @pytest.fixture
@@ -32,11 +31,11 @@ def view_model():
 
 
 def test_the_limitations_dialog_is_not_a_picker(qapp, view_model):
-    """A read-only summary has no row to choose, and serving it from `PickerOverlay` would have meant a flag
-    switching off that component's only promise."""
+    """A read-only summary has no row to choose, and serving it from a picker would have meant a flag
+    switching off that component's only promise: it is a stock `QDialog`."""
     dialog = LimitationsDialog(view_model)
 
-    assert not isinstance(dialog, PickerOverlay)
+    assert type(dialog).__bases__ == (QDialog,)
     dialog.close()
 
 

@@ -24,7 +24,6 @@ import os
 from unittest.mock import Mock, call
 
 import pytest
-from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -39,7 +38,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL_OPTIONS,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import semantic_colour
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -259,19 +257,14 @@ def test_updating_the_view_model_refreshes_the_widget(presenter, qapp):
     assert presenter.view.findChild(QLineEdit, "txtDefaultSymbols").text() == "SOLUSDT"
 
 
-def test_status_label_reflects_success_and_error_colour(presenter, view_model, qapp):
+def test_status_label_names_an_error_in_words(presenter, view_model, qapp):
     qapp.processEvents()
     status_label = presenter.view.findChild(QLabel, "lblMarketDataSettingsStatus")
-
-    def _text_colour() -> QColor:
-        return status_label.palette().color(QPalette.ColorRole.WindowText)
 
     view_model.set_status("all good", is_error=False)
     qapp.processEvents()
     assert status_label.text() == "all good"
-    assert _text_colour() == QColor(semantic_colour("success"))
 
     view_model.set_status("broken", is_error=True)
     qapp.processEvents()
-    assert status_label.text() == "broken"
-    assert _text_colour() == QColor(semantic_colour("danger"))
+    assert status_label.text() == "Error: broken"

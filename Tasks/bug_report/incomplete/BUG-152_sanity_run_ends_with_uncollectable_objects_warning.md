@@ -50,12 +50,12 @@ Importing only `sagittarius_engine.extensions.pyside_mvc.kit.card_model` in a ba
 These Properties are QML-era leftovers: `src/` contains no `.qml` any more.
 
 ## Fix
-**Not in this PR.** The leak is removed at its source by `EPIC-033M` (`Tasks/epics/EPIC-033_windows_workbench/incomplete/EPIC-033M_retire_kit.md`), not suppressed. Rejected: exempting the line from the gate's `ResourceWarning` grep (it hides the leak, `CONSTITUTION.md` P8) and bumping PySide6 (the leak is in 6.9 through 6.11).
+Not finished. `EPIC-033M` (2026-10-06) removed every `QtCore.Property` from `src/`, but the sanity run still ends with `gc: 5 uncollectable objects at shutdown`. The two classes with a `Property` alive at exit are both the Engine's: `sagittarius_engine.extensions.pyside_mvc.kit.card_model.CardModel` and `...runtime.base_view_model.BaseQmlViewModel` (found by scanning every loaded `QObject` subclass at the end of the sanity run). Importing any module of `sagittarius_engine.extensions.pyside_mvc` loads both, because the package's `__init__` imports its QML layer (`from .kit import ...`); and three app view models still subclass `BaseQmlViewModel` (`BackTestViewModel`, `DataManagementViewModel`, `StatusMessageViewModel`).
 
-Plan, recorded as `EPIC-033M` acceptance criteria:
-1. The Engine's `CardModel` and theme bridge, the largest source, stop being imported by the app and are deleted with the kit.
-2. Every `Property` in `src/` becomes a plain Python property or attribute, with a `Signal` where a reader needs change notification, after the meta-object readers are listed and migrated.
-3. A sanity run's log has no `uncollectable objects at shutdown` line; the gate's run-log scan then fails on that `ResourceWarning`, so the prescribed grep regains its meaning.
+Next, by the user's decision (2026-10-06, "Ngay sau 033M"):
+1. Engine: `pyside_mvc` loads its QML layer (`kit`, `BaseQmlViewModel`, `QmlHostView`) only when used, not at package import.
+2. App: the three view models subclass `QObject` with plain properties and their own `uiModeChanged`/`controlsEnabled`, and `engine.ref` moves to the Engine change.
+3. Then the gate's run-log scan fails on `uncollectable objects at shutdown`, so the prescribed `ResourceWarning` grep means something again.
 
 ## Regression test
 Not written: the fix is the deletion of the leak's source (`EPIC-033M` criterion (c) is its check, a sanity log with no uncollectable line).

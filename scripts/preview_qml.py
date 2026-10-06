@@ -29,9 +29,6 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
-    seed_app_theme,
-)
 
 #: Every tree that holds UI code today. `EPIC-025` is moving the UI out of
 #: `src/presentation/ui/` package by package, and a preview that crosses over
@@ -149,20 +146,6 @@ def discover_previews() -> dict[str, Callable[[], QWidget]]:
     return previews
 
 
-def _ensure_qt_theme_ready() -> None:
-    """Seeds the app's theme so a `kit`-based widget (`Overlay`/`Panel`/
-    `apply_role`) or a `.qml` reading `Theme.*` constructs without raising.
-
-    @details One call, shared with the bootstrapper and every probe script —
-    `src/presentation/ui/theme_bootstrap.py` explains why that is one
-    function and not a snippet each entry point keeps its own copy of. The
-    `"Basic"` Qt Quick Controls pin used to be repeated here too; it now
-    lives in the engine's `create_quick_widget()`, which every embedded
-    scene goes through (`BOT-132`).
-    """
-    seed_app_theme()
-
-
 def _build_preview_for_dir(raw_dir: str) -> QWidget:
     """`--dir` addressing: load exactly `<raw_dir>/preview.py`, by path
     rather than by a name already known to `discover_previews()`.
@@ -230,7 +213,6 @@ def main() -> None:
         sys.exit(1)
 
     app = QApplication.instance() or QApplication(sys.argv)
-    _ensure_qt_theme_ready()
 
     if args.dir:
         widget = _build_preview_for_dir(args.dir)

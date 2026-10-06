@@ -1,55 +1,18 @@
 {
   "_comment": [
-    "Hand styling and sizing per rule and file, AS FOUND (EPIC-033B, 2026-10-04).",
-    "Read by tests/unit/architecture/test_stock_controls_only.py. Counts only fall; zero everywhere when EPIC-033M closes."
+    "Colour literals per file, AS FOUND (EPIC-033B, 2026-10-04); every other rule is a ban since EPIC-033M.",
+    "Read by tests/unit/architecture/test_stock_controls_only.py. Counts only fall; color_literal holds data series colours, not chrome."
   ],
   "counts": {
-    "style_sheet": {
-      "src/modules/market_data/ui/settings/market_data_settings_view.py": 2,
-      "src/modules/trading/ui/settings/trading_settings_view.py": 7,
-      "src/support/ui_kit/kit/controls/badge.py": 1,
-      "src/support/ui_kit/kit/controls/date_time_field.py": 1,
-      "src/support/ui_kit/kit/controls/styled_button.py": 2,
-      "src/support/ui_kit/kit/controls/styled_check_box.py": 1,
-      "src/support/ui_kit/kit/controls/styled_field.py": 1,
-      "src/support/ui_kit/kit/controls/styled_label.py": 2,
-      "src/support/ui_kit/kit/controls/styled_progress_bar.py": 2,
-      "src/support/ui_kit/kit/overlay.py": 3,
-      "src/support/ui_kit/kit/overlays/confirm_overlay.py": 2,
-      "src/support/ui_kit/kit/overlays/picker_overlay.py": 1,
-      "src/support/ui_kit/kit/page_shell.py": 2,
-      "src/support/ui_kit/kit/style.py": 1,
-      "src/support/ui_kit/kit/surface.py": 3,
-      "src/support/ui_kit/kit/surfaces/banner.py": 5,
-      "src/support/ui_kit/kit/surfaces/data_row.py": 6,
-      "src/support/ui_kit/kit/surfaces/progress_banner.py": 1,
-      "src/support/ui_kit/kit/surfaces/tab_bar.py": 1,
-      "src/support/ui_kit/kit/surfaces/table_card.py": 5,
-      "src/support/ui_kit/param_form/param_field.py": 2,
-      "src/support/ui_kit/param_form/strategy_params_dialog.py": 6,
-      "src/support/ui_kit/symbol_picker/overlay.py": 5
-    },
-    "fixed_size": {
-      "src/modules/market_data/ui/settings/market_data_settings_view.py": 3,
-      "src/modules/trading/ui/settings/trading_settings_view.py": 2,
-      "src/presentation/ui/components/critical_error_dialog.py": 1,
-      "src/support/ui_kit/kit/preferred_height_scroll_area.py": 1,
-      "src/support/ui_kit/param_form/param_field.py": 1
-    },
+    "style_sheet": {},
+    "fixed_size": {},
     "item_view_config": {},
-    "checkable_button": {
-      "src/modules/trading/ui/settings/trading_settings_view.py": 1,
-      "src/presentation/ui/components/critical_error_dialog.py": 1,
-      "src/support/ui_kit/time_range_picker/dialog.py": 1
-    },
-    "font_family": {
-      "src/presentation/ui/components/critical_error_dialog.py": 1
-    },
+    "checkable_button": {},
+    "font_family": {},
     "color_literal": {
       "src/modules/strategy/domain/strategies/ema_trend_pullback_strategy.py": 2,
       "src/modules/strategy/domain/strategies/long_term_trend_zone_strategy.py": 1,
       "src/modules/strategy/ui/strategy_overlay/strategy_indicator_lines.py": 8,
-      "src/support/charting/chart_card/__main__.py": 2,
       "src/support/charting/chart_card/theme.py": 2,
       "src/support/indicators/indicator_scripts/dev_indicator_script.py": 4,
       "src/support/indicators/indicator_scripts/ema_100_script.py": 1,
@@ -59,8 +22,7 @@
       "src/support/indicators/indicator_scripts/ema_cross_script.py": 2,
       "src/support/indicators/indicator_scripts/ema_ribbon_script.py": 4,
       "src/support/indicators/indicator_scripts/macd_full_script.py": 3,
-      "src/support/indicators/indicator_scripts/rsi_14_script.py": 1,
-      "src/support/ui_kit/palette.py": 15
+      "src/support/indicators/indicator_scripts/rsi_14_script.py": 1
     }
   }
 }

@@ -4,7 +4,7 @@ action (`EPIC-033L` stage 4).
 Built from stock parts: a styled-panel `QFrame`, the platform's own
 information or warning icon (`QStyle.StandardPixmap`), a word-wrapped
 `QLabel` and a `QPushButton`. It replaces the kit `Banner`, a panel painted
-in a severity colour with an icon tinted from the app palette. The icon and
+in a severity colour with an icon tinted from the app's own colours. The icon and
 the words carry the severity, so it reads the same in High Contrast.
 
 One consumer, so it lives with it; a second mode wanting a notice moves it

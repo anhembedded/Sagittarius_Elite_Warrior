@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Property, Signal, Slot
+from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -40,39 +40,33 @@ class TradingSettingsViewModel(StatusMessageViewModel):
         self._enabled_venues: tuple[str, ...] = ()
         self._venue_locked = False
 
-    def _get_api_key(self) -> str:
+    @property
+    def apiKey(self) -> str:
         return self._api_key
 
-    def _set_api_key(self, value: str) -> None:
+    @apiKey.setter
+    def apiKey(self, value: str) -> None:
         if value != self._api_key:
             self._api_key = value
             self.apiKeyChanged.emit()
 
-    apiKey = Property(str, _get_api_key, _set_api_key, notify=apiKeyChanged)
-
-    def _get_api_secret(self) -> str:
+    @property
+    def apiSecret(self) -> str:
         return self._api_secret
 
-    def _set_api_secret(self, value: str) -> None:
+    @apiSecret.setter
+    def apiSecret(self, value: str) -> None:
         if value != self._api_secret:
             self._api_secret = value
             self.apiSecretChanged.emit()
 
-    apiSecret = Property(str, _get_api_secret, _set_api_secret, notify=apiSecretChanged)
-
-    def _get_credentials_source_label(self) -> str:
+    @property
+    def credentialsSourceLabel(self) -> str:
         return self._credentials_source_label
 
-    credentialsSourceLabel = Property(
-        str, _get_credentials_source_label, notify=credentialsSourceChanged
-    )
-
-    def _get_credentials_locked(self) -> bool:
+    @property
+    def credentialsLocked(self) -> bool:
         return self._credentials_locked
-
-    credentialsLocked = Property(
-        bool, _get_credentials_locked, notify=credentialsSourceChanged
-    )
 
     @Slot(str, bool)
     def set_credentials_source(self, label: str, locked: bool) -> None:
@@ -84,26 +78,17 @@ class TradingSettingsViewModel(StatusMessageViewModel):
         self._credentials_locked = locked
         self.credentialsSourceChanged.emit()
 
-    def _get_connection_checking(self) -> bool:
+    @property
+    def connectionChecking(self) -> bool:
         return self._connection_checking
 
-    connectionChecking = Property(
-        bool, _get_connection_checking, notify=connectionCheckChanged
-    )
-
-    def _get_connection_result_text(self) -> str:
+    @property
+    def connectionResultText(self) -> str:
         return self._connection_result_text
 
-    connectionResultText = Property(
-        str, _get_connection_result_text, notify=connectionCheckChanged
-    )
-
-    def _get_connection_result_is_error(self) -> bool:
+    @property
+    def connectionResultIsError(self) -> bool:
         return self._connection_result_is_error
-
-    connectionResultIsError = Property(
-        bool, _get_connection_result_is_error, notify=connectionCheckChanged
-    )
 
     @Slot(bool)
     def set_connection_checking(self, checking: bool) -> None:
@@ -121,13 +106,13 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     def requestCheckConnection(self) -> None:
         self.checkConnectionRequested.emit()
 
-    @Property(list, notify=venueChanged)
+    @property
     def enabledVenues(self) -> list[str]:
         """The venues switched on, as `TradingVenue` values; empty means
         trading is off."""
         return list(self._enabled_venues)
 
-    @Property(bool, notify=venueChanged)
+    @property
     def venueLocked(self) -> bool:
         """True while live trading is on — `BOT-125`: changing where orders
         go mid-session would redefine what everything already in flight
@@ -150,8 +135,8 @@ class TradingSettingsViewModel(StatusMessageViewModel):
         api_secret: str,
         enabled_venues: Sequence[str],
     ) -> None:
-        self._set_api_key(api_key)
-        self._set_api_secret(api_secret)
+        self.apiKey = api_key
+        self.apiSecret = api_secret
         self._enabled_venues = tuple(enabled_venues)
         self.venueChanged.emit()
 

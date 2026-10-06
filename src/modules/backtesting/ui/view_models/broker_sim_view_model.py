@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
@@ -107,35 +107,31 @@ class BrokerSimViewModel(QObject):
     # Position sizing
     # ------------------------------------------------------------------ #
 
-    def _get_order_size_type(self) -> str:
-        return self._order_size_type
-
     def _set_order_size_type(self, value: str) -> None:
         if value != self._order_size_type:
             self._order_size_type = value
             self.orderSizeTypeChanged.emit()
 
-    orderSizeType = Property(
-        str, _get_order_size_type, _set_order_size_type, notify=orderSizeTypeChanged
-    )
+    @property
+    def orderSizeType(self) -> str:
+        return self._order_size_type
 
-    def _get_order_size_value(self) -> float:
-        return self._order_size_value
+    @orderSizeType.setter
+    def orderSizeType(self, value: str) -> None:
+        self._set_order_size_type(value)
 
     def _set_order_size_value(self, value: float) -> None:
         if value != self._order_size_value:
             self._order_size_value = value
             self.orderSizeValueChanged.emit()
 
-    orderSizeValue = Property(
-        float,
-        _get_order_size_value,
-        _set_order_size_value,
-        notify=orderSizeValueChanged,
-    )
+    @property
+    def orderSizeValue(self) -> float:
+        return self._order_size_value
 
-    def _get_order_size_text(self) -> str:
-        return self._order_size_text
+    @orderSizeValue.setter
+    def orderSizeValue(self, value: float) -> None:
+        self._set_order_size_value(value)
 
     def _set_order_size_text(self, value: str) -> None:
         if value != self._order_size_text:
@@ -145,55 +141,56 @@ class BrokerSimViewModel(QObject):
             self.orderSizeTextChanged.emit()
             self.orderSizeValueChanged.emit()
 
-    orderSizeText = Property(
-        str, _get_order_size_text, _set_order_size_text, notify=orderSizeTextChanged
-    )
+    @property
+    def orderSizeText(self) -> str:
+        return self._order_size_text
 
-    def _get_pyramiding(self) -> int:
-        return self._pyramiding
+    @orderSizeText.setter
+    def orderSizeText(self, value: str) -> None:
+        self._set_order_size_text(value)
 
     def _set_pyramiding(self, value: int) -> None:
         if value != self._pyramiding:
             self._pyramiding = max(MIN_PYRAMIDING, value)
             self.pyramidingChanged.emit()
 
-    pyramiding = Property(
-        int, _get_pyramiding, _set_pyramiding, notify=pyramidingChanged
-    )
+    @property
+    def pyramiding(self) -> int:
+        return self._pyramiding
+
+    @pyramiding.setter
+    def pyramiding(self, value: int) -> None:
+        self._set_pyramiding(value)
 
     # ------------------------------------------------------------------ #
     # Costs
     # ------------------------------------------------------------------ #
-
-    def _get_commission_type(self) -> str:
-        return self._commission_type
 
     def _set_commission_type(self, value: str) -> None:
         if value != self._commission_type:
             self._commission_type = value
             self.commissionTypeChanged.emit()
 
-    commissionType = Property(
-        str, _get_commission_type, _set_commission_type, notify=commissionTypeChanged
-    )
+    @property
+    def commissionType(self) -> str:
+        return self._commission_type
 
-    def _get_commission_value(self) -> float:
-        return self._commission_value
+    @commissionType.setter
+    def commissionType(self, value: str) -> None:
+        self._set_commission_type(value)
 
     def _set_commission_value(self, value: float) -> None:
         if value != self._commission_value:
             self._commission_value = max(MIN_COMMISSION_VALUE, value)
             self.commissionValueChanged.emit()
 
-    commissionValue = Property(
-        float,
-        _get_commission_value,
-        _set_commission_value,
-        notify=commissionValueChanged,
-    )
+    @property
+    def commissionValue(self) -> float:
+        return self._commission_value
 
-    def _get_commission_text(self) -> str:
-        return self._commission_text
+    @commissionValue.setter
+    def commissionValue(self, value: float) -> None:
+        self._set_commission_value(value)
 
     def _set_commission_text(self, value: str) -> None:
         if value != self._commission_text:
@@ -203,28 +200,30 @@ class BrokerSimViewModel(QObject):
             self.commissionTextChanged.emit()
             self.commissionValueChanged.emit()
 
-    commissionText = Property(
-        str, _get_commission_text, _set_commission_text, notify=commissionTextChanged
-    )
+    @property
+    def commissionText(self) -> str:
+        return self._commission_text
 
-    def _get_slippage_ticks(self) -> int:
-        return self._slippage_ticks
+    @commissionText.setter
+    def commissionText(self, value: str) -> None:
+        self._set_commission_text(value)
 
     def _set_slippage_ticks(self, value: int) -> None:
         if value != self._slippage_ticks:
             self._slippage_ticks = max(MIN_SLIPPAGE_TICKS, value)
             self.slippageTicksChanged.emit()
 
-    slippageTicks = Property(
-        int, _get_slippage_ticks, _set_slippage_ticks, notify=slippageTicksChanged
-    )
+    @property
+    def slippageTicks(self) -> int:
+        return self._slippage_ticks
+
+    @slippageTicks.setter
+    def slippageTicks(self, value: int) -> None:
+        self._set_slippage_ticks(value)
 
     # ------------------------------------------------------------------ #
     # Leverage and take-profit
     # ------------------------------------------------------------------ #
-
-    def _get_long_leverage(self) -> float:
-        return self._long_leverage
 
     def _set_long_leverage(self, value: float) -> None:
         value = self._leverage_allowed(value)
@@ -232,12 +231,13 @@ class BrokerSimViewModel(QObject):
             self._long_leverage = value
             self.longLeverageChanged.emit()
 
-    longLeverage = Property(
-        float, _get_long_leverage, _set_long_leverage, notify=longLeverageChanged
-    )
+    @property
+    def longLeverage(self) -> float:
+        return self._long_leverage
 
-    def _get_short_leverage(self) -> float:
-        return self._short_leverage
+    @longLeverage.setter
+    def longLeverage(self, value: float) -> None:
+        self._set_long_leverage(value)
 
     def _set_short_leverage(self, value: float) -> None:
         value = self._leverage_allowed(value)
@@ -245,9 +245,13 @@ class BrokerSimViewModel(QObject):
             self._short_leverage = value
             self.shortLeverageChanged.emit()
 
-    shortLeverage = Property(
-        float, _get_short_leverage, _set_short_leverage, notify=shortLeverageChanged
-    )
+    @property
+    def shortLeverage(self) -> float:
+        return self._short_leverage
+
+    @shortLeverage.setter
+    def shortLeverage(self, value: float) -> None:
+        self._set_short_leverage(value)
 
     def _leverage_allowed(self, value: float) -> float:
         """The floor always applies; in Spot the only leverage is 1×."""
@@ -258,9 +262,6 @@ class BrokerSimViewModel(QObject):
     # ------------------------------------------------------------------ #
     # Market (EPIC-027D)
     # ------------------------------------------------------------------ #
-
-    def _get_market(self) -> str:
-        return self._market
 
     def _set_market(self, value: str) -> None:
         """Switching to Spot pins both leverages to 1× here, on the single
@@ -274,87 +275,36 @@ class BrokerSimViewModel(QObject):
             self._set_short_leverage(SPOT_LEVERAGE)
         self.marketChanged.emit()
 
-    market = Property(str, _get_market, _set_market, notify=marketChanged)
+    @property
+    def market(self) -> str:
+        return self._market
 
-    def _get_take_profit_pct_enabled(self) -> bool:
-        return self._take_profit_pct_enabled
+    @market.setter
+    def market(self, value: str) -> None:
+        self._set_market(value)
 
     def _set_take_profit_pct_enabled(self, value: bool) -> None:
         if value != self._take_profit_pct_enabled:
             self._take_profit_pct_enabled = bool(value)
             self.takeProfitPctEnabledChanged.emit()
 
-    takeProfitPctEnabled = Property(
-        bool,
-        _get_take_profit_pct_enabled,
-        _set_take_profit_pct_enabled,
-        notify=takeProfitPctEnabledChanged,
-    )
+    @property
+    def takeProfitPctEnabled(self) -> bool:
+        return self._take_profit_pct_enabled
 
-    def _get_take_profit_pct_text(self) -> str:
-        return self._take_profit_pct_text
+    @takeProfitPctEnabled.setter
+    def takeProfitPctEnabled(self, value: bool) -> None:
+        self._set_take_profit_pct_enabled(value)
 
     def _set_take_profit_pct_text(self, value: str) -> None:
         if value != self._take_profit_pct_text:
             self._take_profit_pct_text = value
             self.takeProfitPctTextChanged.emit()
 
-    takeProfitPctText = Property(
-        str,
-        _get_take_profit_pct_text,
-        _set_take_profit_pct_text,
-        notify=takeProfitPctTextChanged,
-    )
+    @property
+    def takeProfitPctText(self) -> str:
+        return self._take_profit_pct_text
 
-    # ------------------------------------------------------------------ #
-    # Mutators
-    #
-    # Kept as named `@Slot`s rather than letting callers assign the
-    # properties: every `set_*` on the facade carries `@Slot`, and the
-    # thread-affinity sanity scan reads that decorator to tell a guarded
-    # mutator from an unguarded one.
-    # ------------------------------------------------------------------ #
-
-    @Slot(str)
-    def set_order_size_type(self, value: str) -> None:
-        self._set_order_size_type(value)
-
-    @Slot(float)
-    def set_order_size_value(self, value: float) -> None:
-        self._set_order_size_value(value)
-
-    @Slot(str)
-    def set_order_size_text(self, value: str) -> None:
-        self._set_order_size_text(value)
-
-    @Slot(int)
-    def set_pyramiding(self, value: int) -> None:
-        self._set_pyramiding(value)
-
-    @Slot(str)
-    def set_commission_type(self, value: str) -> None:
-        self._set_commission_type(value)
-
-    @Slot(float)
-    def set_commission_value(self, value: float) -> None:
-        self._set_commission_value(value)
-
-    @Slot(str)
-    def set_commission_text(self, value: str) -> None:
-        self._set_commission_text(value)
-
-    @Slot(int)
-    def set_slippage_ticks(self, value: int) -> None:
-        self._set_slippage_ticks(value)
-
-    @Slot(float)
-    def set_long_leverage(self, value: float) -> None:
-        self._set_long_leverage(value)
-
-    @Slot(float)
-    def set_short_leverage(self, value: float) -> None:
-        self._set_short_leverage(value)
-
-    @Slot(str)
-    def set_market(self, value: str) -> None:
-        self._set_market(value)
+    @takeProfitPctText.setter
+    def takeProfitPctText(self, value: str) -> None:
+        self._set_take_profit_pct_text(value)

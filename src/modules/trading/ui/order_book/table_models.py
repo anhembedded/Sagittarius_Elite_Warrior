@@ -29,7 +29,7 @@ this file carried until then.
 
 **No colour.** The deleted delegates painted the PnL cell and the side label
 from `Theme.success`/`Theme.danger` (`chart_card`'s `BULL_COLOR`/`BEAR_COLOR`).
-ADR D21 leaves colour to the OS palette, and Qt has no palette role meaning
+ADR D21 leaves colour to the system colour scheme, and Qt has no colour role meaning
 "this position is losing money", so the fact is carried where it cannot be
 themed away: the sign is already in the number (`10.00` / `-10.00`),
 the side is a word (`LONG` / `SHORT`), and a losing row's PnL cell is **bold** —

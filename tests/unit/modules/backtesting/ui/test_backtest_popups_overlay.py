@@ -55,7 +55,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strat
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 
 class _RichParamsStrategy(BaseStrategy):

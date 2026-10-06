@@ -59,7 +59,7 @@ class IBacktestView(Protocol):
     Interface Segregation violation §1 (I) warns about.
 
     **Enforcement:** `presentation/` is excluded from the `mypy` gate
-    wholesale (`pyproject.toml`, `EPIC-002A` — PySide6 `@Property`
+    wholesale (`pyproject.toml`, `EPIC-002A` — PySide6 property
     false positives), so type checking alone does NOT police this port.
     `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py`
     is the mechanism that does: it walks the Presenter-side modules with

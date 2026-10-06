@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metr
     compute_max_drawdown_amount,
     stat_cards_to_qml,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)

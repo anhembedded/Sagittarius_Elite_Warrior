@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -61,7 +61,7 @@ class DeskViewModel(StatusMessageViewModel):
     # which is account-wide, not per-symbol; see EnableTradingCommand).
     # ------------------------------------------------------------------ #
 
-    @Property(list, notify=symbolOptionsChanged)
+    @property
     def symbolOptions(self) -> list[str]:
         return self._symbol_options
 
@@ -69,16 +69,6 @@ class DeskViewModel(StatusMessageViewModel):
     def set_symbol_options(self, options: list[str]) -> None:
         self._symbol_options = list(options)
         self.symbolOptionsChanged.emit()
-
-    def _get_symbol(self) -> str:
-        return self._symbol
-
-    def _set_symbol(self, value: str) -> None:
-        if value != self._symbol:
-            self._symbol = value
-            self.symbolChanged.emit()
-
-    symbol = Property(str, _get_symbol, _set_symbol, notify=symbolChanged)
 
     @property
     def symbol_list(self) -> list[str]:
@@ -89,13 +79,15 @@ class DeskViewModel(StatusMessageViewModel):
 
     @property
     def current_symbol(self) -> str:
-        """Pythonic accessor for the desks, mirroring `symbol`."""
+        """The chart symbol."""
         return self._symbol
 
     @Slot(str)
     def set_symbol(self, symbol: str) -> None:
-        """Pythonic setter for the desks, writing `symbol`."""
-        self._set_symbol(symbol)
+        """Sets the chart symbol; `symbolChanged` fires only on a real change."""
+        if symbol != self._symbol:
+            self._symbol = symbol
+            self.symbolChanged.emit()
 
     @Slot(str)
     def requestSymbolChange(self, symbol: str) -> None:
@@ -108,15 +100,13 @@ class DeskViewModel(StatusMessageViewModel):
     # click itself)
     # ------------------------------------------------------------------ #
 
-    def _get_enabled(self) -> bool:
+    @property
+    def enabled(self) -> bool:
         return self._enabled
 
-    enabled = Property(bool, _get_enabled, notify=tradingStateChanged)
-
-    def _get_toggle_busy(self) -> bool:
+    @property
+    def toggleBusy(self) -> bool:
         return self._toggle_busy
-
-    toggleBusy = Property(bool, _get_toggle_busy, notify=tradingStateChanged)
 
     @Slot(bool, bool)
     def set_trading_state(self, enabled: bool, busy: bool) -> None:
@@ -139,7 +129,7 @@ class DeskViewModel(StatusMessageViewModel):
     # Console log (same shape as DashboardQmlViewModel.log_model)
     # ------------------------------------------------------------------ #
 
-    @Property(QObject, constant=True)
+    @property
     def logModel(self) -> LogListModel:
         return self._log_model
 

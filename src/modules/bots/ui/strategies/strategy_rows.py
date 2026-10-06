@@ -19,13 +19,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import Tone, tone_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -82,14 +80,9 @@ class StrategyRowsModel(RowTableModel[StrategyRow]):
         )
         return values[column]
 
-    def _role_data(self, row: StrategyRow, column: int, role: int) -> object:
-        if (
-            role == Qt.ItemDataRole.ForegroundRole
-            and column == self.column("state")
-            and row.armed
-        ):
-            return QColor(tone_colour(Tone.POSITIVE))
-        return None
+    def _is_emphasised(self, row: StrategyRow, column: int) -> bool:
+        """An armed venue's state is bold: the word says it, the weight shows it."""
+        return column == self.column("state") and row.armed
 
 
 class StrategiesPanel(QWidget):  # base-exempt: a panel's content, not a surface

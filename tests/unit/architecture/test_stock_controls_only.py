@@ -35,16 +35,17 @@ count reaches zero when EPIC-033M closes, and this file becomes a ban.
   the same function assigned from ``QAction(...)``, or from one of the
   module's functions annotated ``-> QAction``, is not counted.
 
-**Held at zero, not ratcheted:** ``BUG-008``'s unscoped container style sheet
-(a bare property list on a widget that owns children, which Qt reads as the
-universal selector). A file may keep its ``style_sheet`` count yet swap a
-scoped sheet for an unscoped one, so this check stays until the
-``style_sheet`` rule is zero; it came from the deleted
-``test_widget_guards_hold.py``.
+**Bans since EPIC-033M:** every rule but ``color_literal``. The kit, ``Palette``
+and the theme bootstrap are deleted and their counts are zero, so their
+baseline entries must stay empty (``test_every_rule_but_colour_literals_is_a_ban``).
+``BUG-008``'s unscoped-container check went with the last style sheet, as it
+said it would: a ban on ``setStyleSheet`` covers it.
 
-Retire when: every count is zero (EPIC-033M); then the baseline file is
-deleted, each rule is an outright ban, and the unscoped-container check goes
-with the last style sheet.
+**Still a ratchet:** ``color_literal``, for data series colours (indicator
+lines, strategy markers, the chart's bull and bear), which are not chrome.
+
+Retire when: ``color_literal`` is zero too; then the baseline file is deleted
+and this file is a ban outright.
 """
 
 from __future__ import annotations
@@ -55,14 +56,11 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.guards import (
-    find_unscoped_container_stylesheets,
-    format_unscoped_container_findings,
-)
-
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
 _BASELINE_FILE = Path(__file__).with_name("baseline_stock_controls.json")
+#: The one rule still ratcheted; every other rule is a ban (`EPIC-033M`).
+_RATCHETED = frozenset({"color_literal"})
 
 _CALLS: dict[str, frozenset[str]] = {
     "style_sheet": frozenset({"setStyleSheet", "apply_role", "StyledButton"}),
@@ -283,14 +281,13 @@ def test_stock_controls_only_shrinks() -> None:
     assert not problems, "\n".join(problems)
 
 
-def test_no_container_leaks_its_chrome_onto_its_children() -> None:
-    findings_ = find_unscoped_container_stylesheets(_SRC_ROOT)
-    assert findings_ == [], (
-        "a widget that owns children is styled with a bare property list, "
-        "which Qt reads as the universal selector (BUG-008). Use the stock "
-        "control instead (ui-presentation-rule.md §1).\n\n"
-        + format_unscoped_container_findings(findings_)
-    )
+def test_every_rule_but_colour_literals_is_a_ban() -> None:
+    """`EPIC-033M`: the kit is gone and these rules are at zero, so each is a
+    ban. An entry added to the baseline for one of them fails here, before it
+    could excuse a new style sheet, size or font."""
+    baseline = _read_baseline()
+    allowed = {rule: files for rule, files in baseline.items() if files}
+    assert set(allowed) <= _RATCHETED, allowed
 
 
 def test_a_colour_inside_rich_text_or_qss_is_seen_and_a_docstring_is_not() -> None:

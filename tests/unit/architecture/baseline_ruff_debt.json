@@ -25,7 +25,6 @@
       "src/modules/market_data/module.py": 3,
       "src/modules/market_data/ui/logic/ui_mode_transitions.py": 1,
       "src/modules/market_data/ui/market_tick_feed.py": 1,
-      "src/modules/market_data/ui/qml_property.py": 2,
       "src/modules/market_data/ui/sync_progress_feed.py": 1,
       "src/modules/strategy/domain/strategies/base_strategy.py": 5,
       "src/modules/strategy/module.py": 2,
@@ -45,9 +44,7 @@
       "src/support/binance_gateway/contracts/i_trading_session_factory.py": 20,
       "src/support/indicators/scripting/inputs.py": 4,
       "src/support/ui_kit/assets/asset_validator_extension.py": 3,
-      "src/support/ui_kit/health_feed.py": 1,
-      "src/support/ui_kit/kit/binding.py": 3,
-      "src/support/ui_kit/kit/widget_value.py": 2
+      "src/support/ui_kit/health_feed.py": 1
     },
     "C901": {
       "scripts/backtest_timeframe_toolbar_e2e.py": 1,
@@ -64,8 +61,7 @@
       "src/modules/trading/ui/desk/order_entry/order_entry_rules.py": 1,
       "src/support/charting/chart_card/candlestick_item.py": 1,
       "src/support/charting/chart_card/crosshair_controller.py": 1,
-      "src/support/indicators/scripting/inputs.py": 1,
-      "src/support/ui_kit/kit/style.py": 1
+      "src/support/indicators/scripting/inputs.py": 1
     },
     "PLC0415": {
       "scripts/bug052_shutdown_thread_probe.py": 1,
@@ -75,8 +71,7 @@
       "src/modules/market_data/ui/database_screen.py": 3,
       "src/modules/strategy/application/services/strategy_chart_overlay_service.py": 1,
       "src/modules/strategy/contracts/i_sizing_policy.py": 1,
-      "src/modules/trading/ui/probes.py": 2,
-      "src/support/ui_kit/param_form/strategy_params_dialog.py": 1
+      "src/modules/trading/ui/probes.py": 2
     },
     "PLR0904": {
       "src/modules/backtesting/ui/backtest_view_model.py": 1,
@@ -111,7 +106,6 @@
       "scripts/measure_process.py": 1,
       "scripts/preview_qml.py": 6,
       "scripts/python_backtest_pan_desktop_e2e.py": 2,
-      "scripts/quick_surface_desktop_probe.py": 4,
       "scripts/render_claude_manifest.py": 1,
       "scripts/render_task_counts.py": 1,
       "scripts/rule_integrity/cli.py": 9,

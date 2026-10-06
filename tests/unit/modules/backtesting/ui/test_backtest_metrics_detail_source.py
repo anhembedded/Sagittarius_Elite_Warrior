@@ -16,7 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.extended_metrics
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
     StatCardData,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 _NEUTRAL = Tone.NEUTRAL
 

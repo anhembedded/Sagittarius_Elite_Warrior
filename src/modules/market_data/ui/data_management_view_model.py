@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
     ExportFileFormat,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.qml_property import (
-    notifying_property,
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.observed_attribute import (
+    ObservedAttribute,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL_OPTIONS,
@@ -115,45 +115,62 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._database_size = "—"
 
         # Gap Inspector State
-        self._gap_inspector_symbol = ""
-        self._gap_inspector_interval = TimeFrame.ONE_MINUTE.value
-        self._gap_inspector_total_gaps = 0
-        self._gap_inspector_total_missing = 0
-        self._gap_inspector_coverage_pct = 100.0
-        self._gap_list: list[dict] = []
-        self._coverage_segments: list[dict] = []
+        self.gapInspectorSymbol = ""
+        self.gapInspectorInterval = TimeFrame.ONE_MINUTE.value
+        self.gapInspectorTotalGaps = 0
+        self.gapInspectorTotalMissing = 0
+        self.gapInspectorCoveragePct = 100.0
+        self.gapList: list[dict] = []
+        self.coverageSegments: list[dict] = []
 
         # KLine Inspector & Audit State (BOT-112B)
         self._kline_inspector_model = KLineInspectorTableModel(self)
-        self._kline_inspector_symbol = ""
-        self._kline_inspector_interval = TimeFrame.ONE_MINUTE.value
-        self._audit_running = False
-        self._audit_passed = True
-        self._audit_anomaly_count = 0
-        self._audit_summary_text = ""
-        self._audit_anomalies: list[dict] = []
+        self.klineInspectorSymbol = ""
+        self.klineInspectorInterval = TimeFrame.ONE_MINUTE.value
+        self.auditRunning = False
+        self.auditPassed = True
+        self.auditAnomalyCount = 0
+        self.auditSummaryText = ""
 
     # ------------------------------------------------------------------ #
     # Models
     # ------------------------------------------------------------------ #
 
-    @Property(QObject, constant=True)
+    selectedSymbol = ObservedAttribute(
+        "_selected_symbol",
+        "selectedSymbolChanged",
+        lambda v: str(v or "").strip().upper(),
+        ignore_empty=True,
+    )
+    selectedInterval = ObservedAttribute(
+        "_selected_interval",
+        "selectedIntervalChanged",
+        lambda v: str(v or "").strip(),
+        ignore_empty=True,
+    )
+    selectedExportFormat = ObservedAttribute(
+        "_selected_export_format",
+        "selectedExportFormatChanged",
+        lambda v: str(v or "").strip().lower(),
+        ignore_empty=True,
+    )
+    useCustomTime = ObservedAttribute[bool]("_use_custom_time", "useCustomTimeChanged")
+    fromDateTime = ObservedAttribute[str]("_from_datetime", "customRangeChanged")
+    toDateTime = ObservedAttribute[str]("_to_datetime", "customRangeChanged")
+
+    @property
     def logModel(self) -> QObject:
         return self._log_model
-
-    @Property(QObject, constant=True)
-    def klineInspectorModel(self) -> QObject:
-        return self._kline_inspector_model
 
     # ------------------------------------------------------------------ #
     # Symbol and timeframe selection
     # ------------------------------------------------------------------ #
 
-    @Property("QStringList", constant=True)
+    @property
     def symbols(self) -> list[str]:
         return list(self._symbol_options)
 
-    @Property("QStringList", notify=symbolOptionsChanged)
+    @property
     def symbolOptions(self) -> list[str]:
         return list(self._symbol_options)
 
@@ -163,7 +180,7 @@ class DataManagementViewModel(BaseQmlViewModel):
             self._symbol_options = list(options)
             self.symbolOptionsChanged.emit()
 
-    @Property(int, notify=knownShardCountChanged)
+    @property
     def knownShardCount(self) -> int:
         """Shards `list_available_shards()` found on disk at the last
         auto-discover/scan-all (BOT-120 follow-up) — independent of how many
@@ -177,79 +194,41 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._known_shard_count = count
         self.knownShardCountChanged.emit()
 
-    selectedSymbol = notifying_property(
-        "_selected_symbol",
-        str,
-        selectedSymbolChanged,
-        normalize=lambda v: str(v or "").strip().upper(),
-    )
-
-    @Property("QStringList", constant=True)
+    @property
     def intervals(self) -> list[str]:
         return list(_SUPPORTED_INTERVALS)
-
-    selectedInterval = notifying_property(
-        "_selected_interval",
-        str,
-        selectedIntervalChanged,
-        normalize=lambda v: str(v or "").strip(),
-    )
 
     # ------------------------------------------------------------------ #
     # Optional custom time range
     # ------------------------------------------------------------------ #
 
-    useCustomTime = notifying_property("_use_custom_time", bool, useCustomTimeChanged)
-    fromDateTime = notifying_property("_from_datetime", str, customRangeChanged)
-    toDateTime = notifying_property("_to_datetime", str, customRangeChanged)
-
     # ------------------------------------------------------------------ #
     # Export format (BOT-112D)
     # ------------------------------------------------------------------ #
-
-    @Property("QStringList", constant=True)
-    def exportFormats(self) -> list[str]:
-        return list(_EXPORT_FORMATS)
-
-    selectedExportFormat = notifying_property(
-        "_selected_export_format",
-        str,
-        selectedExportFormatChanged,
-        normalize=lambda v: str(v or "").strip().lower(),
-    )
 
     # ------------------------------------------------------------------ #
     # Progress
     # ------------------------------------------------------------------ #
 
-    def _get_progress_value(self) -> int:
-        return self._progress_value
-
-    progressValue = Property(int, _get_progress_value, notify=progressChanged)
-
-    def _get_progress_maximum(self) -> int:
+    @property
+    def progressMaximum(self) -> int:
         return self._progress_maximum
 
-    progressMaximum = Property(int, _get_progress_maximum, notify=progressChanged)
-
-    def _get_progress_visible(self) -> bool:
+    @property
+    def progressVisible(self) -> bool:
         return self._progress_visible
 
-    progressVisible = Property(bool, _get_progress_visible, notify=progressChanged)
-
-    def _get_progress_text(self) -> str:
+    @property
+    def progressText(self) -> str:
         return self._progress_text
 
-    progressText = Property(str, _get_progress_text, notify=progressChanged)
-
-    def _get_progress_percent(self) -> float:
+    @property
+    def progressPercent(self) -> float:
         if self._progress_maximum <= 0:
             return 0.0
         return min(
             100.0, max(0.0, (self._progress_value / self._progress_maximum) * 100.0)
         )
-
-    progressPercent = Property(float, _get_progress_percent, notify=progressChanged)
 
     @Slot(int, int, bool)
     @Slot(int, int, bool, str)
@@ -281,15 +260,13 @@ class DataManagementViewModel(BaseQmlViewModel):
     # Stat tiles
     # ------------------------------------------------------------------ #
 
-    def _get_stored_records(self) -> str:
+    @property
+    def storedRecords(self) -> str:
         return self._stored_records
 
-    storedRecords = Property(str, _get_stored_records, notify=statsChanged)
-
-    def _get_database_size(self) -> str:
+    @property
+    def databaseSize(self) -> str:
         return self._database_size
-
-    databaseSize = Property(str, _get_database_size, notify=statsChanged)
 
     @Slot(str, str)
     def set_stats(self, stored_records: str, database_size: str) -> None:
@@ -363,34 +340,6 @@ class DataManagementViewModel(BaseQmlViewModel):
     # Gap Inspector Properties
     # ------------------------------------------------------------------ #
 
-    @Property(str, notify=gapInspectorChanged)
-    def gapInspectorSymbol(self) -> str:
-        return self._gap_inspector_symbol
-
-    @Property(str, notify=gapInspectorChanged)
-    def gapInspectorInterval(self) -> str:
-        return self._gap_inspector_interval
-
-    @Property(int, notify=gapInspectorChanged)
-    def gapInspectorTotalGaps(self) -> int:
-        return self._gap_inspector_total_gaps
-
-    @Property(int, notify=gapInspectorChanged)
-    def gapInspectorTotalMissing(self) -> int:
-        return self._gap_inspector_total_missing
-
-    @Property(float, notify=gapInspectorChanged)
-    def gapInspectorCoveragePct(self) -> float:
-        return self._gap_inspector_coverage_pct
-
-    @Property("QVariantList", notify=gapListChanged)
-    def gapList(self) -> list[dict]:
-        return self._gap_list
-
-    @Property("QVariantList", notify=coverageSegmentsChanged)
-    def coverageSegments(self) -> list[dict]:
-        return self._coverage_segments
-
     @Slot(str, str, int, int, float, list, list)
     def set_gap_inspector_data(
         self,
@@ -402,13 +351,13 @@ class DataManagementViewModel(BaseQmlViewModel):
         gaps: list[dict],
         segments: list[dict],
     ) -> None:
-        self._gap_inspector_symbol = symbol
-        self._gap_inspector_interval = interval
-        self._gap_inspector_total_gaps = total_gaps
-        self._gap_inspector_total_missing = total_missing
-        self._gap_inspector_coverage_pct = coverage_pct
-        self._gap_list = list(gaps)
-        self._coverage_segments = list(segments)
+        self.gapInspectorSymbol = symbol
+        self.gapInspectorInterval = interval
+        self.gapInspectorTotalGaps = total_gaps
+        self.gapInspectorTotalMissing = total_missing
+        self.gapInspectorCoveragePct = coverage_pct
+        self.gapList = list(gaps)
+        self.coverageSegments = list(segments)
         self.gapInspectorChanged.emit()
         self.gapListChanged.emit()
         self.coverageSegmentsChanged.emit()
@@ -418,37 +367,9 @@ class DataManagementViewModel(BaseQmlViewModel):
     # KLine Inspector & Audit Properties (BOT-112B)
     # ------------------------------------------------------------------ #
 
-    @Property(str, notify=klineInspectorChanged)
-    def klineInspectorSymbol(self) -> str:
-        return self._kline_inspector_symbol
-
-    @Property(str, notify=klineInspectorChanged)
-    def klineInspectorInterval(self) -> str:
-        return self._kline_inspector_interval
-
-    @Property(int, notify=klineInspectorChanged)
+    @property
     def klineInspectorTotalRecords(self) -> int:
         return self._kline_inspector_model.total_records
-
-    @Property(bool, notify=auditResultChanged)
-    def auditRunning(self) -> bool:
-        return self._audit_running
-
-    @Property(bool, notify=auditResultChanged)
-    def auditPassed(self) -> bool:
-        return self._audit_passed
-
-    @Property(int, notify=auditResultChanged)
-    def auditAnomalyCount(self) -> int:
-        return self._audit_anomaly_count
-
-    @Property(str, notify=auditResultChanged)
-    def auditSummaryText(self) -> str:
-        return self._audit_summary_text
-
-    @Property("QVariantList", notify=auditResultChanged)
-    def auditAnomalies(self) -> list[dict]:
-        return self._audit_anomalies
 
     @Slot(str, str)
     def requestInspectKlines(
@@ -460,7 +381,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     def requestRunAudit(
         self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
     ) -> None:
-        self._audit_running = True
+        self.auditRunning = True
         self.auditResultChanged.emit()
         self.runAuditRequested.emit(symbol, interval)
 
@@ -483,12 +404,11 @@ class DataManagementViewModel(BaseQmlViewModel):
         interval: str,
         klines: list,
     ) -> None:
-        self._kline_inspector_symbol = symbol
-        self._kline_inspector_interval = interval
+        self.klineInspectorSymbol = symbol
+        self.klineInspectorInterval = interval
         self._kline_inspector_model.set_klines(klines)
-        self._audit_running = False
-        self._audit_summary_text = ""
-        self._audit_anomalies = []
+        self.auditRunning = False
+        self.auditSummaryText = ""
         self.klineInspectorChanged.emit()
         self.auditResultChanged.emit()
         self.openKlineInspectorRequested.emit()
@@ -501,11 +421,10 @@ class DataManagementViewModel(BaseQmlViewModel):
         summary: str,
         anomalies: list[dict],
     ) -> None:
-        self._audit_running = False
-        self._audit_passed = is_clean
-        self._audit_anomaly_count = anomaly_count
-        self._audit_summary_text = summary
-        self._audit_anomalies = list(anomalies)
+        self.auditRunning = False
+        self.auditPassed = is_clean
+        self.auditAnomalyCount = anomaly_count
+        self.auditSummaryText = summary
         self.auditResultChanged.emit()
 
     # ------------------------------------------------------------------ #

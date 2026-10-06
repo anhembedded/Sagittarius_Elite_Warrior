@@ -259,7 +259,7 @@ class BotsView(BaseView):
         self.model.select_requested.emit(row.bot_id if row is not None else "")
 
     def _show_status(self) -> None:
-        message = str(self.model.property("statusMessage"))
+        message = str(self.model.statusMessage)
         self.status.setText(message)
         self.status.setVisible(bool(message))
 

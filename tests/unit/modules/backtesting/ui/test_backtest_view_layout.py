@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 
 def _stat_cards(count: int) -> list[dict[str, str]]:
