@@ -38,7 +38,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
@@ -96,14 +95,15 @@ class WorkbenchSurface(RegionHost):
     #: A `QWidget` cannot be shared across parents, so each surface calls the
     #: factory for its own instance; `None` (the default) means no banner,
     #: which is every construction in this package's own tests.
-    _environment_banner_factory: Callable[[], QWidget] | None = None
+    _environment_banner_factory: Callable[[], QWidget | None] | None = None
 
     @classmethod
     def set_environment_banner_factory(
-        cls, factory: Callable[[], QWidget] | None
+        cls, factory: Callable[[], QWidget | None] | None
     ) -> None:
         """Registers (or clears, with `None`) the factory every surface built
-        from now on uses for its banner row."""
+        from now on uses for its banner row; a factory answering `None` gives
+        that surface no row."""
         cls._environment_banner_factory = factory
 
     def __init__(self, surface: Surface, parent: QWidget | None = None) -> None:
@@ -132,7 +132,7 @@ class WorkbenchSurface(RegionHost):
             parent=parent,
             legacy_toolbar_widgets=True,
         )
-        self._banner: QToolBar | None = None
+        self._banner: QWidget | None = None
         self._add_environment_banner()
 
     # -- IPlaceHost (structural, no base class) ----------------------------
@@ -197,24 +197,22 @@ class WorkbenchSurface(RegionHost):
     # -- Environment banner ------------------------------------------------
 
     def _add_environment_banner(self) -> None:
-        """The banner row, built first so it sits above the header.
+        """The banner row, above every toolbar and dock, across the full width.
 
-        A `QToolBar` rather than a widget above the window: a nested
-        `QMainWindow` has no layout of its own to put one in, and the top
-        toolbar area is the part of a `QMainWindow` that spans the full width
-        above everything else. Not movable and not floatable — a warning the
-        user can drag into a corner, or switch off, is a warning that stops working.
+        The window's menu-widget slot, not a `QToolBar` (`BUG-157`): a toolbar
+        is part of the layout `saveState` keeps and `restoreState` applies,
+        so a saved layout could put the banner behind a sibling toolbar's
+        width on its line, or hide it, and the toolbar menu listed it. A
+        nested `QMainWindow` has no layout of its own to put a widget above
+        everything, but the menu-widget slot is exactly that, and nothing the
+        user arranges or restores reaches it: a warning the user can drag into
+        a corner, or switch off, is a warning that stops working.
+
+        A factory that answers `None` means this run has nothing to warn of.
         """
         factory = type(self)._environment_banner_factory
-        if factory is None:
+        banner = factory() if factory is not None else None
+        if banner is None:
             return
-        self._banner = QToolBar("Environment", self)
-        self._banner.setObjectName(f"{self.objectName()}::environment")
-        self._banner.setMovable(False)
-        self._banner.setFloatable(False)
-        # Nor hidden: the right-click toolbar menu lists every toolbar's
-        # toggle, and a warning one click switches off stops working.
-        self._banner.toggleViewAction().setVisible(False)
-        self._banner.addWidget(factory())
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._banner)
-        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
+        self._banner = banner
+        self.setMenuWidget(banner)
