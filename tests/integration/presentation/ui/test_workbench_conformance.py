@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     nested_scroll_problems,
     perspective_problems,
     style_sheet_problems,
+    toolbar_in_menu_problems,
     toolbar_problems,
     view_menu_problems,
     workbench_problems,
@@ -76,6 +77,7 @@ MODE_CHECKS: dict[str, Check] = {
     "control_height": control_height_problems,
     "no_nested_scroll": nested_scroll_problems,
     "toolbar_actions_only": toolbar_problems,
+    "toolbar_actions_in_a_menu": toolbar_in_menu_problems,
     "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
     "mnemonics_escaped": mnemonic_problems,
@@ -269,6 +271,28 @@ def test_an_overflowing_toolbar_s_own_extension_button_is_not_a_finding(qtbot) -
     tall.setFixedHeight(60)
     bar.insertWidget(bar.actions()[0], tall)  # first, so it is not overflowed
     qtbot.waitUntil(lambda: control_height_problems(window, window) != [])
+
+
+def test_a_toolbar_action_in_no_menu_is_seen(qtbot) -> None:
+    window = QMainWindow()
+    qtbot.addWidget(window)
+    menu = QMenu("&View", window)
+    window.menuBar().addMenu(menu)
+    shared = QAction("&Zoom in", window)
+    menu.addAction(shared)
+    menu.addAction(QAction("Re&set zoom", window))
+    bar = QToolBar("Chart", window)
+    bar.setObjectName("chart")
+    window.addToolBar(bar)
+    bar.addAction(shared)
+    bar.addAction("Reset zoom")
+    bar.addSeparator()
+    bar.addWidget(QPushButton("Widget"))
+    bar.addAction("Crosshair")
+
+    assert toolbar_in_menu_problems(window, window) == [
+        "'Crosshair' on toolbar 'chart' is in no menu"
+    ]
 
 
 def test_a_button_named_like_a_contributed_command_is_seen(qtbot) -> None:

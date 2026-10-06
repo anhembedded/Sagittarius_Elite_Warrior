@@ -253,6 +253,39 @@ def _menu_key_problems(menu: QMenu, path: str) -> list[str]:
     return found
 
 
+def _menu_actions(menu: QMenu) -> list[QAction]:
+    found = []
+    for action in menu.actions():
+        found.append(action)
+        if action.menu() is not None:
+            found += _menu_actions(action.menu())
+    return found
+
+
+def toolbar_in_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§6: every toolbar action is also in a menu (MS `cmd-toolbars`): the
+    same `QAction`, or one with the same text, reachable from the menu bar
+    as the showing mode fills it. A widget on a toolbar is
+    `toolbar_actions_only`'s; separators are not commands."""
+    in_menus = [a for _, menu in top_menus(window) for a in _menu_actions(menu)]
+    texts = {command_name(a.text()) for a in in_menus if a.text()}
+    found = []
+    for bar in page.findChildren(QToolBar):
+        for action in bar.actions():
+            if (
+                isinstance(action, QWidgetAction)
+                or action.isSeparator()
+                or action in in_menus
+                or command_name(action.text()) in texts
+            ):
+                continue
+            found.append(
+                f"{plain_text(action.text())!r} on toolbar {bar.objectName()!r} "
+                "is in no menu"
+            )
+    return found
+
+
 def access_key_problems(window: QMainWindow, page: QWidget) -> list[str]:
     """§4: every menu item has an access key unique in its menu (MS
     `cmd-menus`), in the menus as the showing mode fills them. An item goes
