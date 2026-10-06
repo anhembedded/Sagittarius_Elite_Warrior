@@ -39,7 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_back
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
     chart_candles,
     result_overlay,
-    summary_rows,
+    summary_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
     GridBacktestView,
@@ -173,7 +173,7 @@ class GridBacktestPresenter(QObject):
             chart_candles(result, query.symbol, query.interval),
             result_overlay(result),
             result.equity,
-            summary_rows(result),
+            summary_of(result),
         )
         window = result.provenance.window
         if window is not None and window.missing_candles:

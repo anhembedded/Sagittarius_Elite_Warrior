@@ -5,7 +5,9 @@ The page asks for an interval and a period, runs on Run, and shows:
   drawn by a `BotChart` (ADR D16, the PR #321 review: never a drawer of
   its own);
 · the equity against buy-and-hold (D18);
-· the summary, each figure with its caveat, the fill rule among them.
+· the summary: the figures as a read-out the application's formatter
+  writes (`EPIC-033N`), and their caveats, the fill rule among them, as
+  sentences under it.
 
 While a run is in flight only Cancel is live. A refusal for candles that are
 not stored offers "Sync candles", and only a click syncs (`BUG-107`). Stock
@@ -21,7 +23,6 @@ from PySide6.QtCore import QDateTime, Qt, QTimeZone, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDateTimeEdit,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -41,12 +42,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.equity_ch
     EquityChart,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
-    SummaryRow,
+    GridSummary,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
+from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
 #: The intervals a Grid backtest offers; the result chart draws in the same one.
 INTERVALS = (
@@ -93,7 +96,11 @@ class GridBacktestView(QWidget):
         self.card = ChartCard("Backtest")
         self.chart = BotChart(self.card, chart_ports, parent=self.card)
         self.equity = EquityChart()
-        self.summary = QFormLayout()
+        self.summary = ReadoutSlot()
+        self.summary.setObjectName("roGridBacktestFigures")
+        self.notes = QLabel()
+        self.notes.setObjectName("lblGridBacktestCaveats")
+        self.notes.setWordWrap(True)
         self._build()
         self.run_button.clicked.connect(self.run_requested)
         self.cancel_button.clicked.connect(self.cancel_requested)
@@ -143,34 +150,30 @@ class GridBacktestView(QWidget):
         candles: Sequence[MarketData],
         overlay: BotOverlay,
         equity: Sequence[EquityPoint],
-        rows: Sequence[SummaryRow],
+        summary: GridSummary,
     ) -> None:
         self.show_idle("")
         self.status.setText("Backtest done.")
         self.chart.draw_history(candles)
         self.chart.show_overlay(overlay)
         self.equity.show_equity(equity)
-        _fill_summary(self.summary, rows)
+        self.summary.show_readout(summary.readout)
+        self.notes.setText("\n".join(summary.notes))
 
     def clear_result(self) -> None:
         self.chart.draw_history(())
         self.chart.show_overlay(BotOverlay())
         self.equity.clear()
-        _fill_summary(self.summary, ())
+        self.summary.clear()
+        self.notes.clear()
 
     def summary_text(self) -> dict[str, str]:
-        """The summary as shown, label to value (tests read it)."""
-        shown: dict[str, str] = {}
-        for row in range(self.summary.rowCount()):
-            label = self.summary.itemAt(row, QFormLayout.ItemRole.LabelRole)
-            value = self.summary.itemAt(row, QFormLayout.ItemRole.FieldRole)
-            if label is not None and value is not None:
-                label_widget, value_widget = label.widget(), value.widget()
-                if isinstance(label_widget, QLabel) and isinstance(
-                    value_widget, QLabel
-                ):
-                    shown[label_widget.text()] = value_widget.text()
-        return shown
+        """The figures as shown, row key to text (tests read it)."""
+        return {key: self.summary.value_text(key) or "" for key in self.summary.keys}
+
+    def summary_form(self) -> ReadoutForm | None:
+        """The read-out the figures are shown in, while a result is."""
+        return self.summary.findChild(ReadoutForm)
 
     def shutdown(self) -> None:
         self.chart.shutdown()
@@ -195,7 +198,10 @@ class GridBacktestView(QWidget):
         figures.setObjectName("scrollGridBacktestFigures")
         figures.setWidgetResizable(True)
         rows = QWidget()
-        rows.setLayout(self.summary)
+        column = QVBoxLayout(rows)
+        column.addWidget(self.summary)
+        column.addWidget(self.notes)
+        column.addStretch(1)
         figures.setWidget(rows)
         lower = QSplitter()
         lower.addWidget(self.equity)
@@ -221,12 +227,3 @@ def _datetime_edit(name: str, value: datetime) -> QDateTimeEdit:
 
 def _utc(edit: QDateTimeEdit) -> datetime:
     return datetime.fromtimestamp(edit.dateTime().toSecsSinceEpoch(), UTC)
-
-
-def _fill_summary(form: QFormLayout, rows: Sequence[SummaryRow]) -> None:
-    while form.rowCount():
-        form.removeRow(0)
-    for row in rows:
-        value = QLabel(row.value)
-        value.setWordWrap(True)
-        form.addRow(QLabel(row.label), value)

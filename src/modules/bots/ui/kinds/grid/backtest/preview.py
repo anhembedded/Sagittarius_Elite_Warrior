@@ -39,7 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_summary import (
     chart_candles,
     result_overlay,
-    summary_rows,
+    summary_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
     GridBacktestView,
@@ -84,18 +84,18 @@ def build_preview() -> QWidget:
             interval=_INTERVAL.value,
         )
     )
-    result = _sample_result()
+    result = sample_result()
     view.show_replay(
         chart_candles(result, _SYMBOL, _INTERVAL),
         result_overlay(result),
         result.equity,
-        summary_rows(result),
+        summary_of(result),
     )
     view.setWindowTitle("Grid backtest — sample result")
     return view
 
 
-def _sample_result() -> GridBacktestResult:
+def sample_result() -> GridBacktestResult:
     bars = tuple(
         price_bar(sample_candle(_SYMBOL, _INTERVAL, _START, index))
         for index in range(SAMPLE_CANDLES)

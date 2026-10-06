@@ -20,7 +20,7 @@ def test_the_preview_shows_a_coarse_sample_result(qtbot) -> None:
 
     assert isinstance(view, GridBacktestView)
     shown = view.summary_text()
-    assert shown["Fill rule"] == FILL_RULE
-    assert "120 candles" in shown["Period"]
-    assert shown["Without 1-second klines"]
+    assert FILL_RULE in view.notes.text()
+    assert shown["candles"] == "120"
+    assert shown["coarse_candles"] != "0"
     view.shutdown()
