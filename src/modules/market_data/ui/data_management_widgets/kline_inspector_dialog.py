@@ -41,10 +41,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_view import configure_spec_view
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 from ..kline_inspector_table_model import KLineInspectorTableModel
 
@@ -107,7 +107,7 @@ class KlineInspectorDialog(QDialog):  # base-exempt: ADR D22, a dialog is a QDia
         table.setObjectName("tblKlineInspector")
         # Columns and selection from the model's specs (`EPIC-033N`). Candles
         # arrive in time order and stay in it until the user sorts a column.
-        configure_spec_view(
+        configure_item_view(
             table,
             model,
             KLineInspectorTableModel.COLUMNS,
