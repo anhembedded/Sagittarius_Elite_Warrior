@@ -6,8 +6,8 @@
   and PR 1.5b; reshaped by `EPIC-033C` (the workbench window, HLD §11.2), which dropped the
   Welcome screen: the app opens on the last mode, as Windows applications do, and developer mode
   is a page of Tools → Options.
-- **Surfaces:** the workbench window (title bar, status bar, Help → About) and Tools → Options →
-  Developer.
+- **Surfaces:** the workbench window (title bar, status bar, Help → About), Tools → Options →
+  Developer, and the Developer mode (`EPIC-033P`), which only developer mode has.
 
 ## 1. Trigger
 
@@ -37,8 +37,10 @@ it."*
 6. On **Restart now** the app starts a fresh process and quits this one. With developer mode
    turned *off*, `--dev` and `--debug` are stripped from the new command line — otherwise the flag
    would win over the file that was just written.
-7. The next run reads `dev.mode` once, at boot, and the Dev Board's probes exist or do not exist
-   for the whole of it.
+7. The next run reads `dev.mode` once, at boot, and the Developer mode exists or does not exist
+   for the whole of it: the last mode on the mode bar, the event log in its centre (each event
+   the bus publishes, how many handlers heard it, and any handler that raised) and the modules'
+   probes docked on its right (HLD §11.2.1).
 
 ## 4. What must be true afterwards
 
@@ -52,7 +54,9 @@ it."*
 - Every mode is built at start (the user's decision, 2026-10-04); a screen goes live on the
   actor's open (`IShownAsMode`), never when it is built.
 - After the switch is applied and the app restarted, `dev.mode` is `true` in `user_config.json`
-  and the Dev Board shows the `trading` module's session probe.
+  and the Developer mode is on the mode bar, showing the `trading` module's session probe.
+- With developer mode off there is no Developer mode, no command of its mode, and nothing
+  observing the event bus.
 
 ## 5. When it goes wrong
 
@@ -74,10 +78,14 @@ it."*
 - **Developer mode is not a permission.** It shows probes and chart diagnostics; it does not
   enable, disable or widen anything about live trading. Turning it on does not make the app
   able to trade, and turning it off does not make it safe.
-- **The Dev Board screen itself is still always present.** Only its contributed probes follow the
-  switch, and the mechanism says why: `ContributionRegistry.contribute()` evaluates
-  `surface_is_open()` for a contributed **panel**, while `contribute_screen()` evaluates no gate
-  at all.
+- **The Dev Board screen itself is still always present**, until `EPIC-033P` stage 3 deletes it.
+  A screen can be gated since `EPIC-033P` stage 2 (`ScreenContribution.gated_by`, which drops the
+  screen and its mode's commands), and the Developer mode is; the Dev Board is not, because the
+  Market mode does not yet offer all it does (`EPIC-033Q`, `EPIC-033S`).
+
+  The history of that asymmetry, kept because the decision it records still holds for the
+  Dev Board: until stage 2, `ContributionRegistry.contribute()` evaluated `surface_is_open()` for a
+  contributed **panel**, while `contribute_screen()` evaluated no gate at all.
 
   That asymmetry is a promise, not an oversight. The screen still carries manual order entry and
   the strategy controls, and **nothing on the Trading surface carries them** — measured rather
@@ -110,4 +118,7 @@ market data, trading or a strategy.
 | The Futures desk is the default route, and survives the round trip into `ScreenRegistry` | `tests/unit/shell/test_screen_wiring.py` | unit |
 | Launching with any mode remembered opens no market stream and dispatches no `StartLiveStreamCommand`; a restored Dev Board does not auto-start, a clicked one does; the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | The version shown is the version the project declares | `tests/unit/architecture/test_app_version_matches_pyproject.py` | unit |
-| Developer mode end to end | **the user runs it**: Tools → Options → Developer, tick Developer mode, OK, press Restart now, and confirm the app comes back with the Dev Board showing the *Trading session* probe — then untick it, restart again, and confirm the probe is gone | human |
+| A gated screen is dropped with its mode's commands when developer mode is off, and is a mode when it is on; the shell contributes the Developer mode | `tests/unit/shell/test_contribution_registry.py`, `tests/unit/shell/test_contribution_assembly.py` | unit |
+| The Developer mode: the event log central, what the bus publishes and a raising handler reaching it, a burst it could not keep said in words, a contributed probe docked right, recording from the window's build until it shuts down | `tests/unit/shell/developer_mode/test_developer_mode.py`, `tests/unit/shell/developer_mode/test_bus_event_recorder.py` | unit |
+| With developer mode on, the Developer mode builds in the real window and passes the conformance suite with no baseline row | `tests/sanity/test_composition_root.py`, `tests/integration/presentation/ui/test_workbench_conformance.py` | sanity, integration |
+| Developer mode end to end | **the user runs it**: Tools → Options → Developer, tick Developer mode, OK, press Restart now, and confirm the app comes back with a Developer mode whose log fills as the app runs and whose right side shows the *Trading session* probe — then untick it, restart again, and confirm the Developer mode is gone | human |

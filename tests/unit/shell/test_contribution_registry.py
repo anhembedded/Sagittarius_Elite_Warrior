@@ -286,3 +286,111 @@ def test_a_surface_with_an_unknown_gate_fails_loudly() -> None:
 def test_an_ungated_surface_is_always_open() -> None:
     surface = Surface("welcome", owner="shell", accepts=frozenset({Place.WORKSPACE}))
     assert surface_is_open(surface, dev_mode=False)
+
+
+# --- rule 3, for a whole mode: a gated-off screen drops with its commands -
+
+
+def _gated_screen(route: str) -> ScreenContribution:
+    return ScreenContribution(
+        contributor_id="shell",
+        route=route,
+        view_factory=lambda: None,  # type: ignore[return-value]
+        presenter_factory=lambda _view, _container: None,  # type: ignore[return-value]
+        nav=NavMetadata(title=route.title(), icon="bug"),
+        gated_by=DEV_MODE_GATE,
+    )
+
+
+def _mode_command(command_id: str, mode: str | None) -> CommandContribution:
+    return CommandContribution(
+        contributor_id="shell",
+        command_id=command_id,
+        text="&Refresh",
+        menu_path=("Develo&per",),
+        mode=mode,
+    )
+
+
+def test_a_gated_off_screen_drops_and_takes_its_commands_with_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`EPIC-033P`: the Developer mode exists only under `dev.mode`. Its
+    commands go with it, whichever was contributed first, so the window never
+    holds an action for a mode it does not have."""
+    registry = ContributionRegistry(dev_mode=False)
+    with caplog.at_level(logging.INFO):
+        registry.contribute_command(_mode_command("developer.before", "developer"))
+        registry.contribute_screen(_gated_screen("developer"))
+        registry.contribute_command(_mode_command("developer.after", "developer"))
+    registry.contribute_command(_mode_command("everywhere", None))
+    registry.contribute_screen(_screen("data_management"))
+
+    assert [screen.route for screen in registry.screens()] == ["data_management"]
+    assert [command.command_id for command in registry.commands()] == ["everywhere"]
+    assert registry.dropped_count() == 1
+    assert "'developer'" in caplog.text
+    assert DEV_MODE_GATE in caplog.text
+
+
+def test_with_developer_mode_on_a_gated_screen_is_a_mode() -> None:
+    registry = ContributionRegistry(dev_mode=True)
+    registry.contribute_screen(_gated_screen("developer"))
+    registry.contribute_command(_mode_command("developer.refresh", "developer"))
+
+    assert [screen.route for screen in registry.screens()] == ["developer"]
+    assert [command.command_id for command in registry.commands()] == [
+        "developer.refresh"
+    ]
+    assert registry.dropped_count() == 0
+
+
+def test_a_screen_with_an_unknown_gate_fails_loudly() -> None:
+    registry = ContributionRegistry(dev_mode=True)
+    screen = ScreenContribution(
+        contributor_id="shell",
+        route="developer",
+        view_factory=lambda: None,  # type: ignore[return-value]
+        presenter_factory=lambda _view, _container: None,  # type: ignore[return-value]
+        gated_by="beta.features",
+    )
+    with pytest.raises(ValueError, match="beta.features"):
+        registry.contribute_screen(screen)
+
+
+def test_a_gated_screen_on_a_taken_route_fails_in_a_normal_run_too() -> None:
+    """The registry's checks do not depend on the run: a gated screen that
+    reuses another mode's route is a wiring mistake found at boot, not one
+    that silently strips that mode's commands whenever developer mode is off
+    (the PR #367 review)."""
+    registry = ContributionRegistry(dev_mode=False)
+    registry.contribute_screen(_screen("data_management"))
+    registry.contribute_command(_mode_command("data.sync", "data_management"))
+
+    with pytest.raises(ContributionError, match="contributed twice"):
+        registry.contribute_screen(_gated_screen("data_management"))
+    assert [command.command_id for command in registry.commands()] == ["data.sync"]
+
+
+def test_a_gated_screen_contributed_twice_fails_in_a_normal_run_too() -> None:
+    registry = ContributionRegistry(dev_mode=False)
+    registry.contribute_screen(_gated_screen("developer"))
+
+    with pytest.raises(ContributionError, match="contributed twice"):
+        registry.contribute_screen(_gated_screen("developer"))
+
+
+def test_a_gated_screen_cannot_be_the_default() -> None:
+    """A default that exists only in some runs leaves the others with no
+    window to open (SPEC-011 §5); refused whatever this run's gate says."""
+    gated_default = ScreenContribution(
+        contributor_id="shell",
+        route="developer",
+        view_factory=lambda: None,  # type: ignore[return-value]
+        presenter_factory=lambda _view, _container: None,  # type: ignore[return-value]
+        is_default=True,
+        gated_by=DEV_MODE_GATE,
+    )
+    for dev_mode in (False, True):
+        with pytest.raises(ContributionError, match="cannot be the default"):
+            ContributionRegistry(dev_mode=dev_mode).contribute_screen(gated_default)

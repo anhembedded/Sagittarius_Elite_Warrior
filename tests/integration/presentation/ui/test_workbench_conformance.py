@@ -37,6 +37,9 @@ from PySide6.QtWidgets import (
     QToolBar,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
+    DEVELOPER_ROUTE,
+)
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layout_checks import (
     fit_problems,
     object_name_problems,
@@ -165,6 +168,9 @@ def test_workbench_conformance(qapp, main_window, navigate, size: QSize) -> None
     main_window.resize(size)
     main_window.show()
     report = measure(main_window, navigate, qapp, size)
+    # Booted with developer mode on, so the Developer mode is measured too
+    # (`EPIC-033P`), and with no baseline row of its own.
+    assert DEVELOPER_ROUTE in report
     problems = ratchet_problems(_read_baseline(), report, size)
     assert not problems, "\n".join(problems)
 

@@ -306,10 +306,9 @@ def _navigable_routes() -> list[str]:
     """
     from unittest.mock import Mock
 
-    from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+    from Sagittarius_Elite_Warrior.tests.conftest import real_navigable_routes
 
-    registry = real_screen_registry(Mock())
-    return [d.route for d in registry.get_all() if d.has_nav()]
+    return real_navigable_routes(Mock())
 
 
 def _screen_packages() -> list[tuple[str, str | None]]:
@@ -354,7 +353,8 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
-    registry = real_screen_registry(booted_app.context.container)
+    # A developer's window holds every mode, the Developer one too (EPIC-033P).
+    registry = real_screen_registry(booted_app.context.container, dev_mode=True)
     window = MainWindow(booted_app, registry)
     try:
         window.switch_screen(route)

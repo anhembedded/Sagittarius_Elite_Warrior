@@ -218,10 +218,11 @@ class TradingModule(BoundedContextModule):
         bind_published_ports(container)
 
     def contribute(self, registry: IContributionRegistry) -> None:
-        """The Dev Board probe for this context's own session state, its
-        Settings section, and — since `EPIC-025F` PR 5.2 — its two screens.
+        """The Developer mode's probe for this context's own session state
+        (`EPIC-033P` moved it there from the Dev Board), its Settings section,
+        and — since `EPIC-025F` PR 5.2 — its screens.
 
-        `DEV_PROBE` is Dev Board's place and it is gated: with `dev.mode` off,
+        `DEV_PROBE` is the Developer mode's place and it is gated: with `dev.mode` off,
         the registry drops this contribution with one log line and the app
         boots — the normal user run, not an error (`shell/surfaces.py`).
 
@@ -239,7 +240,7 @@ class TradingModule(BoundedContextModule):
         registry.contribute(
             ContributionDescriptor(
                 contributor_id=self.module_id,
-                surface_id="dev_board",
+                surface_id="developer",
                 place=Place.DEV_PROBE,
                 order=10,
                 size_hint=SizeHint.REGULAR,

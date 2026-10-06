@@ -74,7 +74,7 @@ geometry"*.
 | `screen` | `route, title, icon, section_key, sequences, is_default, factory(container) -> (View, Presenter)` | every module | the shell (`ScreenRegistry` ✅ from `EPIC-016` — kept until Phase 5) | the hard-coded tuple of 5 modules at `app_bootstrapper.py:322` |
 | `surface_widget` | `surface_id, slot, order, factory(container) -> QWidget, owner_module` | market_data, trading, strategy, charting, indicators | a surface | two Presenters building their own panels |
 | `options_page` | `contributor_id, order, factory(container) -> IOptionsSection` (a page bound to the **module's own** config keys) | trading (venues, credentials check), market_data (venue, default symbols / interval / sync days) ✅ `EPIC-033E`; it was the `settings_section` kind from `EPIC-025E` PR 4.4e | the Options dialog (Tools → Options) | a single `SettingsView` grid that knew every config key, then one Settings screen with a Save button per section |
-| `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `dev_board.probes` slot, only under `dev.mode` | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
+| `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `dev_board.probes` slot, only under `dev.mode`; since `EPIC-033P` the `developer` surface, the Developer mode's right dock area | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
 | `cli_command` | `name, build_parser(sub), execute(app, args)` | market_data (`sync`, `stream`), trading (`exchange-status`, `order-preview`, `order-dry-run`), strategy (`trade-once`) | `shell/cli` | the if/elif chain at `main.py:139-156` plus `cli_commands.json` |
 | `status_tile` | `key, factory -> QWidget` | trading (websocket pill), market_data (price ticker) | a surface header | `DevBoardPanel.header_actions` |
 
@@ -99,8 +99,9 @@ The user's definition: *"khi bạn dev nếu API nào của sàn chưa rõ, thì
   the adapter already wraps (`positionRisk`, `openOrders`, the `exchangeInfo` filters for one symbol,
   `listenKey`), press the button, read the payload. This is exactly what was missing during the
   `BUG-117` investigation, where the only option was reading logs instead of calling the endpoint.
-- No probe is loaded when `dev.mode` is false: the `dev_board` surface does not exist, so its
-  factories never run.
+- No probe is loaded when `dev.mode` is false: the `developer` surface (the `dev_board` one before
+  `EPIC-033P`) does not exist, so its factories never run, and the Developer mode screen itself is
+  dropped with its commands (`ScreenContribution.gated_by`).
 
 ## 4.5 Who owns which widget (the desks and Dev Board)
 

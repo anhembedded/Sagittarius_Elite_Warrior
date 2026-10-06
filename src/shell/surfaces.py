@@ -1,7 +1,7 @@
 """The surfaces this application has, and what each one can hold (SDD).
 
 A **surface** is a place a user navigates to. It is owned either by the shell
-(`trading`, `dev_board` — the workbench itself) or by the
+(`trading`, `dev_board`, `developer` — the workbench itself) or by the
 module whose subject it is (`backtest`, `data_management`). Owning a surface
 means declaring it here; it does not mean the owner fills it — any module may
 contribute to any surface, which is the whole point of the mechanism.
@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 
 #: The only gate Phase 0 has. Read once at boot (`shell/dev_mode.py`).
 DEV_MODE_GATE = "dev.mode"
+#: The Developer mode's surface (`EPIC-033P`): the event log central, the
+#: probes docked right (HLD §11.2.1, §11.2.5).
+DEVELOPER_SURFACE_ID = "developer"
 
 _WORKBENCH_PLACES = frozenset(
     {
@@ -48,6 +51,12 @@ SURFACES: tuple[Surface, ...] = (
         "dev_board",
         owner="shell",
         accepts=_WORKBENCH_PLACES | {Place.DEV_PROBE},
+        gated_by=DEV_MODE_GATE,
+    ),
+    Surface(
+        DEVELOPER_SURFACE_ID,
+        owner="shell",
+        accepts=frozenset({Place.WORKSPACE, Place.DEV_PROBE}),
         gated_by=DEV_MODE_GATE,
     ),
     Surface(
@@ -88,10 +97,17 @@ def surface_is_open(surface: Surface, *, dev_mode: bool) -> bool:
     open — a surface silently appearing in a normal user's app is the failure
     worth being loud about.
     """
-    if surface.gated_by is None:
+    return gate_is_open(surface.gated_by, dev_mode=dev_mode, subject=surface.surface_id)
+
+
+def gate_is_open(gate: str | None, *, dev_mode: bool, subject: str) -> bool:
+    """Is `gate` open in this run? One evaluation for a surface and a screen
+    (`EPIC-033P`), so the two can never disagree on what a key means.
+
+    @param subject What carries the gate, for the error naming an unknown one.
+    """
+    if gate is None:
         return True
-    if surface.gated_by == DEV_MODE_GATE:
+    if gate == DEV_MODE_GATE:
         return dev_mode
-    raise ValueError(
-        f"surface {surface.surface_id!r} has an unknown gate {surface.gated_by!r}"
-    )
+    raise ValueError(f"{subject!r} has an unknown gate {gate!r}")

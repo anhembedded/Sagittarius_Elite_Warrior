@@ -118,24 +118,39 @@ def _seed_app_theme():
     seed_app_theme()
 
 
-def real_screen_registry(container):
+def real_screen_registry(container, *, dev_mode: bool = False):
     """The real `ScreenRegistry`, built from `real_contributions()`."""
     from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 
-    return build_screen_registry(real_contributions(container))
+    return build_screen_registry(real_contributions(container, dev_mode=dev_mode))
 
 
 def real_main_window(app_engine, **kwargs):
     """The real `MainWindow` over `app_engine`: the real screens and their
-    commands (`EPIC-033D`), as `build()` makes it."""
+    commands (`EPIC-033D`), as `build()` makes it. An engine booted with
+    `dev.mode` on gets what only developer mode has (`EPIC-033P`)."""
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+    from sagittarius_engine.interfaces.i_config import IConfig
 
+    container = app_engine.context.container
+    dev_mode = bool(container.resolve(IConfig).get("dev.mode", False))
     return MainWindow(
-        app_engine, real_screen_registry(app_engine.context.container), **kwargs
+        app_engine, real_screen_registry(container, dev_mode=dev_mode), **kwargs
     )
 
 
-def real_contributions(container):
+def real_navigable_routes(container) -> list[str]:
+    """Every route a user can reach: a normal run's modes, and the ones only
+    a developer's run has (`EPIC-033P`)."""
+    return [
+        descriptor.route
+        for dev_mode in (False, True)
+        for descriptor in real_screen_registry(container, dev_mode=dev_mode).get_all()
+        if descriptor.has_nav()
+    ]
+
+
+def real_contributions(container, *, dev_mode: bool = False):
     """`EPIC-016` — everything the app's real modules contribute, registered
     against `container`, matching exactly what `app_bootstrapper.py`'s
     composition root does.
@@ -169,7 +184,7 @@ def real_contributions(container):
             assemble_contributions,
         )
 
-        return assemble_contributions(container, dev_mode=False)
+        return assemble_contributions(container, dev_mode=dev_mode)
 
     from Sagittarius_Elite_Warrior.src.modules.backtesting.module import (
         BacktestingModule,
@@ -182,8 +197,11 @@ def real_contributions(container):
     from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
         ContributionRegistry,
     )
+    from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
+        developer_screen,
+    )
 
-    contributions = ContributionRegistry(dev_mode=False)
+    contributions = ContributionRegistry(dev_mode=dev_mode)
     trading_module = TradingModule()
     trading_module._container = container
     backtesting_module = BacktestingModule()
@@ -195,6 +213,8 @@ def real_contributions(container):
         BotsModule(),
     ):
         module.contribute(contributions)
+    # The shell's own mode, as `assemble_contributions()` adds it.
+    contributions.contribute_screen(developer_screen())
     return contributions
 
 
