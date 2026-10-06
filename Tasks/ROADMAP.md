@@ -464,6 +464,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
+- **[`EPIC-033K`](epics/EPIC-033_windows_workbench/incomplete/EPIC-033K_bots_mode.md) (the Bots mode) — stage 4 delivered, 2026-10-06**: [Decision: the mode is held to HLD §11.2 by tests, not by review: its menu and toolbar against §11.2.3 on the booted app (Refresh fills joined the table), its panels following the selection on the real bots graph, and the Grid backtest's figures as a read-out of raw values with the caveats as words. Open: the desktop E2E on a real display.]
+- **[`EPIC-033N`](epics/EPIC-033_windows_workbench/incomplete/EPIC-033N_uniform_display_widgets.md) (uniform display widgets) — 2026-10-06**: [Decision: a price, a quantity and money are in the platform's fixed-pitch font by their kind in the one table model every table is (`RowTableModel.data(FontRole)`), with a model's emphasis now a hook so it cannot replace that font; the Engine was not changed. The conformance suite now reads each column's alignment and font against its kind. The Bots tables are quoted in the selected bot's venue's filters (`FilterPrecisions`, moved from trading to `support/ui_kit`), and the trade journal is a read-out. Open: the Backtest report's and Data's own formatting, then the static ban.]
+
 - **`BOT-144` (400-line ceiling debt-paydown)**: [`data_management_presenter.py`
   slice landed — 964 → 671 lines (30%), all four `run_*` Coordinators (`Scan`/
   `Sync`/`Gap`/`ExportImport`) gained `request_*` orchestration methods using
