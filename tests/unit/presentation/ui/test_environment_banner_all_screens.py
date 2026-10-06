@@ -76,29 +76,30 @@ def test_every_screen_shows_the_environment_banner(
 def test_the_user_can_neither_move_nor_hide_the_banner(
     qapp, route, _environment_banner_factory_registered
 ) -> None:
-    """A warning the user can switch off stops working. The banner row was
-    locked in place but still listed in the toolbar menu every `QMainWindow`
-    offers on a right click, so one click hid it; a restart showed it again,
-    which is how the workbench's desktop E2E found it (`EPIC-033I`)."""
+    """A warning the user can switch off stops working. The banner row was a
+    toolbar: locked in place but still listed in the toolbar menu every
+    `QMainWindow` offers on a right click, so one click hid it (`BUG-154`),
+    and part of the saved layout, so a restart could move it (`BUG-157`). It
+    is the surface's menu widget, which no toolbar menu lists and no layout
+    holds."""
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     view = real_screen_registry(Mock()).get(route).view_factory()
     try:
         surface = view.findChild(WorkbenchSurface)
-        banners = [
+        banner = surface.findChild(QWidget, "environmentBanner")
+        assert banner is not None, f"{route}: no environment banner row"
+        assert surface.menuWidget() is banner
+        assert not [
             bar
             for bar in surface.findChildren(QToolBar)
-            if bar.objectName().endswith("::environment")
+            if bar.isAncestorOf(banner) or bar is banner
         ]
-        assert banners, f"{route}: no environment banner row"
         menu = surface.createPopupMenu()
-        actions = menu.actions() if menu else []
-        listed = [action.text() for action in actions if action.isVisible()]
-        for banner in banners:
-            assert (banner.isMovable(), banner.isFloatable()) == (False, False)
-            assert banner.toggleViewAction().text() not in listed, (
-                f"{route}: the right-click toolbar menu can hide the banner"
-            )
+        listed = [a.text() for a in menu.actions() if a.isVisible()] if menu else []
+        assert not any("nvironment" in text for text in listed), (
+            f"{route}: the right-click toolbar menu can hide the banner"
+        )
     finally:
         view.deleteLater()
         qapp.processEvents()

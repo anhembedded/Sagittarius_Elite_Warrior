@@ -1,5 +1,7 @@
 """`EnvironmentBanner` — the global "which venue am I in" banner every
-mode shows in the workbench host's top row (`EPIC-021K`).
+mode shows in the workbench host's top row (`EPIC-021K`), except for the
+calm "Trading is OFF" state, which the window title and the status bar say
+(`environment_banner_factory`, `BUG-156`).
 
 @details Content is computed once, at boot, from `VenueAlignment` — it
 never changes within a session (`EXCHANGE_MARKET_DATA_VENUE`/
@@ -21,10 +23,12 @@ from .environment_banner_content import (
     EnvironmentBannerContent,
     venue_alignment_banner_content,
 )
+from .environment_banner_factory import environment_banner_factory
 
 __all__ = [
     "BannerSeverity",
     "EnvironmentBanner",
     "EnvironmentBannerContent",
+    "environment_banner_factory",
     "venue_alignment_banner_content",
 ]

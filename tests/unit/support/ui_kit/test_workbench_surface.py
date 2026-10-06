@@ -275,6 +275,21 @@ class TestThePerspective:
         assert any("default layout" in record.message for record in caplog.records)
 
 
+#: What `saveState` answered for the "trading" surface when its banner row was
+#: a toolbar and the header stood ahead of it on the same line (`BUG-157`):
+#: the banner at 372 px, the header at 0. Kept as bytes because the build
+#: that wrote it is gone; a layout like it can still sit in a person's state.
+_LEGACY_LAYOUT_WITH_THE_BANNER_AS_A_TOOLBAR = bytes.fromhex(
+    "000000ff00000001fd00000000000003e8000002410000000400000004000000"
+    "0800000008fc0000000100000002000000020000003000730075007200660061"
+    "00630065003a003a00740072006100640069006e0067003a003a006800650061"
+    "0064006500720100000000ffffffff00000000000000000000003a0073007500"
+    "720066006100630065003a003a00740072006100640069006e0067003a003a00"
+    "65006e007600690072006f006e006d0065006e00740100000174ffffffff0000"
+    "000000000000"
+)
+
+
 class TestTheEnvironmentBanner:
     """`EPIC-021K`'s "which venue am I in" banner is the one thing every
     screen gets from its shell that is not a place. `PageShell` carries it for
@@ -285,9 +300,15 @@ class TestTheEnvironmentBanner:
     """
 
     def test_no_factory_means_no_banner_row(self, trading: WorkbenchSurface) -> None:
-        assert (
-            trading.findChild(QToolBar, f"{trading.objectName()}::environment") is None
-        )
+        assert trading.menuWidget() is None
+
+    def test_a_factory_answering_none_means_no_banner_row(self, qapp) -> None:
+        WorkbenchSurface.set_environment_banner_factory(lambda: None)
+        try:
+            host = WorkbenchSurface(surfaces_by_id()["trading"])
+        finally:
+            WorkbenchSurface.set_environment_banner_factory(None)
+        assert host.menuWidget() is None
 
     def test_a_registered_factory_puts_its_widget_in_the_top_row(self, qapp) -> None:
         WorkbenchSurface.set_environment_banner_factory(
@@ -300,12 +321,10 @@ class TestTheEnvironmentBanner:
 
         banner = host.findChild(QWidget, "environmentBanner")
         assert banner is not None
-        row = host.findChild(QToolBar, f"{host.objectName()}::environment")
-        assert row is not None
-        # A warning the user can drag into a corner is a warning that stops
-        # working.
-        assert row.isMovable() is False
-        assert row.isFloatable() is False
+        # The window's menu-widget slot: no toolbar, so nothing to drag into a
+        # corner, float, hide from the toolbar menu or save in a layout.
+        assert host.menuWidget() is banner
+        assert host.findChildren(QToolBar) == []
 
     def test_the_banner_sits_above_the_header(self, qapp) -> None:
         WorkbenchSurface.set_environment_banner_factory(
@@ -316,10 +335,42 @@ class TestTheEnvironmentBanner:
         finally:
             WorkbenchSurface.set_environment_banner_factory(None)
         host.place_widget(Place.HEADER, QLabel("actions"))
+        host.resize(800, 400)
+        host.show()
+        qapp.processEvents()
 
         header = host.findChild(QToolBar, f"{host.objectName()}::header")
+        banner = host.findChild(QWidget, "environmentBanner")
         assert header is not None
-        assert host.toolBarBreak(header) is True
+        assert banner.geometry().bottom() < header.geometry().top()
+
+    def test_a_restored_layout_never_moves_the_banner(self, qapp) -> None:
+        """`BUG-157`: the banner was a `QToolBar`, so it was part of the layout
+        `saveState` keeps and `restoreState` applies. A saved layout that had
+        the header ahead of it on its line put the banner at the header's
+        width from the left edge, with the header's row beside it, every start
+        after (the user's Backtest mode, 2026-10-06). The banner is no part of
+        a layout: it spans the full width above everything."""
+        WorkbenchSurface.set_environment_banner_factory(
+            lambda: _named(QLabel("TESTNET"), "environmentBanner")
+        )
+        try:
+            host = WorkbenchSurface(surfaces_by_id()["trading"])
+        finally:
+            WorkbenchSurface.set_environment_banner_factory(None)
+        host.place_widget(Place.HEADER, QLabel("actions " * 8))
+        host.place_widget(Place.WORKSPACE, QLabel("centre"))
+
+        host.restore_perspective(_LEGACY_LAYOUT_WITH_THE_BANNER_AS_A_TOOLBAR)
+        host.resize(1000, 600)
+        host.show()
+        qapp.processEvents()
+
+        banner = host.findChild(QWidget, "environmentBanner")
+        assert banner is not None
+        left = banner.mapTo(host, banner.rect().topLeft()).x()
+        assert left == 0, f"the banner starts {left}px from the left edge"
+        assert banner.width() == host.width()
 
 
 class TestDockOf:

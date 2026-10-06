@@ -145,7 +145,7 @@ def rearrange(page: QWidget) -> dict[str, str]:
     hosts = _hosts(page)
     for host in hosts:
         bars = sorted(
-            (bar for bar in _managed_bars(host) if _user_arranges(bar)),
+            _managed_bars(host),
             key=lambda bar: bar.objectName(),
         )
         for index, bar in enumerate(bars):
@@ -160,14 +160,6 @@ def rearrange(page: QWidget) -> dict[str, str]:
             bar.setVisible(index % 2 == 1)
     QApplication.processEvents()
     return _layout(hosts)
-
-
-def _user_arranges(bar: QDockWidget | QToolBar) -> bool:
-    """Whether a user can move or hide this bar at all: a bar locked in place
-    whose toggle is off the right-click menu (the environment banner) stays
-    where the app put it, so rearranging it would test what no user does."""
-    locked = isinstance(bar, QToolBar) and not bar.isMovable()
-    return not (locked and not bar.toggleViewAction().isVisible())
 
 
 def restart_problems(closed_with: dict[str, str], page: QWidget) -> list[str]:
