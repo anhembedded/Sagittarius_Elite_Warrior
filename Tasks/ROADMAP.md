@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 182 | 83.9% |
+| 🟢 **Completed** | 182 | 83.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 27 | 12.4% |
+| 🔴 **Backlog** | 28 | 12.8% |
 | ❌ **Cancelled** | 8 | 3.7% |
-| 📈 **Tổng số Task** | **217** | **100%** |
+| 📈 **Tổng số Task** | **218** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -505,6 +505,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-161](backlog/BOT-161_one_table_of_series_colours.md)** | **Every data series colour comes from one table, and the domain names no colour** | 🟡 **`M (Standard)`** | — | *(added 06/10, EPIC-033M)* The last stock-controls ratchet, `color_literal`: about 34 hex strings of indicator lines, strategy markers and the chart's bull and bear, two files of them in `strategy/domain`. One table, then the guard is a ban outright. |
+| **P3** | **[BOT-162](backlog/BOT-162_backtest_texts_follow_the_display_time_zone.md)** | **The Backtest mode's texts show times in the display time zone the person picked** | 🟢 **`S (Fast Agent)`** | EPIC-033N (PR #389) | *(added 06/10, PR #389 review)* The event log, run-history label, config diff, coverage message and imported-report banner write UTC while the trades table and chart follow the chosen zone. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |
