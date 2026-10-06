@@ -19,6 +19,7 @@ import ast
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
+    IHiddenAsMode,
     IShownAsMode,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
@@ -31,7 +32,7 @@ _METHOD = "on_mode_shown"
 
 
 #: Every port the window dispatches a presenter on with `isinstance`.
-_PRESENTER_PORTS: tuple[type, ...] = (IShownAsMode, CommandPresenter)
+_PRESENTER_PORTS: tuple[type, ...] = (IShownAsMode, IHiddenAsMode, CommandPresenter)
 
 
 def _declared(port: type) -> frozenset[str]:
@@ -71,6 +72,7 @@ def _called_on_presenters() -> frozenset[str]:
 
 def test_the_ports_declare_exactly_what_the_window_calls() -> None:
     assert _declared(IShownAsMode) == {_METHOD}
+    assert _declared(IHiddenAsMode) == {"on_mode_hidden"}
     assert _called_on_presenters() == frozenset().union(
         *(_declared(port) for port in _PRESENTER_PORTS)
     )

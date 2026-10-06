@@ -20,8 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands imp
     SHOW_FUTURES,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
-    WATCHLIST_STREAM_OWNER,
     MarketPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_stream import (
+    WATCHLIST_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.tests.integration.modules.trading.ui.market_mode_fixtures import (
     market_mode,

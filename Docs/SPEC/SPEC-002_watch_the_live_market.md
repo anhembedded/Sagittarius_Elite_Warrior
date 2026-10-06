@@ -7,7 +7,7 @@
   reports that shaped it.
 - **Surfaces:** the Market mode (`EPIC-033H`): its Watchlist panel tracks several symbols under
   one `IMarketStream` owner, and each open chart tab streams its own symbol under its own owner,
-  live from the user's own open of the mode until the tab or the app closes; View → Spot market or
+  live from the user's own open of the mode until the tab or the app closes, except the Watchlist's, which also stops when another mode takes the window and starts again on the return (`BOT-165`); View → Spot market or
   Futures market picks the market every one of them shows (`EPIC-033Q`), and View → Load older
   candles or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
   Back to live draws its newest window again and follows the stream (`EPIC-033T`) · a desk's
@@ -57,6 +57,10 @@
   loaded on request join the drawn ones with no gap and no duplicate. A chosen range shows exactly
   the candles that open in it and draws no live candle after it, which would land past a gap the
   range does not show; the next timeframe the actor picks follows the stream again.
+- Leaving the Market mode releases the Watchlist's own owner and nothing else: another owner
+  streaming the same symbol (a bot, an armed strategy, a chart) keeps its stream. Coming back
+  to the mode starts the Watchlist again on the market then chosen; a restore at launch still
+  starts nothing (`BUG-104`), because only a user's open makes the mode live in the first place.
 - A stop that the actor asked for never leaves a socket open, and never publishes a candle
   afterwards into the screen that asked to stop.
 - A failed start says so. The old shape of this call read `getattr(response, "success", True)`,
@@ -107,6 +111,7 @@ consumer-facing port.
 | A transport error mid-stream reconnects, and the next candle still arrives | `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py` | unit |
 | The stream's state reaches the actor in words, in the status bar | `tests/unit/modules/trading/ui/market/test_market_view.py` | unit |
 | In the booted app, the Market mode starts its Watchlist stream on the user's open and never on a restore | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
+| Leaving the Market mode stops the Watchlist owner only and returning starts it again, in the composed window, with another owner's stream of the same symbol surviving | `tests/integration/presentation/ui/test_main_window_state.py`, `tests/unit/modules/trading/ui/market/test_market_presenter_hidden.py` | integration, unit |
 | A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |

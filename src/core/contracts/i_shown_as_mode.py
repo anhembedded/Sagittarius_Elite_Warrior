@@ -11,10 +11,11 @@ A `Protocol`: the implementers are presenters, `QObject`s, and Shiboken
 forbids a second `QObject`-derived base and conflicts with `ABCMeta`
 (`architecture-rule.md` §2.1, reason (a)).
 
-Plausible extensions, each a local change: a `on_mode_hidden()` to pause a
-stream while another mode shows (a second method here and one call in the
-shell); a mode that refuses to be left (`can_leave`, already a seam on the
-Engine's `ShellMode`).
+`IHiddenAsMode` is the other half (`BOT-165`): told when another mode takes
+the window, so a mode can release what only its showing needs (a stream).
+
+Plausible extension, a local change: a mode that refuses to be left
+(`can_leave`, already a seam on the Engine's `ShellMode`).
 """
 
 from __future__ import annotations
@@ -31,3 +32,10 @@ class IShownAsMode(Protocol):
     """Told each time its mode becomes the showing one."""
 
     def on_mode_shown(self, source: NavigationSource) -> None: ...
+
+
+@runtime_checkable
+class IHiddenAsMode(Protocol):
+    """Told each time another mode replaces its own as the showing one."""
+
+    def on_mode_hidden(self) -> None: ...

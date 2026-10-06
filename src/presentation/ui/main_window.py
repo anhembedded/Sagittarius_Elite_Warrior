@@ -50,6 +50,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
+    IHiddenAsMode,
     IShownAsMode,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
@@ -171,6 +172,7 @@ class MainWindow(OptionsShell):
         self._perspectives = ModePerspectives()
         self._pending_source: ShellNavigationSource | None = None
         self._last_source: ShellNavigationSource | None = None
+        self._announced_mode: str | None = None
         self._restored_mode = False
         self._is_shut_down = False
 
@@ -300,6 +302,7 @@ class MainWindow(OptionsShell):
 
     def _announce(self, mode_id: str, source: ShellNavigationSource) -> None:
         self._last_source = source
+        self._hide_previous(mode_id)
         presenter = self._presenters[mode_id]
         logger.info("Mode %r shown (%s)", mode_id, source.name)
         channel_id = self._output_channels.get(mode_id)
@@ -308,6 +311,15 @@ class MainWindow(OptionsShell):
         if isinstance(presenter, IShownAsMode):
             presenter.on_mode_shown(from_shell_source(source))
         self._mark_dirty()
+
+    def _hide_previous(self, mode_id: str) -> None:
+        """Tells the mode being left it is hidden (`BOT-165`)."""
+        previous, self._announced_mode = self._announced_mode, mode_id
+        if previous is None or previous == mode_id:
+            return
+        presenter = self._presenters[previous]
+        if isinstance(presenter, IHiddenAsMode):
+            presenter.on_mode_hidden()
 
     # -- closing ---------------------------------------------------------------
 

@@ -20,8 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands imp
     CLOSE_CHART,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
-    WATCHLIST_STREAM_OWNER,
     MarketPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.watchlist_stream import (
+    WATCHLIST_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_script import (
     Ema20Script,
