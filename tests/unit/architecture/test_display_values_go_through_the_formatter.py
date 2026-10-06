@@ -44,9 +44,10 @@ _UI_PREFIXES = (
 #: has its own formatters (`order_preview_formatter.py`, ...).
 _NOT_UI = ("src/presentation/cli/",)
 
-#: A format spec that writes a number: grouping, a precision, or a float,
-#: exponent or percent presentation type.
-_NUMERIC_SPEC = re.compile(r"[,_]|\.\d|[eEfFgG%]$")
+#: A format spec that writes a number or a time: grouping, a precision, a
+#: float, exponent or percent presentation type, or a `%` directive of a
+#: `datetime` spec anywhere in it (`{when:%Y-%m-%d %H:%M}`, review of PR #389).
+_NUMERIC_SPEC = re.compile(r"[,_%]|\.\d|[eEfFgG]$")
 
 _LOGGING_CALLS = frozenset(
     {"trace", "debug", "info", "warning", "error", "exception", "critical", "log"}
@@ -58,7 +59,7 @@ EXEMPT: dict[str, str] = {
     "src/support/ui_kit/services/display_timezone_service.py": (
         "the formatter's timestamp backend (format_display_datetime)"
     ),
-    "src/support/ui_kit/time_range_picker/range_rules.py": (
+    "src/support/ui_kit/time_range_picker/instant_text.py": (
         "format_instant/parse_instant: an editable field's text, read back"
     ),
     "src/support/ui_kit/time_range_picker/dialog.py": (
@@ -178,9 +179,9 @@ def test_every_exemption_names_a_ui_file_that_still_formats() -> None:
 def test_each_display_formatting_is_seen() -> None:
     source = (
         "a = f'{price:,.2f}'\nb = f'{pct:.1%}'\nc = f'{size:g}'\n"
-        "d = f'{n:,}'\ne = moment.strftime('%H:%M')\n"
+        "d = f'{n:,}'\ne = moment.strftime('%H:%M')\nf = f'{when:%Y-%m-%d %H:%M}'\n"
     )
-    assert len(display_formatting(source)) == 5
+    assert len(display_formatting(source)) == 6
 
 
 def test_a_log_line_and_plain_text_are_not_display_formatting() -> None:

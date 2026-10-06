@@ -19,6 +19,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
     BacktestExecutionMode,
     BacktestRunConfig,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: Same join convention `performance_metrics_view.build_result_warning_text()`
 #: already uses for a multi-note single-line warning.
@@ -50,7 +52,7 @@ def build_imported_report_banner_text(path: str, report: BacktestReport) -> str:
     `suggest_report_filename()`."""
     return (
         f"Viewing imported report — {os.path.basename(path)}, run on "
-        f"{report.provenance.created_at:%Y-%m-%d %H:%M}."
+        f"{write_value(ColumnKind.TIMESTAMP, report.provenance.created_at)}."
     )
 
 

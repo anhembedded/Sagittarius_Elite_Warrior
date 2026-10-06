@@ -15,10 +15,12 @@ of the dialog is what lets it be tested with no Qt event loop at all.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker.instant_text import (
+    parse_instant,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
@@ -75,19 +77,6 @@ _NEEDS_END = "Select an end date"
 #: span to `0 days`, which read as a legitimate single-instant range.
 _INVERTED = "The end is before the start"
 _SECONDS_PER_DAY = 86400
-
-
-def parse_instant(raw: str) -> datetime | None:
-    """A host's text as an instant, or `None` when it is not one."""
-    try:
-        return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(tzinfo=UTC)
-    except (ValueError, AttributeError):
-        return None
-
-
-def format_instant(value: datetime | None) -> str:
-    """The text a host stores. `None` is the empty string — "no limit"."""
-    return value.strftime(DATETIME_FORMAT) if value else ""
 
 
 def resolve_preset(
