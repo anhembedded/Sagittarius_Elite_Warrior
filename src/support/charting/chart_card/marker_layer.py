@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QGraphicsPathItem,
     QGraphicsSimpleTextItem,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from .marker_lod import (
     DisplayMarker,
@@ -95,9 +97,11 @@ class TriangleMarkerItem(QGraphicsPathItem):
 
         self.setPos(x, y)
         if text:
-            self.setToolTip(f"{text} @ {y:,.2f}" if y else text)
+            self.setToolTip(
+                f"{text} @ {write_value(ColumnKind.PRICE, y)}" if y else text
+            )
         else:
-            self.setToolTip(f"{y:,.2f}")
+            self.setToolTip(write_value(ColumnKind.PRICE, y))
 
         self._configure_badge(badge_text, direction)
         self._price_dot_item.setVisible(show_price_dot)

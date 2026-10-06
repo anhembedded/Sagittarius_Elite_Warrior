@@ -4,6 +4,8 @@ import pyqtgraph as pg
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.info_field import (
     InfoField,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
@@ -172,7 +174,9 @@ class IndicatorManager:
         self._data_revisions[name] = self._data_revisions.get(name, 0) + 1
         self._apply_window(name)
         if y_data:
-            self._legend_labels[name].setText(f"{name}: {y_data[-1]:.4f}")
+            self._legend_labels[name].setText(
+                f"{name}: {write_value(ColumnKind.PRICE, y_data[-1])}"
+            )
 
     def refresh_window(self, min_x: float, max_x: float) -> None:
         """

@@ -19,6 +19,8 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: How far back a seed range reaches when the host has nothing usable to offer.
 FALLBACK_DAYS = 7
@@ -193,6 +195,8 @@ def build_summary(
     seconds = max(int(timeframe_seconds), 1)
     candles = int(days * _SECONDS_PER_DAY / seconds)
     return (
-        f"{days} days · {start.date()} → {end.date()}"
-        f"   ≈ {candles:,} candles {timeframe_label}"
+        f"{write_value(ColumnKind.QUANTITY, days)} days"
+        f" · {write_value(ColumnKind.TIMESTAMP, start)}"
+        f" → {write_value(ColumnKind.TIMESTAMP, end)}"
+        f"   ≈ {write_value(ColumnKind.QUANTITY, candles)} candles {timeframe_label}"
     )

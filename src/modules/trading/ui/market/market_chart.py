@@ -59,6 +59,8 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .chart_history import ChartHistory, HistoryRange, RangeCandles
@@ -299,7 +301,8 @@ class MarketChart(LiveCandleChart):
         if not found.candles:
             self.logged.emit(
                 f"No candles of {self.shown_symbol} are stored from "
-                f"{span.start:%Y-%m-%d %H:%M} to {span.end:%Y-%m-%d %H:%M} UTC."
+                f"{write_value(ColumnKind.TIMESTAMP, span.start)} to "
+                f"{write_value(ColumnKind.TIMESTAMP, span.end)} UTC."
             )
             return
         self._drawing_range = True
@@ -314,8 +317,10 @@ class MarketChart(LiveCandleChart):
             found.cut,
         )
         text = (
-            f"Showing {len(found.candles)} candles of {self.shown_symbol} from "
-            f"{span.start:%Y-%m-%d %H:%M} to {span.end:%Y-%m-%d %H:%M} UTC."
+            f"Showing {write_value(ColumnKind.QUANTITY, len(found.candles))} "
+            f"candles of {self.shown_symbol} from "
+            f"{write_value(ColumnKind.TIMESTAMP, span.start)} to "
+            f"{write_value(ColumnKind.TIMESTAMP, span.end)} UTC."
         )
         if found.cut:
             text += " The range holds more; these are its newest."

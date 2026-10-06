@@ -1,10 +1,18 @@
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
-    format_display_timestamp,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    AppValueFormatter,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    FormatContext,
 )
 
 from .chart_chrome import ChartChrome
@@ -36,7 +44,7 @@ class CrosshairController:
         self._chrome = chrome
         self._on_readout = on_readout
         self._ohlc_lookup = ohlc_lookup
-        self._display_timezone: str = DEFAULT_TIMEZONE
+        self._formatter = AppValueFormatter(DEFAULT_TIMEZONE)
         self._primary_plot: pg.PlotItem | None = None
         self._plots: list[pg.PlotItem] = []
         self._v_lines: list[pg.InfiniteLine] = []
@@ -55,7 +63,7 @@ class CrosshairController:
 
     def set_display_timezone(self, tz_name: str) -> None:
         """Sets the display timezone used for timestamps."""
-        self._display_timezone = tz_name
+        self._formatter = AppValueFormatter(tz_name)
 
     def register_plot(self, plot: pg.PlotItem, is_primary: bool = False) -> None:
         """Attaches a hidden crosshair line pair to a plot (main or subplot)."""
@@ -174,7 +182,7 @@ class CrosshairController:
 
             # Show Y label on the left edge (x_min)
             self._y_labels[i].setPos(x_min, y_val)
-            y_html = f"<div style='font-size: 11px;'>{y_val:.4f}</div>"
+            y_html = f"<div style='font-size: 11px;'>{write_value(ColumnKind.PRICE, y_val)}</div>"
             if self._last_y_label_html[i] != y_html:
                 self._y_labels[i].setHtml(y_html)
                 self._last_y_label_html[i] = y_html
@@ -189,7 +197,7 @@ class CrosshairController:
             if self._plots:
                 bottom_plot = self._plots[-1]
                 bottom_y_min = bottom_plot.vb.viewRange()[1][0]
-                dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
+                dt_str = self._time_text(x_val)
 
                 x_label = self._x_labels[-1]
                 x_label.setPos(x_val, bottom_y_min)
@@ -216,17 +224,34 @@ class CrosshairController:
             self._set_info_text("")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
-        dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
-        self._set_info_text(f"Time: {dt_str}   Value: {y_val:.4f}")
+        self._set_info_text(
+            f"Time: {self._time_text(x_val)}"
+            f"   Value: {write_value(ColumnKind.PRICE, y_val)}"
+        )
 
     def _update_ohlc_label(self, candle: OhlcCandle) -> None:
-        """The change carries its sign, so it never depends on colour alone."""
+        """The change is the formatter's percent: a loss carries its minus, so
+        the direction never depends on colour alone."""
         t, o, h, low, c = candle
         change_pct = ((c - o) / o * 100.0) if o else 0.0
-        dt_str = format_display_timestamp(t, tz_name=self._display_timezone)
         self._set_info_text(
-            f"{dt_str}   O {o:.4f}   H {h:.4f}   L {low:.4f}   C {c:.4f}"
-            f"   ({change_pct:+.2f}%)"
+            f"{self._time_text(t)}"
+            f"   O {write_value(ColumnKind.PRICE, o)}"
+            f"   H {write_value(ColumnKind.PRICE, h)}"
+            f"   L {write_value(ColumnKind.PRICE, low)}"
+            f"   C {write_value(ColumnKind.PRICE, c)}"
+            f"   ({write_value(ColumnKind.PERCENT, change_pct)})"
+        )
+
+    def _time_text(self, timestamp: float) -> str:
+        """A UNIX time in seconds as the formatter writes a timestamp, in this
+        chart's display time zone; empty for one no datetime can hold."""
+        try:
+            moment = datetime.fromtimestamp(timestamp, tz=UTC)
+        except (OSError, ValueError, OverflowError):
+            return ""
+        return self._formatter.format(
+            ColumnKind.TIMESTAMP, moment, FormatContext(ColumnKind.TIMESTAMP.value)
         )
 
     def _set_info_text(self, text: str) -> None:
