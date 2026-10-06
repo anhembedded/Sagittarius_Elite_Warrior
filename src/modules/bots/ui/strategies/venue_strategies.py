@@ -124,8 +124,20 @@ class _Venue:
         return self.controls.armed.armed().config
 
     def row(self) -> StrategyRow:
-        summary = self.coordinator.armed_summary(self.armed())
-        return StrategyRow(self.controls.venue, summary, self.busy)
+        armed = self.armed()
+        summary = self.coordinator.armed_summary(armed)
+        return StrategyRow(
+            self.controls.venue, summary, self.busy, self._saved_summary(armed)
+        )
+
+    def _saved_summary(self, armed: ArmedStrategyConfig | None) -> str:
+        """`BOT-166`: what the last session armed, shown while nothing is."""
+        if armed is not None:
+            return ""
+        saved = self.controls.arming.saved_selection()
+        if not (saved.strategy_key and saved.symbol and saved.interval):
+            return ""
+        return self.coordinator.armed_summary(saved)
 
     def fill_form(self, symbol_options: Sequence[str]) -> None:
         """The saved arming's choices, freshly, and nothing armed by it."""
@@ -236,6 +248,10 @@ class VenueStrategies(QObject):
 
     # -- what the rows show --------------------------------------------- #
 
+    def rows(self) -> tuple[StrategyRow, ...]:
+        """One row per venue, as the panel shows them."""
+        return tuple(venue.row() for venue in self._venues.values())
+
     @property
     def subscriptions(self) -> tuple[tuple[type, Callable[..., None]], ...]:
         """What the presenter subscribes, for its lifetime (`self.subscribe`)."""
@@ -255,5 +271,5 @@ class VenueStrategies(QObject):
             self.refresh()
 
     def refresh(self) -> None:
-        self._panel.show_rows(tuple(venue.row() for venue in self._venues.values()))
+        self._panel.show_rows(self.rows())
         self.commands_changed.emit()

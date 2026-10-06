@@ -78,6 +78,13 @@ holds before it does."*
   be released by an Emergency Stop, exactly when an open position most needs the strategy that
   planned its exit to still own the symbol.
 - It does not stay on. Closing the app turns it off, because this state is never persisted.
+- **A start never arms a strategy** (`BOT-166`, the owner's decision of 2026-10-06). The
+  configuration last armed on a venue is saved and restored at start — symbol, interval, sizing,
+  leverage, parameters — but only as a selection: the Bots mode lists the venue as *Not armed*
+  with the saved selection beside it, and Bots → Arm strategy… opens pre-filled with it, so
+  re-arming is one action the user confirms in that session. Until then no tick reaches a
+  strategy engine. This is not the adoption of a journaled position (`EPIC-026H`, ADR `O2`):
+  that happens on enable, concerns exchange state, and never starts a strategy.
 - It does not promise the reconciled picture stays true. It is a snapshot at enable time; the
   account can change underneath, and the app's `known_open_symbols` is deliberately conservative
   — a symbol is marked open the moment an order for it is *sent*, before any fill confirmation,
@@ -103,5 +110,6 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | One venue's session never moves the other's | `tests/unit/modules/trading/application/test_venue_isolation.py` | unit |
 | The toggle turns on the chosen venue only and puts its chart live | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py`, `tests/unit/modules/trading/ui/trade/test_trade_presenter.py` | unit |
 | The toggle's async ownership: one action at a time, stale results fenced, never superseding an Emergency Stop | `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |
+| A start restores a saved strategy as not armed, shows its saved settings, arms it with them on one Arm action, and no tick reaches an engine before | `tests/integration/presentation/ui/test_saved_strategy_restores_disarmed.py`, `tests/unit/modules/strategy/test_module_restores_each_venues_strategy.py` | integration, unit |
 | The Options page refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
 | Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, choose Futures in the Trade mode, click Enable live trading and confirm the reconciled positions shown match the Testnet web UI | human |

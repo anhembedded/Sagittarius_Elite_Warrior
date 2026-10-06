@@ -145,8 +145,8 @@ class LiveStrategyConfigStore:
         @raises ValueError If the saved values break `LiveStrategyConfig`'s
         own invariants (a leverage of 0, an interval live trading does not
         support). Deliberately propagated rather than corrected here: the
-        two callers want different recoveries — boot logs it and starts
-        disarmed, the screen shows it as a refusal — and a store that
+        callers want different recoveries — the saved-selection port restores
+        "nothing selected", an arm shows it as a refusal — and a store that
         quietly substituted a "safe" value would hide a config the user
         believes is in effect.
         """

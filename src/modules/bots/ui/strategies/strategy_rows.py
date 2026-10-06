@@ -57,6 +57,9 @@ class StrategyRow:
     summary: str
     #: An arm or a disarm of this venue is in flight.
     busy: bool = False
+    #: The selection saved from an earlier session, in words, while nothing
+    #: is armed (`BOT-166`); `""` when none is saved or the venue is armed.
+    saved: str = ""
 
     @property
     def armed(self) -> bool:
@@ -76,7 +79,7 @@ class StrategyRowsModel(RowTableModel[StrategyRow]):
         values: tuple[DisplayValue, ...] = (
             VENUE_TITLES.get(row.venue, row.venue.value),
             ARMED_TEXT if row.armed else NOT_ARMED_TEXT,
-            row.summary or "—",
+            row.summary or (f"Saved, not armed: {row.saved}" if row.saved else "—"),
         )
         return values[column]
 
