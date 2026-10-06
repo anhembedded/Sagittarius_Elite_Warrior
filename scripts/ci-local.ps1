@@ -122,6 +122,12 @@ function Write-Failure {
 #: Matches the `logger - LEVEL - message` shape a real log line has, NOT bare
 #: words: pytest's own output says things like "warnings summary" and "ERROR"
 #: for collection errors, which are not application log records.
+#:
+#: Also matches Python's own `gc: N uncollectable objects at shutdown` line
+#: (`BUG-152`): a `ResourceWarning` printed at interpreter exit, after every
+#: test passed, so no test can fail on it. It printed on every run until
+#: `BUG-152` removed the last `QtCore.Property` class the app loaded, and the
+#: gate now fails on it rather than leaving it to a reader's grep.
 function Invoke-RunLogScan {
     param([string]$LogFile, [string]$Label)
 
@@ -130,9 +136,9 @@ function Invoke-RunLogScan {
         return $false
     }
 
-    $hits = Select-String -Path $LogFile -Pattern '- (WARNING|ERROR|CRITICAL) -'
+    $hits = Select-String -Path $LogFile -Pattern '- (WARNING|ERROR|CRITICAL) -|uncollectable objects at shutdown'
     if (-not $hits -or $hits.Count -eq 0) {
-        Write-Host "  ✅  $Label — no WARNING/ERROR/CRITICAL log records" -ForegroundColor Green
+        Write-Host "  ✅  $Label — no WARNING/ERROR/CRITICAL log records, nothing uncollectable" -ForegroundColor Green
         return $false
     }
 
@@ -143,6 +149,10 @@ function Invoke-RunLogScan {
         if ($ofLevel.Count -gt 0) {
             Write-Host "     $level : $($ofLevel.Count)" -ForegroundColor Yellow
         }
+    }
+    $uncollectable = $hits | Where-Object { $_.Line -match 'uncollectable objects at shutdown' }
+    if ($uncollectable.Count -gt 0) {
+        Write-Host "     uncollectable at shutdown : $($uncollectable.Count) (BUG-152)" -ForegroundColor Yellow
     }
     Write-Host ""
     # Distinct messages only — one real defect usually logs the same line on
@@ -584,7 +594,7 @@ if (-not $SkipTests) {
     # was clean. BUG-021/BUG-022 both passed every test while logging the
     # real defect on every single bar.
     # -----------------------------------------------------------------------
-    Write-Step "Run Log Scan (WARNING / ERROR / CRITICAL)"
+    Write-Step "Run Log Scan (WARNING / ERROR / CRITICAL / uncollectable)"
     $hasLogProblems = Invoke-RunLogScan -LogFile $runLogFile -Label "Run log"
     if ($hasLogProblems) {
         if ($AllowLogWarnings) {

@@ -2,8 +2,8 @@
 
 - **Reported:** 2026-10-06 (the CI timing measurement for the user, reading the green `ci-local.ps1 -Full` run of PR #372)
 - **Severity:** 🟢 P3 — no test fails, but `ci-rule.md` §1's prescribed grep for `ResourceWarning` matches on every green run, so the grep can no longer tell a new leak from this one
-- **Status:** Open
-- **Context:** The sanity tier's process (`tests/sanity/`) → interpreter shutdown → objects the garbage collector cannot free; owning module Not yet established
+- **Status:** ✅ Fixed (2026-10-06)
+- **Context:** The sanity tier's process (`tests/sanity/`) → interpreter shutdown → objects the garbage collector cannot free; owning classes: `QObject` classes with a `QtCore.Property`, last the Engine's `CardModel` and `BaseQmlViewModel`
 - **Environment:** GitHub Actions `ubuntu-24.04`, Python 3.12.14, run 37409274117 (job 112093859516) on `3e78162`; the same line in a local sanity run in the cloud container on the same day.
 
 ## Reproduction
@@ -50,20 +50,30 @@ Importing only `sagittarius_engine.extensions.pyside_mvc.kit.card_model` in a ba
 These Properties are QML-era leftovers: `src/` contains no `.qml` any more.
 
 ## Fix
-Not finished. `EPIC-033M` (2026-10-06) removed every `QtCore.Property` from `src/`, but the sanity run still ends with `gc: 5 uncollectable objects at shutdown`. The two classes with a `Property` alive at exit are both the Engine's: `sagittarius_engine.extensions.pyside_mvc.kit.card_model.CardModel` and `...runtime.base_view_model.BaseQmlViewModel` (found by scanning every loaded `QObject` subclass at the end of the sanity run). Importing any module of `sagittarius_engine.extensions.pyside_mvc` loads both, because the package's `__init__` imports its QML layer (`from .kit import ...`); and three app view models still subclass `BaseQmlViewModel` (`BackTestViewModel`, `DataManagementViewModel`, `StatusMessageViewModel`).
+Three steps, at the mechanism: no class the app loads declares a `QtCore.Property`.
 
-Next, by the user's decision (2026-10-06, "Ngay sau 033M"):
-1. Engine: `pyside_mvc` loads its QML layer (`kit`, `BaseQmlViewModel`, `QmlHostView`) only when used, not at package import.
-2. App: the three view models subclass `QObject` with plain properties and their own `uiModeChanged`/`controlsEnabled`, and `engine.ref` moves to the Engine change.
-3. Then the gate's run-log scan fails on `uncollectable objects at shutdown`, so the prescribed `ResourceWarning` grep means something again.
+1. **`EPIC-033M` (PR #383):** removed every `QtCore.Property` from `src/`.
+2. **Engine `BUG-023` (Engine PR #235):** `pyside_mvc`, its `runtime` and its `kit` load the QML layer on first use, through a module `__getattr__`, not at package import. Importing any `pyside_mvc` module no longer brings `CardModel` and `BaseQmlViewModel` with it.
+3. **This repository:**
+   - **The view models:** `BackTestViewModel` and `DataManagementViewModel` now subclass `src/support/ui_kit/ui_mode_view_model.py` `UiModeViewModel`. It is the same `uiMode`, `controlsEnabled`, `set_ui_mode` and `DISABLED_UI_MODES` contract, as plain Python properties with the two change signals. `StatusMessageViewModel` is a plain `QObject`; it inherited the two Properties and used neither.
+   - **The capability check:** the Engine capability check stops requiring `create_quick_widget(background=...)` (`src/infrastructure/engine_adapters/engine_capabilities.py`). The app builds no QML widget since `EPIC-033M`, and looking the symbol up loaded the Engine's QML layer, `CardModel` included, at every boot. That boot-time lookup was the last source of the 5 objects.
+   - **The pin:** `engine.ref` moves to `31a523e`, which carries Engine #235.
+   - **The gate:** the run-log scan (`scripts/ci-local.ps1` `Invoke-RunLogScan`) now also matches `uncollectable objects at shutdown`. The line prints at interpreter exit, after every test passed, so the gate is the only place that can fail on it.
+   - **Thread-affinity sanity test:** `test_view_model_thread_affinity_sanity.py` discovers view models from the app's two bases instead of `BaseQmlViewModel`.
 
 ## Regression test
-Not written: the fix is the deletion of the leak's source (`EPIC-033M` criterion (c) is its check, a sanity log with no uncollectable line).
+`tests/sanity/test_shutdown_leaves_nothing_uncollectable.py`, three tests:
+- `test_no_src_module_loads_a_qobject_class_with_a_qt_property` runs a fresh interpreter, imports every module under `src/`, and fails on any loaded `QObject` class with a Property, or on the Engine's QML layer being loaded. It checks the mechanism; the warning's absence alone depends on module teardown order.
+- `test_importing_the_view_models_exits_without_uncollectable_objects` runs a fresh interpreter that imports the three view models, and fails on the warning line.
+- `test_the_booted_app_loads_no_qobject_class_with_a_qt_property` makes the same scan after the real boot (`booted_app`). Boot runs code an import does not, such as the capability check.
+
+**Before**, with Engine `31a523e` installed:
+- the `src` scan was red, listing the seven app view models on `BaseQmlViewModel`, the class itself and its module;
+- the import test was red with `gc: 2 uncollectable objects at shutdown`;
+- the boot scan was red with `kit.card_model.CardModel`, after the view models were already fixed.
+
+**After:** all three are green.
 
 ## Verification
-Not run.
-
-## Suggested next steps
-- Run the sanity tier with `gc.set_debug(gc.DEBUG_UNCOLLECTABLE)` to list the five objects and their types.
-- Decide which test or fixture leaves them: bisect the 38 sanity tests.
-- Once it is fixed, the gate's log scan could fail on this line, so the prescribed grep regains its meaning.
+- Sanity tier: 40 passed. Grepping its output for `uncollectable` finds 0 lines, with and without `-W default`. Before the fix it printed `gc: 5 uncollectable objects at shutdown` on every run.
+- Gate scan, probed by sourcing `Invoke-RunLogScan` in `pwsh`: a log holding the `gc:` line returns a hit labelled `uncollectable at shutdown : 1 (BUG-152)`, and a clean log returns none.
