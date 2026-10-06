@@ -52,8 +52,21 @@ def chart_command_actions(card: ChartCard) -> dict[str, QAction]:
 
 
 class _CommandState(QObject):
+    """One command's shown state, and the receiver of its followed action's
+    `destroyed`: a child of the mirror, so Qt drops that connection when the
+    mirror goes first (review of PR #372)."""
+
     checked = Signal(bool)
     enabled = Signal(bool)
+    #: The followed action went with its chart; carries the command's key.
+    actionGone = Signal(str)
+
+    def __init__(self, key: str, parent: QObject) -> None:
+        super().__init__(parent)
+        self._key = key
+
+    def on_action_destroyed(self, _gone: QObject | None = None) -> None:
+        self.actionGone.emit(self._key)
 
 
 class ChartCommandMirror(QObject):
@@ -62,7 +75,9 @@ class ChartCommandMirror(QObject):
     def __init__(self, prefix: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._prefix = prefix
-        self._states = {key: _CommandState(self) for key in chart_command_keys()}
+        self._states = {key: _CommandState(key, self) for key in chart_command_keys()}
+        for state in self._states.values():
+            state.actionGone.connect(self._forget)
         self._actions: dict[str, QAction] = {}
         self._connections: list[QMetaObject.Connection] = []
 
@@ -93,14 +108,14 @@ class ChartCommandMirror(QObject):
             self._connections.append(action.enabledChanged.connect(state.enabled.emit))
             self._connections.append(action.toggled.connect(state.checked.emit))
             self._connections.append(
-                action.destroyed.connect(partial(self._forget, key))
+                action.destroyed.connect(state.on_action_destroyed)
             )
             state.enabled.emit(action.isEnabled())
             state.checked.emit(action.isChecked())
 
-    def _forget(self, key: str, *_destroyed: object) -> None:
+    def _forget(self, key: str) -> None:
         """A followed chart's action went with its chart before the mode
-        followed another: the command drives nothing and is off, whatever
+        followed another: its command drives nothing and is off, whatever
         order the host closes and re-follows in."""
         if self._actions.pop(key, None) is not None:
             self._states[key].enabled.emit(False)

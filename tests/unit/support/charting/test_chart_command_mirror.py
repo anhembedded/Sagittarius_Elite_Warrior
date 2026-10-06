@@ -175,3 +175,19 @@ def test_zoom_in_and_out_take_the_platform_s_zoom_keys():
 
     assert commands[chart_command_id(_PREFIX, ZOOM_IN)].standard_shortcut == "ZoomIn"
     assert commands[chart_command_id(_PREFIX, ZOOM_OUT)].standard_shortcut == "ZoomOut"
+
+
+def test_a_mirror_freed_before_its_chart_hears_nothing_from_it(qapp, capfd):
+    """Review of PR #372: the mirror's owner can go first (a mode's presenter
+    before its charts); the chart's later deletion must not reach it."""
+    owner = QObject()
+    mirror = ChartCommandMirror(_PREFIX, owner)
+    card = ChartCard("BTCUSDT")
+    mirror.follow_chart(chart_command_actions(card))
+
+    owner.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    card.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+    assert "RuntimeError" not in capfd.readouterr().err
