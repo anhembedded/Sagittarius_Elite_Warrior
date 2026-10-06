@@ -21,6 +21,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverag
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from ..ports.i_backtest_screen_state import IBacktestScreenState
@@ -82,9 +84,13 @@ class DataSyncCoordinator:
     @staticmethod
     def format_coverage_message(coverage: BacktestRangeCoverage) -> str:
         if coverage.missing_open_times:
-            return f"Missing candles from {coverage.missing_open_times[0]:%Y-%m-%d %H:%M UTC}."
+            first_missing = write_value(
+                ColumnKind.TIMESTAMP, coverage.missing_open_times[0]
+            )
+            return f"Missing candles from {first_missing} UTC."
         if coverage.duplicate_candles:
-            return f"Data has {coverage.duplicate_candles} duplicate-timestamp candles."
+            duplicates = write_value(ColumnKind.QUANTITY, coverage.duplicate_candles)
+            return f"Data has {duplicates} duplicate-timestamp candles."
         if coverage.has_unclosed_candle:
             return "The data range contains an unclosed candle."
         return "Local data is not sufficient for the selected Backtest range."

@@ -9,6 +9,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.base_event_logger impo
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
+
+from .run_texts import signal_text
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import (
@@ -47,14 +51,16 @@ class BacktestEventLogger(BaseEventLogger):
         symbol: str = "BTCUSDT",
     ) -> None:
         self.info(
-            f"Starting Backtest: {strategy_name} ({timeframe}) | Pair: {symbol} | Initial capital: {capital:,.0f} {currency}"
+            f"Starting Backtest: {strategy_name} ({timeframe}) | Pair: {symbol} | "
+            f"Initial capital: {write_value(ColumnKind.MONEY, capital)} {currency}"
         )
 
     def log_klines_loaded(
         self, count: int, symbol: str, start_date: str = "", end_date: str = ""
     ) -> None:
         range_str = f" ({start_date} -> {end_date})" if start_date and end_date else ""
-        self.info(f"Loaded {count:,} historical candles for {symbol}{range_str}.")
+        loaded = write_value(ColumnKind.QUANTITY, count)
+        self.info(f"Loaded {loaded} historical candles for {symbol}{range_str}.")
 
     def log_indicators_calculated(
         self, elapsed_ms: float, indicator_names: list[str] | None = None
@@ -70,9 +76,11 @@ class BacktestEventLogger(BaseEventLogger):
         win_rate: float,
         currency: str = "USDT",
     ) -> None:
-        pnl_sign = "+" if net_pnl > 0 else ""
         self.success(
-            f"Backtest completed ({duration_sec:.2f}s): {trade_count} trades | Net PnL: {pnl_sign}{net_pnl:,.2f} {currency} | Win Rate: {win_rate:.1f}%"
+            f"Backtest completed ({write_value(ColumnKind.DURATION, duration_sec)}): "
+            f"{write_value(ColumnKind.QUANTITY, trade_count)} trades | "
+            f"Net PnL: {write_value(ColumnKind.MONEY, net_pnl)} {currency} | "
+            f"Win Rate: {write_value(ColumnKind.PERCENT, win_rate)}"
         )
 
     def log_backtest_failed(self, error_message: str) -> None:
@@ -95,7 +103,9 @@ class BacktestEventLogger(BaseEventLogger):
         self.info(f"Selected time range: {preset}{range_str}")
 
     def log_capital_updated(self, capital: float, currency: str) -> None:
-        self.info(f"Updated initial capital: {capital:,.0f} {currency}")
+        self.info(
+            f"Updated initial capital: {write_value(ColumnKind.MONEY, capital)} {currency}"
+        )
 
     def log_bot_params_saved(
         self, strategy_name: str, params: dict[str, Any] | None = None
@@ -114,7 +124,7 @@ class BacktestEventLogger(BaseEventLogger):
     ) -> None:
         time_prefix = f"[{time_str}] " if time_str else ""
         self.log(
-            f"{time_prefix}Signal: {side.upper()} {symbol} @ {price:,.2f}",
+            f"{time_prefix}{signal_text(side, symbol, price)}",
             level="info",
             is_dev=True,
         )

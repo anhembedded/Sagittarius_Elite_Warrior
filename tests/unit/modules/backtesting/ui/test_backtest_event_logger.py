@@ -19,13 +19,17 @@ def test_backtest_event_logger_lifecycle_methods() -> None:
         symbol="BTCUSDT",
     )
     mock_log_model.append.assert_called_once()
-    assert "EMA Crossover" in mock_log_model.append.call_args[0][0]
-    assert "50,000" in mock_log_model.append.call_args[0][0]
+    assert mock_log_model.append.call_args[0][0] == (
+        "Starting Backtest: EMA Crossover (15m) | Pair: BTCUSDT | "
+        "Initial capital: 50,000.00 USDT"
+    )
 
     mock_log_model.reset_mock()
     logger.log_klines_loaded(2000, "BTCUSDT", "2026-01-01", "2026-02-01")
     mock_log_model.append.assert_called_once()
-    assert "2,000" in mock_log_model.append.call_args[0][0]
+    assert mock_log_model.append.call_args[0][0] == (
+        "Loaded 2,000 historical candles for BTCUSDT (2026-01-01 -> 2026-02-01)."
+    )
 
     mock_log_model.reset_mock()
     logger.log_backtest_completed(
@@ -36,8 +40,12 @@ def test_backtest_event_logger_lifecycle_methods() -> None:
         currency="USDT",
     )
     mock_log_model.append.assert_called_once()
-    assert "completed" in mock_log_model.append.call_args[0][0]
-    assert "+1,250.50 USDT" in mock_log_model.append.call_args[0][0]
+    # One format for each figure, as a table writes it: a duration as h:mm:ss,
+    # money to two decimals with no "+", a percent to two decimals.
+    assert mock_log_model.append.call_args[0][0] == (
+        "Backtest completed (0:00:00): 12 trades | "
+        "Net PnL: 1,250.50 USDT | Win Rate: 66.70%"
+    )
 
     mock_log_model.reset_mock()
     logger.log_backtest_failed("Missing Kline Data")
@@ -73,7 +81,9 @@ def test_backtest_event_logger_dev_mode_traces() -> None:
     mock_log_model.reset_mock()
     logger.log_signal_event("BTCUSDT", "buy", 45000.0, "12:00:00")
     assert mock_log_model.append.call_count == 1
-    assert "BUY BTCUSDT" in mock_log_model.append.call_args[0][0]
+    assert mock_log_model.append.call_args[0][0] == (
+        "[12:00:00] Signal: BUY BTCUSDT @ 45,000.00"
+    )
 
 
 def test_backtest_event_logger_user_selection_methods() -> None:
@@ -100,7 +110,7 @@ def test_backtest_event_logger_user_selection_methods() -> None:
     mock_log_model.reset_mock()
     logger.log_capital_updated(100000.0, "USDT")
     mock_log_model.append.assert_called_once_with(
-        "Updated initial capital: 100,000 USDT", level="info"
+        "Updated initial capital: 100,000.00 USDT", level="info"
     )
 
     mock_log_model.reset_mock()

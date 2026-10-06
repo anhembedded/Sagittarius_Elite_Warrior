@@ -1,7 +1,7 @@
 {
   "src/modules/backtesting/ui/backtest_presenter.py": 2211,
   "src/modules/backtesting/ui/backtest_view_model.py": 753,
-  "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 455,
+  "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 454,
   "src/modules/market_data/adapters/persistence/sqlalchemy_repository.py": 419,
   "src/modules/market_data/ui/data_management_presenter.py": 620,
   "src/modules/market_data/ui/data_management_view_model.py": 444,

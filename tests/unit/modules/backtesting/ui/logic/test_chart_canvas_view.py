@@ -391,23 +391,20 @@ def test_build_trade_link_matches_the_trade_log_filters_win_loss_convention():
     assert color == BEAR_COLOR
 
 
-def test_build_trade_link_label_shows_signed_percent_and_value():
+def test_build_trade_link_label_writes_percent_and_money_as_the_application_does():
     win = _trade(pnl=420.0, pnl_percent=2.35)
 
     _, _, _, label = build_trade_link(win)
 
-    assert "+2.35%" in label
-    assert "+420.00" in label
+    assert label == "2.35% (420.00)"
 
 
-def test_build_trade_link_label_omits_leading_plus_for_a_loss():
+def test_build_trade_link_label_marks_a_loss_by_its_minus_only():
     loss = _trade(pnl=-50.0, pnl_percent=-1.2)
 
     _, _, _, label = build_trade_link(loss)
 
-    assert "-1.20%" in label
-    assert "-50.00" in label
-    assert "+-" not in label
+    assert label == "-1.20% (-50.00)"
 
 
 def test_build_trade_view_range_pads_by_a_fraction_of_the_trade_duration():
@@ -460,15 +457,15 @@ def test_trade_marker_badges_has_no_badge_for_the_entry_marker():
     assert badges[0] is None
 
 
-def test_trade_marker_badges_shows_a_signed_percent_for_a_winning_exit():
+def test_trade_marker_badges_writes_a_winning_exit_as_a_percent():
     trades = _result_with_one_trade().trades  # pnl_percent=10.0
 
     badges = trade_marker_badges_for_trades(trades)
 
-    assert badges[1] == "Sig +10.00%"
+    assert badges[1] == "Sig 10.00%"
 
 
-def test_trade_marker_badges_shows_a_signed_percent_for_a_losing_exit():
+def test_trade_marker_badges_writes_a_losing_exit_as_a_percent():
     losing_trade = Trade(
         symbol="ETHUSDT",
         entry_time=_T0,

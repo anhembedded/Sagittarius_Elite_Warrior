@@ -21,6 +21,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
 )
 
+from .run_texts import moment_text, money_text
+
 _BALANCE_COMPARISON_TOLERANCE = 1e-6
 
 
@@ -342,21 +344,18 @@ class BacktestRunConfig:
             > _BALANCE_COMPARISON_TOLERANCE
         ):
             diffs.append(
-                f"Capital ({self.initial_balance:,.0f} → {other.initial_balance:,.0f})"
+                f"Capital ({money_text(self.initial_balance)} → "
+                f"{money_text(other.initial_balance)})"
             )
 
         if self.currency != other.currency:
             diffs.append(f"Currency ({self.currency.value} → {other.currency.value})")
 
         if self.start_time != other.start_time or self.end_time != other.end_time:
-            self_start = (
-                self.start_time.strftime("%Y-%m-%d") if self.start_time else "Start"
-            )
-            self_end = self.end_time.strftime("%Y-%m-%d") if self.end_time else "Now"
-            other_start = (
-                other.start_time.strftime("%Y-%m-%d") if other.start_time else "Start"
-            )
-            other_end = other.end_time.strftime("%Y-%m-%d") if other.end_time else "Now"
+            self_start = moment_text(self.start_time, "Start")
+            self_end = moment_text(self.end_time, "Now")
+            other_start = moment_text(other.start_time, "Start")
+            other_end = moment_text(other.end_time, "Now")
             diffs.append(
                 f"Time range ({self_start}..{self_end} → {other_start}..{other_end})"
             )
@@ -447,7 +446,7 @@ class BacktestRunConfig:
         """
         @brief Generate a concise single-line summary of the executed run.
         """
-        return f"{self.symbol} | {self.timeframe.value} | {self.strategy_key} | Capital: {self.initial_balance:,.0f} {self.currency.value}"
+        return f"{self.symbol} | {self.timeframe.value} | {self.strategy_key} | Capital: {money_text(self.initial_balance)} {self.currency.value}"
 
 
 BacktestActionContext = ActionContext[

@@ -29,6 +29,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -107,6 +113,7 @@ def container(dispatcher, strategy_registry):
         IStrategyChartOverlay: StrategyChartOverlayService(strategy_registry),
         IndicatorScriptRegistry: IndicatorScriptRegistry(),
         BacktestChartHostFactory: BacktestChartHostFactory(),
+        ISymbolMarketMetadataCache: InMemorySymbolMarketMetadataCache(),
     }
 
     c = Mock()

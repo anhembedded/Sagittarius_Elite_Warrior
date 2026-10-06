@@ -624,49 +624,27 @@ def test_boot_falls_back_to_an_unpersisted_store_when_none_is_registered(
 
 
 def test_boot_wires_the_container_registered_store_into_the_view(
-    qapp,
-    mock_thread_mgr,
-    mock_dispatcher,
-    mock_config,
-    strategy_registry,
-    indicator_script_registry,
-    request,
+    qapp, mock_container, request
 ):
     """When the container *does* have a registered store — the real
     `app_bootstrapper.py` shape — `boot()` must hand the View that exact
     instance, not a fresh fallback, so Backtest's chart reads/writes the
     same persisted, per-symbol pins Dev Board would."""
     shared_store = TimeframePinPreferences()
-    container = Mock()
-    container.registrations.return_value = {TimeframePinPreferences: shared_store}
-
-    def resolve_mock(interface):
-        if interface == IThreadManager:
-            return mock_thread_mgr
-        if interface == IDispatcher:
-            return mock_dispatcher
-        if interface == IConfig:
-            return mock_config
-        if interface == StrategyRegistry:
-            return strategy_registry
-        if interface == IStrategyCatalog:
-            return StrategyCatalogService(strategy_registry)
-        if interface == IStrategyChartOverlay:
-            return StrategyChartOverlayService(strategy_registry)
-        if interface == IndicatorScriptRegistry:
-            return indicator_script_registry
-        if interface == TimeframePinPreferences:
-            return shared_store
-        return Mock()
-
-    container.resolve.side_effect = resolve_mock
+    mock_container.registrations.return_value = {TimeframePinPreferences: shared_store}
+    resolve_others = mock_container.resolve.side_effect
+    mock_container.resolve.side_effect = lambda interface: (
+        shared_store
+        if interface == TimeframePinPreferences
+        else resolve_others(interface)
+    )
     view = BackTestView()
     view.resize(1400, 800)
     view.show()
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)
 
-    BackTestPresenter(view, container)
+    BackTestPresenter(view, mock_container)
 
     assert view._timeframe_pin_preferences is shared_store
 
@@ -4373,7 +4351,7 @@ def test_dirty_tracking_detects_capital_and_strategy_changes(presenter):
     # Change initial capital
     vm.initialCapitalText = "50000"
     assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
-    assert "Capital (10,000 → 50,000)" in vm.configDiffSummary
+    assert "Capital (10,000.00 → 50,000.00)" in vm.configDiffSummary
 
     # Change strategy
     vm.strategy_params.selectedStrategyKey = "ema_strategy"
