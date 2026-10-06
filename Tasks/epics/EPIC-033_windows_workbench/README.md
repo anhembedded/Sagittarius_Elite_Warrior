@@ -44,7 +44,7 @@
 | [EPIC-033B](completed/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A, EPIC-033O | 🟡 | ✅ Done (2026-10-06) |
 | [EPIC-033C](completed/EPIC-033C_workbench_shell.md) | One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar | Elite | Engine W1, EPIC-W3; 033B | 🔴 | ✅ Done (2026-10-06) |
 | [EPIC-033D](completed/EPIC-033D_commands_as_actions.md) | Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it | Elite | Engine W2; 033C | 🟡 | ✅ Done (2026-10-05) |
-| [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | In progress (tables, precision per symbol, column checks and fixed-pitch digits done; open: the Backtest report's and Data's own formatting, then the static ban) |
+| [EPIC-033N](completed/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | ✅ Done (2026-10-06) |
 | [EPIC-033E](completed/EPIC-033E_settings_dialog.md) | One Options dialog (Tools → Options) with sections, OK, Cancel and Apply | Elite | Engine W4; 033C | 🟡 | ✅ Done (2026-10-04) |
 | [EPIC-033F](completed/EPIC-033F_one_output_dock.md) | One Output dock with a channel per module replaces three log cards | Elite | Engine W4; 033C | 🟢 | ✅ Done (2026-10-04) |
 | [EPIC-033G](completed/EPIC-033G_stock_chart_controls.md) | The chart is a canvas; its controls are actions in the toolbar and the context menu | Elite | EPIC-033D | 🟡 | ✅ Done (2026-10-05) |
