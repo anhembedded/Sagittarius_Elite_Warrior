@@ -2,6 +2,8 @@
 
 **Priority:** P3
 **Board:** Drawing tools (Trendline, Fibonacci), Context Menu chuột phải & Multi-chart/Snapshot. Giá trị thấp cho tự động hóa bot (task tự ghi chú); cần test tương tác chuột thật — cân nhắc kỹ trước khi làm toàn bộ.
+**Complexity:** 🟡 **`M (Standard)`**
+**Depends on:** `BOT-010` ✅
 
 ## 1. Mục tiêu (Objective)
 Cung cấp bộ công cụ vẽ kỹ thuật nâng cao (Drawing Tools) và Context Menu tương tác trực tiếp trên biểu đồ dành cho phân tích nâng cao.

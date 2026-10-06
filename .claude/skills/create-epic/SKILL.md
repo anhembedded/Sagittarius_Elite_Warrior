@@ -61,7 +61,7 @@ Tasks/epics/
   ```bash
   git mv Tasks/epics/EPIC-{nnn}_{slug}/incomplete/EPIC-{nnn}{Letter}_*.md Tasks/epics/EPIC-{nnn}_{slug}/completed/
   ```
-  Update `Status: ✅ Done (YYYY-MM-DD)` in the task file, update the epic `README.md` sub-task table, and write the task's `**Board:**` line (ONBOARDING §6).
+  Update `Status: ✅ Done (YYYY-MM-DD)` in the task file, and update the epic `README.md` sub-task table, the child's board (ONBOARDING §6).
 - **Cancellation:** If a task becomes obsolete, move to `cancelled/` via `git mv`. Prepend explicit rationale at the top of the task file. Never delete the file; keep its row marked `❌ Cancelled` in the epic `README.md` so history remains intact.
 - **Decisions (ADRs):** Record non-trivial design arbitrations as `DECISION_{date}_{slug}.md` inside the epic folder using `.claude/templates/decision.md`.
 

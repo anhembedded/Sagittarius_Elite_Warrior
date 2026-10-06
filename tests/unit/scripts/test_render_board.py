@@ -84,31 +84,53 @@ def test_completed_entries_read_newest_first(tmp_path):
     assert board.index("line of BOT-202") < board.index("line of BOT-201")
 
 
-def test_an_epic_child_reports_among_the_completed(tmp_path):
+def test_a_sub_task_id_with_letters_and_digits_is_an_entry(tmp_path):
+    path = _task(tmp_path, "backlog", "BOT-098F6E_x.md", "**Board:** native rollout")
+
+    entry = read_entry(path, tmp_path)
+
+    assert entry is not None
+    assert entry.entry_id == "BOT-098F6E"
+    assert "native rollout" in render_board(tmp_path)
+
+
+def test_a_pool_file_not_named_by_an_id_is_missing(tmp_path):
+    _task(tmp_path, "backlog", "notes.md", "**Board:** looks like a task")
+
+    assert missing_board_lines(tmp_path) == ["backlog/notes.md (not named by an id)"]
+
+
+def test_an_epic_child_stays_on_its_epic_board(tmp_path):
+    """An epic's README is its children's board, guarded on its own."""
     _task(
         tmp_path,
         "epics/EPIC-040_x/completed",
         "EPIC-040A_x.md",
-        "**Status:** ✅ Done (2026-10-02)",
         "**Board:** the child's decision",
     )
 
-    board = render_board(tmp_path)
-    completed = board.split("## 🟢 Completed")[1].split("## ✅")[0]
-
-    assert "(epics/EPIC-040_x/completed/EPIC-040A_x.md)" in completed
-    assert "the child's decision" in completed
+    assert "EPIC-040A" not in render_board(tmp_path)
 
 
 def test_the_backlog_reads_by_priority_then_id(tmp_path):
     _task(tmp_path, "backlog", "BOT-210_x.md", "**Board:** unranked")
     _task(tmp_path, "backlog", "BOT-211_x.md", "**Priority:** P3", "**Board:** low")
     _task(tmp_path, "backlog", "BOT-212_x.md", "**Priority:** P1", "**Board:** high")
+    _task(
+        tmp_path,
+        "backlog",
+        "BOT-209_x.md",
+        "**Priority:** Deferred (was P1)",
+        "**Board:** later",
+    )
 
     board = render_board(tmp_path)
 
     assert (
-        board.index("| high |") < board.index("| low |") < board.index("| unranked |")
+        board.index("| high |")
+        < board.index("| low |")
+        < board.index("| later |")
+        < board.index("| unranked |")
     )
 
 

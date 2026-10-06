@@ -1,6 +1,7 @@
 # Epic: Đại Tu Quản Trị Cơ Sở Dữ Liệu Thị Trường — Market Data Hub & Storage Vault Overhaul
 
 **Board:** **5/5 xong (23/09)**: `BOT-112A` ✅ (đa timeframe + auto-discover), `BOT-112B` ✅ (KLine Inspector + kiểm định toàn vẹn), `BOT-112C` ✅ (gap visualizer + selective repair), `BOT-112D` ✅ (Import/Export CSV/Parquet/JSON + VACUUM), `BOT-112E` ✅ (hỗ trợ `1s`).
+**Depends on:** `BOT-004` ✅, `BOT-030` ✅
 
 **Mã Epic:** `BOT-112`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  

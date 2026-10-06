@@ -2,6 +2,8 @@
 
 **Priority:** P2
 **Board:** Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật).
+**Complexity:** 🔴 **`L (Thinking)`**
+**Depends on:** `BOT-001` ✅
 
 ## 1. Mục tiêu (Objective)
 Xây dựng 1 màn hình Backtest hoàn chỉnh, đúng nghĩa: cấu hình chiến lược, chạy chỉ báo + chiến lược trên dữ liệu lịch sử, xem kết quả trực quan — triển khai theo 2 giai đoạn tăng dần độ phức tạp: **Static trước, Dynamic sau**.

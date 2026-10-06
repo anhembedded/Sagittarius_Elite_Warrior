@@ -46,12 +46,13 @@ BUG_POOLS = ("bug_report/incomplete", "bug_report/completed")
 #: Pools whose files may still be listed only by the frozen history: they no
 #: longer change state. An open file always carries its own `**Board:**` line.
 CLOSED_POOLS = ("completed", "cancelled", "bug_report/completed")
-#: Epic children report on the roadmap too; their epic's README stays their board.
-EPIC_CHILD_GLOB = "epics/EPIC-*/completed/*.md"
 
-_ID = re.compile(r"^([A-Z]+-\d+[A-Z]?\d*)(?:_|\.md$)")
+#: A task or bug id, sub-task letters included (`BOT-095H`, `BOT-098F6E`, `EPIC-003B2`).
+_ID_TEXT = r"[A-Z]+-\d+(?:[A-Z]\d*)*"
+#: The id a file is named by: the whole stem before the first underscore.
+ENTRY_ID = re.compile(rf"^({_ID_TEXT})(?:_|\.md$)")
 #: An id where it is cited, in prose or inside a file name (`BOT-042C_series.md`).
-_MENTION = re.compile(r"(?<![A-Za-z0-9])([A-Z]+-\d+[A-Z]?\d*)")
+_MENTION = re.compile(rf"(?<![A-Za-z0-9])({_ID_TEXT})")
 _HEADING = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 _DATE = re.compile(r"\((\d{4}-\d{2}-\d{2})")
 
@@ -89,7 +90,7 @@ def _title(heading: str, entry_id: str) -> str:
 
 def read_entry(path: Path, tasks_dir: Path) -> Entry | None:
     """The entry a file declares, or None for a file that is not a task or bug."""
-    match = _ID.match(path.name)
+    match = ENTRY_ID.match(path.name)
     if match is None:
         return None
     text = path.read_text("utf-8")
@@ -105,11 +106,14 @@ def read_entry(path: Path, tasks_dir: Path) -> Entry | None:
     )
 
 
-def read_pool(tasks_dir: Path, pattern: str) -> list[Entry]:
-    """Every entry under one pool directory (or glob), by id."""
-    paths = sorted(tasks_dir.glob(pattern if "*" in pattern else f"{pattern}/*.md"))
-    entries = (read_entry(path, tasks_dir) for path in paths)
+def read_pool(tasks_dir: Path, pool: str) -> list[Entry]:
+    """Every entry in one pool directory, by id."""
+    entries = (read_entry(path, tasks_dir) for path in _pool_files(tasks_dir, pool))
     return [entry for entry in entries if entry is not None]
+
+
+def _pool_files(tasks_dir: Path, pool: str) -> list[Path]:
+    return sorted((tasks_dir / pool).glob("*.md"))
 
 
 def history_ids(tasks_dir: Path) -> set[str]:
@@ -121,12 +125,17 @@ def history_ids(tasks_dir: Path) -> set[str]:
 
 
 def missing_board_lines(tasks_dir: Path) -> list[str]:
-    """Files no board shows: no `**Board:**` field, and not a closed file the
-    frozen history already lists."""
+    """Files no board shows: a file not named by an id (the board cannot read
+    it), or one with no `**Board:**` field that is not a closed file the frozen
+    history already lists."""
     frozen = history_ids(tasks_dir)
     missing = []
     for pool in (*TASK_POOLS, *BUG_POOLS):
-        for entry in read_pool(tasks_dir, pool):
+        for path in _pool_files(tasks_dir, pool):
+            entry = read_entry(path, tasks_dir)
+            if entry is None:
+                missing.append(f"{pool}/{path.name} (not named by an id)")
+                continue
             listed = pool in CLOSED_POOLS and entry.entry_id in frozen
             if not entry.board and not listed:
                 missing.append(entry.link)
@@ -165,8 +174,13 @@ def _open_bug_rows(bugs: list[Entry]) -> list[str]:
     ]
 
 
+def _rank(priority: str) -> str:
+    """`P1`..`P3` first in order; no priority, or a deferral, after them."""
+    return priority[:2] if re.fullmatch(r"P\d", priority[:2]) else "P9"
+
+
 def _backlog_rows(tasks: list[Entry]) -> list[str]:
-    ordered = sorted(tasks, key=lambda task: (task.priority or "P9", task.entry_id))
+    ordered = sorted(tasks, key=lambda task: (_rank(task.priority), task.entry_id))
     return [
         f"| {task.priority or '—'} | **[{task.entry_id}]({task.link})** | {task.title} | {task.board} |"
         for task in ordered
@@ -181,7 +195,6 @@ def _history_links(tasks_dir: Path) -> list[str]:
 def render_board(tasks_dir: Path) -> str:
     """The whole board as Markdown, newest entries first."""
     pools = {pool: read_pool(tasks_dir, pool) for pool in (*TASK_POOLS, *BUG_POOLS)}
-    completed = pools["completed"] + read_pool(tasks_dir, EPIC_CHILD_GLOB)
     open_bugs, fixed_bugs = pools[BUG_POOLS[0]], pools[BUG_POOLS[1]]
     count_table = ["| Status | Tasks | Share |", "| :--- | :---: | :---: |"]
     lines = [
@@ -202,7 +215,7 @@ def render_board(tasks_dir: Path) -> str:
                 "| Priority | ID | Title | Board |", _backlog_rows(pools["backlog"])
             ),
         ),
-        *_section("🟢 Completed", _items(_newest_first(completed))),
+        *_section("🟢 Completed", _items(_newest_first(pools["completed"]))),
         *_section("✅ Fixed bugs", _items(_newest_first(fixed_bugs))),
         *_section("❌ Cancelled", _items(_newest_first(pools["cancelled"]))),
         *_section("📜 Earlier, written by hand", _history_links(tasks_dir)),

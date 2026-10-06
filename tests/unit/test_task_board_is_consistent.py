@@ -30,7 +30,9 @@ import hashlib
 import re
 from pathlib import Path
 
+import pytest
 from Sagittarius_Elite_Warrior.scripts.render_board import (
+    ENTRY_ID,
     HISTORY_DIR,
     missing_board_lines,
     render_board,
@@ -56,9 +58,9 @@ _FLAT_POOLS = (
 #: Per-epic sub-task directories, under `Tasks/epics/EPIC-XXX_*/`.
 _EPIC_POOLS = ("incomplete", "completed", "cancelled")
 
-#: `BOT-095H`, `EPIC-003F6`, `BUG-058`, `BOLT-001` — the whole stem before the
-#: first underscore, so a sub-task letter is part of the identity.
-_ID = re.compile(r"^([A-Z]+-\d+[A-Z]?\d*)(?:_|\.md$)")
+#: The renderer's own id pattern, so the two can never disagree on which files
+#: are tasks (`BOT-098F6E` once matched neither).
+_ID = ENTRY_ID
 
 
 def _task_files() -> list[Path]:
@@ -121,11 +123,28 @@ def test_every_task_and_bug_file_carries_its_board_line() -> None:
 #: back the shared lines every pull request edited (`BOT-163`).
 _HAND_WRITTEN_BOARDS = ("ROADMAP.md", "bug_report/README.md")
 
-#: A list item or table row linking into a pool: the shape of every listed
-#: task or bug. Prose may still cite a task.
-_LISTED = re.compile(
-    r"^\s*(?:[-*] |\|).*\]\((?:\.\./)?(?:backlog|in_progress|completed|cancelled|incomplete)/"
+#: A list item (bulleted or numbered) or a table row that names a task or bug:
+#: the shape of every listed entry, whatever its link. Prose and blockquotes
+#: may still cite a task.
+_LISTED = re.compile(r"^\s*(?:[-*+]|\d+[.)]|\|).*?(?<![A-Za-z0-9])[A-Z]+-\d+(?![a-z])")
+
+
+@pytest.mark.parametrize(
+    ("line", "listed"),
+    [
+        ("- [x] **BOT-300** done", True),
+        ("| BOT-301 | `backlog/BOT-301_x.md` |", True),
+        ("- [BOT-302](epics/EPIC-1/completed/a.md)", True),
+        ("1. [BOT-303](completed/BOT-303_x.md)", True),
+        ("  + [BOT-304](completed/x.md)", True),
+        ("| ✅ **[BOT-098F6E](completed/x.md)** |", True),
+        ("> The owner settled it in `BOT-008`.", False),
+        ("| 🟢 **`S (Fast Agent)`** | **Fast** *(GPT-4o-mini)* |", False),
+        ("- **Names:** `BUG-XXX_slug.md`, numbered one above the highest.", False),
+    ],
 )
+def test_a_listed_entry_is_caught_in_every_list_shape(line: str, listed: bool) -> None:
+    assert bool(_LISTED.search(line)) is listed
 
 
 def test_no_board_list_is_written_by_hand() -> None:

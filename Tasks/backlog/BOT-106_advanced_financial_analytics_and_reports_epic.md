@@ -1,6 +1,7 @@
 # Epic: Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Advanced Financial Analytics & Reports Epic)
 
 **Board:** **4/4 xong (22/09)**: `BOT-106A` ✅, `BOT-106B` ✅ (MAE/MFE — nay hoạt động ở cả Static lẫn Historical Tick Backtest, `BUG-133` đã đóng), `BOT-106C` ✅ (drawdown series + monthly/yearly returns), `BOT-106D` ✅ (trình bày PySide6 thật: cột MAE/MFE, tab Drawdown, tab Returns).
+**Depends on:** `BOT-055` ✅, `BOT-057` ✅
 
 **Mã Epic:** `BOT-106`  
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  

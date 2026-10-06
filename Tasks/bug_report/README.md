@@ -8,8 +8,8 @@ shows an open bug nowhere. Bugs are not counted among the tasks.
 - **Names:** `BUG-XXX_slug.md`, numbered one above the highest number in **both** folders.
   `tests/unit/test_task_board_is_consistent.py` fails on two files with one id, in every pool.
 - **The board is generated.** Each bug file carries its one-line entry, its `- **Board:**`
-  field, and `python3 scripts/render_board.py` lists the open and the fixed bugs from them
-  (`BOT-163`). Nobody edits a shared list, so two pull requests never touch the same lines.
+  field, and `python3 scripts/render_board.py` lists the open and the fixed bugs from them.
+  Nobody edits a shared list, so two pull requests never touch the same lines.
 - **When a bug is fixed:** `git mv incomplete/BUG-XXX_*.md completed/` (with its images), set
   its `Status`, and rewrite its `Board` line to state the root cause and the fix.
 - **Process:** filing follows [`create-bug-report-rule.md`](../../.claude/rules/create-bug-report-rule.md);

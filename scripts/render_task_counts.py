@@ -1,8 +1,8 @@
-"""Print the task-count table `Tasks/ROADMAP.md` must carry, computed from the directories.
+"""The task-count table of the generated board, computed from the directories.
 
-`ONBOARDING.md` §6 requires the count table to be recomputed from disk, never by hand;
-`tests/unit/test_task_board_is_consistent.py` fails when the committed table disagrees with
-this function's output. Bug reports are not counted (they have their own board).
+`scripts/render_board.py` renders it at the top of the board (`BOT-163`); a task
+moved between folders changes the count with nothing else to edit. Bug reports
+are not counted (they are listed on their own).
 
 Usage:
     python3 scripts/render_task_counts.py
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-#: (directory under Tasks/, the row label as it appears in ROADMAP.md).
+#: (directory under Tasks/, the row label on the board).
 POOLS: tuple[tuple[str, str], ...] = (
     ("completed", "🟢 **Completed**"),
     ("in_progress", "🟡 **In Progress**"),
@@ -36,7 +36,7 @@ def count_tasks(tasks_dir: Path) -> dict[str, int]:
 
 
 def render_rows(counts: dict[str, int]) -> list[str]:
-    """The five table rows, formatted exactly as `Tasks/ROADMAP.md` carries them."""
+    """The five table rows of the board's count table."""
     total = sum(counts.values())
     rows = []
     for pool, label in POOLS:

@@ -6,6 +6,8 @@
 > này không còn đối tượng để áp dụng. Nội dung gốc giữ nguyên bên dưới chỉ để
 > tham khảo lịch sử.
 
+**Status:** ❌ Cancelled (2026-08-24)  
+**Board:** Cancelled (2026-08-24, the owner's decision): the native C++/QML chart backend was deleted (`BUG-039`), so there is nothing to cut over to.  
 **Parent:** [`BOT-098F6`](../completed/BOT-098F6_backtest_chart_host_migration.md)  
 **Depends on:** `BOT-098F5`, `BOT-098F6A` ✅, `BOT-098F6C`  
 **Priority:** P1  

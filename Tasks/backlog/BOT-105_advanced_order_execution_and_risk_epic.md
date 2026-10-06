@@ -1,6 +1,7 @@
 # Epic: Quản trị Lệnh Nâng cao & Kiểm soát Rủi ro Backtest (Advanced Order Execution & Risk Management Epic)
 
 **Board:** **Hoàn thành (25/09) — 5/5 cơ chế xong**: `BOT-105A` Break-Even (23/09) ✅ + Trailing Stop (25/09) ✅; `BOT-105B` Bar Magnifier (24/09) ✅; `BOT-105C` Partial Take Profit (25/09) ✅.
+**Depends on:** `BOT-041` ✅, `BOT-076` ✅
 
 **Mã Epic:** `BOT-105`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  

@@ -2,6 +2,8 @@
 
 **Priority:** P1
 **Board:** Retained native candle geometry đã hoàn thành; tiếp tục axis/camera, volume/indicator và interaction layers trong `BOT-098F` trước production migration. Không dùng TradingView Lightweight Charts/WebEngine.
+**Complexity:** ⚡ **`L (Bolt / Thinking)`**
+**Depends on:** `BOT-098A`…`BOT-098F2` ✅; liên quan `BOT-091`, `BOT-096` ✅
 
 **Ưu tiên:** P1 — usability/performance defect tái hiện được  
 **Liên quan:** `BOT-091`, `BOT-096`  
