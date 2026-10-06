@@ -40,7 +40,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_overlay i
 )
 
 #: Matches `StrategyOverlayCoordinator.redraw()`'s own fallbacks — a line
-#: `chart_line_colors()`/`chart_line_widths()` did not name still draws.
+#: `chart_line_series()`/`chart_line_widths()` did not name still draws.
 _DEFAULT_COLOUR = ""
 _DEFAULT_WIDTH = 2
 
@@ -65,7 +65,7 @@ class StrategyChartOverlayService(IStrategyChartOverlay):
         strategy = strategy_cls(config.strategy_params)
         raw_lines = compute_strategy_indicator_lines(strategy, candles)
         colours = assign_strategy_line_colors(
-            list(raw_lines), strategy.chart_line_colors()
+            list(raw_lines), strategy.chart_line_series()
         )
         widths = strategy.chart_line_widths()
         lines = tuple(

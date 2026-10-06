@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_c
     IndicatorValue,
     StrategyContext,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
     IIndicator,
 )
@@ -28,8 +31,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
 _HOLD_REASON = "no signal"
 
 #: BOT-113 — the only two `classify_trend_zone()` return values besides
-#: `None`. Plain strings (not an enum) to match `chart_line_colors()`'s own
-#: precedent of returning bare display-hint values, not domain types.
+#: `None`. Plain strings (not an enum): bare display hints, not domain types.
 TREND_ZONE_UP = "up"
 TREND_ZONE_DOWN = "down"
 
@@ -225,14 +227,16 @@ class BaseStrategy(IStrategy):
         `context.indicators`."""
         ...
 
-    def chart_line_colors(self) -> dict[str, str]:
-        """Optional (BOT-111): a strategy may declare a preferred hex color
-        for any of its own `build_indicators()` line names, drawn on the
-        Backtest chart via `strategy_indicator_lines.py`. Empty by default —
-        `assign_strategy_line_colors()` then assigns every line a color from
+    def chart_line_series(self) -> dict[str, ChartSeries]:
+        """Optional (BOT-111, BOT-161): a strategy may name the series each of
+        its own `build_indicators()` lines is, drawn on the Backtest chart via
+        `strategy_indicator_lines.py`. It names a *series*, never a colour: the
+        UI maps the series to its colour in one table
+        (`support/charting/contracts/series_colours.py`). Empty by default —
+        `assign_strategy_line_colors()` then assigns every line a colour from
         its own fixed palette, in declaration order. Override only to match
-        an established reference (e.g. mirroring the exact colors a ported
-        TradingView script uses), not as a general theming mechanism."""
+        an established reference (e.g. mirroring the exact lines a ported
+        TradingView script draws), not as a general theming mechanism."""
         return {}
 
     def chart_line_widths(self) -> dict[str, int]:

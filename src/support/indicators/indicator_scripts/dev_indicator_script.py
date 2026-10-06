@@ -1,17 +1,22 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.macd import MACDValue
 
 from .base_indicator_script import (
     BaseIndicatorScript,
 )
 
-# Colours are plain hex strings — the domain layer never imports a UI toolkit,
-# so there is no QColor here (see the guard test in
-# tests/unit/domain/test_indicator_script_conventions.py).
-_BULL = "#0ECB81"
-_BEAR = "#F6465D"
-_NEUTRAL = "#848E9C"
-_ACCENT = "#F3BA2F"
+# Colours are plain hex strings read from the one series table — a script never
+# imports a UI toolkit, so there is no QColor here, and never writes a hex.
+_BULL = series_colour(ChartSeries.TREND_UP_LINE)
+_BEAR = series_colour(ChartSeries.TREND_DOWN_LINE)
+_NEUTRAL = series_colour(ChartSeries.NEUTRAL_LINE)
+_ACCENT = series_colour(ChartSeries.HIGHLIGHT_LINE)
 _MOMENTUM_MIDPOINT = 50
 _TREND_CONFIRMATION_BARS = 3
 

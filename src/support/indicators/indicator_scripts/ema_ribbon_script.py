@@ -1,4 +1,10 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 from .base_indicator_script import (
     BaseIndicatorScript,
@@ -28,7 +34,7 @@ class EmaRibbonScript(BaseIndicatorScript):
 
     def execute(self, candle: MarketData) -> None:
         close = candle.close_price
-        self.plot(self.a1(close), "EMA 20", color="#e74c3c")
-        self.plot(self.a2(close), "EMA 50", color="#e67e22")
-        self.plot(self.a3(close), "EMA 100", color="#00bcd4")
-        self.plot(self.a4(close), "EMA 200", color="#3498db")
+        self.plot(self.a1(close), "EMA 20", color=series_colour(ChartSeries.EMA_20))
+        self.plot(self.a2(close), "EMA 50", color=series_colour(ChartSeries.EMA_50))
+        self.plot(self.a3(close), "EMA 100", color=series_colour(ChartSeries.EMA_100))
+        self.plot(self.a4(close), "EMA 200", color=series_colour(ChartSeries.EMA_200))

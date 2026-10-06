@@ -169,7 +169,7 @@ def test_real_strategy_indicator_lines_use_the_strategys_own_reference_colors():
 
     lines = compute_strategy_indicator_lines(strategy, klines)
     colors = assign_strategy_line_colors(
-        list(lines.keys()), strategy.chart_line_colors()
+        list(lines.keys()), strategy.chart_line_series()
     )
 
     assert set(lines.keys()) == {

@@ -18,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _TEST_PARAMS = {
@@ -109,18 +115,21 @@ def test_build_indicators_returns_two_emas_at_the_declared_periods():
     }
 
 
-def test_chart_line_colors_matches_the_pine_scripts_reference_colors():
-    # BOT-111: chart lines must mirror the Pine Script's own plot colors,
-    # not whatever order-based color the generic palette would pick.
+def test_chart_line_series_matches_the_pine_scripts_reference_plots():
+    # BOT-111: chart lines must mirror the Pine Script's own plots, not
+    # whatever order-based color the generic palette would pick. BOT-161: the
+    # strategy names the series; the table owns the colours.
     strategy = EmaTrendPullbackStrategy()
 
-    colors = strategy.chart_line_colors()
+    series = strategy.chart_line_series()
 
-    assert colors == {
-        EmaTrendPullbackStrategy.EMA_LONG_KEY: "#f6465d",
-        EmaTrendPullbackStrategy.EMA_ENTRY_KEY: "#2962ff",
+    assert series == {
+        EmaTrendPullbackStrategy.EMA_LONG_KEY: ChartSeries.LONG_TREND_EMA,
+        EmaTrendPullbackStrategy.EMA_ENTRY_KEY: ChartSeries.ENTRY_EMA,
     }
-    assert set(colors.keys()) == set(strategy.build_indicators().keys())
+    assert set(series.keys()) == set(strategy.build_indicators().keys())
+    assert series_colour(ChartSeries.LONG_TREND_EMA) == "#f6465d"
+    assert series_colour(ChartSeries.ENTRY_EMA) == "#2962ff"
 
 
 def test_chart_line_widths_draws_the_trend_ema_thicker_than_the_entry_ema():
