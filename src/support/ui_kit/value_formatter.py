@@ -144,7 +144,9 @@ def _bytes_text(count: float) -> str:
     """`count` bytes in the largest unit it fills: `512 B`, `3.20 MB`."""
     size = abs(count)
     unit = 0
-    while size >= _BYTES_PER_UNIT and unit < len(_BYTE_UNITS) - 1:
+    # Compare as it will be written: 1,048,575 bytes is 1,023.999 KB, which
+    # two decimals would print as 1,024.00 KB rather than 1.00 MB.
+    while round(size, 2) >= _BYTES_PER_UNIT and unit < len(_BYTE_UNITS) - 1:
         size /= _BYTES_PER_UNIT
         unit += 1
     if unit == 0:
@@ -228,8 +230,16 @@ class ZonedValueFormatter:
         return AppValueFormatter(self._time_zone()).format(kind, value, context)
 
 
-def write_value(kind: ColumnKind, value: DisplayValue, key: str = "") -> str:
+def write_value(
+    kind: ColumnKind,
+    value: DisplayValue,
+    key: str = "",
+    precision: Precision | None = None,
+) -> str:
     """One value outside a table — a confirmation message, a status line —
     written exactly as a cell of that kind (and, for a key that has a rule of
-    its own such as `TIMEFRAME_KEY`, that key) would write it."""
-    return APP_VALUE_FORMATTER.format(kind, value, FormatContext(key or kind.value))
+    its own such as `TIMEFRAME_KEY`, that key) would write it; `precision` is
+    the symbol's quantum when the caller knows it, as a column's would be."""
+    return APP_VALUE_FORMATTER.format(
+        kind, value, FormatContext(key or kind.value, precision)
+    )
