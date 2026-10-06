@@ -1,4 +1,4 @@
-"""Controls are stock Qt widgets in the platform style; what styles or sizes them by hand only shrinks (`EPIC-033B`).
+"""Controls are stock Qt widgets in the platform style; what styles or sizes them by hand is banned (`EPIC-033B`, `EPIC-033M`, `BOT-161`).
 
 **Why this guard exists.** `ui-presentation-rule.md` asks for one look per
 control kind: the platform's. Microsoft's Windows UX guidelines say "use the
@@ -8,10 +8,10 @@ RGB values"; Qt's own documentation calls style sheets "a tool for prototyping
 counted 13 button styles, 133 `setStyleSheet` calls, 36 hand-set sizes and
 52 colour literals. Each is a line of code, so each is counted here.
 
-**The ratchet** is `baseline_stock_controls.json`: per rule, per file, the
-calls found. A file over its count fails, and so does a new file; a file under
-its count fails until the line is lowered, so freed room never stays. Every
-count reaches zero when EPIC-033M closes, and this file becomes a ban.
+**The rule** is a ban: every count is zero. It was a ratchet
+(`baseline_stock_controls.json`: per rule, per file, the calls found) until
+`EPIC-033M` took the counts to zero rule by rule and `BOT-161` took the last
+one, the colour literals of data series, to zero too; the baseline file is gone.
 
 **What each rule counts** (calls, by the attribute or name called):
 
@@ -35,32 +35,34 @@ count reaches zero when EPIC-033M closes, and this file becomes a ban.
   the same function assigned from ``QAction(...)``, or from one of the
   module's functions annotated ``-> QAction``, is not counted.
 
-**Bans since EPIC-033M:** every rule but ``color_literal``. The kit, ``Palette``
-and the theme bootstrap are deleted and their counts are zero, so their
-baseline entries must stay empty (``test_every_rule_but_colour_literals_is_a_ban``).
+**One exemption:** ``color_literal`` is not counted in ``_SERIES_TABLE``,
+``src/support/charting/contracts/series_colours.py``, the one table of data series
+colours (indicator lines, strategy lines, the chart's bull and bear). A
+strategy in a module's ``domain/`` names a series
+(``support/charting/contracts/chart_series.py``) and never a colour; the UI
+asks the table. Any other file holding a hex colour fails, and the exemption
+is a single path, so a second table cannot grow beside it
+(``test_the_one_exemption_is_the_series_table``).
+
 ``BUG-008``'s unscoped-container check went with the last style sheet, as it
 said it would: a ban on ``setStyleSheet`` covers it.
 
-**Still a ratchet:** ``color_literal``, for data series colours (indicator
-lines, strategy markers, the chart's bull and bear), which are not chrome.
-
-Retire when: ``color_literal`` is zero too; then the baseline file is deleted
-and this file is a ban outright.
+Retire when: the engine owns the series table and no application file names a
+data colour at all.
 """
 
 from __future__ import annotations
 
 import ast
-import json
 import re
 from collections import Counter
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
-_BASELINE_FILE = Path(__file__).with_name("baseline_stock_controls.json")
-#: The one rule still ratcheted; every other rule is a ban (`EPIC-033M`).
-_RATCHETED = frozenset({"color_literal"})
+#: The one file allowed to write a data series colour (`BOT-161`); it is the
+#: guard's only named exemption.
+_SERIES_TABLE = "src/support/charting/contracts/series_colours.py"
 
 _CALLS: dict[str, frozenset[str]] = {
     "style_sheet": frozenset({"setStyleSheet", "apply_role", "StyledButton"}),
@@ -232,6 +234,8 @@ def findings(source: str) -> Counter[str]:
 
 
 def measure(src_root: Path = _SRC_ROOT) -> Counts:
+    """The calls found per rule, per file. The series table's colours are the
+    one thing not counted (`_SERIES_TABLE`)."""
     if not src_root.is_dir():
         raise FileNotFoundError(f"{src_root} does not exist; retarget this guard")
     counts: Counts = {rule: {} for rule in RULES}
@@ -239,55 +243,64 @@ def measure(src_root: Path = _SRC_ROOT) -> Counts:
         if "__pycache__" in path.parts:
             continue
         rel = path.relative_to(src_root.parent).as_posix()
-        for rule, n in findings(path.read_text(encoding="utf-8")).items():
+        found = findings(path.read_text(encoding="utf-8"))
+        if rel == _SERIES_TABLE:
+            del found["color_literal"]
+        for rule, n in found.items():
             counts[rule][rel] = n
     return counts
 
 
-def ratchet_problems(baseline: Counts, current: Counts) -> list[str]:
-    problems: list[str] = []
-    for rule in sorted(set(baseline) | set(current)):
-        was_map, now_map = baseline.get(rule, {}), current.get(rule, {})
-        for path in sorted(set(was_map) | set(now_map)):
-            was, now = was_map.get(path, 0), now_map.get(path, 0)
-            if now > was:
-                problems.append(
-                    f"{rule} {path}: {now}, baseline {was} — use the stock control "
-                    "and the platform style instead (ui-presentation-rule.md)"
-                )
-            elif now < was:
-                problems.append(
-                    f"{rule} {path}: {now}, baseline {was} — lower the baseline to match"
-                )
-    return problems
-
-
-def _read_baseline() -> Counts:
-    data: Counts = json.loads(_BASELINE_FILE.read_text(encoding="utf-8"))["counts"]
-    return data
-
-
 def test_the_scan_has_a_subject() -> None:
-    current = measure()
-    assert any(current[rule] for rule in RULES), "the scan found nothing in src"
+    sources = [
+        path for path in _SRC_ROOT.rglob("*.py") if "__pycache__" not in path.parts
+    ]
+    assert sources, "the scan found no module in src"
 
 
-def test_the_baseline_names_every_rule() -> None:
-    assert set(_read_baseline()) == set(RULES)
+def test_no_control_is_styled_sized_or_coloured_by_hand() -> None:
+    """The ban: every rule is at zero, outside the one series table."""
+    found = {
+        f"{rule} {path}": n
+        for rule, files in measure().items()
+        for path, n in files.items()
+    }
+    assert not found, (
+        "use the stock control and the platform style, and name a data series "
+        "colour in the series table (ui-presentation-rule.md): "
+        + ", ".join(f"{where}: {n}" for where, n in sorted(found.items()))
+    )
 
 
-def test_stock_controls_only_shrinks() -> None:
-    problems = ratchet_problems(_read_baseline(), measure())
-    assert not problems, "\n".join(problems)
+def test_the_one_exemption_is_the_series_table() -> None:
+    """The exemption names a file that exists and really holds colours, so it
+    cannot linger as a free pass after the table moves, and it names one path."""
+    table = _REPO_ROOT / _SERIES_TABLE
+    assert table.is_file(), f"{_SERIES_TABLE} moved; retarget the exemption"
+    assert findings(table.read_text(encoding="utf-8"))["color_literal"] > 0
 
 
-def test_every_rule_but_colour_literals_is_a_ban() -> None:
-    """`EPIC-033M`: the kit is gone and these rules are at zero, so each is a
-    ban. An entry added to the baseline for one of them fails here, before it
-    could excuse a new style sheet, size or font."""
-    baseline = _read_baseline()
-    allowed = {rule: files for rule, files in baseline.items() if files}
-    assert set(allowed) <= _RATCHETED, allowed
+def test_a_colour_outside_the_series_table_is_counted(tmp_path: Path) -> None:
+    root = tmp_path / "src"
+    (root / "support" / "charting" / "contracts").mkdir(parents=True)
+    (root / "support" / "charting" / "contracts" / "series_colours.py").write_text(
+        "A = '#112233'\n"
+    )
+    (root / "support" / "charting" / "other.py").write_text("C = '#778899'\n")
+    (root / "elsewhere.py").write_text("B = '#445566'\n")
+
+    counts = measure(root)
+
+    # The table is excused by its path; a file beside it, or anywhere else, is not.
+    assert counts["color_literal"] == {
+        "src/elsewhere.py": 1,
+        "src/support/charting/other.py": 1,
+    }
+
+
+# --- the detectors: each rule sees its call, and stock code is not counted.
+# They test `findings()`, not a baseline, so the ban does not pass vacuously
+# when a rule stops matching (review of PR #387).
 
 
 def test_a_colour_inside_rich_text_or_qss_is_seen_and_a_docstring_is_not() -> None:
@@ -346,17 +359,3 @@ def test_an_action_in_one_method_does_not_excuse_a_button_in_another() -> None:
 def test_stock_code_is_not_counted() -> None:
     source = "b = QPushButton('&Run')\nt = QTableView()\nf = QFont(app.font())\n"
     assert findings(source) == Counter()
-
-
-def test_a_new_file_with_a_style_sheet_fails() -> None:
-    problems = ratchet_problems({"style_sheet": {}}, {"style_sheet": {"src/x.py": 1}})
-    assert len(problems) == 1 and problems[0].startswith("style_sheet src/x.py: 1")
-
-
-def test_a_removed_call_must_lower_the_baseline() -> None:
-    problems = ratchet_problems(
-        {"fixed_size": {"src/x.py": 2}}, {"fixed_size": {"src/x.py": 1}}
-    )
-    assert problems == [
-        "fixed_size src/x.py: 1, baseline 2 — lower the baseline to match"
-    ]

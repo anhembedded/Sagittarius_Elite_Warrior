@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_c
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
     IIndicator,
@@ -176,14 +179,14 @@ class EmaTrendPullbackStrategy(BaseStrategy):
             self.EMA_ENTRY_KEY: EMA(self._ema_entry_len),
         }
 
-    def chart_line_colors(self) -> dict[str, str]:
-        """BOT-111: mirrors the Pine Script reference's own plot colors —
-        long-trend EMA in red, entry EMA in blue — rather than whatever
-        order-based color `assign_strategy_line_colors()`'s generic palette
-        would otherwise pick."""
+    def chart_line_series(self) -> dict[str, ChartSeries]:
+        """BOT-111: mirrors the Pine Script reference's own plots — the
+        long-trend EMA and the entry EMA — rather than whatever order-based
+        colour `assign_strategy_line_colors()`'s generic palette would
+        otherwise pick."""
         return {
-            self.EMA_LONG_KEY: "#f6465d",
-            self.EMA_ENTRY_KEY: "#2962ff",
+            self.EMA_LONG_KEY: ChartSeries.LONG_TREND_EMA,
+            self.EMA_ENTRY_KEY: ChartSeries.ENTRY_EMA,
         }
 
     def chart_line_widths(self) -> dict[str, int]:

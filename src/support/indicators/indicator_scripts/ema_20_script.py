@@ -1,4 +1,10 @@
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
+    ChartSeries,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.series_colours import (
+    series_colour,
+)
 
 from .base_indicator_script import (
     BaseIndicatorScript,
@@ -31,4 +37,8 @@ class Ema20Script(BaseIndicatorScript):
         self.a = self.ema(period)
 
     def execute(self, candle: MarketData) -> None:
-        self.plot(self.a(candle.close_price), "EMA 20", color="#e74c3c")
+        self.plot(
+            self.a(candle.close_price),
+            "EMA 20",
+            color=series_colour(ChartSeries.EMA_20),
+        )

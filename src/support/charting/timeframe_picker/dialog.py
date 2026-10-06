@@ -187,8 +187,26 @@ class TimeframePickerDialog(QDialog):
         self._render()
 
     def sizeHint(self) -> QSize:
-        """Sized by the system font: a screenful of rows, never a pixel count."""
-        return font_extent(self, super().sizeHint(), _WIDTH_CHARS, _HEIGHT_LINES)
+        """Sized by the system font: a screenful of rows, never a pixel count,
+        and never narrower than the tree's columns. A view's own hint ignores
+        its columns, so a long description scrolled sideways inside a dialog
+        that had room to show it (review of PR #385)."""
+        base = super().sizeHint()
+        tree = self._tree
+        header = tree.header()
+        # Each column as wide as its widest cell or its title: the header's
+        # own lengths are only laid out once the tree is shown.
+        columns = (
+            sum(
+                max(tree.sizeHintForColumn(column), header.sectionSizeHint(column))
+                for column in range(tree.columnCount())
+            )
+            + 2 * tree.frameWidth()
+            + tree.verticalScrollBar().sizeHint().width()
+        )
+        margins = self.layout().contentsMargins()
+        base.setWidth(max(base.width(), columns + margins.left() + margins.right()))
+        return font_extent(self, base, _WIDTH_CHARS, _HEIGHT_LINES)
 
     @classmethod
     def from_callbacks(

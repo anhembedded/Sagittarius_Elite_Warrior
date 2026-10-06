@@ -3,8 +3,8 @@
 **Why this file exists, on the third occasion.** `EPIC-025` is moving the UI out
 of `src/presentation/ui/` into `support/` one package per pull request, and
 five guards scan "the UI" by path: the colour guard, the three widget guards,
-the card-layer guard, the `QQuickWidget`/theme-seeding guard, and the engine-port
-guard. Each move made every one of them read a smaller tree than the UI actually
+the card-layer guard (deleted with the Card base in `EPIC-033M`), the
+`QQuickWidget`/theme-seeding guard, and the engine-port guard. Each move made every one of them read a smaller tree than the UI actually
 occupies, and a path-scanning guard that has lost part of its subject does not
 fail — it passes, faster.
 

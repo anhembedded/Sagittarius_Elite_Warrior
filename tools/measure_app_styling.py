@@ -3,19 +3,20 @@
 The target is an application that applies **no** stylesheet, palette or
 third-party theme of its own: standard controls render in the platform's theme,
 and colour appears only where it carries meaning. `EPIC-025` PR 0.2 removed the
-one global sheet (`qdarktheme`); what is left is per-widget styling inside the
-screens that are still waiting to be rebuilt, so it is retired the way this
-repository retires anything large — as a **ratchet**, measured here and kept
-shrink-only by `tests/unit/architecture/test_app_styling_only_shrinks.py`.
+one global sheet (`qdarktheme`), the phases since retired the per-widget
+styling as a ratchet, and `EPIC-033M` deleted the last of it with the kit, the
+palette and the QML. Every number below is zero, and
+`tests/unit/architecture/test_app_styling_only_shrinks.py` holds each at zero:
+the census is a ban, with no file exempt.
 
 Four numbers, each with its own reason to exist:
 
 | Number | Why it is counted separately |
 | :--- | :--- |
-| `apply_role` calls | the shared QSS builder in `kit/style.py`; disappears with `kit/` |
+| `apply_role` calls | the shared QSS builder the deleted `kit/` had |
 | `set_style_sheet` calls | a widget painting itself directly, the crudest form |
-| `palette_files` | files that import `Palette` at all — the colour source itself |
-| `qml_theme_refs` | `Theme.<token>` inside `.qml`; disappears with the last `.qml` |
+| `palette_files` | files that import a `Palette` at all — a colour source of its own |
+| `qml_theme_refs` | `Theme.<token>` inside `.qml`; `src/` holds no `.qml` |
 
 Python is read with `ast` (`BOT-133`: the regex version flagged documentation);
 `.qml` has no Python parser, so the QML count is the one regex here.
@@ -35,14 +36,6 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _REPO_ROOT / "src"
-
-#: The one place allowed to build QSS, and the one place allowed to hold colour.
-#: `EPIC-025` PR 1.6a moved the palette into `support/ui_kit` and PR 1.6b the
-#: style builder after it; the registry's own
-#: rule applies — when the epic moves a tree, the constant follows in the same
-#: commit, or the census silently counts nothing.
-STYLE_BUILDER = "src/support/ui_kit/kit/style.py"
-PALETTE_MODULE = "src/support/ui_kit/assets/palette.py"
 
 _QML_THEME_REF = re.compile(r"\bTheme\.[A-Za-z_][A-Za-z0-9_]*")
 
@@ -88,11 +81,9 @@ def measure() -> StylingCensus:
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
 
-        if relative != PALETTE_MODULE and _imports_palette(tree):
+        if _imports_palette(tree):
             palette_files.add(relative)
 
-        if relative == STYLE_BUILDER:
-            continue  # the builder's own internals are not call sites
         for name in _called_names(tree):
             if name == "apply_role":
                 apply_role_calls += 1

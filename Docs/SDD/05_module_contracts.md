@@ -180,7 +180,7 @@ contract suite and the registry implementing it. Then the four would-be
 consumers were read, and every one of them needs the strategy **classes**, not
 the keys: both live Presenters and `backtest_presenter` pass `available()` into
 coordinators that call `.get(key)` and construct the strategy to read
-`chart_line_colors()` / `chart_line_widths()`, and `trade_once_cmd` hands the
+`chart_line_series()` / `chart_line_widths()`, and `trade_once_cmd` hands the
 registry to `build_engine()`. A keys port retires none of those, and widening
 `IStrategy` — which declares `evaluate()` and nothing else — would publish chart
 concerns to every strategy implementing it.

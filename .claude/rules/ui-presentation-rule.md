@@ -19,7 +19,7 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - No QML: `src/` holds zero `.qml`. `[guard: test_no_new_qml.py]`
 - Colour only where it carries meaning (profit/loss, connection state), from `QPalette` roles or one named meaning table, never an RGB literal (MS `vis-color`: "never make your own colors based on fixed RGB values"), and never as the only signal: a sign, word or icon goes with it (MS `vis-color`, KDE `status_changes`). Usable in Windows High Contrast. `[guard: test_stock_controls_only.py; review: H1]`
 - The application font is the system font; a widget may derive size or weight from it, never a family (MS `vis-fonts`). A column whose digits align (price, quantity, money) is written in the platform's fixed-pitch font, `QFontDatabase.systemFont(FixedFont)`, decided by its kind for every table (`kind_font`), never by a view. `[guard: test_workbench_conformance.py, test_stock_controls_only.py]`
-- No widget styles itself: no style sheet, no `apply_role`, no palette or hand-set size, held at zero since EPIC-033M. The one count still allowed to fall rather than banned is data series colours (`BOT-161`). `[guard: test_app_styling_only_shrinks.py, test_stock_controls_only.py; review: H2]`
+- No widget styles itself: no style sheet, no `apply_role`, no palette or hand-set size, held at zero since EPIC-033M. A data series colour is a hex written only in `support/charting/contracts/series_colours.py`, the guard's single exemption (`BOT-161`); a module's `domain/` names a `ChartSeries`, never a colour. `[guard: test_app_styling_only_shrinks.py, test_stock_controls_only.py; review: H2]`
 
 ## 2. Principles
 | Principle | What it means here | Source |

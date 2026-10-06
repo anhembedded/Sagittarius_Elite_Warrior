@@ -69,7 +69,7 @@ Five files today. A test may never be deleted because it is inconvenient.
 **4. Retarget** — guards and path-coupled tests. Rule: every guard that scans a path gains, in Phase
 0, an assertion that the scan found at least one file, so that a moved directory fails the guard
 instead of silencing it. The five architecture guards named in HLD §6.1 and the existing ones
-(`test_no_cross_screen_imports`, `test_screen_layer_structure`, `test_card_layer_structure`,
+(`test_no_cross_screen_imports`, `test_screen_layer_structure`, `test_card_layer_structure` (deleted with the Card base in `EPIC-033M`),
 `test_application_layer_structure`, `test_only_the_session_factory_constructs_binance_client`,
 `test_order_submission_mode_live_is_restricted`, `test_quick_widget_only_in_embed`,
 `test_qml_library_does_not_import_screens`, the sanity `test_composition_root` and
