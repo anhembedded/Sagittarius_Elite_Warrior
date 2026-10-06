@@ -274,11 +274,22 @@ class TradingSessionState:
             last = self._last_order_time_by_symbol.get(symbol)
             return None if last is None else now - last
 
-    def record_order_sent(self, symbol: str, when: datetime) -> None:
+    def record_order_sent(
+        self, symbol: str, when: datetime, *, venue_has_positions: bool
+    ) -> None:
+        """@brief Counts an order against the session and the symbol's interval.
+        @details It marks `symbol` open only when `venue_has_positions`
+        (`TradingVenue.has_positions`): `BUG-142` — on Spot nothing ever clears
+        the mark, because Spot has no positions for the user data stream to
+        reconcile, so it would refuse every later order on the symbol with
+        `MAX_POSITIONS_PER_SYMBOL` until trading was enabled again. Spot orders
+        stay paced by the per-order notional and the minimum interval.
+        """
         with self._lock:
             self.orders_sent_this_session += 1
             self._last_order_time_by_symbol[symbol] = when
-            self.known_open_symbols.add(symbol)
+            if venue_has_positions:
+                self.known_open_symbols.add(symbol)
             self._generation += 1
 
     def claim_symbol(self, symbol: str, owner_id: str) -> bool:

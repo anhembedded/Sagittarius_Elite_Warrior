@@ -14,6 +14,12 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.handler import (
+    ExecuteOrderCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
@@ -141,6 +147,74 @@ class TestConcurrentDispatch:
         assert len(submitted) == 1
         assert len(blocked) == 1
         assert blocked[0].blocked_by is TradingLimitViolation.MAX_ORDERS_PER_SESSION  # type: ignore[attr-defined]
+
+
+class TestAVenueWithoutPositionsNeverMarksASymbolOpen:
+    """`BUG-142` — `max_positions_per_symbol` is a limit on *positions*, and a
+    venue without positions (Spot) has none to count. The handler used to mark
+    the symbol open after every manual order, nothing on Spot ever cleared it,
+    and every later order on the symbol was refused until trading was enabled
+    again. Real `ExecuteOrderCommandHandler`, real `TradingLimitPolicy`: a mock
+    of `record_order_sent()` could not have shown this.
+    """
+
+    NO_INTERVAL = TradingLimits(
+        max_orders_per_session=20,
+        max_notional_per_order=Decimal(500),
+        max_positions_per_symbol=1,
+        min_order_interval=timedelta(0),
+    )
+
+    def _send(
+        self, handler: ExecuteOrderCommandHandler, venue: TradingVenue
+    ) -> ExecuteOrderResult:
+        return handler.execute(
+            ExecuteOrderCommand(order_request=order_request(venue=venue), live=True)
+        )
+
+    def test_a_second_order_on_the_same_spot_symbol_is_accepted(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {}
+        handler, _ = make_handler(
+            trading_venue=TradingVenue.SPOT_TESTNET,
+            raw_client=raw_client,
+            limits=self.NO_INTERVAL,
+        )
+
+        first = self._send(handler, TradingVenue.SPOT_TESTNET)
+        second = self._send(handler, TradingVenue.SPOT_TESTNET)
+
+        assert first.blocked_by is None
+        assert second.blocked_by is None
+        assert raw_client.futures_create_order.call_count == 2
+
+    def test_a_spot_order_still_counts_against_the_session_and_the_interval(
+        self,
+    ) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {}
+        handler, state = make_handler(
+            trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client
+        )
+
+        self._send(handler, TradingVenue.SPOT_TESTNET)
+        second = self._send(handler, TradingVenue.SPOT_TESTNET)
+
+        assert state.orders_sent_this_session == 1
+        assert "BTCUSDT" not in state.known_open_symbols
+        assert second.blocked_by is TradingLimitViolation.MIN_ORDER_INTERVAL
+
+    def test_a_second_order_on_the_same_futures_symbol_is_still_refused(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {}
+        handler, state = make_handler(raw_client=raw_client, limits=self.NO_INTERVAL)
+
+        first = self._send(handler, TradingVenue.FUTURES_TESTNET)
+        second = self._send(handler, TradingVenue.FUTURES_TESTNET)
+
+        assert first.blocked_by is None
+        assert "BTCUSDT" in state.known_open_symbols
+        assert second.blocked_by is TradingLimitViolation.MAX_POSITIONS_PER_SYMBOL
 
 
 class TestAFailedSubmissionIsNeverRecordedAsSent:

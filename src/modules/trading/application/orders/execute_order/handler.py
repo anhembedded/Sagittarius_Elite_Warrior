@@ -205,7 +205,9 @@ class ExecuteOrderCommandHandler(
             # `EPIC-028I` — a protective order or a close is not a new trade:
             # it neither uses up the session's orders nor delays the next entry.
             if tag is None and not command.purpose.only_reduces:
-                session_state.record_order_sent(symbol, now)
+                session_state.record_order_sent(
+                    symbol, now, venue_has_positions=command.venue.has_positions
+                )
             logger.info(
                 "Live order submitted on %s: %s %s",
                 command.venue.value,
