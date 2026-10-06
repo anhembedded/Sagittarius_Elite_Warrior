@@ -66,7 +66,7 @@ def _exhausted_session() -> TradingSessionState:
     state.enable({"BTCUSDT"})
     now = datetime.now(UTC)
     for _ in range(20):
-        state.record_order_sent("BTCUSDT", now)
+        state.record_order_sent("BTCUSDT", now, venue_has_positions=True)
     return state
 
 

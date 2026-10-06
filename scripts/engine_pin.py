@@ -8,10 +8,12 @@ type-check against, an engine CI never built, and nothing said so.
 `install` fetches the pinned commit without submodules (the engine carries a
 private one, `install-rule.md` §1), replaces the engine in the running
 interpreter's environment with it and records the commit beside that
-environment. It does nothing when `check` already passes, so a launcher can
+environment, bound to the installed distribution's `RECORD` file: an install that
+replaces the engine rewrites `RECORD`, so the record stops matching (`BUG-153`). It does nothing when `check` already passes, so a launcher can
 call it on every start. `check` fails when the engine this interpreter imports
 is not the installed one (a checkout on the path, an editable install) or when
-the recorded commit is not `engine.ref`'s.
+the recorded commit is not `engine.ref`'s, or no longer describes the
+installed distribution.
 
 Stdlib only, no PEP 695 syntax: CI runs it on the runner's Python before the
 dependencies are installed.
@@ -23,6 +25,8 @@ Retire when: the engine is published as a versioned package that
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
 import importlib.util
 import logging
 import shutil
@@ -30,14 +34,18 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass
+from importlib.machinery import PathFinder
 from pathlib import Path
 
 ENGINE_PACKAGE = "sagittarius_engine"
 ENGINE_DISTRIBUTION = "sagittarius-engine"
 ENGINE_REPOSITORY = "https://github.com/anhembedded/Sagittarius_Engine.git"
-#: Written beside the environment by `install`; holds the commit it installed.
+#: Written beside the environment by `install`: the commit it installed and a fingerprint of that installation.
 RECORD_NAME = "sagittarius_engine.ref"
+#: Second line of that file: the hash of the installed distribution's `RECORD` it describes.
+FINGERPRINT_KEY = "record-sha256"
 INSTALL_COMMAND = "python scripts/engine_pin.py install"
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,14 +89,22 @@ def pin_problems(pinned: str, engine: EngineInstall) -> list[str]:
     return []
 
 
-def installed_engine() -> EngineInstall:
-    spec = importlib.util.find_spec(ENGINE_PACKAGE)
+def installed_engine(
+    prefix: Path | None = None, site_dirs: tuple[Path, ...] | None = None
+) -> EngineInstall:
+    """The engine `site_dirs` hold (this interpreter's by default) and its recorded commit."""
+    if site_dirs is None:
+        paths = sysconfig.get_paths()
+        site_dirs = tuple(
+            {Path(paths[key]).resolve() for key in ("purelib", "platlib")}
+        )
+        search_path = None
+        spec = importlib.util.find_spec(ENGINE_PACKAGE)
+    else:
+        search_path = [str(site) for site in site_dirs]
+        spec = PathFinder.find_spec(ENGINE_PACKAGE, search_path)
     origin = Path(spec.origin).resolve() if spec and spec.origin else None
-    paths = sysconfig.get_paths()
-    sites = tuple({Path(paths[key]).resolve() for key in ("purelib", "platlib")})
-    record = _record_path()
-    recorded = record.read_text(encoding="utf-8").strip() if record.exists() else None
-    return EngineInstall(origin, sites, recorded)
+    return EngineInstall(origin, site_dirs, _recorded_commit(prefix, search_path))
 
 
 def check(repo_root: Path) -> int:
@@ -113,12 +129,60 @@ def install(repo_root: Path) -> int:
         _record_path().unlink(missing_ok=True)
         _pip(["uninstall", ENGINE_DISTRIBUTION], check=False)
         _pip(["install", checkout], check=True)
-    _record_path().write_text(pinned + "\n", encoding="utf-8")
+    record_install(pinned)
     return check(repo_root)
 
 
-def _record_path() -> Path:
-    return Path(sys.prefix) / RECORD_NAME
+def record_install(
+    commit: str, prefix: Path | None = None, site_dirs: tuple[Path, ...] | None = None
+) -> None:
+    """Record `commit` as the engine now installed, bound to that installation's files."""
+    search_path = None if site_dirs is None else [str(site) for site in site_dirs]
+    fingerprint = _distribution_fingerprint(search_path)
+    if fingerprint is None:
+        raise SystemExit(
+            f"[engine-pin] {ENGINE_DISTRIBUTION} has no installed RECORD to bind to"
+        )
+    lines = [commit, f"{FINGERPRINT_KEY} {fingerprint}"]
+    _record_path(prefix).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _recorded_commit(
+    prefix: Path | None, search_path: Sequence[str] | None
+) -> str | None:
+    """The commit `install` recorded, only while it describes the distribution installed now."""
+    record = _record_path(prefix)
+    if not record.exists():
+        return None
+    lines = record.read_text(encoding="utf-8").splitlines()
+    fingerprint = _distribution_fingerprint(search_path)
+    if fingerprint is None or lines[1:] != [f"{FINGERPRINT_KEY} {fingerprint}"]:
+        return None
+    return lines[0].strip()
+
+
+def _distribution_fingerprint(search_path: Sequence[str] | None) -> str | None:
+    """Hash of the installed distribution's `RECORD`, which every install rewrites.
+
+    `RECORD` lists each installed file with its hash, so an install that replaces
+    the engine (`pip install`, `pip install -U`, `uv pip install`) changes it, and
+    a record bound to it stops matching. `None` when no distribution is installed.
+    """
+    if search_path is None:
+        found = importlib.metadata.distributions(name=ENGINE_DISTRIBUTION)
+    else:
+        found = importlib.metadata.distributions(
+            name=ENGINE_DISTRIBUTION, path=list(search_path)
+        )
+    for distribution in found:
+        record = distribution.read_text("RECORD")
+        if record is not None:
+            return hashlib.sha256(record.encode("utf-8")).hexdigest()
+    return None
+
+
+def _record_path(prefix: Path | None = None) -> Path:
+    return (prefix or Path(sys.prefix)) / RECORD_NAME
 
 
 def _fetch(ref: str, checkout: Path) -> None:

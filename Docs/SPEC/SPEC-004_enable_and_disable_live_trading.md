@@ -81,7 +81,7 @@ holds before it does."*
 - It does not promise the reconciled picture stays true. It is a snapshot at enable time; the
   account can change underneath, and the app's `known_open_symbols` is deliberately conservative
   — a symbol is marked open the moment an order for it is *sent*, before any fill confirmation,
-  because over-blocking a second order is safer than under-blocking one.
+  because over-blocking a second order is safer than under-blocking one. That holds on a venue with positions (Futures); a Spot order never marks its symbol (`BUG-142`), since nothing there could clear the mark.
 - It does not cancel or close anything. That is Emergency Stop (SPEC-007, planned), which
   disables, cancels every open order, closes every position, then reads the account back to
   confirm — and reports each of those three steps separately, because a partial stop is a real
