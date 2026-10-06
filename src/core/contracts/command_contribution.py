@@ -32,8 +32,12 @@ one separator between adjacent groups and none at either end (MS
 `None` group, so every command declared before groups existed stays where it
 was.
 
-Plausible extensions, each a local change: an icon name (one field and one
-line in the window); a command whose text follows its state, such as
+A command may name an `icon` (`BOT-164`): the stem of a file under
+`support/ui_kit/assets/icons/`. The window sets it on the command's one
+action, so the toolbar button and the menu entry carry it, and the mode's
+toolbar writes the text beside it, so the command reads as a button.
+
+Plausible extensions, each a local change: a command whose text follows its state, such as
 Pause / Resume (one field naming the alternate text); a group's order key, or
 a group's title shown as a section header where the platform has one.
 """
@@ -82,6 +86,8 @@ class CommandContribution:
     #: The related commands it sits with in its menu; a separator divides
     #: one group from the next. `None` is the group of commands naming none.
     group: str | None = None
+    #: An icon file stem ("play"); `None` is an action of text alone.
+    icon: str | None = None
 
     def __post_init__(self) -> None:
         if self.shortcut is not None and self.standard_shortcut is not None:

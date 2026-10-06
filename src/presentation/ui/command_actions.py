@@ -11,9 +11,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from PySide6.QtCore import QObject
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QColor, QKeySequence
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
+    get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_descriptor import (
     ActionConfirmation,
@@ -22,6 +25,9 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.action_descriptor import
 
 #: The toolbar every mode's commands go on (`ModeHost`'s commands toolbar).
 COMMANDS_TOOLBAR = "commands"
+#: The icon's source size in pixels; Qt scales it down to the toolbar's icon
+#: size, so it stays sharp.
+_COMMAND_ICON_SIZE = 24
 
 
 def action_descriptor(command: CommandContribution) -> ActionDescriptor:
@@ -70,3 +76,17 @@ def exclusive_groups(
             groups[name] = group
         group.addAction(action)
     return groups
+
+
+def apply_icons(
+    commands: Iterable[tuple[CommandContribution, QAction]], colour: QColor
+) -> None:
+    """Sets the icon each command names on its action (`BOT-164`), drawn in
+    `colour`, the palette's text colour, so the platform's theme decides it."""
+    for command, action in commands:
+        if command.icon is not None:
+            action.setIcon(
+                get_icon_loader().get_icon(
+                    command.icon, colour.name(), _COMMAND_ICON_SIZE
+                )
+            )

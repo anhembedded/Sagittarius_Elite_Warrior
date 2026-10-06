@@ -30,9 +30,9 @@ remembered under its own id, and Reset layout resets the one that shows.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QToolBar, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_stack import ISurfaceStack
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_host import RegionHost
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_kind import RegionKind
@@ -85,8 +85,20 @@ class ModeHost(RegionHost):
         return super().dock_toggle_actions()
 
     def add_command(self, action: QAction) -> None:
-        """Puts a command on this mode's toolbar."""
+        """Puts a command on this mode's toolbar, whose buttons write their
+        text beside their icon: an icon alone says nothing of what a button
+        does, and a text alone reads as a label, not a button (`BOT-164`;
+        Qt `QToolBar.setToolButtonStyle`)."""
         self.place_action(_COMMANDS_PLACE, action)
+        for bar in self.findChildren(
+            QToolBar, options=Qt.FindChildOption.FindDirectChildrenOnly
+        ):
+            bar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            # An icon one line of text high: the style's own icon size is
+            # taller than a line and made the toolbar, and with it every
+            # mode's minimum height, grow by 9 px.
+            line = bar.fontMetrics().height()
+            bar.setIconSize(QSize(line, line))
 
     def toolbar_toggle_actions(self) -> tuple[QAction, ...]:
         own = super().toolbar_toggle_actions()
