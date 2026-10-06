@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 175 | 82.2% |
+| 🟢 **Completed** | 175 | 81.8% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 30 | 14.1% |
-| ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **213** | **100%** |
+| 🔴 **Backlog** | 31 | 14.5% |
+| ❌ **Cancelled** | 8 | 3.7% |
+| 📈 **Tổng số Task** | **214** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -492,6 +492,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
 | **P3** | **[BOT-157](backlog/BOT-157_menu_groups_with_separators.md)** | **A menu's related commands are grouped, with a separator between groups** | 🟡 **`M (Standard)`** | Engine | *(added 06/10, PR #372 review)* Backtest's View → Chart is 14 items with no separator; `CommandContribution` has no group field. |
+| **P3** | **[BOT-158](backlog/BOT-158_desk_plumbing_only_the_dev_board_read.md)** | **The desks drop the plumbing only the Dev Board read** | 🟢 **`S (Small)`** | — | *(added 06/10, PR #372 review)* The Last-signal pipe and `accountReconciled` have no reader since the Dev Board was deleted. |
 | **P3** | **[BOT-152](backlog/BOT-152_split_order_entry_view_model.md)** | **The order entry's view model splits what the presenter sets from what the view asks** | 🟢 **`S (Small)`** | — | *(added 05/10, PR #358 review)* `OrderEntryViewModel` holds 30 public members, over `PLR0904`'s 20; the ratchet counts the file, not the members. |
 | **P3** | **[BOT-151](backlog/BOT-151_grouped_trees_from_specs.md)** | **Grouped trees are built from column specs like every flat table** | 🟡 **`M (Standard)`** | Engine | *(added 05/10, PR #351 review)* Four grouped `QTreeWidget` dialogs still configure themselves; `configure_item_view` cannot take a `QTreeWidget`. The open criterion 1 of `EPIC-033N`. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |

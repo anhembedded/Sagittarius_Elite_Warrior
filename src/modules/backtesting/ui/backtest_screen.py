@@ -1,8 +1,8 @@
 """The Backtest Engine screen as a contribution — `backtesting`'s own
 (`EPIC-025F` PR 5.2).
 
-Same real difference from the plain `ScreenContribution` shape as `dashboard_screen.py`
-(same pull request, read its docstring for the full reasoning): which
+Same real difference from the plain `ScreenContribution` shape as the Dev Board's
+`dashboard_screen.py` had (same pull request; `EPIC-033P` deleted it): which
 concrete View this install uses is a named choice read from `IConfig`
 (`EPIC-013F`), so the view factory needs `container` at construction time,
 and `PresenterManager.navigate_to()` calls `view_factory()` with zero

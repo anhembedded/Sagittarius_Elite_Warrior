@@ -60,8 +60,8 @@ class IndicatorCoordinator:
     # ---------------------------------------------------------------- #
 
     def on_script_line(self, name: str, x_data: list, y_data: list) -> None:
-        """BOT-064: one call per user-picked reference script line, mirrors
-        `DashboardPresenter._on_indicator_data` — pure delegate to
+        """BOT-064: one call per user-picked reference script line, as the
+        Dev Board's `_on_indicator_data` did until `EPIC-033P` — pure delegate to
         `IndicatorScriptRunner.draw()`, which registers the overlay/subplot
         curve on first use and knows the script's own line color."""
         card = self._get_first_chart_card()

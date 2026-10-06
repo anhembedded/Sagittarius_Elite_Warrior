@@ -1,6 +1,6 @@
 """`EPIC-024B` — human-readable text for `ExecuteOrderResult.blocked_by`/
-`CancelOrderResult.blocked_by`, shared by `DashboardPresenter` and the
-desks' order panel and account tabs (`architecture-rule.md` §5 /
+`CancelOrderResult.blocked_by`, shared by the desks' order panel and
+account tabs (and the Dev Board, until `EPIC-033P`) (`architecture-rule.md` §5 /
 `test_no_cross_screen_imports.py` — a screen-to-screen import is forbidden,
 so this lives here, not in any screen's own presenter module).
 """

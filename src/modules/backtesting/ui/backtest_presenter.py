@@ -301,7 +301,7 @@ class BackTestPresenter(CommandPresenter):
     _chartStrategyRegionSignal = Signal(int, list)
     # BOT-064: user-picked reference indicator scripts (RSI/MACD/...),
     # independent of the strategy's own lines above — same 4-signal shape
-    # DashboardPresenter uses for IndicatorScriptRunner's 4 output channels.
+    # the Dev Board used (until EPIC-033P) for IndicatorScriptRunner's 4 channels.
     _chartScriptLineSignal = Signal(str, list, list)  # qualified name, x, y
     _chartScriptRegionSignal = Signal(str, list)  # script key, spans
     _chartScriptInfoSignal = Signal(str, list)  # script key, info fields
@@ -425,7 +425,7 @@ class BackTestPresenter(CommandPresenter):
         )
         self._range_coverage: IRangeCoverage = container.resolve(IRangeCoverage)
 
-        # BOT-102 / EPIC-019A: shared with DashboardPresenter. `None` means
+        # BOT-102 / EPIC-019A (once shared with the Dev Board). `None` means
         # "never fetched", distinct from an empty list which would mean
         # "fetched, exchange returned nothing" — the tradeable symbol set
         # does not change meaningfully within one run of the app, so a hit

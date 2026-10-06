@@ -9,7 +9,7 @@ account, and places an order through the one submission path.
    (`order_confirmation.py`); Cancel ends the attempt.
 3. **Submit** (worker): the real position (and, on Spot, the real holding)
    is read fresh and turned into a side and `reduce_only` by
-   `manual_order_intent_for()`, the same rule the Dev Board's card uses, then
+   `manual_order_intent_for()`, the same rule the Dev Board's card used, then
    `IOrderSubmission.submit(live=True)` runs every safety gate and limit.
 
 Every port here is the desk's own venue's (`VenueTradingPorts`), so the
