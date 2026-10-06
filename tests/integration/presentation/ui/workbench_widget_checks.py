@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QPushButton,
     QScrollArea,
     QTabBar,
@@ -30,6 +31,9 @@ from PySide6.QtWidgets import (
     QTreeView,
     QWidget,
     QWidgetAction,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
+    access_keys,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
     CONFIGURED_PROPERTY,
@@ -112,13 +116,21 @@ def style_sheet_problems(window: QMainWindow, page: QWidget) -> list[str]:
     ]
 
 
+#: Qt's own toolbar overflow button: `QToolBarLayout` stretches it to the
+#: bar's height, so it is taller than its hint by Qt's design, not the app's
+#: (found when `BOT-155` made a toolbar overflow at 1024×700).
+_QT_EXTENSION_BUTTON = "qt_toolbar_ext_button"
+
+
 def control_height_problems(window: QMainWindow, page: QWidget) -> list[str]:
     kinds = (QAbstractButton, QLineEdit, QComboBox, QAbstractSpinBox)
     return [
         f"{type(w).__name__} {w.objectName()!r} is {w.height()}px, its size hint "
         f"{w.sizeHint().height()}px"
         for w in _visible(page)
-        if isinstance(w, kinds) and w.height() > w.sizeHint().height() + _HEIGHT_SLACK
+        if isinstance(w, kinds)
+        and w.objectName() != _QT_EXTENSION_BUTTON
+        and w.height() > w.sizeHint().height() + _HEIGHT_SLACK
     ]
 
 
@@ -202,6 +214,88 @@ def mnemonic_problems(window: QMainWindow, page: QWidget) -> list[str]:
     return [
         f"{t!r}: a lone & becomes a mnemonic" for t in texts if LONE_AMPERSAND.search(t)
     ]
+
+
+def top_menus(window: QMainWindow) -> list[tuple[str, QMenu]]:
+    """Each menu of the menu bar with its title, filled for the showing mode
+    as opening it would (the workbench fills a menu when it opens)."""
+    menus = []
+    for item in window.menuBar().actions():
+        menu = (
+            window.menu(item.text())
+            if isinstance(window, WorkbenchShell)
+            else item.menu()
+        )
+        if menu is not None:
+            menus.append((plain_text(item.text()), menu))
+    return menus
+
+
+def _menu_key_problems(menu: QMenu, path: str) -> list[str]:
+    items = [a for a in menu.actions() if not a.isSeparator() and a.text()]
+    owners: dict[str, list[str]] = {}
+    for item in items:
+        for key in access_keys(item.text()):
+            owners.setdefault(key, []).append(plain_text(item.text()))
+    found = [
+        f"{path}: {texts} share the access key {key!r}"
+        for key, texts in owners.items()
+        if len(texts) > 1
+    ]
+    for item in items:
+        text = plain_text(item.text())
+        letters = {c.lower() for c in text if c.isalnum()}
+        if not access_keys(item.text()) and not letters <= owners.keys():
+            found.append(f"{path} → {text!r} has no access key")
+        submenu = item.menu()
+        if submenu is not None:
+            found += _menu_key_problems(submenu, f"{path} → {text}")
+    return found
+
+
+def _menu_actions(menu: QMenu) -> list[QAction]:
+    found = []
+    for action in menu.actions():
+        found.append(action)
+        if action.menu() is not None:
+            found += _menu_actions(action.menu())
+    return found
+
+
+def toolbar_in_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§6: every toolbar action is also in a menu (MS `cmd-toolbars`): the
+    same `QAction`, or one with the same text, reachable from the menu bar
+    as the showing mode fills it. A widget on a toolbar is
+    `toolbar_actions_only`'s; separators are not commands."""
+    in_menus = [a for _, menu in top_menus(window) for a in _menu_actions(menu)]
+    texts = {command_name(a.text()) for a in in_menus if a.text()}
+    found = []
+    for bar in page.findChildren(QToolBar):
+        for action in bar.actions():
+            if (
+                isinstance(action, QWidgetAction)
+                or action.isSeparator()
+                or action in in_menus
+                or command_name(action.text()) in texts
+            ):
+                continue
+            found.append(
+                f"{plain_text(action.text())!r} on toolbar {bar.objectName()!r} "
+                "is in no menu"
+            )
+    return found
+
+
+def access_key_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """§4: every menu item has an access key unique in its menu (MS
+    `cmd-menus`), in the menus as the showing mode fills them. An item goes
+    without one only when every letter of its text is already another
+    item's key there, which is what the Engine's `assign_access_keys` does
+    when the letters run out (Backtest's View → Trades, 2026-10-06)."""
+    found = []
+    for title, menu in top_menus(window):
+        found += _menu_key_problems(menu, title)
+    return found
 
 
 def perspective_problems(window: QMainWindow, page: QWidget) -> list[str]:

@@ -2,8 +2,9 @@
 
 @details `EPIC-013B`. `BacktestChartControls` is a dumb component — it
 emits signals and decides nothing — so the Presenter needs exactly five
-signals and three methods from it (`PROP-004` added the fifth signal).
-Declaring those eight keeps `IBacktestView.chart_controls` from having to
+signals and four methods from it (`PROP-004` added the fifth signal,
+`BOT-155` the fourth method, which View → Chart drives). Declaring those nine
+keeps `IBacktestView.chart_controls` from having to
 be typed `object | None`, which would have re-introduced the implicit
 contract this epic exists to remove.
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from PySide6.QtCore import SignalInstance
+from PySide6.QtGui import QAction
 
 
 @runtime_checkable
@@ -47,3 +49,7 @@ class IBacktestChartControls(Protocol):
     def set_ema_enabled(self, enabled: bool) -> None: ...
 
     def is_ema_checked(self) -> bool: ...
+
+    def display_actions(self) -> dict[str, QAction]:
+        """The chart mode's and the layers' actions, by key (`BOT-155`)."""
+        ...

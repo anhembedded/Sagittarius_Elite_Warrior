@@ -1,8 +1,12 @@
 """The layout checks of the workbench conformance suite (`EPIC-033C`): dock
-and toolbar names, Window → Reset layout, and whether a mode fits the window.
+and toolbar names, Window → Reset layout, a layout that survives a restart,
+and whether a mode fits the window.
 
 Like `workbench_widget_checks.py`, each answers the problems it found, one
-line each, for `test_workbench_conformance.py` to ratchet.
+line each, for `test_workbench_conformance.py` to ratchet. The restart check
+needs a second window over the same state store, which the suite's shared
+`main_window` cannot give, so `test_main_window_state.py` runs it on the
+booted app.
 """
 
 from __future__ import annotations
@@ -12,10 +16,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QDockWidget, QMainWindow, QToolBar, QWidget
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
     command_name,
-    plain_text,
-)
-from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
-    WorkbenchShell,
+    top_menus,
 )
 
 
@@ -57,19 +58,12 @@ def object_name_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def _reset_layout_action(window: QMainWindow) -> QAction | None:
-    for item in window.menuBar().actions():
-        if plain_text(item.text()) != "Window":
-            continue
-        # The workbench fills a menu for the showing mode when it opens.
-        menu = (
-            window.menu(item.text())
-            if isinstance(window, WorkbenchShell)
-            else item.menu()
-        )
-        return next(
-            (a for a in menu.actions() if command_name(a.text()) == "reset layout"),
-            None,
-        )
+    for title, menu in top_menus(window):
+        if title == "Window":
+            return next(
+                (a for a in menu.actions() if command_name(a.text()) == "reset layout"),
+                None,
+            )
     return None
 
 
@@ -121,6 +115,58 @@ def reset_layout_problems(window: QMainWindow, page: QWidget) -> list[str]:
         f"{key} is {after.get(key)} after Reset layout, {state} by default"
         for key, state in default.items()
         if after.get(key) != state
+    ]
+
+
+#: Where a user may drag a dock or a toolbar to, away from where it is.
+_OTHER_DOCK_AREA = {
+    Qt.DockWidgetArea.LeftDockWidgetArea: Qt.DockWidgetArea.RightDockWidgetArea,
+    Qt.DockWidgetArea.RightDockWidgetArea: Qt.DockWidgetArea.LeftDockWidgetArea,
+    Qt.DockWidgetArea.TopDockWidgetArea: Qt.DockWidgetArea.BottomDockWidgetArea,
+    Qt.DockWidgetArea.BottomDockWidgetArea: Qt.DockWidgetArea.TopDockWidgetArea,
+}
+_OTHER_TOOLBAR_AREA = {
+    Qt.ToolBarArea.TopToolBarArea: Qt.ToolBarArea.BottomToolBarArea,
+    Qt.ToolBarArea.BottomToolBarArea: Qt.ToolBarArea.TopToolBarArea,
+    Qt.ToolBarArea.LeftToolBarArea: Qt.ToolBarArea.RightToolBarArea,
+    Qt.ToolBarArea.RightToolBarArea: Qt.ToolBarArea.LeftToolBarArea,
+}
+
+
+def rearrange(page: QWidget) -> dict[str, str]:
+    """Rearranges a mode as a user can and answers the layout it now has:
+    every dock moves to the opposite side and every toolbar to the opposite
+    edge, where the bar allows it, and every other bar (by name) is hidden.
+    Each bar then differs from the default in place or in visibility, so a
+    host that restores nothing cannot pass `restart_problems`."""
+    hosts = _hosts(page)
+    for host in hosts:
+        bars = sorted(_managed_bars(host), key=lambda bar: bar.objectName())
+        for index, bar in enumerate(bars):
+            if isinstance(bar, QDockWidget):
+                area = _OTHER_DOCK_AREA.get(host.dockWidgetArea(bar))
+                if area is not None and bar.isAreaAllowed(area):
+                    host.addDockWidget(area, bar)
+            else:
+                edge = _OTHER_TOOLBAR_AREA.get(host.toolBarArea(bar))
+                if edge is not None and bar.isAreaAllowed(edge):
+                    host.addToolBar(edge, bar)
+            bar.setVisible(index % 2 == 1)
+    QApplication.processEvents()
+    return _layout(hosts)
+
+
+def restart_problems(closed_with: dict[str, str], page: QWidget) -> list[str]:
+    """§8: each mode's perspective is saved on exit and restored on start.
+    `closed_with` is what `rearrange` answered in the window that closed;
+    `page` is the same mode in the window opened after it over the same
+    state store. Every dock and toolbar must be where, and as shown, as it
+    was then (Qt `QMainWindow.saveState`, KDE "remember the user")."""
+    reopened = _layout(_hosts(page))
+    return [
+        f"{key} is {reopened.get(key)} after a restart, {state} when it closed"
+        for key, state in closed_with.items()
+        if reopened.get(key) != state
     ]
 
 

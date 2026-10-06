@@ -36,10 +36,10 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-033A | [The UI rule is the desktop guidance of Microsoft, KDE and Apple, written as checkable clauses](incomplete/EPIC-033A_stock_control_contract.md) | #332 | 🟢 | 🟡 In progress (open criteria in the task) | 2026-10-04 |
+| EPIC-033A | [The UI rule is the desktop guidance of Microsoft, KDE and Apple, written as checkable clauses](completed/EPIC-033A_stock_control_contract.md) | #332 | 🟢 | ✅ Done | 2026-10-06 |
 | EPIC-033O | [The information architecture is designed from the use cases, with a wireframe per mode, and approved by the user](completed/EPIC-033O_information_architecture.md) | #332 | 🟢 | ✅ Done | 2026-10-04 |
-| EPIC-033B | [A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates](incomplete/EPIC-033B_workbench_conformance_fences.md) | #332 | 🟡 | 🟡 In progress (open criteria in the task) | 2026-10-04 |
-| EPIC-033C | [One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar](incomplete/EPIC-033C_workbench_shell.md) | #345 | 🔴 | 🟡 Merged; two conformance checks owed | 2026-10-04 |
+| EPIC-033B | [A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates](completed/EPIC-033B_workbench_conformance_fences.md) | #332 | 🟡 | ✅ Done | 2026-10-06 |
+| EPIC-033C | [One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar](completed/EPIC-033C_workbench_shell.md) | #345 | 🔴 | ✅ Done | 2026-10-06 |
 | EPIC-033D | [Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it](completed/EPIC-033D_commands_as_actions.md) | P4c (claude/confident-dirac-le8m4x) | 🟡 | ✅ Done | 2026-10-05 |
 | EPIC-033N | [Every table, list and read-out is built from one spec per kind](incomplete/EPIC-033N_uniform_display_widgets.md) | P4d (claude/confident-dirac-le8m4x) | 🟡 | 🟡 In progress: tables and formatter done; read-outs, grouped trees, per-symbol precision open | — |
 | EPIC-033E | [One Options dialog (Tools → Options) with sections, OK, Cancel and Apply](completed/EPIC-033E_settings_dialog.md) | #348 | 🟡 | ✅ Done | 2026-10-04 |

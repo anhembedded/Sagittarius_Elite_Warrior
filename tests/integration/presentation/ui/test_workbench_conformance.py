@@ -27,15 +27,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtCore import QSize
 from PySide6.QtWidgets import (
-    QDockWidget,
     QMainWindow,
-    QMenu,
-    QPushButton,
-    QToolBar,
-    QWidget,
 )
 from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
     DEVELOPER_ROUTE,
@@ -46,8 +40,8 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_layou
     reset_layout_problems,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widget_checks import (
-    LONE_AMPERSAND,
     Check,
+    access_key_problems,
     control_height_problems,
     duplicate_button_problems,
     font_problems,
@@ -57,6 +51,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
     nested_scroll_problems,
     perspective_problems,
     style_sheet_problems,
+    toolbar_in_menu_problems,
     toolbar_problems,
     view_menu_problems,
     workbench_problems,
@@ -75,9 +70,11 @@ MODE_CHECKS: dict[str, Check] = {
     "control_height": control_height_problems,
     "no_nested_scroll": nested_scroll_problems,
     "toolbar_actions_only": toolbar_problems,
+    "toolbar_actions_in_a_menu": toolbar_in_menu_problems,
     "no_button_duplicates_a_command": duplicate_button_problems,
     "item_view_conventions": item_view_problems,
     "mnemonics_escaped": mnemonic_problems,
+    "access_keys_unique": access_key_problems,
     "perspective_round_trip": perspective_problems,
     "bars_named_uniquely": object_name_problems,
     # Last: it rearranges the mode, then puts the default back.
@@ -206,114 +203,3 @@ def test_a_size_key_counts_at_its_own_size_only() -> None:
     assert ratchet_problems({"x@800x600": []}, {}, QSize(1024, 700)) == [
         "x@800x600: no such window size — remove it from the baseline"
     ]
-
-
-def test_a_lone_ampersand_is_a_mnemonic_and_a_doubled_one_is_not() -> None:
-    assert LONE_AMPERSAND.search("Data & stream")
-    assert not LONE_AMPERSAND.search("Data && stream")
-    assert not LONE_AMPERSAND.search("&File")
-
-
-def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:
-    window = QMainWindow()
-    qtbot.addWidget(window)
-    bar = QToolBar("Top", window)
-    window.addToolBar(bar)
-    button = QPushButton("Reload")
-    button.setStyleSheet("background: yellow")
-    button.setFixedHeight(60)
-    bar.addWidget(button)
-    window.show()
-    assert toolbar_problems(window, window)
-    assert style_sheet_problems(window, window)
-    assert control_height_problems(window, window)
-
-
-def test_a_button_named_like_a_contributed_command_is_seen(qtbot) -> None:
-    window = QMainWindow()
-    qtbot.addWidget(window)
-    for text, name in (
-        ("&Run backtest", "action::backtesting.backtest.run"),
-        ("&Options", "action::workbench.options"),
-    ):
-        live = QAction(text, window)
-        live.setObjectName(name)
-        window.addAction(live)
-    QAction("S&top", window).setObjectName("action::other.mode.stop")
-    page = QWidget(window)
-    QPushButton("Stop", page)
-    QPushButton("Run backtest", page)
-    QPushButton("Options", page)
-    QPushButton("Pick dates", page)
-
-    assert duplicate_button_problems(window, page) == [
-        "button 'Run backtest' duplicates the command of the same name"
-    ]
-
-
-def test_a_nameless_dock_and_two_toolbars_sharing_a_name_are_seen(qtbot) -> None:
-    window = QMainWindow()
-    qtbot.addWidget(window)
-    window.setObjectName("host")
-    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, QDockWidget("Orders"))
-    for title in ("Top", "Chart"):
-        bar = QToolBar(title)
-        bar.setObjectName("bar")
-        window.addToolBar(bar)
-    named = QDockWidget("Fills")
-    named.setObjectName("fills")
-    # A toolbar inside a panel is the panel's content, not the window's.
-    named.setWidget(QToolBar("Inside"))
-    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, named)
-
-    assert object_name_problems(window, window) == [
-        "QDockWidget 'Orders' in 'host' has no object name",
-        "'bar' names 2 bars in 'host'",
-    ]
-
-
-def _window_with_reset_layout(qtbot) -> tuple[QMainWindow, QAction]:
-    """A dock, a toolbar, and a Window → Reset layout that does nothing yet."""
-    window = QMainWindow()
-    qtbot.addWidget(window)
-    window.setCentralWidget(QWidget())
-    dock = QDockWidget("Orders")
-    dock.setObjectName("orders")
-    window.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-    bar = QToolBar("Top")
-    bar.setObjectName("top")
-    window.addToolBar(bar)
-    window.show()
-    menu = QMenu("&Window", window)
-    window.menuBar().addMenu(menu)
-    reset = QAction("&Reset layout", window)
-    menu.addAction(reset)
-    return window, reset
-
-
-def test_a_reset_layout_that_restores_nothing_is_seen(qtbot) -> None:
-    good, reset = _window_with_reset_layout(qtbot)
-    default = good.saveState()
-    reset.triggered.connect(lambda: good.restoreState(default))
-    broken, _ = _window_with_reset_layout(qtbot)
-    bare = QMainWindow()
-    qtbot.addWidget(bare)
-
-    assert reset_layout_problems(good, good) == []
-    found = reset_layout_problems(broken, broken)
-    assert any(line.startswith("/orders is ") for line in found), found
-    assert any(line.startswith("/top is ") for line in found), found
-    assert reset_layout_problems(bare, bare) == ["no Window → Reset layout command"]
-
-
-def test_a_mode_wider_than_the_window_is_seen(qtbot) -> None:
-    window = QMainWindow()
-    qtbot.addWidget(window)
-    page = QWidget()
-    window.setCentralWidget(page)
-    assert fit_problems(window, page, QSize(1024, 700)) == []
-
-    page.setMinimumWidth(1100)
-
-    assert fit_problems(window, page, QSize(1024, 700))
-    assert fit_problems(window, page, QSize(1366, 768)) == []

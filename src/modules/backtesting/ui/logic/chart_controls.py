@@ -1,4 +1,5 @@
 from PySide6 import QtCore, QtWidgets
+from PySide6.QtGui import QAction, QActionGroup
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
@@ -36,20 +37,31 @@ _SIDE_LABELS = EnumLabels(
 #: trade-flags checkbox already doing that job, which is no longer "filter".
 _MAX_MIN_PNL_PERCENT = 99.0
 
+#: The keys of `display_actions()` for the three layers; the chart modes are
+#: keyed by their `ChartDisplayMode` value.
+LAYER_INDICATORS = "indicators"
+LAYER_VOLUME = "volume"
+LAYER_TRADE_FLAGS = "trade_flags"
 
-class BacktestChartControls(QtWidgets.QWidget):
+
+class BacktestChartControls(QtWidgets.QToolBar):
     """
     @brief Chart-area toolbar for the Backtest Screen: the 3-mode switch plus
-    overlay toggles (BOT-056 §2.1/§2.2).
+    overlay toggles (BOT-056 §2.1/§2.2) and the marker filters (PROP-004).
 
-    @details Native `QtWidgets`, on its own row above the chart since
-    `EPIC-033L`: beside the chart's `ChartToolbar` in the header it squeezed
-    that toolbar into its overflow button at 1366×768. Rather than QML —
-    this is purely "how do I look at data BackTestView already has", with no
-    config to validate or dispatch, so it doesn't need the ViewModel/Presenter
-    round-trip the rest of this screen uses for anything that reaches the
-    engine. Dumb component,
-    same rule `ChartToolbar` itself documents: emits signals, decides nothing.
+    @details A stock `QToolBar` above the chart since `BOT-155`. It was a row
+    of widgets (`EPIC-033L`) about 1027 px wide that could not shrink, so it
+    held the whole window at least 1400 px wide and the mode did not fit
+    1024×700 (the conformance suite's `fits_the_window`). A toolbar overflows
+    into its extension button instead (Qt `QToolBar`, MS `cmd-toolbars`).
+
+    State is a checkable action (`ui-presentation-rule.md` §6): the chart
+    mode is an exclusive `QActionGroup`, each layer a checkable action. The
+    two filters and the threshold are widgets the toolbar wraps in a
+    `QWidgetAction` each. This is purely "how do I look at data BackTestView
+    already has", with no config to validate or dispatch, so it needs no
+    ViewModel/Presenter round-trip. Dumb component, the same rule
+    `ChartToolbar` itself documents: emits signals, decides nothing.
     """
 
     sig_mode_changed = QtCore.Signal(str)  # ChartDisplayMode value
@@ -64,57 +76,47 @@ class BacktestChartControls(QtWidgets.QWidget):
     sig_marker_filter_changed = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__("Chart display", parent)
+        self.setObjectName("backtestChartControls")
 
-        layout = QtWidgets.QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        # One chart mode at a time is a state, so radio buttons
-        # (`ui-presentation-rule.md` §6), not checkable push buttons.
-        self._mode_buttons: dict[ChartDisplayMode, QtWidgets.QRadioButton] = {}
-        self._mode_group = QtWidgets.QButtonGroup(self)
+        # One chart mode at a time is a state: checkable actions in one
+        # exclusive group (`ui-presentation-rule.md` §6).
+        self._mode_actions: dict[ChartDisplayMode, QAction] = {}
+        self._mode_group = QActionGroup(self)
         self._mode_group.setExclusive(True)
         for mode in ChartDisplayMode:
-            btn = QtWidgets.QRadioButton(_MODE_LABELS[mode])
-            btn.setObjectName(f"btnChartMode_{mode.value}")
-            self._mode_group.addButton(btn)
-            self._mode_buttons[mode] = btn
-            layout.addWidget(btn)
-        self._mode_buttons[ChartDisplayMode.OHLC].setChecked(True)
-        self._mode_group.buttonClicked.connect(self._on_mode_button_clicked)
+            action = self._add_checkable(
+                f"actChartMode_{mode.value}", _MODE_LABELS[mode]
+            )
+            self._mode_group.addAction(action)
+            self._mode_actions[mode] = action
+        self._mode_actions[ChartDisplayMode.OHLC].setChecked(True)
+        self._mode_group.triggered.connect(self._on_mode_triggered)
 
-        layout.addSpacing(12)
+        self.addSeparator()
 
         # BOT-060: no longer a fixed "4 EMA" — draws whatever the selected
         # strategy's own build_indicators() declares (name/count vary).
-        self._ema_check = self._add_checkbox(
-            layout, "chkChartEma", "Strategy Indicators"
+        self._ema_action = self._add_layer("actChartEma", "Strategy Indicators")
+        self._ema_action.toggled.connect(self.sig_ema_toggled.emit)
+        self._volume_action = self._add_layer("actChartVolume", "Volume")
+        self._volume_action.toggled.connect(self.sig_volume_toggled.emit)
+        self._trade_flags_action = self._add_layer(
+            "actChartTradeFlags", "Buy/Sell Flags"
         )
-        self._ema_check.setChecked(True)
-        self._ema_check.toggled.connect(self.sig_ema_toggled.emit)
+        self._trade_flags_action.toggled.connect(self.sig_trade_flags_toggled.emit)
 
-        self._volume_check = self._add_checkbox(layout, "chkChartVolume", "Volume")
-        self._volume_check.setChecked(True)
-        self._volume_check.toggled.connect(self.sig_volume_toggled.emit)
-
-        self._trade_flags_check = self._add_checkbox(
-            layout, "chkChartTradeFlags", "Buy/Sell Flags"
-        )
-        self._trade_flags_check.setChecked(True)
-        self._trade_flags_check.toggled.connect(self.sig_trade_flags_toggled.emit)
-
-        layout.addSpacing(12)
+        self.addSeparator()
 
         self._marker_outcome_combo = self._add_enum_combo(
-            layout, "cboMarkerOutcomeFilter", _OUTCOME_LABELS
+            "cboMarkerOutcomeFilter", _OUTCOME_LABELS
         )
         self._marker_outcome_combo.currentIndexChanged.connect(
             self._emit_marker_filter_changed
         )
 
         self._marker_side_combo = self._add_enum_combo(
-            layout, "cboMarkerSideFilter", _SIDE_LABELS
+            "cboMarkerSideFilter", _SIDE_LABELS
         )
         self._marker_side_combo.currentIndexChanged.connect(
             self._emit_marker_filter_changed
@@ -126,9 +128,16 @@ class BacktestChartControls(QtWidgets.QWidget):
         self._marker_min_pnl_spin.setSuffix("% min |PnL|")
         self._marker_min_pnl_spin.setSingleStep(0.5)
         self._marker_min_pnl_spin.valueChanged.connect(self._emit_marker_filter_changed)
-        layout.addWidget(self._marker_min_pnl_spin)
+        self.addWidget(self._marker_min_pnl_spin)
 
-        layout.addStretch(1)
+    def display_actions(self) -> dict[str, QAction]:
+        """The chart mode's and the layers' actions, by key, for View →
+        Chart to drive and follow (`BOT-155`)."""
+        actions = {mode.value: action for mode, action in self._mode_actions.items()}
+        actions[LAYER_INDICATORS] = self._ema_action
+        actions[LAYER_VOLUME] = self._volume_action
+        actions[LAYER_TRADE_FLAGS] = self._trade_flags_action
+        return actions
 
     def show_sides_for(self, market: MarketType) -> None:
         """EPIC-027D — a Spot screen offers no "Short Only" marker filter:
@@ -144,24 +153,27 @@ class BacktestChartControls(QtWidgets.QWidget):
             short_only = MarkerSideFilter.SHORT_ONLY
             combo.addItem(_SIDE_LABELS[short_only], short_only)
 
-    @staticmethod
-    def _add_checkbox(
-        layout: QtWidgets.QHBoxLayout, object_name: str, text: str
-    ) -> QtWidgets.QCheckBox:
-        check = QtWidgets.QCheckBox(text)
-        check.setObjectName(object_name)
-        layout.addWidget(check)
-        return check
+    def _add_checkable(self, object_name: str, text: str) -> QAction:
+        action = QAction(text, self)
+        self.addAction(action)
+        action.setObjectName(object_name)
+        action.setCheckable(True)
+        return action
 
-    @staticmethod
+    def _add_layer(self, object_name: str, text: str) -> QAction:
+        """A layer of the chart, drawn until unchecked."""
+        action = self._add_checkable(object_name, text)
+        action.setChecked(True)
+        return action
+
     def _add_enum_combo(
-        layout: QtWidgets.QHBoxLayout, object_name: str, labels: EnumLabels
+        self, object_name: str, labels: EnumLabels
     ) -> QtWidgets.QComboBox:
         combo = QtWidgets.QComboBox()
         combo.setObjectName(object_name)
         for member, text in labels.items():
             combo.addItem(text, member)
-        layout.addWidget(combo)
+        self.addWidget(combo)
         return combo
 
     def _emit_marker_filter_changed(self, *_args: object) -> None:
@@ -171,9 +183,9 @@ class BacktestChartControls(QtWidgets.QWidget):
         test suite caught), since `Signal()` takes zero arguments."""
         self.sig_marker_filter_changed.emit()
 
-    def _on_mode_button_clicked(self, button: QtWidgets.QAbstractButton) -> None:
-        for mode, mode_button in self._mode_buttons.items():
-            if mode_button is button:
+    def _on_mode_triggered(self, action: QAction) -> None:
+        for mode, mode_action in self._mode_actions.items():
+            if mode_action is action:
                 self.sig_mode_changed.emit(mode.value)
                 return
 
@@ -184,13 +196,13 @@ class BacktestChartControls(QtWidgets.QWidget):
         than silently drawing markers nobody asked to see. The 3 marker
         filters (PROP-004) only ever narrow that same marker set, so they
         follow the checkbox's own enabled state."""
-        self._trade_flags_check.setEnabled(enabled)
+        self._trade_flags_action.setEnabled(enabled)
         self._marker_outcome_combo.setEnabled(enabled)
         self._marker_side_combo.setEnabled(enabled)
         self._marker_min_pnl_spin.setEnabled(enabled)
 
     def is_trade_flags_checked(self) -> bool:
-        return self._trade_flags_check.isChecked()
+        return self._trade_flags_action.isChecked()
 
     def outcome_filter(self) -> MarkerOutcomeFilter:
         # `QComboBox.addItem(text, userData=...)` round-trips a `str`-based
@@ -212,7 +224,7 @@ class BacktestChartControls(QtWidgets.QWidget):
         thousands), squashing the equity curve flat. Same treatment as
         `set_trade_flags_enabled`: disable the control, don't just leave the
         stale lines drawn."""
-        self._ema_check.setEnabled(enabled)
+        self._ema_action.setEnabled(enabled)
 
     def is_ema_checked(self) -> bool:
-        return self._ema_check.isChecked()
+        return self._ema_action.isChecked()

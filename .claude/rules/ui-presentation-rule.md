@@ -42,9 +42,10 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
 ## 4. Text, icons and terminology
-- Menus and buttons in sentence case, dialog titles in title case (MS); every menu item has an access key unique in its menu. `[review: H3]`
+- Menus and buttons in sentence case, dialog titles in title case (MS). `[review: H3]`
+- Every menu item has an access key unique in its menu (MS `cmd-menus`); an item goes without one only when every letter of its text is already another item's key there, as the Engine's `assign_access_keys` leaves it. The Engine refuses a command that marks no key, two keys, or a key another command in its menu has; the suite reads every menu as each mode fills it. `[guard: test_workbench_conformance.py]`
 - A literal ampersand in a label is written `&&`, never left to become an access key. `[guard: test_workbench_conformance.py]`
-- A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). `[review: H3]`
+- A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). The Engine's `ActionDescriptor` refuses "..." and an ellipsis that disagrees with the command's declared `needs_input`, so the booted suite fails on either; whether a command needs input is review. `[guard: test_workbench_conformance.py; review: H3]`
 - OK is spelled "OK"; problems are never "OK" — use Close (MS `mess-confirm`). `[review: H3]`
 - Icons: SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
 
@@ -54,7 +55,7 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 ## 6. Menus, toolbars and commands
 - The menu bar reads File, Edit, View, the modules' menus, Tools, Window, Help (MS `cmd-menus`); it is the complete catalogue of commands. `[guard: test_workbench_conformance.py; review: H3]`
 - A toolbar holds actions, never a button widget (MS `cmd-toolbars`). `[guard: test_workbench_conformance.py]`
-- Every command is one `QAction` contributed by its module, and every toolbar action is also in a menu (the Engine's `ActionDescriptor` requires its menu path); no push button repeats a command of its mode; icon-only actions have a tooltip naming the shortcut (MS `cmd-toolbars`). `[guard: test_workbench_conformance.py; review: H3]`
+- Every command is one `QAction` contributed by its module, and every toolbar action is also in a menu (the Engine's `ActionDescriptor` requires its menu path); no push button repeats a command of its mode; icon-only actions have a tooltip naming the shortcut (MS `cmd-toolbars`). The suite checks that every action on a toolbar of a mode, in-page chart toolbars included, is reachable from the menu bar, as the same action or one of the same text. `[guard: test_workbench_conformance.py; review: H3]`
 - No command is reachable only by a shortcut or a context menu; context menus repeat menu commands (MS `cmd-menus`). `[review: H3]`
 - No checkable push button: state is a check box, a radio button or a checkable action (MS `ctrl-command-buttons`, KDE). `[guard: test_stock_controls_only.py]`
 
@@ -65,8 +66,8 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 
 ## 8. Panels, modes and perspectives
 - The app is one `QMainWindow` shell with a mode per job the person does; each mode is a workbench host: a central widget, docks, toolbars (Qt Creator's shape; HLD §11). `[guard: test_workbench_conformance.py]`
-- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). The suite checks the View toggle, that every dock and toolbar a main window lays out has an object name unique in it, and that Reset Layout puts back each dock's and toolbar's place after they are moved and hidden. `[guard: test_workbench_conformance.py; review: H7]`
-- Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. The suite checks that a host restores its own saved state; the restart half lands with `EPIC-033C`. `[guard: test_workbench_conformance.py; review: H7]`
+- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). The suite checks the View toggle, that every dock and toolbar a main window lays out has an object name unique in it, and that Reset Layout puts back each dock's and toolbar's place after they are moved and hidden. A toolbar placed in a panel's own layout (the chart's `ChartToolbar`, Backtest's chart controls) is that panel's content, not a bar of the window: it has no View toggle and Reset Layout does not move it, but its actions are commands like any other and are in a menu (§6). `[guard: test_workbench_conformance.py; review: H7]`
+- Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. The suite checks that a host restores its own saved state; `test_main_window_state.py` rearranges every mode, closes the window, opens a second one over the same state store and checks that each dock and toolbar is where, and as shown, as it was left. The version mismatch is the Engine's `PerspectiveStore`'s. `[guard: test_workbench_conformance.py, test_main_window_state.py; review: H7]`
 
 ## 9. Tables, lists and read-outs
 - Every table, list and read-out of a kind shares its properties: item views are configured by the engine's column specs (selection, editing, sorting, header), never per view; a column's kind decides alignment and formatting — numbers, money and durations right, text, identifiers and dates left (MS `ctrl-list-views`). `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H6]`
@@ -81,5 +82,5 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 - Confirm only risky or irreversible actions (Emergency Stop, Place Order, Cancel All, Delete Data): specific verbs, never OK/Cancel, the safe choice default, no "don't ask again" (MS `mess-confirm`). `[review: H7]`
 
 ## 11. Keyboard
-- Standard shortcuts keep their meaning (Ctrl+C/V/Z/F, F1, F5, Alt+F4); new ones come from Ctrl+G/J/K/L/M/Q/R/T, Ctrl+digit, F7/F8/F9/F12; no Ctrl+Alt (MS `inter-keyboard`, `cmd-menus`). `[review: H3]`
+- Standard shortcuts keep their meaning (Ctrl+C/V/Z/F, F1, F5, Alt+F4): a standard command takes its `QKeySequence.StandardKey`. New ones come from Ctrl+J, Ctrl+L, Ctrl+digit, F7/F8/F9/F12; Microsoft also leaves Ctrl+G/K/M/Q/R/T free, but KDE, GNOME or macOS bind them (the Engine's `shortcut_policy`); no Ctrl+Alt (MS `inter-keyboard`, `cmd-menus`). The Engine's `ActionDescriptor` refuses any other key, so the booted suite fails on one; whether a command is the standard one is review. `[guard: test_workbench_conformance.py; review: H3]`
 - Tab order follows reading order; initial focus is the likely control (MS `inter-keyboard`). `[review: H3]`

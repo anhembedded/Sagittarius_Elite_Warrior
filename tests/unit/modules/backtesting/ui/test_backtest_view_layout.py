@@ -322,7 +322,7 @@ def test_refresh_trade_flag_filters_reapplies_the_checkboxs_own_state(qapp, requ
     v = BackTestView()
     request.addfinalizer(v.deleteLater)
     v.render_symbol_cards(["ETHUSDT"])
-    v.chart_controls._trade_flags_check.setChecked(False)
+    v.chart_controls._trade_flags_action.setChecked(False)
 
     with patch.object(v, "set_trade_flags_visible") as spy:
         v.refresh_trade_flag_filters()

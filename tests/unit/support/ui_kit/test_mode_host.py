@@ -117,22 +117,33 @@ def test_reset_layout_brings_back_the_hidden_commands_toolbar_beside_a_surface(
     assert not bar.isHidden()
 
 
-def test_a_saved_layout_round_trips_through_the_inner_surface(
+def test_the_commands_toolbar_and_the_panels_are_each_remembered_by_their_host(
     with_surface: tuple[ModeHost, _ViewWithSurface],
 ) -> None:
+    """The window saves one layout per remembered host: the surface's for
+    the panels, and this host's own for the commands toolbar, which a
+    restart used to bring back shown wherever the user had hidden it."""
     host, view = with_surface
+    host.add_command(QAction("Run", host))
     host.show()
     dock = view.surface.findChild(QDockWidget)
-    assert dock is not None
+    bar = host.findChild(QToolBar, options=Qt.FindChildOption.FindDirectChildrenOnly)
+    assert dock is not None and bar is not None
     dock.close()
-    saved = host.save_perspective()
-    assert saved == view.surface.save_perspective()
+    bar.hide()
+
+    assert host.remembered_hosts() == (host, view.surface)
+    saved = [(each, each.save_perspective()) for each in host.remembered_hosts()]
     dock.show()
+    bar.show()
 
-    assert host.restore_perspective(saved) is True
-
+    assert all(each.restore_perspective(blob) for each, blob in saved)
     assert dock.isHidden()
-    assert host.layout_version == view.surface.layout_version
+    assert bar.isHidden()
+
+
+def test_a_plain_view_remembers_its_host_alone(plain: ModeHost) -> None:
+    assert plain.remembered_hosts() == (plain,)
 
 
 def test_a_plain_view_resets_its_own_layout(plain: ModeHost) -> None:

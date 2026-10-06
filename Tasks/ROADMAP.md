@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 173 | 82.0% |
+| 🟢 **Completed** | 174 | 82.1% |
 | 🟡 **In Progress** | 0 | 0.0% |
 | 🔴 **Backlog** | 30 | 14.2% |
 | ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **211** | **100%** |
+| 📈 **Tổng số Task** | **212** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`EPIC-033A`, `EPIC-033B`, `EPIC-033C` (the UI contract, its conformance fences and the workbench shell) closed**: [Root cause of the last open box: `ModeHost` saved only its surface's layout, so the commands toolbar of every mode with a surface came back on top and shown after a restart, against the rule's "toolbars persist per mode"; the window now remembers each mode's host and its surface separately, and `test_main_window_state.py` rearranges every mode and restarts to prove it. Two clauses a booted window can show had no check and now do: access keys unique per menu, and every toolbar action in a menu (found as failing for the shared chart toolbar in Market, the Dev Board and Backtest, recorded in the baseline). Re-homed to `EPIC-033N`: per-column alignment, the fixed-pitch font for aligned digits and the value-formatter ban. The unused `ui.font.*` configuration keys await the user's approval to be removed.]
+- [x] **[`BOT-155`](completed/BOT-155_backtest_mode_fits_1024x700.md) (the Backtest mode, and so the window, shrinks to 1024×700)**: [Decision: the chart's display controls were one row of widgets about 1027 px wide that held the window at least 1400 px wide; they are now a `QToolBar` of checkable actions (an exclusive group for the chart mode) and wrapped filter widgets, which overflows into its extension button. Qt's own overflow button is exempt from `control_height`, because Qt stretches it to the bar's height.]
 - [x] **[`BOT-153`](completed/BOT-153_market_indicator_parameters.md) (the Market mode edits an indicator script's parameters)**: [Decision: the Dev Board's per-script parameters button (`BOT-063`) becomes one command, Tools → Indicator parameters…, for the script selected in the Market mode's Indicators panel, over the same dialog and sink, so `EPIC-033P` can delete the Dev Board without losing it. Saved values redraw the open charts drawing the script.]
 - [x] **[`BUG-150`](bug_report/completed/BUG-150_closed_market_tab_reports_on_its_deleted_chart.md) (a closed Market tab's load reported on its deleted chart)**: [Root cause: `LiveChartCoordinator._run` checked its cancellation token only between steps and called `load_finished` unconditionally, so a tab closed during its first window had the worker emit on a `MarketChart` already `deleteLater`'d. Fixed at the seam all charts share: a cancelled load reports nothing, `load_finished` carries the load's token, and `LiveCandleChart` settles the request it cancels itself and ignores a settle of a replaced request.]
 - [x] **`EPIC-033T` (a Market chart showing a range goes back to live in one step)**: [Decision: View → Back to l&ive is a command on the chart in front, not a re-pick of the active timeframe. It asks the chart for its newest first window at the timeframe it shows through `LiveCandleChart.show_newest_window()`, which a desk or bot chart can use too, so the chart is restarted once instead of twice through another timeframe. The command is on only while the chart in front shows a range and is not loading. That needs its own `showingRangeChanged` signal, because a range's load reports "not loading" before the range is drawn.]
@@ -487,7 +489,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
-| **P2** | **[BOT-155](backlog/BOT-155_backtest_mode_fits_1024x700.md)** | **The Backtest mode, and so the window, shrinks to 1024×700** | 🟡 **`M (Standard)`** | EPIC-033 | *(added 05/10, PR #370 review)* The Backtest chart controls are one ~1027 px row, so no mode can be made narrower than 1400 px; they become a toolbar that overflows. |
+| **P2** | **[BOT-156](backlog/BOT-156_chart_toolbar_actions_in_a_menu.md)** | **Every action of the shared chart toolbar is also in a menu** | 🟡 **`M (Standard)`** | EPIC-033 | *(added 06/10, PR #371 review)* The chart toolbar's timeframe, zoom and Go live actions take no keyboard focus and are in no menu; the conformance check records them in Market and Backtest. |
 | **P3** | **[BOT-152](backlog/BOT-152_split_order_entry_view_model.md)** | **The order entry's view model splits what the presenter sets from what the view asks** | 🟢 **`S (Small)`** | — | *(added 05/10, PR #358 review)* `OrderEntryViewModel` holds 30 public members, over `PLR0904`'s 20; the ratchet counts the file, not the members. |
 | **P3** | **[BOT-151](backlog/BOT-151_grouped_trees_from_specs.md)** | **Grouped trees are built from column specs like every flat table** | 🟡 **`M (Standard)`** | Engine | *(added 05/10, PR #351 review)* Four grouped `QTreeWidget` dialogs still configure themselves; `configure_item_view` cannot take a `QTreeWidget`. The open criterion 1 of `EPIC-033N`. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
