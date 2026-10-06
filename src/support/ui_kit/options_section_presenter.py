@@ -45,8 +45,8 @@ class OptionsSectionPresenter[TFields](BasePresenter):
     """Satisfies `IOptionsSection` for a page whose state is one value `TFields`."""
 
     _saved_fields: TFields
-    #: The dialog's listener now connected; Tools → Options builds a new
-    #: dialog on every open, so the previous one's is dropped.
+    #: The dialog's listener now told; Tools → Options builds a new dialog on
+    #: every open, so the previous one's is replaced.
     _listener: Callable[[], None] | None = None
 
     def __init__(self, view: QWidget, container: IContainer, *, title: str) -> None:
@@ -77,11 +77,18 @@ class OptionsSectionPresenter[TFields](BasePresenter):
         self._reload()
 
     def set_change_listener(self, listener: Callable[[], None]) -> None:
-        for signal in self._change_signals():
-            if self._listener is not None:
-                signal.disconnect(self._listener)
-            signal.connect(listener)
+        """The view-model signals are connected once, to `_notify_listener`;
+        a new dialog only replaces who is told. Disconnecting the previous
+        dialog's listener instead raises once Qt has dropped that deleted
+        dialog's connection on its own (`BUG-162`)."""
+        if self._listener is None:
+            for signal in self._change_signals():
+                signal.connect(self._notify_listener)
         self._listener = listener
+
+    def _notify_listener(self) -> None:
+        if self._listener is not None:
+            self._listener()
 
     def _reload(self) -> None:
         """Reads the page from config and takes what it shows as saved."""

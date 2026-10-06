@@ -63,6 +63,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
     ModePerspectives,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.options_shell import OptionsShell
 from Sagittarius_Elite_Warrior.src.presentation.ui.shell_navigation import (
     ShellNavigation,
     from_shell_source,
@@ -101,16 +102,12 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.action_confirmation impo
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
     ActionRegistry,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench.i_options_page import (
-    IOptionsPage,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputPane
 from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
     ShellMode,
-    WorkbenchShell,
 )
 
 logger = logging.getLogger("App.Shell.MainWindow")
@@ -126,7 +123,7 @@ _MODE_ICON_SIZE = 24
 _MODE_KEY = "mode"
 
 
-class MainWindow(WorkbenchShell):
+class MainWindow(OptionsShell):
     """The application window: every navigable screen as a mode."""
 
     def __init__(
@@ -251,12 +248,6 @@ class MainWindow(WorkbenchShell):
                 host = self._hosts.get(mode)
                 if host is not None:
                     host.add_command(action)
-
-    def add_options_page(self, page: IOptionsPage) -> None:
-        """One page of Tools → Options; the log line is what proves, from a
-        real process, that the composition root added it."""
-        super().add_options_page(page)
-        logger.info("[options] Tools > Options page %r added", page.title)
 
     # -- what tests and the composition root read ----------------------------
 
