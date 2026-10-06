@@ -3,7 +3,7 @@ figures, and a stale mark when they can no longer be trusted.
 
 @details The stale mark is a sentence above the figures, with the reason
 `AccountSummaryStaleEvent` carries (`EPIC-028Q`), not a colour: ADR D21
-leaves colour to the OS palette. The figures stay visible while stale, as
+leaves colour to the system colour scheme. The figures stay visible while stale, as
 the last ones read, because the mark says what they are.
 """
 

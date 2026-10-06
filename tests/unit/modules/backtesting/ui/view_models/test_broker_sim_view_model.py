@@ -37,33 +37,33 @@ def test_defaults_match_the_shipped_broker_defaults(qapp) -> None:
 
 
 @pytest.mark.parametrize(
-    ("setter", "reader", "attempted", "clamped"),
+    ("attribute", "attempted", "clamped"),
     [
-        ("set_pyramiding", "pyramiding", 0, MIN_PYRAMIDING),
-        ("set_pyramiding", "pyramiding", -5, MIN_PYRAMIDING),
-        ("set_commission_value", "commissionValue", -0.5, MIN_COMMISSION_VALUE),
-        ("set_slippage_ticks", "slippageTicks", -3, MIN_SLIPPAGE_TICKS),
-        ("set_long_leverage", "longLeverage", 0.0, MIN_LEVERAGE),
-        ("set_short_leverage", "shortLeverage", 0.5, MIN_LEVERAGE),
+        ("pyramiding", 0, MIN_PYRAMIDING),
+        ("pyramiding", -5, MIN_PYRAMIDING),
+        ("commissionValue", -0.5, MIN_COMMISSION_VALUE),
+        ("slippageTicks", -3, MIN_SLIPPAGE_TICKS),
+        ("longLeverage", 0.0, MIN_LEVERAGE),
+        ("shortLeverage", 0.5, MIN_LEVERAGE),
     ],
 )
 def test_impossible_broker_values_are_clamped_not_stored(
-    qapp, setter: str, reader: str, attempted: float, clamped: float
+    qapp, attribute: str, attempted: float, clamped: float
 ) -> None:
     """A run configured with 0x leverage or a negative fee reports a
     profit no broker would have paid — the clamp is what keeps the
     result honest (`domain-truth-rule.md`)."""
     vm = BrokerSimViewModel()
 
-    getattr(vm, setter)(attempted)
+    setattr(vm, attribute, attempted)
 
-    assert getattr(vm, reader) == clamped
+    assert getattr(vm, attribute) == clamped
 
 
 def test_typing_a_number_updates_both_the_text_and_the_parsed_value(qapp) -> None:
     vm = BrokerSimViewModel()
 
-    vm.set_order_size_text("250.5")
+    vm.orderSizeText = "250.5"
 
     assert vm.orderSizeText == "250.5"
     assert vm.orderSizeValue == 250.5
@@ -78,9 +78,9 @@ def test_a_half_typed_number_keeps_the_text_and_the_last_good_value(qapp) -> Non
     really does set the value to zero. Written that way first, and the
     test caught it.)"""
     vm = BrokerSimViewModel()
-    vm.set_order_size_text("250")
+    vm.orderSizeText = "250"
 
-    vm.set_order_size_text("")
+    vm.orderSizeText = ""
 
     assert vm.orderSizeText == ""
     assert vm.orderSizeValue == 250.0
@@ -95,7 +95,7 @@ def test_typing_commission_text_emits_both_of_its_signals(qapp) -> None:
     vm.commissionTextChanged.connect(lambda: seen.append("text"))
     vm.commissionValueChanged.connect(lambda: seen.append("value"))
 
-    vm.set_commission_text("0.075")
+    vm.commissionText = "0.075"
 
     assert seen == ["text", "value"]
     assert vm.commissionValue == 0.075
@@ -106,7 +106,7 @@ def test_setting_the_same_value_twice_emits_once(qapp) -> None:
     seen: list[str] = []
     vm.pyramidingChanged.connect(lambda: seen.append("pyramiding"))
 
-    vm.set_pyramiding(3)
-    vm.set_pyramiding(3)
+    vm.pyramiding = 3
+    vm.pyramiding = 3
 
     assert seen == ["pyramiding"]

@@ -16,7 +16,7 @@ sort as text, and the table sorts them back to the read-out's own order.
 
 Three things the QML version needed and this does not: a `QQuickWidget` host
 supplying modality that `kit/DialogShell.qml` had no way to provide, a
-`QObject` re-publishing every value as a `Property` for bindings to read, and a
+`QObject` re-publishing every value for bindings to read, and a
 `Theme` install so the scene could colour itself. `QDialog` is modal, the rules
 are plain functions in `logic/metrics_detail_rules.py`, and the two colours
 that carry meaning are written per item.
@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QPalette
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -51,12 +51,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
     build_gross_bar,
     build_groups,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
+    tone_colour,
 )
 
 from ..metrics_detail_model import detail_rows, metrics_detail_table
-from ..readout_table import tone_colour
 from .backtest_metrics_detail_source import BacktestMetricsDetailSource
 
 if TYPE_CHECKING:
@@ -200,8 +200,8 @@ class MetricsDetailDialogWidget(QDialog):
         colour = tone_colour(tone)
         if colour is None:
             return
-        palette = label.palette()
-        palette.setColor(label.foregroundRole(), colour)
+        palette = QPalette(label.palette())
+        palette.setColor(QPalette.ColorRole.WindowText, colour)
         label.setPalette(palette)
 
     def _on_copy(self) -> None:

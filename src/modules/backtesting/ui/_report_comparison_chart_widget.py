@@ -19,11 +19,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
 )
 
 #: Series A ("current result") vs series B (the loaded file) — reusing the
-#: two colour constants `chart_card/theme.py` already exports rather than
-#: importing `Palette` directly, which `test_app_styling_only_shrinks.py`
-#: (ADR D21) tracks as a shrink-only ratchet: a new file importing it would
-#: fail that guard even though this widget applies no stylesheet of its
-#: own, only these two series pens.
+#: two colour constants `chart_card/theme.py` already exports, the one place
+#: that names what a chart series means; this widget applies no stylesheet of
+#: its own, only these two series pens.
 _SERIES_A_COLOR = BULL_COLOR
 _SERIES_B_COLOR = TAKE_PROFIT_COLOR
 

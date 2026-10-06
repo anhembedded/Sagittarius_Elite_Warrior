@@ -15,8 +15,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import ClassVar
 
-from PySide6.QtCore import QObject, Qt
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
 )
@@ -32,7 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     KIND_TITLES,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import Tone, tone_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -40,11 +38,9 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     DisplayValue,
 )
 
-_STATE_TONE = {
-    BotLifecycleState.RUNNING: Tone.POSITIVE,
-    BotLifecycleState.HALTED: Tone.NEGATIVE,
-    BotLifecycleState.ERROR: Tone.NEGATIVE,
-}
+#: The states that need the person's attention. The state is a word in its
+#: cell, so the emphasis is bold, never a colour (`ui-presentation-rule.md` §1).
+_ATTENTION_STATES = frozenset({BotLifecycleState.HALTED, BotLifecycleState.ERROR})
 
 
 def state_text(state: BotLifecycleState) -> str:
@@ -79,11 +75,8 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         )
         return values[column]
 
-    def _role_data(self, row: BotSnapshot, column: int, role: int) -> object:
-        if role == Qt.ItemDataRole.ForegroundRole and column == self.column("state"):
-            tone = _STATE_TONE.get(row.state)
-            return QColor(tone_colour(tone)) if tone is not None else None
-        return None
+    def _is_emphasised(self, row: BotSnapshot, column: int) -> bool:
+        return column == self.column("state") and row.state in _ATTENTION_STATES
 
 
 class SelectedBotRows[TRow](RowTableModel[TRow]):

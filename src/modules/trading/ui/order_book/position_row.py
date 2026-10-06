@@ -46,7 +46,7 @@ class PositionRow:
     @property
     def pnl_is_profit(self) -> bool:
         """The fact behind the emphasis the model gives a losing row. It is
-        *not* a colour: ADR D21 leaves colour to the OS palette, and Qt has no
+        *not* a colour: ADR D21 leaves colour to the system colour scheme, and Qt has no
         role meaning "this position is losing money"."""
         return self.unrealized_pnl >= 0
 

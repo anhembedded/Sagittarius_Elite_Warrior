@@ -150,7 +150,7 @@ def test_a_resting_limit_placed_on_the_desk_reaches_the_venue_and_open_orders(
     rows = spot_desk.view.account_tabs.open_orders_panel.table.model()
     qtbot.waitUntil(lambda: rows.rowCount() == 1, timeout=_WAIT_MS)
     cells = [rows.index(0, column).data() for column in range(rows.columnCount())]
-    assert spot_desk.presenter.desk.symbol in cells
+    assert spot_desk.presenter.desk.current_symbol in cells
     assert "BUY" in cells
     assert "LIMIT" in cells
     assert "NEW" in cells  # resting on the exchange, not a validate-only echo

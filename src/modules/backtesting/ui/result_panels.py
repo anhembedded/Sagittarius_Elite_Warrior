@@ -16,13 +16,11 @@ from .view_models.run_result_view_model import RunResultViewModel
 
 
 def _points(run_result: RunResultViewModel) -> list[dict[str, float]]:
-    # The view model's fields are Qt `Property`s, which mypy cannot read
-    # through (`EPIC-002D`); they are read by name.
-    return list(run_result.property("drawdownPoints"))
+    return list(run_result.drawdownPoints)
 
 
 def _years(run_result: RunResultViewModel) -> list[dict[str, Any]]:
-    return list(run_result.property("yearlyReturns"))
+    return list(run_result.yearlyReturns)
 
 
 def drawdown_panel(run_result: RunResultViewModel) -> DrawdownChartWidget:

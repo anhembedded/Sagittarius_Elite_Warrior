@@ -20,7 +20,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton
+from PySide6.QtWidgets import QCheckBox, QLabel, QLineEdit
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -54,7 +54,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
     primary_venue_ports,
@@ -333,7 +332,7 @@ def test_api_secret_is_masked_until_revealed(presenter, qapp):
     assert secret_field.text() == "test-secret"
     assert secret_field.echoMode() == QLineEdit.EchoMode.Password
 
-    view.findChild(QPushButton, "btnRevealSecret").toggle()
+    view.findChild(QCheckBox, "btnRevealSecret").toggle()
     qapp.processEvents()
 
     assert secret_field.echoMode() == QLineEdit.EchoMode.Normal
@@ -407,16 +406,14 @@ def test_updating_the_view_model_refreshes_the_widget(presenter, qapp):
     assert presenter.view.findChild(QLineEdit, "txtApiKey").text() == "rotated-key"
 
 
-def test_status_label_reflects_success_and_error_colour(presenter, view_model, qapp):
+def test_status_label_names_an_error_in_words(presenter, view_model, qapp):
     qapp.processEvents()
     status_label = presenter.view.findChild(QLabel, "lblTradingSettingsStatus")
 
     view_model.set_status("all good", is_error=False)
     qapp.processEvents()
     assert status_label.text() == "all good"
-    assert Palette.SUCCESS in status_label.styleSheet()
 
     view_model.set_status("broken", is_error=True)
     qapp.processEvents()
-    assert status_label.text() == "broken"
-    assert Palette.DANGER in status_label.styleSheet()
+    assert status_label.text() == "Error: broken"

@@ -27,7 +27,7 @@ the Backtest side of the same symmetry Trading's own card keeps.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     step_numeric_param_value,
@@ -57,12 +57,9 @@ class StrategyParamsViewModel(QObject):
     # Strategy selection
     # ------------------------------------------------------------------ #
 
-    def _get_strategy_options(self) -> list[dict[str, str]]:
+    @property
+    def strategyOptions(self) -> list[dict[str, str]]:
         return self._strategy_options
-
-    strategyOptions = Property(
-        "QVariantList", _get_strategy_options, notify=strategyOptionsChanged
-    )
 
     @Slot(list)
     def set_strategy_options(self, options: list[dict[str, str]]) -> None:
@@ -71,49 +68,36 @@ class StrategyParamsViewModel(QObject):
         if options and not self._selected_strategy_key:
             self._set_selected_strategy_key(options[0]["key"])
 
-    def _get_selected_strategy_key(self) -> str:
+    @property
+    def selectedStrategyKey(self) -> str:
         return self._selected_strategy_key
+
+    @selectedStrategyKey.setter
+    def selectedStrategyKey(self, value: str) -> None:
+        self._set_selected_strategy_key(value)
 
     def _set_selected_strategy_key(self, value: str) -> None:
         if value != self._selected_strategy_key:
             self._selected_strategy_key = value
             self.selectedStrategyKeyChanged.emit()
 
-    selectedStrategyKey = Property(
-        str,
-        _get_selected_strategy_key,
-        _set_selected_strategy_key,
-        notify=selectedStrategyKeyChanged,
-    )
-
-    def _get_selected_strategy_name(self) -> str:
+    @property
+    def selectedStrategyName(self) -> str:
         for opt in self._strategy_options:
             if opt.get("key") == self._selected_strategy_key:
                 return opt.get("name", self._selected_strategy_key)
         return self._selected_strategy_key or "Select strategy"
 
-    selectedStrategyName = Property(
-        str,
-        _get_selected_strategy_name,
-        notify=selectedStrategyKeyChanged,
-    )
-
     # ------------------------------------------------------------------ #
     # "Thông số Chiến lược"
     # ------------------------------------------------------------------ #
 
-    def _get_bot_params_groups(self) -> tuple[ParamGroup, ...]:
+    @property
+    def botParamsGroups(self) -> tuple[ParamGroup, ...]:
+        """The strategy's own declared inputs, grouped
+        (`IStrategyCatalog.params_form()`). Read-only from the dialog: this
+        is also what `step_bot_param_value()` clamps against."""
         return self._bot_params_groups
-
-    #: The strategy's own declared inputs, grouped
-    #: (`IStrategyCatalog.params_form()`). Read-only from the dialog: this
-    #: is also what `step_bot_param_value()` clamps against — one shape for
-    #: both, since `build_bot_params_rows`'s QML-era flattening into a
-    #: second `rowType: header/field` shape is dead (PR 4.3 deleted the
-    #: QML that needed it).
-    botParamsGroups = Property(
-        "QVariantList", _get_bot_params_groups, notify=botParamsGroupsChanged
-    )
 
     @Slot(list)
     def set_bot_params_groups(self, groups: tuple[ParamGroup, ...]) -> None:
@@ -136,10 +120,9 @@ class StrategyParamsViewModel(QObject):
                     return step_numeric_param_value(field, raw_value, direction)
         return raw_value
 
-    def _get_bot_params_error(self) -> str:
+    @property
+    def botParamsError(self) -> str:
         return self._bot_params_error
-
-    botParamsError = Property(str, _get_bot_params_error, notify=botParamsErrorChanged)
 
     @Slot(str)
     def set_bot_params_error(self, message: str) -> None:

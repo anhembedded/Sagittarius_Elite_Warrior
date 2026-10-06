@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
     StatCardData,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import Tone
 
 _NEUTRAL = Tone.NEUTRAL
 _ONE_HOUR = 3600

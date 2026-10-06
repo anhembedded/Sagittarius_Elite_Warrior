@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot
 
 if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_simulation import (
@@ -48,7 +48,11 @@ if TYPE_CHECKING:
 
 
 class RunResultViewModel(QObject):
-    """@brief The last run's verdict: text, cards, warnings, limits."""
+    """@brief The last run's verdict: text, cards, warnings, limits.
+
+    @details The verdict's fields are plain attributes the View reads; they
+    change only through the `set_*` methods, which emit the matching signal.
+    """
 
     resultChanged = Signal()
     statCardsChanged = Signal()
@@ -69,32 +73,32 @@ class RunResultViewModel(QObject):
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._result_text = ""
-        self._result_is_error = False
-        self._primary_stat_cards: list[dict[str, str]] = []
-        self._extended_stat_cards: list[dict[str, str]] = []
+        self.resultText = ""
+        self.resultIsError = False
+        self.primaryStatCards: list[dict[str, str]] = []
+        self.extendedStatCards: list[dict[str, str]] = []
         #: `EPIC-015` Phase 3 — `MetricsDetailDialogWidget`'s composition
-        #: root reads this directly (plain Python, not a QML `Property`).
+        #: root reads this directly (plain Python accessor).
         #: `None` until the first run succeeds, the same "no result yet"
-        #: convention `_extended_stat_cards` uses via an empty list.
+        #: convention `extendedStatCards` uses via an empty list.
         self._extended_metrics_snapshot: ExtendedMetricsSnapshot | None = None
         #: `BOT-115D` — the config+result pair behind whatever is currently
         #: on screen, for the report comparison dialog's Column A. Same
-        #: "plain Python accessor, not a QML `Property`" reasoning as
+        #: "plain Python accessor" reasoning as
         #: `_extended_metrics_snapshot` above: only that dialog's
         #: composition root reads it.
         self._comparison_snapshot: ReportComparisonSnapshot | None = None
-        self._result_warning_text = ""
-        self._limitations: list[str] = []
-        self._is_data_fully_covered = False
-        self._data_coverage_message = ""
-        self._needs_data_sync = False
+        self.resultWarningText = ""
+        self.limitations: list[str] = []
+        self.isDataFullyCovered = False
+        self.dataCoverageMessage = ""
+        self.needsDataSync = False
         #: `BOT-106D` — drawdown underwater chart points and yearly returns
         #: heatmap rows, same "empty means no result yet" convention as
-        #: `_primary_stat_cards` above.
-        self._drawdown_points: list[dict[str, float]] = []
-        self._yearly_returns: list[dict[str, object]] = []
-        #: `BOT-107B` — same "plain Python accessor, not a QML `Property`"
+        #: `primaryStatCards` above.
+        self.drawdownPoints: list[dict[str, float]] = []
+        self.yearlyReturns: list[dict[str, object]] = []
+        #: `BOT-107B` — same "plain Python accessor"
         #: reasoning as `_comparison_snapshot`: only the Monte Carlo
         #: dialog's composition root reads it. `_monte_carlo_error` is the
         #: sibling "why not" text, mutually exclusive with a result — a
@@ -106,39 +110,15 @@ class RunResultViewModel(QObject):
     # Result line
     # ------------------------------------------------------------------ #
 
-    def _get_result_text(self) -> str:
-        return self._result_text
-
-    resultText = Property(str, _get_result_text, notify=resultChanged)
-
-    def _get_result_is_error(self) -> bool:
-        return self._result_is_error
-
-    resultIsError = Property(bool, _get_result_is_error, notify=resultChanged)
-
     @Slot(str, bool)
     def set_result(self, text: str, is_error: bool) -> None:
-        self._result_text = text
-        self._result_is_error = is_error
+        self.resultText = text
+        self.resultIsError = is_error
         self.resultChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Stat cards (BOT-055)
     # ------------------------------------------------------------------ #
-
-    def _get_primary_stat_cards(self) -> list[dict[str, str]]:
-        return self._primary_stat_cards
-
-    primaryStatCards = Property(
-        "QVariantList", _get_primary_stat_cards, notify=statCardsChanged
-    )
-
-    def _get_extended_stat_cards(self) -> list[dict[str, str]]:
-        return self._extended_stat_cards
-
-    extendedStatCards = Property(
-        "QVariantList", _get_extended_stat_cards, notify=statCardsChanged
-    )
 
     @Slot("QVariantList", "QVariantList")
     def set_stat_cards(
@@ -149,12 +129,12 @@ class RunResultViewModel(QObject):
         """Empty lists clear the panel (no result yet, or the last run
         failed / returned nothing) — the cards row hides itself when
         `primaryStatCards` is empty."""
-        self._primary_stat_cards = primary
-        self._extended_stat_cards = extended
+        self.primaryStatCards = primary
+        self.extendedStatCards = extended
         self.statCardsChanged.emit()
 
     def extended_metrics_snapshot(self) -> ExtendedMetricsSnapshot | None:
-        """Plain Python accessor (no `Property`) for
+        """Plain Python accessor (not a Qt property) for
         `MetricsDetailDialogWidget`'s composition root — see the field's
         own docstring in `__init__`, and `ExtendedMetricsSnapshot`'s module
         docstring, for why this is a separate retention from
@@ -178,7 +158,7 @@ class RunResultViewModel(QObject):
         self._extended_metrics_snapshot = snapshot
 
     def comparison_snapshot(self) -> ReportComparisonSnapshot | None:
-        """Plain Python accessor (no `Property`), same shape as
+        """Plain Python accessor (not a Qt property), same shape as
         `extended_metrics_snapshot()` — `ReportComparisonDialog`'s
         composition root reads it for Column A."""
         return self._comparison_snapshot
@@ -198,102 +178,54 @@ class RunResultViewModel(QObject):
     # Warning + limitations
     # ------------------------------------------------------------------ #
 
-    def _get_result_warning_text(self) -> str:
-        return self._result_warning_text
-
-    resultWarningText = Property(
-        str, _get_result_warning_text, notify=resultWarningTextChanged
-    )
-
     @Slot(str)
     def set_result_warning_text(self, text: str) -> None:
         """`BOT-079` follow-up. Empty string means "no warning" — the row
         hides entirely rather than showing a blank line."""
-        if text != self._result_warning_text:
-            self._result_warning_text = text
+        if text != self.resultWarningText:
+            self.resultWarningText = text
             self.resultWarningTextChanged.emit()
-
-    def _get_limitations(self) -> list[str]:
-        return self._limitations
-
-    limitations = Property("QStringList", _get_limitations, notify=limitationsChanged)
 
     @Slot("QStringList")
     def set_limitations(self, limitations: list[str]) -> None:
         """`BOT-081`. Empty list means "no result yet" — same convention as
         `set_stat_cards([], [])`."""
-        self._limitations = list(limitations)
+        self.limitations = list(limitations)
         self.limitationsChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Data availability (BOT-059)
     # ------------------------------------------------------------------ #
 
-    def _get_is_data_fully_covered(self) -> bool:
-        return self._is_data_fully_covered
-
-    isDataFullyCovered = Property(
-        bool, _get_is_data_fully_covered, notify=dataCoverageChanged
-    )
-
-    def _get_data_coverage_message(self) -> str:
-        return self._data_coverage_message
-
-    dataCoverageMessage = Property(
-        str, _get_data_coverage_message, notify=dataCoverageChanged
-    )
-
     @Slot(bool, str)
     def set_data_coverage(self, is_fully_covered: bool, message: str) -> None:
-        self._is_data_fully_covered = is_fully_covered
-        self._data_coverage_message = message
+        self.isDataFullyCovered = is_fully_covered
+        self.dataCoverageMessage = message
         self.dataCoverageChanged.emit()
-
-    def _get_needs_data_sync(self) -> bool:
-        return self._needs_data_sync
-
-    #: True only after a run comes back "no historical data" — drives the
-    #: "Đồng bộ ngay" button's visibility. Read-only from the View by
-    #: design: only the Presenter knows whether the last run hit that case.
-    needsDataSync = Property(bool, _get_needs_data_sync, notify=needsDataSyncChanged)
 
     @Slot(bool)
     def set_needs_data_sync(self, value: bool) -> None:
-        if value != self._needs_data_sync:
-            self._needs_data_sync = value
+        if value != self.needsDataSync:
+            self.needsDataSync = value
             self.needsDataSyncChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Drawdown chart + monthly/yearly returns heatmap (BOT-106D)
     # ------------------------------------------------------------------ #
 
-    def _get_drawdown_points(self) -> list[dict[str, float]]:
-        return self._drawdown_points
-
-    drawdownPoints = Property(
-        "QVariantList", _get_drawdown_points, notify=drawdownPointsChanged
-    )
-
     @Slot("QVariantList")
     def set_drawdown_points(self, points: list[dict[str, float]]) -> None:
         """Empty list means "no result yet" — same convention as
         `set_stat_cards([], [])`. `points` is `logic/performance_charts.py`'s
         `build_drawdown_chart_points()` output."""
-        self._drawdown_points = points
+        self.drawdownPoints = points
         self.drawdownPointsChanged.emit()
-
-    def _get_yearly_returns(self) -> list[dict[str, object]]:
-        return self._yearly_returns
-
-    yearlyReturns = Property(
-        "QVariantList", _get_yearly_returns, notify=yearlyReturnsChanged
-    )
 
     @Slot("QVariantList")
     def set_yearly_returns(self, rows: list[dict[str, object]]) -> None:
         """`rows` is `logic/performance_charts.py`'s
         `build_yearly_returns_rows()` output."""
-        self._yearly_returns = rows
+        self.yearlyReturns = rows
         self.yearlyReturnsChanged.emit()
 
     # ------------------------------------------------------------------ #
@@ -301,7 +233,7 @@ class RunResultViewModel(QObject):
     # ------------------------------------------------------------------ #
 
     def monte_carlo_result(self) -> MonteCarloSimulationResult | None:
-        """Plain Python accessor (no `Property`), same shape as
+        """Plain Python accessor (not a Qt property), same shape as
         `comparison_snapshot()` — only `MonteCarloPanel` reads it."""
         return self._monte_carlo_result
 

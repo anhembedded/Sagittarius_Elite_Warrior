@@ -27,18 +27,18 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.binding import BindingGroup
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
-    connect_value_committed,
-    read_widget_value,
-    write_widget_value,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     BotParamFieldWidget,
 )
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
 from .broker_properties_tab import BrokerPropertiesTab
+from .property_binding import BindingGroup
+from .widget_values import (
+    connect_value_committed,
+    read_widget_value,
+    write_widget_value,
+)
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -246,9 +246,8 @@ class StrategyPropertiesDialog(QDialog):
         rather than store it. A binding has no reject step — it makes two
         things equal — so these keep the validate-then-store payload path.
 
-        `connect_value_committed()` (kit) still picks the right signal from
-        Qt's own metadata, so every input kind is covered, not just text
-        boxes.
+        `connect_value_committed()` picks the right signal for each input
+        kind, so every one is covered, not just text boxes.
         """
         for widget in widgets:
             connect_value_committed(widget, self._commit_edited_values)

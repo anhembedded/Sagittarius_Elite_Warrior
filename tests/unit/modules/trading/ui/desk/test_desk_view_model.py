@@ -14,7 +14,7 @@ def test_starts_disabled_and_idle(qapp) -> None:
 
     assert vm.enabled is False
     assert vm.toggleBusy is False
-    assert vm.symbol == ""
+    assert vm.current_symbol == ""
     assert vm.symbolOptions == []
 
 
@@ -31,7 +31,7 @@ def test_set_symbol_options_updates_and_notifies(qapp) -> None:
 
 def test_symbol_property_only_emits_on_real_change(qapp) -> None:
     vm = DeskViewModel()
-    vm.symbol = "BTCUSDT"
+    vm.set_symbol("BTCUSDT")
     count = 0
     vm.symbolChanged.connect(lambda: None)
 
@@ -40,15 +40,15 @@ def test_symbol_property_only_emits_on_real_change(qapp) -> None:
         count += 1
 
     vm.symbolChanged.connect(_count)
-    vm.symbol = "BTCUSDT"  # unchanged
+    vm.set_symbol("BTCUSDT")  # unchanged
     assert count == 0
-    vm.symbol = "ETHUSDT"
+    vm.set_symbol("ETHUSDT")
     assert count == 1
 
 
 def test_request_symbol_change_emits_only_for_a_real_new_symbol(qapp) -> None:
     vm = DeskViewModel()
-    vm.symbol = "BTCUSDT"
+    vm.set_symbol("BTCUSDT")
     seen = []
     vm.symbolChangeRequested.connect(seen.append)
 

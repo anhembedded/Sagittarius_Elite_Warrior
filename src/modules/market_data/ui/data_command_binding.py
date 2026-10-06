@@ -50,11 +50,7 @@ _STOPPABLE_MODES = frozenset({"SCANNING", "SYNCING"})
 
 
 class DataCommands:
-    """The commands that need more than one view-model call.
-
-    The view model's fields are Qt `Property`s, which mypy cannot read
-    through (`EPIC-002D`); they are read and written by name, through the
-    same setters an assignment calls."""
+    """The commands that need more than one view-model call."""
 
     def __init__(
         self, view_model: DataManagementViewModel, view: DataManagementView
@@ -62,19 +58,13 @@ class DataCommands:
         self._vm = view_model
         self._view = view
 
-    def _text(self, name: str) -> str:
-        return str(self._vm.property(name))
-
-    def _texts(self, name: str) -> list[str]:
-        return [str(value) for value in self._vm.property(name)]
-
     def _current(self) -> ShardChoice:
         """The shard a question opens on: the selected one, else the last
         one acted on."""
         shard = self._view.selection.shard
         if shard is not None:
             return ShardChoice(shard.symbol, shard.interval)
-        return ShardChoice(self._text("selectedSymbol"), self._text("selectedInterval"))
+        return ShardChoice(self._vm.selectedSymbol, self._vm.selectedInterval)
 
     def _selected(self) -> ShardChoice | None:
         """The shard the table has selected — the one source of what a shard
@@ -85,27 +75,27 @@ class DataCommands:
         return None if shard is None else ShardChoice(shard.symbol, shard.interval)
 
     def _choose(self, shard: ShardChoice) -> None:
-        self._vm.setProperty("selectedSymbol", shard.symbol)
-        self._vm.setProperty("selectedInterval", shard.interval)
+        self._vm.selectedSymbol = shard.symbol
+        self._vm.selectedInterval = shard.interval
 
     def sync_history(self) -> None:
         """Asks which shard (the selected one, to start) and which range."""
         choice = self._view.ask_sync_history(
-            self._texts("symbolOptions"), self._texts("intervals"), self._current()
+            self._vm.symbolOptions, self._vm.intervals, self._current()
         )
         if choice is None:
             return
         self._choose(choice.shard)
-        self._vm.setProperty("useCustomTime", choice.start is not None)
+        self._vm.useCustomTime = choice.start is not None
         if choice.start is not None and choice.end is not None:
-            self._vm.setProperty("fromDateTime", choice.start)
-            self._vm.setProperty("toDateTime", choice.end)
+            self._vm.fromDateTime = choice.start
+            self._vm.toDateTime = choice.end
         self._vm.requestSync()
 
     def import_data(self) -> None:
         """Asks which shard the file belongs to; the request asks the file."""
         choice = self._view.ask_import_shard(
-            self._texts("symbolOptions"), self._texts("intervals"), self._current()
+            self._vm.symbolOptions, self._vm.intervals, self._current()
         )
         if choice is None:
             return

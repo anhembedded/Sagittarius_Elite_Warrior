@@ -17,8 +17,8 @@ an interval its length in seconds (written back as its code through
 
 **No colour.** The old delegate painted the status cell green or red from
 `Theme.success`/`Theme.danger`. ADR D21 leaves colour only where it carries
-meaning and only through a `QPalette` role or a per-widget property, and Qt
-has no palette role meaning "this shard has holes in it" — so health is
+meaning and only through a stock role or a per-widget property, and Qt
+has no role meaning "this shard has holes in it" — so health is
 carried by the text itself (`"OK"` against `"3 gaps found!"`), by a bold
 status cell, and by the `Sync gaps` action being enabled on exactly the rows
 that have gaps.
@@ -156,7 +156,7 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
     def _is_emphasised(self, row: DatabaseStatusRow, column: int) -> bool:
         """A shard with holes in it gets a bold status cell — the one emphasis
         this table carries, and it replaces a colour: that row is the one the
-        user came here to act on (ADR D21 — no palette of our own)."""
+        user came here to act on (ADR D21 — no colours of our own)."""
         return column == self.STATUS_COLUMN and not row.is_healthy
 
     def gap_targets(self) -> list[tuple[str, str]]:

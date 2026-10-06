@@ -7,7 +7,7 @@ from time import perf_counter
 #: very large candle count (Static) can cross an index-based throttle
 #: (`index % N == 0`) tens of thousands of times over a single run. Each
 #: crossing fires `progress_callback`, which the presentation layer turns
-#: into a cross-thread Qt signal → Property write → QML notify → an
+#: into a cross-thread Qt signal → view-model write → notify → an
 #: `AppProgressBar` animation retrigger. At ~10,000+ crossings in a burst,
 #: draining that queue can occupy the Qt main thread continuously long
 #: enough to trip the UI freeze watchdog (observed: 5.2s, 2.59M ticks,

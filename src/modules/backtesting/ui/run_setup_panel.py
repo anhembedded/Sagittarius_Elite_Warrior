@@ -158,15 +158,13 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         vm.uiModeChanged.connect(self._sync_enabled)
 
     # -- choices -------------------------------------------------------------
-    # The view model's fields are Qt `Property`s, opaque to mypy
-    # (`EPIC-002D`); they are read and written by name.
 
     def _sync_strategies(self) -> None:
         params = self._vm.strategy_params
         fill_combo(
             self.strategy,
-            strategy_choices(params.property("strategyOptions")),
-            str(params.property("selectedStrategyKey")),
+            strategy_choices(params.strategyOptions),
+            params.selectedStrategyKey,
         )
 
     def _sync_choices(self) -> None:
@@ -174,33 +172,33 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         time_range = vm.time_range
         fill_combo(
             self.timeframe,
-            timeframe_choices(vm.property("timeframeOptions")),
-            str(vm.property("selectedTimeframe")),
+            timeframe_choices(vm.timeframeOptions),
+            vm.selectedTimeframe,
         )
         fill_combo(
             self.time_range,
-            range_choices(time_range.property("presetOptions")),
-            str(time_range.property("preset")),
+            range_choices(time_range.presetOptions),
+            time_range.preset,
         )
-        custom = time_range.property("preset") == TimeRangePreset.CUSTOM.value
-        start = time_range.property("customStartText")
-        end = time_range.property("customEndText")
+        custom = time_range.preset == TimeRangePreset.CUSTOM.value
+        start = time_range.customStartText
+        end = time_range.customEndText
         self.time_range.setToolTip(f"{start} to {end}" if custom else "")
         fill_combo(
             self.timezone,
-            timezone_choices(time_range.property("displayTimezoneOptions")),
-            str(time_range.property("displayTimezone")),
+            timezone_choices(time_range.displayTimezoneOptions),
+            time_range.displayTimezone,
         )
 
     def _on_strategy_chosen(self, index: int) -> None:
         key = chosen_value(self.strategy, index)
         if key is not None:
-            self._vm.strategy_params.setProperty("selectedStrategyKey", key)
+            self._vm.strategy_params.selectedStrategyKey = key
 
     def _on_timeframe_chosen(self, index: int) -> None:
         code = chosen_value(self.timeframe, index)
         if code is not None:
-            self._vm.setProperty("selectedTimeframe", code)
+            self._vm.selectedTimeframe = code
 
     def _on_timezone_chosen(self, index: int) -> None:
         zone = chosen_value(self.timezone, index)
@@ -218,7 +216,7 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
             self._vm.requestOpenTimeRangePicker()
             self._sync_choices()
             return
-        self._vm.time_range.setProperty("preset", preset)
+        self._vm.time_range.preset = preset
 
     # -- values --------------------------------------------------------------
 
