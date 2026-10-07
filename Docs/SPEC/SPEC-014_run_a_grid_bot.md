@@ -80,6 +80,9 @@ available while it runs.
 
 - A created bot is still listed after a restart, in the state it was saved in; a bot that was
   running comes back Recovering and is reconciled before it acts (ADR D12).
+  It is reconciled when the venue's order session opens, which only a deliberate action does
+  (a Start, an arm or a manual order, SPEC-004, `EPIC-034C`): nothing trades at start-up without a
+  person acting, so a restored bot stays Recovering until then.
 - A stopped bot has no resting order carrying its tag on the venue, and holds the base or sold
   it, as chosen.
 - Grid profit counts only completed buy-then-sell cycles, net of both fees.
