@@ -89,8 +89,10 @@ def test_account_reader_is_spot_when_venue_is_spot_testnet():
     """`EPIC-027H` — before this bind existed, every venue silently
     resolved `FuturesAccountReader`, which would have signed a Futures
     Testnet request with Spot Testnet credentials for `SPOT_TESTNET`."""
-    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
+    container = _container_with_venue(None)
 
-    reader = container.resolve(IVenueContexts).primary().account_reader
+    reader = (
+        container.resolve(IVenueContexts).get(TradingVenue.SPOT_TESTNET).account_reader
+    )
 
     assert isinstance(reader, SpotAccountReader)

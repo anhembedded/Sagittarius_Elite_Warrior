@@ -194,53 +194,45 @@ def test_a_venue_context_is_one_instance_per_venue() -> None:
     assert _both_venues().resolve(IVenueContexts) is not contexts
 
 
-def test_a_venue_that_is_not_enabled_raises() -> None:
+def test_an_empty_configuration_assembles_every_venue() -> None:
+    """`EPIC-034B` — a venue is on because it exists, not because a setting
+    names it: the defaults carry no venue and both are assembled."""
+    contexts = _container({}).resolve(IVenueContexts)
+
+    assert contexts.enabled() == (
+        TradingVenue.FUTURES_TESTNET,
+        TradingVenue.SPOT_TESTNET,
+    )
+
+
+def test_a_configuration_that_names_one_venue_still_loads_and_changes_nothing() -> None:
+    """`EPIC-034B` — a file written before the toggles left still loads; what
+    it says about venues is ignored."""
     contexts = _container(
         {ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["futures_testnet"]}
     ).resolve(IVenueContexts)
 
-    with pytest.raises(VenueNotEnabledError, match="spot_testnet"):
-        contexts.get(TradingVenue.SPOT_TESTNET)
+    assert contexts.get(TradingVenue.SPOT_TESTNET).venue is TradingVenue.SPOT_TESTNET
+    assert len(contexts.enabled()) == 2
 
 
-def test_disabled_is_served_only_while_it_is_the_primary_venue() -> None:
-    """`EPIC-028B`: with nothing enabled, a command addressed to the
-    process's own read-only venue still gets that venue's adapters (its
-    handler refuses it itself). Once a real venue is enabled, `DISABLED` is
-    not a venue anything may address."""
-    nothing_enabled = _container({}).resolve(IVenueContexts)
-    one_enabled = _container(
-        {ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["futures_testnet"]}
-    ).resolve(IVenueContexts)
+def test_disabled_is_not_a_venue_anything_may_address() -> None:
+    contexts = _container({}).resolve(IVenueContexts)
 
-    assert nothing_enabled.enabled() == ()
-    assert nothing_enabled.get(TradingVenue.DISABLED) is nothing_enabled.primary()
     with pytest.raises(VenueNotEnabledError):
-        one_enabled.get(TradingVenue.DISABLED)
+        contexts.get(TradingVenue.DISABLED)
 
 
-def test_with_nothing_enabled_primary_is_the_read_only_futures_shape() -> None:
-    """The process has always bound Futures-shaped adapters while trading
-    is off; `primary()` keeps that, so nothing that resolves a single-venue
-    port at boot starts failing."""
-    container = _container({})
-
-    primary = container.resolve(IVenueContexts).primary()
-
-    assert primary.venue is TradingVenue.DISABLED
-    assert isinstance(primary.metadata_provider, FuturesMetadataProvider)
-    assert container.resolve(TradingVenue) is TradingVenue.DISABLED
-
-
-def test_primary_is_the_first_enabled_venue() -> None:
+def test_the_primary_venue_is_the_first_in_venue_order() -> None:
+    """Whatever a legacy list said: the primary does not depend on a setting."""
     container = _container(
         {ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["spot_testnet", "futures_testnet"]}
     )
 
     contexts = container.resolve(IVenueContexts)
 
-    assert contexts.primary() is contexts.get(TradingVenue.SPOT_TESTNET)
-    assert container.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
+    assert contexts.primary() is contexts.get(TradingVenue.FUTURES_TESTNET)
+    assert container.resolve(TradingVenue) is TradingVenue.FUTURES_TESTNET
 
 
 @pytest.mark.parametrize(

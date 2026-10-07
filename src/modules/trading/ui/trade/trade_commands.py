@@ -1,11 +1,10 @@
 """The Trade mode's commands (`EPIC-033I`, HLD §11.2.3's Trade menu).
 
 - **Trade → Venue › Futures, Spot:** which venue the mode trades. One
-  checkable command per venue enabled in this run, in one exclusive group,
-  also on the mode's toolbar, so the venue in use is visible without opening
-  a menu (MS `cmd-menus`, option items). A venue that is not enabled is not
-  listed: it has no session, no account and no order path in this run, and
-  turning it on needs a restart (Tools → Options → Trading).
+  checkable command per venue the app assembles (every one that can place
+  orders, `EPIC-034B`), in one exclusive group, also on the mode's toolbar, so
+  the venue in use is visible without opening a menu (MS `cmd-menus`, option
+  items). A venue with no key is listed too; its connection check names the missing key.
 - **Enable live trading:** checkable, on the toolbar, for the chosen venue.
   Turning it on asks first (HLD §11.2.3: "on enable"); turning it off does
   not. The Engine's action would ask on every trigger, so the mode asks
@@ -31,8 +30,7 @@
   asks first, naming what it does on each market; the answer is "Stop
   everything", Cancel the default (`ui-presentation-rule.md` §10).
 
-Which venues are enabled is the module's, read at boot from the
-configuration (`TradingModule.boot`); this file is Qt-free, because
+Which venues exist is the module's, fixed at boot (`TradingModule.boot`); this file is Qt-free, because
 `TradingModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`).
 

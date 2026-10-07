@@ -7,8 +7,8 @@
   the single Trading screen's toggle became each desk's in `EPIC-028K`/`028L`/`028M`.
 - **Surfaces:** Trade → Enable live trading (checkable, on the Trade mode's toolbar), for the venue
   chosen there (Futures Testnet or Spot Testnet, `EPIC-033I`); each venue's toggle is one class
-  (`DeskSessionControls`), as each desk's was. The Options dialog's Trading page only **reads** this
-  state — it refuses a venue change while trading is on and says where to turn it off.
+  (`DeskSessionControls`), as each desk's was. The Options dialog's Trading page holds no venue
+  control since `EPIC-034B`.
 
 ## 1. Trigger
 
@@ -17,10 +17,10 @@ holds before it does."*
 
 ## 2. Preconditions
 
-1. The desk's venue (Futures Testnet or Spot Testnet) is enabled in Tools → Options → Trading, and the app was
-   restarted after the change. A venue that is not enabled has no session to turn on: its desk
-   says so and holds no toggle. Each enabled venue's trading is on or off on its own; turning
-   one on or off never touches the other.
+1. The desk's venue (Futures Testnet or Spot Testnet) is assembled — always, since `EPIC-034B`
+   removed the Options venue check boxes and the restart they needed. A venue with no key is
+   assembled too; its check ends this use case at step 3 as `CONNECTION_NOT_READY`. Each venue's
+   trading is on or off on its own; turning one on or off never touches the other.
 2. Credentials resolve and the exchange is reachable — SPEC-003's check, which this use case runs
    again itself rather than trusting an earlier answer.
 3. Live trading is **off**. It always is at start-up: this state is never persisted across runs.
@@ -62,7 +62,8 @@ holds before it does."*
 
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| The venue is not enabled | The desk says so and holds no toggle; anything else that tries is refused with `TRADING_VENUE_DISABLED` | The configuration-level gate, checked here and again at every submission |
+| The venue has no key | Refused: `CONNECTION_NOT_READY`, the connection check naming `NOT_CONFIGURED` | The venue is assembled, the key is what it lacks (SPEC-003); no order path reaches it, because every path needs this session open |
+| A venue that cannot place orders at all (`TradingVenue.DISABLED`) is addressed | Refused with `TRADING_VENUE_DISABLED` | Not a venue the app assembles; kept as the refusal for a caller that names it anyway |
 | The connection check does not come back ready | Refused: `CONNECTION_NOT_READY` | Includes Hedge mode — "reachable but not usable" is already a named connection failure (SPEC-003) |
 | The exchange holds a position this app never sent | Refused: `UNEXPECTED_POSITIONS`, with what was found | The actor decides what to do about it. Adopting it silently would make the app's limits meaningless; closing it silently would trade without being asked |
 | An Emergency Stop, a disable, or another enable lands mid-reconciliation | Refused: `SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` | `BUG-088`. Reconciliation succeeding does not mean nothing else happened while it ran |
@@ -111,5 +112,5 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | The toggle turns on the chosen venue only and puts its chart live | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py`, `tests/unit/modules/trading/ui/trade/test_trade_presenter.py` | unit |
 | The toggle's async ownership: one action at a time, stale results fenced, never superseding an Emergency Stop | `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |
 | A start restores a saved strategy as not armed, shows its saved settings, arms it with them on one Arm action, and no tick reaches an engine before | `tests/integration/presentation/ui/test_saved_strategy_restores_disarmed.py`, `tests/unit/modules/strategy/test_module_restores_each_venues_strategy.py` | integration, unit |
-| The Options page refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
+| The Options page holds no venue control and no restart promise | `tests/unit/modules/trading/ui/settings/test_trading_settings_has_no_venue_control.py` | unit |
 | Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, choose Futures in the Trade mode, click Enable live trading and confirm the reconciled positions shown match the Testnet web UI | human |

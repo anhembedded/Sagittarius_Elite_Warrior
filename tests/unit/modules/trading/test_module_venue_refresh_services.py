@@ -184,10 +184,15 @@ def test_each_refresh_reads_only_its_own_venues_session() -> None:
     assert dispatcher.dispatched == [GetHoldingsQuery(venue=_SPOT)]
 
 
-def test_nothing_is_refreshed_while_no_venue_is_enabled() -> None:
+def test_every_venue_is_refreshed_whatever_the_legacy_setting_says() -> None:
+    """`EPIC-034B` — an empty list (trading "off" before the toggles left) no
+    longer removes a venue's refresh."""
     container, _ = _container([])
 
-    assert build_venue_refresh_services(container) == ()
+    assert [s.venue for s in build_venue_refresh_services(container)] == [
+        _FUTURES,
+        _SPOT,
+    ]
 
 
 def test_boot_schedules_each_venues_market_and_summary_refreshes() -> None:

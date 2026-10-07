@@ -57,10 +57,7 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import (
     OutputChannel,
 )
 
-NO_VENUE_TEXT = (
-    "No trading venue is enabled. Turn one on in Tools → Options → Trading, "
-    "then restart the app."
-)
+NO_VENUE_TEXT = "No trading venue is available in this build."
 
 
 class TradeView(OutputSourceView):

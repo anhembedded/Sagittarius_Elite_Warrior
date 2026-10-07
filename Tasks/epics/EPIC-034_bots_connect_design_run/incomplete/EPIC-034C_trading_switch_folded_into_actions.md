@@ -6,7 +6,7 @@
 **Complexity:** L — the session state, three entry points, the banner, SPEC-004
 **Epic:** [EPIC-034](../README.md)
 **SPEC:** [SPEC-004](../../../../Docs/SPEC/SPEC-004_enable_and_disable_live_trading.md), [SPEC-005](../../../../Docs/SPEC/SPEC-005_place_a_manual_order.md), [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-034B](EPIC-034B_every_venue_with_a_key_is_on.md)
+**Depends on:** [EPIC-034B](../completed/EPIC-034B_every_venue_with_a_key_is_on.md)
 
 ---
 

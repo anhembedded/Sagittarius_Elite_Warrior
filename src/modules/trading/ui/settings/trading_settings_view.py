@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
@@ -13,32 +12,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
     from .trading_settings_view_model import TradingSettingsViewModel
-
-#: `BOT-125` — carried over from the monolithic screen this section split off.
-_VENUE_LOCKED_TEXT = (
-    "Trading is active — disable trading on its desk "
-    "before changing the trading venues."
-)
-
-#: `EPIC-028C` — one toggle per venue that can place orders; `DISABLED` has
-#: none (nothing checked is trading off). A venue added to `TradingVenue`
-#: with order submission needs a label here, or the view refuses to build
-#: (`test_every_orderable_venue_has_a_toggle_label`).
-_VENUE_TOGGLE_LABELS: dict[TradingVenue, str] = {
-    TradingVenue.FUTURES_TESTNET: "Futures Testnet — simulated funds (futures_testnet)",
-    TradingVenue.SPOT_TESTNET: "Spot Testnet — simulated funds (spot_testnet)",
-}
-
-_VENUES_HINT_TEXT = (
-    "Nothing checked turns trading off. Each venue trades on its own desk."
-)
 
 
 class TradingSettingsView(BaseView):
@@ -63,7 +40,6 @@ class TradingSettingsView(BaseView):
             view_model.connectionResultText,
             view_model.connectionResultIsError,
         )
-        self._apply_venues(view_model.enabledVenues, view_model.venueLocked)
 
         def edit_api_key(text: str) -> None:
             view_model.apiKey = text
@@ -74,16 +50,7 @@ class TradingSettingsView(BaseView):
         self._api_key_field.textEdited.connect(edit_api_key)
         self._api_secret_field.textEdited.connect(edit_api_secret)
         self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
-        for venue, toggle in self._venue_toggles.items():
-            toggle.toggled.connect(
-                lambda checked, value=venue.value: view_model.requestVenueEnabled(
-                    value, checked
-                )
-            )
 
-        view_model.venueChanged.connect(
-            lambda: self._apply_venues(view_model.enabledVenues, view_model.venueLocked)
-        )
         view_model.apiKeyChanged.connect(
             lambda: self._api_key_field.setText(view_model.apiKey)
         )
@@ -128,15 +95,6 @@ class TradingSettingsView(BaseView):
         )
         self._connection_result_label.setText(_worded(result_text, result_is_error))
 
-    def _apply_venues(self, enabled_venues: list[str], locked: bool) -> None:
-        for venue, toggle in self._venue_toggles.items():
-            toggle.blockSignals(True)
-            toggle.setChecked(venue.value in enabled_venues)
-            toggle.blockSignals(False)
-            toggle.setEnabled(not locked)
-        self._venue_lock_label.setText(_VENUE_LOCKED_TEXT if locked else "")
-        self._venue_lock_label.setVisible(locked)
-
     def _toggle_secret_reveal(self, checked: bool) -> None:
         self._api_secret_field.setEchoMode(
             QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
@@ -149,9 +107,8 @@ class TradingSettingsView(BaseView):
 
         warning = QLabel(
             "API Key/Secret are written to secrets.local.json (not tracked "
-            "in git). API Key/Secret and the trading venues both require an "
-            "app restart to take effect — they are only read once, on app "
-            "startup."
+            "in git). Every venue the key opens is on, and the next request to the "
+            "exchange uses a key saved here."
         )
         warning.setObjectName("lblTradingSettingsWarning")
         warning.setWordWrap(True)
@@ -188,8 +145,6 @@ class TradingSettingsView(BaseView):
         grid.addWidget(self._connection_result_label, row, 0, 1, 2)
         row += 1
 
-        row = self._add_venue_row(grid, row)
-
         self._status_label = QLabel()
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
@@ -199,33 +154,6 @@ class TradingSettingsView(BaseView):
         field = QLineEdit()
         field.setObjectName(object_name)
         return field
-
-    def _add_venue_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(QLabel("Trading venues:"), row, 0, Qt.AlignmentFlag.AlignTop)
-        toggles_widget = QWidget()
-        toggles_layout = QVBoxLayout(toggles_widget)
-        toggles_layout.setContentsMargins(0, 0, 0, 0)
-        self._venue_toggles: dict[TradingVenue, QCheckBox] = {}
-        for venue in TradingVenue:
-            if not venue.supports_order_submission:
-                continue
-            toggle = QCheckBox(_VENUE_TOGGLE_LABELS[venue])
-            toggle.setObjectName(f"chkTradingVenue_{venue.value}")
-            toggles_layout.addWidget(toggle)
-            self._venue_toggles[venue] = toggle
-        hint = QLabel(_VENUES_HINT_TEXT)
-        hint.setObjectName("lblTradingVenuesHint")
-        hint.setWordWrap(True)
-        toggles_layout.addWidget(hint)
-        grid.addWidget(toggles_widget, row, 1)
-        row += 1
-
-        self._venue_lock_label = QLabel()
-        self._venue_lock_label.setObjectName("lblTradingVenueLocked")
-        self._venue_lock_label.setWordWrap(True)
-        self._venue_lock_label.setVisible(False)
-        grid.addWidget(self._venue_lock_label, row, 0, 1, 2)
-        return row + 1
 
     def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
         grid.addWidget(QLabel("Binance API Secret (Private):"), row, 0)

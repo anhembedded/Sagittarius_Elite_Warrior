@@ -1,11 +1,13 @@
-"""`EPIC-028A` — `resolve_trading_venues`: the list key wins, the scalar key
-still reads exactly as before, and no malformed entry ever turns a venue on."""
+"""`EPIC-034B` — `resolve_trading_venues`: every venue that can place orders is
+assembled, whatever the configuration says; a configuration written before the
+toggles left still loads, and says so once."""
 
 from __future__ import annotations
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    log_ignored_venue_setting,
     resolve_trading_venue,
     resolve_trading_venues,
 )
@@ -16,86 +18,61 @@ from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _LIST_KEY = ConfigKeys.EXCHANGE_TRADING_VENUES.value
 _SCALAR_KEY = ConfigKeys.EXCHANGE_TRADING_VENUE.value
-
-
-def test_the_list_is_read_in_configuration_order() -> None:
-    config = DictConfig({_LIST_KEY: ["spot_testnet", "futures_testnet"]})
-
-    assert resolve_trading_venues(config) == (
-        TradingVenue.SPOT_TESTNET,
-        TradingVenue.FUTURES_TESTNET,
-    )
-
-
-def test_the_list_wins_over_the_scalar() -> None:
-    config = DictConfig({_LIST_KEY: ["spot_testnet"], _SCALAR_KEY: "futures_testnet"})
-
-    assert resolve_trading_venues(config) == (TradingVenue.SPOT_TESTNET,)
-
-
-def test_an_empty_list_turns_trading_off_even_with_a_scalar_venue() -> None:
-    config = DictConfig({_LIST_KEY: [], _SCALAR_KEY: "futures_testnet"})
-
-    assert resolve_trading_venues(config) == ()
+_ALL = (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)
 
 
 @pytest.mark.parametrize(
-    ("scalar", "expected"),
+    "values",
     [
-        ("futures_testnet", (TradingVenue.FUTURES_TESTNET,)),
-        ("spot_testnet", (TradingVenue.SPOT_TESTNET,)),
-        ("disabled", ()),
+        {},
+        {_SCALAR_KEY: "disabled"},
+        {_SCALAR_KEY: "spot_testnet"},
+        {_LIST_KEY: []},
+        {_LIST_KEY: ["spot_testnet"], _SCALAR_KEY: "futures_testnet"},
+        {_LIST_KEY: "not a list"},
+        {_LIST_KEY: ["futures_mainnet"]},
     ],
 )
-def test_a_scalar_only_config_reads_as_a_one_element_set(
-    scalar: str, expected: tuple[TradingVenue, ...]
+def test_every_orderable_venue_is_assembled_whatever_the_configuration_says(
+    values: dict[str, object],
 ) -> None:
-    assert resolve_trading_venues(DictConfig({_SCALAR_KEY: scalar})) == expected
+    assert resolve_trading_venues(DictConfig(values)) == _ALL
 
 
-def test_no_venue_key_at_all_means_trading_is_off() -> None:
-    assert resolve_trading_venues(DictConfig()) == ()
+def test_disabled_is_never_assembled() -> None:
+    assert TradingVenue.DISABLED not in resolve_trading_venues(DictConfig())
 
 
-def test_an_unknown_entry_is_dropped_with_a_warning(
-    caplog: pytest.LogCaptureFixture,
+def test_the_single_venue_reader_is_the_first_in_venue_order() -> None:
+    config = DictConfig({_LIST_KEY: ["spot_testnet"], _SCALAR_KEY: "spot_testnet"})
+
+    assert resolve_trading_venue(config) is TradingVenue.FUTURES_TESTNET
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {_LIST_KEY: ["futures_testnet"]},
+        {_LIST_KEY: []},
+        {_SCALAR_KEY: "spot_testnet"},
+    ],
+)
+def test_a_configuration_that_names_venues_is_ignored_and_says_so(
+    values: dict[str, object], caplog: pytest.LogCaptureFixture
 ) -> None:
-    config = DictConfig({_LIST_KEY: ["futures_mainnet", "spot_testnet"]})
+    with caplog.at_level("INFO", logger="App.ExchangeClient"):
+        assert log_ignored_venue_setting(DictConfig(values)) is True
 
-    assert resolve_trading_venues(config) == (TradingVenue.SPOT_TESTNET,)
-    assert "futures_mainnet" in caplog.text
-
-
-def test_disabled_and_repeats_inside_the_list_are_skipped() -> None:
-    config = DictConfig({_LIST_KEY: ["disabled", "futures_testnet", "futures_testnet"]})
-
-    assert resolve_trading_venues(config) == (TradingVenue.FUTURES_TESTNET,)
+    assert "ignored" in caplog.text
+    assert "EPIC-034B" in caplog.text
 
 
-def test_a_non_list_value_turns_trading_off_with_a_warning(
-    caplog: pytest.LogCaptureFixture,
+@pytest.mark.parametrize("values", [{}, {_SCALAR_KEY: "disabled"}])
+def test_the_defaults_say_nothing(
+    values: dict[str, object], caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A bare string is the likeliest slip (the scalar's shape under the
-    list's key); reading it character by character would be nonsense, and
-    guessing it meant a one-element list would turn trading on by typo."""
-    config = DictConfig({_LIST_KEY: "futures_testnet"})
+    """The defaults file carries `"disabled"`; nobody chose it."""
+    with caplog.at_level("INFO", logger="App.ExchangeClient"):
+        assert log_ignored_venue_setting(DictConfig(values)) is False
 
-    assert resolve_trading_venues(config) == ()
-    assert "must be a list" in caplog.text
-
-
-def test_the_single_venue_reader_is_the_primary_of_the_list() -> None:
-    """Review F2: the banner, the Welcome line and Settings read one venue.
-    They must name the venue the process actually runs as primary, not the
-    scalar key the list has overridden."""
-    config = DictConfig(
-        {_LIST_KEY: ["spot_testnet", "futures_testnet"], _SCALAR_KEY: "disabled"}
-    )
-
-    assert resolve_trading_venue(config) is TradingVenue.SPOT_TESTNET
-
-
-def test_the_single_venue_reader_is_disabled_for_an_empty_list() -> None:
-    config = DictConfig({_LIST_KEY: [], _SCALAR_KEY: "futures_testnet"})
-
-    assert resolve_trading_venue(config) is TradingVenue.DISABLED
+    assert caplog.text == ""

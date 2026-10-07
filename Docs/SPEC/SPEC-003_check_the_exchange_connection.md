@@ -16,10 +16,14 @@ cannot, tell me which part is wrong."*
 
 ## 2. Preconditions
 
-1. A Futures Testnet API key pair is configured, from the environment or from
+1. An API key pair for the venue is configured, from the environment or from
    `src/config/secrets.local.json`. **Not** having one is a first-class answer below, not a
    precondition failure.
-2. The configured trading venue is Futures Testnet. This app does not talk to mainnet.
+2. Every testnet venue (Futures Testnet and Spot Testnet) is assembled at start-up whatever the
+   configuration says (`EPIC-034B`): there is no Options setting that turns one on, and no
+   restart after a key is saved — each reader resolves its credentials on every call, so the next
+   check uses the key just saved. A venue with no key is still listed, and its check answers
+   `NOT_CONFIGURED`. This app does not talk to mainnet.
 
 ## 3. Main flow
 
@@ -106,5 +110,7 @@ resolution and the error translation.
 | The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
 | The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
 | The Options page renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
+| Every venue is assembled whatever the configuration says; a legacy venue setting is ignored and logged once | `tests/unit/support/binance_gateway/contracts/test_resolve_trading_venues.py`, `tests/unit/modules/trading/test_module_venue_contexts_binding.py` | unit |
+| The Options page has no venue control, promises no restart and writes no venue setting | `tests/unit/modules/trading/ui/settings/test_trading_settings_has_no_venue_control.py` | unit |
 | Tools → Check connection: the status bar's word, the failure named where the user looks, and only the newest check writes | `tests/unit/modules/trading/ui/market/test_market_connection_check.py` | unit |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
