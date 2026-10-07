@@ -207,3 +207,15 @@ def test_one_step_failing_to_close_does_not_skip_the_rest(
 
     assert dispose_all.call_count == 2, "both stores were disposed"
     assert second_repository is not None
+
+
+def test_a_client_asked_for_after_close_is_an_error_not_one_nothing_would_close(
+    venues: MarketDataVenues,
+) -> None:
+    """A worker that fetched a venue's registry entry before `close()` and asks for
+    its client after must not build a client the finished `close()` never closes."""
+    held = venues._other(_TESTNET)
+    venues.close()
+
+    with pytest.raises(RuntimeError, match="after it was closed"):
+        held.client()

@@ -77,9 +77,15 @@ class _VenueInfrastructure:
         self._client: IExchangeClient | None = None
         #: Two screens syncing the same venue on two workers must share one client.
         self._client_lock = threading.Lock()
+        self._closed = False
 
     def client(self) -> IExchangeClient:
         with self._client_lock:
+            if self._closed:
+                raise RuntimeError(
+                    f"market data venue {self._venue.value}'s client was asked for "
+                    "after it was closed"
+                )
             if self._client is None:
                 self._client = MarketDataSessionFactory(
                     self._venue
@@ -89,7 +95,9 @@ class _VenueInfrastructure:
     def close(self) -> None:
         """Every step runs even when an earlier one raises: shutdown is
         best-effort, and one venue's failure must not leave another's store open."""
-        client = self._client
+        with self._client_lock:
+            self._closed = True
+            client = self._client
         for step, release in (
             ("stream", self.stream.stop_all),
             ("client", client.close if client is not None else _nothing),
