@@ -67,8 +67,9 @@ class LiveCandleChart(QObject):
     #: coordinator's worker thread, with the token it was asked with.
     _load_settled = Signal(object)
     #: The coordinator's stream reports, from its worker thread.
-    _stream_opened = Signal(str)
-    _stream_lost = Signal(str)
+    #: Each carries the token of the request it reports on.
+    _stream_opened = Signal(object, str)
+    _stream_lost = Signal(object, str)
 
     def __init__(
         self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
@@ -299,12 +300,14 @@ class LiveCandleChart(QObject):
         self.liveStateChanged.emit(target)
         return True
 
-    def _on_stream_opened(self, text: str) -> None:
-        if self._dispatch(LiveChartEvent.STREAM_STARTED):
+    def _on_stream_opened(self, token: object, text: str) -> None:
+        # A report of a request since replaced (a new symbol, a Retry) says
+        # nothing about the one now asked for.
+        if token is self._token and self._dispatch(LiveChartEvent.STREAM_STARTED):
             self.logged.emit(text)
 
-    def _on_stream_lost(self, text: str) -> None:
-        if self._dispatch(LiveChartEvent.STREAM_FAILED, text):
+    def _on_stream_lost(self, token: object, text: str) -> None:
+        if token is self._token and self._dispatch(LiveChartEvent.STREAM_FAILED, text):
             self.logged.emit(f"[ERROR] {text}")
 
     def _on_load_settled(self, token: object) -> None:

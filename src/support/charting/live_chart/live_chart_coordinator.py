@@ -189,10 +189,14 @@ class _Reporter:
         )
 
     def stream_started(self, text: str) -> None:
-        report_unless_cancelled(self._token, self._callbacks.stream_started, text)
+        report_unless_cancelled(
+            self._token, self._callbacks.stream_started, self._token, text
+        )
 
     def stream_failed(self, text: str) -> None:
-        report_unless_cancelled(self._token, self._callbacks.stream_failed, text)
+        report_unless_cancelled(
+            self._token, self._callbacks.stream_failed, self._token, text
+        )
 
     def load_finished(self) -> None:
         report_unless_cancelled(self._token, self._callbacks.load_finished, self._token)

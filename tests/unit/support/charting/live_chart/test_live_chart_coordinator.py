@@ -309,7 +309,31 @@ def test_a_refused_sync_is_named_and_the_stored_candles_still_draw() -> None:
 
     coordinator._run("BTCUSDT", "1s", _FakeToken(), True)
 
-    (message,) = callbacks.stream_failed.call_args.args
+    token, message = callbacks.stream_failed.call_args.args
+    assert isinstance(token, _FakeToken)
     assert "BTCUSDT" in message and "1s" in message and "Invalid interval" in message
     assert history.reads[0].interval == TimeFrame.ONE_SECOND
     callbacks.history_ready.assert_called_once_with("BTCUSDT", [], [], [])
+
+
+def test_the_stream_reports_carry_the_token_of_the_request_they_answer() -> None:
+    """`EPIC-034G`: the chart fences a report of a replaced request by it."""
+    callbacks = _callbacks()
+    coordinator = _coordinator(stream=FakeMarketStream())
+    coordinator = LiveChartCoordinator(
+        MagicMock(),
+        MarketDataCandleFeed(
+            FakeMarketDataSync(),
+            FakeHistoricalKlines(),
+            FakeMarketStream(),
+            MarketType.SPOT,
+        ),
+        callbacks,
+        _OWNER,
+    )
+    token = _FakeToken()
+
+    coordinator._run("BTCUSDT", "1m", token, True)
+
+    started_token, _text = callbacks.stream_started.call_args.args
+    assert started_token is token

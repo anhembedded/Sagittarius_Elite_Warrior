@@ -45,3 +45,24 @@ def test_stop_live_releases_the_desks_stream(qtbot) -> None:
 
     assert desk.presenter.chart.live_state is S.HISTORY
     assert world.stream.held_by("desk.spot_testnet") is None
+
+
+def test_stopping_the_live_price_with_trading_on_says_orders_are_stale(qtbot) -> None:
+    desk = build_desk(qtbot, SPOT, trading_on=True)
+    statuses: list[str] = []
+    desk.presenter.desk.set_status = lambda text, _error=False: statuses.append(text)  # type: ignore[method-assign]
+
+    desk.presenter.chart.run_command(LiveChartCommand.STOP_LIVE)
+
+    assert any("not live" in text and "last stored close" in text for text in statuses)
+
+
+def test_stopping_the_live_price_with_trading_off_says_nothing(qtbot) -> None:
+    desk = build_desk(qtbot, SPOT)
+    desk.presenter.chart.run_command(LiveChartCommand.GO_LIVE)
+    statuses: list[str] = []
+    desk.presenter.desk.set_status = lambda text, _error=False: statuses.append(text)  # type: ignore[method-assign]
+
+    desk.presenter.chart.run_command(LiveChartCommand.STOP_LIVE)
+
+    assert statuses == []

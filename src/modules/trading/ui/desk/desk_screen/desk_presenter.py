@@ -80,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
     ProtectiveOrderFollower,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
+    LiveChartState,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -213,6 +216,18 @@ class DeskPresenter(BasePresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
+        chart.liveStateChanged.connect(self._on_live_state)
+
+    def _on_live_state(self, state: LiveChartState) -> None:
+        """The order panel is valued at the chart's last price: with trading
+        on, a chart that is no longer live says so (`EPIC-034G`)."""
+        if state is LiveChartState.LIVE or not self.session.is_enabled:
+            return
+        self.desk.set_status(
+            "The price feed is not live: orders are valued at the last stored "
+            "close. Use Go live on the chart.",
+            False,
+        )
 
     def _on_last_price(self, price: Decimal) -> None:
         self.order_entry.update_last_price(price)

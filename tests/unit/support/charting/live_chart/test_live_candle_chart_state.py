@@ -152,8 +152,8 @@ def test_a_report_that_was_on_its_way_when_the_user_cancelled_moves_nothing(
     chart.run_command(C.GO_LIVE)
     chart.run_command(C.STOP_LIVE)
 
-    chart._stream_opened.emit("Streaming live data for BTCUSDT.")
-    chart._stream_lost.emit("a late failure")
+    chart._stream_opened.emit(chart._token, "Streaming live data for BTCUSDT.")
+    chart._stream_lost.emit(chart._token, "a late failure")
 
     assert chart.live_state is S.HISTORY
     assert chart.live_error == ""
@@ -267,3 +267,44 @@ def test_a_new_symbol_starts_the_age_again(qapp) -> None:
     chart.show_symbol("ETHUSDT")
 
     assert chart.last_update_age() is None
+
+
+def test_a_report_of_a_replaced_request_moves_nothing(qapp) -> None:
+    """The reviewer's case: a report emitted before a new symbol or a Retry
+    but delivered after it must neither read Live early nor strand the chip
+    on Error."""
+    feed = ScriptedCandleFeed()
+    threads = HeldThreadManager()
+    chart, _card = build_chart(feed, threads=threads)
+    chart.show_symbol("BTCUSDT")
+    threads.run_all()
+    chart.run_command(C.GO_LIVE)
+    old = chart._token
+    chart.show_symbol("ETHUSDT")  # replaces the request while Connecting
+    assert chart.live_state is S.CONNECTING
+
+    chart._stream_opened.emit(old, "old stream")
+    chart._stream_lost.emit(old, "old failure")
+
+    assert chart.live_state is S.CONNECTING
+    assert chart.live_error == ""
+    threads.run_all()
+    assert chart.live_state is S.LIVE
+
+
+def test_the_age_timer_runs_only_while_live_and_rewrites_the_chip(qapp) -> None:
+    clock = Clock()
+    chart, card = build_chart(ScriptedCandleFeed(), clock)
+    chart.show_symbol("BTCUSDT")
+    chip = card.findChild(object, "liveStateChip")
+    assert not chip._timer.isActive()
+
+    chart.run_command(C.GO_LIVE)
+    assert chip._timer.isActive()
+    chart.apply_candle(candle("BTCUSDT", 0))
+    clock.now += 5
+    chip._timer.timeout.emit()
+    assert chip.text == "Live · updated 5 s ago"
+
+    chart.run_command(C.STOP_LIVE)
+    assert not chip._timer.isActive()

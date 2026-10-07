@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
     LiveChartCommand,
+    LiveChartEvent,
     LiveChartState,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtures import (
@@ -151,4 +152,28 @@ def test_a_draft_that_starts_while_live_stays_live_with_one_stream(qapp) -> None
     assert [call for call in world.stream.calls if call[0] == "start"] == [
         ("start", "bot.a3f9c1")
     ]
+    host.close()
+
+
+def test_a_chart_that_is_connecting_already_draws_what_streams(
+    qapp, monkeypatch
+) -> None:
+    """The History gate is only for rest: once a stream is asked for, its
+    candles draw (the reviewer's gap in the first round)."""
+    world, bus = ChartWorld(), MemoryEventBus()
+    host = _host(world, bus)
+    card = host.show(_bot(BotLifecycleState.DRAFT))
+    chart = host._chart
+    assert chart is not None and card is not None
+    chart._dispatch(LiveChartEvent.GO_LIVE_REQUESTED)
+    appended: list[float] = []
+    monkeypatch.setattr(
+        card, "append_closed_candle", lambda t, *_ohlc: appended.append(t)
+    )
+
+    _tick(bus)
+    qapp.processEvents()
+
+    assert chart.live_state is S.CONNECTING
+    assert len(appended) == 1
     host.close()
