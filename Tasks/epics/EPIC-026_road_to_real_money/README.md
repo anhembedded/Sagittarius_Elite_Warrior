@@ -121,6 +121,8 @@ break-even stops (`BOT-105`); backtest report persistence (`BOT-115`); the chart
 
 ## Notes (newest first)
 
+- **2026-10-07** — The owner rejected D6 (the 14-day Testnet soak before mainnet exists in the code). D3 still keeps trading on mainnet behind one reviewed `TradingVenue` member; `EPIC-034E` reads a mainnet account without trading it.
+
 - **2026-09-20** — Epic, ADR, tracking and the nineteen sub-tasks written from the 2026-09-20
   survey of the tree; nothing accepted yet. Pull request to follow on
   `claude/brave-maxwell-fedzkm`.
