@@ -57,6 +57,15 @@ _ALLOWED_FILES = [
     / "binance"
     / "spot"
     / "spot_session_factory.py",
+    # `EPIC-034E` — the read-only mainnet session, whose port lists reads only.
+    _REPO_ROOT
+    / "src"
+    / "modules"
+    / "trading"
+    / "adapters"
+    / "binance"
+    / "mainnet"
+    / "mainnet_read_session_factory.py",
 ]
 
 

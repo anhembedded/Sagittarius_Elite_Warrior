@@ -25,7 +25,6 @@ from __future__ import annotations
 import logging
 import time
 from decimal import Decimal, InvalidOperation
-from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
@@ -34,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.account_can_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_parsing import (
+    parse_holdings,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     SpotAccountSummary,
@@ -65,37 +67,11 @@ logger = logging.getLogger("App.TradingAdapter")
 #: equity calculation prices every other holding against.
 _QUOTE_ASSET = "USDT"
 
-#: Anything at or below this quantity is fee-dust, not a holding worth
-#: pricing — eight decimal places is Binance's own finest representable
-#: unit across the symbols this app trades.
-_DUST_THRESHOLD = Decimal("0.00000001")
-
 _NETWORK_EXCEPTIONS = (BinanceAPIException, BinanceRequestException, RequestException)
 
 
 def _classify_exception(exc: Exception) -> ConnectionFailureKind:
     return classify_connection_failure(exc, "Spot Testnet")
-
-
-def _parse_holdings(account: dict[str, Any]) -> tuple[SpotHolding, ...]:
-    holdings: list[SpotHolding] = []
-    for balance in account.get("balances", []):
-        try:
-            free = Decimal(str(balance.get("free", "0")))
-            locked = Decimal(str(balance.get("locked", "0")))
-        except InvalidOperation:
-            continue
-        if free + locked <= 0:
-            continue
-        holdings.append(
-            SpotHolding(
-                asset=str(balance.get("asset", "")),
-                free=free,
-                locked=locked,
-                dust_threshold=_DUST_THRESHOLD,
-            )
-        )
-    return tuple(holdings)
 
 
 class SpotAccountReader(ITradingAccountReader):
@@ -147,7 +123,7 @@ class SpotAccountReader(ITradingAccountReader):
                 server_time_skew_ms=server_time_skew_ms,
             )
 
-        holdings = _parse_holdings(account)
+        holdings = parse_holdings(account)
         quote_holding = next((h for h in holdings if h.asset == _QUOTE_ASSET), None)
         quote_balance = quote_holding.total if quote_holding is not None else Decimal(0)
         equity = self._compute_equity(client, quote_balance, holdings)

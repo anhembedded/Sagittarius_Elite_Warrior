@@ -58,12 +58,15 @@ def _accounts(*venues: TradingVenue) -> IVenueAccounts:
     return container.resolve(IVenueAccounts)
 
 
-def test_every_enabled_venue_is_a_source_in_configuration_order() -> None:
+def test_every_enabled_venue_is_a_source_in_configuration_order_then_the_mainnet_one() -> (
+    None
+):
     accounts = _accounts(TradingVenue.SPOT_TESTNET, TradingVenue.FUTURES_TESTNET)
 
     assert accounts.sources() == (
         AccountSource.SPOT_TESTNET,
         AccountSource.FUTURES_TESTNET,
+        AccountSource.SPOT_MAINNET_READONLY,
     )
 
 

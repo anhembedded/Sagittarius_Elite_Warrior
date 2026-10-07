@@ -25,6 +25,7 @@ from .bots_commands import (
     ARM_STRATEGY,
     DISARM_STRATEGY,
     FIT_LEVELS,
+    MAINNET_ACCOUNT,
     NEW_BOT,
     REFRESH_FILLS,
     RETRY_CONNECTION,
@@ -90,6 +91,11 @@ def bind_bots_commands(
         lambda _checked: view_model.retry_connect_requested.emit(),
         enabled=retry.changed,
         initially_enabled=retry.value,
+    )
+    # `EPIC-034E`: reading the real account needs no bot and no selection.
+    binder.bind(
+        MAINNET_ACCOUNT,
+        lambda _checked: view_model.mainnet_account_requested.emit(),
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)

@@ -55,6 +55,10 @@ _FAILURE_GUIDANCE = EnumLabels(
             "The exchange is unavailable (maintenance or a gateway error). "
             "Try again later."
         ),
+        ConnectionFailureKind.WITHDRAWAL_ENABLED: (
+            "The API key can withdraw funds, so the app refuses it. Create a "
+            "read-only key (reading only, withdrawals off) and use that."
+        ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "The account is in Hedge Mode. This epic assumes One-way Mode — "
             "switch it back under Binance Futures > Settings > Position Mode "

@@ -63,6 +63,8 @@ class BotsViewModel(StatusMessageViewModel):
     refresh_fills_requested = Signal()
     #: Read the selected bot's venue account again (`EPIC-034D`).
     retry_connect_requested = Signal()
+    #: Show the owner's real account, read only (`EPIC-034E`).
+    mainnet_account_requested = Signal()
     #: Scale the chart's price axis to every level of the selected bot.
     fit_levels_requested = Signal()
 

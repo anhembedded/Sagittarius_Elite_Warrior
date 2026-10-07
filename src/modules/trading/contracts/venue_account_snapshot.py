@@ -11,7 +11,7 @@ makes a new snapshot, never a changed one (`domain-truth-rule.md`).
 carried none, which is not the same as "may trade".
 
 Plausible extensions, each a new field with a default: the open-order count
-against the venue's limit; the key's permission list (`EPIC-034E`).
+against the venue's limit (the count itself is `EPIC-034E`'s).
 """
 
 from __future__ import annotations
@@ -23,6 +23,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_permissions import (
+    KeyPermissions,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -32,6 +35,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
     AccountSource,
 )
+
+#: Phase 1 trades USDT-quoted pairs only (`EPIC-027H` ADR D9): the asset every
+#: snapshot's spendable balance is in.
+QUOTE_ASSET = "USDT"
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,11 @@ class VenueAccountSnapshot:
     rules: SymbolOrderMetadata
     #: The symbol's price on the book when it was read.
     price: Decimal
+    #: What the key may do, where the source reads it (`EPIC-034E`); `None`
+    #: for the testnet venues, whose keys the exchange does not describe.
+    key_permissions: KeyPermissions | None = None
+    #: Open orders across the account, where the source reads them.
+    open_order_count: int | None = None
 
     def free_of(self, asset: str) -> Decimal:
         """What the account holds free of `asset`; zero when it holds none."""

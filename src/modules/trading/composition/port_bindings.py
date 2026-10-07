@@ -29,6 +29,18 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
+    KeyringSecretStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_read_session_factory import (
+    MainnetReadSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_readonly_account_reader import (
+    MainnetReadOnlyAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_readonly_credentials import (
+    MainnetReadOnlyCredentials,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -73,6 +85,13 @@ def _build_venue_trading_ports(container: IContainer) -> VenueTradingPortsRegist
     )
 
 
+def _mainnet_read_only() -> MainnetReadOnlyAccountReader:
+    """`EPIC-034E`: the owner's real account, read and never traded."""
+    return MainnetReadOnlyAccountReader(
+        MainnetReadOnlyCredentials(KeyringSecretStore()), MainnetReadSessionFactory()
+    )
+
+
 def _primary(container: IContainer) -> VenueTradingPorts:
     return container.resolve(IVenueTradingPorts).primary()
 
@@ -96,7 +115,8 @@ def bind_published_ports(container: IContainer) -> None:
     )
     # `EPIC-034D`: the Connect step's read-only accounts, one reader per source.
     container.singleton(
-        IVenueAccounts, lambda c: VenueAccounts(c.resolve(IVenueContexts))
+        IVenueAccounts,
+        lambda c: VenueAccounts(c.resolve(IVenueContexts), _mainnet_read_only()),
     )
     container.singleton(IOrderSubmission, lambda c: _primary(c).order_submission)
     container.singleton(ITradingSession, lambda c: _primary(c).trading_session)

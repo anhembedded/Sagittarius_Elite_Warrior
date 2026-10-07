@@ -48,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavai
     SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
+    QUOTE_ASSET,
     VenueAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context import (
@@ -58,9 +59,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 )
 
 logger = logging.getLogger("App.VenueAccount")
-
-#: Phase 1 trades USDT-quoted pairs only (`EPIC-027H` ADR D9).
-QUOTE_ASSET = "USDT"
 
 
 def _utc_now() -> datetime:

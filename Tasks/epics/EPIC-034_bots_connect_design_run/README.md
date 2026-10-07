@@ -32,7 +32,7 @@
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | [EPIC-034C](incomplete/EPIC-034C_trading_switch_folded_into_actions.md) | The trading switch leaves; Start, arm and a manual order reconcile and open the order session themselves | Elite | EPIC-034B | 🔴 | Planned |
-| [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | A mainnet key is read, never traded: balances, fees and key permissions; withdrawal keys refused | Elite | EPIC-034D | 🔴 | Planned |
+| [EPIC-034E](completed/EPIC-034E_mainnet_read_only_account.md) | A mainnet key is read, never traded: balances, fees and key permissions; withdrawal keys refused | Elite | EPIC-034D | 🔴 | ✅ Done (2026-10-07) |
 | [EPIC-034B](incomplete/EPIC-034B_every_venue_with_a_key_is_on.md) | Every venue with a usable key is on; the Options venue toggles and the restart leave | Elite | None | 🟡 | Planned |
 | [EPIC-034D](completed/EPIC-034D_connect_step.md) | Connect: one account snapshot per venue gates the chart and the plan | Elite | EPIC-034A | 🟡 | ✅ Done (2026-10-07) |
 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Design: every constraint is a named assertion, shown on its field, with the account's numbers | Elite | EPIC-034D | 🟡 | Planned |

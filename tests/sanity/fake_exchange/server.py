@@ -24,6 +24,8 @@ from urllib.parse import parse_qsl
 
 from .futures_routes import handle as handle_futures
 from .order_book_state import OrderBookState
+from .sapi_routes import ApiRestrictions
+from .sapi_routes import handle as handle_sapi
 from .spot_account_state import SpotAccountState
 from .spot_routes import handle as handle_spot
 
@@ -55,6 +57,7 @@ class _Handler(BaseHTTPRequestHandler):
     #: the other's API family.
     requests: list[tuple[str, str]]
     maintenance: MaintenanceSwitch
+    api_restrictions: ApiRestrictions
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -85,6 +88,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.requests.append((method, path))
         if self.maintenance.on:
             return 503, MAINTENANCE_PAGE
+        if path.startswith("/sapi/"):
+            return handle_sapi(method, path, self.api_restrictions)
         if path.startswith("/api/"):
             return handle_spot(method, path, params, self.spot_account)
         return handle_futures(method, path, params, self.order_book)
@@ -126,6 +131,8 @@ class FakeServerUrls:
 
     spot: str
     futures: str
+    #: `EPIC-034E` — Spot mainnet's wallet family (`Client.MARGIN_API_URL`).
+    margin: str
     #: Every `(method, path)` the server answered (`EPIC-028P`). The same list
     #: the server appends to, so it grows while the `with` block runs.
     requests: list[tuple[str, str]] = field(default_factory=list)
@@ -137,6 +144,8 @@ class FakeServerUrls:
     futures_book: OrderBookState = field(default_factory=OrderBookState)
     #: `EPIC-034D` — turn `.on` to make the whole exchange answer a maintenance page.
     maintenance: MaintenanceSwitch = field(default_factory=MaintenanceSwitch)
+    #: `EPIC-034E` — what the fake exchange says the API key may do.
+    api_restrictions: ApiRestrictions = field(default_factory=ApiRestrictions)
 
 
 @contextmanager
@@ -149,6 +158,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     _Handler.spot_account = SpotAccountState()
     _Handler.requests = []
     _Handler.maintenance = MaintenanceSwitch()
+    _Handler.api_restrictions = ApiRestrictions()
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -157,10 +167,12 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
         yield FakeServerUrls(
             spot=f"http://{host}:{port}/api",
             futures=f"http://{host}:{port}/fapi",
+            margin=f"http://{host}:{port}/sapi",
             requests=_Handler.requests,
             spot_account=_Handler.spot_account,
             futures_book=_Handler.order_book,
             maintenance=_Handler.maintenance,
+            api_restrictions=_Handler.api_restrictions,
         )
     finally:
         server.shutdown()

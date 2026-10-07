@@ -37,37 +37,52 @@ _FAILURES = EnumLabels(
         ),
         ConnectionFailureKind.CLOCK_SKEW: (
             "This computer's clock is too far from the exchange's. Resync the "
-            "system clock, then choose Bots → Retry venue account."
+            "system clock."
         ),
         ConnectionFailureKind.KEY_REJECTED: (
             "The exchange rejected the API key. Check the key's IP allowlist "
             "and permissions, or create a new key for this venue."
         ),
         ConnectionFailureKind.NETWORK: (
-            "The exchange could not be reached. Check the network or proxy, then choose Bots → Retry venue account."
+            "The exchange could not be reached. Check the network or proxy."
         ),
         ConnectionFailureKind.MAINTENANCE: (
             "The exchange is under maintenance: it answered with a web page, "
-            "not with data. Wait a few minutes, then choose Bots → Retry venue account."
+            "not with data. Wait a few minutes."
+        ),
+        ConnectionFailureKind.WITHDRAWAL_ENABLED: (
+            "The API key can withdraw funds, so the app refuses it. Create a "
+            "read-only key (reading only, withdrawals off) and use that."
         ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
-            "The account is in Hedge Mode. Switch it to One-way Mode on "
-            "Binance, then choose Bots → Retry venue account."
+            "The account is in Hedge Mode. Switch it to One-way Mode on Binance."
         ),
     },
 )
 
 #: What a failure's `detail` says when it names the read that failed.
 _THE_ACCOUNT = "the account"
+#: Said after a failure of a bot's venue, whose account Bots → Retry venue
+#: account reads again; the Mainnet account window is opened again instead.
+RETRY_VENUE_ACCOUNT = "Then choose Bots → Retry venue account."
 
 
-def failure_sentence(failure: ConnectFailure) -> str:
+def failure_cause(failure: ConnectFailure) -> str:
+    """What went wrong and what to do about it, without how to read again."""
     sentence = _FAILURES[failure.kind]
     if failure.detail and failure.detail != _THE_ACCOUNT:
         return f"{sentence} It stopped while reading {failure.detail}."
     return sentence
 
 
-def failure_sentence_for_error(error: str) -> str:
+def failure_sentence(failure: ConnectFailure) -> str:
+    return f"{failure_cause(failure)} {RETRY_VENUE_ACCOUNT}"
+
+
+def error_cause(error: str) -> str:
     """A read that raised instead of answering."""
-    return f"The account could not be read: {error}. Choose Bots → Retry venue account."
+    return f"The account could not be read: {error}."
+
+
+def failure_sentence_for_error(error: str) -> str:
+    return f"{error_cause(error)} {RETRY_VENUE_ACCOUNT}"

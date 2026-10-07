@@ -51,6 +51,8 @@ class ReadKind(str, Enum):
     #: `EPIC-034D` — the selected bot's venue account; read by `ConnectStep`'s
     #: own `FencedReads`, so the screen's presenter never sees its answers.
     CONNECT = "connect"
+    #: `EPIC-034E` — the Mainnet account window's read, by its own `FencedReads`.
+    MAINNET = "mainnet"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]

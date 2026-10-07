@@ -99,6 +99,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
@@ -239,6 +245,7 @@ class Answers:
             ask_stop=self._ask_stop,
             confirm_delete=self._confirm_delete,
             ask_arm_strategy=self._ask_arm_strategy,
+            show_mainnet_account=lambda: self.asked.append("mainnet account"),
         )
 
     def _ask_arm_strategy(
@@ -280,6 +287,9 @@ class BotsScreen:
     activity: FakeAccountActivity
     #: The venue's account, as the Connect step reads it (`EPIC-034D`).
     account: FakeVenueAccountReader
+    #: The owner's real account, read only (`EPIC-034E`).
+    mainnet: FakeVenueAccountReader
+    dispatcher: ICommandDispatcher
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -337,7 +347,13 @@ def open_screen(
     account = FakeVenueAccountReader(
         AccountSource.SPOT_TESTNET, replace(a_venue_account_snapshot(), read_at=NOW)
     )
-    container.singleton(IVenueAccounts, FakeVenueAccounts(account))
+    mainnet = FakeVenueAccountReader(
+        AccountSource.SPOT_MAINNET_READONLY,
+        ConnectFailure(
+            AccountSource.SPOT_MAINNET_READONLY, ConnectionFailureKind.NOT_CONFIGURED
+        ),
+    )
+    container.singleton(IVenueAccounts, FakeVenueAccounts(account, mainnet))
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
@@ -373,4 +389,6 @@ def open_screen(
         trading_session,
         activity,
         account,
+        mainnet,
+        dispatcher,
     )

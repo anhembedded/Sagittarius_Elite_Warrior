@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 class AccountSource(str, Enum):
     FUTURES_TESTNET = "futures_testnet"
     SPOT_TESTNET = "spot_testnet"
+    #: `EPIC-034E` — the owner's real Spot account, read and never traded. It
+    #: has no `TradingVenue`: nothing that sends an order can be pointed at it.
+    SPOT_MAINNET_READONLY = "spot_mainnet_readonly"
 
     @classmethod
     def for_venue(cls, venue: TradingVenue) -> AccountSource:
@@ -49,6 +52,7 @@ class AccountSource(str, Enum):
 _TITLES = {
     AccountSource.FUTURES_TESTNET: "Futures Testnet",
     AccountSource.SPOT_TESTNET: "Spot Testnet",
+    AccountSource.SPOT_MAINNET_READONLY: "Mainnet · read only",
 }
 
 #: The venue each source's orders go to; a source mapped to `None` is read
@@ -56,4 +60,5 @@ _TITLES = {
 _TRADING_VENUES: dict[AccountSource, TradingVenue | None] = {
     AccountSource.FUTURES_TESTNET: TradingVenue.FUTURES_TESTNET,
     AccountSource.SPOT_TESTNET: TradingVenue.SPOT_TESTNET,
+    AccountSource.SPOT_MAINNET_READONLY: None,
 }

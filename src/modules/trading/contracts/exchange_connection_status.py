@@ -57,6 +57,10 @@ class ConnectionFailureKind(str, Enum):
     #: gateway's HTML page (`502 Bad Gateway`, a maintenance notice). It is
     #: reachable and refusing, not unreachable (`BUG-168`).
     MAINTENANCE = "maintenance"
+    #: `EPIC-034E` (D5) — the key can withdraw funds. The app reads accounts
+    #: and never needs that permission, so it refuses a key that has it
+    #: rather than hold a credential that can move money off the exchange.
+    WITHDRAWAL_ENABLED = "withdrawal_enabled"
     #: `EPIC-021D` §2.3 — added beyond the plan's original 5-member list.
     #: The account's position mode is Hedge, not One-way; the whole epic's
     #: order model assumes One-way (ADR §6), so this is a distinct, named,
