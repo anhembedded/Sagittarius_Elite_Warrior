@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
     resolve_market_data_venue,
     resolve_trading_venues,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
     compute_venue_alignment,
@@ -29,22 +32,34 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.environment
 from sagittarius_engine.interfaces.i_config import IConfig
 
 
-def environment_banner_content_for(config: IConfig) -> EnvironmentBannerContent:
-    """What every screen's banner says in this run.
+def venue_alignments(config: IConfig) -> dict[TradingVenue, VenueAlignment]:
+    """Each enabled venue judged against the one market-data venue the chart reads
+    (`EPIC-034` D11), the mainnet venues first.
 
-    The chart reads one market-data venue for every desk, so each enabled venue
-    is judged against it, the mainnet ones first (real money), and the banner
-    says the first that is not aligned (`EPIC-034` D11)."""
-    venues = resolve_trading_venues(config)
+    Only a mainnet venue behind testnet data is the real-money trap
+    (`DATA_TESTNET_ORDERS_MAINNET`); under the default `mainnet_public` the mainnet
+    venues are `ALIGNED`, and a testnet venue behind mainnet data keeps the
+    `DATA_MAINNET_ORDERS_TESTNET` level it had before mainnet was a venue."""
     market_data = resolve_market_data_venue(config)
-    alignments = (
-        compute_venue_alignment(
+    return {
+        venue: compute_venue_alignment(
             market_data, venue, venue.market_type or MarketType.SPOT
         )
-        for venue in sorted(venues, key=lambda venue: not venue.is_mainnet)
-    )
+        for venue in sorted(
+            resolve_trading_venues(config), key=lambda venue: not venue.is_mainnet
+        )
+    }
+
+
+def environment_banner_content_for(config: IConfig) -> EnvironmentBannerContent:
+    """What every screen's banner says in this run: the first venue, mainnet
+    first, that is not aligned (`venue_alignments`)."""
     alignment = next(
-        (a for a in alignments if a is not VenueAlignment.ALIGNED),
+        (
+            a
+            for a in venue_alignments(config).values()
+            if a is not VenueAlignment.ALIGNED
+        ),
         VenueAlignment.ALIGNED,
     )
-    return venue_alignment_banner_content(alignment, venues)
+    return venue_alignment_banner_content(alignment, resolve_trading_venues(config))

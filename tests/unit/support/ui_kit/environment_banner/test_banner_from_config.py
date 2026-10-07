@@ -9,11 +9,18 @@ screen charts its own venue's market since `EPIC-028C`.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
+    VenueAlignment,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     BannerSeverity as Severity,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from_config import (
     environment_banner_content_for,
+    venue_alignments,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -64,3 +71,33 @@ def test_mainnet_data_names_the_testnet_trap_not_the_mainnet_one() -> None:
 
     assert content.severity is Severity.DANGER
     assert "MAINNET prices, orders fill on TESTNET" in content.message
+
+
+_MAINNETS = (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET)
+_TESTNETS = (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)
+
+
+def test_under_the_default_data_source_no_mainnet_venue_raises_an_alarm() -> None:
+    """`EPIC-034` D11 — the banner is DANGER only where the risk is: under the
+    default `mainnet_public` the mainnet venues read the right prices and are
+    aligned; what is left is the testnet venues reading mainnet prices, the level
+    they had before mainnet was a venue."""
+    alignments = venue_alignments(_config([], data="mainnet_public"))
+
+    assert {alignments[venue] for venue in _MAINNETS} == {VenueAlignment.ALIGNED}
+    assert {alignments[venue] for venue in _TESTNETS} == {
+        VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
+    }
+
+
+def test_under_testnet_data_only_the_mainnet_venues_are_the_real_money_trap() -> None:
+    alignments = venue_alignments(_config([], data="futures_testnet"))
+
+    assert {alignments[venue] for venue in _MAINNETS} == {
+        VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
+    }
+    assert {alignments[venue] for venue in _TESTNETS} == {VenueAlignment.ALIGNED}
+
+
+def test_the_mainnet_venues_are_judged_before_the_testnets() -> None:
+    assert list(venue_alignments(_config([]))) == [*_MAINNETS, *_TESTNETS]
