@@ -1,6 +1,6 @@
 # EPIC-033K — Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it
 
-**Status:** 🟡 In progress (stages 1–4 delivered; open: the desktop E2E on a real display)
+**Status:** ✅ Done (2026-10-07)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🔴 — arms live strategies
 **Complexity:** M
@@ -40,7 +40,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 | 1 | this task's first PR | The layout: the selected bot's chart is the central widget; Bots (the list, with the status line) is a `NAVIGATOR` dock; Plan (name, state, figures, the kind's editor, its verdicts) a `RAIL` dock; Orders, Fills, Log and the kind's Backtest tabbed `CONSOLE` docks. The surface accepts those four places in `shell/surfaces.py`. Fit levels, a push button over the chart, becomes a Bots menu command. `BotDetailPanel` and its `QTabWidget` are deleted. |
 | 2 | ✅ delivered (2026-10-06) | Each kind contributes its toolbar (SPEC-014: "each bot type has its own toolbar"): Grid's Suggest from ATR and Suggest from Bollinger become actions shown while a Grid is selected, in the Bots menu and disabled otherwise. |
 | 3 | ✅ delivered (2026-10-06) | A strategy armed on a venue is a row of its own with Arm and Disarm until `EPIC-029L`; the desks' strategy card is deleted (the last-signal card went with `BOT-158`), which is `EPIC-033I` stage 4's Strategy panel too. |
-| 4 | ✅ delivered except the desktop E2E (2026-10-06) | The SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart) needs a real display and is open; the task closes with it. |
+| 4 | ✅ delivered (2026-10-06; desktop E2E 2026-10-07) | The SPEC journeys and the conformance suite for the finished mode; the desktop E2E (open, use, rearrange, restart) on a real display; the task closes with it. |
 
 ### Decisions in stage 1
 - **The kind's backtest is a fourth bottom panel.** HLD §11.2.1's row did not list it; it was a tab of the old detail and `EPIC-029D` built it. Its row now says "Orders, Fills, Log, Backtest (the kind's)". With no bot selected, or a kind without a backtest, the panel holds an instruction rather than hiding: a dock that hides itself fights the person's own View toggle and the saved perspective.
@@ -51,7 +51,7 @@ Reviewable pull requests, as `EPIC-033L` (Backtest) was delivered:
 - **Fit levels is a command**, "Fit &levels" in the Bots menu, enabled while a bot is selected; HLD §11.2.2 lists it with Refresh fills among the commands its table does not name yet.
 
 ## Implementation notes (written when done)
-Stages 1–4 delivered; the desktop E2E is open.
+Stages 1–4 delivered; the desktop E2E passed on the owner's display (2026-10-07), which closes the task.
 
 ### Stage 2 — each kind's commands and toolbar
 - **Declared Qt-free, by kind.** `kinds/kind_commands.py` maps a `kind_id` to its `KindCommand`s (id, menu text); `bots_commands.py` contributes every one to the Bots menu after Delete bot, not on the mode's toolbar. Grid's are "Suggest from &ATR" and "Suggest from Bollin&ger" (HLD §11.2.3's keys; A and G were free in the Bots menu). A second kind is one entry there and its editor's `kind_actions`.
@@ -77,4 +77,5 @@ Stages 1–4 delivered; the desktop E2E is open.
 - **Tables.** The orders and fills are quoted in the bot's venue's symbol filters, and every figure of the mode is written by the formatter (`EPIC-033N` notes). The conformance suite has no Bots row; its column checks run on a running bot on the composed app (`test_bots_tab_drives_the_executor.py`).
 - **Open: the desktop E2E** (open, use, rearrange, restart on a real display). This session runs offscreen; `test_main_window_state.py` already rearranges and restarts every mode headless, which is not the desktop proof.
 - **Desktop E2E harness (2026-10-06).** `scripts/workbench_desktop_e2e.py` runs the journey on a real display: two real boots of the app over a scratch `SEW_DATA_ROOT`, a real mouse click on each mode's button, every mode rearranged, the app closed through its real shutdown and started again, each dock and toolbar compared, a picture of each step. Its first run, on an X server (Xvfb, not offscreen) in the cloud session, found `BUG-154` (the environment banner could be hidden from the toolbar menu), fixed in the same pull request; after the fix it reads `RESULT: PASS` for all five modes. What stays open is the same command on the owner's Windows display: `python scripts/workbench_desktop_e2e.py`, then a look at the pictures it names.
+- **Desktop E2E on the owner's display (2026-10-07).** The owner ran `scripts/workbench_desktop_e2e.py` on their own desktop session (a real display and window manager, Linux, not the cloud's Xvfb) on `master-warrior` and reported `RESULT: PASS`: every mode clicked with a real mouse, rearranged, closed through the real shutdown, restarted and found as it was left.
 - **Seen, not changed:** in the Grid backtest page the equity chart's size hint takes most of the lower splitter, so the figures' pane opens narrow; it was so before this stage.
