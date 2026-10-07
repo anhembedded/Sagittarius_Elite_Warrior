@@ -20,6 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
+    SubmitFailure,
+    SubmitFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
@@ -80,7 +84,9 @@ def test_an_order_the_exchange_does_not_hold_is_said_not_placed() -> None:
     notice = panel.notifier.last
     assert notice.kind is FailureKind.COMMAND
     assert notice.cause == f"trading.{_VENUE}.order.not_placed"
-    assert "was not placed" in notice.headline
+    assert "no such" in notice.headline
+    assert "Check Open orders before sending it again" in notice.headline
+    assert "Nothing is live" not in notice.headline
     assert "may be live" not in notice.headline
     assert "unknown order" in notice.detail
 
@@ -169,5 +175,24 @@ def test_a_placed_order_tells_no_failure() -> None:
     )
 
     panel.vm.intents.request_submit(EntrySide.BUY)
+
+    assert panel.notifier.failures == []
+
+
+def test_an_unknown_outcome_is_told_even_when_the_action_was_superseded() -> None:
+    """The panel moved on (another symbol), but the order may be live."""
+    panel = _ready_buy()
+    stale = SubmitFailure(SubmitFailureKind.OUTCOME_UNKNOWN, "502")
+
+    panel.presenter._on_submitted((999, EntrySide.BUY, None, stale, False))
+
+    assert "may be live" in panel.notifier.last.headline
+
+
+def test_a_superseded_plain_failure_stays_quiet() -> None:
+    panel = _ready_buy()
+    stale = SubmitFailure(SubmitFailureKind.FAILED, "boom")
+
+    panel.presenter._on_submitted((999, EntrySide.BUY, None, stale, False))
 
     assert panel.notifier.failures == []

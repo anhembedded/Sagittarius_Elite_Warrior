@@ -80,7 +80,10 @@ def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
             "be read. Check Open orders and Positions before sending another."
         )
     if failure.kind is SubmitFailureKind.NOT_PLACED:
-        return f"The {what} was not placed. Nothing is live; you can send it again."
+        return (
+            f"The exchange reports no such {what}. "
+            "Check Open orders before sending it again."
+        )
     if failure.kind is SubmitFailureKind.SHORT_NOT_SUPPORTED:
         return (
             f"The {what} was not sent: Spot has no short, and there is no "

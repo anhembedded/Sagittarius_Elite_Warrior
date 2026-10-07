@@ -18,8 +18,8 @@ produced by `failure_detail()`, and is shown only on demand.
 
 **One failure is one message.** `cause` is a stable key (`"trading.futures_testnet.account"`);
 the same cause told again is one message box or one bar, updated in place, and
-a cause that fails with the same `detail` as a bar already showing in its mode,
-or within seconds of the last failure the bar took, joins that bar: one outage read by four queries in 50 ms is one bar. A recovery
+a cause that fails with the same `failure_signature(detail)` as a bar already
+showing in its mode joins that bar: one outage read by four queries in 50 ms is one bar. A recovery
 clears a cause with `clear_failure()`; its bar goes when every cause on it has.
 
 **Thread-safe by contract.** Every method may be called from any thread; the
@@ -85,6 +85,27 @@ class INotifier(Protocol):
         """Tells the user, as a toast, of an event that happened while they
         looked elsewhere."""
         ...
+
+
+#: What says the exchange itself could not answer: the sentence the adapters'
+#: `describe_failure` writes for a gateway's HTML page, and python-binance's own
+#: message for one that reached a caller unsanitised (`BUG-168`).
+_EXCHANGE_UNAVAILABLE_MARKERS = (
+    "the exchange is unavailable",
+    "invalid json error message from binance",
+)
+EXCHANGE_UNAVAILABLE = "exchange unavailable"
+
+
+def failure_signature(detail: str) -> str:
+    """What failed, whoever told it: two notices with the same signature are one
+    failure. Every way of saying "the exchange could not answer" is one
+    signature, so one outage read by four queries is one message; any other text
+    is its own signature, and an empty one is never merged with another."""
+    lowered = detail.lower()
+    if any(marker in lowered for marker in _EXCHANGE_UNAVAILABLE_MARKERS):
+        return EXCHANGE_UNAVAILABLE
+    return detail
 
 
 def failure_detail(exc: BaseException) -> str:

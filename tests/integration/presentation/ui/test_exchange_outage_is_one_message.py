@@ -39,7 +39,11 @@ def _bars(desk: TradeDesk):
 
 
 def _open_boxes() -> list[QMessageBox]:
-    return [w for w in QApplication.topLevelWidgets() if isinstance(w, QMessageBox)]
+    return [
+        w
+        for w in QApplication.topLevelWidgets()
+        if isinstance(w, QMessageBox) and w.isVisible()
+    ]
 
 
 def test_one_outage_is_one_bar_and_no_dialog_and_no_page(spot_desk, qtbot) -> None:

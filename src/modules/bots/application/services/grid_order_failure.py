@@ -44,7 +44,7 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
 
 def fault_with(state: BotRunState, what: str, error: Exception) -> None:
     """ERROR for a step that raised; `what` names the step."""
-    detail = f"{what}: {type(error).__name__}: {error}"
+    detail = f"{what}: {type(error).__name__}; see the log"
     _apply(state, BotLifecycleEvent.FAULT, GridReason.TASK_FAILED, detail)
 
 

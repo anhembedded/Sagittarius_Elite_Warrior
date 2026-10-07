@@ -353,7 +353,7 @@ class BotsPresenter(CommandPresenter):
             if pending.action is BotAction.SAVE:
                 self._selected.saved()
         else:
-            self._model.set_status(f"{label}: not done.", False)
+            self._model.set_status(f"{label}: not done.", True)
             self._failures.command_refused(label, result, detail)
         logger.info("Bots screen: %s %s", label, "accepted" if accepted else "refused")
         self._dispatch(settled_event(self._model.selected))

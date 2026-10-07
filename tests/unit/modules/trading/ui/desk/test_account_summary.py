@@ -163,8 +163,8 @@ def test_an_unreadable_account_is_marked_rather_than_shown_empty(qtbot) -> None:
     presenter.refresh()
 
     assert panel.stale_text == "Out of date: the account could not be read"
-    assert notifier.last.kind is FailureKind.BACKGROUND
-    assert notifier.last.cause == "trading.futures_testnet.account_summary"
+    # Nothing was raised, so the panel's stale mark is the whole message.
+    assert notifier.failures == []
 
 
 def test_a_failed_summary_read_is_one_background_notice_with_retry(qtbot) -> None:

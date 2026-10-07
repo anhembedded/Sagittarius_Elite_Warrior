@@ -58,6 +58,7 @@ def test_an_unreadable_book_is_reported_and_the_price_is_kept() -> None:
 
     assert panel.vm.entry(EntrySide.BUY).price == 98
     assert panel.vm.message == "Could not read the best price."
+    assert panel.vm.message_is_error
     notice = panel.notifier.last
     assert notice.kind is FailureKind.BACKGROUND
     assert notice.cause == "trading.spot_testnet.best_price"

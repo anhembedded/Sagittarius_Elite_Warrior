@@ -70,7 +70,7 @@ def test_a_close_the_exchange_does_not_hold_is_said_not_placed(qtbot) -> None:
 
     notice = desk.notifier.last
     assert notice.cause == f"trading.{_VENUE}.close.not_placed"
-    assert "was not placed" in notice.headline
+    assert "no such" in notice.headline
     assert "may be live" not in notice.headline
 
 

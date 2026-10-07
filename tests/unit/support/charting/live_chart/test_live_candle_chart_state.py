@@ -371,3 +371,21 @@ def test_an_error_reason_that_looks_like_markup_is_shown_as_text(qapp) -> None:
     assert label.textFormat() == Qt.TextFormat.PlainText
     assert "<h1>" not in label.toolTip(), "`BOT-169`: the page is behind Details…"
     assert notifier.last.detail == "<h1>502 Bad Gateway</h1>"
+
+
+def test_a_failure_bar_goes_when_the_chart_leaves_error_or_closes(qapp) -> None:
+    """A bar whose chart is gone would offer a Retry that targets a closed chart."""
+    feed = ScriptedCandleFeed()
+    feed.stream_message = "no route"
+    notifier = RecordingNotifier()
+    chart, _card = build_chart(feed, notifier=notifier)
+    chart.show_symbol("BTCUSDT")
+    chart.run_command(C.GO_LIVE)
+    cause = notifier.last.cause
+
+    chart.run_command(C.STOP_LIVE)
+    assert cause in notifier.cleared
+
+    notifier.cleared.clear()
+    chart.shutdown()
+    assert cause in notifier.cleared

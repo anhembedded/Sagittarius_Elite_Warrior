@@ -298,7 +298,7 @@ def test_a_protective_order_not_placed_is_said_so_per_order(qapp) -> None:
         "trading.futures_testnet.protective.take_profit_market.not_placed",
         "trading.futures_testnet.protective.stop_market.not_placed",
     ]
-    assert all("was not placed" in n.headline for n in desk.notifier.failures)
+    assert all("no such" in n.headline for n in desk.notifier.failures)
 
 
 def test_a_protective_order_that_raises_hides_no_text_in_the_headline(qapp) -> None:

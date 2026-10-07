@@ -6,16 +6,17 @@ at the top of the mode it affects, with Retry when there is something to retry
 and Details… for the technical text. Stock widgets only: a framed panel, the
 style's own warning icon, labels and push buttons.
 
-`MessageBarHost` holds one bar per failure: the same cause told again updates its
-bar in place, and a cause with the same technical text as a bar joins it, so one
-outage read four times is one bar; a recovered cause leaves it; the host takes
-no height while it holds none.
+`MessageBarHost` holds one bar per failure. The same cause told again updates its
+bar in place. A cause whose technical text is the text a bar already shows
+joins that bar (`failure_signature`: every way of saying "the exchange could not
+answer" is one text, so one outage read four times is one bar, "and 3 more"); any other failure gets a bar of its own, never hidden
+behind another's headline. A bar keeps every notice that joined it: Retry runs
+each one's retry, and when the cause it shows recovers it shows the next. The
+host takes no height while it holds no bar.
 """
 
 from __future__ import annotations
 
-import time
-from collections.abc import Callable
 from enum import Enum, auto
 
 from PySide6.QtCore import Signal
@@ -27,32 +28,27 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureNotice
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureNotice,
+    failure_signature,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
-
-#: A failure told within this many seconds of the last one a bar took joins
-#: that bar: one outage fails every read at once, with a different sentence
-#: each, and is one message.
-BURST_WINDOW_S = 3.0
 
 
 class MessageBar(QFrame):
-    """One failure: icon, headline, and the buttons its notice offers."""
+    """One failure: icon, headline, and the buttons its notices offer."""
 
-    retryRequested = Signal(str)
-    detailsRequested = Signal(str)
-    dismissed = Signal(str)
+    #: The notices the bar holds: Retry runs each one's retry.
+    retryRequested = Signal(object)
+    #: The notice the bar shows: Details… opens its technical text.
+    detailsRequested = Signal(object)
+    #: The causes the bar held, when the user closed it.
+    dismissed = Signal(object)
 
     def __init__(self, notice: FailureNotice, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.cause = notice.cause
-        #: Every cause this bar shows: the one that opened it and those that joined.
-        self.causes: set[str] = {notice.cause}
-        self.detail = notice.detail
-        #: How many failures besides its own the bar took in (a burst).
-        self.absorbed = 0
-        self.last_at = 0.0
-        self._base_headline = notice.headline
+        #: Every notice on this bar by cause; the first is the one shown.
+        self.notices: dict[str, FailureNotice] = {notice.cause: notice}
         self.setObjectName(f"message_bar::{notice.cause}")
         self.setFrameShape(QFrame.Shape.StyledPanel)
         icon = plain_label(parent=self)
@@ -66,37 +62,35 @@ class MessageBar(QFrame):
         self._retry = QPushButton("Retry", self)
         self._details = QPushButton("Details…", self)
         self._dismiss = QPushButton("Dismiss", self)
-        self._retry.clicked.connect(lambda: self.retryRequested.emit(self.cause))
-        self._details.clicked.connect(lambda: self.detailsRequested.emit(self.cause))
-        self._dismiss.clicked.connect(lambda: self.dismissed.emit(self.cause))
+        self._retry.clicked.connect(
+            lambda: self.retryRequested.emit(tuple(self.notices.values()))
+        )
+        self._details.clicked.connect(lambda: self.detailsRequested.emit(self.shown))
+        self._dismiss.clicked.connect(lambda: self.dismissed.emit(tuple(self.notices)))
         row = QHBoxLayout(self)
         row.addWidget(icon)
         row.addWidget(self._headline, 1)
         row.addWidget(self._retry)
         row.addWidget(self._details)
         row.addWidget(self._dismiss)
-        self.update_notice(notice)
+        self.refresh()
+
+    @property
+    def shown(self) -> FailureNotice:
+        return next(iter(self.notices.values()))
 
     @property
     def headline(self) -> str:
         return self._headline.text()
 
-    def absorb(self) -> None:
-        """Takes in one more failure of the same burst."""
-        self.absorbed += 1
-        self._show_headline()
-
-    def _show_headline(self) -> None:
-        more = f" (and {self.absorbed} more)" if self.absorbed else ""
-        self._headline.setText(f"{self._base_headline}{more}")
-
-    def update_notice(self, notice: FailureNotice) -> None:
-        """Shows `notice` in place of what the bar showed for the same cause."""
-        self.detail = notice.detail
-        self._base_headline = notice.headline
-        self._show_headline()
-        self._retry.setVisible(notice.retry is not None)
-        self._details.setVisible(bool(notice.detail))
+    def refresh(self) -> None:
+        """Draws the shown notice and how many others joined it."""
+        shown = self.shown
+        more = len(self.notices) - 1
+        suffix = f" (and {more} more)" if more else ""
+        self._headline.setText(f"{shown.headline}{suffix}")
+        self._retry.setVisible(any(n.retry is not None for n in self.notices.values()))
+        self._details.setVisible(bool(shown.detail))
 
 
 class Shown(Enum):
@@ -109,30 +103,17 @@ class Shown(Enum):
 
 
 class MessageBarHost(QWidget):
-    """The strip above a mode's content that holds its bars.
+    """The strip above a mode's content that holds its bars."""
 
-    A bar is one failure. The same cause told again updates its bar in place.
-    A different cause joins a bar instead of opening another when its technical
-    text is the bar's, or when it arrives within `BURST_WINDOW_S` of the last
-    failure the bar took: one outage fails every read at once, so it is one
-    message. A bar goes when every cause that joined it has recovered.
-    """
+    retryRequested = Signal(object)
+    detailsRequested = Signal(object)
+    dismissed = Signal(object)
 
-    retryRequested = Signal(str)
-    detailsRequested = Signal(str)
-    dismissed = Signal(str)
-
-    def __init__(
-        self,
-        parent: QWidget | None = None,
-        clock: Callable[[], float] = time.monotonic,
-    ) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._clock = clock
-        #: Bars by the cause that opened them.
-        self._bars: dict[str, MessageBar] = {}
-        #: Every active cause, to the cause of the bar that shows it.
-        self._bar_of: dict[str, str] = {}
+        self._bars: list[MessageBar] = []
+        #: Every active cause, to the bar that shows it.
+        self._bar_of: dict[str, MessageBar] = {}
         self._column = QVBoxLayout(self)
         self._column.setContentsMargins(0, 0, 0, 0)
         self.setVisible(False)
@@ -145,68 +126,62 @@ class MessageBarHost(QWidget):
         return len(self._bars)
 
     def bar(self, cause: str) -> MessageBar | None:
-        primary = self._bar_of.get(cause)
-        return None if primary is None else self._bars[primary]
+        return self._bar_of.get(cause)
 
     def show_notice(self, notice: FailureNotice) -> Shown:
-        now = self._clock()
-        primary = self._bar_of.get(notice.cause)
-        if primary is not None:
-            if primary == notice.cause:
-                self._bars[primary].update_notice(notice)
+        bar = self._bar_of.get(notice.cause)
+        if bar is not None:
+            bar.notices[notice.cause] = notice
+            bar.refresh()
             return Shown.UPDATED
-        host_bar = self._bar_showing_text(notice.detail) or self._bar_in_burst(now)
-        if host_bar is not None:
-            self._bar_of[notice.cause] = host_bar.cause
-            host_bar.causes.add(notice.cause)
-            host_bar.last_at = now
-            host_bar.absorb()
+        twin = self._bar_showing_text(notice.detail)
+        if twin is not None:
+            twin.notices[notice.cause] = notice
+            self._bar_of[notice.cause] = twin
+            twin.refresh()
             return Shown.MERGED
         bar = MessageBar(notice, self)
-        bar.last_at = now
         bar.retryRequested.connect(self.retryRequested)
         bar.detailsRequested.connect(self.detailsRequested)
-        bar.dismissed.connect(self.dismiss)
-        self._bars[notice.cause] = bar
-        self._bar_of[notice.cause] = notice.cause
+        bar.dismissed.connect(self._dismiss)
+        self._bars.append(bar)
+        self._bar_of[notice.cause] = bar
         self._column.addWidget(bar)
         self.setVisible(True)
         return Shown.OPENED
 
     def clear(self, cause: str) -> bool:
-        """`cause` recovered; returns whether it was showing. Its bar goes
-        when it was the last cause on it."""
-        primary = self._bar_of.pop(cause, None)
-        if primary is None:
+        """`cause` recovered; returns whether it was showing. Its bar goes when
+        it was the last cause on it, and shows the next one otherwise."""
+        bar = self._bar_of.pop(cause, None)
+        if bar is None:
             return False
-        bar = self._bars[primary]
-        bar.causes.discard(cause)
-        if not bar.causes:
-            self._remove(primary)
+        del bar.notices[cause]
+        if bar.notices:
+            bar.refresh()
+        else:
+            self._remove(bar)
         return True
 
-    def dismiss(self, primary: str) -> None:
-        """The user closed the bar opened by `primary`, with every cause on it."""
-        bar = self._bars.get(primary)
-        if bar is None:
-            return
-        for cause in tuple(bar.causes):
-            self._bar_of.pop(cause, None)
-        self._remove(primary)
-        self.dismissed.emit(primary)
-
-    def _bar_in_burst(self, now: float) -> MessageBar | None:
-        """The bar that took a failure within `BURST_WINDOW_S` of `now`."""
-        recent = [b for b in self._bars.values() if now - b.last_at <= BURST_WINDOW_S]
-        return max(recent, key=lambda b: b.last_at, default=None)
+    def _dismiss(self, causes: tuple[str, ...]) -> None:
+        """The user closed a bar, with every cause on it."""
+        for cause in causes:
+            bar = self._bar_of.pop(cause, None)
+            if bar is not None and bar in self._bars:
+                self._remove(bar)
+        self.dismissed.emit(causes)
 
     def _bar_showing_text(self, detail: str) -> MessageBar | None:
         if not detail:
             return None
-        return next((b for b in self._bars.values() if b.detail == detail), None)
+        signature = failure_signature(detail)
+        return next(
+            (b for b in self._bars if failure_signature(b.shown.detail) == signature),
+            None,
+        )
 
-    def _remove(self, primary: str) -> None:
-        bar = self._bars.pop(primary)
+    def _remove(self, bar: MessageBar) -> None:
+        self._bars.remove(bar)
         self._column.removeWidget(bar)
         bar.deleteLater()
         self.setVisible(bool(self._bars))

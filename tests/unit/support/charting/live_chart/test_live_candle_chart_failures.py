@@ -105,4 +105,5 @@ def test_retry_loads_again_and_an_opened_stream_clears_the_notice(qapp) -> None:
     retry()
 
     assert feed.syncs == 2
-    assert notifier.cleared == [_CAUSE]
+    assert _CAUSE in notifier.cleared
+    assert set(notifier.cleared) == {_CAUSE}

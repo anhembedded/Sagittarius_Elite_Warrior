@@ -157,7 +157,7 @@ class DeskSessionControls(QObject):
             logger.warning(
                 "Desk could not enable trading on %s: %s", self._venue.value, detail
             )
-            self.statusChanged.emit("Trading could not be enabled.", False)
+            self.statusChanged.emit("Trading could not be enabled.", True)
             self._report_command_failure(
                 "enable",
                 "Could not enable trading. Check the connection and try again.",
@@ -185,7 +185,7 @@ class DeskSessionControls(QObject):
             logger.warning(
                 "Desk could not disable trading on %s: %s", self._venue.value, detail
             )
-            self.statusChanged.emit("Trading could not be disabled.", False)
+            self.statusChanged.emit("Trading could not be disabled.", True)
             self._report_command_failure(
                 "disable",
                 "Could not disable trading. Check the connection and try again; "
@@ -241,7 +241,7 @@ class DeskSessionControls(QObject):
             logger.warning(
                 "Desk emergency stop failed on %s: %s", self._venue.value, detail
             )
-            self.statusChanged.emit("Emergency stop did not run.", False)
+            self.statusChanged.emit("Emergency stop did not run.", True)
             self.logged.emit("[ERROR] Emergency stop failed. See the message shown.")
             self._report_command_failure("emergency_stop", _STOP_FAILED, detail)
             return

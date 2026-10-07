@@ -158,7 +158,8 @@ def test_a_submit_that_raises_is_a_fault() -> None:
     assert world.state() is S.ERROR
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
     assert runtime.reason is GridReason.ORDER_FAILED
-    assert "reset by peer" in runtime.reason_detail
+    assert "ConnectionError" in runtime.reason_detail
+    assert "reset by peer" not in runtime.reason_detail, "the text is in the log"
 
 
 def test_a_submit_whose_outcome_is_unknown_is_a_fault_saying_the_order_may_be_live() -> (

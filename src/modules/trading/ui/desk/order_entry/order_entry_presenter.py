@@ -89,6 +89,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_out
     result_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
+    SubmitFailureKind,
     submit_failure_of,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
@@ -330,6 +331,11 @@ class OrderEntryPresenter(QObject):
         action_id, side, result, failure, reduced = payload
         if not self._orders.is_current_pending(action_id, _ORDER):
             self._orders.log_stale_callback("_on_submitted", action_id, _ORDER)
+            if (
+                failure is not None
+                and failure.kind is SubmitFailureKind.OUTCOME_UNKNOWN
+            ):
+                self._failures.submit_failed(failure)  # told whatever superseded it
             return
         if result is None:
             self._orders.finish_action(action_id, ActionOutcome.FAILED)

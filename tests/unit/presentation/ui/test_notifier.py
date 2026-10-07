@@ -54,28 +54,9 @@ def boxes() -> _Boxes:
     return _Boxes()
 
 
-class _Clock:
-    """A clock a test moves by hand; by default every reading is a minute
-    after the last, so no two failures count as one burst."""
-
-    def __init__(self, step: float = 60.0) -> None:
-        self.now = 0.0
-        self._step = step
-
-    def __call__(self) -> float:
-        self.now += self._step
-        return self.now
-
-
 @pytest.fixture
 def host(qapp: QApplication) -> MessageBarHost:
-    return MessageBarHost(clock=_Clock())
-
-
-@pytest.fixture
-def burst_host(qapp: QApplication) -> MessageBarHost:
-    """A host whose clock stands still: every failure is within one burst."""
-    return MessageBarHost(clock=_Clock(step=0.0))
+    return MessageBarHost()
 
 
 @pytest.fixture
@@ -144,40 +125,19 @@ def test_one_outage_read_four_times_is_one_bar(
     assert host.bar_count() == 1
 
 
-def test_four_reads_failing_at_once_with_four_sentences_are_one_bar(
-    qapp: QApplication, boxes: _Boxes, burst_host: MessageBarHost
+def test_a_different_failure_a_moment_later_is_never_hidden_in_the_outage_bar(
+    notifier: NotifierPresenter, host: MessageBarHost
 ) -> None:
-    """The 2026-10-07 outage: four queries failed within 50 ms, each with a
-    sentence of its own. One message, saying how many it stands for."""
-    notifier = NotifierPresenter(boxes)
-    notifier.register_scope("trade", burst_host)
-
-    for cause, text in (
-        ("bots.planner", "symbol rules could not be read"),
-        ("bots.market", "the price could not be read"),
-        ("bots.history", "order history could not be read"),
-        ("bots.fills", "fills could not be read"),
-    ):
-        notifier.report_failure(_notice(cause=cause, detail=text))
-
-    assert burst_host.bar_count() == 1
-    bar = burst_host.bar("bots.planner")
-    assert bar is not None and bar.headline.endswith("(and 3 more)")
-
-
-def test_a_failure_long_after_the_last_is_a_bar_of_its_own(
-    qapp: QApplication, boxes: _Boxes
-) -> None:
-    clock = _Clock(step=0.0)
-    host = MessageBarHost(clock=clock)
-    notifier = NotifierPresenter(boxes)
-    notifier.register_scope("trade", host)
-    notifier.report_failure(_notice(cause="a"))
-
-    clock.now += 10.0
-    notifier.report_failure(_notice(cause="b"))
+    """The outage's reads and then a refused key within the same second: the
+    key is a different failure, so it keeps its own bar, headline and detail."""
+    notifier.report_failure(_notice(cause="a", headline="Account could not be read."))
+    notifier.report_failure(
+        _notice(cause="key", headline="Your API key was rejected.", detail="-2015")
+    )
 
     assert host.bar_count() == 2
+    key_bar = host.bar("key")
+    assert key_bar is not None and key_bar.headline == "Your API key was rejected."
 
 
 def test_four_reads_failing_with_one_text_are_one_bar(
@@ -209,6 +169,62 @@ def test_a_merged_bar_stays_until_every_cause_on_it_recovered(
 
     notifier.clear_failure("b")
     assert host.bar_count() == 0
+
+
+def test_when_the_cause_a_bar_shows_recovers_it_shows_the_next_with_its_own_controls(
+    notifier: NotifierPresenter, host: MessageBarHost
+) -> None:
+    calls: list[str] = []
+    notifier.report_failure(_notice(cause="a", headline="First.", detail="HTTP 502"))
+    notifier.report_failure(
+        _notice(
+            cause="b",
+            headline="Second.",
+            detail="HTTP 502",
+            retry=lambda: calls.append("b"),
+        )
+    )
+
+    notifier.clear_failure("a")
+
+    bar = host.bar("b")
+    assert bar is not None and bar.headline == "Second."
+    assert not bar._retry.isHidden()
+    bar._retry.click()
+    assert calls == ["b"]
+
+
+def test_retry_on_a_merged_bar_retries_every_cause_on_it(
+    notifier: NotifierPresenter, host: MessageBarHost
+) -> None:
+    calls: list[str] = []
+    for cause in ("a", "b"):
+        notifier.report_failure(
+            _notice(
+                cause=cause, detail="HTTP 502", retry=lambda c=cause: calls.append(c)
+            )
+        )
+    bar = host.bar("a")
+    assert bar is not None
+
+    bar._retry.click()
+
+    assert calls == ["a", "b"]
+
+
+def test_a_cause_that_recovers_and_fails_again_never_leaves_a_dead_bar(
+    notifier: NotifierPresenter, host: MessageBarHost
+) -> None:
+    notifier.report_failure(_notice(cause="a", detail="HTTP 502"))
+    notifier.report_failure(_notice(cause="b", detail="HTTP 502"))
+    notifier.clear_failure("a")
+    notifier.report_failure(_notice(cause="a", detail="HTTP 502"))
+
+    notifier.clear_failure("a")
+    notifier.clear_failure("b")
+
+    assert host.bar_count() == 0
+    assert host.layout().count() == 0
 
 
 def test_dismissing_a_merged_bar_removes_every_cause_on_it(

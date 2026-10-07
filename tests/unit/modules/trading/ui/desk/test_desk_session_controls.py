@@ -166,7 +166,7 @@ def test_an_enable_that_raises_is_reported_and_the_toggle_shows_the_truth(
     rig.controls.toggle()
     rig.threads.run(0)  # must not raise
 
-    assert rig.seen.last_status == ("Trading could not be enabled.", False)
+    assert rig.seen.last_status == ("Trading could not be enabled.", True)
     assert rig.seen.states[-1] == (False, False)
     notice = rig.notifier.last
     assert notice.kind is FailureKind.COMMAND
@@ -198,7 +198,7 @@ def test_a_disable_that_raises_is_a_command_failure_and_shows_the_truth(
     controls.toggle()
     threads.run(0)
 
-    assert statuses[-1] == ("Trading could not be disabled.", False)
+    assert statuses[-1] == ("Trading could not be disabled.", True)
     assert notifier.last.kind is FailureKind.COMMAND
     assert notifier.last.cause == "trading.futures_testnet.disable"
     assert notifier.last.detail == "socket closed"
@@ -266,7 +266,7 @@ def test_a_stop_that_raises_is_reported_not_raised(rig: Rig) -> None:
     rig.controls.emergency_stop()
     rig.threads.run(0)  # must not raise
 
-    assert rig.seen.last_status == ("Emergency stop did not run.", False)
+    assert rig.seen.last_status == ("Emergency stop did not run.", True)
     assert "timeout" not in rig.seen.logs[-1]
     assert rig.seen.logs[-1].startswith("[ERROR] Emergency stop failed")
     assert rig.seen.states[-1] == (True, False)  # nothing was disabled

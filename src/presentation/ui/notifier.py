@@ -95,7 +95,6 @@ class NotifierPresenter(QObject):
         self._tray: QSystemTrayIcon | None = None
         self._hosts: dict[str, MessageBarHost] = {}
         self._shown_scope = ""
-        self._notices: dict[str, FailureNotice] = {}
         self._boxes: dict[str, QMessageBox] = {}
         self._failure.connect(self._show_failure)
         self._cleared.connect(self._clear)
@@ -130,7 +129,6 @@ class NotifierPresenter(QObject):
         self._hosts[scope] = host
         host.retryRequested.connect(self._retry)
         host.detailsRequested.connect(self._show_details)
-        host.dismissed.connect(self._forget)
 
     # -- INotifier ----------------------------------------------------- #
 
@@ -179,15 +177,12 @@ class NotifierPresenter(QObject):
             return
         shown = host.show_notice(notice)
         if shown is Shown.OPENED:
-            self._notices[notice.cause] = notice
             logger.warning(
                 "Background failure, shown in the %r message bar: %s [notice-bar]",
                 notice.scope,
                 notice.cause,
             )
         else:
-            if shown is Shown.UPDATED:
-                self._notices[notice.cause] = notice
             logger.debug(
                 "Failure %s is already in a bar (%s): not opened again [notice-deduplicated]",
                 notice.cause,
@@ -195,25 +190,21 @@ class NotifierPresenter(QObject):
             )
 
     def _clear(self, cause: str) -> None:
-        self._notices.pop(cause, None)
         for host in self._hosts.values():
             if host.clear(cause):
                 logger.info("Failure %s cleared [notice-cleared]", cause)
 
-    def _forget(self, cause: str) -> None:
-        """The user dismissed the bar opened by `cause`."""
-        self._notices.pop(cause, None)
+    def _retry(self, notices: tuple[FailureNotice, ...]) -> None:
+        """The bar's Retry: every notice on it that can be retried, once."""
+        for notice in notices:
+            if notice.retry is not None:
+                logger.info(
+                    "Retrying %s from its message bar [notice-retry]", notice.cause
+                )
+                notice.retry()
 
-    def _retry(self, cause: str) -> None:
-        notice = self._notices.get(cause)
-        if notice is None or notice.retry is None:
-            return
-        logger.info("Retrying %s from its message bar [notice-retry]", cause)
-        notice.retry()
-
-    def _show_details(self, cause: str) -> None:
-        notice = self._notices.get(cause)
-        if notice is None or not notice.detail:
+    def _show_details(self, notice: FailureNotice) -> None:
+        if not notice.detail:
             return
         box = QMessageBox(
             QMessageBox.Icon.Information,

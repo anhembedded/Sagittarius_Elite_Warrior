@@ -149,7 +149,7 @@ def test_a_command_the_domain_refused_is_a_message_box_with_its_own_sentence(
     assert notice.headline == "Create my grid: refused. Spot is off."
     assert notice.detail == ""
     assert notice.retry is None
-    assert not screen.view.model.statusIsError
+    assert screen.view.model.statusIsError
     assert screen.view.status.text() == "Create my grid: not done."
 
 

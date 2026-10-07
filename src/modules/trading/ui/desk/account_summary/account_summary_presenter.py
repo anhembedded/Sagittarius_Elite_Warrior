@@ -108,6 +108,10 @@ class AccountSummaryPresenter(QObject):
             self._reads.finish_action(action_id, ActionOutcome.FAILED)
             logger.warning("Account summary could not be read: %s", detail)
             self._view.mark_stale(_UNREAD_REASON)
+            if detail is None:
+                # The read answered nothing and raised nothing: the panel's own
+                # stale mark says so, and a bar would add no cause to Details.
+                return
             self._notifier.report_failure(
                 FailureNotice(
                     FailureKind.BACKGROUND,
@@ -115,7 +119,7 @@ class AccountSummaryPresenter(QObject):
                     f"The {self._venue_name} account summary could not be read. "
                     "Check the connection and retry.",
                     scope=TRADE_ROUTE,
-                    detail=detail or "",
+                    detail=detail,
                     retry=self.refresh,
                 )
             )

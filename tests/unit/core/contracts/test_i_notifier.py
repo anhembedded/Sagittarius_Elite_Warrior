@@ -12,6 +12,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureNotice,
     INotifier,
     failure_detail,
+    failure_signature,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
@@ -78,3 +79,25 @@ def test_failure_detail_is_cut_to_a_bound() -> None:
 
     assert len(detail) == MAX_DETAIL_CHARS + 1
     assert detail.endswith("…")
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "the exchange is unavailable (HTTP 502 Bad Gateway)",
+        "Spot active symbols could not be read: the exchange is unavailable (HTTP 502)",
+        "APIError(code=0): Invalid JSON error message from Binance: <html>",
+    ],
+)
+def test_every_way_of_saying_the_exchange_did_not_answer_is_one_signature(
+    detail: str,
+) -> None:
+    assert failure_signature(detail) == failure_signature(
+        "the exchange is unavailable (HTTP 503)"
+    )
+
+
+def test_other_texts_are_their_own_signature_and_an_empty_one_stays_empty() -> None:
+    assert failure_signature("-2015") == "-2015"
+    assert failure_signature("-2015") != failure_signature("-1021")
+    assert failure_signature("") == ""

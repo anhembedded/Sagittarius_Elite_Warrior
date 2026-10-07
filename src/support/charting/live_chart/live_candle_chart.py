@@ -215,10 +215,6 @@ class LiveCandleChart(QObject):
         if self._symbol:
             self._restart()
 
-    def _retry_stream(self) -> None:
-        """The message bar's Retry: the chip's Retry, offered only in ERROR."""
-        self.run_command(LiveChartCommand.RETRY)
-
     def show_newest_window(self) -> None:
         """Draws the shown symbol's newest first window again at the shown
         timeframe, live if the chart is (`EPIC-033T`): the way back from
@@ -227,8 +223,10 @@ class LiveCandleChart(QObject):
             self._restart()
 
     def shutdown(self) -> None:
-        """Cancels the load in flight; the stream is left as it is."""
+        """Cancels the load in flight; the stream is left as it is. A failure
+        bar of this chart goes with it: its Retry would target a closed chart."""
         self._token.cancel()
+        self._notifier.clear_failure(self._failure_cause)
 
     def release_stream(self) -> None:
         """Releases this chart's own stream (`BOT-126`), if it holds one."""
@@ -331,6 +329,8 @@ class LiveCandleChart(QObject):
             event.value,
         )
         self._error = reason if target is LiveChartState.ERROR else ""
+        if target is not LiveChartState.ERROR:
+            self._notifier.clear_failure(self._failure_cause)
         self._state = target
         self._syncing_stream_action = True
         self.live_stream_action.setChecked(self._streaming)
@@ -361,7 +361,7 @@ class LiveCandleChart(QObject):
                 headline=headline,
                 scope=self._scope,
                 detail=detail,
-                retry=self._retry_stream,
+                retry=lambda: self.run_command(LiveChartCommand.RETRY),
             )
         )
 
