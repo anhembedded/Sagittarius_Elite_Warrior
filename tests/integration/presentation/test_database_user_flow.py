@@ -94,7 +94,7 @@ class _FakeExchangeClient:
 
     def close(self) -> None:
         """`BUG-172` gave the port a `close()` (default: nothing held)."""
-        return None
+        return
 
     def get_symbol_metadata(self) -> list:
         """`BUG-127` added this to the port, and
