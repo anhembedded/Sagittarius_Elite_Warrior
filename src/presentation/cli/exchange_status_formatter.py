@@ -41,9 +41,11 @@ _FAILURE_GUIDANCE = EnumLabels(
             "The local clock is too far from the exchange's time. Resync the system "
             "clock (NTP) and try again."
         ),
-        ConnectionFailureKind.KEY_EXPIRED: (
-            "The testnet key has expired or been reset. Get a new key at "
-            "testnet.binancefuture.com.\n"
+        ConnectionFailureKind.KEY_REJECTED: (
+            "The exchange rejected the API key (Binance -2015). Likely causes: "
+            "a mainnet key (this app talks to the testnet only), an unknown "
+            "key, an IP not on the key's allowlist, or a key without the needed "
+            "permission. Get a key at testnet.binancefuture.com.\n"
             "  (Note: Spot Testnet keys and mainnet keys do NOT work here.)"
         ),
         ConnectionFailureKind.NETWORK: (
@@ -71,9 +73,11 @@ _SPOT_ONLY_GUIDANCE: dict[ConnectionFailureKind, str] = {
         "BINANCE_SPOT_TESTNET_API_KEY/BINANCE_SPOT_TESTNET_API_SECRET "
         "environment variables."
     ),
-    ConnectionFailureKind.KEY_EXPIRED: (
-        "The testnet key has expired or been reset. Get a new key at "
-        "testnet.binance.vision.\n"
+    ConnectionFailureKind.KEY_REJECTED: (
+        "The exchange rejected the API key (Binance -2015). Likely causes: "
+        "a mainnet key (this app talks to the testnet only), an unknown "
+        "key, an IP not on the key's allowlist, or a key without the needed "
+        "permission. Get a key at testnet.binance.vision.\n"
         "  (Note: Futures Testnet keys and mainnet keys do NOT work here.)"
     ),
 }

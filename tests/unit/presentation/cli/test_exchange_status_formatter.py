@@ -61,7 +61,7 @@ def test_an_unreachable_status_shows_the_failure_kind_and_guidance():
     status = ExchangeConnectionStatus(
         venue=TradingVenue.FUTURES_TESTNET,
         reachable=False,
-        failure=ConnectionFailureKind.KEY_EXPIRED,
+        failure=ConnectionFailureKind.KEY_REJECTED,
         server_time_skew_ms=None,
         usdt_balance=None,
         position_mode=None,
@@ -72,7 +72,7 @@ def test_an_unreachable_status_shows_the_failure_kind_and_guidance():
     text = format_exchange_connection_status(status)
 
     assert "✘" in text
-    assert "KEY_EXPIRED" in text
+    assert "KEY_REJECTED" in text
     assert "testnet.binancefuture.com" in text
 
 
@@ -181,7 +181,7 @@ def test_a_spot_key_mixup_gets_spot_specific_guidance():
     status = ExchangeConnectionStatus(
         venue=TradingVenue.SPOT_TESTNET,
         reachable=False,
-        failure=ConnectionFailureKind.KEY_EXPIRED,
+        failure=ConnectionFailureKind.KEY_REJECTED,
         server_time_skew_ms=None,
         usdt_balance=None,
         position_mode=None,

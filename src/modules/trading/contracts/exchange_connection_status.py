@@ -45,12 +45,11 @@ class ConnectionFailureKind(str, Enum):
     #: Binance `-1021` — local clock too far from server time for the
     #: request's `recvWindow`.
     CLOCK_SKEW = "clock_skew"
-    #: Binance `-2015` — invalid API key, wrong IP allowlist, or
-    #: insufficient permissions. Named for the single most common real
-    #: cause (a Spot Testnet or mainnet key used here by mistake — those
-    #: keys are simply invalid for Futures Testnet, not "expired" in the
-    #: literal sense), matching this task's own design.
-    KEY_EXPIRED = "key_expired"
+    #: Binance `-2015` — the exchange rejected the key: unknown key (a mainnet
+    #: key sent to the testnet — this app is testnet-only), an IP off the key's
+    #: allowlist, or a key without the needed permission. Never "expired": no
+    #: Binance code says so (`BUG-167`).
+    KEY_REJECTED = "key_rejected"
     #: Could not reach the exchange at all — DNS/TCP/TLS failure, timeout,
     #: or any Binance error code not covered by a more specific kind above.
     NETWORK = "network"

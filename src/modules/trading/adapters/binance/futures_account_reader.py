@@ -29,7 +29,7 @@ leaves the summary `None`, like an unreadable figure: guessing the mode would
 label one figure as the other.
 
 **Verification note** (same disclosure as `EPIC-021A`/`EPIC-021C`): error
-code mapping (`-1021`/`-1022`/`-2015`) and the account/position-mode
+code mapping (`connection_failure.py`: `-1021`/`-1022`/`-2015`) and the account/position-mode
 payload shapes are written from Binance's documented futures API, not
 re-verified against a live call — egress to every `*.binance.*` domain is
 policy-blocked in this sandbox. Unrecognized error codes degrade to
@@ -47,6 +47,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    classify_connection_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -71,15 +74,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
-#: Binance error codes this reader can name precisely. Any other
-#: `BinanceAPIException` code -- or a network-level failure with no code at
-#: all -- degrades to `ConnectionFailureKind.NETWORK`.
-_ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
-    -1021: ConnectionFailureKind.CLOCK_SKEW,
-    -1022: ConnectionFailureKind.BAD_SIGNATURE,
-    -2015: ConnectionFailureKind.KEY_EXPIRED,
-}
-
 _USDT_ASSET = "USDT"
 
 #: How long a read Multi-Assets mode is trusted before it is read again.
@@ -99,25 +93,7 @@ logger = logging.getLogger("App.TradingAdapter")
 
 
 def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    kind = (
-        _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
-        if isinstance(exc, BinanceAPIException)
-        else ConnectionFailureKind.NETWORK
-    )
-    if kind is ConnectionFailureKind.NETWORK:
-        # `BUG-137` follow-up — same fix as `spot_account_reader`'s own:
-        # every other kind here already names the problem (`KEY_EXPIRED`,
-        # `BAD_SIGNATURE`, ...); this catch-all bucket was the one place the
-        # real exception was discarded, leaving the run log with zero
-        # evidence of what actually failed. Logged, never silently
-        # swallowed (`code/errors.md` #1).
-        logger.error(
-            "Futures Testnet connection check failed with an unclassified "
-            "exception: %s: %s",
-            type(exc).__name__,
-            exc,
-        )
-    return kind
+    return classify_connection_failure(exc, "Futures Testnet")
 
 
 def _extract_usdt_balance(account: dict[str, Any]) -> Decimal | None:

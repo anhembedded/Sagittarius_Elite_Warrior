@@ -29,6 +29,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    classify_connection_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     SpotAccountSummary,
 )
@@ -55,17 +58,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 logger = logging.getLogger("App.TradingAdapter")
 
-#: Binance error codes this reader can name precisely — the same
-#: Binance-API-wide codes `FuturesAccountReader` classifies, duplicated
-#: rather than shared: each reader stays a complete, independently
-#: readable adapter (`architecture-rule.md` §5), and the table is three
-#: lines.
-_ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
-    -1021: ConnectionFailureKind.CLOCK_SKEW,
-    -1022: ConnectionFailureKind.BAD_SIGNATURE,
-    -2015: ConnectionFailureKind.KEY_EXPIRED,
-}
-
 #: Phase 1 supports USDT-quoted pairs only (ADR D9) — the quote asset an
 #: equity calculation prices every other holding against.
 _QUOTE_ASSET = "USDT"
@@ -79,25 +71,7 @@ _NETWORK_EXCEPTIONS = (BinanceAPIException, BinanceRequestException, RequestExce
 
 
 def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    kind = (
-        _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
-        if isinstance(exc, BinanceAPIException)
-        else ConnectionFailureKind.NETWORK
-    )
-    if kind is ConnectionFailureKind.NETWORK:
-        # `BUG-137` follow-up — every other kind here already names the
-        # problem (`KEY_EXPIRED`, `BAD_SIGNATURE`, ...); this catch-all
-        # bucket is the one place the real exception was being discarded,
-        # leaving the run log with zero evidence of what actually failed
-        # (an operator staring at a bare "network" verdict with no next
-        # step). Logged, never silently swallowed (`code/errors.md` #1).
-        logger.error(
-            "Spot Testnet connection check failed with an unclassified "
-            "exception: %s: %s",
-            type(exc).__name__,
-            exc,
-        )
-    return kind
+    return classify_connection_failure(exc, "Spot Testnet")
 
 
 def _parse_holdings(account: dict[str, Any]) -> tuple[SpotHolding, ...]:
