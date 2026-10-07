@@ -46,9 +46,20 @@ SEND_FAILURES = (BinanceAPIException, *_UNREADABLE)
 ORDER_DOES_NOT_EXIST_CODE = -2013
 
 
+#: Binance's own codes that say the execution status is unknown: `-1006`
+#: ("Execution status unknown", an unexpected answer from its message bus) and
+#: `-1007` ("Timeout waiting for response from backend server. Send status
+#: unknown"). They carry a code, but they are no refusal.
+_STATUS_UNKNOWN_CODES = frozenset({-1006, -1007})
+
+
 def is_unreadable_answer(exc: BaseException) -> bool:
     """Whether `exc` leaves open that the request reached the exchange."""
-    return is_non_json_answer(exc) or isinstance(exc, _UNREADABLE)
+    return (
+        is_non_json_answer(exc)
+        or isinstance(exc, _UNREADABLE)
+        or (isinstance(exc, BinanceAPIException) and exc.code in _STATUS_UNKNOWN_CODES)
+    )
 
 
 def raise_for_failed_send(order: Order, exc: Exception, *, live: bool) -> NoReturn:

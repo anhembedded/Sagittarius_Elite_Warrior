@@ -127,8 +127,20 @@ def venue(request: pytest.FixtureRequest) -> str:
 
 @pytest.mark.parametrize(
     "failure",
-    [_html_answer(), ReadTimeout("read timed out"), BinanceRequestException("down")],
-    ids=["html page", "read timeout", "binance request error"],
+    [
+        _html_answer(),
+        ReadTimeout("read timed out"),
+        BinanceRequestException("down"),
+        _api_error(-1007, "Timeout waiting for response from backend server."),
+        _api_error(-1006, "An unexpected response was received from the message bus."),
+    ],
+    ids=[
+        "html page",
+        "read timeout",
+        "binance request error",
+        "-1007 send status unknown",
+        "-1006 execution status unknown",
+    ],
 )
 def test_a_live_submission_with_no_readable_answer_is_outcome_unknown(
     venue: str, failure: Exception
