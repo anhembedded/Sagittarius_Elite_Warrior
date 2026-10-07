@@ -111,5 +111,5 @@ class GridHousekeeping:
 def refusal_text(registration: OwnerBudgetRegistrationResult) -> str:
     refusal = registration.refusal
     if refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF:
-        return "trading is off"
+        return "the order session is not open"
     return refusal.value if refusal else ""

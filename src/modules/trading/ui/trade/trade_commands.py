@@ -5,13 +5,11 @@
   orders, `EPIC-034B`), in one exclusive group, also on the mode's toolbar, so
   the venue in use is visible without opening a menu (MS `cmd-menus`, option
   items). A venue with no key is listed too; its connection check names the missing key.
-- **Enable live trading:** checkable, on the toolbar, for the chosen venue.
-  Turning it on asks first (HLD §11.2.3: "on enable"); turning it off does
-  not. The Engine's action would ask on every trigger, so the mode asks
-  itself (`TradeCommandBinding`, `TradeView.ask_to_enable`).
 - **New order… (F9):** moves the keyboard focus to the chosen venue's order
   entry and places nothing; the order is placed by the entry's own button,
-  which asks first (`order_confirmation.py`). It ends with "…" because the
+  which asks first (`order_confirmation.py`) and then opens the venue's order
+  session, reconciling the account (`EPIC-034C`: there is no Enable trading
+  command). It ends with "…" because the
   order needs input before it is sent.
 - **View → Hide other pairs:** the chosen venue's account tables show its
   symbol only (`EPIC-033I` stage 2; a check box beside the tabs before the
@@ -63,7 +61,6 @@ VENUE_MENU = ("T&rade", "&Venue")
 CHART_MENU = ("&View", "C&hart")
 #: The prefix of the chart's commands' ids (`chart_command_id`).
 CHART_PREFIX = "trading.trade"
-ENABLE_TRADING = "trading.trade.enable_trading"
 HIDE_OTHER_PAIRS = "trading.trade.hide_other_pairs"
 VIEW_MENU = ("&View",)
 NEW_ORDER = "trading.trade.new_order"
@@ -75,11 +72,11 @@ EMERGENCY_STOP = "trading.emergency_stop"
 VENUE_CHOICE = "trading.trade.venue"
 _CONTRIBUTOR = "trading"
 
-#: What Emergency stop does after turning trading off, per market
+#: What Emergency stop does after closing the order session, per market
 #: (`EmergencyStopCommandHandler`, step 3).
 _WHAT_IT_CLOSES = {
     MarketType.FUTURES_USD_M: "every Futures position is closed at market",
-    MarketType.SPOT: "what was bought on Spot since trading was enabled is sold at market",
+    MarketType.SPOT: "what was bought on Spot since the session opened is sold at market",
 }
 
 
@@ -94,15 +91,6 @@ def trade_commands(
     ones enabled in this run), in menu order."""
     return (
         *(_venue_choice(route, venue) for venue in venues),
-        CommandContribution(
-            contributor_id=_CONTRIBUTOR,
-            command_id=ENABLE_TRADING,
-            text="&Enable live trading",
-            menu_path=TRADE_MENU,
-            mode=route,
-            on_toolbar=True,
-            checkable=True,
-        ),
         CommandContribution(
             contributor_id=_CONTRIBUTOR,
             command_id=NEW_ORDER,
@@ -175,7 +163,7 @@ def emergency_stop_consequence(venues: Sequence[TradingVenue]) -> str:
         if len(clauses) > 1
         else clauses[0]
     )
-    return f"Live trading turns off on {names or 'every enabled venue'}; {listed}."
+    return f"The order session closes on {names or 'every venue'}; {listed}."
 
 
 def _venue_choice(route: str, venue: TradingVenue) -> CommandContribution:

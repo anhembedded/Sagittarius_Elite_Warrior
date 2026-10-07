@@ -1,7 +1,7 @@
 """`EPIC-028E` — `GetOpenOrdersQueryHandler`.
 
 @details Reads through the venue's own `ITradingClient.get_open_orders`, the
-call `EnableTradingCommandHandler` already reconciles against, from a client
+call `EnsureSessionReadyCommandHandler` already reconciles against, from a client
 built `VALIDATE_ONLY` (irrelevant for a read, the same reasoning
 `GetOpenPositionsQueryHandler` gives).
 """

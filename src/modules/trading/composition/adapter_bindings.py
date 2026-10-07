@@ -86,7 +86,7 @@ from sagittarius_engine.utils.path_utils import PathUtils
 
 def bind_adapters(container: IContainer) -> None:
     """Bind this context's ports to the adapters that implement them."""
-    # EPIC-024A: ExecuteOrderCommandHandler/EnableTradingCommandHandler/
+    # EPIC-024A: ExecuteOrderCommandHandler/EnsureSessionReadyCommandHandler/
     # EmergencyStopCommandHandler depend on this port, not the concrete
     # factory, so they auto-wire to this same shared instance rather than
     # the container silently constructing each of them a throwaway one.

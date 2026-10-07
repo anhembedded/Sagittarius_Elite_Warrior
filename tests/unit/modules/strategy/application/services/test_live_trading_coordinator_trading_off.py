@@ -79,4 +79,4 @@ def test_a_signal_with_trading_off_reads_no_account_and_no_metadata() -> None:
     (published,) = (call.args[0] for call in publisher.publish.call_args_list)
     assert isinstance(published, LiveOrderBlockedEvent)
     assert published.symbol == "BTCUSDT"
-    assert "Trading is OFF" in published.reason
+    assert "order session is closed" in published.reason

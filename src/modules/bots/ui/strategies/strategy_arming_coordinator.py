@@ -130,7 +130,7 @@ class StrategyArmingCoordinator:
     def restore_into_view_model(self, interval_options: list[str]) -> None:
         """Fills the card from the saved selection — and does nothing else.
 
-        @details No arm request, no `EnableTradingCommand`, no network
+        @details No arm request, no `EnsureSessionReadyCommand`, no network
         call. `BUG-101` (a Backtest restore that fired a real 200k-row
         query because it went through the same setters a user does) and
         `BUG-104` (a remembered route that started a live stream on boot)

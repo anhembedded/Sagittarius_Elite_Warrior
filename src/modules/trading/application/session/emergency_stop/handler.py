@@ -264,7 +264,7 @@ class EmergencyStopCommandHandler(
         never a symbol this app cannot safely size an order for.
 
         @details Reads current holdings fresh (`ITradingAccountReader.
-        check_connection()`), never the stale figures `EnableTradingCommand`
+        check_connection()`), never the stale figures `EnsureSessionReadyCommand`
         baselined at — the same "re-fetch, never trust a remembered value"
         principle every other reconciliation in this app already applies.
         A holding with no recorded baseline at all (`spot_baseline_holdings()`

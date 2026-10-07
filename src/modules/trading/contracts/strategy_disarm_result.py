@@ -14,7 +14,7 @@ from enum import Enum
 class DisarmStrategyBlockReason(str, Enum):
     """@brief Why the strategy was not cleared."""
 
-    TRADING_IS_ENABLED = "trading_is_enabled"
+    POSITION_OPEN = "position_open"
 
 
 @dataclass(frozen=True)

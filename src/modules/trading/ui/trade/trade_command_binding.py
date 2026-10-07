@@ -1,8 +1,7 @@
 """The Trade mode's commands, bound to the desk of the venue chosen
 (`EPIC-033I`).
 
-Enable live trading (asking first when it turns trading on), New order…,
-Cancel order, Cancel all orders, Close position and View → Hide other pairs
+New order…, Cancel order, Cancel all orders, Close position and View → Hide other pairs
 act on the venue the mode trades: their enabled and checked states follow that venue's
 desk, and follow the next one when the person chooses another venue. Emergency stop acts on every enabled
 venue (`trade_commands.py`), and is off only while no venue is enabled. The
@@ -15,7 +14,7 @@ own presenters keep every action's ownership and fencing
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tabs_panel import (
@@ -44,22 +43,15 @@ from .trade_commands import (
     CHART_PREFIX,
     CLOSE_POSITION,
     EMERGENCY_STOP,
-    ENABLE_TRADING,
     HIDE_OTHER_PAIRS,
     NEW_ORDER,
 )
 from .venue_choice import VenueChoice
 
-#: Asks before trading is turned on for the venue titled so; `True` turns
-#: it on.
-type ConfirmEnable = Callable[[str], bool]
-
 
 class TradeCommandBinding(QObject):
     """@brief Routes the Trade menu's commands to the chosen venue's desk."""
 
-    enableEnabled = Signal(bool)
-    enableChecked = Signal(bool)
     newOrderEnabled = Signal(bool)
     venueChosen = Signal(bool)
     hideOtherPairsChecked = Signal(bool)
@@ -68,15 +60,11 @@ class TradeCommandBinding(QObject):
         self,
         desks: Mapping[TradingVenue, DeskPresenter],
         choice: VenueChoice,
-        confirm_enable: ConfirmEnable,
         parent: QObject | None = None,
     ) -> None:
-        """@param confirm_enable Asked before trading is turned on, with the
-        venue's title; `False` leaves it off."""
         super().__init__(parent)
         self._desks = dict(desks)
         self._choice = choice
-        self._confirm_enable = confirm_enable
         self._chart = ChartCommandMirror(CHART_PREFIX, self)
         self._tables = ActionMirror(
             {
@@ -92,13 +80,6 @@ class TradeCommandBinding(QObject):
 
     def bind_commands(self, binder: ICommandBinder) -> None:
         desk = self._chosen()
-        binder.bind(
-            ENABLE_TRADING,
-            lambda _checked: self._on_toggle(),
-            enabled=self.enableEnabled,
-            checked=self.enableChecked,
-            initially_enabled=desk is not None and not desk.toggle_busy,
-        )
         binder.bind(
             NEW_ORDER,
             lambda _checked: self._on_new_order(),
@@ -119,8 +100,6 @@ class TradeCommandBinding(QObject):
         )
         self._chart.bind_commands(binder)
         self._tables.bind_commands(binder)
-        # A desk built while its venue's trading is on must show Enable
-        # checked; its state was set before this binding existed.
         self._follow_choice()
 
     def _chosen(self) -> DeskPresenter | None:
@@ -137,20 +116,9 @@ class TradeCommandBinding(QObject):
 
     def _announce(self) -> None:
         desk = self._chosen()
-        self.enableEnabled.emit(desk is not None and not desk.toggle_busy)
-        self.enableChecked.emit(desk is not None and desk.trading_enabled)
         self.newOrderEnabled.emit(desk is not None and desk.can_take_order)
         self.venueChosen.emit(desk is not None)
         self.hideOtherPairsChecked.emit(desk is not None and desk.hides_other_pairs)
-
-    def _on_toggle(self) -> None:
-        desk = self._chosen()
-        turning_on = desk is not None and not desk.trading_enabled
-        if desk is not None and (not turning_on or self._confirm_enable(desk.title)):
-            desk.request_toggle()
-        # The action checked itself on the click; it shows the session's
-        # state, which changes only when the toggle's answer arrives.
-        self._announce()
 
     def _on_new_order(self) -> None:
         desk = self._chosen()

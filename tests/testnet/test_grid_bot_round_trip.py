@@ -3,9 +3,9 @@
 The fake exchange proves the ladder's logic (`test_grid_bot_against_fake_server.py`);
 only the real venue proves acceptance, the cancel payload (ADR D8), the order
 rate and the user-data stream. So this test boots the app as a person runs
-it, with Spot Testnet enabled and the keys read by the app itself, and turns
-trading on through `EnableTradingCommand`, which *spawns* the venue's
-user-data websocket.
+it, with the keys read by the app itself, and opens the order session through
+`EnsureSessionReadyCommand` (no enable step exists; Start bot opens it too),
+which *spawns* the venue's user-data websocket.
 
 **The stream is proven live before the bot starts** (the PR #339 review):
 the opening buy's fill must arrive on the stream within the pacer's spacing
@@ -81,7 +81,7 @@ from Sagittarius_Elite_Warrior.tests.testnet.grid_testnet_app import (
     S,
     clean_up,
     composed_on_spot_testnet,
-    enable_trading,
+    open_session,
     round_to_step,
     spot_testnet_config,
     stream_latency_s,
@@ -103,10 +103,10 @@ _NOTIONAL_MARGIN = 4
 def booted(
     spot_testnet_credentials: ExchangeCredentials, tmp_path: Path
 ) -> Iterator[GridTestnetApp]:
-    """The app booted with Spot Testnet on and trading enabled. The credential
+    """The app booted with Spot Testnet on and its order session open. The credential
     fixture is the gate; the app resolves the keys itself."""
     with composed_on_spot_testnet(spot_testnet_config(tmp_path)) as app:
-        enable_trading(app)
+        open_session(app)
         yield app
 
 

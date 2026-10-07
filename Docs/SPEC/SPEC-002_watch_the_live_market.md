@@ -112,7 +112,7 @@ consumer-facing port.
 | The stream's state reaches the actor in words, in the status bar | `tests/unit/modules/trading/ui/market/test_market_view.py` | unit |
 | In the booted app, the Market mode starts its Watchlist stream on the user's open and never on a restore | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | Leaving the Market mode stops the Watchlist owner only and returning starts it again, in the composed window, with another owner's stream of the same symbol surviving | `tests/integration/presentation/ui/test_main_window_state.py`, `tests/unit/modules/trading/ui/market/test_market_presenter_hidden.py` | integration, unit |
-| A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
+| A desk's chart reads local history on open and goes live when its venue's order session opens | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |
 | View → Spot market or Futures market is one exclusive, remembered choice; switching reopens the charts on the new market's candles and moves the Watchlist's stream; a tick of the other market reaches neither | `tests/unit/modules/trading/ui/market/test_market_choice.py` | unit |

@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
     TradingLimitContext,
@@ -30,6 +33,10 @@ class ExecuteOrderSafetyGate(str, Enum):
     """
 
     TRADING_VENUE_DISABLED = "trading_venue_disabled"
+    #: The venue's order session is not open (`EPIC-034C`: it opens by a
+    #: deliberate action — Start bot, arm a strategy, a manual order — and
+    #: closes by Emergency Stop). The name is the switch's, which that task
+    #: removed; renaming the member waits for the end of `EPIC-034`.
     TRADING_SWITCH_OFF = "trading_switch_off"
     CONNECTION_NOT_READY = "connection_not_ready"
     #: Somebody else has declared they are managing this symbol —
@@ -103,6 +110,7 @@ class ExecuteOrderResult:
         | ExecuteOrderPriceRejection
         | ExecuteOrderTypeRejection
         | TradingLimitViolation
+        | SessionBlockReason
         | None
     )
     preview: OrderPreview | None

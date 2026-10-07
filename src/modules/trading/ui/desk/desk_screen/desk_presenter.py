@@ -24,7 +24,7 @@ what passes between them:
   `ArmedStrategyChangedEvent` names the venue: the Bots mode arms it since
   `EPIC-033K` stage 3, and the desk keeps no strategy state of its own.
 
-The Trade mode's commands (Enable live trading, New order…, Emergency stop)
+The Trade mode's commands (New order…, Emergency stop)
 are bound by the mode (`trade_command_binding.py`) to the desk of the venue
 chosen; this presenter offers what they act on (`desk`, `orders`).
 
@@ -42,6 +42,9 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.account_summary_presenter import (
@@ -79,6 +82,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
     ProtectiveOrderFollower,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    no_key_text,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
@@ -138,8 +144,9 @@ class DeskPresenter(BasePresenter):
         self.order_entry = OrderEntryPresenter(
             self.orders, ports, threads, deps.confirm or confirm_with_message_box(view)
         )
+        self._has_key = deps.has_key
         self.tabs = AccountTabsPresenter(
-            view.account_tabs, ports, feeds.orders, threads
+            view.account_tabs, ports, feeds.orders, threads, has_key=deps.has_key
         )
         view.account_tabs.use_precisions(deps.precisions)
         self.summary = AccountSummaryPresenter(
@@ -159,6 +166,9 @@ class DeskPresenter(BasePresenter):
         # (`EPIC-033K` stage 3), and says so on the bus.
         self._armed = deps.strategy.armed
         self.subscribe(ArmedStrategyChangedEvent, self._on_armed_changed)
+        # The chart goes live when this venue's order session opens, whichever
+        # action opened it (`BUG-107`, `EPIC-034C`).
+        self.subscribe(TradingSwitchChangedEvent, self._on_session_changed)
         self.follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             self.follower = ProtectiveOrderFollower(
@@ -169,14 +179,18 @@ class DeskPresenter(BasePresenter):
                 lambda placed: follower.expect(*placed)
             )
         self._wire()
-        self.desk.set_trading_state(self.session.is_enabled, False)
-        if self.session.is_enabled:
-            # Trading was turned on before this desk opened (another visit, or
-            # the old screen): its chart is live, as after the toggle, so the
-            # order panel values orders at the live price (the PR 308 review).
+        if self.session.is_open:
+            # The session opened before this desk did (another visit, a bot
+            # started from the Bots mode): its chart is live, as when it
+            # opens later, so the order panel values orders at the live price
+            # (the PR 308 review).
             self.chart.go_live()
         self._draw_armed()
-        self.summary.refresh()
+        if self._has_key():
+            self.summary.refresh()
+        else:
+            # `EPIC-034B` — a venue with no key is a state, not a failure.
+            view.account_summary.mark_stale(no_key_text(profile.venue))
         self.show_symbol(default_symbol(config, FALLBACK_SYMBOL))
 
     def show_symbol(self, symbol: str) -> None:
@@ -196,7 +210,6 @@ class DeskPresenter(BasePresenter):
     def _wire(self) -> None:
         desk, session, chart = self.desk, self.session, self.chart
         desk.symbolChangeRequested.connect(self.show_symbol)
-        desk.tradingStateChanged.connect(self.commandStateChanged)
         # A cancel's or a close's outcome is said on the page's status line:
         # the tables are panels of their own (`EPIC-033I` stage 2).
         self.view.account_tabs.messageShown.connect(
@@ -204,12 +217,9 @@ class DeskPresenter(BasePresenter):
         )
         self.orders.changed.connect(self.commandStateChanged)
         self.order_entry.orderAccepted.connect(self.tabs.list_accepted_order)
-        desk.toggleRequested.connect(session.toggle)
         desk.emergencyStopRequested.connect(session.emergency_stop)
-        session.stateChanged.connect(desk.set_trading_state)
         session.statusChanged.connect(desk.set_status)
         session.logged.connect(self._log)
-        session.tradingEnabled.connect(chart.go_live)
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
@@ -220,7 +230,8 @@ class DeskPresenter(BasePresenter):
 
     def _reread_account(self) -> None:
         self.tabs.refresh()
-        self.summary.refresh()
+        if self._has_key():
+            self.summary.refresh()
         self.order_entry.refresh()
 
     @property
@@ -230,23 +241,19 @@ class DeskPresenter(BasePresenter):
     # -- what the Trade mode's commands act on (`trade_command_binding.py`) --
 
     @property
-    def trading_enabled(self) -> bool:
-        return bool(self.desk.enabled)
-
-    @property
-    def toggle_busy(self) -> bool:
-        return bool(self.desk.toggleBusy)
-
-    @property
     def can_take_order(self) -> bool:
         return self.orders.can_take_order
 
-    def request_toggle(self) -> None:
-        """Enable live trading: turns this venue's trading on or off."""
-        self.desk.requestToggle()
-
     def request_emergency_stop(self) -> None:
-        """Emergency stop, already confirmed: stops this venue."""
+        """Emergency stop, already confirmed: stops this venue — unless it has
+        no key and no open session (`EPIC-034B`): it holds nothing the app can
+        cancel or close, and a stop that could only fail would read as a
+        partly failed one."""
+        if not self._has_key() and not self.session.is_open:
+            self.desk.set_status(
+                f"{no_key_text(self._profile.venue)} Nothing to stop.", False
+            )
+            return
         self.desk.requestEmergencyStop()
 
     def request_new_order(self) -> None:
@@ -270,6 +277,10 @@ class DeskPresenter(BasePresenter):
         """View → Hide other pairs: the account tables show this desk's
         symbol only."""
         self.view.account_tabs.set_hide_other_pairs(hide)
+
+    def _on_session_changed(self, event: TradingSwitchChangedEvent) -> None:
+        if event.venue is self._profile.venue and event.enabled:
+            self.chart.go_live()
 
     def _on_armed_changed(self, event: ArmedStrategyChangedEvent) -> None:
         if event.venue is self._profile.venue:

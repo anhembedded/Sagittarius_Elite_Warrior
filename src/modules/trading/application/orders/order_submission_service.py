@@ -108,6 +108,7 @@ class OrderSubmissionService(IOrderSubmission):
             live=live,
             owner_id=request.owner_id,
             purpose=request.purpose,
+            opens_session=request.opens_session,
         )
         response = self._dispatcher.dispatch(ExecuteOrderCommand, command)
         return _answered(response, ExecuteOrderResult)  # type: ignore[return-value]

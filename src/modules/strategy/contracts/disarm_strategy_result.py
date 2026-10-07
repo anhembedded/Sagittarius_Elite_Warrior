@@ -9,15 +9,11 @@ from enum import Enum
 class DisarmStrategyBlockReason(str, Enum):
     """@brief Why the strategy was not cleared."""
 
-    #: Live trading is currently ON. Disarming would leave trading
-    #: "enabled" with nothing generating signals via the strategy path,
-    #: and an open position would be left with no strategy planning its
-    #: exit. `EnableTradingCommand` itself no longer requires an armed
-    #: strategy to turn trading on at all (`BUG-112` — manual trading
-    #: needs none), so this handler's refusal is now the only place left
-    #: guarding this direction; `EmergencyStopCommand` remains the
-    #: unconditional way out of a live session regardless.
-    TRADING_IS_ENABLED = "trading_is_enabled"
+    #: This app has a position open on the symbol the strategy trades
+    #: (`EPIC-034C`). Disarming would leave it with no strategy planning its
+    #: exit. It was refused while trading was ON; with no switch the cause
+    #: itself refuses. `EmergencyStopCommand` remains the unconditional way out.
+    POSITION_OPEN = "position_open"
 
 
 @dataclass(frozen=True)

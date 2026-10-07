@@ -21,8 +21,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 ARM_BLOCK_MESSAGES = EnumLabels(
     ArmStrategyBlockReason,
     {
-        ArmStrategyBlockReason.TRADING_IS_ENABLED: (
-            "Trading is active — turn off trading before changing strategy."
+        ArmStrategyBlockReason.SESSION_NOT_READY: (
+            "Trading could not start on this venue."
+        ),
+        ArmStrategyBlockReason.POSITION_OPEN: (
+            "A position is open on this symbol — close it (or use Emergency "
+            "stop) before changing the strategy."
         ),
         ArmStrategyBlockReason.STRATEGY_NOT_FOUND: (
             "This strategy was not found in the registered list."
@@ -48,5 +52,6 @@ ARM_BLOCK_MESSAGES = EnumLabels(
     },
 )
 DISARM_BLOCKED_MESSAGE = (
-    "Trading is active — turn off trading before removing the strategy."
+    "A position is open on the strategy's symbol — close it (or use "
+    "Emergency stop) before removing the strategy."
 )

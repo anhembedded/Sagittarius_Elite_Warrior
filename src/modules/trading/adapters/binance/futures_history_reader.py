@@ -8,7 +8,7 @@ days and trade history for six months, both beyond `MAX_HISTORY_LOOKBACK`.
 
 `active_symbols` is every symbol with an open position or an open order —
 `positionRisk` and `openOrders` without a symbol, the same two reads
-`EnableTradingCommandHandler` reconciles against — plus every symbol with
+`EnsureSessionReadyCommandHandler` reconciles against — plus every symbol with
 income since `since` (`GET /fapi/v1/income`: a fill books a commission, and
 a closed round trip a realized PnL even when its fee is zero), so a round
 trip already closed inside the window is found

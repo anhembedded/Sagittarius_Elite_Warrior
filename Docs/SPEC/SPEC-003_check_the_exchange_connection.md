@@ -1,7 +1,7 @@
 # SPEC-003 — Check that the app can reach the exchange
 
 - **Status:** ✅ built and proven
-- **Actor:** trader (before turning trading on), operator (diagnosing a setup)
+- **Actor:** trader (before a first start), operator (diagnosing a setup)
 - **Origin:** `EPIC-021D`. Its §2.2 is where the rule "an English string from the exchange is
   not a stable contract" was decided, which is why this use case answers with named failure
   kinds.
@@ -65,8 +65,8 @@ cannot, tell me which part is wrong."*
   an invented zero — and a Spot summary's equity is `None` when a holding cannot be priced.
   A Futures summary is also `None` when the asset mode cannot be read: guessing it would label
   one mode's figures as the other's.
-- A successful check is not permission to trade. Turning trading on is SPEC-004, and it runs its
-  own check.
+- A successful check is not permission to trade. The first start, arm or order opens the order
+  session (SPEC-004), and it runs its own check.
 
 ## 5. When it goes wrong
 

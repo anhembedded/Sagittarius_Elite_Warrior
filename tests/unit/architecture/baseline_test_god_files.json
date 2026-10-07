@@ -11,7 +11,6 @@
   "tests/unit/modules/market_data/adapters/binance/test_python_binance_client_unit.py": 554,
   "tests/unit/modules/market_data/ui/test_data_management_presenter.py": 822,
   "tests/unit/modules/strategy/application/services/test_live_trading_coordinator.py": 479,
-  "tests/unit/modules/strategy/application/use_cases/test_arm_strategy.py": 450,
   "tests/unit/modules/trading/adapters/binance/spot/test_spot_user_data_stream.py": 546,
   "tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py": 491,
   "tests/unit/modules/trading/adapters/binance/test_futures_user_data_stream.py": 677,

@@ -6,7 +6,7 @@
 **Complexity:** M — a query, the progress panel, the primary action
 **Epic:** [EPIC-034](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [EPIC-034C](EPIC-034C_trading_switch_folded_into_actions.md), [EPIC-034F](EPIC-034F_design_step_constraints.md)
+**Depends on:** [EPIC-034C](../completed/EPIC-034C_trading_switch_folded_into_actions.md), [EPIC-034F](EPIC-034F_design_step_constraints.md)
 
 ---
 

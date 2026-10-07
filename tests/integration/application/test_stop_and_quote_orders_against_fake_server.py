@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -85,6 +88,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -136,6 +142,7 @@ def _execute(context: VenueContext, query: PreviewOrderQuery) -> ExecuteOrderRes
         single_venue_scopes(context, state),
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
+        SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
     )
     return handler.execute(ExecuteOrderCommand(order_request=query, live=True))
 

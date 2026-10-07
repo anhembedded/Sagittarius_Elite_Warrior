@@ -88,7 +88,7 @@ class LiveOrderBookCoordinator:
     def replace_all(
         self, positions: Iterable[LivePosition], open_orders: Iterable[Order]
     ) -> None:
-        """Full reconciliation — `EnableTradingCommand`/`EmergencyStopCommand`
+        """Full reconciliation — `EnsureSessionReadyCommand`/`EmergencyStopCommand`
         and a desk opening (`AccountTabsPresenter`'s read of the account,
         `EPIC-028J`) are the callers with a fresh, authoritative snapshot
         from the exchange; every other update is the smaller incremental

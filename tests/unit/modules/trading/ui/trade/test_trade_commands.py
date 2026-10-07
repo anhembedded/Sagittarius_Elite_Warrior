@@ -1,5 +1,5 @@
 """`EPIC-033I` — the Trade menu as HLD §11.2.3 lists it: Venue › one choice per
-enabled venue, Enable live trading, New order… (F9) and Emergency stop (F8),
+venue, New order… (F9) and Emergency stop (F8),
 which is on every mode's toolbar and asks first.
 
 What the trading module really contributes (`real_contributions`), and the
@@ -15,7 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands impor
     CANCEL_ORDER,
     CLOSE_POSITION,
     EMERGENCY_STOP,
-    ENABLE_TRADING,
     HIDE_OTHER_PAIRS,
     NEW_ORDER,
     VENUE_CHOICE,
@@ -46,7 +45,7 @@ def test_the_trading_module_contributes_one_trade_mode_and_no_desks() -> None:
 
     assert TRADE_ROUTE in routes
     assert not {"trading.futures", "trading.spot"} & routes
-    assert {ENABLE_TRADING, NEW_ORDER, EMERGENCY_STOP} <= commands
+    assert {NEW_ORDER, EMERGENCY_STOP} <= commands
 
 
 def test_the_trade_menu_reads_as_the_catalogue_lists_it() -> None:
@@ -56,7 +55,6 @@ def test_the_trade_menu_reads_as_the_catalogue_lists_it() -> None:
     assert trade_menu == [
         "&Futures",
         "&Spot",
-        "&Enable live trading",
         "&New order…",
         "Cancel &order",
         "Cancel a&ll orders",
@@ -77,7 +75,7 @@ def test_each_enabled_venue_is_one_exclusive_choice_on_the_toolbar() -> None:
         assert choice.exclusive_group == VENUE_CHOICE
 
 
-def test_a_venue_that_is_not_enabled_is_not_listed() -> None:
+def test_a_venue_the_run_does_not_serve_is_not_listed() -> None:
     only_spot = _by_id((SPOT,))
 
     assert venue_choice_id(SPOT) in only_spot
@@ -85,16 +83,24 @@ def test_a_venue_that_is_not_enabled_is_not_listed() -> None:
     assert not any(c.exclusive_group == VENUE_CHOICE for c in _by_id(()).values())
 
 
-def test_enable_and_new_order_are_the_modes_with_their_shortcuts() -> None:
-    commands = _by_id((FUTURES,))
-    enable, new_order = commands[ENABLE_TRADING], commands[NEW_ORDER]
+def test_there_is_no_command_that_turns_trading_on_or_off() -> None:
+    """`EPIC-034C` — Start bot, arm a strategy and a manual order open the
+    order session; Emergency stop closes it. Nothing else switches it."""
+    texts = [
+        c.text.replace("&", "").lower()
+        for c in trade_commands(TRADE_ROUTE, (FUTURES, SPOT))
+    ]
 
-    assert (enable.mode, enable.checkable, enable.on_toolbar) == (
-        TRADE_ROUTE,
-        True,
-        True,
+    assert not any("trading" in t and ("enable" in t or "disable" in t) for t in texts)
+    assert not any(
+        "enable_trading" in c.command_id
+        for c in trade_commands(TRADE_ROUTE, (FUTURES,))
     )
-    assert enable.confirm is None
+
+
+def test_new_order_is_the_modes_with_its_shortcut() -> None:
+    new_order = _by_id((FUTURES,))[NEW_ORDER]
+
     assert (new_order.mode, new_order.shortcut, new_order.needs_input) == (
         TRADE_ROUTE,
         "F9",

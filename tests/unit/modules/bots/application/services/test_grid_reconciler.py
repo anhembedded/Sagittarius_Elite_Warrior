@@ -313,7 +313,7 @@ def test_a_stop_interrupted_by_a_restart_finishes_when_trading_is_enabled() -> N
     world = grid_world(state=S.STOPPING, runtime=before.runtime())
     world.book.open = dict(before.book.open)
 
-    world.executor.on_switch(False, TradingSwitchCause.DISABLED)
+    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     assert world.state() is S.STOPPING
     _enable(world)
 

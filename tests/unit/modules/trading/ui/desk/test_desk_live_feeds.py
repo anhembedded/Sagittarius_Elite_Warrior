@@ -59,7 +59,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 from .account_tabs_fixtures import order
-from .desk_screen_fixtures import DeskWorld, build_desk, market_of
+from .desk_screen_fixtures import DeskWorld, build_desk, market_of, open_session
 from .order_entry_fixtures import TERMS, spot_status
 
 FUTURES = TradingVenue.FUTURES_TESTNET
@@ -232,10 +232,10 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
     assert len(appended) == 1
 
 
-def test_a_symbol_picked_after_going_live_streams_that_symbol(qtbot) -> None:
+def test_a_symbol_picked_after_going_live_streams_that_symbol(qtbot, qapp) -> None:
     world = DeskWorld()
     desk = build_desk(qtbot, FUTURES, world)
-    desk.actions.enable_trading.trigger()
+    open_session(world, desk, qapp)
 
     desk.view.findChild(QComboBox, "cboDeskSymbol").setCurrentText("ETHUSDT")
 

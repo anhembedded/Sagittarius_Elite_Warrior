@@ -6,10 +6,10 @@ from `ConfigKeys.TRADING_ENABLED`'s saved value on boot — `EPIC-021G` §2.3
 point 2 requires the user to turn trading on explicitly every session,
 the one place in this app that intentionally does not follow `EPIC-010`'s
 normal "remember what the user last set" convention. A fresh
-`TradingSessionState` is always `enabled=False`; only `EnableTradingCommand`
+`TradingSessionState` is always `enabled=False`; only `EnsureSessionReadyCommand`
 (after it re-reconciles against the exchange) may flip it on.
 
-`known_open_symbols` starts as whatever `EnableTradingCommand`'s
+`known_open_symbols` starts as whatever `EnsureSessionReadyCommand`'s
 reconciliation found, and grows conservatively afterward:
 `record_order_sent()` marks a symbol as "assume open" the moment an order
 for it is sent, before this app has any confirmation it filled — safer to
@@ -20,13 +20,13 @@ for whether it actually did.
 `BUG-088` — every mutation goes through `self._lock`: `record_order_sent()`
 (the `ExecuteOrderCommand` pool worker), `reconcile_position()` (the
 websocket thread `FuturesUserDataStream` runs on), and `enable()`/
-`disable()` (the `EnableTradingCommand`/`DisableTradingCommand`/
+`disable()` (the `EnsureSessionReadyCommand`/`DisableTradingCommand`/
 `EmergencyStopCommand` pool workers) are reachable from three genuinely
 different threads in production, not merely hypothetically — without the
 lock, two of them landing between the same two Python bytecodes can corrupt
 `known_open_symbols`/`_last_order_time_by_symbol`.
 
-The lock alone does not stop `EnableTradingCommand`'s two network round-trips
+The lock alone does not stop `EnsureSessionReadyCommand`'s two network round-trips
 from *finishing after* a concurrent Emergency Stop's `disable()` and
 blindly turning trading back on — reconciliation succeeding doesn't mean
 nothing else happened while it ran. `enable()`'s `expected_generation`
@@ -155,7 +155,7 @@ class TradingSessionState:
         up to this call. Returns whether it actually applied; a caller
         that gets `False` back was superseded and must not proceed as if
         it had enabled trading (`BUG-088` — this is what stops
-        `EnableTradingCommand` from re-enabling trading right after an
+        `EnsureSessionReadyCommand` from re-enabling trading right after an
         Emergency Stop that ran while it was still reconciling).
 
         `spot_baseline_holdings`, when given (`EPIC-027M`), replaces

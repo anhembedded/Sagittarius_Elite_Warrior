@@ -26,11 +26,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 class VenueAlignment(str, Enum):
-    """@brief The four states a user can be in, in order of increasing risk."""
+    """@brief The three states a user can be in, in order of increasing risk."""
 
-    #: `TradingVenue.DISABLED` — no order can ever be sent, regardless of
-    #: `MarketDataVenue`. The safest state: nothing to misalign.
-    TRADING_DISABLED = "trading_disabled"
     #: Both venues answer to the same environment (testnet data, testnet
     #: orders) and the chart shows the same market the order would fill in
     #: — what the price shown is the price that would fill at.
@@ -66,9 +63,14 @@ def compute_venue_alignment(
     (real prices driving a decision, `EPIC-021`'s ADR §2.2); a market-type
     mismatch is checked next, since either one alone is reason enough not
     to report `ALIGNED`.
+
+    @raise ValueError `trading_venue` places no orders (`DISABLED`).
     """
-    if trading_venue is TradingVenue.DISABLED:
-        return VenueAlignment.TRADING_DISABLED
+    if not trading_venue.supports_order_submission:
+        raise ValueError(
+            f"{trading_venue.value} places no orders, so its alignment with the "
+            "chart is not a question (`EPIC-034C` removed the 'Trading is OFF' state)"
+        )
     if market_data_venue is MarketDataVenue.MAINNET_PUBLIC:
         return VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
     if chart_market_type is not trading_venue.market_type:

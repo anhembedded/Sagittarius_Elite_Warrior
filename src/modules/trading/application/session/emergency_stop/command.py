@@ -11,7 +11,7 @@ class EmergencyStopCommand:
 
     @details Only the venue: it stops that venue's whole account
     (`EPIC-028B` — an Emergency Stop on Futures leaves Spot untouched, and
-    vice versa), like `EnableTradingCommand`/`DisableTradingCommand`.
+    vice versa), like `EnsureSessionReadyCommand`/`DisableTradingCommand`.
     Always attempted in full even when trading
     was already off or the account was already flat; each step's own
     result says what it actually found.

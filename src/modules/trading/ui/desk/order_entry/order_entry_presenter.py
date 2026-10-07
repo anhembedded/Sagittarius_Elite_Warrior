@@ -347,8 +347,15 @@ class OrderEntryPresenter(QObject):
             # The box only ever narrows: an order the position makes reducing
             # stays so, and a ticked box makes any order reduce-only.
             reduce_only = intent.reduce_only or request.reduce_only
+            # `EPIC-034C` — placing the order is the action that opens the
+            # venue's order session, after the reconciliation every start runs.
             result = self._ports.order_submission.submit(
-                replace(request, side=intent.side, reduce_only=reduce_only),
+                replace(
+                    request,
+                    side=intent.side,
+                    reduce_only=reduce_only,
+                    opens_session=True,
+                ),
                 live=True,
             )
             self._submitted.emit((action_id, side, result, None, reduce_only))

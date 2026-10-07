@@ -8,15 +8,21 @@ from enum import Enum
 
 class ArmStrategyBlockReason(str, Enum):
     """@brief Why a strategy was not armed — named, never a bare `False`,
-    the same contract `EnableTradingBlockReason` follows."""
+    the same contract `SessionBlockReason` follows."""
 
-    #: Live trading is currently ON. Swapping the engine underneath an
-    #: open position means the incoming strategy knows nothing about the
-    #: entry that is already on the exchange, and the outgoing strategy's
-    #: exit signal will never arrive — the position would be stranded with
-    #: nobody planning to close it. The user turns trading off first;
-    #: this is never overridden silently (`EPIC-022` §4.1).
-    TRADING_IS_ENABLED = "trading_is_enabled"
+    #: The venue's order session could not be opened (`EPIC-034C`): the
+    #: connection is not ready, the account holds a position this app did not
+    #: open, or an Emergency Stop landed meanwhile. `error_message` carries the
+    #: words (`session_block_words.py`), the ones the Enable switch used.
+    SESSION_NOT_READY = "session_not_ready"
+    #: This app has a position open on the symbol being armed, or on the symbol
+    #: already armed (`EPIC-022` §4.1, restated by `EPIC-034C`). Swapping the
+    #: engine underneath an open position means the incoming strategy knows
+    #: nothing about the entry already on the exchange, and the outgoing
+    #: strategy's exit signal will never arrive — the position would be stranded
+    #: with nobody planning to close it. It was refused while trading was ON;
+    #: with no switch the cause itself is what refuses. Never overridden silently.
+    POSITION_OPEN = "position_open"
     #: The key is not in `StrategyRegistry` — most often a saved config
     #: naming a strategy that has since been renamed or removed.
     STRATEGY_NOT_FOUND = "strategy_not_found"
@@ -58,5 +64,6 @@ class ArmStrategyResult:
     block_reason: ArmStrategyBlockReason | None = None
     #: The rejecting exception's own text when `block_reason` is
     #: `INVALID_PARAMS`, so the UI can show which field was wrong instead
-    #: of a generic "invalid parameters".
+    #: of a generic "invalid parameters"; the refusal's words for
+    #: `SESSION_NOT_READY`.
     error_message: str | None = None

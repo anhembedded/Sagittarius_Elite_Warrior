@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
@@ -59,17 +62,24 @@ class ExecuteOrderCommandHandler(
     """@details `EPIC-028B` — acts on `command.venue` only: its session
     state, its connection and its client come from one
     `VenueTradingScopes.get()` call, so an order can never be checked
-    against one venue and sent to another."""
+    against one venue and sent to another.
+
+    `EPIC-034C` — every live order needs the venue's order session open
+    (`TRADING_SWITCH_OFF` otherwise), and the session opens only through
+    `SessionReadiness`, which reconciles the account first. A manual order opens
+    it here; Start bot and arm strategy open it in their own use cases."""
 
     def __init__(
         self,
         scopes: VenueTradingScopes,
         preview_handler: PreviewOrderQueryHandler,
         limits_policy: TradingLimitPolicy,
+        readiness: SessionReadiness,
     ) -> None:
         self._scopes = scopes
         self._preview_handler = preview_handler
         self._limits_policy = limits_policy
+        self._readiness = readiness
 
     def execute(self, command: ExecuteOrderCommand) -> ExecuteOrderResult:
         logger.debug(
@@ -87,6 +97,16 @@ class ExecuteOrderCommandHandler(
             )
         scope = self._scopes.get(command.venue)
         session_state = scope.session_state
+
+        # `EPIC-034C` — a manual live order is the deliberate action that
+        # opens the order session: the same reconciliation Start bot and arm
+        # strategy run, before the order is read or anything is sent. An
+        # automated order (`opens_session` False) never reaches it, so it
+        # cannot reopen a session Emergency Stop closed.
+        if command.live and command.opens_session:
+            opened = self._readiness.ensure_ready(command.venue)
+            if not opened.ready:
+                return ExecuteOrderResult(opened.block_reason, None, (), None)
 
         gate = self._first_blocked_safety_gate(command, scope)
         if gate is not None:

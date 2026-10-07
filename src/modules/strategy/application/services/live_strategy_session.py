@@ -27,10 +27,11 @@ make an `arm()` from the UI thread block for however long Binance takes
 to answer — a frozen UI, for a lock that is only protecting four field
 reads. So: snapshot inside the lock, work outside it. The honest
 consequence is that a tick already in flight finishes on the engine it
-started with. That window only exists while trading is OFF, because
-`ArmStrategyCommandHandler` refuses to re-arm while it is on
-(`EPIC-022` §4.1) — and while trading is off, no order can be sent by
-either engine anyway.
+started with. That window only exists on a re-arm, which no screen offers
+(Arm needs nothing armed) and which `ArmStrategyCommandHandler` refuses
+while the symbol holds an open position (`EPIC-022` §4.1, `EPIC-034C`); an
+order sent by the outgoing engine in that window is what that refusal and the
+symbol lease keep from meeting an open position.
 """
 
 from __future__ import annotations

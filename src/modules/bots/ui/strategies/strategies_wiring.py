@@ -52,9 +52,6 @@ def strategies_for(
             symbol_options=default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS),
             ask=ask,
             set_status=set_status,
-            trading_on=lambda venue: (
-                trading.get(venue).trading_session.snapshot().enabled
-            ),
         ),
         panel,
     )

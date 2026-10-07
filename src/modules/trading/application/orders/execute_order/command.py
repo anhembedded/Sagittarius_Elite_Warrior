@@ -45,6 +45,10 @@ class ExecuteOrderCommand:
     #: `EPIC-028I` — an execute-time concern like `owner_id`: whether the
     #: trading limits apply (`OrderPurpose`).
     purpose: OrderPurpose = OrderPurpose.ENTRY
+    #: `EPIC-034C` — `OrderRequest.opens_session`: a manual live order opens the
+    #: venue's order session itself, after the same reconciliation Start bot and
+    #: arm strategy run. Read only when `live`.
+    opens_session: bool = False
 
     def __post_init__(self) -> None:
         """@throws ValueError an order whose purpose passes the trading

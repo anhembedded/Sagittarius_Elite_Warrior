@@ -44,10 +44,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
-    VerbQuestion,
-    ask_with_verbs,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -108,24 +104,6 @@ class TradeView(OutputSourceView):
     def shown_venue(self) -> TradingVenue | None:
         shown = self._stack.currentWidget()
         return next((v for v, page in self._pages.items() if page is shown), None)
-
-    def ask_to_enable(self, venue_title: str) -> bool:
-        """Trade → Enable live trading, turning trading on: asked with its
-        verbs, Keep it off the default (HLD §11.2.3, `ui-presentation-rule.md`
-        §10)."""
-        return ask_with_verbs(
-            self,
-            VerbQuestion(
-                title="Enable Live Trading",
-                question=f"Turn on live trading on {venue_title} Testnet?",
-                act="Enable trading",
-                keep="Keep it off",
-                details=(
-                    "Orders placed from now on, by hand or by an armed "
-                    "strategy, are sent to the exchange."
-                ),
-            ),
-        )
 
     # -- ISurfaceStack (structural) --------------------------------------------
 

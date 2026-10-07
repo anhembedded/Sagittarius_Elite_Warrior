@@ -1,24 +1,22 @@
-"""`EPIC-029` ADR D7 — a venue's trading switch publishes
+"""`EPIC-029` ADR D7 — a venue's order session publishes
 `TradingSwitchChangedEvent` once per change, at the moment it changes.
 
-@details A bot pauses on the moment trading turns off, not on its next
-refused order. The three handlers that move the switch are built the way
-their own test files build them, with a recording publisher derived from
-`IEventPublisher` (`testing-rule.md` §2).
+@details A bot pauses on the moment the session closes, not on its next
+refused order (`EPIC-034C`: the session opens by `SessionReadiness` and closes by
+Emergency Stop; the event keeps the name of the switch they replaced). The two
+handlers that move it are built the way their own test files build them, with
+a recording publisher derived from `IEventPublisher` (`testing-rule.md` §2).
 """
 
 from __future__ import annotations
 
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready import (
+    EnsureSessionReadyCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
@@ -34,13 +32,10 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.em
     make_handler,
     quiet_raw_client,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.test_disable_trading import (
-    _handler as _disable_handler,
-)
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.test_enable_trading import (
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.test_ensure_session_ready import (
     _handler as _enable_handler,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.test_enable_trading import (
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.session.test_ensure_session_ready import (
     _position_payload,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
@@ -62,42 +57,23 @@ def _enabled_state() -> TradingSessionState:
     return state
 
 
-def test_a_committed_enable_publishes_enabled() -> None:
+def test_a_committed_open_publishes_enabled() -> None:
     publisher = RecordingPublisher()
     handler, state, _, _ = _enable_handler(publisher=publisher)
 
-    handler.execute(EnableTradingCommand(venue=_FUTURES))
+    handler.execute(EnsureSessionReadyCommand(venue=_FUTURES))
 
     assert state.enabled is True
     assert _switch(publisher) == (_FUTURES, True, TradingSwitchCause.ENABLED)
 
 
-def test_a_refused_enable_publishes_nothing() -> None:
+def test_a_refused_open_publishes_nothing() -> None:
     publisher = RecordingPublisher()
     handler, _, _, _ = _enable_handler(
         position_payloads=[_position_payload()], publisher=publisher
     )
 
-    handler.execute(EnableTradingCommand(venue=_FUTURES))
-
-    assert publisher.events == []
-
-
-def test_disabling_an_enabled_venue_publishes_disabled() -> None:
-    publisher = RecordingPublisher()
-    handler, _, _ = _disable_handler(_enabled_state(), publisher)
-
-    handler.execute(DisableTradingCommand(venue=_FUTURES))
-
-    assert _switch(publisher) == (_FUTURES, False, TradingSwitchCause.DISABLED)
-
-
-def test_disabling_a_venue_that_was_off_publishes_nothing() -> None:
-    """Only a real change is news; a second disable is not."""
-    publisher = RecordingPublisher()
-    handler, _, _ = _disable_handler(publisher=publisher)
-
-    handler.execute(DisableTradingCommand(venue=_FUTURES))
+    handler.execute(EnsureSessionReadyCommand(venue=_FUTURES))
 
     assert publisher.events == []
 
@@ -159,7 +135,7 @@ def test_an_emergency_stop_on_a_venue_already_off_still_publishes() -> None:
 
 
 def test_a_failed_disable_publishes_nothing() -> None:
-    """The event reports a switch that changed; a disable that raised did
+    """The event reports a session that changed; a close that raised did
     not change it, and step 1 reports the failure on its own."""
     session_state = Mock()
     session_state.disable.side_effect = RuntimeError("boom")

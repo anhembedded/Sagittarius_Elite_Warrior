@@ -14,6 +14,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderStopRejection,
     ExecuteOrderTypeRejection,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
+    SESSION_BLOCK_WORDS,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
 )
@@ -26,11 +32,11 @@ _SAFETY_GATE_MESSAGES = EnumLabels(
     ExecuteOrderSafetyGate,
     {
         ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — set it to Futures Testnet "
-            "or Spot Testnet to enable trading."
+            "This venue cannot place orders."
         ),
         ExecuteOrderSafetyGate.TRADING_SWITCH_OFF: (
-            "Trading is OFF — enable trading before placing/cancelling an order."
+            "No order session is open on this venue — placing an order, starting a "
+            "bot or arming a strategy opens one, and Emergency stop closes it."
         ),
         ExecuteOrderSafetyGate.CONNECTION_NOT_READY: (
             "Connection to the exchange is not ready — check your API key/network connection."
@@ -94,6 +100,7 @@ def format_execute_order_block_reason(
     | ExecuteOrderPriceRejection
     | ExecuteOrderTypeRejection
     | TradingLimitViolation
+    | SessionBlockReason
     | None,
 ) -> str:
     """@brief Human message for any member of `ExecuteOrderResult.
@@ -101,6 +108,8 @@ def format_execute_order_block_reason(
     (`trade_once_formatter.py`'s CLI-only counterpart never had to)."""
     if isinstance(blocked_by, ExecuteOrderSafetyGate):
         return _SAFETY_GATE_MESSAGES[blocked_by]
+    if isinstance(blocked_by, SessionBlockReason):
+        return SESSION_BLOCK_WORDS[blocked_by]
     if isinstance(blocked_by, TradingLimitViolation):
         return _LIMIT_VIOLATION_MESSAGES[blocked_by]
     if blocked_by is ExecuteOrderNotionalRejection.MIN_NOTIONAL:

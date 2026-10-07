@@ -2,13 +2,13 @@
 
 @details Resolves its client from `ITradingClientFactory` (`VALIDATE_ONLY` —
 irrelevant for this read-only call, same reasoning
-`EnableTradingCommandHandler` already gives) rather than taking
+`EnsureSessionReadyCommandHandler` already gives) rather than taking
 `ITradingClient` directly: that port is only registered when
 `TradingVenue != DISABLED` (`binance_bot_module.py`), and every use case in
 this app must stay resolvable through the container regardless of that
 setting (`tests/sanity/test_composition_root.py::
 test_every_use_case_resolves_to_a_handler` — this is the same constraint
-`EnableTradingCommandHandler`'s own docstring names for the same reason).
+`EnsureSessionReadyCommandHandler`'s own docstring names for the same reason).
 `ITradingClientFactory` is bound unconditionally (`EPIC-027F`).
 """
 

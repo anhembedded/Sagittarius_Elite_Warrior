@@ -156,7 +156,7 @@ def map_futures_order_payload_to_order(payload: dict[str, Any]) -> Order:
     @raise KeyError A required field is missing — a genuinely malformed
     payload, not merely an unrecognized `type`/`status` value
     (`order_enum_parsing.py` handles that case without raising, `BUG-091`
-    — the whole-account reconciliation this feeds, `EnableTradingCommand`'s
+    — the whole-account reconciliation this feeds, `EnsureSessionReadyCommand`'s
     `get_open_orders()`, must not lose an order just because it wasn't
     placed by this app).
     """
