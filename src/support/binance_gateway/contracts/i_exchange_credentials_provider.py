@@ -64,3 +64,12 @@ class IExchangeCredentialsProvider(ABC):
         already `ENV` (Settings locks the field for exactly this reason,
         `EPIC-021B` §2.3).
         """
+
+    @abstractmethod
+    def remove_stored(self) -> None:
+        """@brief Forgets the key/secret pair this venue's durable store holds
+        (`BUG-176`); another venue's pair is never touched.
+        @details An environment variable is not stored by the app and stays: a
+        caller checks `resolve().source` first, as for `save_to_file`. Nothing
+        happens when no pair is stored.
+        """

@@ -5,7 +5,7 @@ through `classify_connection_failure`, so the code-to-kind table exists once.
 
 Binance `-2015` ("Invalid API-key, IP, or permissions for action") is not an
 expiry: the exchange rejected the key for a reason it does not name — an unknown
-key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
+key (a key of another environment, such as a mainnet key sent to a testnet), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
 `KEY_REJECTED`. No Binance code means "expired", so no such kind exists.
 

@@ -18,6 +18,9 @@ class InMemorySecretStore(ISecretStore):
     def write(self, name: str, value: str) -> None:
         self.secrets[name] = value
 
+    def delete(self, name: str) -> None:
+        self.secrets.pop(name, None)
+
 
 class UnavailableSecretStore(ISecretStore):
     """A machine with no usable keyring: reads find nothing, saves refuse."""
@@ -26,4 +29,7 @@ class UnavailableSecretStore(ISecretStore):
         return None
 
     def write(self, name: str, value: str) -> None:
+        raise SecretStoreUnavailableError("no keyring here")
+
+    def delete(self, name: str) -> None:
         raise SecretStoreUnavailableError("no keyring here")

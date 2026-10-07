@@ -129,12 +129,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-    IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.credentials_doubles import ResolveOnlyCredentials
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
     RecordingPublisher,
 )
@@ -160,15 +160,12 @@ _PROBE = Order(
 )
 
 
-class _Credentials(IExchangeCredentialsProvider):
+class _Credentials(ResolveOnlyCredentials):
     def resolve(self) -> ResolvedCredentials:
         return ResolvedCredentials(
             ExchangeCredentials(api_key="fake-key", api_secret="fake-secret"),
             CredentialsSource.FILE,
         )
-
-    def save_to_file(self, api_key: str, api_secret: str) -> None:
-        raise AssertionError("not used by this test")
 
 
 @dataclass

@@ -18,7 +18,7 @@ import logging
 
 import keyring
 from keyring.backend import KeyringBackend
-from keyring.errors import KeyringError
+from keyring.errors import KeyringError, PasswordDeleteError
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
     ISecretStore,
     SecretStoreUnavailableError,
@@ -47,6 +47,16 @@ class KeyringSecretStore(ISecretStore):
         except KeyringError as exc:
             raise SecretStoreUnavailableError(
                 f"the operating system's keyring cannot store a secret here: {exc}"
+            ) from exc
+
+    def delete(self, name: str) -> None:
+        try:
+            self._keyring().delete_password(SERVICE, name)
+        except PasswordDeleteError:
+            return  # nothing stored under that name: already as asked
+        except KeyringError as exc:
+            raise SecretStoreUnavailableError(
+                f"the operating system's keyring cannot remove a secret here: {exc}"
             ) from exc
 
     def _keyring(self) -> KeyringBackend:

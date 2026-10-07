@@ -28,7 +28,6 @@ import pytest
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.tests.sanity.fake_exchange.server import (
-    _Handler,
     run_binance_fake_server,
 )
 
@@ -112,7 +111,7 @@ def test_a_fill_queues_execution_report_and_account_position_events():
 
         client.create_order(symbol="ETHUSDT", side="BUY", type="MARKET", quantity="2")
 
-        events = _Handler.spot_account.drain_user_data_events()
+        events = urls.spot_account.drain_user_data_events()
         kinds = [event["e"] for event in events]
         assert kinds == ["executionReport", "outboundAccountPosition"]
         report = events[0]

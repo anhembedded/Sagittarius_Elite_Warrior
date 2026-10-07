@@ -42,3 +42,6 @@ class KeyGatedCredentials(IExchangeCredentialsProvider):
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         self._stored.save_to_file(api_key, api_secret)
+
+    def remove_stored(self) -> None:
+        self._stored.remove_stored()

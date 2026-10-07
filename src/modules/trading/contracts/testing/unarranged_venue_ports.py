@@ -103,6 +103,9 @@ class UnarrangedCredentialsProvider(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         _not_arranged("IExchangeCredentialsProvider")
 
+    def remove_stored(self) -> None:
+        _not_arranged("IExchangeCredentialsProvider")
+
 
 class UnarrangedMetadataCache(ISymbolOrderMetadataCache):
     def get(self, symbol: str) -> SymbolOrderMetadata | None:

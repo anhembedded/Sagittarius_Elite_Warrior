@@ -3,101 +3,121 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
-    QCheckBox,
+    QDialog,
     QGridLayout,
     QHBoxLayout,
-    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.add_key_dialog import (
+    AddKeyDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
+    from PySide6.QtWidgets import QLabel
+
     from .trading_settings_view_model import TradingSettingsViewModel
+
+_INTRO = (
+    "Add a Binance key and the app finds out which environment it belongs to: "
+    "mainnet, Spot Testnet or Futures Testnet. A mainnet key goes in the "
+    "operating system's keyring; a testnet key in secrets.local.json (not "
+    "tracked in git). A key that can withdraw funds is refused. A key is saved "
+    "when you add, replace or remove it: OK and Apply have nothing to save here."
+)
+_COLUMNS = ("Venue", "Key", "State")
+
+
+class _RowWidgets:
+    """The widgets of one venue's row, updated in place."""
+
+    def __init__(self, venue: TradingVenue) -> None:
+        self.venue = venue
+        self.title = plain_label()
+        self.key = plain_label()
+        self.state = plain_label()
+        self.state.setWordWrap(True)
+        self.replace = QPushButton()
+        self.replace.setObjectName(f"btnReplaceKey_{venue.name}")
+        self.remove = QPushButton("Remove")
+        self.remove.setObjectName(f"btnRemoveKey_{venue.name}")
 
 
 class TradingSettingsView(BaseView):
-    """@brief The Trading page of Tools → Options (`EPIC-033E`)."""
+    """@brief The Trading page of Tools → Options (`EPIC-033E`): one row per
+    venue and the actions on a key (`BUG-176`)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._view_model: TradingSettingsViewModel | None = None
+        self._rows: dict[TradingVenue, _RowWidgets] = {}
         self._build_ui()
 
     def set_view_model(self, view_model: TradingSettingsViewModel) -> None:
-        self._view_model = view_model
+        self._add_key_button.clicked.connect(view_model.requestAddKey)
+        self._check_button.clicked.connect(view_model.requestCheckConnections)
+        view_model.rowsChanged.connect(lambda: self._apply_rows(view_model))
+        view_model.busyChanged.connect(lambda: self._apply_busy(view_model))
+        view_model.statusChanged.connect(lambda: self._apply_status(view_model))
+        self._apply_rows(view_model)
+        self._apply_busy(view_model)
+        self._apply_status(view_model)
 
-        self._api_key_field.setText(view_model.apiKey)
-        self._api_secret_field.setText(view_model.apiSecret)
-        self._apply_status(view_model.statusMessage, view_model.statusIsError)
-        self._apply_credentials_source(
-            view_model.credentialsSourceLabel, view_model.credentialsLocked
-        )
-        self._apply_connection_check(
-            view_model.connectionChecking,
-            view_model.connectionResultText,
-            view_model.connectionResultIsError,
-        )
+    def ask_for_key(self, hint: str) -> tuple[str, str] | None:
+        """Asks for a key and a secret in a modal dialog; `None` when cancelled."""
+        dialog = AddKeyDialog(hint, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.entered()
 
-        def edit_api_key(text: str) -> None:
-            view_model.apiKey = text
-
-        def edit_api_secret(text: str) -> None:
-            view_model.apiSecret = text
-
-        self._api_key_field.textEdited.connect(edit_api_key)
-        self._api_secret_field.textEdited.connect(edit_api_secret)
-        self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
-
-        view_model.apiKeyChanged.connect(
-            lambda: self._api_key_field.setText(view_model.apiKey)
-        )
-        view_model.apiSecretChanged.connect(
-            lambda: self._api_secret_field.setText(view_model.apiSecret)
-        )
-        view_model.statusChanged.connect(
-            lambda: self._apply_status(
-                view_model.statusMessage, view_model.statusIsError
+    def _apply_rows(self, view_model: TradingSettingsViewModel) -> None:
+        for row in view_model.rows:
+            widgets = self._rows.get(row.venue) or self._add_row(row.venue, view_model)
+            widgets.title.setText(row.title)
+            widgets.key.setText(row.key)
+            widgets.state.setText(_worded(row.state, row.state_is_error))
+            widgets.replace.setText("Replace…" if row.has_key else "Add…")
+            widgets.replace.setEnabled(row.editable and not view_model.busy)
+            widgets.remove.setEnabled(
+                row.has_key and row.editable and not view_model.busy
             )
-        )
-        view_model.credentialsSourceChanged.connect(
-            lambda: self._apply_credentials_source(
-                view_model.credentialsSourceLabel, view_model.credentialsLocked
-            )
-        )
-        view_model.connectionCheckChanged.connect(
-            lambda: self._apply_connection_check(
-                view_model.connectionChecking,
-                view_model.connectionResultText,
-                view_model.connectionResultIsError,
-            )
-        )
 
-    def _apply_status(self, message: str, is_error: bool) -> None:
-        self._status_label.setText(_worded(message, is_error))
-
-    def _apply_credentials_source(self, label: str, locked: bool) -> None:
-        """`EPIC-021B` §2.3 — when an environment variable is what is in
-        effect, the fields are locked: an edit there would be silently
-        ignored by `IExchangeCredentialsProvider.resolve()`."""
-        self._credentials_source_label.setText(label)
-        self._api_key_field.setReadOnly(locked)
-        self._api_secret_field.setReadOnly(locked)
-
-    def _apply_connection_check(
-        self, checking: bool, result_text: str, result_is_error: bool
-    ) -> None:
-        self._check_connection_button.setEnabled(not checking)
-        self._check_connection_button.setText(
-            "Checking..." if checking else "Check Connection"
+    def _add_row(
+        self, venue: TradingVenue, view_model: TradingSettingsViewModel
+    ) -> _RowWidgets:
+        widgets = _RowWidgets(venue)
+        grid_row = len(self._rows) + 1
+        self._grid.addWidget(widgets.title, grid_row, 0)
+        self._grid.addWidget(widgets.key, grid_row, 1)
+        self._grid.addWidget(widgets.state, grid_row, 2)
+        buttons = QHBoxLayout()
+        buttons.addWidget(widgets.replace)
+        buttons.addWidget(widgets.remove)
+        self._grid.addLayout(buttons, grid_row, 3)
+        widgets.replace.clicked.connect(
+            lambda _checked=False, v=venue: view_model.requestReplaceKey(v)
         )
-        self._connection_result_label.setText(_worded(result_text, result_is_error))
+        widgets.remove.clicked.connect(
+            lambda _checked=False, v=venue: view_model.requestRemoveKey(v)
+        )
+        self._rows[venue] = widgets
+        return widgets
 
-    def _toggle_secret_reveal(self, checked: bool) -> None:
-        self._api_secret_field.setEchoMode(
-            QLineEdit.EchoMode.Normal if checked else QLineEdit.EchoMode.Password
+    def _apply_busy(self, view_model: TradingSettingsViewModel) -> None:
+        idle = not view_model.busy
+        self._busy_label.setText(view_model.busyText)
+        self._add_key_button.setEnabled(idle)
+        self._check_button.setEnabled(idle)
+        self._apply_rows(view_model)
+
+    def _apply_status(self, view_model: TradingSettingsViewModel) -> None:
+        self._status_label.setText(
+            _worded(view_model.statusMessage, view_model.statusIsError)
         )
 
     def _build_ui(self) -> None:
@@ -105,74 +125,37 @@ class TradingSettingsView(BaseView):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
 
-        warning = plain_label(
-            "API Key/Secret are written to secrets.local.json (not tracked "
-            "in git). Every venue the key opens is on, and the next request to the "
-            "exchange uses a key saved here."
-        )
-        warning.setObjectName("lblTradingSettingsWarning")
-        warning.setWordWrap(True)
-        layout.addWidget(warning)
+        intro = plain_label(_INTRO)
+        intro.setObjectName("lblTradingSettingsIntro")
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
 
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(12)
-        grid.setColumnStretch(1, 1)
-        layout.addLayout(grid)
+        self._grid = QGridLayout()
+        self._grid.setHorizontalSpacing(14)
+        self._grid.setVerticalSpacing(12)
+        self._grid.setColumnStretch(2, 1)
+        for column, heading in enumerate(_COLUMNS):
+            self._grid.addWidget(plain_label(heading), 0, column)
+        layout.addLayout(self._grid)
 
-        row = 0
-        grid.addWidget(plain_label("Binance API Key (Public):"), row, 0)
-        self._api_key_field = self._make_field("txtApiKey")
-        grid.addWidget(self._api_key_field, row, 1)
-        row += 1
+        buttons = QHBoxLayout()
+        self._add_key_button = QPushButton("Add key…")
+        self._add_key_button.setObjectName("btnAddKey")
+        self._check_button = QPushButton("Check connections")
+        self._check_button.setObjectName("btnCheckConnections")
+        buttons.addWidget(self._add_key_button)
+        buttons.addWidget(self._check_button)
+        buttons.addStretch(1)
+        layout.addLayout(buttons)
 
-        row = self._add_secret_row(grid, row)
-
-        self._credentials_source_label = plain_label()
-        self._credentials_source_label.setObjectName("lblCredentialsSource")
-        self._credentials_source_label.setWordWrap(True)
-        grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
-        row += 1
-
-        self._check_connection_button = QPushButton("Check Connection")
-        self._check_connection_button.setObjectName("btnCheckConnection")
-        grid.addWidget(self._check_connection_button, row, 0, 1, 2)
-        row += 1
-
-        self._connection_result_label = plain_label()
-        self._connection_result_label.setObjectName("lblConnectionResult")
-        self._connection_result_label.setWordWrap(True)
-        grid.addWidget(self._connection_result_label, row, 0, 1, 2)
-        row += 1
+        self._busy_label: QLabel = plain_label()
+        self._busy_label.setObjectName("lblTradingSettingsBusy")
+        layout.addWidget(self._busy_label)
 
         self._status_label = plain_label()
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
-
-    def _make_field(self, object_name: str) -> QLineEdit:
-        field = QLineEdit()
-        field.setObjectName(object_name)
-        return field
-
-    def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(plain_label("Binance API Secret (Private):"), row, 0)
-
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._api_secret_field = self._make_field("txtApiSecret")
-        self._api_secret_field.setEchoMode(QLineEdit.EchoMode.Password)
-        row_layout.addWidget(self._api_secret_field, 1)
-
-        self._reveal_button = QCheckBox("Show secret")
-        self._reveal_button.setObjectName("btnRevealSecret")
-        self._reveal_button.toggled.connect(self._toggle_secret_reveal)
-        row_layout.addWidget(self._reveal_button)
-
-        grid.addWidget(row_widget, row, 1)
-        return row + 1
 
 
 def _worded(message: str, is_error: bool) -> str:

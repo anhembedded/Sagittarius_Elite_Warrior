@@ -129,6 +129,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() -> None:
     """A human's BUY click on a Spot account: mapped by

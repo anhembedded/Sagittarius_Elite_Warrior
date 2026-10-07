@@ -18,3 +18,7 @@ class KeyPermissions:
     can_read: bool
     can_trade_spot: bool
     can_withdraw: bool
+    #: Only enrolment reads it, to know which mainnet venues a key may be kept for;
+    #: the gate decides nothing on it. `False` when the answer leaves it out: the
+    #: key is then not kept for Futures, never assumed to trade there.
+    can_trade_futures: bool = False

@@ -98,7 +98,7 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
         if from_env is not None:
             return ResolvedCredentials(from_env, CredentialsSource.ENV)
 
-        from_file = self._secrets_file.read()
+        from_file = self._secrets_file.read(self._trading_venue)
         if from_file is not None:
             file_key, file_secret = from_file
             return ResolvedCredentials(
@@ -108,7 +108,10 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
         return ResolvedCredentials(None, CredentialsSource.NONE)
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
-        self._secrets_file.write(api_key, api_secret)
+        self._secrets_file.write(self._trading_venue, api_key, api_secret)
+
+    def remove_stored(self) -> None:
+        self._secrets_file.remove(self._trading_venue)
 
 
 class MainnetCredentialsProvider(IExchangeCredentialsProvider):
@@ -151,6 +154,13 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
         self._store.write(self._key_name, api_key)
         self._store.write(self._secret_name, api_secret)
         self._stored = ExchangeCredentials(api_key, api_secret)
+        self._stored_read = True
+
+    def remove_stored(self) -> None:
+        """@raise SecretStoreUnavailableError The keyring cannot be used here."""
+        self._store.delete(self._key_name)
+        self._store.delete(self._secret_name)
+        self._stored = None
         self._stored_read = True
 
     def _stored_pair(self) -> ExchangeCredentials | None:

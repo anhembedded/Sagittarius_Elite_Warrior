@@ -34,9 +34,11 @@ _FAILURES = EnumLabels(
             "system clock and check again."
         ),
         ConnectionFailureKind.KEY_REJECTED: (
-            "the exchange rejected the API key. This app talks to the testnet, "
-            "so a mainnet key is not accepted. Otherwise check the key's IP "
-            "allowlist and permissions, or get a new testnet key."
+            "the exchange rejected the API key. It may be a key of another "
+            "environment (a testnet key does not work on mainnet, nor a mainnet "
+            "key on a testnet), its IP allowlist may not include this computer's "
+            "public address, or it may lack a permission. Check it in Tools → "
+            "Options → Trading."
         ),
         ConnectionFailureKind.NETWORK: (
             "the exchange could not be reached. Check the network or proxy and "

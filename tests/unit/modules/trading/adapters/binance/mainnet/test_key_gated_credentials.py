@@ -53,6 +53,9 @@ class _Stored(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         self.saved.append((api_key, api_secret))
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 class _Gate(IKeyPermissionGate):
     def __init__(self, refusal: ConnectionFailureKind | None = None) -> None:

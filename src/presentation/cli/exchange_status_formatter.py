@@ -41,9 +41,12 @@ _FAILURE_GUIDANCE = EnumLabels(
         ),
         ConnectionFailureKind.KEY_REJECTED: (
             "The exchange rejected the API key (Binance -2015). Likely causes: "
-            "a mainnet key (this app talks to the testnet only), an unknown "
-            "key, an IP not on the key's allowlist, or a key without the needed "
-            "permission. Get a key at testnet.binancefuture.com.\n"
+            "a key made for another environment (a mainnet key, say), an unknown "
+            "key, an IP not on the key's allowlist (a LAN address such as "
+            "192.168.x.x never matches; add the public one), or a key without "
+            "the needed permission. Get a key at testnet.binancefuture.com, or "
+            "use Add key… in Tools > Options > Trading to find which "
+            "environment a key belongs to.\n"
             "  (Note: Spot Testnet keys and mainnet keys do NOT work here.)"
         ),
         ConnectionFailureKind.NETWORK: (
@@ -81,9 +84,12 @@ _SPOT_ONLY_GUIDANCE: dict[ConnectionFailureKind, str] = {
     ),
     ConnectionFailureKind.KEY_REJECTED: (
         "The exchange rejected the API key (Binance -2015). Likely causes: "
-        "a mainnet key (this app talks to the testnet only), an unknown "
-        "key, an IP not on the key's allowlist, or a key without the needed "
-        "permission. Get a key at testnet.binance.vision.\n"
+        "a key made for another environment (a mainnet key, say), an unknown "
+        "key, an IP not on the key's allowlist (a LAN address such as "
+        "192.168.x.x never matches; add the public one), or a key without "
+        "the needed permission. Get a key at testnet.binance.vision, or use "
+        "Add key… in Tools > Options > Trading to find which environment a "
+        "key belongs to.\n"
         "  (Note: Futures Testnet keys and mainnet keys do NOT work here.)"
     ),
 }
