@@ -18,10 +18,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
     OwnerInventoryDeriver,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-    DisableTradingCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
     RegisterOwnerBudgetCommandHandler,
@@ -53,9 +49,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
-    RecordingPublisher,
-)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -82,9 +75,6 @@ def _real_service(state: TradingSessionState) -> TradingSessionService:
                 scopes,
                 OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
                 DEFAULT_OWNER_BUDGET_CAPS,
-            ),
-            DisableTradingCommand: DisableTradingCommandHandler(
-                scopes, RecordingPublisher()
             ),
         }
     )
@@ -133,13 +123,13 @@ class TestTheFakesOwnBookkeeping:
         )
         assert fake.budgets == {}
 
-    def test_disabling_clears_every_budget(self) -> None:
+    def test_an_emergency_stop_clears_every_budget(self) -> None:
         fake = FakeTradingSession()
         fake.set_enabled(enabled=True)
         fake.register_owner_budget(contract_registration("bot-1"))
         fake.register_owner_budget(contract_registration("bot-2"))
 
-        fake.disable()
+        fake.emergency_stop()
 
         assert fake.budgets == {}
 

@@ -17,9 +17,11 @@ why:
   reports before each turn: the stream's delivery within the spacing that
   `grid_start_sequence`'s known limit names. The thread queue and the
   monotonic pacer have their own unit tests;
-- the session is seeded as enabled: the toggle would start the venue's
+- the session is seeded as open: opening it would start the venue's
   websocket, which the fake does not speak (`EPIC-028S` §3). A restart
-  enables by publishing the switch event the toggle publishes.
+  opens it by publishing the event the opening publishes; the journey that
+  starts from a closed session (`EPIC-034C`) stubs the stream's `start`, the
+  one websocket call, and runs everything else for real.
 
 At each step the exchange's open orders are asserted against the bot's own
 ladder, price for price and id for id.
@@ -130,6 +132,25 @@ def test_a_grid_starts_cycles_replaces_a_cancel_and_halts_on_emergency_stop(
         assert app.bot(bot_id).state is S.HALTED
         assert app.runtime(bot_id).reason is GridReason.SWITCH_OFF
         assert resting(app.urls) == {}
+
+
+def test_a_bot_starts_from_a_closed_session_and_opens_it_itself(
+    exchange: FakeExchange,
+) -> None:
+    """`EPIC-034C` — no Enable trading step: Start reconciles the account
+    through the real `SessionReadiness`, opens the session and the user data
+    stream, and lays the ladder."""
+    with booted(exchange, open_session=False) as app:
+        starts: list[str] = []
+        app.stream.start = lambda: starts.append("start")  # type: ignore[method-assign]
+        assert app.scope.session_state.enabled is False
+
+        bot_id = _started(app)
+
+        assert app.scope.session_state.enabled is True
+        assert starts == ["start"]
+        assert app.bot(bot_id).state is S.RUNNING
+        assert resting(app.urls) == ladder(app.runtime(bot_id))
 
 
 def _cancel_from_outside(app: BootedApp, client_order_id: str) -> None:

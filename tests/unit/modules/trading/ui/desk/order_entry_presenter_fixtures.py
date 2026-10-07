@@ -52,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    KeyCheck,
+    always_keyed,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -96,6 +100,7 @@ def presented_panel(
     account: FakeAccountSnapshot | None = None,
     answer: bool = True,
     books: dict[str, BestBidAsk] | None = None,
+    has_key: KeyCheck = always_keyed,
 ) -> PresentedPanel:
     submission = FakeOrderSubmission()
     account = account or FakeAccountSnapshot(spot_status())
@@ -110,7 +115,12 @@ def presented_panel(
     confirm = Answers(answer)
     notifier = RecordingNotifier()
     presenter = OrderEntryPresenter(
-        vm, ports, threads or InlineThreadManager(), confirm, notifier
+        vm,
+        ports,
+        threads or InlineThreadManager(),
+        confirm,
+        notifier,
+        has_key=has_key,
     )
     return PresentedPanel(vm, presenter, submission, account, terms, confirm, notifier)
 

@@ -27,10 +27,11 @@ make an `arm()` from the UI thread block for however long Binance takes
 to answer — a frozen UI, for a lock that is only protecting four field
 reads. So: snapshot inside the lock, work outside it. The honest
 consequence is that a tick already in flight finishes on the engine it
-started with. That window only exists while trading is OFF, because
-`ArmStrategyCommandHandler` refuses to re-arm while it is on
-(`EPIC-022` §4.1) — and while trading is off, no order can be sent by
-either engine anyway.
+started with. That window only exists on a re-arm, which no screen offers
+(Arm needs nothing armed) and which `ArmStrategyCommandHandler` refuses
+while the symbol holds an open position (`EPIC-022` §4.1, `EPIC-034C`); an
+order sent by the outgoing engine in that window is what that refusal and the
+symbol lease keep from meeting an open position.
 """
 
 from __future__ import annotations
@@ -156,6 +157,21 @@ class LiveStrategySession(IArmedStrategy):
         """
         with self._lock:
             return self._config
+
+    def validate(self, config: LiveStrategyConfig) -> None:
+        """@brief Builds the engine `arm()` would and discards it: nothing is
+        swapped or armed.
+
+        @raises ValueError As `arm()` does, for an incomplete config, an
+        unknown strategy key or an undeclared parameter.
+        """
+        if not config.is_complete:
+            raise ValueError(
+                "A live strategy needs a strategy key, a symbol and an interval; "
+                f"got key={config.strategy_key!r} symbol={config.symbol!r} "
+                f"interval={config.interval!r}."
+            )
+        self._factory.build(config)
 
     def arm(self, config: LiveStrategyConfig) -> None:
         """@brief Replaces whatever was armed with a freshly built pair.

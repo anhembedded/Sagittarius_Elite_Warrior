@@ -85,20 +85,20 @@ def test_the_rows_follow_an_arming_announced_on_the_bus(open_bots_screen, qapp) 
     assert table.text(0, screen.view.strategies.model.column("state")) == ARMED_TEXT
 
 
-def test_the_commands_follow_the_venues_trading_switch_on_the_bus(
+def test_an_open_order_session_does_not_wait_the_arm_command(
     open_bots_screen, qapp
 ) -> None:
-    """PR #376 review: arming waits while the venue trades."""
+    """`EPIC-034C` — arming no longer needs the venue's trading off: a session a
+    bot, an order or an earlier arm opened leaves the command as it was."""
     screen = open_bots_screen()
     _select_the_venue(screen)
     arm = screen.actions.action(ARM_STRATEGY)
     assert arm.isEnabled()
-    session = screen.trading_session
-    session.set_enabled(enabled=True)
+    screen.trading_session.set_enabled(enabled=True)
 
     screen.bus.emit(
         TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=VENUE)
     )
     qapp.processEvents()
 
-    assert not arm.isEnabled()
+    assert arm.isEnabled()

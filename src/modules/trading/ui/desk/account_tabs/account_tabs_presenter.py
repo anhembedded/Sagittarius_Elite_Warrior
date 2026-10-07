@@ -63,6 +63,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_view import (
     HistoryKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    KeyCheck,
+    always_keyed,
+    no_key_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
 )
@@ -101,12 +106,14 @@ class AccountTabsPresenter(QObject):
         thread_manager: IThreadManager,
         notifier: INotifier,
         clock: Clock = _utc_now,
+        has_key: KeyCheck = always_keyed,
     ) -> None:
         super().__init__(view)
         self._notifier = notifier
         self._cause = failure_cause(ports.venue, "account_tabs")
         self._view = view
         self._ports = ports
+        self._has_key = has_key
         self._threads = thread_manager
         self._symbol = ""
         self._last_price: Decimal | None = None
@@ -151,7 +158,11 @@ class AccountTabsPresenter(QObject):
         self.refresh()
 
     def refresh(self) -> None:
-        """Reads the live tables and starts both histories over."""
+        """Reads the live tables and starts both histories over — or, for a
+        venue with no key, says so and reads nothing (`EPIC-034B`)."""
+        if not self._has_key():
+            self._view.show_message(no_key_text(self._ports.venue))
+            return
         action = self._loads.begin_action(_LOAD, self._symbol, None)
         self._threads.submit(self._run_load, action.action_id)
         self._reopen_histories(self._view.hides_other_pairs)
@@ -237,6 +248,8 @@ class AccountTabsPresenter(QObject):
         self._histories.reread()
 
     def _reopen_histories(self, hide_other_pairs: bool) -> None:
+        if not self._has_key():
+            return
         symbol = self._symbol if hide_other_pairs and self._symbol else None
         self._histories.open(symbol, self._symbol)
 

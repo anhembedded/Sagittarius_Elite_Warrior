@@ -52,7 +52,7 @@ is why, the spec is what. Neither file is a copy of the other — the SPEC names
 | [SPEC-001](SPEC-001_sync_a_symbols_history.md) | Bring a symbol's candle history up to date | trader, operator | ✅ |
 | [SPEC-002](SPEC-002_watch_the_live_market.md) | Watch the live market for chosen symbols | trader | ✅ |
 | [SPEC-003](SPEC-003_check_the_exchange_connection.md) | Check that the app can reach the exchange | trader, operator | ✅ |
-| [SPEC-004](SPEC-004_enable_and_disable_live_trading.md) | Turn live trading on, and off | trader | ✅ |
+| [SPEC-004](SPEC-004_enable_and_disable_live_trading.md) | The order session opens with the first action that trades, and Emergency stop closes it | trader | ✅ |
 | [SPEC-005](SPEC-005_place_a_manual_order.md) | Place one order by hand | trader | ✅ |
 | [SPEC-011](SPEC-011_start_the_app_and_choose_developer_mode.md) | Start the app, and choose developer mode | trader, developer | ✅ |
 | [SPEC-012](SPEC-012_place_a_spot_order.md) | Place an order on Spot, and see it settle as a balance | trader | ✅ |

@@ -12,6 +12,12 @@ built, only *where* the binding that builds it lives.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -32,5 +38,13 @@ def bind_state(container: IContainer) -> None:
         VenueTradingScopes,
         lambda c: VenueTradingScopes(
             c.resolve(IVenueContexts), c.resolve(VenueSessionStates)
+        ),
+    )
+    # `EPIC-034C`: the one reconciliation, shared by `EnsureSessionReadyCommand`'s
+    # handler and the manual order path (`ExecuteOrderCommandHandler`).
+    container.singleton(
+        SessionReadiness,
+        lambda c: SessionReadiness(
+            c.resolve(VenueTradingScopes), c.resolve(IEventPublisher)
         ),
     )

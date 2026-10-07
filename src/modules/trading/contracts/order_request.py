@@ -92,6 +92,12 @@ class OrderRequest:
     #: client order id (`SEW-{tag}-{hex10}`). `None` for a manual or strategy
     #: order. Validated here, so a bad tag never reaches the exchange.
     client_order_tag: str | None = None
+    #: `EPIC-034C` — this order is a **manual** one: placing it is the
+    #: deliberate action that opens the venue's order session (reconciling the
+    #: account first) when it is closed. False for every automated caller, so
+    #: a bot's or a strategy's late order after an Emergency Stop is refused
+    #: (`TRADING_SWITCH_OFF`) instead of reopening what the stop closed.
+    opens_session: bool = False
 
     def __post_init__(self) -> None:
         """@raise InvalidClientOrderTagError `client_order_tag` is malformed."""

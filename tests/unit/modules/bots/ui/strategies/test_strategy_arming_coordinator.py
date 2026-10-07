@@ -174,7 +174,7 @@ def test_valid_parameters_are_kept_and_carried_into_the_armed_config(
 def test_a_refused_arm_is_reported_by_the_ports_own_result(view_model, catalog, arming):
     arming.script_arm(
         ArmStrategyResult(
-            armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
+            armed=False, block_reason=ArmStrategyBlockReason.POSITION_OPEN
         )
     )
     coordinator = coordinator_for(view_model, catalog, arming)
@@ -183,7 +183,7 @@ def test_a_refused_arm_is_reported_by_the_ports_own_result(view_model, catalog, 
     result = coordinator.arm()
 
     assert result.armed is False
-    assert result.block_reason is TradingArmStrategyBlockReason.TRADING_IS_ENABLED
+    assert result.block_reason is TradingArmStrategyBlockReason.POSITION_OPEN
 
 
 def test_disarm_calls_the_port(view_model, catalog, arming):
@@ -200,7 +200,7 @@ def test_disarm_calls_the_port(view_model, catalog, arming):
 def test_a_blocked_disarm_is_reported_not_swallowed(view_model, catalog, arming):
     arming.script_disarm(
         DisarmStrategyResult(
-            disarmed=False, block_reason=DisarmStrategyBlockReason.TRADING_IS_ENABLED
+            disarmed=False, block_reason=DisarmStrategyBlockReason.POSITION_OPEN
         )
     )
     coordinator = coordinator_for(view_model, catalog, arming)
@@ -208,7 +208,7 @@ def test_a_blocked_disarm_is_reported_not_swallowed(view_model, catalog, arming)
     result = coordinator.disarm()
 
     assert result.disarmed is False
-    assert result.block_reason is TradingDisarmStrategyBlockReason.TRADING_IS_ENABLED
+    assert result.block_reason is TradingDisarmStrategyBlockReason.POSITION_OPEN
 
 
 def test_the_armed_summary_distinguishes_two_armings_of_one_strategy(

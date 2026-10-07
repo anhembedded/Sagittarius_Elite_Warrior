@@ -23,12 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
 )
 
 _SAFETY_GATE_TEXT: dict[ExecuteOrderSafetyGate, str] = {
-    ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED: (
-        "TradingVenue is DISABLED — enable it via "
-        "exchange.trading_venue=futures_testnet or spot_testnet."
-    ),
+    ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED: ("This venue cannot place orders."),
     ExecuteOrderSafetyGate.TRADING_SWITCH_OFF: (
-        "The trading.enabled switch is off — turn it on with EnableTradingCommand first."
+        "No order session is open — `trade-once` never opens one; starting a "
+        "bot, arming a strategy or placing an order in the app does."
     ),
     ExecuteOrderSafetyGate.CONNECTION_NOT_READY: (
         "Exchange connection not ready (unreachable, or Hedge Mode) — run "

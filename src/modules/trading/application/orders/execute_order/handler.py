@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.resolve_unknown_outcome import (
     resolve_unknown,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
@@ -36,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
     OrderOutcomeUnknownError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
+    OrderPreview,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
@@ -58,6 +64,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
 
 logger = logging.getLogger("App.CommandHandler")
 
+#: What the free, before-the-network checks can refuse an order with.
+_Refusal = (
+    ExecuteOrderNotionalRejection
+    | ExecuteOrderStopRejection
+    | ExecuteOrderPriceRejection
+    | ExecuteOrderTypeRejection
+    | ExecuteOrderSafetyGate
+)
+
 
 class ExecuteOrderCommandHandler(
     ICommandHandler[ExecuteOrderCommand, ExecuteOrderResult]
@@ -65,17 +80,24 @@ class ExecuteOrderCommandHandler(
     """@details `EPIC-028B` — acts on `command.venue` only: its session
     state, its connection and its client come from one
     `VenueTradingScopes.get()` call, so an order can never be checked
-    against one venue and sent to another."""
+    against one venue and sent to another.
+
+    `EPIC-034C` — every live order needs the venue's order session open
+    (`TRADING_SWITCH_OFF` otherwise), and the session opens only through
+    `SessionReadiness`, which reconciles the account first. A manual order opens
+    it here; Start bot and arm strategy open it in their own use cases."""
 
     def __init__(
         self,
         scopes: VenueTradingScopes,
         preview_handler: PreviewOrderQueryHandler,
         limits_policy: TradingLimitPolicy,
+        readiness: SessionReadiness,
     ) -> None:
         self._scopes = scopes
         self._preview_handler = preview_handler
         self._limits_policy = limits_policy
+        self._readiness = readiness
 
     def execute(self, command: ExecuteOrderCommand) -> ExecuteOrderResult:
         logger.debug(
@@ -94,39 +116,36 @@ class ExecuteOrderCommandHandler(
         scope = self._scopes.get(command.venue)
         session_state = scope.session_state
 
+        # `EPIC-034C` — a manual live order is the deliberate action that
+        # opens the order session: the same reconciliation Start bot and arm
+        # strategy run, before anything is sent. An automated order
+        # (`opens_session` False) never reaches it, so it cannot reopen a
+        # session Emergency Stop closed. It comes after the refusals that cost
+        # nothing (the preview's, the lease), so a refused order opens nothing
+        # and resumes no bot.
+        preview: OrderPreview | None = None
+        if command.live and command.opens_session:
+            preview = self._preview_handler.execute(command.order_request)
+            refusal: _Refusal | None = self._refusal_from(preview, scope)
+            if refusal is None and self._leased_to_another(command, scope):
+                refusal = ExecuteOrderSafetyGate.SYMBOL_LEASED
+            if refusal is not None:
+                return ExecuteOrderResult(refusal, preview, (), None)
+            opened = self._readiness.ensure_ready(command.venue)
+            if not opened.ready:
+                return ExecuteOrderResult(opened.block_reason, None, (), None)
+
         gate = self._first_blocked_safety_gate(command, scope)
         if gate is not None:
             return ExecuteOrderResult(gate, None, (), None)
 
-        preview = self._preview_handler.execute(command.order_request)
-
-        # `BUG-090` — refuse before the four session limits, and well
-        # before any network call, rather than letting an order this
-        # app's own normalization already knows is too small round-trip
-        # to the exchange for a `-4164` rejection.
-        if preview.notional_check is NotionalCheck.INSUFFICIENT:
-            return ExecuteOrderResult(
-                ExecuteOrderNotionalRejection.MIN_NOTIONAL, preview, (), None
-            )
-        # `EPIC-028O` — the same before-the-network refusals: first a stop
-        # that would trigger at once (wrong on any venue), then an order type
-        # this venue's client cannot send. Named answers on the dry run and
-        # the live path alike, never an exception from inside `place_order`.
-        if preview.stop_check is StopPriceCheck.WRONG_SIDE:
-            return ExecuteOrderResult(
-                ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE, preview, (), None
-            )
-        # `BUG-147` — a price outside the venue's band, refused by name
-        # instead of the exchange's `-1013 PERCENT_PRICE_BY_SIDE`.
-        if preview.price_band_check is PriceBandCheck.OUTSIDE:
-            return ExecuteOrderResult(
-                ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND, preview, (), None
-            )
-        accepted = scope.ports.client_factory.accepted_order_types()
-        if preview.order.order_type not in accepted:
-            return ExecuteOrderResult(
-                ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE, preview, (), None
-            )
+        if preview is None:
+            preview = self._preview_handler.execute(command.order_request)
+            # `BUG-090`, `EPIC-028O`, `BUG-147` — refused before the four
+            # session limits and before any network call (see `_refusal_from`).
+            refusal = self._refusal_from(preview, scope)
+            if refusal is not None:
+                return ExecuteOrderResult(refusal, preview, (), None)
 
         symbol = command.order_request.symbol
         # `EPIC-024B` — held for the whole evaluate→submit→record sequence,
@@ -235,6 +254,43 @@ class ExecuteOrderCommandHandler(
             return ExecuteOrderResult(
                 None, preview, checks, submitted_order, context, limits
             )
+
+    @staticmethod
+    def _refusal_from(
+        preview: OrderPreview, scope: VenueTradingScope
+    ) -> (
+        ExecuteOrderNotionalRejection
+        | ExecuteOrderStopRejection
+        | ExecuteOrderPriceRejection
+        | ExecuteOrderTypeRejection
+        | None
+    ):
+        """@details The before-the-network refusals the preview already holds,
+        in order. `BUG-090` — an order this app's own normalization knows is too
+        small is refused here, rather than round-tripping for a `-4164`.
+        `EPIC-028O` — a stop that would trigger at once, then an order type this
+        venue's client cannot send; named answers on the dry run and the live
+        path alike, never an exception from inside `place_order`. `BUG-147` — a
+        price outside the venue's band, instead of the exchange's `-1013`."""
+        if preview.notional_check is NotionalCheck.INSUFFICIENT:
+            return ExecuteOrderNotionalRejection.MIN_NOTIONAL
+        if preview.stop_check is StopPriceCheck.WRONG_SIDE:
+            return ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE
+        if preview.price_band_check is PriceBandCheck.OUTSIDE:
+            return ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND
+        if (
+            preview.order.order_type
+            not in scope.ports.client_factory.accepted_order_types()
+        ):
+            return ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE
+        return None
+
+    @staticmethod
+    def _leased_to_another(
+        command: ExecuteOrderCommand, scope: VenueTradingScope
+    ) -> bool:
+        holder = scope.session_state.lease_holder(command.order_request.symbol)
+        return holder is not None and holder != command.owner_id
 
     @staticmethod
     def _first_blocked_safety_gate(

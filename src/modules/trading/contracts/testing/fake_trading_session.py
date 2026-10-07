@@ -1,7 +1,7 @@
 """`FakeTradingSession` — `ITradingSession`'s verified fake.
 
 In-memory, deterministic, no Qt and no network. A test says what the session
-looks like, what `enable()` / `emergency_stop()` answer — or which of them
+looks like, what `ensure_ready()` / `emergency_stop()` answer — or which of them
 raises — then reads back how many times each was asked.
 
 @par Why the snapshot is stored rather than derived
@@ -18,9 +18,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_resu
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
     TradingSessionSnapshot,
@@ -33,10 +30,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionReadyResult,
+)
 
-#: What a fresh fake reports: trading off, nothing sent, nothing open. The same
-#: state a real `TradingSessionState` starts in — `EPIC-021G` requires the user
-#: to turn trading on explicitly every session, so a fake that started enabled
+#: What a fresh fake reports: session closed, nothing sent, nothing open. The same
+#: state a real `TradingSessionState` starts in — a deliberate action opens it
+#: every session (`EPIC-021G`, `EPIC-034C`), so a fake that started open
 #: would let a test pass against a state the app never boots into.
 _FRESH = TradingSessionSnapshot(
     enabled=False, orders_sent_this_session=0, known_open_symbols=()
@@ -52,16 +52,15 @@ class FakeTradingSession(ITradingSession):
 
     def __init__(self, snapshot: TradingSessionSnapshot = _FRESH) -> None:
         self._snapshot = snapshot
-        self._enable_result: EnableTradingResult | None = None
+        self._ready_result: SessionReadyResult | None = None
         self._stop_result: EmergencyStopResult | None = None
-        self._enable_error: Exception | None = None
+        self._ready_error: Exception | None = None
         self._stop_error: Exception | None = None
         #: How many times each call was made. Named separately because a
         #: screen calling `snapshot()` per repaint is a defect a test should
-        #: be able to see, and it looks nothing like calling `enable()` twice.
+        #: be able to see, and it looks nothing like calling `ensure_ready()` twice.
         self.snapshot_reads = 0
-        self.enables = 0
-        self.disables = 0
+        self.ready_requests = 0
         self.emergency_stops = 0
         #: `EPIC-025` PR 2.1f — the lease, kept the way the real state keeps
         #: it: **one symbol per owner**, so claiming a second releases the
@@ -77,7 +76,7 @@ class FakeTradingSession(ITradingSession):
         #: beyond its port that no test needs is exactly what `BUG-120` was.
         self._symbol_by_owner: dict[str, str] = {}
         #: `EPIC-029` ADR D6 — the budgets registered this session, by owner.
-        #: Cleared on disable and Emergency Stop, as the real state clears
+        #: Cleared on Emergency Stop, as the real state clears
         #: its books.
         self.budgets: dict[str, OwnerBudgetRegistration] = {}
         self._registration_answer: OwnerBudgetRegistrationResult | None = None
@@ -95,8 +94,8 @@ class FakeTradingSession(ITradingSession):
             known_open_symbols=self._snapshot.known_open_symbols,
         )
 
-    def enable_answers(self, result: EnableTradingResult) -> None:
-        self._enable_result = result
+    def ready_answers(self, result: SessionReadyResult) -> None:
+        self._ready_result = result
 
     def emergency_stop_answers(self, result: EmergencyStopResult) -> None:
         self._stop_result = result
@@ -108,17 +107,17 @@ class FakeTradingSession(ITradingSession):
         refusal registers nothing."""
         self._registration_answer = result
 
-    def enable_raises(self, error: Exception) -> None:
-        """Makes the next `enable()` raise instead of answering.
+    def ready_raises(self, error: Exception) -> None:
+        """Makes the next `ensure_ready()` raise instead of answering.
 
-        A refusal is a *result* (`EnableTradingResult.block_reason`), never an
+        A refusal is a *result* (`SessionReadyResult.block_reason`), never an
         exception — but the two network round trips behind it can still fail,
         and a caller that lets that reach the UI thread as an uncaught
         exception is a defect. Both Presenters carry a test for exactly that,
         and this is how they produce it without substituting the port
         (HLD §10.3 rule 4).
         """
-        self._enable_error = error
+        self._ready_error = error
 
     def emergency_stop_raises(self, error: Exception) -> None:
         """The same, for `emergency_stop()` — where it matters more: the button
@@ -130,30 +129,25 @@ class FakeTradingSession(ITradingSession):
         self.snapshot_reads += 1
         return self._snapshot
 
-    def enable(self) -> EnableTradingResult:
-        self.enables += 1
-        if self._enable_error is not None:
-            raise self._enable_error
-        if self._enable_result is None:
-            # The default is a *successful* enable, and it also updates the
-            # snapshot: a fake whose `enable()` left `snapshot().enabled`
-            # False would let a caller's "did it turn on?" assertion pass for
+    def ensure_ready(self) -> SessionReadyResult:
+        self.ready_requests += 1
+        if self._ready_error is not None:
+            raise self._ready_error
+        if self._ready_result is None:
+            # The default is a *successful* open, and it also updates the
+            # snapshot: a fake whose `ensure_ready()` left `snapshot().enabled`
+            # False would let a caller's "did it open?" assertion pass for
             # the wrong reason.
             self.set_enabled(enabled=True)
-            return EnableTradingResult(
-                enabled=True,
+            return SessionReadyResult(
+                ready=True,
                 block_reason=None,
                 reconciled_positions=(),
                 reconciled_open_orders=(),
             )
-        if self._enable_result.enabled:
+        if self._ready_result.ready:
             self.set_enabled(enabled=True)
-        return self._enable_result
-
-    def disable(self) -> None:
-        self.disables += 1
-        self.set_enabled(enabled=False)
-        self.budgets.clear()
+        return self._ready_result
 
     def register_owner_budget(
         self, registration: OwnerBudgetRegistration

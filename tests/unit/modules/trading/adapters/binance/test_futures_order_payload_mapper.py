@@ -179,7 +179,7 @@ class TestReverseOrderMapping:
     ) -> None:
         """`BUG-091` — the same risk `test_user_data_event_parser.py`
         guards for the websocket shape, here for the REST reconciliation
-        shape `EnableTradingCommand.get_open_orders()` feeds: an order
+        shape `EnsureSessionReadyCommand.get_open_orders()` feeds: an order
         this app didn't place itself (a manually-placed testnet order)
         must not vanish from reconciliation just because its `type`/
         `status` isn't one of this app's own narrow set."""
@@ -276,7 +276,7 @@ class TestPositionMapping:
     ) -> None:
         """`BUG-114` — `map_futures_position_payload_to_live_position`
         used to raise `KeyError('leverage')` on this exact real payload,
-        breaking `GetOpenPositionsQuery`/`EnableTradingCommand` for any
+        breaking `GetOpenPositionsQuery`/`EnsureSessionReadyCommand` for any
         account with a real open position. Leverage recovered from
         `notional`/`initialMargin`'s own ratio (Binance's own margin
         formula), independently confirmed as 20x on Binance's Testnet UI

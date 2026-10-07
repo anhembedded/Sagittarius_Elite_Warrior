@@ -7,14 +7,14 @@ a guarantee no consumer needs is not in the suite):
 2. it is a **snapshot** — the value a caller holds does not change underneath
    them when the session does. Four presentation files used to read the
    mutable service directly, which is the defect this port exists to close;
-3. `disable()` always succeeds and is visible in the next snapshot. It cannot
-   refuse, which is why it has no result type;
-4. a successful `enable()` is visible in the next snapshot — a caller asking
-   "did it turn on?" must not have to take the result's word for it;
-5. `emergency_stop()` leaves the session disabled whatever its three steps
+3. a successful `ensure_ready()` is visible in the next snapshot — a caller
+   asking "did it open?" must not have to take the result's word for it
+   (`EPIC-034C`: there is no `disable()`; the session only closes by Emergency
+   Stop);
+4. `emergency_stop()` leaves the session closed whatever its three steps
    reported. A partial stop is a real outcome, but "trading still on" is not
    one of its forms;
-6. the **symbol lease** (`EPIC-025` PR 2.1f): claiming is idempotent for its
+5. the **symbol lease** (`EPIC-025` PR 2.1f): claiming is idempotent for its
    own owner, one owner holds one symbol so a second claim releases the first,
    releasing is a no-op for a symbol you do not hold, and one owner can never
    release another's claim. The last of those is the one that matters — the
@@ -53,8 +53,8 @@ type GivenSession = Callable[[TradingSessionSnapshot], None]
 class SymbolLeaseContract:
     """The lease half, on its own so an implementation can run **just** this.
 
-    @details `TradingSessionContract` needs `enable()`, which needs the real
-    `EnableTradingCommandHandler` behind a dispatcher — which is why the real
+    @details `TradingSessionContract` needs `ensure_ready()`, which needs the real
+    `EnsureSessionReadyCommandHandler` behind a dispatcher — which is why the real
     `TradingSessionService` has never run the full suite (that file's own
     docstring records it). The lease needs none of that: `claim_symbol` and
     `release_symbol` go straight to `TradingSessionState`. Splitting it out is
@@ -179,25 +179,12 @@ class TradingSessionContract(SymbolLeaseContract):
         )
         held = impl.snapshot()
 
-        impl.disable()
+        impl.emergency_stop()
 
         assert held.enabled is True
         assert held.known_open_symbols == ("BTCUSDT",)
 
-    def test_disable_is_visible_in_the_next_snapshot(
-        self, impl: ITradingSession, given_session: GivenSession
-    ) -> None:
-        given_session(
-            TradingSessionSnapshot(
-                enabled=True, orders_sent_this_session=0, known_open_symbols=()
-            )
-        )
-
-        impl.disable()
-
-        assert impl.snapshot().enabled is False
-
-    def test_a_successful_enable_is_visible_in_the_next_snapshot(
+    def test_a_successful_open_is_visible_in_the_next_snapshot(
         self, impl: ITradingSession, given_session: GivenSession
     ) -> None:
         given_session(
@@ -206,9 +193,9 @@ class TradingSessionContract(SymbolLeaseContract):
             )
         )
 
-        result = impl.enable()
+        result = impl.ensure_ready()
 
-        if result.enabled:
+        if result.ready:
             assert impl.snapshot().enabled is True
 
     def test_emergency_stop_leaves_the_session_disabled(
@@ -255,11 +242,9 @@ class OwnerBudgetContract:
             "an OwnerBudgetContract subclass must provide an `impl` fixture"
         )
 
-    def test_a_budget_is_refused_while_trading_is_off(
+    def test_a_budget_is_refused_while_the_session_is_closed(
         self, impl: ITradingSession
     ) -> None:
-        impl.disable()
-
         result = impl.register_owner_budget(contract_registration())
 
         assert result.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF

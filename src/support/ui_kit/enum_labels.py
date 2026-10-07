@@ -13,7 +13,7 @@ mistake:
 
 That is not twelve style choices, it is twelve chances to add an enum
 member and forget its text. One had already been taken:
-`EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` (the
+`SessionBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` (the
 `BUG-088` race — an Emergency Stop landing mid-reconciliation) had no
 line, so the one situation where a user most needs to be told *why*
 their click was refused showed "Không thể bật giao dịch." instead.

@@ -43,8 +43,8 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-034A | [Venue titles, chart messages, disabled reasons](incomplete/EPIC-034A_bots_mode_says_what_it_knows.md) | — | 🟢 | 🔵 Planned | — |
-| EPIC-034B | [Every venue with a key is on](incomplete/EPIC-034B_every_venue_with_a_key_is_on.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-034C | [Trading switch folded into actions](incomplete/EPIC-034C_trading_switch_folded_into_actions.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-034B | [Every venue with a key is on](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
+| EPIC-034C | [Trading switch folded into actions](completed/EPIC-034C_trading_switch_folded_into_actions.md) | — | 🔴 | ✅ Done (2026-10-07) | — |
 | EPIC-034D | [Connect step](incomplete/EPIC-034D_connect_step.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-034E | [Mainnet read-only account](incomplete/EPIC-034E_mainnet_read_only_account.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-034F | [Design step constraints](incomplete/EPIC-034F_design_step_constraints.md) | — | 🟡 | 🔵 Planned | — |

@@ -1,6 +1,6 @@
 """`EPIC-027O` — `GetHoldingsQueryHandler`.
 
-@details Reuses the seam `EnableTradingCommandHandler`/`EmergencyStopCommandHandler`
+@details Reuses the seam `EnsureSessionReadyCommandHandler`/`EmergencyStopCommandHandler`
 already read Spot holdings through: `ITradingAccountReader.check_connection()`'s
 `ExchangeConnectionStatus.holdings` (`EPIC-027H`). No new port method — a
 Futures venue already answers `None` there, so this handler needs no

@@ -22,9 +22,10 @@ def test_every_alignment_state_has_content() -> None:
         assert content.severity in tuple(Severity)
 
 
-def test_trading_disabled_says_view_only() -> None:
-    content = venue_alignment_banner_content(VenueAlignment.TRADING_DISABLED)
-    assert "OFF" in content.message
+def test_no_banner_state_says_trading_is_off() -> None:
+    """`EPIC-034C` — the switch is gone, and so is the state that named it."""
+    for alignment in VenueAlignment:
+        assert "OFF" not in venue_alignment_banner_content(alignment).message
 
 
 def test_mainnet_data_trap_names_both_venues() -> None:
@@ -51,7 +52,6 @@ def test_each_alignment_state_maps_to_its_documented_severity() -> None:
     instead of assuming severities must be pairwise distinct, and still
     fails if a state is added here without an entry below."""
     expected_severity = {
-        VenueAlignment.TRADING_DISABLED: Severity.INFO,
         VenueAlignment.ALIGNED: Severity.WARN,
         VenueAlignment.MARKET_MISMATCH: Severity.DANGER,
         VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: Severity.DANGER,

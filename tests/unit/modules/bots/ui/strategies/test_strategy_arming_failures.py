@@ -41,7 +41,7 @@ def test_a_refused_arm_the_user_pressed_is_a_command_failure_with_the_ports_text
     arming.script_arm(
         ArmStrategyResult(
             armed=False,
-            block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED,
+            block_reason=ArmStrategyBlockReason.POSITION_OPEN,
             error_message="session said no",
         )
     )
@@ -53,7 +53,7 @@ def test_a_refused_arm_the_user_pressed_is_a_command_failure_with_the_ports_text
 
     notice = notifier.last
     assert notice.kind is FailureKind.COMMAND
-    assert "turn off trading" in notice.headline
+    assert "position is open" in notice.headline
     assert "session said no" not in notice.headline
     assert notice.detail == "session said no"
 
@@ -82,7 +82,7 @@ def test_a_disarm_that_raised_or_was_blocked_is_a_command_failure(
     ).on_disarm_clicked()
     arming.script_disarm(
         DisarmStrategyResult(
-            disarmed=False, block_reason=DisarmStrategyBlockReason.TRADING_IS_ENABLED
+            disarmed=False, block_reason=DisarmStrategyBlockReason.POSITION_OPEN
         )
     )
     coordinator_for(view_model, catalog, arming, notifier=blocked).on_disarm_clicked()
@@ -91,5 +91,5 @@ def test_a_disarm_that_raised_or_was_blocked_is_a_command_failure(
     assert raised.last.detail == "session broke"
     assert "session broke" not in raised.last.headline
     assert blocked.last.kind is FailureKind.COMMAND
-    assert "turn off trading" in blocked.last.headline
+    assert "position is open" in blocked.last.headline
     assert blocked.last.cause == "bots.strategy.disarm"

@@ -73,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
     EmergencyStopCommand,
     EmergencyStopCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -231,7 +234,10 @@ def process():
             contexts=contexts,
             states=states,
             execute=ExecuteOrderCommandHandler(
-                scopes, preview, TradingLimitPolicy(_LIMITS)
+                scopes,
+                preview,
+                TradingLimitPolicy(_LIMITS),
+                SessionReadiness(scopes, RecordingPublisher()),
             ),
             cancel=CancelOrderCommandHandler(scopes),
             emergency_stop=EmergencyStopCommandHandler(scopes, RecordingPublisher()),

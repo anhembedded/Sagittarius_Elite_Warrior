@@ -81,8 +81,6 @@ class VenueArming:
 
     def __init__(self, venue: TradingVenue) -> None:
         self.venue = venue
-        #: The venue's live trading switch, as a test sets it.
-        self.trading_on = False
         self.arming = FakeStrategyArming()
         self.armed = FakeArmedStrategy()
         self.controls = VenueStrategyControls(
@@ -156,7 +154,6 @@ def venue_strategies(
     statuses: Statuses | None = None,
     notifier: RecordingNotifier | None = None,
 ) -> VenueStrategies:
-    by_venue = {venue.venue: venue for venue in venues}
     return VenueStrategies(
         panel,
         StrategyPorts(
@@ -166,6 +163,5 @@ def venue_strategies(
             ask=ask or Asked(),
             set_status=statuses if statuses is not None else Statuses(),
             notifier=notifier if notifier is not None else RecordingNotifier(),
-            trading_on=lambda venue: by_venue[venue].trading_on,
         ),
     )

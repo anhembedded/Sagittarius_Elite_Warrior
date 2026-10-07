@@ -7,7 +7,7 @@ mode with Spot chosen on its toolbar. An order typed after Trade → New
 order… (F9) runs from the venue's own Buy button to the wire and back.
 
 The mode is also measured here with both venues' pages built, which the
-conformance suite's boot cannot do (it enables no venue): every check of
+conformance suite's boot cannot do (it has no key for either venue): every check of
 `test_workbench_conformance.py` at each window size, with each venue shown,
 and a picture of each (`SEW_UI_SCREENSHOTS`, `pr-review` SKILL §5.1).
 
@@ -26,11 +26,10 @@ configuration:
   one loop the fixture owns and closes; `test_no_event_loop_is_left_unclosed`
   fails if one comes back.
 
-Only the "trading on" test seeds the session as enabled directly: the toggle
-would also start the venue's user-data websocket, which the fake server does
-not speak. The composed path from the toggle through
-`EnableTradingCommandHandler` is proven at unit level only (`EPIC-028S` §3).
-The unit tests over fakes are `tests/unit/modules/trading/ui/trade/` and
+The fake server speaks no websocket, so the harness (`trade_mode_boot.py`)
+stubs each venue's user-data `start`; opening the order session
+(`EPIC-034C`) is otherwise real here — a Buy reconciles the account through
+`SessionReadiness`, opens the session and sends. The unit tests over fakes are `tests/unit/modules/trading/ui/trade/` and
 `tests/unit/modules/trading/ui/desk/`.
 """
 
@@ -44,15 +43,9 @@ from decimal import Decimal
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-    ExecuteOrderSafetyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
-    format_execute_order_block_reason,
 )
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.trade_mode_boot import (
     SPOT,
@@ -117,22 +110,19 @@ def test_f9_focuses_the_spot_entry_read_from_the_venue(spot_desk, qtbot) -> None
     assert _order_posts(spot_desk.urls) == []
 
 
-def test_a_buy_while_trading_is_off_is_refused_in_words_and_never_sent(
-    spot_desk, qtbot
-) -> None:
-    """The real handler's gate answers, and nothing reaches the exchange."""
+def test_a_buy_opens_the_closed_session_and_is_sent(spot_desk, qtbot) -> None:
+    """`EPIC-034C` — no Enable trading step: the order is the deliberate action.
+    The real handler reconciles the account (`SessionReadiness`), opens the
+    session and sends the order."""
+    state = spot_desk.scopes.get(SPOT).session_state
+    assert state.enabled is False
     new_order(spot_desk)
     _type_resting_limit_buy(spot_desk, qtbot)
-    vm = spot_desk.presenter.orders
-    refusal = format_execute_order_block_reason(
-        ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
-    )
 
     _buy(spot_desk, qtbot)
 
-    qtbot.waitUntil(lambda: refusal in vm.message, timeout=_WAIT_MS)
-    assert vm.message_is_error
-    assert _order_posts(spot_desk.urls) == []
+    qtbot.waitUntil(lambda: len(_order_posts(spot_desk.urls)) == 1, timeout=_WAIT_MS)
+    assert state.enabled is True
 
 
 def test_a_resting_limit_placed_on_the_desk_reaches_the_venue_and_open_orders(

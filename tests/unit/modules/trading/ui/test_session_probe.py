@@ -114,11 +114,11 @@ def test_one_refresh_is_one_read_of_the_session(qapp) -> None:
 
 
 def test_it_never_asks_the_session_to_do_anything(qapp) -> None:
-    """A probe reports. Enabling trading from a dev panel would be a second
-    way to arm the most dangerous switch in the app, next to the one the user
-    knows about."""
+    """A probe reports. Opening the order session from a dev panel would be a
+    second way to start trading, beside the three actions the user knows
+    about (`EPIC-034C`)."""
     session = FakeTradingSession(_snapshot())
 
     TradingSessionProbe(session).refresh()
 
-    assert (session.enables, session.disables, session.emergency_stops) == (0, 0, 0)
+    assert (session.ready_requests, session.emergency_stops) == (0, 0)

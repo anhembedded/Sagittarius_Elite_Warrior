@@ -9,11 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view
 )
 
 
-def test_starts_disabled_and_idle(qapp) -> None:
+def test_starts_on_no_symbol_and_no_options(qapp) -> None:
     vm = DeskViewModel()
 
-    assert vm.enabled is False
-    assert vm.toggleBusy is False
     assert vm.current_symbol == ""
     assert vm.symbolOptions == []
 
@@ -62,31 +60,22 @@ def test_request_symbol_change_emits_only_for_a_real_new_symbol(qapp) -> None:
     assert seen == ["ETHUSDT"]
 
 
-def test_request_toggle_emits_toggle_requested(qapp) -> None:
+def test_request_emergency_stop_emits_emergency_stop_requested(qapp) -> None:
     vm = DeskViewModel()
     seen = []
-    vm.toggleRequested.connect(lambda: seen.append(True))
+    vm.emergencyStopRequested.connect(lambda: seen.append(True))
 
-    vm.requestToggle()
+    vm.requestEmergencyStop()
 
     assert seen == [True]
-
-
-def test_set_trading_state_updates_both_fields_together(qapp) -> None:
-    vm = DeskViewModel()
-
-    vm.set_trading_state(True, False)
-
-    assert vm.enabled is True
-    assert vm.toggleBusy is False
 
 
 def test_set_status_updates_message_and_error_flag(qapp) -> None:
     vm = DeskViewModel()
 
-    vm.set_status("Trading enabled.", False)
+    vm.set_status("Emergency stop completed.", False)
 
-    assert vm.statusMessage == "Trading enabled."
+    assert vm.statusMessage == "Emergency stop completed."
     assert vm.statusIsError is False
 
 

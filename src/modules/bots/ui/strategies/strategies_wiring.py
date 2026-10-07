@@ -54,9 +54,6 @@ def strategies_for(
             ask=ask,
             set_status=set_status,
             notifier=container.resolve(INotifier),
-            trading_on=lambda venue: (
-                trading.get(venue).trading_session.snapshot().enabled
-            ),
         ),
         panel,
     )

@@ -13,9 +13,6 @@ from PySide6.QtWidgets import QComboBox
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
-    desk_profile_for,
-)
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputPane
 
 
@@ -28,18 +25,17 @@ def _pane(main_window) -> OutputPane:
 def test_every_screen_log_is_a_channel_of_the_one_pane(
     qtbot, main_window, app_engine
 ) -> None:
-    """A desk keeps a log only when its venue is enabled in this run; a
-    disabled desk builds no view model and offers no channel."""
+    """The Trade screen keeps one log for its desks, and since `EPIC-034B`
+    every venue is assembled, so the channel is always offered."""
     qtbot.addWidget(main_window)
-    enabled = app_engine.context.container.resolve(IVenueTradingPorts).enabled()
-    desks = {desk_profile_for(venue).title for venue in enabled}
+    assert app_engine.context.container.resolve(IVenueTradingPorts).enabled()
     pane = _pane(main_window)
     choice = pane.findChild(QComboBox, "workbench::output::channel")
     assert choice is not None
 
     titles = {choice.itemText(index) for index in range(choice.count())}
 
-    assert titles == {"Market", "Sync", "Backtest", *desks}
+    assert titles == {"Market", "Sync", "Backtest", "Trade"}
     assert len(main_window.findChildren(OutputPane)) == 1
 
 

@@ -34,10 +34,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
-    TradingSwitchCause,
-    TradingSwitchChangedEvent,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -123,7 +119,8 @@ def test_a_refused_arm_is_said_in_words_and_leaves_the_row_unarmed(rows) -> None
     rows.select(FUTURES)
     rows.futures.arming.script_arm(
         ArmStrategyResult(
-            armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
+            armed=False,
+            block_reason=ArmStrategyBlockReason.POSITION_OPEN,
         )
     )
 
@@ -131,8 +128,7 @@ def test_a_refused_arm_is_said_in_words_and_leaves_the_row_unarmed(rows) -> None
 
     notice = rows.notifier.last
     assert notice.kind is FailureKind.COMMAND
-    assert "turn off trading" in notice.headline
-    assert not any(is_error for _, is_error in rows.statuses)
+    assert "position is open" in notice.headline
     assert rows.cell(FUTURES, "state") == NOT_ARMED_TEXT
 
 
@@ -180,24 +176,18 @@ def test_the_form_opens_on_the_saved_arming_and_never_arms_by_itself(rows) -> No
     assert rows.spot.arming.armed_with is None
 
 
-def test_arm_and_disarm_wait_while_the_venue_trades(rows) -> None:
-    """PR #376 review: the desks' card locked while trading was on
-    (`EPIC-023D`); the session refuses either way, but the commands must
-    not offer what it will refuse."""
+def test_arm_and_disarm_are_offered_whether_or_not_the_venue_trades(rows) -> None:
+    """`EPIC-034C` — the order session stays open once a bot, an arm or an
+    order opened it, so an open session no longer waits the commands: only a
+    selection and an action in flight do (the session refuses by cause)."""
     rows.select(SPOT)
-    rows.spot.trading_on = True
-    rows.strategies.on_trading_switched(
-        TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=SPOT)
-    )
-
-    assert not rows.strategies.can_arm()
-    rows.spot.trading_on = False
-    rows.strategies.arm_selected()
-    rows.spot.trading_on = True
+    assert rows.strategies.can_arm()
     assert not rows.strategies.can_disarm()
 
-    rows.spot.trading_on = False
+    rows.strategies.arm_selected()
+
     assert rows.strategies.can_disarm()
+    assert not rows.strategies.can_arm()
 
 
 def test_a_venue_reads_as_a_title_and_the_state_comes_before_the_summary(

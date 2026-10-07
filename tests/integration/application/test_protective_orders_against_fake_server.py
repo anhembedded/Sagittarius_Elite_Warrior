@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -55,6 +58,9 @@ from Sagittarius_Elite_Warrior.tests.integration.application.test_futures_algo_o
     _client,
     _context,
     _with_fake_exchange,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -91,6 +97,7 @@ def test_a_filled_long_is_protected_past_a_one_order_session() -> None:
             single_venue_scopes(context, state),
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(_ONE_ORDER),
+            SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
         )
         entry = handler.execute(
             ExecuteOrderCommand(

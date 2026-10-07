@@ -1,5 +1,5 @@
 """`EPIC-024A` — port covering the one thing `ExecuteOrderCommandHandler`,
-`EnableTradingCommandHandler` and `EmergencyStopCommandHandler` actually
+`EnsureSessionReadyCommandHandler` and `EmergencyStopCommandHandler` actually
 need from a session factory: a signed session to hand to
 `FuturesTradingClient`.
 

@@ -46,7 +46,7 @@ model does not report. import-linter needs the package importable from the worki
 `root_packages` setting; tach needed neither.
 
 **A finding in its own right.** Five of the twelve violations are `application → infrastructure`:
-the handlers for `execute_order`, `enable_trading`, `cancel_order`, `emergency_stop` and
+the handlers for `execute_order`, `enable_trading` (now `SessionReadiness`, `EPIC-034C`), `cancel_order`, `emergency_stop` and
 `get_open_positions` construct `FuturesTradingClient` directly (documented as deliberate in
 `EPIC-021` — "the only places allowed to construct it with `OrderSubmissionMode.LIVE`"). The
 written rule (`architecture-rule.md` §3) forbids the import; the existing hand-written guard does

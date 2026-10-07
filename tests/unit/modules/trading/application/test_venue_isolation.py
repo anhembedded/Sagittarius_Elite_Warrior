@@ -21,17 +21,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_ord
     SubmitOrderCommand,
     SubmitOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-    DisableTradingCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
     EmergencyStopCommand,
     EmergencyStopCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
-    EnableTradingCommandHandler,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready import (
+    EnsureSessionReadyCommand,
+    EnsureSessionReadyCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
@@ -139,50 +138,41 @@ def test_an_emergency_stop_on_one_venue_leaves_the_other_untouched(
     _assert_untouched(by_venue[kept])
 
 
-def test_enabling_both_venues_starts_both_user_data_streams() -> None:
-    """`EPIC-028C` — two venues, two streams: enabling Futures then Spot
+def test_opening_both_venues_starts_both_user_data_streams() -> None:
+    """`EPIC-028C` — two venues, two streams: opening Futures then Spot
     starts each venue's own stream once, and each venue's own session."""
     futures, spot = _Venue(_FUTURES), _Venue(_SPOT)
     states = {_FUTURES: TradingSessionState(), _SPOT: TradingSessionState()}
-    handler = EnableTradingCommandHandler(
-        venue_scopes(futures.context, spot.context, session_states=states),
-        RecordingPublisher(),
+    handler = EnsureSessionReadyCommandHandler(
+        SessionReadiness(
+            venue_scopes(futures.context, spot.context, session_states=states),
+            RecordingPublisher(),
+        )
     )
 
-    handler.execute(EnableTradingCommand(venue=_FUTURES))
+    handler.execute(EnsureSessionReadyCommand(venue=_FUTURES))
     futures.stream.start.assert_called_once_with()
     spot.stream.start.assert_not_called()
-    handler.execute(EnableTradingCommand(venue=_SPOT))
+    handler.execute(EnsureSessionReadyCommand(venue=_SPOT))
 
     spot.stream.start.assert_called_once_with()
     futures.stream.start.assert_called_once_with()
     assert states[_FUTURES].enabled and states[_SPOT].enabled
 
 
-def test_disabling_one_venue_leaves_the_other_trading() -> None:
-    futures, spot, states = _both()
-    handler = DisableTradingCommandHandler(
-        venue_scopes(futures.context, spot.context, session_states=states),
-        RecordingPublisher(),
-    )
-
-    handler.execute(DisableTradingCommand(venue=_SPOT))
-
-    assert spot.state.enabled is False
-    _assert_untouched(futures)
-
-
 def test_a_command_for_a_venue_that_is_not_served_is_refused() -> None:
-    """Only Futures is configured: a Spot command is a wiring bug, and it
+    """Only Futures is served here: a Spot command is a wiring bug, and it
     fails before any state is created for Spot."""
     futures = _Venue(_FUTURES)
-    handler = DisableTradingCommandHandler(
-        venue_scopes(futures.context, session_states={_FUTURES: futures.state}),
-        RecordingPublisher(),
+    handler = EnsureSessionReadyCommandHandler(
+        SessionReadiness(
+            venue_scopes(futures.context, session_states={_FUTURES: futures.state}),
+            RecordingPublisher(),
+        )
     )
 
     with pytest.raises(VenueNotEnabledError, match="spot_testnet"):
-        handler.execute(DisableTradingCommand(venue=_SPOT))
+        handler.execute(EnsureSessionReadyCommand(venue=_SPOT))
     _assert_untouched(futures)
 
 

@@ -70,6 +70,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    log_ignored_venue_setting,
     resolve_trading_venues,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
@@ -85,7 +86,7 @@ from sagittarius_engine.utils.path_utils import PathUtils
 
 def bind_adapters(container: IContainer) -> None:
     """Bind this context's ports to the adapters that implement them."""
-    # EPIC-024A: ExecuteOrderCommandHandler/EnableTradingCommandHandler/
+    # EPIC-024A: ExecuteOrderCommandHandler/EnsureSessionReadyCommandHandler/
     # EmergencyStopCommandHandler depend on this port, not the concrete
     # factory, so they auto-wire to this same shared instance rather than
     # the container silently constructing each of them a throwaway one.
@@ -119,9 +120,8 @@ def bind_adapters(container: IContainer) -> None:
     )
     container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))
 
-    # The primary venue — the first enabled one, `DISABLED` when none is.
-    # With only the legacy scalar `exchange.trading_venue` configured this is
-    # exactly that value, as before `EPIC-028A`.
+    # The primary venue — the first one in `TradingVenue` order (`EPIC-034B`:
+    # every venue is assembled, none is chosen by configuration).
     container.singleton(TradingVenue, lambda c: c.resolve(VenueContexts).primary_venue)
 
     # EPIC-021G: the four trading limits, all on by default — see
@@ -151,8 +151,10 @@ def _build_venue_contexts(
 ) -> VenueContexts:
     """Every venue's assembly gets the same `shared` inputs, so the
     stateless session factories are built once per process, not per venue."""
+    config = container.resolve(IConfig)
+    log_ignored_venue_setting(config)
     return VenueContexts(
-        resolve_trading_venues(container.resolve(IConfig)),
+        resolve_trading_venues(config),
         lambda venue: VenueAssembly(venue, shared),
     )
 

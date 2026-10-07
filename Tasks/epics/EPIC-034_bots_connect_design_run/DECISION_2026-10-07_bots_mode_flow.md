@@ -51,8 +51,8 @@
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [EPIC-034D](incomplete/EPIC-034D_connect_step.md), [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md), [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
-| D2 | [EPIC-034B](incomplete/EPIC-034B_every_venue_with_a_key_is_on.md) | Not started | Not yet verified |
-| D3 | [EPIC-034C](incomplete/EPIC-034C_trading_switch_folded_into_actions.md) | Not started | Not yet verified |
+| D2 | [EPIC-034B](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | Implemented (PR-2) | Unit, integration and sanity tiers green on the branch; testnet tier not run |
+| D3 | [EPIC-034C](completed/EPIC-034C_trading_switch_folded_into_actions.md) | Implemented (PR-2) | Unit, integration and sanity tiers on the branch; `test_every_order_is_reconciled.py`; testnet tier not run |
 | D4, D5, D10 | [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | Not started | Not yet verified |
 | D6 | [EPIC-034D](incomplete/EPIC-034D_connect_step.md) | Not started | Not yet verified |
 | D7 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Not started | Not yet verified |

@@ -7,6 +7,7 @@ may be live: the result says so instead of counting it open or closed.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
@@ -35,6 +36,17 @@ def closing_order_for(position: LivePosition) -> Order:
         order_type=OrderType.MARKET,
         quantity=abs(position.position_amt),
         reduce_only=True,
+    )
+
+
+def sale_order_for(symbol: str, tag: str | None, quantity: Decimal) -> Order:
+    """The market sale of one bot's (or the account's) share of a Spot asset."""
+    return Order(
+        client_order_id=generate_client_order_id(tag),
+        symbol=symbol,
+        side=OrderSide.SELL,
+        order_type=OrderType.MARKET,
+        quantity=quantity,
     )
 
 

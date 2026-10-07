@@ -264,7 +264,7 @@ class TradingModule(BoundedContextModule):
         """Two things `register()` could not decide or start.
 
         Each venue's `IUserDataStream` is built but deliberately never started by
-        booting: only a successful `EnableTradingCommand` calls `.start()`
+        booting: only a successful `EnsureSessionReadyCommand` calls `.start()`
         on it, so opening the app opens no user-data socket (`EPIC-021H`).
         That stays true whoever registers it.
 
@@ -366,7 +366,7 @@ class TradingModule(BoundedContextModule):
         `EPIC-028B` — one stream per enabled venue, each stopped on its own,
         so one venue failing to close never leaves the other's socket open.
         `TradingVenue.DISABLED` is never enabled and can never start a
-        stream (`EnableTradingCommandHandler` refuses it first).
+        stream (`EnsureSessionReadyCommandHandler` refuses it first).
         """
         contexts = context.container.resolve(IVenueContexts)
         for venue in contexts.enabled():

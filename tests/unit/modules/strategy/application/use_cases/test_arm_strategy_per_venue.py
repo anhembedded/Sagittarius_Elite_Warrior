@@ -176,12 +176,13 @@ def test_disarming_one_venue_leaves_the_other_armed() -> None:
     assert desk.sessions.get(_FUTURES).is_armed is True
 
 
-def _enable_trading(desk: _Desk, venue: TradingVenue) -> None:
+def _open_position(desk: _Desk, venue: TradingVenue, symbol: str) -> None:
+    """The venue's session open, with a position the app opened on `symbol`."""
     desk.trading[venue].answer_with(
         TradingSessionSnapshot(
             enabled=True,
-            orders_sent_this_session=0,
-            known_open_symbols=(),
+            orders_sent_this_session=1,
+            known_open_symbols=(symbol,),
             market_type=MarketType.FUTURES_USD_M,
         )
     )
@@ -211,12 +212,12 @@ def test_a_refused_arm_or_disarm_says_nothing_changed() -> None:
     refused = desk.arm.execute(
         ArmStrategyCommand(_config(_SHORT_CAPABLE, "BTCUSDT"), venue=_SPOT)
     )
-    trading_on = desk.arm.execute(
+    armed = desk.arm.execute(
         ArmStrategyCommand(_config(_LONG_ONLY, "BTCUSDT"), venue=_FUTURES)
     )
-    _enable_trading(desk, _FUTURES)
+    _open_position(desk, _FUTURES, "BTCUSDT")
     blocked = desk.disarm.execute(DisarmStrategyCommand(venue=_FUTURES))
 
-    assert refused.armed is False and trading_on.armed is True
+    assert refused.armed is False and armed.armed is True
     assert blocked.disarmed is False
     assert _changes(desk) == [(_FUTURES, True)]

@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
     EMERGENCY_STOP,
-    ENABLE_TRADING,
     NEW_ORDER,
     trade_commands,
     venue_choice_id,
@@ -61,16 +60,9 @@ class Trade:
     fakes: dict[TradingVenue, DeskFakes]
     registry: ActionRegistry
     confirmer: RecordingConfirmer
-    #: The venues Enable live trading asked about, and what it answers.
-    enable_asked: list[str]
-    enable_answer: list[bool]
 
     def action(self, command_id: str) -> QAction:
         return self.registry.action(command_id)
-
-    @property
-    def enable_trading(self) -> QAction:
-        return self.action(ENABLE_TRADING)
 
     @property
     def new_order(self) -> QAction:
@@ -96,13 +88,6 @@ def build_trade(
     fakes = {
         venue: desk_fakes(world, venue, (setups or {}).get(venue)) for venue in venues
     }
-    enable_asked: list[str] = []
-    enable_answer = [True]
-
-    def confirm_enable(title: str) -> bool:
-        enable_asked.append(title)
-        return enable_answer[0]
-
     view = TradeView()
     qtbot.addWidget(view)
     presenter = TradePresenter(
@@ -112,13 +97,10 @@ def build_trade(
             venues=venues,
             desk=lambda venue: fakes[venue].deps,
             confirmations=YES_TO_EVERY_TABLE_QUESTION,
-            confirm_enable=confirm_enable,
         ),
     )
     confirmer = RecordingConfirmer()
     registry = bound_actions(
         view, trade_commands(TRADE_ROUTE, venues), presenter.bind_commands, confirmer
     )
-    return Trade(
-        view, presenter, fakes, registry, confirmer, enable_asked, enable_answer
-    )
+    return Trade(view, presenter, fakes, registry, confirmer)

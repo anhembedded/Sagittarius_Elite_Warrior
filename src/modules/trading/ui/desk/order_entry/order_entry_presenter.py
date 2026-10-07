@@ -71,11 +71,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_con
     ConfirmOrder,
     build_confirmation,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_context import (
+    context_from_reads,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_failures import (
     OrderEntryFailures,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_requests import (
-    order_entry_context_for,
     order_request_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
@@ -91,6 +93,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_out
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
     SubmitFailureKind,
     submit_failure_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    KeyCheck,
+    always_keyed,
+    no_key_text,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -129,6 +136,7 @@ class OrderEntryPresenter(QObject):
         thread_manager: IThreadManager,
         confirm: ConfirmOrder,
         notifier: INotifier,
+        has_key: KeyCheck = always_keyed,
     ) -> None:
         super().__init__(view_model)
         if ports.venue is not view_model.profile.venue:
@@ -136,6 +144,7 @@ class OrderEntryPresenter(QObject):
                 f"the {view_model.profile.title} panel was given "
                 f"{ports.venue.value}'s ports"
             )
+        self._has_key = has_key
         self._vm = view_model
         self._writes = view_model.presenter_side()
         self._ports = ports
@@ -179,6 +188,10 @@ class OrderEntryPresenter(QObject):
         symbol = self._vm.order_symbol
         if not symbol:
             return
+        if not self._has_key():
+            # `EPIC-034B` — a venue with no key reads nothing (`venue_key.py`).
+            self._writes.show_error(no_key_text(self._ports.venue))
+            return
         action = self._loads.begin_action(_LOAD, symbol, None)
         self._threads.submit(self._run_load, action.action_id, symbol)
 
@@ -192,8 +205,8 @@ class OrderEntryPresenter(QObject):
             terms = self._ports.order_entry_terms.terms_for(symbol)
             status = self._ports.account_snapshot.check_connection()
             limit = self._ports.order_entry_terms.order_notional_limit()
-            context = order_entry_context_for(
-                self._vm.profile, symbol, terms, status, limit
+            context = context_from_reads(
+                self._vm.profile.quote_asset, symbol, terms, status, limit
             )
             futures = (
                 read_futures_context(
@@ -318,8 +331,15 @@ class OrderEntryPresenter(QObject):
             # The box only ever narrows: an order the position makes reducing
             # stays so, and a ticked box makes any order reduce-only.
             reduce_only = intent.reduce_only or request.reduce_only
+            # `EPIC-034C` — placing the order is the action that opens the
+            # venue's order session, after the reconciliation every start runs.
             result = self._ports.order_submission.submit(
-                replace(request, side=intent.side, reduce_only=reduce_only),
+                replace(
+                    request,
+                    side=intent.side,
+                    reduce_only=reduce_only,
+                    opens_session=True,
+                ),
                 live=True,
             )
             self._submitted.emit((action_id, side, result, None, reduce_only))
