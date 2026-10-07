@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
@@ -23,3 +24,7 @@ class LiveChartPorts:
     stream_owner: str
     #: The timeframe the chart opens on.
     interval: str
+    #: The market the candles are of. The chart offers only the timeframes this
+    #: market can load and opens on the nearest one to `interval` that it can
+    #: (`BOT-167`). `None`: no market is told, every timeframe is offered.
+    market: MarketType | None = None

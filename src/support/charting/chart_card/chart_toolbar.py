@@ -84,11 +84,17 @@ originally shipped, recorded here rather than silently rewritten
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QToolBar, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
+    supports_timeframe,
+    timeframe_or_fallback,
+)
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
     TimeframeActions,
@@ -96,6 +102,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     TimeframeSelection,
     all_options,
 )
+
+logger = logging.getLogger("App.ChartToolbar")
 
 #: Re-exported for existing callers/tests (`from ...chart_toolbar import
 #: DEFAULT_TIMEFRAMES`) — the value itself now lives in
@@ -124,6 +132,21 @@ class _ActiveTimeframe:
 
     def __init__(self, code: str | None) -> None:
         self.code = code
+
+
+class _OfferedMarket:
+    """The market whose timeframes this toolbar offers, in one mutable box —
+    read by the selection's `get_codes` closure, written by `set_market`
+    (the same reason as `_ActiveTimeframe`). `None`: no market was told, so
+    every timeframe the domain declares is offered."""
+
+    __slots__ = ("market",)
+
+    def __init__(self) -> None:
+        self.market: MarketType | None = None
+
+    def offers(self, code: str) -> bool:
+        return self.market is None or supports_timeframe(self.market, code)
 
 
 class ChartToolbar(QToolBar):
@@ -181,8 +204,11 @@ class ChartToolbar(QToolBar):
         # module's docstring, "the one hard requirement". `get_codes` offers
         # every domain timeframe rather than the pinned/default subset, because
         # pinning and choosing both reach codes outside `DEFAULT_TIMEFRAMES`.
+        offered = _OfferedMarket()
         selection = TimeframeSelection(
-            get_codes=lambda: [option.code for option in all_options()],
+            get_codes=lambda: [
+                option.code for option in all_options() if offered.offers(option.code)
+            ],
             get_current=lambda: active_state.code or "",
             get_pinned=get_pinned,
             set_pinned=set_pinned,
@@ -193,6 +219,7 @@ class ChartToolbar(QToolBar):
         self.setObjectName("chartToolbar")
         self.setWindowTitle("Chart")
         self._active_state = active_state
+        self._offered = offered
         self._symbol = symbol
         self._pin_preferences = pin_preferences
         self._selection = selection
@@ -241,6 +268,27 @@ class ChartToolbar(QToolBar):
         """
         self._active_state.code = timeframe
         self._selection.set_current(timeframe)
+
+    def set_market(self, market: MarketType) -> None:
+        """Offers only the timeframes `market` can load (`BOT-167`).
+
+        @details Pins and the picker's grid follow, because both read the one
+        `TimeframeSelection`. When the active timeframe is not offered on
+        `market` (`1s` on Futures), the nearest offered one is chosen and
+        reported through `sig_timeframe_changed` like any other choice.
+        """
+        self._offered.market = market
+        self._selection.refresh()
+        active = self._active_state.code
+        if active and not supports_timeframe(market, active):
+            fallback = timeframe_or_fallback(market, active)
+            logger.info(
+                "[chart] timeframe %s is not offered on %s; falling back to %s",
+                active,
+                market.value,
+                fallback,
+            )
+            self._selection.choose(fallback)
 
     def _open_picker(self) -> None:
         """Opens the full timeframe picker, sharing this toolbar's own

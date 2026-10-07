@@ -94,14 +94,19 @@ def test_a_catalogue_that_changes_is_offered(qapp, view_model):
 # --- timeframe --------------------------------------------------------------
 
 
-def test_the_timeframe_field_offers_every_timeframe(qapp, view_model):
+def test_the_timeframe_field_offers_every_timeframe_the_market_loads(qapp, view_model):
     """`EPIC-014`: all sixteen the domain declares, not the chart toolbar's
-    five; the real number too, so a regression to the short list fails."""
+    five; the real number too, so a regression to the short list fails.
+    `BOT-167`: Spot loads all sixteen, Futures fifteen (no `1s`)."""
+    view_model.broker_sim.market = "spot"
     panel = RunSetupPanel(view_model)
 
     codes = [code for _text, code in _items(panel.timeframe)]
     assert codes == list(view_model.timeframeOptions)
     assert len(codes) == 16
+
+    view_model.broker_sim.market = "futures_usd_m"
+    assert len([code for _text, code in _items(panel.timeframe)]) == 15
 
 
 def test_choosing_a_timeframe_writes_it_and_a_change_moves_the_field(qapp, view_model):

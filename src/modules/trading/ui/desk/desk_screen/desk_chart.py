@@ -96,6 +96,7 @@ class DeskChart(LiveCandleChart):
                 ),
                 stream_owner=ports.stream_owner,
                 interval=ports.interval,
+                market=ports.market,
             ),
             parent,
         )

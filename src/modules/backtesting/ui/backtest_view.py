@@ -164,9 +164,13 @@ class BackTestView(OutputSourceView):
         dock.raise_()
 
     def _show_marker_sides(self) -> None:
-        """EPIC-027D — the chart's side filter follows the screen's market."""
-        if self.chart_controls is not None and self._view_model is not None:
-            market = MarketType(self._view_model.broker_sim.market)
+        """EPIC-027D, BOT-167 — marker sides and timeframes follow the market."""
+        if self._view_model is None:
+            return
+        market = MarketType(self._view_model.broker_sim.market)
+        for card in self.chart_cards:
+            card.set_market(market)
+        if self.chart_controls is not None:
             self.chart_controls.show_sides_for(market)
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
@@ -238,12 +242,10 @@ class BackTestView(OutputSourceView):
         self, preferences: TimeframePinPreferences
     ) -> None:
         """Follow-up to `EPIC-015` Phase 4: `BackTestPresenter` injects the
-        container-registered, per-symbol pinned-timeframe store here, the
-        same seam and reason as `set_symbol_preferences` above. Stored for
-        `render_symbol_cards()` to hand to every chart host it builds from
-        now on — Backtest has exactly one chart at a time, but a fresh host
-        is built on every symbol change, so the store (not a single host)
-        is what has to outlive that rebuild."""
+        container-registered, per-symbol pinned-timeframe store, the same
+        seam as `set_symbol_preferences` above. `render_symbol_cards()` hands
+        it to every host it builds: a fresh host is built on every symbol
+        change, so the store, not a host, has to outlive that rebuild."""
         self._timeframe_pin_preferences = preferences
 
     def set_chart_host_factory(self, factory: BacktestChartHostFactory) -> None:
@@ -320,11 +322,9 @@ class BackTestView(OutputSourceView):
             self.set_trade_flags_visible(self.chart_controls.is_trade_flags_checked())
 
     def _filtered_trades(self):
-        """`_last_result.trades` narrowed by `chart_controls`'s marker
-        filters (PROP-004) — a `chart_controls is None` host (never
-        happens once a run has results, but the type is `| None`) falls
-        back to every trade. Only called once `set_trade_flags_visible()`'s
-        own guard has already confirmed `_last_result is not None`."""
+        """`_last_result.trades` narrowed by `chart_controls`'s marker filters
+        (PROP-004); every trade when `chart_controls` is `None`. Only called
+        once `set_trade_flags_visible()` has confirmed `_last_result` is set."""
         trades = self._last_result.trades
         if self.chart_controls is not None:
             trades = filter_trades_for_markers(

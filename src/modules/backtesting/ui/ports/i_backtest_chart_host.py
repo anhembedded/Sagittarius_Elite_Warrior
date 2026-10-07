@@ -14,6 +14,7 @@ from typing import Protocol, runtime_checkable
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
     OhlcCandle,
 )
@@ -132,6 +133,11 @@ class IBacktestChartHost(Protocol):
 
     def set_active_timeframe(self, timeframe: str | None) -> None:
         """Mirror the ViewModel's selected timeframe onto the chart header."""
+        ...
+
+    def set_market(self, market: MarketType) -> None:
+        """`BOT-167` — offers only the timeframes `market` can load in the
+        chart header's timeframe bar."""
         ...
 
     def cleanup(self) -> None: ...

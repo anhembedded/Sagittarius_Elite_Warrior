@@ -21,6 +21,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
+    supports_timeframe,
+)
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
@@ -138,6 +142,14 @@ def all_options() -> list[TimeframeOption]:
         (option for option in options if option is not None),
         key=lambda option: option.seconds,
     )
+
+
+def options_for_market(market: MarketType) -> list[TimeframeOption]:
+    """The catalogue's options `market` can load (`BOT-167`), shortest first:
+    Futures has no `1s`, Spot has everything."""
+    return [
+        option for option in all_options() if supports_timeframe(market, option.code)
+    ]
 
 
 def options_for(codes: object) -> list[TimeframeOption]:

@@ -268,7 +268,9 @@ class MarketPresenter(CommandPresenter):
         card = ChartCard(symbol)
         market = self.choice.current
         sources = ChartSources(
-            self._deps.candles[market], ChartHistory(self._deps.history, market)
+            self._deps.candles[market],
+            ChartHistory(self._deps.history, market),
+            market,
         )
         chart = MarketChart(card, self._deps, sources, symbol, self)
         chart.logged.connect(self.view.log.append)

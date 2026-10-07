@@ -205,6 +205,10 @@ def build_coordinators(presenter) -> Coordinators:
         ),
         notify_config_changed=presenter._on_config_input_changed,
         request_chart_preview=presenter._request_chart_preview,
+        get_timeframe=lambda: presenter._view_model.selectedTimeframe,
+        set_timeframe=lambda value: setattr(
+            presenter._view_model, "selectedTimeframe", value
+        ),
     )
     return Coordinators(
         trade_log=_trade_log,
