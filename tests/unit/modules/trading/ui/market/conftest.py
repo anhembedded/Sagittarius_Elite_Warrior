@@ -78,14 +78,14 @@ def threads():
 
 
 @pytest.fixture
-def feed():
+def feed(history):
     """The Spot candles, the mode's default market."""
-    return RecordingCandleFeed()
+    return RecordingCandleFeed(history)
 
 
 @pytest.fixture
-def futures_feed():
-    return RecordingCandleFeed()
+def futures_feed(history):
+    return RecordingCandleFeed(history, MarketType.FUTURES_USD_M)
 
 
 @pytest.fixture

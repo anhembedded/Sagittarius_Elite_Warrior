@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callba
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
     LiveChartCoordinator,
 )
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    silent_callbacks,
+)
 
 _OWNER = "desk.spot_testnet"
 
@@ -64,13 +67,8 @@ class _FakeToken:
 
 
 def _callbacks(history_ready: MagicMock | None = None) -> LiveChartCallbacks:
-    return LiveChartCallbacks(
-        history_ready=history_ready or MagicMock(),
-        load_finished=MagicMock(),
-        stream_started=MagicMock(),
-        stream_failed=MagicMock(),
-        load_failed=MagicMock(),
-        log=MagicMock(),
+    return silent_callbacks(
+        **({"history_ready": history_ready} if history_ready else {})
     )
 
 
@@ -340,6 +338,9 @@ class _ScriptedFeed(ICandleFeed):
     def load_history(self, symbol, interval, limit):
         if self._read_error is not None:
             raise self._read_error
+        return ()
+
+    def load_older(self, request, cancelled):
         return ()
 
     def start_stream(self, owner_id, symbol, interval) -> CandleStreamStart:

@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -74,6 +75,11 @@ class SampleCandleFeed(ICandleFeed):
             sample_candle(symbol, self._interval, self._start, index)
             for index in range(min(limit, SAMPLE_CANDLES))
         )
+
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        return ()
 
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame

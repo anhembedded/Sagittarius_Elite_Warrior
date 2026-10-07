@@ -52,6 +52,9 @@ class _Feed(ICandleFeed):
     def load_history(self, symbol, interval, limit):
         return ()
 
+    def load_older(self, request, cancelled):
+        return ()
+
     def start_stream(self, owner_id, symbol, interval) -> CandleStreamStart:
         return CandleStreamStart(True, "")
 

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import concurrent.futures
+import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Any
+from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
@@ -17,9 +19,13 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
@@ -94,6 +100,12 @@ class ScriptedCandleFeed(ICandleFeed):
         self.calls.append("history")
         return list(self.stored)
 
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        self.calls.append("older")
+        return []
+
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame
     ) -> CandleStreamStart:
@@ -104,6 +116,15 @@ class ScriptedCandleFeed(ICandleFeed):
 
     def stop_stream(self, owner_id: str) -> None:
         self.calls.append("stop_stream")
+
+
+def silent_callbacks(**overrides: Callable[..., None]) -> LiveChartCallbacks:
+    """Every callback of `LiveChartCallbacks` a `MagicMock`, but those a test
+    names: a new callback needs no edit in each test that builds them."""
+    named = {
+        field.name: MagicMock() for field in dataclasses.fields(LiveChartCallbacks)
+    }
+    return LiveChartCallbacks(**{**named, **overrides})
 
 
 class Clock:

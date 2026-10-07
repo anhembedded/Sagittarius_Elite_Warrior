@@ -255,7 +255,7 @@ def test_a_window_of_a_timeframe_left_behind_is_not_drawn(opened, threads):
     assert not chart.loading
 
 
-def test_nothing_older_is_stored_says_so(build, threads, actions):
+def test_nothing_older_anywhere_says_so(build, threads, actions):
     presenter = build()
     load_older, _load_range = actions(presenter)
     presenter.on_mode_shown(NavigationSource.RESTORE)
@@ -264,7 +264,7 @@ def test_nothing_older_is_stored_says_so(build, threads, actions):
     load_older.trigger()
     threads.run_all()
 
-    assert _logged(presenter, "No older candles of BTCUSDT are stored.")
+    assert _logged(presenter, "No older candles of BTCUSDT are available.")
     assert _opens(presenter.charts["BTCUSDT"]) == list(range(60))
 
 

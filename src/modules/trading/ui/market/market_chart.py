@@ -11,13 +11,15 @@ presenter's Feed — so the runner draws as it computes.
 A chart's own stream owner (`market.<symbol>`) keeps one tab's subscription
 from replacing another's (the epic review of PR 300 found that with desks).
 
-**Beyond the first window (`EPIC-033S`).** `load_older` prepends the stored
-window right before the oldest candle drawn; `load_range` draws exactly a
-chosen span. Both read through `ChartHistory` on the thread pool and come
-back on a Qt signal carrying the load's generation
-(`async-ui-action-rule.md` §1): asking for a new first window (another
-timeframe, going live), drawing a range, or closing the tab moves the
-generation on, and a result of an earlier one is dropped and logged. The
+**Beyond the first window (`EPIC-033S`).** `load_older` asks for the window
+right before the oldest candle drawn, as a pan past it does: the shared
+chart's `older_candles` loads it from the store, else from the exchange
+(`BUG-178`); `load_range` draws exactly a chosen span, read through
+`ChartHistory` on the thread pool. The range comes back on a Qt signal
+carrying the load's generation (`async-ui-action-rule.md` §1): asking for a
+new first window (another timeframe, going live), drawing a range, or closing
+the tab moves the generation on, and a result of an earlier one is dropped
+and logged. The
 chart counts as loading from the moment a first window is asked for until it
 settles (drawn, empty or failed, `LiveCandleChart`'s two hooks), and while
 its own load runs; nothing is asked against it meanwhile, and
@@ -39,10 +41,6 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
-    map_klines,
-    map_volume,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
@@ -114,8 +112,6 @@ class MarketChart(LiveCandleChart):
     loadingChanged = Signal(bool)
     #: Whether a range is drawn in place of the live window.
     showingRangeChanged = Signal(bool)
-    #: `(request, older candles | error)`, from the worker thread.
-    _older_loaded = Signal(object, object)
     #: `(request, (span, RangeCandles) | error)`, from the worker thread.
     _range_loaded = Signal(object, object)
 
@@ -170,7 +166,8 @@ class MarketChart(LiveCandleChart):
         self._loading = False
         self._drawing_range = False
         self._showing_range = False
-        self._older_loaded.connect(self._on_older_loaded)
+        self.older_candles.drawn.connect(self._on_older_drawn)
+        self.older_candles.loadingChanged.connect(self._update_loading)
         self._range_loaded.connect(self._on_range_loaded)
 
     @property
@@ -216,16 +213,10 @@ class MarketChart(LiveCandleChart):
     # -- beyond the first window (`EPIC-033S`) ----------------------------
 
     def load_older(self) -> None:
-        """Prepends the stored window right before the oldest candle drawn."""
-        if self._loading or not self._klines:
-            return
-        request, oldest = self._drawn_request(), self._klines[0]
-        interval = TimeFrame(request.interval)
-        self._start_load(
-            self._older_loaded,
-            request,
-            lambda: self._history_source.older_than(request.symbol, interval, oldest),
-        )
+        """Draws the window right before the oldest candle drawn, as a pan
+        past it does."""
+        if not self._loading:
+            self.older_candles.request_now()
 
     def load_range(self, span: HistoryRange) -> None:
         """Draws exactly the stored candles of `span`, in place of what is
@@ -277,24 +268,9 @@ class MarketChart(LiveCandleChart):
             result = exc
         report_unless_cancelled(load.token, load.report.emit, load.request, result)
 
-    def _on_older_loaded(self, request: _LoadRequest, result: object) -> None:
-        if not self._finish_own_load(request, "older candles"):
-            return
-        if isinstance(result, Exception):
-            self.logged.emit(f"[ERROR] Older candles failed to load: {result}")
-            return
-        older = list(result) if isinstance(result, tuple) else []
-        if not older:
-            self.logged.emit(f"No older candles of {self.shown_symbol} are stored.")
-            return
-        self._chart.prepend_historical_data(map_klines(older))
-        self._chart.prepend_historical_volume(map_volume(older))
+    def _on_older_drawn(self, older: list[MarketData]) -> None:
         self._klines = older + self._klines
         self._replay()
-        logger.info(
-            "[market] %d older candles of %s prepended", len(older), self.shown_symbol
-        )
-        self.logged.emit(f"Loaded {len(older)} older candles of {self.shown_symbol}.")
 
     def _on_range_loaded(self, request: _LoadRequest, result: object) -> None:
         if not self._finish_own_load(request, "range"):
@@ -351,7 +327,9 @@ class MarketChart(LiveCandleChart):
         return False
 
     def _update_loading(self) -> None:
-        loading = self._own_load or self._first_windows > 0
+        loading = (
+            self._own_load or self._first_windows > 0 or self.older_candles.loading
+        )
         if loading != self._loading:
             self._loading = loading
             self.loadingChanged.emit(loading)

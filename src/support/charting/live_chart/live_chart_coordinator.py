@@ -32,6 +32,7 @@ chart's subscription, never another chart's, even on the same symbol.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
@@ -43,12 +44,16 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandlesUnavailableError,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
     report_unless_cancelled,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.older_candles_backfill import (
+    ShownWindow,
 )
 
 if TYPE_CHECKING:
@@ -105,6 +110,15 @@ class LiveChartCoordinator:
         """
         self._thread_manager.submit(self._run, symbol, interval_str, token, go_live)
 
+    def load_older(self, window: ShownWindow, before: datetime) -> None:
+        """Submits the read of the window right before `before` (`BUG-178`):
+        the stored candles, or the exchange's when the store has fewer than a
+        window. It reports through `older_ready` or `older_failed`, and says
+        nothing once the window's token is cancelled."""
+        self._thread_manager.submit(
+            self._run_older, window.symbol, window.interval, before, window.token
+        )
+
     def stop(self) -> None:
         """Fast and synchronous, on the caller's thread. Owner-scoped
         (`BOT-126`): releases only this chart's own subscription. Holding none
@@ -149,6 +163,43 @@ class LiveChartCoordinator:
             )
         finally:
             report.load_finished()
+
+    def _run_older(
+        self,
+        symbol: str,
+        interval_str: str,
+        before: datetime,
+        token: CancellationToken,
+    ) -> None:
+        report = _Reporter(self._callbacks, token)
+        try:
+            request = OlderCandlesRequest(
+                symbol, TimeFrame(interval_str), before, HISTORY_CANDLE_LIMIT
+            )
+            older = list(self._feed.load_older(request, token.is_cancelled))
+        except CandlesUnavailableError as refusal:
+            # A refusal for good: its reason is a sentence for the user, said as
+            # it is (`BUG-172`).
+            reason = refusal.reason
+            report.older_failed(
+                f"{reason} The chart shows the candles it has.",
+                failure_detail(refusal),
+            )
+            return
+        except Exception as exc:
+            logger.warning(
+                "[live-chart] older candles of %s at %s failed",
+                symbol,
+                interval_str,
+                exc_info=True,
+            )
+            report.older_failed(
+                f"Older candles of {symbol} could not be loaded. "
+                "Pan left again to try again.",
+                failure_detail(exc),
+            )
+            return
+        report.older_ready(older)
 
     def _fetch_what_is_missing(
         self,
@@ -276,6 +327,16 @@ class _Reporter:
     ) -> None:
         report_unless_cancelled(
             self._token, self._callbacks.history_ready, symbol, candles, volume, klines
+        )
+
+    def older_ready(self, rows: list) -> None:
+        report_unless_cancelled(
+            self._token, self._callbacks.older_ready, self._token, rows
+        )
+
+    def older_failed(self, headline: str, detail: str) -> None:
+        report_unless_cancelled(
+            self._token, self._callbacks.older_failed, self._token, headline, detail
         )
 
     def stream_started(self, text: str) -> None:

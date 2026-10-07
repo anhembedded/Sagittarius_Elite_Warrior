@@ -70,11 +70,11 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandlesUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
-    LiveChartCallbacks,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
     LiveChartCoordinator,
+)
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    silent_callbacks,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -341,14 +341,7 @@ def test_a_chart_opened_on_an_empty_store_fetches_its_own_venues_history(
     assert market is not None
     drawn = MagicMock()
     stream = MagicMock()
-    callbacks = LiveChartCallbacks(
-        history_ready=drawn,
-        load_finished=MagicMock(),
-        stream_started=stream,
-        stream_failed=MagicMock(),
-        load_failed=MagicMock(),
-        log=MagicMock(),
-    )
+    callbacks = silent_callbacks(history_ready=drawn, stream_started=stream)
     feed = MarketDataCandleFeed(
         ports.market_data_sync, ports.historical_klines, ports.market_stream, market
     )
@@ -359,3 +352,39 @@ def test_a_chart_opened_on_an_empty_store_fetches_its_own_venues_history(
     candles = drawn.call_args.args[3]
     assert [c.open_price for c in candles] == [_FAKE_OPEN[market.value]]
     stream.assert_not_called()
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+@pytest.mark.parametrize("venue", _VENUES)
+def test_older_candles_are_fetched_from_the_charts_own_venue(
+    composed: Callable[[str, bool], Exchange],
+    venue: TradingVenue,
+    global_setting: str,
+) -> None:
+    """`BUG-178` — panning a desk chart past its oldest candle on an empty store
+    fetches the window from the chart's own venue's market (only that
+    environment answers here), never from `exchange.market_data_venue`, stores
+    it in that venue's store and hands it to the chart."""
+    exchange = composed(global_setting, venue.is_testnet)
+    ports = exchange.desk_chart(venue)
+    market = venue.market_type
+    assert market is not None
+    ready = MagicMock()
+    failed = MagicMock()
+    callbacks = silent_callbacks(older_ready=ready, older_failed=failed)
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync, ports.historical_klines, ports.market_stream, market
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.test")
+    token = _NeverCancelled()
+    before = datetime.now(UTC)
+
+    coordinator._run_older(_SYMBOL, "1m", before, token)  # type: ignore[arg-type]
+
+    failed.assert_not_called()
+    rows = ready.call_args.args[1]
+    assert rows, "the venue's market answered with candles"
+    assert [row.open_price for row in rows] == [_FAKE_OPEN[market.value]] * len(rows)
+    assert all(row.open_time < before for row in rows)
+    stored = ports.historical_klines.load(market, _SYMBOL, TimeFrame.ONE_MINUTE)
+    assert len(stored) >= len(rows), "fetched candles are stored before they are drawn"

@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed impo
     CandleStreamStart,
     CandlesUnavailableError,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 
 
@@ -62,21 +63,26 @@ class MarketDataCandleFeed(ICandleFeed):
         *,
         newest: int | None = None,
     ) -> None:
-        try:
-            self._sync.sync(
-                MarketDataSyncRequest(
-                    symbols=(symbol,),
-                    interval=interval,
-                    market=self._market,
-                    start_time=(
-                        None
-                        if newest is None
-                        else datetime.now(UTC)
-                        - timedelta(seconds=interval.to_seconds() * newest)
-                    ),
-                    cancellation_requested=cancelled,
-                )
+        self._fetch(
+            MarketDataSyncRequest(
+                symbols=(symbol,),
+                interval=interval,
+                market=self._market,
+                start_time=(
+                    None
+                    if newest is None
+                    else datetime.now(UTC)
+                    - timedelta(seconds=interval.to_seconds() * newest)
+                ),
+                cancellation_requested=cancelled,
             )
+        )
+
+    def _fetch(self, request: MarketDataSyncRequest) -> None:
+        """Syncs from this feed's own market; a refusal for good (a timeframe or
+        symbol the market does not serve) is `CandlesUnavailableError`."""
+        try:
+            self._sync.sync(request)
         except ExchangeRefusedKlinesError as exc:
             raise CandlesUnavailableError(exc.reason) from exc
 
@@ -89,6 +95,44 @@ class MarketDataCandleFeed(ICandleFeed):
             self._market, symbol, interval, limit=limit, newest_first=True
         )
         return tuple(reversed(newest_first))
+
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        stored = self._stored_before(request)
+        if len(stored) >= request.limit:
+            return stored
+        # The store is short of a window: ask this feed's own market for the
+        # span right before the oldest candle drawn (an upsert, so candles
+        # already stored are written again, never twice), then read it back,
+        # so what is drawn is what a restart reads.
+        span = timedelta(seconds=request.interval.to_seconds() * request.limit)
+        self._fetch(
+            MarketDataSyncRequest(
+                symbols=(request.symbol,),
+                interval=request.interval,
+                market=self._market,
+                start_time=request.before - span,
+                end_time=request.before,
+                cancellation_requested=cancelled,
+            )
+        )
+        return self._stored_before(request)
+
+    def _stored_before(self, request: OlderCandlesRequest) -> Sequence[MarketData]:
+        # The store bounds a read by `open_time`, both ends inclusive, so one
+        # row more than wanted is read and the one that opens at `before`
+        # (the oldest candle drawn) is dropped: no gap, no candle twice.
+        newest_first = self._history.load(
+            self._market,
+            request.symbol,
+            request.interval,
+            limit=request.limit + 1,
+            end_time=request.before,
+            newest_first=True,
+        )
+        older = [row for row in newest_first if row.open_time < request.before]
+        return tuple(reversed(older[: request.limit]))
 
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame

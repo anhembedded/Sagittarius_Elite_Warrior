@@ -28,11 +28,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
-    LiveChartCallbacks,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
     LiveChartCoordinator,
+)
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    silent_callbacks,
 )
 
 
@@ -49,14 +49,7 @@ def _coordinator(
     feed = MarketDataCandleFeed(
         sync, history, stream or FakeMarketStream(), MarketType.SPOT
     )
-    callbacks = LiveChartCallbacks(
-        history_ready=MagicMock(),
-        load_finished=MagicMock(),
-        stream_started=MagicMock(),
-        stream_failed=MagicMock(),
-        load_failed=MagicMock(),
-        log=MagicMock(),
-    )
+    callbacks = silent_callbacks()
     return LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.spot_testnet")
 
 

@@ -23,9 +23,6 @@ from collections.abc import Callable, Sequence
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
-    timeframe_or_fallback,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
@@ -33,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.chart_failure_notice import (
     ChartFailureChannel,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_drawing import (
+    draw_live_candle,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
@@ -48,11 +48,19 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_ma
     LiveChartState,
     next_state,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_opening import (
+    opening_interval,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_state_chip import (
     LiveStateChip,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.older_candles_backfill import (
+    BackfillHooks,
+    OlderCandlesBackfill,
+    ShownWindow,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -68,11 +76,9 @@ class LiveCandleChart(QObject):
     liveStateChanged = Signal(object)
 
     _history = Signal(str, list, list, list)
-    #: A first window's load settled (drawn, empty or failed), from the
-    #: coordinator's worker thread, with the token it was asked with.
+    #: A first window's load settled (drawn, empty or failed), with its token.
     _load_settled = Signal(object)
-    #: The coordinator's stream reports, from its worker thread.
-    #: Each carries the token of the request it reports on.
+    #: The stream's reports, each with the token of the request it is on.
     _stream_opened = Signal(object, str)
     #: `(token, headline, detail)` of a failed sync or stream (`BOT-169`).
     _stream_lost = Signal(object, str, str)
@@ -85,7 +91,7 @@ class LiveCandleChart(QObject):
         super().__init__(parent)
         self._chart = chart
         self._symbol = ""
-        self._interval = self._opening_interval(chart, ports)
+        self._interval = opening_interval(chart, ports)
         self._live = False
         self._failures = ChartFailureChannel.of(ports, self.logged.emit)
         self._clock: Callable[[], float] = ports.clock
@@ -96,6 +102,16 @@ class LiveCandleChart(QObject):
         self._token = CancellationToken()
         #: A first window was asked for and has not settled yet.
         self._pending = False
+        self._older = OlderCandlesBackfill(
+            chart,
+            ports,
+            BackfillHooks(
+                self._backfill_window,
+                lambda w, at: self._coordinator.load_older(w, at),
+            ),
+            self,
+        )
+        self._older.logged.connect(self.logged)
         self._coordinator = LiveChartCoordinator(
             ports.thread_manager,
             ports.feed,
@@ -105,6 +121,8 @@ class LiveCandleChart(QObject):
                 stream_started=self._stream_opened.emit,
                 stream_failed=self._stream_lost.emit,
                 load_failed=self._load_lost.emit,
+                older_ready=self._older.deliver_ready,
+                older_failed=self._older.deliver_failed,
                 log=self.logged.emit,
             ),
             ports.stream_owner,
@@ -139,24 +157,6 @@ class LiveCandleChart(QObject):
     @property
     def _streaming(self) -> bool:
         return self._state in (LiveChartState.CONNECTING, LiveChartState.LIVE)
-
-    @staticmethod
-    def _opening_interval(chart: ChartCard, ports: LiveChartPorts) -> str:
-        """The timeframe to open on: `ports.interval`, or the nearest one the
-        chart's market can load. The toolbar is told the market first, so its
-        bar offers only what the market loads."""
-        if ports.market is None:
-            return ports.interval
-        chart.toolbar.set_market(ports.market)
-        interval = timeframe_or_fallback(ports.market, ports.interval)
-        if interval != ports.interval:
-            logger.info(
-                "[live-chart] opening timeframe %s is not offered on %s; using %s",
-                ports.interval,
-                ports.market.value,
-                interval,
-            )
-        return interval
 
     @property
     def shown_symbol(self) -> str:
@@ -197,11 +197,9 @@ class LiveCandleChart(QObject):
         self._restart()
 
     def go_live(self) -> None:
-        """Asks for the live stream, once.
-
-        Before a symbol is shown it only marks the chart live, and the first
-        `show_symbol` starts live: restarting here would sync and stream the
-        empty symbol, a request nobody made (the re-review of PR 308)."""
+        """Asks for the live stream, once. Before a symbol is shown it only marks
+        the chart live and the first `show_symbol` starts live: restarting here
+        would sync and stream the empty symbol (the re-review of PR 308)."""
         self.run_command(LiveChartCommand.GO_LIVE)
 
     def run_command(self, command: LiveChartCommand) -> None:
@@ -224,10 +222,17 @@ class LiveCandleChart(QObject):
         if self._symbol:
             self._restart()
 
+    @property
+    def older_candles(self) -> OlderCandlesBackfill:
+        """Older candles (`BUG-178`): a pan past the oldest loads them by
+        itself; `request_now()` asks for them."""
+        return self._older
+
     def shutdown(self) -> None:
         """Cancels the load in flight; the stream is left as it is. A failure
         bar of this chart goes with it: its Retry would target a closed chart."""
         self._token.cancel()
+        self._older.reset()
         self._failures.clear()
 
     def release_stream(self) -> None:
@@ -254,20 +259,7 @@ class LiveCandleChart(QObject):
         if candle.symbol != self._symbol or candle.interval != self._interval:
             return
         self._last_update = self._clock()
-        t = candle.close_time.timestamp()
-        o, h, low, c = (
-            float(candle.open_price),
-            float(candle.high_price),
-            float(candle.low_price),
-            float(candle.close_price),
-        )
-        bullish = c >= o
-        if candle.is_closed:
-            self._chart.append_closed_candle(t, o, h, low, c)
-            self._chart.append_closed_volume(t, float(candle.volume), bullish)
-        else:
-            self._chart.update_last_candle(t, o, h, low, c)
-            self._chart.update_last_volume(t, float(candle.volume), bullish)
+        draw_live_candle(self._chart, candle)
         self._on_candle_drawn(candle)
 
     def draw_history(self, klines: Sequence[MarketData]) -> None:
@@ -283,6 +275,11 @@ class LiveCandleChart(QObject):
 
     def _on_candle_drawn(self, candle: MarketData) -> None:
         """Hook: a live candle of the shown symbol was drawn."""
+
+    def _backfill_window(self) -> ShownWindow | None:
+        if self._symbol and not self._pending:
+            return ShownWindow(self._symbol, self._interval, self._token)
+        return None
 
     def _on_first_window_requested(self) -> None:
         """Hook: a first window (a new symbol, timeframe or go-live) was asked
@@ -304,6 +301,7 @@ class LiveCandleChart(QObject):
         self._on_first_window_requested()
         self._token.cancel()
         self._token = CancellationToken()
+        self._older.reset()
         self._last_update = None
         if self._live:
             self._dispatch(LiveChartEvent.LOAD_RESTARTED)
@@ -313,9 +311,9 @@ class LiveCandleChart(QObject):
         )
 
     def _dispatch(self, event: LiveChartEvent, reason: str = "") -> bool:
-        """Moves the live state by `event`; `False` when the table declares
-        no move from here, so a report already on its way when the user
-        cancelled moves nothing."""
+        """Moves the live state by `event`; `False` when the table declares no
+        move from here, so a report on its way when the user cancelled moves
+        nothing."""
         target = next_state(self._state, event)
         if target is None:
             logger.debug(
@@ -397,4 +395,5 @@ class LiveCandleChart(QObject):
     ) -> None:
         self._chart.render_historical_data(candles)
         self._chart.render_historical_volume(volume)
+        self._older.note_drawn(klines)
         self._on_history_drawn(klines)
