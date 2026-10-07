@@ -9,10 +9,11 @@ from __future__ import annotations
 from pyqtgraph import PlotCurveItem, PlotWidget, mkPen  # type: ignore[import-untyped]
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPen
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     NEUTRAL_SERIES_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 #: Low alpha so hundreds of overlaid paths read as a density cloud rather
 #: than an opaque block — the same purpose `_drawdown_chart_widget.py`'s
@@ -40,7 +41,7 @@ class MonteCarloSpaghettiChartWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._empty_label = QLabel("Run a simulation to see the equity paths")
+        self._empty_label = plain_label("Run a simulation to see the equity paths")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_label)
 

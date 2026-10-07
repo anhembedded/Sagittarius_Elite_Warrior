@@ -15,7 +15,7 @@
 2. Every venue with a usable key is on; the Spot and Futures toggles in Tools → Options leave (D2, owner).
 3. The trading ON/OFF switch leaves; its reconciliation runs inside Start, arm and a manual order instead (D3, owner chose option A).
 4. A mainnet key is read, never traded: a read-only account source that is not a `TradingVenue` (D4, owner milestone).
-5. The remaining design choices (D5–D10) are in the decision record, with their status.
+5. D5–D10 (key permissions, Connect runs by itself, blocking versus advisory constraints, Save and Start, a live chart for a draft, the mainnet secret in the keyring) were accepted as recommended.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-07) | When the epic is done |
@@ -38,7 +38,7 @@
 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Design: every constraint is a named assertion, shown on its field, with the account's numbers | Elite | EPIC-034D | 🟡 | Planned |
 | [EPIC-034G](incomplete/EPIC-034G_chart_live_state.md) | The chart states whether it is live, and the user starts and stops it | Elite | EPIC-034A | 🟡 | Planned |
 | [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Run: one readiness query serves the screen and the Start handler; Save and Start | Elite | EPIC-034C, EPIC-034F | 🟡 | Planned |
-| [EPIC-034A](incomplete/EPIC-034A_bots_mode_says_what_it_knows.md) | The Bots mode says what it already knows: venue titles, the chart's messages, why an action is disabled | Elite | None | 🟢 | Planned |
+| [EPIC-034A](completed/EPIC-034A_bots_mode_says_what_it_knows.md) | The Bots mode says what it already knows: venue titles, the chart's messages, why an action is disabled | Elite | None | 🟢 | ✅ Done (2026-10-07) |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |

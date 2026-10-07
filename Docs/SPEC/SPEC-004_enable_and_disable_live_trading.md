@@ -56,7 +56,7 @@ holds before the app sends anything."*
   session.
 - When the session is closed, no order can be submitted live from any surface. Every submission
   path checks this same session state, and the state opens in one place only
-  (`test_every_order_passes_the_reconciliation.py`).
+  (`test_every_order_is_reconciled.py`).
 - Every refusal names itself: the venue cannot place orders, the connection is not ready, there are
   unexpected positions, or a concurrent change superseded the attempt. There is no bare `False`,
   and the screen shows the actor a sentence for each (the ones the switch used).
@@ -130,7 +130,7 @@ application service every opening goes through). Reconciliation reads through
 | A manual live order opens the session, a foreign position refuses it before anything is sent, an automated order never reopens a closed session | `tests/unit/modules/trading/application/orders/test_execute_order_opens_session.py` | unit |
 | Start opens the session and a refused reconciliation refuses the start | `tests/unit/modules/bots/application/services/test_grid_start_preconditions.py` | unit |
 | Arm opens the session; a refused session, and an open position on the symbol, refuse the arm; a disarm is refused only by an open position | `tests/unit/modules/strategy/application/use_cases/test_arm_strategy_session.py` | unit |
-| Every live order passes the reconciliation: the session opens in one place, every order needs it open, three actions open it, every live-order caller is declared | `tests/unit/architecture/test_every_order_passes_the_reconciliation.py` | architecture guard |
+| Every live order passes the reconciliation: the session opens in one place, every order needs it open, three actions open it, every live-order caller is declared | `tests/unit/architecture/test_every_order_is_reconciled.py` | architecture guard |
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | contract |
 | One venue's session never moves the other's | `tests/unit/modules/trading/application/test_venue_isolation.py` | unit |
 | A session opening puts that venue's desk chart live, and no other's; Emergency stop's async ownership (one at a time, never superseded) | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py`, `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |

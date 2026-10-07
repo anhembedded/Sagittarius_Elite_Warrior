@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QLabel,
     QVBoxLayout,
     QWidget,
 )
@@ -32,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.out_of_sample_co
     build_overfit_warning,
     build_split_description,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from ..metric_comparison_model import OutOfSampleComparisonModel, comparison_table
 
@@ -75,12 +75,12 @@ class OutOfSampleComparisonDialog(QDialog):
     # -- construction ------------------------------------------------------
 
     def _build_description_label(self) -> None:
-        self._description_label = QLabel()
+        self._description_label = plain_label()
         self._description_label.setObjectName("lblOutOfSampleSplitDescription")
         self.body_layout.addWidget(self._description_label)
 
     def _build_warning_label(self) -> None:
-        self._warning_label = QLabel()
+        self._warning_label = plain_label()
         self._warning_label.setObjectName("lblOutOfSampleOverfitWarning")
         self._warning_label.setWordWrap(True)
         self._warning_label.setVisible(False)

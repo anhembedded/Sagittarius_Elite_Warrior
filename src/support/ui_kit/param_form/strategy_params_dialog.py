@@ -42,12 +42,12 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFrame,
     QGroupBox,
-    QLabel,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .param_field import BotParamFieldWidget
 from .param_stepper import ParamStepper
@@ -110,7 +110,7 @@ class StrategyParamsDialog(QDialog):
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setWidget(self._content)
 
-        self._error_label = QLabel()
+        self._error_label = plain_label()
         self._error_label.setObjectName("lblStrategyParamsError")
         self._error_label.setWordWrap(True)
         self._error_label.setVisible(False)
@@ -213,7 +213,7 @@ class StrategyParamsDialog(QDialog):
         self._field_widgets = []
 
         if not groups:
-            self._content_layout.addWidget(QLabel(_EMPTY_TEXT))
+            self._content_layout.addWidget(plain_label(_EMPTY_TEXT))
             self._content_layout.addStretch(1)
             return
 

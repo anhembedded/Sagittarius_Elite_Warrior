@@ -6,12 +6,12 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
@@ -105,7 +105,7 @@ class TradingSettingsView(BaseView):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
 
-        warning = QLabel(
+        warning = plain_label(
             "API Key/Secret are written to secrets.local.json (not tracked "
             "in git). Every venue the key opens is on, and the next request to the "
             "exchange uses a key saved here."
@@ -121,14 +121,14 @@ class TradingSettingsView(BaseView):
         layout.addLayout(grid)
 
         row = 0
-        grid.addWidget(QLabel("Binance API Key (Public):"), row, 0)
+        grid.addWidget(plain_label("Binance API Key (Public):"), row, 0)
         self._api_key_field = self._make_field("txtApiKey")
         grid.addWidget(self._api_key_field, row, 1)
         row += 1
 
         row = self._add_secret_row(grid, row)
 
-        self._credentials_source_label = QLabel()
+        self._credentials_source_label = plain_label()
         self._credentials_source_label.setObjectName("lblCredentialsSource")
         self._credentials_source_label.setWordWrap(True)
         grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
@@ -139,13 +139,13 @@ class TradingSettingsView(BaseView):
         grid.addWidget(self._check_connection_button, row, 0, 1, 2)
         row += 1
 
-        self._connection_result_label = QLabel()
+        self._connection_result_label = plain_label()
         self._connection_result_label.setObjectName("lblConnectionResult")
         self._connection_result_label.setWordWrap(True)
         grid.addWidget(self._connection_result_label, row, 0, 1, 2)
         row += 1
 
-        self._status_label = QLabel()
+        self._status_label = plain_label()
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
@@ -156,7 +156,7 @@ class TradingSettingsView(BaseView):
         return field
 
     def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(QLabel("Binance API Secret (Private):"), row, 0)
+        grid.addWidget(plain_label("Binance API Secret (Private):"), row, 0)
 
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)

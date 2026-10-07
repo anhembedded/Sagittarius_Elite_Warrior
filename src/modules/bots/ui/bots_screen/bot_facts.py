@@ -79,7 +79,7 @@ def bot_facts(bot: BotSnapshot, last_price: Decimal | None, now: datetime) -> Bo
     capital = bot.config.get(capital_key, "") if capital_key else ""
     return BotFacts(
         state=_state_line(bot),
-        venue=bot.venue.value,
+        venue=bot.venue.display_name,
         symbol=bot.symbol,
         capital=capital or NO_VALUE,
         grid_profit=_money(progress.realised_profit if progress else None),

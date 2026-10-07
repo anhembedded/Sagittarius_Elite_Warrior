@@ -26,20 +26,24 @@ QPainter::drawRoundedRect: Painter not active   (three times)
 Paint device type 2 is `QInternal::Pixmap`. A pixmap that returns no engine is usually a null pixmap: zero width or height.
 
 ## Root cause
-Not yet established. Known so far:
-- No file in `src/` or in the installed `sagittarius_engine` calls `drawRoundedRect`, so the painter is in pyqtgraph or in a Qt style.
-- It coincides with a chart that has 0 candles (initial view x-range [0, 1], y-range [0, 1]).
-- The DPR is 2, so a pixmap sized from a zero-size item stays null.
+Narrowed, not closed. Established (2026-10-07, `EPIC-034` PR-1):
+- **The painter is Qt's Fusion style, not this repository.** Drawing `QStyle.PE_IndicatorButtonDropDown` with Fusion into a `QPainter` over a rect with zero width or zero height prints exactly the owner's signature: one `QPainter::begin: Paint device returned engine == 0, type: 2` and eleven "Painter not active" lines, three of them `drawRoundedRect`, twelve messages in all. Fusion paints that primitive into a cache pixmap sized from the rect; a zero dimension makes a null pixmap (type 2, `QInternal::Pixmap`). Reproduced offscreen with a ten-line script over `QApplication.style().drawPrimitive`; no other primitive does it. `drawRoundedRect` appears nowhere in `src/`, `pyqtgraph` or `sagittarius_engine`, which is why a search of the app found nothing.
+- **So the owner is a `QToolButton` with a drop-down (`MenuButtonPopup`) that is painted at zero size.** Fusion draws that part only for such a button. `src/` creates no tool button with a menu (`QToolButton` is used twice, in the Trade mode's order form); the candidates are a button Qt makes for a `QToolBar` action, such as the `ChartToolbar`'s, or an engine toolbar.
+
+Not established: which button, and why it has no size while a bot with 0 candles is selected.
+- Not reproduced with the real window: the real composition root (`booted_app` and `MainWindow` with every mode built, a created Grid bot selected, 0 candles), on `offscreen` and on `xcb` under Xvfb at `QT_SCALE_FACTOR=2`, with Fusion, prints no such message. The owner's session was Wayland at devicePixelRatio 2 on a 1440×900 screen; whatever differs there is not available here.
+- `ChartToolbar` alone, resized from 0 to 900 px wide, prints none either.
 
 ## Fix
-Not yet done.
+Not done: a fix before the owner is known would guess. `EPIC-034A`'s empty-chart sentence now replaces the plot of a chart with no candles; whether it removes this is for the owner's machine to say.
 
 ## Regression test
-Not yet written.
+Not written. A test of Fusion itself would prove nothing about this app, and the app's own path is not reproduced.
 
 ## Verification
-Not run.
+Not run on the owner's machine.
 
 ## Suggested next steps
-- Reproduce with `QT_FATAL_WARNINGS=1` under a debugger, or install a Qt message handler that prints a Python stack, to find the caller.
-- Check whether the chart's empty state (`EPIC-034A`) removes it. If it does, record that here rather than closing the report without a test.
+- On the owner's Wayland machine, with a bot selected, run the app with a message handler that lists every visible `QToolButton` whose popup mode is `MenuButtonPopup` and whose width or height is 0 (its `objectName`, `parent().objectName()`, `text()`); the first hit is the owner.
+- Then give that button a size or hide it while it has none, at the mechanism that lays it out, with a test that renders it under Fusion with `diagnostic_guard`'s Qt-message check.
+- Check whether the empty-chart sentence (`EPIC-034A`) already removes it, and record that here.

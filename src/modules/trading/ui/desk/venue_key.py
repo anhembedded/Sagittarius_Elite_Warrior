@@ -34,8 +34,9 @@ def always_keyed() -> bool:
 
 def no_key_text(venue: TradingVenue) -> str:
     """What a desk says in place of an account it did not read."""
-    title = venue.value.replace("_", " ").title()
-    return f"No API key for {title} — save one in Tools → Options → Trading."
+    return (
+        f"No API key for {venue.display_name} — save one in Tools → Options → Trading."
+    )
 
 
 def venue_key_check(container: IContainer, venue: TradingVenue) -> KeyCheck:

@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .environment_banner_content import BannerSeverity, EnvironmentBannerContent
 
@@ -27,9 +28,9 @@ class EnvironmentBanner(QFrame):
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self._severity = content.severity
 
-        self._icon_label = QLabel(content.icon)
+        self._icon_label = plain_label(content.icon)
         self._icon_label.setVisible(bool(content.icon))
-        self._message_label = QLabel(content.message)
+        self._message_label = plain_label(content.message)
         self._message_label.setWordWrap(True)
         if content.severity is BannerSeverity.DANGER:
             font = self._message_label.font()

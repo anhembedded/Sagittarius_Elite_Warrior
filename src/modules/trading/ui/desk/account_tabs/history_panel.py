@@ -12,7 +12,6 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QStackedWidget,
     QTableView,
@@ -26,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
@@ -53,10 +53,10 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         model.setParent(self)
         self._page = 0
 
-        self._scope = QLabel()
+        self._scope = plain_label()
         self._scope.setObjectName(f"lbl{name}Scope")
         self._scope.setWordWrap(True)
-        self._notices = QLabel()
+        self._notices = plain_label()
         self._notices.setObjectName(f"lbl{name}Notices")
         self._notices.setWordWrap(True)
         self._notices.hide()
@@ -81,7 +81,7 @@ class HistoryPanel[TRow](QWidget):  # base-exempt: a container, not a surface
         self._next = QPushButton("Next")
         self._next.setObjectName(f"btn{name}Next")
         self._next.clicked.connect(lambda: self.pageRequested.emit(self._page + 1))
-        self._page_label = QLabel()
+        self._page_label = plain_label()
         self._page_label.setObjectName(f"lbl{name}Page")
         pager = QHBoxLayout()
         pager.addStretch(1)

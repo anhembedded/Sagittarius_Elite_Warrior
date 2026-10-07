@@ -66,6 +66,14 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_display_values_go_through_the_formatter.py",
         (("src", "*.py"),),
     ),
+    (
+        "tests/unit/architecture/test_venues_are_shown_by_title.py",
+        (("src", "*.py"),),
+    ),
+    (
+        "tests/unit/architecture/test_labels_show_plain_text.py",
+        (("src", "*.py"),),
+    ),
     # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
     (
         "tests/unit/architecture/test_god_files_only_shrink.py",
@@ -291,11 +299,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_order_submission_mode_live_is_restricted.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
-    # `EPIC-034C` — every live order passes the reconciliation.
-    (
-        "tests/unit/architecture/test_every_order_passes_the_reconciliation.py",
-        (("src", "*.py"),),
-    ),
+    ("tests/unit/architecture/test_every_order_is_reconciled.py", (("src", "*.py"),)),
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
     # Guard 3's cross-screen check used to register a second root here

@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QSpinBox,
     QWidget,
@@ -30,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 _TIME_IN_FORCE = (TimeInForce.GTC, TimeInForce.IOC, TimeInForce.FOK)
 _MARGIN_TYPES = (MarginType.CROSSED, MarginType.ISOLATED)
@@ -60,7 +60,7 @@ class OrderOptionsBar(QWidget):  # base-exempt: a container, not a surface
         )
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel("TIF"))
+        layout.addWidget(plain_label("TIF"))
         layout.addWidget(self._time_in_force)
         self._futures = view_model.profile.futures_controls
         if self._futures:

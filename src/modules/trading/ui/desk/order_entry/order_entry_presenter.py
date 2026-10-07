@@ -308,7 +308,7 @@ class OrderEntryPresenter(QObject):
         confirmation = build_confirmation(
             preview,
             side_label=self._vm.profile.side_label(side),
-            venue_label=self._ports.venue.value.replace("_", " ").title(),
+            venue_label=self._ports.venue.display_name,
             base_asset=context.base_asset if context else "",
             quote_asset=self._vm.profile.quote_asset,
             price=price,

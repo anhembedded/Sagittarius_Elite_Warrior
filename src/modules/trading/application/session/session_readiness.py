@@ -6,7 +6,7 @@ the user switched trading on (`EPIC-021G` §2.4), moved here unchanged and
 called by the three actions that start trading — starting a bot, arming a
 strategy and placing a manual order (decision D3 of `EPIC-034`) — instead of
 by a switch. `TradingSessionState.enable()` is called from here and from
-nowhere else (`test_every_order_passes_the_reconciliation.py`).
+nowhere else (`test_every_order_is_reconciled.py`).
 
 Reads the whole account every time the session is closed, never trusts a
 previous session's state: `get_positions()`/`get_open_orders()` with no symbol

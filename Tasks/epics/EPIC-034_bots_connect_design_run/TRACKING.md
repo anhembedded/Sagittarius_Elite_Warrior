@@ -65,5 +65,5 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| D5–D10 not yet answered one by one | EPIC-034D, 034E, 034F, 034G, 034H | the owner | 🟡 Open |
-| D10 adds the `keyring` dependency | EPIC-034E | the owner's approval (ONBOARDING §7) | 🟡 Open |
+| D5–D10 not yet answered one by one | EPIC-034D, 034E, 034F, 034G, 034H | the owner accepted them on 2026-10-07 | ✅ Resolved |
+| D10 adds the `keyring` dependency | EPIC-034E | approved by the owner on 2026-10-07 | ✅ Resolved |
