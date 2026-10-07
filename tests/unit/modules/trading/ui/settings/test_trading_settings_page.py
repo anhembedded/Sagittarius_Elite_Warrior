@@ -283,3 +283,14 @@ def test_an_unexpected_failure_is_a_sentence_with_the_technical_text_behind_deta
     assert "exploded" not in notice.headline
     assert "exploded" in notice.detail
     assert not page.presenter._settings_view_model.busy
+
+
+def test_a_key_with_characters_binance_never_uses_is_told_so_not_called_a_network_failure(
+    page,
+) -> None:
+    page.type_in_dialog(key="kéy" * 20)
+
+    page.click_add()
+
+    assert "does not look like a Binance key" in page.notifier.last.headline
+    assert page.probe.asked == []

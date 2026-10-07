@@ -283,24 +283,12 @@ def app_engine(
                 engine.context.container.resolve(SessionReadiness),
             )
             return handler.execute(command_obj)
-        if command_type is GetOpenPositionsQuery:
-            # `GetOpenPositionsQueryHandler` itself builds a real
-            # `FuturesTradingClient` and hits the network
-            # (`get_positions()`) unconditionally — safe to do against a
-            # real exchange/fake server (see
-            # `test_manual_order_pipeline_against_fake_server.py`), but not
-            # something this offscreen Qt suite's shared engine should do on
-            # every manual-order click. The order path only wants a real
-            # tuple shape back (it iterates `positions` directly), not a
-            # network round trip, so a flat empty tuple —
-            # "no open position for any symbol" — is the correct fixture
-            # answer here, same spirit as the `_FakeResponse` branches below.
-            return ()
-        if command_type is ListVenueKeysQuery:
-            # `BUG-176` — the Options page lists each venue's key through this
-            # query. The real handler would read the machine's own
-            # `secrets.local.json` and keyring, which this suite must not; "no
-            # venue has a key" is the answer the page needs and is a real tuple.
+        if command_type in (GetOpenPositionsQuery, ListVenueKeysQuery):
+            # Both real handlers reach outside this offscreen suite: open positions
+            # build a real `FuturesTradingClient` and hit the network; the key list
+            # (`BUG-176`, the Options page) reads the machine's own
+            # `secrets.local.json` and keyring. Callers want a real tuple back, not a
+            # round trip, so "no open position / no venue has a key" is the answer.
             return ()
 
         response = _FakeResponse()

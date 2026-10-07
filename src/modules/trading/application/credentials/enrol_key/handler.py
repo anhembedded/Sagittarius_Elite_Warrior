@@ -67,6 +67,8 @@ class EnrolKeyCommandHandler(ICommandHandler[EnrolKeyCommand, KeyEnrolment]):
         credentials = command.credentials
         if not credentials.api_key.strip() or not credentials.api_secret.strip():
             return KeyEnrolment((), refusal=EnrolmentRefusal.INCOMPLETE)
+        if not (credentials.api_key.isascii() and credentials.api_secret.isascii()):
+            return KeyEnrolment((), refusal=EnrolmentRefusal.NOT_A_KEY)
 
         verdicts: list[EnvironmentVerdict] = []
         accepted: EnvironmentVerdict | None = None

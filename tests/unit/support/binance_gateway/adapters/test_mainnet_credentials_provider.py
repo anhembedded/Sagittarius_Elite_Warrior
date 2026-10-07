@@ -283,3 +283,32 @@ def test_a_failed_save_leaves_no_half_pair_in_the_keyring() -> None:
 
     assert store.secrets == {}
     assert provider.resolve().source is CredentialsSource.NONE
+
+
+def test_a_failed_replace_puts_the_previous_pair_back() -> None:
+    """The review's finding on PR #423: the new key was written, the secret was not,
+    and the old key was lost with only the old secret left."""
+
+    class _FailsOnTheSecret(InMemorySecretStore):
+        armed = False
+
+        def write(self, name: str, value: str) -> None:
+            if self.armed and name.endswith("_api_secret"):
+                raise SecretStoreUnavailableError("locked")
+            super().write(name, value)
+
+    store = _FailsOnTheSecret()
+    provider = MainnetCredentialsProvider(store, _SPOT)
+    provider.save_to_file("old-key", "old-secret")
+    store.armed = True
+
+    with pytest.raises(SecretStoreUnavailableError):
+        provider.save_to_file("new-key", "new-secret")
+
+    assert store.secrets == {
+        "spot_mainnet_api_key": "old-key",
+        "spot_mainnet_api_secret": "old-secret",
+    }
+    assert provider.resolve().credentials == ExchangeCredentials(
+        "old-key", "old-secret"
+    )

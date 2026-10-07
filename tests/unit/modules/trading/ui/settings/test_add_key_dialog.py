@@ -6,9 +6,13 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QDialogButtonBox, QLineEdit
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLineEdit
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.add_key_dialog import (
     AddKeyDialog,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+    TradingSettingsView,
 )
 
 
@@ -70,12 +74,6 @@ def test_the_view_hands_back_what_was_typed_when_the_dialog_is_accepted(
     """The reviewer's blocker on PR #423: the dialog cleared its fields as it closed,
     before the view read them, so every Add key came back empty. This runs the real
     dialog through the view's own `ask_for_key`."""
-    from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
-        TradingSettingsView,
-    )
-
     view = TradingSettingsView()
     request.addfinalizer(view.deleteLater)
 
@@ -93,12 +91,6 @@ def test_the_view_hands_back_what_was_typed_when_the_dialog_is_accepted(
 
 
 def test_cancelling_the_real_dialog_hands_back_nothing(qapp, request) -> None:
-    from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
-        TradingSettingsView,
-    )
-
     view = TradingSettingsView()
     request.addfinalizer(view.deleteLater)
     QTimer.singleShot(

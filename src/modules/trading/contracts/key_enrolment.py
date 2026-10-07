@@ -22,6 +22,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 class EnrolmentRefusal(str, Enum):
     #: A key or a secret was left empty. Nothing was asked of the exchange.
     INCOMPLETE = "incomplete"
+    #: The key or the secret holds a character a Binance key never has (anything but
+    #: ASCII): it cannot be sent, and would be told as a network failure. Nothing
+    #: was asked of the exchange.
+    NOT_A_KEY = "not_a_key"
     #: No environment accepted the key; the verdicts say why for each.
     NOT_ACCEPTED = "not_accepted"
     #: Mainnet accepted the key and it can withdraw funds (`EPIC-034` D5).

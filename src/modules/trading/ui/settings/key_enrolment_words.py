@@ -67,6 +67,11 @@ def _environment_line(verdict: EnvironmentVerdict) -> str:
 
 _SIMPLE = {
     EnrolmentRefusal.INCOMPLETE: "Enter both the key and the secret.",
+    EnrolmentRefusal.NOT_A_KEY: (
+        "That does not look like a Binance key: it has characters a key never "
+        "has (a key and secret are plain letters and digits). Copy them again "
+        "from Binance, without anything around them."
+    ),
     EnrolmentRefusal.WITHDRAWAL_ENABLED: (
         "The key was not saved: it can withdraw funds. Create a key with "
         "withdrawals turned off in Binance's API management and add that one."

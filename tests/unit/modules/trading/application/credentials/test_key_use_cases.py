@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -71,8 +72,6 @@ _SPOT_MAINNET = TradingVenue.SPOT_MAINNET
 
 @pytest.fixture(autouse=True)
 def _no_environment_keys(monkeypatch: pytest.MonkeyPatch) -> None:
-    import os
-
     for name in list(os.environ):
         if name.startswith("BINANCE_"):
             monkeypatch.delenv(name)
@@ -251,3 +250,16 @@ def test_the_fingerprint_is_four_and_four_and_a_short_key_is_masked_whole() -> N
     assert key_fingerprint("abcd" + "x" * 40 + "wxyz") == "abcd…wxyz"
     assert key_fingerprint("short-key") == "••••"
     assert key_fingerprint("") == "••••"
+
+
+@pytest.mark.parametrize(("key", "secret"), [("kéy" * 20, SECRET), (KEY, "s€cret")])
+def test_a_key_or_secret_with_a_character_binance_cannot_use_is_refused_before_asking(
+    tmp_path, key, secret
+) -> None:
+    contexts, _ = _contexts(tmp_path)
+    probe = ScriptedKeyProbe()
+
+    result = _enrol(probe, contexts, key=key, secret=secret)
+
+    assert result.refusal is EnrolmentRefusal.NOT_A_KEY
+    assert probe.asked == []

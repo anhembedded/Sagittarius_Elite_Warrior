@@ -43,6 +43,8 @@ class SecretsFileSource:
     def read(self, venue: TradingVenue) -> tuple[str, str] | None:
         """@return `(api_key, api_secret)` of `venue` if the file exists, parses,
         and both fields are non-empty; `None` otherwise."""
+        if venue.is_mainnet:
+            return None  # a real-money secret is never read from a file (D10)
         data = self._load()
         if data is None:
             return None
@@ -101,7 +103,7 @@ class SecretsFileSource:
         if data is not None:
             return data
         if os.path.exists(self._filepath):
-            backup = f"{self._filepath}.corrupt"
+            backup = self._free_backup_name()
             os.replace(self._filepath, backup)
             logger.warning(
                 "%s could not be read; kept as %s and started afresh.",
@@ -110,6 +112,15 @@ class SecretsFileSource:
             )
         return {}
 
+    def _free_backup_name(self) -> str:
+        """`<file>.corrupt`, or `.corrupt.1`, `.2`, … so an earlier unreadable file
+        kept aside is never overwritten by a later one."""
+        name, number = f"{self._filepath}.corrupt", 0
+        while os.path.exists(name):
+            number += 1
+            name = f"{self._filepath}.corrupt.{number}"
+        return name
+
     def _save(self, data: dict[str, Any]) -> None:
         """Writes to a temporary file in the same directory and swaps it in, so a
         crash mid-write leaves the old file whole."""
@@ -117,16 +128,15 @@ class SecretsFileSource:
         if directory:
             os.makedirs(directory, exist_ok=True)
         temporary = f"{self._filepath}.tmp"
-        with open(temporary, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        # Created owner-only from the start: chmod after `open` would leave a
+        # window (and, under a permissive umask, a world-readable file) holding keys.
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            os.chmod(temporary, 0o600)
-        except OSError as exc:
-            logger.warning(
-                "Could not set owner-only permissions on %s: %s",
-                self._filepath,
-                exc,
-            )
+            with os.fdopen(descriptor, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except BaseException:
+            os.remove(temporary)
+            raise
         os.replace(temporary, self._filepath)
 
 

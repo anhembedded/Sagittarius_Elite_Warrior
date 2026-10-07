@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import sys
 
@@ -186,3 +187,66 @@ def test_a_mainnet_secret_is_refused_by_the_file(tmp_path, venue):
     with pytest.raises(ValueError, match="keyring"):
         source.remove(venue)
     assert not (tmp_path / "secrets.local.json").exists()
+
+
+def test_a_second_unreadable_file_does_not_overwrite_the_first_one_kept_aside(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+    path.write_text("{first", encoding="utf-8")
+    source.write(_FUTURES, "k1", "s1")
+    path.write_text("{second", encoding="utf-8")
+
+    source.write(_FUTURES, "k2", "s2")
+
+    kept = sorted(p.read_text() for p in tmp_path.glob("secrets.local.json.corrupt*"))
+    assert kept == ["{first", "{second"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_the_temporary_file_is_never_readable_by_others_even_under_umask_zero(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+    seen: list[int] = []
+    real_replace = os.replace
+
+    def spy(src, dst):
+        seen.append(stat.S_IMODE(os.stat(src).st_mode))
+        real_replace(src, dst)
+
+    old = os.umask(0)
+    try:
+        monkey = pytest.MonkeyPatch()
+        monkey.setattr(os, "replace", spy)
+        source.write(_FUTURES, "key-1", "secret-1")
+        monkey.undo()
+    finally:
+        os.umask(old)
+
+    assert seen == [0o600]
+
+
+def test_a_failed_write_leaves_no_partial_temporary_file(tmp_path, monkeypatch):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+
+    def explode(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(json, "dump", explode)
+
+    with pytest.raises(OSError, match="disk full"):
+        source.write(_FUTURES, "key-1", "secret-1")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_a_mainnet_entry_in_the_file_is_never_read(tmp_path, venue):
+    path = tmp_path / "secrets.local.json"
+    path.write_text(
+        json.dumps({"venues": {venue.value: {"API_KEY": "k", "API_SECRET": "s"}}})
+    )
+
+    assert SecretsFileSource(str(path)).read(venue) is None
