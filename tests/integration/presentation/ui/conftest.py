@@ -71,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
+    ListVenueKeysQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
 )
@@ -292,6 +295,12 @@ def app_engine(
             # network round trip, so a flat empty tuple —
             # "no open position for any symbol" — is the correct fixture
             # answer here, same spirit as the `_FakeResponse` branches below.
+            return ()
+        if command_type is ListVenueKeysQuery:
+            # `BUG-176` — the Options page lists each venue's key through this
+            # query. The real handler would read the machine's own
+            # `secrets.local.json` and keyring, which this suite must not; "no
+            # venue has a key" is the answer the page needs and is a real tuple.
             return ()
 
         response = _FakeResponse()
