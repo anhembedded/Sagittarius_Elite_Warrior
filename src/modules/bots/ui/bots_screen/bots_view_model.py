@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     BotFacts,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
+    ConnectView,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -48,6 +51,9 @@ class BotsViewModel(StatusMessageViewModel):
     log_changed = Signal()
     #: An action is in flight: every command waits for it (`EPIC-033D`).
     action_in_flight_changed = Signal()
+    #: The selected bot's venue account was read, or could not be
+    #: (`EPIC-034D`).
+    connect_changed = Signal()
 
     #: The bot the user picked, `""` for none.
     select_requested = Signal(str)
@@ -55,6 +61,8 @@ class BotsViewModel(StatusMessageViewModel):
     #: A `BotAction` value.
     action_requested = Signal(str)
     refresh_fills_requested = Signal()
+    #: Read the selected bot's venue account again (`EPIC-034D`).
+    retry_connect_requested = Signal()
     #: Scale the chart's price axis to every level of the selected bot.
     fit_levels_requested = Signal()
 
@@ -67,6 +75,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.refusal = ""
         self.availability: Mapping[BotAction, ActionAvailability] = {}
         self.fills = BotFills()
+        self.connect_view = ConnectView()
         self.action_in_flight = False
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
@@ -104,6 +113,11 @@ class BotsViewModel(StatusMessageViewModel):
     ) -> None:
         self.availability = availability
         self.actions_changed.emit()
+
+    @Slot(object)
+    def set_connect(self, view: ConnectView) -> None:
+        self.connect_view = view
+        self.connect_changed.emit()
 
     @Slot(bool)
     def set_action_in_flight(self, in_flight: bool) -> None:

@@ -27,6 +27,20 @@ from .order_book_state import OrderBookState
 from .spot_account_state import SpotAccountState
 from .spot_routes import handle as handle_spot
 
+#: What a proxy or the exchange itself serves while it is under maintenance:
+#: a web page, not an API reply (`EPIC-034D`).
+MAINTENANCE_PAGE = (
+    "<html><head><title>503 Service Temporarily Unavailable</title></head>"
+    "<body>The service is under maintenance.</body></html>"
+)
+
+
+class MaintenanceSwitch:
+    """While `on`, every request is answered with `MAINTENANCE_PAGE` and a 503."""
+
+    def __init__(self) -> None:
+        self.on = False
+
 
 class _Handler(BaseHTTPRequestHandler):
     #: Set per-server-instance by `run_binance_fake_server()` via
@@ -40,6 +54,7 @@ class _Handler(BaseHTTPRequestHandler):
     #: so a test can prove a command addressed to one venue sent nothing to
     #: the other's API family.
     requests: list[tuple[str, str]]
+    maintenance: MaintenanceSwitch
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -68,6 +83,8 @@ class _Handler(BaseHTTPRequestHandler):
         self, method: str, path: str, params: dict[str, str]
     ) -> tuple[int, object] | None:
         self.requests.append((method, path))
+        if self.maintenance.on:
+            return 503, MAINTENANCE_PAGE
         if path.startswith("/api/"):
             return handle_spot(method, path, params, self.spot_account)
         return handle_futures(method, path, params, self.order_book)
@@ -91,9 +108,10 @@ class _Handler(BaseHTTPRequestHandler):
         self._respond(status, body)
 
     def _respond(self, status: int, body: object) -> None:
-        payload = json.dumps(body).encode()
+        is_page = isinstance(body, str)
+        payload = body.encode() if isinstance(body, str) else json.dumps(body).encode()
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "text/html" if is_page else "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
@@ -117,6 +135,8 @@ class FakeServerUrls:
     #: `EPIC-028O` — the live Futures state, so a test can switch the account
     #: to Multi-Assets mode or read its positions.
     futures_book: OrderBookState = field(default_factory=OrderBookState)
+    #: `EPIC-034D` — turn `.on` to make the whole exchange answer a maintenance page.
+    maintenance: MaintenanceSwitch = field(default_factory=MaintenanceSwitch)
 
 
 @contextmanager
@@ -128,6 +148,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     _Handler.order_book = OrderBookState()
     _Handler.spot_account = SpotAccountState()
     _Handler.requests = []
+    _Handler.maintenance = MaintenanceSwitch()
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -139,6 +160,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             requests=_Handler.requests,
             spot_account=_Handler.spot_account,
             futures_book=_Handler.order_book,
+            maintenance=_Handler.maintenance,
         )
     finally:
         server.shutdown()

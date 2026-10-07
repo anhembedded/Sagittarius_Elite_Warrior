@@ -79,7 +79,7 @@ def test_a_draft_opens_editable_and_may_start_once_its_plan_is_judged(
     assert _mode(screen) is BotsUiState.EDITING_DRAFT
     assert _rule(screen, BotAction.START) == (
         False,
-        "The market numbers for this symbol are still being read.",
+        "Spot Testnet: Reading the account…",
     )
     screen.settle()
 

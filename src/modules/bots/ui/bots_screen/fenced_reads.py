@@ -48,6 +48,9 @@ class ReadKind(str, Enum):
     LIST = "list"
     PLANNER = "planner"
     FILLS = "fills"
+    #: `EPIC-034D` — the selected bot's venue account; read by `ConnectStep`'s
+    #: own `FencedReads`, so the screen's presenter never sees its answers.
+    CONNECT = "connect"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]

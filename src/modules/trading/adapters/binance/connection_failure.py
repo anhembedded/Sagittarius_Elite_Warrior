@@ -8,6 +8,10 @@ expiry: the exchange rejected the key for a reason it does not name — an unkno
 key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
 `KEY_REJECTED`. No Binance code means "expired", so no such kind exists.
+
+An answer that is not JSON at all (a proxy's or the exchange's HTML maintenance
+page) reaches `python-binance` as `BinanceAPIException` with code 0. It maps to
+`MAINTENANCE` (EPIC-034D): the exchange answered, but not with an API reply.
 """
 
 from __future__ import annotations
@@ -31,6 +35,15 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
 }
 
 
+#: How `python-binance` words an answer it could not parse as JSON
+#: (`binance/exceptions.py`, `BinanceAPIException.__init__`).
+_NOT_JSON_MESSAGE = "Invalid JSON error message from Binance"
+
+
+def _is_not_json_answer(exc: BinanceAPIException) -> bool:
+    return exc.code == 0 and str(exc.message).startswith(_NOT_JSON_MESSAGE)
+
+
 def classify_connection_failure(
     exc: Exception, venue_label: str
 ) -> ConnectionFailureKind:
@@ -40,6 +53,8 @@ def classify_connection_failure(
     """
     if not isinstance(exc, BinanceAPIException):
         kind = ConnectionFailureKind.NETWORK
+    elif _is_not_json_answer(exc):
+        kind = ConnectionFailureKind.MAINTENANCE
     else:
         kind = _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
     if kind is ConnectionFailureKind.NETWORK:

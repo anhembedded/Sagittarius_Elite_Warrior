@@ -47,6 +47,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.account_can_trade import (
+    can_trade_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
 )
@@ -276,6 +279,7 @@ class FuturesAccountReader(ITradingAccountReader):
             margin_type=margin_type,
             open_position_count=len(open_positions),
             summary=self._read_summary(client, account, position_mode),
+            can_trade=can_trade_of(account),
         )
 
     def _read_summary(
@@ -344,6 +348,7 @@ class FuturesAccountReader(ITradingAccountReader):
         margin_type: MarginType | None = None,
         open_position_count: int | None = None,
         summary: FuturesAccountSummary | None = None,
+        can_trade: bool | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
             venue=TradingVenue.FUTURES_TESTNET,
@@ -355,4 +360,5 @@ class FuturesAccountReader(ITradingAccountReader):
             margin_type=margin_type,
             open_position_count=open_position_count,
             summary=summary,
+            can_trade=can_trade,
         )

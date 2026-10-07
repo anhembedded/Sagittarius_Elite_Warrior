@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -102,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_sy
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
+    IVenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -121,11 +124,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
+    a_venue_account_snapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
+    FakeVenueAccountReader,
+    FakeVenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     FakeVenueTradingPorts,
     fake_venue_ports,
 )
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
+    AccountSource,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -265,6 +278,8 @@ class BotsScreen:
     trading_session: FakeTradingSession
     #: The venue's order history, which the fills are read from.
     activity: FakeAccountActivity
+    #: The venue's account, as the Connect step reads it (`EPIC-034D`).
+    account: FakeVenueAccountReader
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -318,6 +333,11 @@ def open_screen(
             )
         ),
     )
+    # Read at the screen's own clock, so the read is as fresh as a real one.
+    account = FakeVenueAccountReader(
+        AccountSource.SPOT_TESTNET, replace(a_venue_account_snapshot(), read_at=NOW)
+    )
+    container.singleton(IVenueAccounts, FakeVenueAccounts(account))
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
@@ -352,4 +372,5 @@ def open_screen(
         strategy,
         trading_session,
         activity,
+        account,
     )

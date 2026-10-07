@@ -35,6 +35,7 @@ BOTS_MENU = [
     "Suggest from Bollinger",
     "Refresh fills",
     "Fit levels",
+    "Retry venue account",
     "Arm strategy…",
     "Disarm strategy",
 ]

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_accounts import (
+    VenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_trading_ports_registry import (
     VenueTradingPortsRegistry,
 )
@@ -46,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
+    IVenueAccounts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -87,6 +93,10 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(VenueTradingPortsRegistry, _build_venue_trading_ports)
     container.singleton(
         IVenueTradingPorts, lambda c: c.resolve(VenueTradingPortsRegistry)
+    )
+    # `EPIC-034D`: the Connect step's read-only accounts, one reader per source.
+    container.singleton(
+        IVenueAccounts, lambda c: VenueAccounts(c.resolve(IVenueContexts))
     )
     container.singleton(IOrderSubmission, lambda c: _primary(c).order_submission)
     container.singleton(ITradingSession, lambda c: _primary(c).trading_session)

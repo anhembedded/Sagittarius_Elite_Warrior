@@ -29,6 +29,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.account_can_trade import (
+    can_trade_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
 )
@@ -168,6 +171,7 @@ class SpotAccountReader(ITradingAccountReader):
             holdings=holdings,
             equity=equity,
             summary=summary,
+            can_trade=can_trade_of(account),
         )
 
     def _compute_equity(
@@ -219,6 +223,7 @@ class SpotAccountReader(ITradingAccountReader):
         holdings: tuple[SpotHolding, ...] | None = None,
         equity: Decimal | None = None,
         summary: SpotAccountSummary | None = None,
+        can_trade: bool | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
             venue=TradingVenue.SPOT_TESTNET,
@@ -232,4 +237,5 @@ class SpotAccountReader(ITradingAccountReader):
             holdings=holdings,
             equity=equity,
             summary=summary,
+            can_trade=can_trade,
         )

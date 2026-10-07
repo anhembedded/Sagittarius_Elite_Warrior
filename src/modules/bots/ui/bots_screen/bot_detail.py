@@ -49,6 +49,9 @@ class DetailInputs:
     now: datetime
     #: The parameters on screen when they differ from the saved ones.
     edited: Mapping[str, str] | None = None
+    #: Why Start waits on the venue's account (`EPIC-034D`); empty when it
+    #: says go.
+    connection: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,7 +72,9 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         else JudgedPlan(refusal=f"No kind of bot is called {bot.kind!r}.")
     )
     unsaved = inputs.edited is not None and dict(inputs.edited) != dict(bot.config)
-    start = StartConditions(refusal=judged.refusal, unsaved_edits=unsaved)
+    start = StartConditions(
+        refusal=judged.refusal, unsaved_edits=unsaved, connection=inputs.connection
+    )
     return BotDetail(
         facts=bot_facts(bot, inputs.last_price, inputs.now),
         verdict_lines=tuple(verdict_line(verdict) for verdict in judged.verdicts),

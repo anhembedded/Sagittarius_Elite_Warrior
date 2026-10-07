@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -96,9 +96,12 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 from ..strategies.strategies_wiring import strategies_for
 from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import bots_dependencies_for
+from .connect_effects import ConnectEffects
+from .connect_step import ConnectStep
 from .kind_command_binding import KindCommands
 from .new_bot_dialog import spot_venues_enabled_first
 from .new_bot_symbols import new_bot_symbols
+from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -106,18 +109,6 @@ if TYPE_CHECKING:
     from .bots_view import BotsView
 
 logger = logging.getLogger("App.Bots.Screen")
-
-_ACTION = "bot_action"
-#: A burst of store writes (a fill books, then the level moves) is one read.
-_COALESCE_MS = 150
-#: Edits are judged once typing pauses.
-_REJUDGE_MS = 150
-#: The running time ticks in minutes.
-_CLOCK_MS = 30_000
-
-
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
 
 
 class BotsPresenter(CommandPresenter):
@@ -134,7 +125,7 @@ class BotsPresenter(CommandPresenter):
         container: IContainer,
         *,
         dialogs: BotsDialogs | None = None,
-        now: Callable[[], datetime] = _utc_now,
+        now: Callable[[], datetime] = utc_now,
     ) -> None:
         super().__init__(view, container)
         deps = bots_dependencies_for(container)
@@ -162,12 +153,16 @@ class BotsPresenter(CommandPresenter):
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now)
+        self._account = ConnectStep(threads, commands, now, self)
+        self._account_effects = ConnectEffects(
+            self._account, view, self._charts, self._selected, self._refresh_detail
+        )
         self._select_after_create = ""
         self._closed = False
-        self._reread = single_shot_timer(self, _COALESCE_MS, self._queries.bots)
-        self._rejudge = single_shot_timer(self, _REJUDGE_MS, self._refresh_detail)
+        self._reread = single_shot_timer(self, COALESCE_MS, self._queries.bots)
+        self._rejudge = single_shot_timer(self, REJUDGE_MS, self._refresh_detail)
         self._clock = QTimer(self)
-        self._clock.setInterval(_CLOCK_MS)
+        self._clock.setInterval(CLOCK_MS)
         ask, status = self._dialogs.ask_arm_strategy, self._model.set_status
         self.strategies = strategies_for(container, view.strategies, ask, status)
         for event_type, handler in self.strategies.subscriptions:
@@ -250,7 +245,7 @@ class BotsPresenter(CommandPresenter):
             self._model.set_selected(fresh)
             self._selected.take_snapshot(fresh)
             self._dispatch(selection_event(fresh))
-            self.view.set_chart(self._charts.show(fresh))
+            self._account_effects.present_chart(fresh)
         self._refresh_detail()
 
     # -- selection and detail ---------------------------------------------- #
@@ -268,13 +263,12 @@ class BotsPresenter(CommandPresenter):
     def _select(self, bot: BotSnapshot | None) -> None:
         self._model.set_selected(bot)
         self._dispatch(selection_event(bot))
-        self.view.set_chart(self._charts.show(bot))
         panel = self._selected.select(bot)
         if panel is not None:
             panel.config_changed.connect(self._on_config_edited)
         self.view.set_kind_panel(panel)
         KindCommands.follow_panel_of(self._model, panel)
-        self._refresh_detail()
+        self._account.select(bot)
         if bot is not None:
             self._queries.planner(bot)
             self._queries.fills(bot)
@@ -327,15 +321,15 @@ class BotsPresenter(CommandPresenter):
             self.fsm.current_state if self.fsm is not None else BotsUiState.NO_SELECTION
         )
         label = pending.label
-        action = self._actions.begin_action(_ACTION, pending, previous)
+        action = self._actions.begin_action(ACTION, pending, previous)
         self._dispatch(BotsUiEvent.ACTION_STARTED)
         self._model.set_status(f"{label}…", False)
         logger.info("Bots screen: %s", label)
         self._commands.send(action.action_id, command)
 
     def _on_finished(self, action_id: int, result: object, error: str) -> None:
-        if not self._actions.is_current_pending(action_id, _ACTION):
-            self._actions.log_stale_callback("_on_finished", action_id, _ACTION)
+        if not self._actions.is_current_pending(action_id, ACTION):
+            self._actions.log_stale_callback("_on_finished", action_id, ACTION)
             return
         active = self._actions.active_action
         pending = active.config if active else PendingAction("")
@@ -391,6 +385,7 @@ class BotsPresenter(CommandPresenter):
         self._reads.drop_all()
         for timer in (self._reread, self._rejudge, self._clock):
             timer.stop()
+        self._account.stop()
         self._charts.close()
         self._backtests.close()
         self._log.close()
