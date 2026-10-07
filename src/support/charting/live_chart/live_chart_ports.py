@@ -26,5 +26,6 @@ class LiveChartPorts:
     interval: str
     #: The market the candles are of. The chart offers only the timeframes this
     #: market can load and opens on the nearest one to `interval` that it can
-    #: (`BOT-167`). `None`: no market is told, every timeframe is offered.
-    market: MarketType | None = None
+    #: (`BOT-167`). Required: a caller that forgot it would silently offer `1s`
+    #: on Futures.
+    market: MarketType

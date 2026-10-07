@@ -226,6 +226,15 @@ BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
         "selectedSymbol",
         _symbol_shape,
     ),
+    # Before `timeframe` (its options follow the market, `BOT-167`: a remembered
+    # Spot `1s` would be rejected while the default market is Futures) and
+    # before the leverage rows: restoring Spot pins leverage to 1x, so a
+    # leverage restored first would be clamped by a market restored later.
+    StateField(
+        "market",
+        "broker_sim.market",
+        _one_of(market.value for market in BACKTEST_MARKETS),
+    ),
     StateField("timeframe", "selectedTimeframe", _among("timeframeOptions")),
     StateField(
         # `strategyOptions` entries are `{"key": ..., "name": ...}` dicts
@@ -241,13 +250,6 @@ BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
         "execution_mode",
         "executionMode",
         _one_of(mode.value for mode in BacktestExecutionMode),
-    ),
-    # Before the leverage rows: restoring Spot pins leverage to 1x, so a
-    # leverage restored first would be clamped by a market restored later.
-    StateField(
-        "market",
-        "broker_sim.market",
-        _one_of(market.value for market in BACKTEST_MARKETS),
     ),
     StateField(
         "order_size_type",

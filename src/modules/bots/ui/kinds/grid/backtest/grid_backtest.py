@@ -7,6 +7,7 @@ screen shows `page` in the detail panel's Backtest tab and calls `follow`.
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestContext,
     BacktestPorts,
@@ -40,6 +41,7 @@ class GridBacktest(BotBacktest):
                 feed=ports.feed,
                 stream_owner=BACKTEST_CHART_OWNER,
                 interval="15m",
+                market=MarketType.SPOT,
             )
         )
         coordinator = GridBacktestCoordinator(

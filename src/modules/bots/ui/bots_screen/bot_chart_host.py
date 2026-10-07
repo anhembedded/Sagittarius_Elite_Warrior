@@ -79,6 +79,7 @@ class BotChartHost:
                 feed=self._ports.feed,
                 stream_owner=bot_stream_owner(BotId(bot.bot_id)),
                 interval=BOT_CHART_INTERVAL,
+                market=self._ports.market,
             ),
             parent=card,
         )

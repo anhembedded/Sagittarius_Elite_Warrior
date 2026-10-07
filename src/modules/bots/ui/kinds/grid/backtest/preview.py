@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fine_klines import (
     price_bar,
@@ -82,6 +83,7 @@ def build_preview() -> QWidget:
             feed=SampleCandleFeed(_START, _INTERVAL),
             stream_owner="bots.backtest.preview",
             interval=_INTERVAL.value,
+            market=MarketType.SPOT,
         )
     )
     result = sample_result()

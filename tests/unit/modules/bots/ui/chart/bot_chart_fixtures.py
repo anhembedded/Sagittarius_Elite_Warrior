@@ -92,6 +92,7 @@ def build_chart(world: ChartWorld | None = None) -> tuple[BotChart, ChartCard]:
         ),
         stream_owner=bot_stream_owner(BOT),
         interval="1m",
+        market=world.market,
     )
     return BotChart(card, ports, parent=card), card
 

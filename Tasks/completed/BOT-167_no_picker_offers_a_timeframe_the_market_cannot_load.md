@@ -24,11 +24,11 @@ Binance USD-M Futures answers `-1120 Invalid interval` for `fapi/v1/klines?inter
 The rule is a domain fact in `core/vo/market_timeframes.py`: `timeframes_for(market)`, `supports_timeframe(market, code)`, `timeframe_or_fallback(market, code)`. Fallback is the shortest supported timeframe not shorter than the one asked for (`1s` → `1m`). `FUTURES_COIN_M` shares the Futures list per Binance's documented kline intervals; it was not probed and nothing offers it yet. A `MarketType` member with no entry fails `test_every_market_declares_a_rule`.
 
 Consumers ask the rule; none keeps an `if`:
-- `ChartToolbar.set_market(market)` (one `TimeframeSelection` feeds the pills and the picker, so both follow); it falls back and reports through `sig_timeframe_changed`. `LiveChartPorts.market` makes every `LiveCandleChart` tell its toolbar and open on the nearest loadable timeframe (Market mode, Desk).
+- `ChartToolbar.set_market(market)` (one `TimeframeSelection` feeds the pills and the picker, so both follow); it falls back and reports through `sig_timeframe_changed`. the required `LiveChartPorts.market` makes every `LiveCandleChart` tell its toolbar and open on the nearest loadable timeframe (Market mode, Desk).
 - `options_for_market(market)` in the picker catalogue backs `BackTestViewModel.timeframeOptions`; `RunSetupPanel` refreshes on `marketChanged`; `MarketSelectionCoordinator` falls back the selected timeframe and logs; `BackTestView` tells every chart host's toolbar (`IBacktestChartHost.set_market`), including hosts built later.
 - `sync_intervals.py` derives the Data mode's list from `SYNC_MARKET`, the same value `SyncCoordinator` syncs.
 
-Not changed: the Bots charts (Spot bots) pass no market and keep every timeframe; the CLI sync and stream commands are Spot-pinned and validate against `TimeFrame` as before.
+Not changed in behaviour: the Bots charts (Spot bots) pass `MarketType.SPOT` and keep every timeframe; the CLI sync and stream commands are Spot-pinned and validate against `TimeFrame` as before.
 
 ## 4. Changes, per file
 | File | Change |
@@ -52,5 +52,6 @@ Unit tier (`ci-rule.md` §2), each written before its code:
 ## Implementation notes (written when done)
 - **Mutation check:** ten mutations, each run against its tests, each killed: Futures allowing `1s` in the rule; the toolbar offering everything; the toolbar not choosing the fallback; the Backtest options ignoring the market; the run setup not refreshing on `marketChanged`; the coordinator not falling back; the view not telling its hosts; the live chart not resolving its opening timeframe; the Market chart not passing its market; `SYNC_MARKET` moved to Futures.
 - **Behaviour change recorded in an existing test:** the Backtest's default market is Futures, so its timeframe field now offers fifteen timeframes by default (`test_run_setup_choices.py`, which now asserts sixteen on Spot and fifteen on Futures).
+- **Review round 1:** the Backtest's remembered state restored `timeframe` before `market`, so a remembered Spot `1s` was rejected under the Futures default and lost; `market` is now restored first (`test_a_remembered_spot_one_second_survives_a_futures_default`, red before for that reason). `LiveChartPorts.market` is now required, the Bots charts passing `MarketType.SPOT` explicitly, so a caller cannot forget it.
 - **Not done, on purpose:** `BUG-166` (a)–(c) (the tick mode's tooltip and failure text, the locked real-time row, "On order fill" in bar-close mode) stay open; `BOT-168` is the real remedy for (a).
 - **Verification:** `scripts/ci-local.ps1 -SkipTests` PASS (ruff, format, mypy, reference check; log `logs/ci-local-20261007-043709.log`, grepped for `FAILED|ERROR|Traceback|ResourceWarning`: no hit); `tests/unit/architecture` 618 passed; the whole unit tier passed (8458 tests). The full gate is GitHub Actions' `ci-local.ps1 -Full` on the PR head.
