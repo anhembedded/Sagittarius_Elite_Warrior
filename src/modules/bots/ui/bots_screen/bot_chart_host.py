@@ -46,6 +46,8 @@ BOT_CHART_INTERVAL = "1h"
 #: What `LiveCandleChart.logged` puts before a failure.
 _ERROR_TAG = "[ERROR]"
 _MAX_STATUS_CHARS = 200
+#: A failure whose text is empty still shows on the status line.
+_UNSAID_FAILURE = "The chart reported an error."
 
 logger = logging.getLogger("App.Bots.Chart")
 
@@ -110,7 +112,8 @@ class BotChartHost:
         message = text.removeprefix(_ERROR_TAG).strip()
         if failed:
             logger.warning("Bot %s chart: %s", bot_id, message)
-            self._show_status(message.splitlines()[0][:_MAX_STATUS_CHARS], True)
+            first_line = (message.splitlines() or [_UNSAID_FAILURE])[0]
+            self._show_status(first_line[:_MAX_STATUS_CHARS], True)
         else:
             logger.info("Bot %s chart: %s", bot_id, message)
 

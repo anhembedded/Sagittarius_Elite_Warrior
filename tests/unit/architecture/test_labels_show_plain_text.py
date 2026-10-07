@@ -26,6 +26,13 @@ _SRC_ROOT = _REPO_ROOT / "src"
 _FACTORY = "src/support/ui_kit/plain_label.py"
 
 
+def _is_qlabel(node: ast.expr) -> bool:
+    """`QLabel` or `QtWidgets.QLabel`, however the module was imported."""
+    return (isinstance(node, ast.Name) and node.id == "QLabel") or (
+        isinstance(node, ast.Attribute) and node.attr == "QLabel"
+    )
+
+
 def untrusted_label_sites(source: str) -> list[str]:
     """Each place in `source` that makes a label which may render markup."""
     tree = ast.parse(source)
@@ -35,15 +42,11 @@ def untrusted_label_sites(source: str) -> list[str]:
     )
     found: list[str] = []
     for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "QLabel"
-        ):
+        if isinstance(node, ast.Call) and _is_qlabel(node.func):
             found.append(f"line {node.lineno}: QLabel(...)")
         elif (
             isinstance(node, ast.ClassDef)
-            and any(isinstance(b, ast.Name) and b.id == "QLabel" for b in node.bases)
+            and any(_is_qlabel(base) for base in node.bases)
             and not says_its_format
         ):
             found.append(f"line {node.lineno}: class {node.name}(QLabel)")
@@ -96,6 +99,11 @@ def test_a_markup_subclass_is_seen_unless_it_says_so() -> None:
     )
     assert untrusted_label_sites(bare) == ["line 1: class Cell(QLabel)"]
     assert untrusted_label_sites(explicit) == []
+
+
+def test_a_label_reached_through_its_module_is_seen() -> None:
+    assert len(untrusted_label_sites("x = QtWidgets.QLabel(text)\n")) == 1
+    assert len(untrusted_label_sites("class C(QtWidgets.QLabel):\n    pass\n")) == 1
 
 
 def test_the_factory_call_is_not_a_bare_label() -> None:

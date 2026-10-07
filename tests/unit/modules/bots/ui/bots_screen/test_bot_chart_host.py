@@ -41,6 +41,11 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
 from .bots_screen_fixtures import stored
 
 
+def _fakes():
+    world = ChartWorld()
+    return world.sync, world.history, world.stream, world.market
+
+
 class _RefusingStream(FakeMarketStream):
     def start(self, owner_id, market_type, symbols, interval) -> StreamOutcome:
         return StreamOutcome(success=False, message="Spot Testnet unreachable.\nHTML")
@@ -69,3 +74,21 @@ def test_a_stream_that_cannot_open_is_said_on_the_status_line_and_the_log(
     assert "Bot a00001 chart: " in caplog.text
     assert "Opening live stream for" in caplog.text
     host.close()
+
+
+def test_a_failure_with_no_text_still_reaches_the_status_line(qapp) -> None:
+    """An exception whose `str()` is empty emits `"[ERROR] "`; the slot must
+    not raise on it (the PR #414 review)."""
+    heard: list[tuple[str, bool]] = []
+    host = BotChartHost(
+        BotChartPorts(
+            InlineThreadManager(),
+            MarketDataCandleFeed(*_fakes()),
+            BotTickFeed(MemoryEventBus(), MarketType.SPOT),
+        ),
+        lambda message, is_error: heard.append((message, is_error)),
+    )
+
+    host._on_chart_said("a00001", "[ERROR] ")
+
+    assert heard == [("The chart reported an error.", True)]

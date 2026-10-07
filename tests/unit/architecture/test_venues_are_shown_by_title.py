@@ -7,7 +7,9 @@ Strategies panel. `TradingVenue.display_name` is the one map, in contracts.
 
 What is scanned: UI code (every `ui/` package of a module, `support/ui_kit`,
 `support/charting`, `presentation`, `shell`). What is found: `.value` read off a
-name or attribute called `venue` or `_venue`, outside a logging call. The
+name or attribute that ends in `venue` (`venue`, `_venue`, `current_venue`),
+outside a logging call. A venue held under a name that does not end so is not
+seen: the guard reads names, not types. The
 exemptions are files, each naming the identifier it needs.
 
 Retire when: the UI never holds a `TradingVenue` (no such plan).
@@ -25,7 +27,6 @@ _SRC_ROOT = _REPO_ROOT / "src"
 _LOGGING_CALLS = frozenset(
     {"trace", "debug", "info", "warning", "error", "exception", "critical", "log"}
 )
-_VENUE_NAMES = frozenset({"venue", "_venue"})
 
 #: path -> the identifier its `venue.value` is.
 EXEMPT: dict[str, str] = {
@@ -49,6 +50,9 @@ EXEMPT: dict[str, str] = {
     "src/modules/trading/ui/desk/desk_profile.py": "a programming-error message",
     "src/modules/trading/ui/desk/order_entry/order_entry_presenter.py": (
         "a programming-error message"
+    ),
+    "src/modules/market_data/ui/settings/market_data_settings_presenter.py": (
+        "a `MarketDataVenue`'s settings value"
     ),
     "src/modules/market_data/ui/settings/market_data_settings_view.py": (
         "a `MarketDataVenue`'s item data, a settings key"
@@ -84,7 +88,7 @@ def raw_venue_values(source: str) -> list[str]:
             if isinstance(owner, ast.Attribute)
             else ""
         )
-        if name in _VENUE_NAMES and not _in_logging_call(node, parents):
+        if name.lower().endswith("venue") and not _in_logging_call(node, parents):
             found.append(f"line {node.lineno}: {name}.value")
     return found
 
