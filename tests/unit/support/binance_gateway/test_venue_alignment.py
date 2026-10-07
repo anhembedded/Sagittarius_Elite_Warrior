@@ -94,3 +94,40 @@ def test_mainnet_data_trap_outranks_a_market_mismatch_when_both_hold() -> None:
         )
         is VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
     )
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_testnet_data_behind_a_mainnet_venue_is_flagged(venue: TradingVenue) -> None:
+    """`EPIC-034` D11 — the chart reads one market-data venue; testnet prices
+    on screen with real money behind the order button is the worst mismatch."""
+    assert (
+        compute_venue_alignment(
+            MarketDataVenue.FUTURES_TESTNET, venue, venue.market_type
+        )
+        is VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
+    )
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_mainnet_data_behind_a_mainnet_venue_is_aligned(venue: TradingVenue) -> None:
+    assert (
+        compute_venue_alignment(
+            MarketDataVenue.MAINNET_PUBLIC, venue, venue.market_type
+        )
+        is VenueAlignment.ALIGNED
+    )
+
+
+def test_testnet_data_behind_a_mainnet_venue_outranks_a_market_mismatch() -> None:
+    assert (
+        compute_venue_alignment(
+            MarketDataVenue.FUTURES_TESTNET,
+            TradingVenue.FUTURES_MAINNET,
+            MarketType.SPOT,
+        )
+        is VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
+    )

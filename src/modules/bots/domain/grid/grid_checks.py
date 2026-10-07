@@ -1,6 +1,8 @@
 """`EPIC-029C` — one verdict per check on a Grid's parameters (PRO-006 §4.2; ADR D14, D21).
 
-**Five refusals, and no others** — each a certain loss or a certain rejection:
+**Refusals** — each a certain loss or a certain rejection, the rules of the
+exchange and of money (`EPIC-034`'s D7; `grid_constraints.py` is the table that
+says which codes block and which advise, and a test holds every check to it):
 
   · `EVERY_CYCLE_LOSES` — even the widest grid's step is at or below
     `2 × maker`, so every completed cycle loses money (both legs rest, so both
@@ -19,7 +21,13 @@
   · `LEVEL_OUTSIDE_PRICE_BAND` — a level's price is outside the band the venue
     accepts for its side (`ExchangeTerms.price_band`, Binance Spot's
     `PERCENT_PRICE_BY_SIDE`), which the exchange rejects (`BUG-147`). The band
-    follows the market, so it is judged at the current price.
+    follows the market, so it is judged at the current price;
+  · `STOP_LOSS_INSIDE_RANGE` / `TAKE_PROFIT_INSIDE_RANGE` — an exit on the
+    wrong side of the range: a stop at or above the lower limit would fire
+    inside the grid, a take profit at or below the upper limit would close it
+    while it still earns (`EPIC-034F`; they advised only before D7).
+
+The account's constraints (the balance, the key) are `grid_account_checks.py`.
 
 **Warnings** carry the threshold and the measured value. A check that cannot
 run (no candles for the ATR) says so as OK, never as a silent pass.
@@ -27,25 +35,15 @@ run (no candles for the ATR) says so as OK, never as a silent pass.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from decimal import ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
-    ExchangeTerms,
-    MarketView,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import (
-    GridDerived,
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
+    GridCheckInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
-    GridParams,
     GridSpacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
-    GridThresholds,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
@@ -58,18 +56,6 @@ WARNING = VerdictSeverity.WARNING
 REFUSED = VerdictSeverity.REFUSED
 
 
-@dataclass(frozen=True, slots=True)
-class GridCheckInputs:
-    """Everything a check may read, computed once."""
-
-    params: GridParams
-    plan: GridPlan
-    derived: GridDerived
-    terms: ExchangeTerms
-    market: MarketView
-    thresholds: GridThresholds
-
-
 def check_break_even(inputs: GridCheckInputs) -> Verdict:
     fees = 2 * inputs.terms.maker_fee
     widest = inputs.derived.largest_step_fraction
@@ -79,7 +65,9 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             REFUSED,
             "EVERY_CYCLE_LOSES",
-            "Every grid's step is at or below two maker fees, so every cycle loses money",
+            f"Every grid's step ({widest:.3%} at most) is at or below two maker "
+            f"fees ({fees:.3%}), so every cycle loses money; widen the range or "
+            "use fewer grids",
             numbers,
         )
     if thinnest <= fees:
@@ -105,12 +93,19 @@ def check_min_notional(inputs: GridCheckInputs) -> Verdict:
         "min_notional": minimum,
     }
     if net < minimum:
+        # Orders scale with the capital, so the capital that lifts the
+        # smallest one to the minimum is a proportion; the exchange's
+        # quantity rounding can move it by a step, hence "about".
+        needed = (inputs.params.capital_quote * minimum / net).quantize(
+            _CENT, rounding=ROUND_CEILING
+        )
         return Verdict(
             REFUSED,
             "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order is worth {net} after the fee, below the exchange "
-            f"minimum of {minimum}",
-            numbers,
+            f"A level's order is worth {net:.2f} after the fee, below the "
+            f"exchange minimum of {minimum}; raise the capital to about {needed} "
+            "or use fewer grids",
+            {**numbers, "minimum_capital": needed},
         )
     return Verdict(
         OK, "MIN_NOTIONAL", "Every order clears the exchange minimum", numbers
@@ -190,7 +185,8 @@ def _outside_band(
         REFUSED,
         "LEVEL_OUTSIDE_PRICE_BAND",
         f"A {side} level at {price} is outside the {low:f}–{high:f} the exchange "
-        f"accepts for a {side} at the current price; narrow the range",
+        f"accepts for a {side} at the current price {numbers['last_price']}; "
+        "narrow the range",
         {**numbers, "level_price": price},
     )
 
@@ -259,9 +255,10 @@ def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
         return Verdict(OK, "STOP_LOSS_OFF", "No stop loss is set")
     if stop >= lower:
         return Verdict(
-            WARNING,
+            REFUSED,
             "STOP_LOSS_INSIDE_RANGE",
-            f"The stop loss {stop} is at or above the lower limit {lower}",
+            f"The stop loss {stop} is at or above the lower limit {lower}; put it "
+            "below the range",
             {"stop_loss": stop, "lower": lower},
         )
     return _exit_distance(inputs, "STOP_LOSS", (lower - stop) / lower)
@@ -274,9 +271,10 @@ def check_take_profit(inputs: GridCheckInputs) -> Verdict:
         return Verdict(OK, "TAKE_PROFIT_OFF", "No take profit is set")
     if target <= upper:
         return Verdict(
-            WARNING,
+            REFUSED,
             "TAKE_PROFIT_INSIDE_RANGE",
-            f"The take profit {target} is at or below the upper limit {upper}",
+            f"The take profit {target} is at or below the upper limit {upper}; put "
+            "it above the range",
             {"take_profit": target, "upper": upper},
         )
     return _exit_distance(inputs, "TAKE_PROFIT", (target - upper) / upper)
@@ -295,24 +293,6 @@ def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
             numbers,
         )
     return Verdict(OK, "SPACING", "The spacing suits the range", numbers)
-
-
-CHECKS: tuple[Callable[[GridCheckInputs], Verdict], ...] = (
-    check_break_even,
-    check_min_notional,
-    check_max_notional,
-    check_open_orders,
-    check_price_band,
-    check_min_step,
-    check_range_against_atr,
-    check_stop_loss,
-    check_take_profit,
-    check_spacing_for_range,
-)
-
-
-def run_checks(inputs: GridCheckInputs) -> tuple[Verdict, ...]:
-    return tuple(check(inputs) for check in CHECKS)
 
 
 def _exit_distance(inputs: GridCheckInputs, name: str, distance: Decimal) -> Verdict:

@@ -229,3 +229,85 @@ def test_the_running_bots_tables_show_each_column_as_its_kind(
     assert {"tblBots", "tblBotOrders"} <= set(measured)
     assert alignment_problems(view, view) == []
     assert digit_font_problems(view, view) == []
+
+
+def _plan_says(screen: _Screen, text: str) -> bool:
+    return screen.view.plan.readiness_header.text() == text
+
+
+def test_a_new_bot_goes_through_connect_design_and_run_to_a_running_bot(
+    screen: _Screen,
+) -> None:
+    """`EPIC-034H`, on the composed app and the fake exchange: selecting a new
+    bot reads its account and judges its plan by itself, the Plan lists the
+    three steps done, and Save and start places the ladder."""
+    app = screen.app
+    bot_id = _created(app)
+    screen.select(bot_id)
+
+    screen.qtbot.waitUntil(
+        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+    )
+    assert screen.view.plan.readiness_steps.text().splitlines() == [
+        "1. Connect: done",
+        "2. Design: done",
+        "3. Run: done",
+    ]
+
+    screen.press(BotAction.START)
+    screen.wait_for(bot_id, S.RUNNING)
+
+    assert resting(app.urls) == ladder(app.runtime(bot_id))
+
+
+def test_save_and_start_saves_the_edits_on_screen_and_starts_with_them(
+    screen: _Screen,
+) -> None:
+    app = screen.app
+    bot_id = _created(app)
+    screen.select(bot_id)
+    screen.qtbot.waitUntil(
+        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+    )
+    panel = screen.view._kind_panel
+    assert panel is not None
+    panel.capital.setText("1500")
+    panel.capital.textEdited.emit("1500")
+
+    screen.press(BotAction.START)
+    screen.wait_for(bot_id, S.RUNNING)
+
+    assert app.bot(bot_id).definition.config["capital_quote"] == "1500"
+    assert resting(app.urls) == ladder(app.runtime(bot_id))
+
+
+def test_a_capital_above_the_account_is_listed_before_the_click_and_start_waits(
+    screen: _Screen,
+) -> None:
+    """The fake account holds 100,000 USDT: 150,000 is the balance constraint,
+    shown on the Plan and holding Start off, with nothing placed."""
+    app = screen.app
+    bot_id = _created(app)
+    screen.select(bot_id)
+    screen.qtbot.waitUntil(
+        lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
+    )
+    panel = screen.view._kind_panel
+    assert panel is not None
+
+    panel.capital.setText("150000")
+    panel.capital.textEdited.emit("150000")
+
+    model = screen.view.model
+
+    def balance_is_listed() -> bool:
+        left = model.readiness
+        return left is not None and "CAPITAL_ABOVE_BALANCE" in [
+            item.code for item in left.items
+        ]
+
+    screen.qtbot.waitUntil(balance_is_listed, timeout=_WAIT_MS)
+    assert "left" in screen.view.plan.readiness_header.text()
+    assert "available on Spot Testnet" in screen.view.plan.readiness_items.text()
+    assert not screen.actions.action(lifecycle_id(BotAction.START)).isEnabled()
+    assert resting(app.urls) == {}

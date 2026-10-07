@@ -147,6 +147,16 @@ class ITradingSession(ABC):
         """
 
     @abstractmethod
+    def lease_holder(self, symbol: str) -> str | None:
+        """Who holds `symbol`'s lease, or `None` when nobody does.
+
+        @details Read-only and local (no exchange round trip), so a screen may
+        ask before a click what `claim_symbol` would answer after it
+        (`EPIC-034H`). The answer is a snapshot: another owner may claim in
+        the gap, which is why a claim still reports its own refusal.
+        """
+
+    @abstractmethod
     def release_symbol(self, symbol: str, owner_id: str) -> None:
         """Give up `owner_id`'s claim on `symbol`.
 

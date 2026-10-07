@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QSpinBox,
     QToolBar,
@@ -41,13 +42,28 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     ExitKind,
     GridSpacing,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
+    CAPITAL,
+    FIELD_LABELS,
+    FIELDS_OF_CODE,
+    GRID_COUNT,
+    LOWER,
+    SPACING,
+    STOP_LOSS,
+    TAKE_PROFIT,
+    UPPER,
+    field_errors,
+    field_of_code,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
     SUGGEST_FROM_ATR,
     SUGGEST_FROM_BOLLINGER,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 #: Binance's own floor for a Spot grid; the planner refuses fewer anyway.
 _MIN_GRIDS = 2
@@ -129,6 +145,7 @@ class GridPanel(BotKindPanel):
         self.suggest_bollinger = self._add_action(
             "actSuggestBollinger", "Suggest from Bollinger"
         )
+        self._error_labels: dict[str, QLabel] = {}
         self._build_field_layout()
         self._connect()
         self.set_planner_market(None)
@@ -207,17 +224,77 @@ class GridPanel(BotKindPanel):
 
     def _build_field_layout(self) -> None:
         form = QFormLayout()
-        form.addRow("Lower price", self.lower_price)
-        form.addRow("Upper price", self.upper_price)
-        form.addRow("Grids", self.grid_count)
-        form.addRow("Spacing", self.spacing)
-        form.addRow("Capital (quote)", self.capital)
-        form.addRow("Stop loss", self.stop_loss)
-        form.addRow("Take profit", self.take_profit)
+        rows = (
+            (LOWER, self.lower_price),
+            (UPPER, self.upper_price),
+            (GRID_COUNT, self.grid_count),
+            (SPACING, self.spacing),
+            (CAPITAL, self.capital),
+            (STOP_LOSS, self.stop_loss),
+            (TAKE_PROFIT, self.take_profit),
+        )
+        for key, editor in rows:
+            form.addRow(FIELD_LABELS[key], self._row(key, editor))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.toolbar)
         layout.addLayout(form)
+
+    def _row(self, key: str, editor: QWidget) -> QWidget:
+        """The editor with, under it, what the constraints say about it
+        (`EPIC-034F`): empty and hidden until a verdict is about this field."""
+        error = plain_label()
+        error.setObjectName(f"lblGridError_{key}")
+        error.setWordWrap(True)
+        error.setVisible(False)
+        self._error_labels[key] = error
+        row = QWidget()
+        column = QVBoxLayout(row)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.addWidget(editor)
+        column.addWidget(error)
+        return row
+
+    # -- constraints on the fields (EPIC-034F) ----------------------------- #
+
+    def show_verdicts(self, verdicts: tuple[Verdict, ...]) -> None:
+        shown = field_errors(verdicts)
+        for key, label in self._error_labels.items():
+            error = shown.get(key)
+            label.setText(error.text if error else "")
+            label.setVisible(error is not None)
+            self._editor_of(key).setToolTip(error.text if error else "")
+
+    def focus_field(self, code: str) -> bool:
+        key = field_of_code(code)
+        if key is None:
+            return False
+        editor = self._editor_of(key)
+        if isinstance(editor, _ExitField) and not editor.value.isEnabled():
+            editor.kind.setFocus()
+        else:
+            (editor.value if isinstance(editor, _ExitField) else editor).setFocus()
+        return True
+
+    def field_label(self, code: str) -> str | None:
+        keys = FIELDS_OF_CODE.get(code)
+        return " and ".join(FIELD_LABELS[key] for key in keys) if keys else None
+
+    def field_error_text(self, key: str) -> str:
+        """What a field says now, `""` when nothing is about it."""
+        label = self._error_labels[key]
+        return label.text() if not label.isHidden() else ""
+
+    def _editor_of(self, key: str) -> QWidget:
+        return {
+            LOWER: self.lower_price,
+            UPPER: self.upper_price,
+            GRID_COUNT: self.grid_count,
+            SPACING: self.spacing,
+            CAPITAL: self.capital,
+            STOP_LOSS: self.stop_loss,
+            TAKE_PROFIT: self.take_profit,
+        }[key]
 
     def _connect(self) -> None:
         for field in (self.lower_price, self.upper_price, self.capital):

@@ -133,7 +133,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
     FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
-    a_venue_account_snapshot,
+    a_funded_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
     FakeVenueAccountReader,
@@ -354,7 +354,7 @@ def open_screen(
     )
     # Read at the screen's own clock, so the read is as fresh as a real one.
     account = FakeVenueAccountReader(
-        AccountSource.SPOT_TESTNET, replace(a_venue_account_snapshot(), read_at=NOW)
+        AccountSource.SPOT_TESTNET, replace(a_funded_snapshot(), read_at=NOW)
     )
     container.singleton(IVenueAccounts, FakeVenueAccounts(account))
     container.singleton(IRealMoneyConsent, FakeRealMoneyConsent())

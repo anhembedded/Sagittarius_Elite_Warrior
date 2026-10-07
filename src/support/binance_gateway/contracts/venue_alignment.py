@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 class VenueAlignment(str, Enum):
-    """@brief The three states a user can be in, in order of increasing risk."""
+    """@brief The states a user can be in, in order of increasing risk."""
 
     #: Both venues answer to the same environment (testnet data, testnet
     #: orders) and the chart shows the same market the order would fill in
@@ -43,6 +43,14 @@ class VenueAlignment(str, Enum):
     #: literal trap `EPIC-021`'s ADR §2.2 names: "chart hiển thị giá
     #: mainnet trong khi lệnh khớp trên testnet."
     DATA_MAINNET_ORDERS_TESTNET = "data_mainnet_orders_testnet"
+    #: `MarketDataVenue.FUTURES_TESTNET` while a mainnet venue is the one the
+    #: orders go to (`EPIC-034` D11) — testnet prices on screen, real money
+    #: behind the order button: the trap above turned over, and the worse of
+    #: the two. The chart, its live stream and the backtests read one
+    #: process-wide market-data venue, so while a mainnet venue is enabled no
+    #: setting is right for every venue (the full fix is a market-data source
+    #: per trading venue); this state says so rather than letting it pass.
+    DATA_TESTNET_ORDERS_MAINNET = "data_testnet_orders_mainnet"
 
 
 def compute_venue_alignment(
@@ -58,9 +66,10 @@ def compute_venue_alignment(
     this function's own docstring anticipated as "the fourth state" rather
     than a fifth independent comparison elsewhere).
 
-    Priority when more than one condition holds: the mainnet-data trap is
-    checked first because it is the one already named as the worst case
-    (real prices driving a decision, `EPIC-021`'s ADR §2.2); a market-type
+    Priority when more than one condition holds: testnet data behind a mainnet
+    venue is checked first, since real money is at stake on a price that is
+    not real (`EPIC-034` D11); the mainnet-data trap is next, the case
+    `EPIC-021`'s ADR §2.2 names (real prices driving a decision); a market-type
     mismatch is checked next, since either one alone is reason enough not
     to report `ALIGNED`.
 
@@ -71,6 +80,11 @@ def compute_venue_alignment(
             f"{trading_venue.value} places no orders, so its alignment with the "
             "chart is not a question (`EPIC-034C` removed the 'Trading is OFF' state)"
         )
+    if (
+        market_data_venue is MarketDataVenue.FUTURES_TESTNET
+        and trading_venue.is_mainnet
+    ):
+        return VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
     if (
         market_data_venue is MarketDataVenue.MAINNET_PUBLIC
         and not trading_venue.is_mainnet

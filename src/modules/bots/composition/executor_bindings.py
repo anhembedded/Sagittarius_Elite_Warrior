@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
     BotKindCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readiness_reader import (
+    BotReadinessReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
     BotRunner,
 )
@@ -44,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import Gri
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
+    IVenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -58,6 +64,7 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(BotCommandLock, BotCommandLock())
     container.singleton(BotExecutors, _build_executors)
     container.singleton(IBotRunner, _build_runner)
+    container.singleton(BotReadinessReader, _build_readiness_reader)
     container.singleton(IBotKindCatalog, _build_kind_catalog)
 
 
@@ -84,6 +91,17 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
     return GridExecutorFactory(deps)
 
 
+def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
+    """What the Start use case and `GetBotReadinessQuery` both ask (`EPIC-034H`)."""
+    return BotReadinessReader(
+        container.resolve(IBotStore),
+        container.resolve(IBotKindCatalog),
+        container.resolve(IVenueAccounts),
+        container.resolve(IVenueTradingPorts),
+        container.resolve(OwnerBudgetCaps),
+    )
+
+
 def _build_runner(container: IContainer) -> IBotRunner:
     return BotRunner(
         container.resolve(IBotStore),
@@ -91,7 +109,6 @@ def _build_runner(container: IContainer) -> IBotRunner:
         GridStartPreconditions(
             container.resolve(IVenueTradingPorts),
             container.resolve(OwnerBudgetCaps),
-            GridThresholds(),
         ),
         container.resolve(BotExecutors),
     )

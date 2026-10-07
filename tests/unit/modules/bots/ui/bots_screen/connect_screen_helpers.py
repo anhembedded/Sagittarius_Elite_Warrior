@@ -56,8 +56,13 @@ def start_rule(screen: BotsScreen) -> tuple[bool, str]:
     return rule.enabled, rule.reason
 
 
+#: More than any capital the screen tests plan with, so the balance
+#: constraint (`EPIC-034F`) passes unless a test is about it.
+FUNDED = 50_000
+
+
 def fresh_snapshot() -> VenueAccountSnapshot:
-    return replace(a_venue_account_snapshot(), read_at=NOW)
+    return replace(a_venue_account_snapshot(available=FUNDED), read_at=NOW)
 
 
 def failure(kind: ConnectionFailureKind, detail: str = "the account") -> ConnectFailure:

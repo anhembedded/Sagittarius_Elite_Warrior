@@ -35,6 +35,13 @@ def test_mainnet_data_trap_names_both_venues() -> None:
     assert content.severity is Severity.DANGER
 
 
+def test_testnet_data_behind_mainnet_orders_says_real_money() -> None:
+    content = venue_alignment_banner_content(VenueAlignment.DATA_TESTNET_ORDERS_MAINNET)
+    assert "TESTNET prices" in content.message
+    assert "REAL MONEY" in content.message
+    assert content.severity is Severity.DANGER
+
+
 def test_market_mismatch_warns_the_chart_is_not_the_fill_market() -> None:
     """`EPIC-027G` — a market-type mismatch is a real trading risk (the
     price/instrument on screen is not what the order books against), so it
@@ -55,6 +62,7 @@ def test_each_alignment_state_maps_to_its_documented_severity() -> None:
         VenueAlignment.ALIGNED: Severity.WARN,
         VenueAlignment.MARKET_MISMATCH: Severity.DANGER,
         VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: Severity.DANGER,
+        VenueAlignment.DATA_TESTNET_ORDERS_MAINNET: Severity.DANGER,
     }
     assert set(expected_severity) == set(VenueAlignment)
     for alignment, severity in expected_severity.items():

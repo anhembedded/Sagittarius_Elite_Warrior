@@ -20,8 +20,10 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_constraints import (
     run_checks,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import (
@@ -71,7 +73,13 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
         grid_plan = plan(params, inputs.terms, inputs.market.last_price)
         derived = derive(params, inputs.terms, grid_plan)
         check_inputs = GridCheckInputs(
-            params, grid_plan, derived, inputs.terms, inputs.market, thresholds
+            params,
+            grid_plan,
+            derived,
+            inputs.terms,
+            inputs.market,
+            thresholds,
+            inputs.account,
         )
         verdicts = run_checks(check_inputs)
     except ArithmeticError as exc:

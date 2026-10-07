@@ -15,10 +15,12 @@ resume from HALTED, a STOPPING retry, and ERROR → `stop`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
+    GridParamsError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudget,
@@ -61,3 +63,25 @@ def grid_registration(
         run_started_at=run_started_at,
         budget=budget,
     )
+
+
+def grid_budget_problem(config: Mapping[str, str], caps: OwnerBudgetCaps) -> str:
+    """Which cap a Grid's budget would exceed, in words; `""` when it fits or
+    the parameters cannot be read (the Design step says so, `EPIC-034H`).
+
+    Trading refuses the same budget at registration; asking here lets the
+    screen say so before the click, in the same cap's name.
+    """
+    try:
+        params = GridParams.from_config(config)
+    except GridParamsError:
+        return ""
+    exceeded = caps.exceeded_by(grid_budget(params, caps))
+    if exceeded is None:
+        return ""
+    if exceeded == "max_open_orders":
+        return (
+            f"The ladder keeps {params.grid_count + 1} orders open; trading allows "
+            f"at most {caps.max_open_orders}. Use fewer grids"
+        )
+    return f"The bot's order budget exceeds trading's cap ({exceeded})"

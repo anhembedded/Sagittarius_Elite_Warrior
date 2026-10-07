@@ -56,18 +56,35 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers impor
     seed,
     state_of,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_world import (
+    ReadinessWorld,
+    readiness_world,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
+    BOT,
+    CONFIG,
+)
 
 S = BotLifecycleState
 
 
 @pytest.fixture
-def store() -> FakeBotStore:
-    return FakeBotStore()
+def world() -> ReadinessWorld:
+    """A funded Spot Testnet account and a venue; its store is the one the
+    handlers share, and no bot is in it until a test seeds one."""
+    made = readiness_world()
+    made.store.delete(BotId(BOT))
+    return made
 
 
 @pytest.fixture
-def clock() -> FakeBotClock:
-    return FakeBotClock()
+def store(world: ReadinessWorld) -> FakeBotStore:
+    return world.store
+
+
+@pytest.fixture
+def clock(world: ReadinessWorld) -> FakeBotClock:
+    return world.clock
 
 
 class _RecordingRunner(IBotRunner):
@@ -111,38 +128,49 @@ def runner(store: FakeBotStore, clock: FakeBotClock) -> _RecordingRunner:
     return _RecordingRunner(store, clock)
 
 
-def _start(
-    store: FakeBotStore, runner: _RecordingRunner, bot_id: str
-) -> BotCommandResult:
-    return StartBotCommandHandler(store, runner, BotCommandLock()).execute(
-        StartBotCommand(bot_id)
+def _handler(
+    world: ReadinessWorld, runner: IBotRunner, lock: BotCommandLock | None = None
+) -> StartBotCommandHandler:
+    return StartBotCommandHandler(
+        world.store, runner, lock or BotCommandLock(), world.reader, world.clock
     )
 
 
-def test_start_hands_the_bot_to_the_runner(
-    store: FakeBotStore, runner: _RecordingRunner
-) -> None:
-    seed(store, "abc123", S.DRAFT)
+def _start(
+    world: ReadinessWorld, runner: _RecordingRunner, bot_id: str
+) -> BotCommandResult:
+    return _handler(world, runner).execute(StartBotCommand(bot_id))
 
-    result = _start(store, runner, "abc123")
+
+def _ready(store: FakeBotStore, bot_id: str, state: S) -> None:
+    """A bot whose parameters every constraint accepts."""
+    seed(store, bot_id, state, CONFIG)
+
+
+def test_start_hands_the_bot_to_the_runner(
+    world: ReadinessWorld, runner: _RecordingRunner
+) -> None:
+    _ready(world.store, "abc123", S.DRAFT)
+
+    result = _start(world, runner, "abc123")
 
     assert result.accepted
     assert runner.sent == [("start", "abc123")]
-    assert state_of(store, "abc123") is S.STARTING
+    assert state_of(world.store, "abc123") is S.STARTING
 
 
 def test_a_refused_precondition_is_the_answer_and_changes_nothing(
-    store: FakeBotStore, runner: _RecordingRunner
+    world: ReadinessWorld, runner: _RecordingRunner
 ) -> None:
-    seed(store, "abc123", S.DRAFT)
+    _ready(world.store, "abc123", S.DRAFT)
     runner.refusal = BotCommandResult.refused(
         BotRefusal.SYMBOL_LEASED, "BTCUSDT is held by another owner", "abc123"
     )
 
-    result = _start(store, runner, "abc123")
+    result = _start(world, runner, "abc123")
 
     assert result.refusal is BotRefusal.SYMBOL_LEASED
-    assert state_of(store, "abc123") is S.DRAFT
+    assert state_of(world.store, "abc123") is S.DRAFT
 
 
 @pytest.mark.parametrize(
@@ -150,42 +178,40 @@ def test_a_refused_precondition_is_the_answer_and_changes_nothing(
     [S.STARTING, S.RUNNING, S.PAUSED, S.RECOVERING, S.HALTED, S.STOPPING, S.ERROR],
 )
 def test_a_second_bot_cannot_start_while_one_is_active(
-    store: FakeBotStore, runner: _RecordingRunner, other: S
+    world: ReadinessWorld, runner: _RecordingRunner, other: S
 ) -> None:
-    seed(store, "aaa111", other)
-    seed(store, "bbb222", S.DRAFT)
-    result = _start(store, runner, "bbb222")
+    _ready(world.store, "aaa111", other)
+    _ready(world.store, "bbb222", S.DRAFT)
+    result = _start(world, runner, "bbb222")
     assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
     assert "aaa111" in result.message
-    assert state_of(store, "bbb222") is S.DRAFT
+    assert state_of(world.store, "bbb222") is S.DRAFT
     assert runner.sent == []
 
 
 def test_an_unreadable_file_counts_as_an_active_bot(
-    store: FakeBotStore, runner: _RecordingRunner
+    world: ReadinessWorld, runner: _RecordingRunner
 ) -> None:
-    store.refuse_file(BotId("aaa111"), "unknown schema_version 2")
-    seed(store, "bbb222", S.DRAFT)
-    result = _start(store, runner, "bbb222")
+    world.store.refuse_file(BotId("aaa111"), "unknown schema_version 2")
+    _ready(world.store, "bbb222", S.DRAFT)
+    result = _start(world, runner, "bbb222")
     assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
 
 
 @pytest.mark.parametrize("other", [S.DRAFT, S.STOPPED])
 def test_idle_bots_do_not_block_a_start(
-    store: FakeBotStore, runner: _RecordingRunner, other: S
+    world: ReadinessWorld, runner: _RecordingRunner, other: S
 ) -> None:
-    seed(store, "aaa111", other)
-    seed(store, "bbb222", S.DRAFT)
-    assert _start(store, runner, "bbb222").accepted
+    _ready(world.store, "aaa111", other)
+    _ready(world.store, "bbb222", S.DRAFT)
+    assert _start(world, runner, "bbb222").accepted
 
 
-def test_two_starts_racing_let_exactly_one_bot_start(
-    store: FakeBotStore, clock: FakeBotClock
-) -> None:
+def test_two_starts_racing_let_exactly_one_bot_start(world: ReadinessWorld) -> None:
     """The PR #318 review: the D20 check and the start are one step under the
     shared lock, so two starts at once cannot both find no other bot active."""
-    seed(store, "aaa111", S.DRAFT)
-    seed(store, "bbb222", S.DRAFT)
+    _ready(world.store, "aaa111", S.DRAFT)
+    _ready(world.store, "bbb222", S.DRAFT)
     inside = threading.Event()
     release = threading.Event()
 
@@ -196,11 +222,11 @@ def test_two_starts_racing_let_exactly_one_bot_start(
             return super().start(bot_id)
 
     lock = BotCommandLock()
-    slow = _SlowRunner(store, clock)
+    slow = _SlowRunner(world.store, world.clock)
     results: dict[str, BotCommandResult] = {}
 
     def first() -> None:
-        results["aaa111"] = StartBotCommandHandler(store, slow, lock).execute(
+        results["aaa111"] = _handler(world, slow, lock).execute(
             StartBotCommand("aaa111")
         )
 
@@ -209,10 +235,7 @@ def test_two_starts_racing_let_exactly_one_bot_start(
     assert inside.wait(timeout=5)
     second = threading.Thread(
         target=lambda: results.__setitem__(
-            "bbb222",
-            StartBotCommandHandler(store, slow, lock).execute(
-                StartBotCommand("bbb222")
-            ),
+            "bbb222", _handler(world, slow, lock).execute(StartBotCommand("bbb222"))
         )
     )
     second.start()

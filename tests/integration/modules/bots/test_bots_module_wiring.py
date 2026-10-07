@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot impo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_readiness import (
+    GetBotReadinessQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
 )
@@ -127,12 +130,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_reject
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
+    IVenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudgetCaps,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
+    FakeVenueAccounts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     FakeVenueTradingPorts,
@@ -162,6 +171,7 @@ QUERIES = (
     GetBotQuery,
     GetPlannerMarketQuery,
     GetBotFillsQuery,
+    GetBotReadinessQuery,
     RunGridBacktestQuery,
 )
 _GRID_CONFIG = {
@@ -183,6 +193,7 @@ def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
         FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
     )
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
+    container.singleton(IVenueAccounts, FakeVenueAccounts())
     container.singleton(IHistoricalKlines, FakeHistoricalKlines())
     container.singleton(IMarketDataRepository, FakeMarketDataRepository())
     event_bus = MemoryEventBus()

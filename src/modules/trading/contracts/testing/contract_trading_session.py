@@ -58,7 +58,7 @@ class SymbolLeaseContract:
     `TradingSessionService` has never run the full suite (that file's own
     docstring records it). The lease needs none of that: `claim_symbol` and
     `release_symbol` go straight to `TradingSessionState`. Splitting it out is
-    what lets the **real** implementation prove these seven guarantees today
+    what lets the **real** implementation prove these guarantees today
     instead of inheriting a deferral that has nothing to do with them
     (HLD §10.3 rule 3 — both implementations run the suite).
     """
@@ -254,3 +254,36 @@ class OwnerBudgetContract:
         self, impl: ITradingSession
     ) -> None:
         impl.clear_owner_budget("nobody")
+
+    def test_nobody_holds_a_symbol_nobody_claimed(self, impl: ITradingSession) -> None:
+        assert impl.lease_holder("BTCUSDT") is None
+
+    def test_the_holder_is_the_owner_that_claimed(self, impl: ITradingSession) -> None:
+        impl.claim_symbol("BTCUSDT", "strategy")
+
+        assert impl.lease_holder("BTCUSDT") == "strategy"
+        assert impl.lease_holder("ETHUSDT") is None
+
+    def test_a_refused_claim_leaves_the_first_owner_the_holder(
+        self, impl: ITradingSession
+    ) -> None:
+        impl.claim_symbol("BTCUSDT", "strategy")
+        impl.claim_symbol("BTCUSDT", "someone_else")
+
+        assert impl.lease_holder("BTCUSDT") == "strategy"
+
+    def test_releasing_and_re_claiming_move_the_holder(
+        self, impl: ITradingSession
+    ) -> None:
+        impl.claim_symbol("BTCUSDT", "strategy")
+        impl.claim_symbol("ETHUSDT", "strategy")
+
+        assert impl.lease_holder("BTCUSDT") is None
+        assert impl.lease_holder("ETHUSDT") == "strategy"
+        impl.release_symbol("ETHUSDT", "strategy")
+        assert impl.lease_holder("ETHUSDT") is None
+
+    def test_reading_the_holder_claims_nothing(self, impl: ITradingSession) -> None:
+        impl.lease_holder("BTCUSDT")
+
+        assert impl.claim_symbol("BTCUSDT", "someone_else") is True

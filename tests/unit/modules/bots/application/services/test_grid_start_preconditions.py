@@ -2,7 +2,9 @@
 (ADR §3.1, D6, D9).
 
 Each precondition refuses by name and leaves the bot as it was; a refused budget
-gives the lease back. When all hold, the runner moves the bot to STARTING, builds
+gives the lease back. What can be known before an order (the venue, the verdicts)
+is the readiness reader's, asked by the Start use case first
+(`test_start_bot_readiness.py`, `EPIC-034H`). When all hold, the runner moves the bot to STARTING, builds
 its executor and queues the start, which lays the ladder.
 """
 
@@ -47,9 +49,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
-    GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
@@ -144,9 +143,7 @@ def _start_world(
     clock = FakeBotClock()
     definition = BotDefinition("grid one", "grid", venue, SYMBOL, CONFIG)
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
-    preconditions = GridStartPreconditions(
-        ports, DEFAULT_OWNER_BUDGET_CAPS, GridThresholds()
-    )
+    preconditions = GridStartPreconditions(ports, DEFAULT_OWNER_BUDGET_CAPS)
     queues: list[_ClosableInlineQueue] = []
 
     def queue(_name: str) -> _ClosableInlineQueue:
@@ -188,15 +185,6 @@ def test_all_preconditions_held_register_the_budget_for_this_run() -> None:
     assert not world.session.claim_symbol(SYMBOL, "manual")
 
 
-def test_a_futures_venue_is_refused() -> None:
-    world = _start_world(venue=TradingVenue.FUTURES_TESTNET)
-
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
-
-    assert refusal is not None
-    assert refusal.refusal is BotRefusal.VENUE_NOT_READY
-
-
 def test_start_opens_a_closed_session_before_anything_else() -> None:
     """`EPIC-034C` — no switch was turned on first: the start reconciles the
     account and opens the session itself, once."""
@@ -229,18 +217,6 @@ def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> 
     assert "unexpected open positions" in refusal.message
     assert world.session.budgets == {}
     assert world.session.claim_symbol(SYMBOL, "manual")
-
-
-def test_a_refused_verdict_is_refused_naming_it() -> None:
-    """250 USDT a level above a 200 cap: the planner's D21 refusal."""
-    world = _start_world(cap=Decimal(200))
-
-    refusal = world.preconditions.check(_bot(world), world.clock.now())
-
-    assert refusal is not None
-    assert refusal.refusal is BotRefusal.PARAMETERS_REFUSED
-    assert refusal.message
-    assert world.session.budgets == {}
 
 
 def test_a_symbol_held_by_another_owner_is_refused() -> None:

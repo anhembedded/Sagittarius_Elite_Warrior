@@ -5,11 +5,11 @@ enabled exactly when the use case behind it would accept the command. A
 disabled button says why in its tooltip, so the reason is never colour alone
 (`ui-presentation-rule.md`).
 
-Start has three more conditions than the table, all shown before the click
-rather than refused after it: the venue's account was read and its key may
-trade (`EPIC-034D`), the kind's verdict (a REFUSED verdict names itself) and
-unsaved edits (a start runs the saved parameters, so the edits are saved
-first).
+Start has what the readiness lists (`EPIC-034H`): the three steps Connect,
+Design and Run, every item left with its reason, shown before the click rather
+than refused after it. **Start is "Save and start"** (decision D8): it saves
+the edits on screen when there are any, then starts, so unsaved edits are not
+something left. Save stays for drafts.
 """
 
 from __future__ import annotations
@@ -55,13 +55,9 @@ class ActionAvailability:
 class StartConditions:
     """What Start needs beyond the lifecycle table."""
 
-    #: The kind's REFUSED verdict, or the reason none could be judged; empty
-    #: when the plan may start.
-    refusal: str = ""
-    unsaved_edits: bool = False
-    #: Why the bot's venue account has not been read, or may not trade
-    #: (`EPIC-034D`); empty when it says go.
-    connection: str = ""
+    #: What is left before Start, in words (`BotReadiness.message`): the
+    #: count and every reason; empty when nothing is.
+    blocked_by: str = ""
 
 
 def availability(
@@ -75,13 +71,8 @@ def availability(
         return ActionAvailability(
             False, f"{action.value} is not possible while the bot is {_name(state)}."
         )
-    if action is BotAction.START:
-        if start.connection:
-            return ActionAvailability(False, start.connection)
-        if start.unsaved_edits:
-            return ActionAvailability(False, "Save the changed parameters first.")
-        if start.refusal:
-            return ActionAvailability(False, start.refusal)
+    if action is BotAction.START and start.blocked_by:
+        return ActionAvailability(False, start.blocked_by)
     return ActionAvailability(True, _WHAT_IT_DOES[action])
 
 
@@ -98,7 +89,9 @@ def _name(state: BotLifecycleState) -> str:
 
 
 _WHAT_IT_DOES = {
-    BotAction.START: "Place the ladder on the exchange.",
+    BotAction.START: (
+        "Save the changed parameters, then place the ladder on the exchange."
+    ),
     BotAction.PAUSE: "Stop placing new orders; resting orders stay.",
     BotAction.RESUME: (
         "Resume. A halted bot first cancels its tagged orders and proposes a "

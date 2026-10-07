@@ -175,7 +175,7 @@ def test_the_exact_order_count_meets_the_open_order_limit(
     assert _verdict(evaluation, "OPEN_ORDERS", "TOO_MANY_LEVELS").code == code
 
 
-def test_the_four_refusals_are_the_only_refusals() -> None:
+def test_the_refusals_are_the_exchange_and_money_rules_only() -> None:
     codes = {
         v.code
         for kwargs in (
@@ -198,6 +198,8 @@ def test_the_four_refusals_are_the_only_refusals() -> None:
         "LEVEL_BELOW_MIN_NOTIONAL",
         "LEVEL_ABOVE_MAX_NOTIONAL",
         "TOO_MANY_LEVELS",
+        "STOP_LOSS_INSIDE_RANGE",
+        "TAKE_PROFIT_INSIDE_RANGE",
     }
 
 
@@ -235,6 +237,14 @@ def test_range_against_daily_atr(daily_atr: Decimal | None, code: str) -> None:
     assert verdict.severity is (WARNING if code == "RANGE_OUTSIDE_ATR_BAND" else OK)
 
 
+def _exit_severity(code: str, ok_codes: set[str]) -> VerdictSeverity:
+    """An exit on the wrong side of the range refuses (`EPIC-034F`, D7); how
+    far it sits only advises."""
+    if code in ok_codes:
+        return OK
+    return REFUSED if code.endswith("_INSIDE_RANGE") else WARNING
+
+
 @pytest.mark.parametrize(
     ("stop_loss", "code"),
     [
@@ -256,9 +266,7 @@ def test_stop_loss(stop_loss: str, code: str) -> None:
         "STOP_LOSS_OFF",
     )
     assert verdict.code == code
-    assert verdict.severity is (
-        OK if code in {"STOP_LOSS", "STOP_LOSS_OFF"} else WARNING
-    )
+    assert verdict.severity is _exit_severity(code, {"STOP_LOSS", "STOP_LOSS_OFF"})
 
 
 @pytest.mark.parametrize(
@@ -282,9 +290,7 @@ def test_take_profit(take_profit: str, code: str) -> None:
         "TAKE_PROFIT_OFF",
     )
     assert verdict.code == code
-    assert verdict.severity is (
-        OK if code in {"TAKE_PROFIT", "TAKE_PROFIT_OFF"} else WARNING
-    )
+    assert verdict.severity is _exit_severity(code, {"TAKE_PROFIT", "TAKE_PROFIT_OFF"})
 
 
 def test_a_stop_loss_distance_warning_carries_the_measured_value() -> None:

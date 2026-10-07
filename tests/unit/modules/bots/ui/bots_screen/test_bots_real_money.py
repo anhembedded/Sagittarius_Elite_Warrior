@@ -124,3 +124,27 @@ def test_arming_a_strategy_on_a_mainnet_venue_asks_first_and_a_no_arms_nothing()
 
     assert armed is False  # the dialog was never opened: the question stopped it
     assert consent.asked == [(_MAINNET, "arm a strategy")]
+
+
+def test_save_and_start_with_edits_asks_first_and_a_no_sends_nothing() -> None:
+    """`EPIC-034H` D8 made Start "Save and start": the edits travel with it. On a
+    mainnet venue the question comes before they do, so a "no" saves nothing
+    either."""
+    consent = FakeRealMoneyConsent(agrees=False)
+
+    command = command_for(
+        BotAction.START, _bot(), _dialogs(consent), {"capital_quote": "1500"}
+    )
+
+    assert command is None
+    assert consent.asked == [(_MAINNET, "start this bot")]
+
+
+def test_save_and_start_with_edits_carries_them_once_real_money_is_agreed() -> None:
+    consent = FakeRealMoneyConsent(agrees=True)
+
+    command = command_for(
+        BotAction.START, _bot(), _dialogs(consent), {"capital_quote": "1500"}
+    )
+
+    assert command == StartBotCommand("a00001", {"capital_quote": "1500"})

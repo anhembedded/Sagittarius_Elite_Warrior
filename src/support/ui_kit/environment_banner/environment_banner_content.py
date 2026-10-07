@@ -54,6 +54,14 @@ _CONTENT: dict[VenueAlignment, tuple[str, str, BannerSeverity]] = {
         "Chart is showing MAINNET prices, orders fill on TESTNET. Price shown ≠ fill price.",
         BannerSeverity.DANGER,
     ),
+    VenueAlignment.DATA_TESTNET_ORDERS_MAINNET: (
+        "⚠",
+        (
+            "Chart is showing TESTNET prices, orders fill on MAINNET with REAL MONEY. "
+            "Set the chart's data source to mainnet."
+        ),
+        BannerSeverity.DANGER,
+    ),
 }
 
 

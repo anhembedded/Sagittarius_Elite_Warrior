@@ -1,6 +1,7 @@
 """`EPIC-033K` — the Bots mode's Plan panel: the selected bot's plan.
 
-The bot's name and state in words, its figures as a read-out, the kind's
+The bot's name and state in words, how far it is on its three steps and what
+is left before Start (`EPIC-034H`), its figures as a read-out, the kind's
 parameter editor and what the kind says about those parameters (HLD §11.2.1,
 "right: Plan (the kind's panel: parameters and verdicts)"). The panel names
 no kind: the editor arrives from the presenter. With no bot selected it holds
@@ -21,14 +22,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
-    BotLifecycleState,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
-    BotAction,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words import (
+    header,
+    item_lines,
+    step_lines,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
@@ -64,11 +64,6 @@ FACT_SPECS = (
 )
 
 
-#: The states Start is the next step of; for a bot in another state its
-#: reason ("not possible while the bot is running") is no news.
-_AT_REST = frozenset({BotLifecycleState.DRAFT, BotLifecycleState.STOPPED})
-
-
 class BotPlanPanel(QStackedWidget):
     """@brief The selected bot's name, state, figures, parameters and verdicts."""
 
@@ -81,9 +76,14 @@ class BotPlanPanel(QStackedWidget):
         self.state = plain_label()
         self.state.setObjectName("lblBotState")
         self.state.setWordWrap(True)
-        self.start_reason = plain_label()
-        self.start_reason.setObjectName("lblBotStartReason")
-        self.start_reason.setWordWrap(True)
+        self.readiness_header = plain_label()
+        self.readiness_header.setObjectName("lblBotReadinessHeader")
+        self.readiness_steps = plain_label()
+        self.readiness_steps.setObjectName("lblBotReadinessSteps")
+        self.readiness_items = plain_label()
+        self.readiness_items.setObjectName("lblBotReadinessItems")
+        self.readiness_items.setWordWrap(True)
+        self._kind_panel: QWidget | None = None
         self.facts = ReadoutForm(FACT_SPECS, APP_VALUE_FORMATTER)
         self.facts.setObjectName("roBotFacts")
         self.verdicts = plain_label()
@@ -95,6 +95,7 @@ class BotPlanPanel(QStackedWidget):
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
+        self._kind_panel = panel
         replace_in(self._panel_slot, panel)
 
     def _build(self) -> None:
@@ -103,7 +104,9 @@ class BotPlanPanel(QStackedWidget):
         column = QVBoxLayout(plan)
         column.addWidget(self.title)
         column.addWidget(self.state)
-        column.addWidget(self.start_reason)
+        column.addWidget(self.readiness_header)
+        column.addWidget(self.readiness_steps)
+        column.addWidget(self.readiness_items)
         column.addWidget(self.facts)
         column.addLayout(self._panel_slot)
         column.addWidget(plain_label("What the kind says about these parameters:"))
@@ -121,7 +124,7 @@ class BotPlanPanel(QStackedWidget):
         model.selection_changed.connect(self._show_selection)
         model.facts_changed.connect(self._show_facts)
         model.judgement_changed.connect(self._show_judgement)
-        model.actions_changed.connect(self._show_start_reason)
+        model.readiness_changed.connect(self._show_readiness)
 
     def _show_selection(self) -> None:
         bot = self._model.selected
@@ -136,24 +139,30 @@ class BotPlanPanel(QStackedWidget):
             {spec.key: getattr(facts, spec.key) if facts else "" for spec in FACT_SPECS}
         )
 
-    def _show_start_reason(self) -> None:
-        """Why Start is not available, next to the state: the reason
-        `ActionAvailability` computed (`EPIC-034A`). A refusal is already
-        listed under the verdicts, so it is not said twice."""
-        rule = self._model.availability.get(BotAction.START)
-        bot = self._model.selected
-        at_rest = bot is not None and bot.state in _AT_REST
-        reason = "" if rule is None or rule.enabled or not at_rest else rule.reason
-        if reason == self._model.refusal:
-            reason = ""
-        self.start_reason.setText(f"Start: {reason}" if reason else "")
-        self.start_reason.setVisible(bool(reason))
+    def _show_readiness(self) -> None:
+        """How far the bot is and what is left before Start (`EPIC-034H`): the
+        count, the three steps, and each item with its reason and its fix. Only
+        a bot at rest has a Start to wait for."""
+        readiness = self._model.readiness
+        shown = readiness is not None
+        for label in (
+            self.readiness_header,
+            self.readiness_steps,
+            self.readiness_items,
+        ):
+            label.setVisible(shown)
+        if readiness is None:
+            return
+        label_of = getattr(self._kind_panel, "field_label", lambda _code: None)
+        self.readiness_header.setText(
+            f"Start: {header(readiness, self._model.readiness_state)}"
+        )
+        self.readiness_steps.setText("\n".join(step_lines(readiness)))
+        self.readiness_items.setText("\n".join(item_lines(readiness, label_of)))
+        self.readiness_items.setVisible(bool(readiness.items))
 
     def _show_judgement(self) -> None:
-        lines = list(self._model.verdict_lines)
-        if self._model.refusal:
-            lines.append(f"Start is blocked: {self._model.refusal}")
-        self.verdicts.setText("\n".join(lines))
+        self.verdicts.setText("\n".join(self._model.verdict_lines))
 
     def verdict_lines(self) -> tuple[str, ...]:
         """The verdicts as shown, one per line."""

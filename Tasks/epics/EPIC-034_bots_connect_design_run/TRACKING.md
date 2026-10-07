@@ -33,6 +33,7 @@ gantt
     034F design step constraints           :         f, after d, 4d
     034G chart live state                  :         g, after a, 3d
     034H run step readiness                :         h, after f, 3d
+    034I every live chart is the shared one :        i, after g, 1d
     Epic exit check                        :milestone, m1, after h, 0d
 ```
 
@@ -47,9 +48,10 @@ gantt
 | EPIC-034C | [Trading switch folded into actions](completed/EPIC-034C_trading_switch_folded_into_actions.md) | — | 🔴 | ✅ Done (2026-10-07) | — |
 | EPIC-034D | [Connect step](completed/EPIC-034D_connect_step.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034E | [Mainnet venues trade like testnet](incomplete/EPIC-034E_mainnet_venues_trade_like_testnet.md) | — | 🔴 | 🟡 In progress | — |
-| EPIC-034F | [Design step constraints](incomplete/EPIC-034F_design_step_constraints.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-034F | [Design step constraints](completed/EPIC-034F_design_step_constraints.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034G | [Chart live state](incomplete/EPIC-034G_chart_live_state.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-034H | [Run step readiness](incomplete/EPIC-034H_run_step_readiness.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-034H | [Run step readiness](completed/EPIC-034H_run_step_readiness.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
+| EPIC-034I | [Every live chart is the shared live chart](completed/EPIC-034I_every_live_chart_goes_through_the_shared_live_chart.md) | — | 🟢 | ✅ Done (2026-10-07) | — |
 
 ---
 

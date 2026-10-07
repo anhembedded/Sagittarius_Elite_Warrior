@@ -43,8 +43,10 @@ sound, I start it, and I watch what it does."*
    snapshot. An identity strip above the bot shows its name, kind, saved state, the venue by its
    title with the result ("Spot Testnet: Connected · 900 USDT available · key can trade") and the
    status bar names the same venue. Until the read succeeds the chart's place and the Plan are
-   locked and say why, and Start's reason names the connection; Bots → **Retry venue account**
-   reads again. A key the exchange says cannot trade opens the chart and keeps Start refused.
+   locked and say why, and the Plan lists the unread account as the first thing left before Start; Bots →
+   **Retry venue account** reads again. A key the exchange says cannot trade opens the chart and
+   keeps Start off (the Design step's `KEY_CANNOT_TRADE`). Go live is offered only once the account
+   was read, and a lock hides the same bot's chart instead of closing it.
    Reading places nothing and needs trading off.
    The new bot's design follows: the app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
@@ -52,25 +54,57 @@ sound, I start it, and I watch what it does."*
    the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
    reads stored candles until the trader's **Go live** on its chip opens a view-only price stream
    (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`).
-4. The trader sets the parameters in the Plan panel, the kind's editor (lower and upper price, grids, spacing,
-   capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
-   one verdict is Refused and names them. The verdicts and the preview follow each edit.
+4. **Design** (`EPIC-034F`). The trader sets the parameters in the Plan panel, the kind's editor (lower and
+   upper price, grids, spacing, capital, stop loss, take profit). Until the lower price, upper price and
+   capital are set, the one verdict is Refused and names them. Every constraint on the plan is a named
+   assertion that answers with its numbers, judged beside the account the Connect step read; the
+   verdicts, the field messages and the drawn levels follow each edit.
    **Suggest from ATR** or **Suggest from Bollinger**, the Grid's own commands (Bots menu, and the
    Grid toolbar at the top of the editor, shown while a Grid is selected), fills the range only
-   when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. Start waits until the edits are saved with **Save bot** (Ctrl+S). The parameters can be
+   when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. **Save bot**
+   (Ctrl+S) stores the edits for a draft; Start does not wait for it (step 6). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
-5. While any verdict is Refused, Start is disabled and the Plan panel's verdicts name the refusal
-   ("Start is blocked: …").
-6. The trader clicks **Start**. The bot places its ladder through trading, with its own tag, and
-   moves through Starting to Running. The list and the panels follow each change without a
-   refresh: the state, grid profit, unrealised PnL at the latest price, what it holds, its
+5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
+   Start**: the capital against the balance the account can spend, the minimum notional, trading's
+   per-order cap, the open-order limit, the price band, break-even after fees (every grid loses), the
+   key's permission to trade, and a stop loss or take profit on the wrong side of the range. One that
+   is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how far
+   an exit sits, some grids losing on each cycle. The field the number lives in carries the sentence
+   under it, "Blocks Start: The capital is 10,000 USDT, above the 9,999.99 USDT available on Spot
+   Testnet; lower it to at most 9,999.99", or "Advice: …"; a constraint about the key, which is no
+   field, appears in the verdicts and in Start's reason. While any verdict is Refused, Start is
+   off and the Plan lists it among what is left (step 6). **The sell
+   levels need no base in the account**: Start buys the base they sell at market first, out of the
+   same capital, and the "Opening buy" verdict says how much and for about what (ADR O2).
+6. **Run** (`EPIC-034H`). At the top of the Plan the trader sees the three steps in words and what
+   is left before Start: "Start: 3 things left", then "1. Connect: done", "2. Design: 2 things left",
+   "3. Run: waits for Design", then one line per item with its reason and its fix ("• Design: The
+   capital is 1000 USDT, above the 800.00 USDT available on Spot Testnet; lower it to at most 800.00
+   → edit Capital (quote)"). The items come from one query, `GetBotReadiness`, the same function the
+   Start use case asks at the click, so the button and the click cannot disagree: Connect (the
+   account unread or not readable), Design (every blocking constraint of step 5, once connected) and
+   Run (the venue trades Spot, no other bot is active, nobody else holds the symbol, the owner budget
+   fits trading's caps). Bots → **Fix next item** does the first fix on offer: reads the account again,
+   brings the field to change forward, or selects the bot that is still active so **Stop…** is one
+   command away. The primary action is **Save and start** (decision D8, Bots menu and toolbar): it
+   is off while anything is left, and its tip says "N things left" and why. One thing a click can
+   still meet is not in the list because only the exchange can answer it: reconciling the account
+   (a position the app did not open, §5) and registering the owner budget; they
+   refuse in their own words, and a race on a listed item (another bot started in the gap) refuses
+   in the list's words. Nothing is placed and nothing saved when the list refuses.
+7. The trader clicks **Save and start**. The edits on screen are judged as they would be saved, and
+   only a bot that is ready with them is saved and started: a refusal from the list saves nothing. A
+   refusal only the exchange can give (the reconciliation, the budget's registration) comes after the
+   save, so the edits stay saved and the bot is not started; with no edits it starts what is saved. The bot places its ladder through trading,
+   with its own tag, and moves through Starting to Running. The list and the panels follow each
+   change without a refresh: the state, grid profit, unrealised PnL at the latest price, what it holds, its
    running time, its resting orders (Orders), its fills from the venue's history (Fills, by the
    bot's tag) and its log (Log).
-7. **Pause** stops new orders and keeps the resting ones; **Resume** continues. A Halted bot's
+8. **Pause** stops new orders and keeps the resting ones; **Resume** continues. A Halted bot's
    **Resume** cancels its tagged orders and proposes a new ladder, shown in its log; **Confirm
    resume** lays it. With no proposal held (no Resume since the halt, or the app restarted) Confirm
    resume is refused with "press Resume first" and nothing is placed.
-8. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
+9. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
    edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
    bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures
@@ -78,9 +112,9 @@ sound, I start it, and I watch what it does."*
    maker and taker, and how many candles were replayed without 1-second klines; under them, in words,
    what stopped the replay, the fill rule and what the coarse or missing candles mean. **Cancel**
    drops the run and the last result stays; selecting another bot drops it and clears the result.
-9. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
+10. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
    and says its resting orders will be cancelled. **Cancel** leaves the bot running.
-10. Closing the app while any bot is not at rest asks first, naming the bots and what closing
+11. Closing the app while any bot is not at rest asks first, naming the bots and what closing
    leaves behind (O4); **Cancel** keeps the app open.
 
 Only one action runs at a time: while it runs, the list, New bot and every action are disabled.
@@ -103,11 +137,19 @@ available while it runs.
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | No Spot venue is available in this build | New bot says so and Create is disabled | Only a Spot venue can run a Spot Grid |
-| The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and Start is disabled with the same reason; Bots → Retry venue account | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
-| The symbol is unknown, or the venue cannot be read | Start is disabled: "The plan cannot be judged: …" with the venue's reason | A plan judged against no numbers cannot start |
+| The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and lists it as the first thing left; Start is disabled with the same words; Bots → Retry venue account (or Fix next item) | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
+| The symbol is unknown, or the venue cannot be read | A Design item: "The plan cannot be judged: …" with the venue's reason; Start is disabled | A plan judged against no numbers cannot start |
+| Another bot is still active (ADR D20) | A Run item "Bot … is still active; stop it before starting another", and Fix next item selects that bot; Start is disabled | The fast track lets one bot hold the exchange; the check and the start are one step under one lock |
+| Another owner (a strategy, a manual order) holds the symbol | A Run item "BTCUSDT is held by another owner"; Start is disabled | Trading's lease keeps two owners off one symbol; the item is read from the session, not claimed |
+| The ladder needs more open orders than trading's caps allow | A Run item naming the count and the cap; Start is disabled | Trading refuses the same budget at registration; asking first says it before the click |
+| The click finds what the screen did not: another bot started in the gap, the lease taken, the key cut | The refusal names the same item in the same words ("1 thing left: Bot … is still active …"); nothing was saved or placed | The Start use case asks the same assessment as the screen, before any order and before saving the edits |
 | A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
-| A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
-| Start's reconciliation refuses: the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
+| A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it, and the same sentence under the field to change, with the number that fixes it ("raise the capital to about …", "lower it to at most …"); Start disabled | The kind refuses only certain losses and certain rejections: the exchange's rules and money (`EPIC-029C`, `EPIC-034F`, D7) |
+| The capital is more than the account can spend | "Blocks Start: The capital is … USDT, above the … USDT available on …; lower it to at most …" under Capital; Start disabled | The balance is read once by the Connect step, so the click is no longer the first time it is compared (D7) |
+| The key cannot trade | A Refused verdict "The API key for … cannot trade"; Start's reason says it; the chart stays open | The exchange's own `canTrade` flag; an unknown flag never blocks, its order check decides |
+| A stop loss at or above the lower limit, or a take profit at or below the upper | Refused, under the exit's field: put it below, or above, the range | An exit on the wrong side would fire inside the grid or close it while it earns (D7) |
+| The ATR, the slippage room, the spacing or an exit's distance is outside advice | "Advice: …" under the field; Start stays enabled | Strategy judgement is the trader's (D7) |
+| Start's reconciliation refuses (it needs the exchange to answer, so it is not in the list before the click): the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
 | An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
 | The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
 | A bot file on disk cannot be read | The status line names the file | The store refuses it rather than guessing (`EPIC-029B`) |
@@ -133,11 +175,11 @@ available while it runs.
 
 ## 7. Ports and modules it exercises
 
-- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
+- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotReadinessQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
   `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`; `IBotKindCatalog`,
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`.
-- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`.
+- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
   `IMarketDataRepository` (the 1-second klines, streamed).
 - core: `ICloseObjections`, `ICommandDispatcher`.
@@ -149,6 +191,12 @@ available while it runs.
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
+| Every constraint at and around its boundary; the balance, the key and the opening buy read the account; each violation blocks exactly when D7 says | `tests/unit/modules/bots/domain/grid/test_grid_checks.py` · `test_grid_account_checks.py` · `test_grid_constraints.py` | unit |
+| What is left before Start is one assessment: each step's items, status and words; the Start use case refuses exactly what the query reports, before any order and before saving; Save and start judges the edits as they would be saved | `tests/unit/modules/bots/application/test_bot_readiness_assessment.py` · `test_start_bot_readiness.py` · `test_other_active_bot_and_budget.py` | unit (real reader over fakes) |
+| The Plan shows the three steps and each item with its reason and fix; Bots → Fix next item; Save and start is the primary action, off with "N things left"; a bot with a run shows no progress; a click refused in the list's words | `tests/unit/modules/bots/ui/bots_screen/test_bots_run_step.py` · `test_readiness_words.py` · `test_save_and_start_command.py` · `test_bot_readiness_fsm_matrix.py` | unit (real bots graph) |
+| From a new bot to a running bot through the three steps on the composed app; Save and start with edits; a capital above the account listed before the click | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
+| The lease's holder is readable without claiming | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | unit (contract suite, real and fake) |
+| A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
