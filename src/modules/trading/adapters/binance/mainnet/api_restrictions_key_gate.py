@@ -22,7 +22,9 @@ Fail closed, except for a key already accepted: a key never judged, or one whose
 permissions come back unreadable, is refused; but when the exchange merely does
 not answer (unreachable, under maintenance) and this very key was accepted earlier,
 that answer stands, so Emergency stop, a cancel and a close are not cut off by an
-outage (`EPIC-034` D5). Only an answer from the exchange refuses an accepted key.
+outage (`EPIC-034` D5). Only an answer from the exchange refuses an accepted key. The standing is in
+memory only: a restart starts a key as never judged, on purpose — a persisted
+acceptance would outlive the key's permissions.
 """
 
 from __future__ import annotations

@@ -344,6 +344,8 @@ def test_an_answer_that_cannot_be_read_refuses_even_an_accepted_key() -> None:
 
 
 def test_a_key_never_judged_is_refused_while_the_exchange_does_not_answer() -> None:
+    """Also what a restart is: the standing is in memory only (`EPIC-034` D5), so a
+    new gate has judged nothing and an outage refuses the key."""
     gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(-1003))
 
     refused = gate.check()
