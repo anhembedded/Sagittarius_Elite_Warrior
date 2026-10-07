@@ -23,7 +23,7 @@ from unittest.mock import patch
 
 import pytest
 from binance.client import Client
-from PySide6.QtCore import QEvent
+from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
@@ -226,17 +226,14 @@ def trade_mode_running(
                 container,
             )
         finally:
-            # Answers still queued to the UI thread (an order's, say) are
-            # delivered while the pool is alive: one delivered after the
-            # shutdown asks it for a new future and raises in the Qt loop.
-            qapp.processEvents()
             threads = container.resolve(IThreadManager)
+            # What the workers finish is delivered while the pool still takes
+            # work and the widgets live: an order's answer makes its panel read
+            # the account again (`BUG-171`), and a session opened by the test's
+            # last action puts its desk's chart live (`EPIC-034C`).
+            settle_workers(boot.qtbot, threads)
             threads.shutdown(wait=True)
             assert threads.stats().in_flight == 0
-            # What the workers finished is delivered while the widgets live:
-            # a session opened by the test's last action puts its desk's chart
-            # live (`EPIC-034C`), and its history answer is queued to the UI.
-            qapp.processEvents()
             window.close()
             window.deleteLater()
             engine.stop()
@@ -245,6 +242,24 @@ def trade_mode_running(
             if app is not None:
                 app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
                 app.processEvents()
+
+
+def settle_workers(
+    qtbot: QtBot, threads: IThreadManager, timeout_ms: int = 10_000
+) -> None:
+    """Runs the workers dry, delivering each answer to the UI, until an answer
+    starts no more work (`BUG-171`). Stopping the pool first left an answer that
+    reads again (`OrderEntryPresenter._on_submitted`) nothing to run on."""
+    while True:
+        qtbot.waitUntil(lambda: _idle(threads), timeout=timeout_ms)
+        QCoreApplication.processEvents()
+        if _idle(threads):
+            return
+
+
+def _idle(threads: IThreadManager) -> bool:
+    stats = threads.stats()
+    return stats is not None and stats.in_flight == 0
 
 
 def action(window: MainWindow, command_id: str) -> QAction:

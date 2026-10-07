@@ -36,6 +36,7 @@ stubs each venue's user-data `start`; opening the order session
 from __future__ import annotations
 
 import gc
+import threading
 import warnings
 from collections.abc import Iterator
 from decimal import Decimal
@@ -43,6 +44,9 @@ from decimal import Decimal
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
@@ -163,3 +167,38 @@ def test_no_event_loop_is_left_unclosed(trade_boot: Boot, qtbot) -> None:
 
     leaks = [w for w in caught if "unclosed event loop" in str(w.message)]
     assert leaks == []
+
+
+def test_closing_the_desk_with_an_order_in_flight_leaves_no_qt_error(
+    trade_boot: Boot, qtbot
+) -> None:
+    """`BUG-171` — the order's answer reaches the panel while the desk is being
+    closed, and the panel reads the account again on it (`_on_submitted`).
+    The harness stopped its workers first, so that read raised "cannot
+    schedule new futures after shutdown" in the Qt loop; it failed `gate
+    (Rest)` once, when the order's answer was still on its way as the test
+    ended. The order is held at the venue until the desk closes, so the
+    window is the same on every run."""
+    entered, release = threading.Event(), threading.Event()
+    with (
+        qtbot.capture_exceptions() as caught,
+        trade_mode_running(trade_boot) as desk,
+    ):
+        submission = (
+            desk.container.resolve(IVenueTradingPorts).get(SPOT).order_submission
+        )
+        send = submission.submit
+
+        def held(*args, **kwargs):
+            entered.set()
+            assert release.wait(timeout=_WAIT_MS / 1000)
+            return send(*args, **kwargs)
+
+        submission.submit = held  # type: ignore[method-assign]
+        new_order(desk)
+        _type_resting_limit_buy(desk, qtbot)
+        _buy(desk, qtbot)
+        qtbot.waitUntil(entered.is_set, timeout=_WAIT_MS)
+        release.set()
+
+    assert caught == []
