@@ -92,13 +92,16 @@ class LiveChartCoordinator:
     ) -> None:
         """Submits the chart load for `symbol`/`interval_str`.
 
-        @param go_live When `False` (the default) this reads **local history
-        only**, no network. When `True` it also syncs from the exchange and
-        opens the stream.
+        @param go_live When `False` (the default) this reads **local history**,
+        and only when nothing is stored fetches it from the exchange (a read of
+        public candles, `BUG-172`); it opens no stream. When `True` it always
+        syncs from the exchange and opens the stream.
 
-        @details `BUG-107`: opening a screen is not a request to go on the
-        network. `go_live` defaults to `False` so a caller that forgets the
-        argument gets the quiet behaviour, not a live stream.
+        @details `BUG-107`: opening a screen is not a request to go live.
+        `go_live` defaults to `False` so a caller that forgets the argument gets
+        the quiet behaviour, not a live stream. An empty store is the one case
+        that reaches the network at rest: a chart with no candles must say why or
+        fill itself, never sit empty (`BUG-172`).
         """
         self._thread_manager.submit(self._run, symbol, interval_str, token, go_live)
 
@@ -120,47 +123,21 @@ class LiveChartCoordinator:
             interval = TimeFrame(interval_str)
             if go_live:
                 report.log(f"Syncing {symbol} data from Binance...")
-                try:
-                    self._feed.sync(symbol, interval, token.is_cancelled)
-                except CandlesUnavailableError as refusal:
-                    # `BUG-172`: a refusal for good (a testnet's missing
-                    # timeframe or symbol): its reason is a sentence written for
-                    # the user, said as it is, with no "try again".
-                    reason = refusal.reason
-                    logger.info(
-                        "[live-chart] %s at %s is not served: %s",
-                        symbol,
-                        interval.value,
-                        reason,
-                    )
-                    report.stream_failed(
-                        f"{reason} The chart shows the stored candles.",
-                        failure_detail(refusal),
-                    )
-                    self._load_history(symbol, interval, report)
-                    return
-                except Exception as exc:
-                    logger.warning(
-                        "[live-chart] sync of %s at %s failed",
-                        symbol,
-                        interval.value,
-                        exc_info=True,
-                    )
-                    report.stream_failed(
-                        f"Could not sync {symbol} at {interval.value} from the "
-                        "exchange. The chart shows the stored candles; try again.",
-                        failure_detail(exc),
-                    )
-                    self._load_history(symbol, interval, report)
+                if not self._sync(symbol, interval, token, report):
+                    self._draw(symbol, interval, self._read(symbol, interval), report)
                     return
                 if token.is_cancelled():
                     return
+                rows = self._read(symbol, interval)
             else:
                 report.log(
                     f"Loading {symbol} data from the local database "
                     "(not live — use Go live to connect)."
                 )
-            self._load_history(symbol, interval, report)
+                rows = self._read(symbol, interval)
+                if not rows:
+                    rows = self._fetch_what_is_missing(symbol, interval, token, report)
+            self._draw(symbol, interval, rows, report)
             if token.is_cancelled():
                 return
             if go_live:
@@ -173,10 +150,79 @@ class LiveChartCoordinator:
         finally:
             report.load_finished()
 
-    def _load_history(
-        self, symbol: str, interval: TimeFrame, report: _Reporter
+    def _fetch_what_is_missing(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        token: CancellationToken,
+        report: _Reporter,
+    ) -> list:
+        """`BUG-172`: a chart opened at rest on an empty store used to draw
+        nothing and say so only in a log line. It now fetches the history from its
+        venue's market first — a read of public candles, no stream, no order —
+        and reads again; a chart that still has nothing says why, in words."""
+        report.log(
+            f"No {interval.value} candles of {symbol} are stored; fetching them "
+            "from the exchange (no live stream)."
+        )
+        if not self._sync(symbol, interval, token, report) or token.is_cancelled():
+            return []
+        rows = self._read(symbol, interval)
+        if not rows:
+            report.stream_failed(
+                f"The exchange has no {interval.value} candles of {symbol} for "
+                "this period (a testnet keeps a short history).",
+                "",
+            )
+        return rows
+
+    def _sync(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        token: CancellationToken,
+        report: _Reporter,
+    ) -> bool:
+        """Fetches what is missing; `False` once the failure has been told."""
+        try:
+            self._feed.sync(symbol, interval, token.is_cancelled)
+        except CandlesUnavailableError as refusal:
+            # `BUG-172`: a refusal for good (a testnet's missing timeframe or
+            # symbol): its reason is a sentence written for the user, said as it
+            # is, with no "try again".
+            reason = refusal.reason
+            logger.info(
+                "[live-chart] %s at %s is not served: %s",
+                symbol,
+                interval.value,
+                reason,
+            )
+            report.stream_failed(
+                f"{reason} The chart shows the stored candles.",
+                failure_detail(refusal),
+            )
+            return False
+        except Exception as exc:
+            logger.warning(
+                "[live-chart] sync of %s at %s failed",
+                symbol,
+                interval.value,
+                exc_info=True,
+            )
+            report.stream_failed(
+                f"Could not sync {symbol} at {interval.value} from the "
+                "exchange. The chart shows the stored candles; try again.",
+                failure_detail(exc),
+            )
+            return False
+        return True
+
+    def _read(self, symbol: str, interval: TimeFrame) -> list:
+        return list(self._feed.load_history(symbol, interval, HISTORY_CANDLE_LIMIT))
+
+    def _draw(
+        self, symbol: str, interval: TimeFrame, ordered: list, report: _Reporter
     ) -> None:
-        ordered = list(self._feed.load_history(symbol, interval, HISTORY_CANDLE_LIMIT))
         if not ordered:
             # `BUG-159`: nothing stored at this interval. Drawing nothing left
             # the previous interval's candles on a chart whose toolbar already

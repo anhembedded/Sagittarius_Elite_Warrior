@@ -96,15 +96,17 @@ def _coordinator(
     )
 
 
-def test_go_live_false_never_touches_the_network() -> None:
-    """The default path: local history only — no sync, no live stream."""
+def test_go_live_false_with_candles_stored_never_touches_the_network() -> None:
+    """The default path: stored history only — no sync, no live stream."""
     sync = FakeMarketDataSync()
     stream = FakeMarketStream()
-    coordinator = _coordinator(sync, stream=stream)
+    history = FakeHistoricalKlines()
+    history.seed([candle("BTCUSDT", 0)])
+    coordinator = _coordinator(sync, history, stream=stream)
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
-    assert sync.requests == [], "no sync may be started for a local-only load"
+    assert sync.requests == [], "no sync may be started when something is stored"
     # `EPIC-025` PR 1.1b — the guarantee moved rather than disappeared:
     # `StartLiveStreamCommand not in dispatched` used to prove it, and after
     # the move it would pass even if the screen opened every socket on the

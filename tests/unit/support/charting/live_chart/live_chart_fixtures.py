@@ -72,6 +72,9 @@ class ScriptedCandleFeed(ICandleFeed):
         self.stream_message: str | None = None
         self.sync_error: str | None = None
         self.calls: list[str] = []
+        #: What is stored: a chart opened at rest on an empty store fetches
+        #: it (`BUG-172`), so most tests of "no network at rest" store a candle.
+        self.stored: Sequence[MarketData] = ()
 
     def sync(
         self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
@@ -84,7 +87,7 @@ class ScriptedCandleFeed(ICandleFeed):
         self, symbol: str, interval: TimeFrame, limit: int
     ) -> Sequence[MarketData]:
         self.calls.append("history")
-        return []
+        return list(self.stored)
 
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame

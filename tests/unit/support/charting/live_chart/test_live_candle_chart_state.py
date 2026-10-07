@@ -45,6 +45,7 @@ def _command_text(card) -> str:
 
 def test_a_chart_opens_on_history_and_offers_go_live(qapp) -> None:
     feed = ScriptedCandleFeed()
+    feed.stored = (candle("BTCUSDT", 0),)
     chart, card = build_chart(feed)
 
     chart.show_symbol("BTCUSDT")

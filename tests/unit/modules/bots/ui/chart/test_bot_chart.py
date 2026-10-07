@@ -140,8 +140,10 @@ def test_the_fills_are_marked_where_and_when_they_traded(qapp, monkeypatch) -> N
 
 
 def test_the_planner_preview_never_goes_on_the_network(qapp) -> None:
-    """`BUG-107`: showing a bot's chart reads stored history only."""
+    """`BUG-107`: showing a bot's chart reads stored history only (when
+    something is stored; an empty store is fetched, `BUG-172`)."""
     world = ChartWorld()
+    world.history.seed([candle("BTCUSDT", 0)])
 
     chart, _card = build_chart(world)
     chart.show_symbol("BTCUSDT")
@@ -252,6 +254,7 @@ def test_after_shutdown_a_shown_symbol_opens_no_stream(qapp) -> None:
     """The PR #321 review: a released chart is quiet again, so a symbol
     shown afterwards reads history only."""
     world = ChartWorld()
+    world.history.seed([candle("BTCUSDT", 0), candle("ETHUSDT", 0)])
     chart, card = build_chart(world)
     chart.show_symbol("BTCUSDT")
     chart.follow(

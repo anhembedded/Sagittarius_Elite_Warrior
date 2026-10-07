@@ -25,7 +25,7 @@ from contextlib import ExitStack, closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from binance.client import Client
@@ -69,6 +69,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandlesUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
+    LiveChartCoordinator,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -312,3 +318,43 @@ def test_the_booted_app_gives_legacy_candles_the_venue_the_setting_named(
 
     assert closes(labelled) == [333.0]
     assert closes(other) == []
+
+
+class _NeverCancelled:
+    def is_cancelled(self) -> bool:
+        return False
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+@pytest.mark.parametrize("venue", _VENUES)
+def test_a_chart_opened_on_an_empty_store_fetches_its_own_venues_history(
+    composed: Callable[[str, bool], Exchange],
+    venue: TradingVenue,
+    global_setting: str,
+) -> None:
+    """`BUG-172` — the owner's Futures Testnet desk chart stayed empty: opened at
+    rest on an empty store it read nothing and fetched nothing. It now syncs its
+    own venue's market (only that environment answers here), reads, and draws."""
+    exchange = composed(global_setting, venue.is_testnet)
+    ports = exchange.desk_chart(venue)
+    market = venue.market_type
+    assert market is not None
+    drawn = MagicMock()
+    stream = MagicMock()
+    callbacks = LiveChartCallbacks(
+        history_ready=drawn,
+        load_finished=MagicMock(),
+        stream_started=stream,
+        stream_failed=MagicMock(),
+        log=MagicMock(),
+    )
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync, ports.historical_klines, ports.market_stream, market
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.test")
+
+    coordinator._run(_SYMBOL, "1m", _NeverCancelled(), False)  # type: ignore[arg-type]
+
+    candles = drawn.call_args.args[3]
+    assert [c.open_price for c in candles] == [_FAKE_OPEN[market.value]]
+    stream.assert_not_called()
