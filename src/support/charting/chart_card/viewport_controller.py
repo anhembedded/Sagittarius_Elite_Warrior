@@ -7,7 +7,7 @@ class ViewportController(QtCore.QObject):
     """
     @brief Tracks whether the chart should auto-follow the newest candle (the default,
     TradingView-style "live" behavior) or stay frozen wherever the user panned/zoomed to,
-    and owns the "Go live" action that resumes following.
+    and owns the "Follow latest" action that resumes following (it is not the live stream, `EPIC-034G`).
     @details Single Responsibility: the follow state and the one action that ends a
     frozen view. Uses ViewBox.sigRangeChangedManually — emitted only on user-driven
     pan/zoom, never on the programmatic setXRange() this class itself performs — so it
@@ -25,12 +25,12 @@ class ViewportController(QtCore.QObject):
         self._plot = plot
         self._following = True
 
-        self.go_live = QAction("&Go live", self)
-        self.go_live.setObjectName("act_goLive")
-        self.go_live.setStatusTip("Follow the newest candle again")
-        self.go_live.setEnabled(False)
-        self.go_live.triggered.connect(self.resume_follow)
-        plot.vb.menu.addAction(self.go_live)
+        self.follow_latest = QAction("&Follow latest", self)
+        self.follow_latest.setObjectName("act_followLatest")
+        self.follow_latest.setStatusTip("Follow the newest candle again")
+        self.follow_latest.setEnabled(False)
+        self.follow_latest.triggered.connect(self.resume_follow)
+        plot.vb.menu.addAction(self.follow_latest)
 
         plot.vb.sigRangeChangedManually.connect(self._on_user_panned)
 
@@ -49,11 +49,11 @@ class ViewportController(QtCore.QObject):
 
     def resume_follow(self) -> None:
         self._following = True
-        self.go_live.setEnabled(False)
+        self.follow_latest.setEnabled(False)
 
     def _on_user_panned(self, *_args: object) -> None:
         self._following = False
-        self.go_live.setEnabled(True)
+        self.follow_latest.setEnabled(True)
 
     def dispose(self) -> None:
         self._plot.vb.sigRangeChangedManually.disconnect(self._on_user_panned)

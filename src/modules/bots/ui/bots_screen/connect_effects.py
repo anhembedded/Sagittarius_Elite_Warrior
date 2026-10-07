@@ -59,6 +59,10 @@ class ConnectEffects:
         """The bot's chart once its account was read, else why there is none."""
         connection = self._model.connect_view
         if bot is not None and connection.locked:
+            # Closing releases the chart's stream and turns the Live stream
+            # command off, so Go live is not offered on a chart nobody sees
+            # until the account was read (`EPIC-034G` handed this gate over).
+            self._charts.close()
             self._view.lock_chart(connection.lock_reason)
         else:
             self._view.set_chart(self._charts.show(bot))

@@ -101,6 +101,8 @@ difference is the reason the contexts exist (HLD §1.2).
 | :--- | :--- | :--- |
 | **Candle** / `MarketData` | One OHLCV bar for a symbol and a `TimeFrame`. The type is in the Published Language; renaming it `Candle` is a recorded candidate. | `core/vo` |
 | **Symbol** | A raw string such as `BTCUSDT`. No value object exists yet (recorded candidate). | — |
+| **Live state** (of a chart) | History, Connecting, Live or Error: whether a chart reads stored candles only, is syncing and opening its stream, follows the stream, or failed to. A chip says it, with the reason for Error and the age of the last update for Live, and offers one command: Go live, Cancel, Stop live or Retry. A view of `LiveChartCoordinator`'s lifecycle, not a second one (`EPIC-034G`). | `support/charting/live_chart/live_chart_fsm_matrix.py` |
+| **Follow latest** | The chart toolbar's action that scrolls a panned chart back to its newest candle. Not **Go live**, which opens the stream. | `support/charting/chart_card/viewport_controller.py` |
 | **Shard** | One SQLite file holding the klines of one symbol/timeframe range. | `adapters/persistence` |
 | **Gap** / **Coverage** | A missing range inside stored klines; the fraction of a requested range that is stored. `IRangeCoverage` reports it. | `contracts/` |
 | **Sync** | Fetching klines from the exchange into the shards for one symbol/timeframe/range; progress is a `SingleSyncProgressEvent`. | `contracts/IMarketDataSync` |

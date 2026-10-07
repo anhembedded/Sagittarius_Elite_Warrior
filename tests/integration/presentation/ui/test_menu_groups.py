@@ -54,7 +54,7 @@ def test_backtest_view_chart_shows_its_mode_its_layers_and_its_navigation(
         ["Strategy indicators", "Volume", "Buy/sell flags"],
     ]
     assert groups[2][0] == "More timeframes…"
-    assert groups[2][-1] == "Go live"
+    assert groups[2][-1] == "Follow latest"
     assert len(groups) == 3
 
 

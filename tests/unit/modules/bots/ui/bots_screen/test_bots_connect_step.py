@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_connect_fsm_m
     ConnectState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    COMMAND_PREFIX,
     RETRY_CONNECTION,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
@@ -44,6 +45,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
     AccountSource,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    chart_command_id,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    LIVE_STREAM,
+)
 
 from .bots_screen_fixtures import NOW, BotsScreen, stored
 
@@ -295,3 +302,34 @@ def test_the_status_bar_names_the_selected_bots_venue_by_its_title(
     screen.settle()
 
     assert label.text() == "Bot venue: Spot Testnet, not connected"
+
+
+def _live_stream(screen: BotsScreen):
+    return screen.actions.action(chart_command_id(COMMAND_PREFIX, LIVE_STREAM))
+
+
+def test_go_live_is_not_offered_until_the_account_was_read(open_bots_screen) -> None:
+    """`EPIC-034G` handed this gate to the Connect step: the Live stream command
+    follows the chart in front, and while the account is unread there is none."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+
+    _select(screen, "a00001")
+    assert not _live_stream(screen).isEnabled()
+
+    screen.settle()
+    assert _live_stream(screen).isEnabled()
+
+
+def test_a_connection_that_is_lost_takes_go_live_away_again(open_bots_screen) -> None:
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    _select(screen, "a00001")
+    screen.settle()
+    assert _live_stream(screen).isEnabled()
+
+    screen.account.answer_with(_failure(ConnectionFailureKind.NETWORK))
+    screen.presenter._account._timer.timeout.emit()
+    screen.settle()
+
+    assert not _live_stream(screen).isEnabled()
