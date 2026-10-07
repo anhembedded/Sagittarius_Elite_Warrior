@@ -44,6 +44,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    CandleStreamStart,
+    ICandleFeed,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
 )
@@ -309,11 +313,64 @@ def test_a_refused_sync_is_named_and_the_stored_candles_still_draw() -> None:
 
     coordinator._run("BTCUSDT", "1s", _FakeToken(), True)
 
-    token, message = callbacks.stream_failed.call_args.args
+    token, headline, detail = callbacks.stream_failed.call_args.args
     assert isinstance(token, _FakeToken)
-    assert "BTCUSDT" in message and "1s" in message and "Invalid interval" in message
+    assert "BTCUSDT" in headline and "1s" in headline
+    assert "Invalid interval" not in headline, "`BOT-169`: the exception is the detail"
+    assert "Invalid interval" in detail
     assert history.reads[0].interval == TimeFrame.ONE_SECOND
     callbacks.history_ready.assert_called_once_with("BTCUSDT", [], [], [])
+
+
+class _ScriptedFeed(ICandleFeed):
+    """An `ICandleFeed` that answers as told: a failing read, a refused stream."""
+
+    def __init__(
+        self, *, read_error: Exception | None = None, stream_message: str = ""
+    ) -> None:
+        self._read_error = read_error
+        self._stream_message = stream_message
+
+    def sync(self, symbol, interval, cancelled) -> None:
+        return None
+
+    def load_history(self, symbol, interval, limit):
+        if self._read_error is not None:
+            raise self._read_error
+        return ()
+
+    def start_stream(self, owner_id, symbol, interval) -> CandleStreamStart:
+        return CandleStreamStart(False, self._stream_message)
+
+    def stop_stream(self, owner_id) -> None:
+        return None
+
+
+def test_a_load_that_raises_says_so_in_a_sentence_with_the_exception_as_detail() -> (
+    None
+):
+    callbacks = _callbacks()
+    feed = _ScriptedFeed(read_error=OSError("disk unreadable"))
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, _OWNER)
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
+
+    _token, headline, detail = callbacks.stream_failed.call_args.args
+    assert headline == "The chart could not be loaded. Try again."
+    assert "disk unreadable" in detail
+    callbacks.load_finished.assert_called_once()
+
+
+def test_a_stream_that_will_not_open_keeps_its_reason_as_detail() -> None:
+    callbacks = _callbacks()
+    feed = _ScriptedFeed(stream_message="socket closed")
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, _OWNER)
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), True)
+
+    _token, headline, detail = callbacks.stream_failed.call_args.args
+    assert "BTCUSDT" in headline and "socket closed" not in headline
+    assert detail == "socket closed"
 
 
 def test_the_stream_reports_carry_the_token_of_the_request_they_answer() -> None:

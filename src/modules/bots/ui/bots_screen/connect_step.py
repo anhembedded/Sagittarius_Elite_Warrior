@@ -23,8 +23,18 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_connection import (
     GetVenueConnectionQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+    ACCOUNT_UNREADABLE,
+    THE_ACCOUNT,
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
@@ -37,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
     ReadinessEvent,
     ReadinessState,
     next_state,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
@@ -84,9 +97,12 @@ class ConnectStep(QObject):
         threads: IThreadManager,
         dispatcher: ICommandDispatcher,
         now: Callable[[], datetime],
+        notifier: INotifier,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        self._notifier = notifier
+        self._cause = ""
         self._dispatcher = dispatcher
         self._reads = FencedReads(threads, {ReadKind.CONNECT: ActionOwnershipTracker()})
         self._now = now
@@ -106,6 +122,7 @@ class ConnectStep(QObject):
         self._bot = bot
         if bot is None:
             self._timer.stop()
+            self._recovered()
             self._transition(ReadinessEvent.DESELECTED, ConnectView(), None)
             return
         self._timer.start()
@@ -158,23 +175,45 @@ class ConnectStep(QObject):
             return
         if isinstance(answer, VenueAccountSnapshot):
             self._snapshots[(answer.source, answer.symbol)] = answer
+            self._recovered()
             self._transition(ReadinessEvent.READ_OK, connected_view(answer), answer)
         elif isinstance(answer, ConnectFailure):
             self._forget(answer.source)
+            self._failed(answer.source, failure_cause(answer), answer.detail)
             self._transition(ReadinessEvent.READ_FAILED, failed_view(answer), None)
         else:
             raise TypeError(
                 f"a connect read answers a snapshot or a failure, not {answer!r}"
             )
 
-    def _on_account_failed(self, _kind: ReadKind, label: str, error: str) -> None:
+    def _on_account_failed(self, _kind: ReadKind, label: str, detail: str) -> None:
         bot = self._bot
         if bot is not None and self._is_current(label):
             source = AccountSource.for_venue(bot.venue)
             self._forget(source)
-            self._transition(
-                ReadinessEvent.READ_FAILED, errored_view(source, error), None
+            self._failed(source, ACCOUNT_UNREADABLE, detail)
+            self._transition(ReadinessEvent.READ_FAILED, errored_view(source), None)
+
+    def _failed(self, source: AccountSource, headline: str, detail: str) -> None:
+        """The account could not be read: the strip says so and locks what needs
+        it; a message bar carries Retry and the technical text (`BOT-169`)."""
+        self._recovered()
+        self._cause = f"bots.connect.{source.value}"
+        self._notifier.report_failure(
+            FailureNotice(
+                FailureKind.BACKGROUND,
+                self._cause,
+                f"{headline} Retry, or check the connection.",
+                scope=BOTS_ROUTE,
+                detail=detail if detail != THE_ACCOUNT else "",
+                retry=self.retry,
             )
+        )
+
+    def _recovered(self) -> None:
+        if self._cause:
+            self._notifier.clear_failure(self._cause)
+            self._cause = ""
 
     def _forget(self, source: AccountSource) -> None:
         """A failed read means the account is not reachable now: no earlier

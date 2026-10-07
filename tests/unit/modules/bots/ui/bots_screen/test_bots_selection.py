@@ -23,7 +23,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
 from .bots_screen_fixtures import BotsScreen, stored
 
-_FILLS_UNREAD = "Fills could not be read: history is down"
+#: The panel names no cause; the message bar carries it (`BOT-169`).
+_FILLS_UNREAD = "Fills could not be read: see the message at the top of the screen"
 
 
 def _select(screen: BotsScreen, bot_id: str) -> None:
@@ -63,6 +64,9 @@ def test_the_chart_and_every_panel_follow_the_selection(open_bots_screen) -> Non
     assert view.log.toPlainText() == "Bot a00001 placed level 3"
     assert view.orders.orders.rows == _orders_of(model.selected)
     assert view.fills.note.text() == _FILLS_UNREAD
+    fills_notice = screen.notifier.last
+    assert fills_notice.cause == "bots.read.fills"
+    assert fills_notice.detail == "history is down"
 
     _select(screen, "b00002")
 

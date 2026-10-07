@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
@@ -27,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_for
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -58,6 +62,7 @@ class ExportImportCoordinator:
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
         is_shutdown_requested: Callable[[], bool],
+        notifier: INotifier,
     ) -> None:
         self._dispatcher = dispatcher
         self._thread_manager = thread_manager
@@ -69,6 +74,7 @@ class ExportImportCoordinator:
         self._transition_fsm = transition_fsm
         self._get_current_fsm_state = get_current_fsm_state
         self._is_shutdown_requested = is_shutdown_requested
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
 
     def run_export(
         self,
@@ -124,7 +130,11 @@ class ExportImportCoordinator:
                     DataManagementActionKind.EXPORT_DATA,
                 )
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to export market data: {exc}")
+            self._failures.command_failed(
+                "market_data.export",
+                "The export failed. Check the destination file and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
 
     def run_import(self, symbol: str, interval: str, source_path: str) -> None:
@@ -170,7 +180,11 @@ class ExportImportCoordinator:
                     DataManagementActionKind.IMPORT_DATA,
                 )
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to import market data: {exc}")
+            self._failures.command_failed(
+                "market_data.import",
+                "The import failed. Check the source file and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._ui_unlock_signal()

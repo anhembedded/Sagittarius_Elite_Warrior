@@ -31,14 +31,16 @@ READ_AT = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
 
 def a_venue_account_snapshot(
-    source: AccountSource = AccountSource.SPOT_TESTNET, symbol: str = "BTCUSDT"
+    source: AccountSource = AccountSource.SPOT_TESTNET,
+    symbol: str = "BTCUSDT",
+    available: int = 900,
 ) -> VenueAccountSnapshot:
     return VenueAccountSnapshot(
         source=source,
         symbol=symbol,
         read_at=READ_AT,
         quote_asset="USDT",
-        available=Decimal(900),
+        available=Decimal(available),
         holdings=(
             SpotHolding("USDT", Decimal(900), Decimal(100), Decimal("0.00000001")),
             SpotHolding("BTC", Decimal("0.5"), Decimal(0), Decimal("0.00000001")),
@@ -57,3 +59,9 @@ def a_venue_account_snapshot(
         ),
         price=Decimal(101),
     )
+
+
+def a_funded_snapshot() -> VenueAccountSnapshot:
+    """The same account with more than any capital a screen test plans with,
+    so the balance constraint (`EPIC-034F`) passes unless a test is about it."""
+    return a_venue_account_snapshot(available=50_000)

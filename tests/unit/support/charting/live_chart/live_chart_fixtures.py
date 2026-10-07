@@ -7,6 +7,9 @@ import concurrent.futures
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -109,6 +112,7 @@ def build_chart(
     feed: ScriptedCandleFeed,
     clock: Clock | None = None,
     threads: IThreadManager | None = None,
+    notifier: RecordingNotifier | None = None,
 ) -> tuple[LiveCandleChart, ChartCard]:
     card = ChartCard("BTCUSDT")
     ports = LiveChartPorts(
@@ -118,5 +122,7 @@ def build_chart(
         interval="1m",
         market=MarketType.SPOT,
         clock=clock or Clock(),
+        notifier=notifier or RecordingNotifier(),
+        scope="test",
     )
     return LiveCandleChart(card, ports, parent=card), card

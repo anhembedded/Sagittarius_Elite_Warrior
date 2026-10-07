@@ -50,10 +50,12 @@ def with_surface(qapp) -> tuple[ModeHost, _ViewWithSurface]:
     return ModeHost("bots", view), view
 
 
-def test_the_view_is_the_central_widget_and_the_host_is_named_for_the_mode(
+def test_the_view_sits_in_the_central_frame_and_the_host_is_named_for_the_mode(
     plain: ModeHost,
 ) -> None:
-    assert plain.centralWidget() is plain.view
+    # `BOT-169`: the frame holds the mode's message bars above the screen.
+    assert plain.view.parentWidget() is plain.centralWidget()
+    assert plain.message_bars.parentWidget() is plain.centralWidget()
     assert plain.surface_id == "mode::market"
     assert plain.objectName() == "workbench::mode::market"
 

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.resolve_unknown_outcome import (
+    place_resolving_unknown,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerShare,
 )
@@ -37,12 +40,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.liquidation_minimum import (
     min_split_quantity,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.unconfirmed_orders import (
+    closing_order_for,
+    sale_order_for,
+    unconfirmed_close,
+    unconfirmed_sale,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    generate_client_order_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -59,14 +65,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderOutcomeUnknownError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
     sellable_spot_quantity,
     split_liquidation,
@@ -237,21 +242,13 @@ class EmergencyStopCommandHandler(
             return EmergencyStopStepResult(True, "No open positions.")
 
         closed_count = 0
+        unconfirmed: list[str] = []
         for position in positions:
-            closing_side = (
-                OrderSide.SELL if position.side is PositionSide.LONG else OrderSide.BUY
-            )
-            closing_order = Order(
-                client_order_id=generate_client_order_id(),
-                symbol=position.symbol,
-                side=closing_side,
-                order_type=OrderType.MARKET,
-                quantity=abs(position.position_amt),
-                reduce_only=True,
-            )
             try:
-                trading_client.place_order(closing_order)
+                place_resolving_unknown(trading_client, closing_order_for(position))
                 closed_count += 1
+            except OrderOutcomeUnknownError:
+                unconfirmed.append(position.symbol)
             except Exception as exc:  # noqa: BLE001
                 remaining = len(positions) - closed_count
                 return EmergencyStopStepResult(
@@ -259,6 +256,8 @@ class EmergencyStopCommandHandler(
                     f"Closed {closed_count}/{len(positions)} positions — error on "
                     f"{position.symbol}: {exc}. {remaining} positions still open.",
                 )
+        if unconfirmed:
+            return unconfirmed_close(closed_count, len(positions), unconfirmed)
         return EmergencyStopStepResult(True, f"Closed {closed_count} positions.")
 
     @staticmethod
@@ -342,16 +341,12 @@ class EmergencyStopCommandHandler(
                 continue
             try:
                 for part in parts:
-                    trading_client.place_order(
-                        Order(
-                            client_order_id=generate_client_order_id(part.tag),
-                            symbol=symbol,
-                            side=OrderSide.SELL,
-                            order_type=OrderType.MARKET,
-                            quantity=part.quantity,
-                        )
+                    place_resolving_unknown(
+                        trading_client, sale_order_for(symbol, part.tag, part.quantity)
                     )
                 sold_assets.append(holding.asset)
+            except OrderOutcomeUnknownError:
+                return unconfirmed_sale(holding.asset)
             except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining assets
                 return EmergencyStopStepResult(
                     False,

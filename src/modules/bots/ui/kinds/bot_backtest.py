@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
@@ -53,6 +54,8 @@ class BacktestPorts:
     sync: IMarketDataSync
     #: The Spot candle feed the result chart is built on (it only draws).
     feed: ICandleFeed
+    #: How a backtest that could not run reaches the user (`BOT-169`).
+    notifier: INotifier
 
 
 class BotBacktest(ABC):

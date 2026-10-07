@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
     qt_platform_name,
@@ -131,7 +132,7 @@ class ChartPlotLayout:
             # on their CPU viewport unless their owner explicitly requests GL.
             self.widget.useOpenGL(True)
         except (RuntimeError, TypeError, ValueError) as exc:
-            self.backend_fallback_reason = f"OpenGL setup failed: {exc}"
+            self.backend_fallback_reason = f"OpenGL setup failed: {failure_detail(exc)}"
             logger.warning("Chart OpenGL unavailable; falling back to CPU: %s", exc)
             return
         self.uses_opengl = True

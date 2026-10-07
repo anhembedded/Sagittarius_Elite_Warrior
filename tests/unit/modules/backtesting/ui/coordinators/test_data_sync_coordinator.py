@@ -193,6 +193,17 @@ def test_a_raising_sync_reports_failure_with_the_message() -> None:
     assert events == [("failed", 7, "network down")]
 
 
+def test_a_failed_sync_carries_the_failure_detail_not_the_raw_exception_text() -> None:
+    """`BOT-169` — the UI thread receives `failure_detail(exc)`."""
+    coordinator, _coverage_port, events, _sync = _build(
+        sync=_Sync(raises=RuntimeError("network\n   down"))
+    )
+
+    coordinator.run_sync(_config())
+
+    assert events == [("failed", 7, "network down")]
+
+
 def test_a_cancelled_sync_emits_cancelled_rather_than_falling_silent() -> None:
     """The handler checks the token cooperatively and returns normally, so
     without this branch the FSM sits in SYNCING forever."""

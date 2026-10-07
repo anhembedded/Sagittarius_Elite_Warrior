@@ -14,6 +14,7 @@ from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
@@ -23,7 +24,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 class BotActionsCoordinator(QObject):
     """@brief Dispatches one bots command on the pool."""
 
-    #: The action id, then the result or `None`, then an error in words.
+    #: The action id, then the result or `None`, then a failure's detail.
     finished = Signal(int, object, str)
 
     def __init__(
@@ -40,7 +41,7 @@ class BotActionsCoordinator(QObject):
         try:
             result = self._dispatcher.dispatch(type(command), command)
         except Exception as exc:  # noqa: BLE001 - worker boundary: the refusal is shown in words, not lost to a pool thread
-            self.finished.emit(action_id, None, str(exc) or type(exc).__name__)
+            self.finished.emit(action_id, None, failure_detail(exc))
             return
         if not isinstance(result, BotCommandResult):
             self.finished.emit(

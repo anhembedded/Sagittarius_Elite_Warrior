@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -37,3 +38,7 @@ class DeskChartPorts:
     stream_owner: str
     #: The timeframe the chart opens on.
     interval: str
+    #: Where the chart tells a failed sync or stream (`BOT-169`).
+    notifier: INotifier
+    #: The desk's mode, whose message bar shows that failure.
+    scope: str

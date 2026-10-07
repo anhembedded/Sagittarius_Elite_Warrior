@@ -290,3 +290,25 @@ def test_the_bots_own_lease_is_not_a_thing_left() -> None:
     world.session.claim_symbol(SYMBOL, f"bot.{BOT}")
 
     assert _query(world).can_start
+
+
+class _RefusingRunner(_CountingRunner):
+    """A runner whose own steps (the reconciliation, the budget) refuse."""
+
+    def start(self, bot_id: str) -> BotCommandResult:
+        super().start(bot_id)
+        return BotCommandResult.refused(
+            BotRefusal.VENUE_NOT_READY, "unexpected open positions", bot_id
+        )
+
+
+def test_a_refusal_the_runner_gives_leaves_the_edits_saved() -> None:
+    """Save and start is save, then start: the list refuses before the write,
+    the runner's own refusals come after it."""
+    world = readiness_world()
+    edited = {**CONFIG, "capital_quote": "900"}
+
+    result = _start(world, _RefusingRunner(), edited)
+
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert world.store.load(BotId(BOT)).bot.definition.config["capital_quote"] == "900"

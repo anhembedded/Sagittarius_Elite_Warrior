@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
     load_backtest_report,
 )
@@ -60,6 +61,8 @@ _LOAD_DIALOG_TITLE = "Load report to compare"
 _REPORT_FILE_FILTER = "Backtest report (*.sagi-report.json *.sagi-report.json.gz)"
 _NO_COLUMN_A_TEXT = "Run a backtest first to fill Column A."
 _NO_COLUMN_B_TEXT = "Load a report to fill Column B."
+#: `BOT-169` — the technical text goes to the notifier, through the view model.
+_LOAD_FAILED_TEXT = "The report could not be loaded."
 
 #: The empty table's text (review of PR #364): short, and true whichever
 #: side is missing.
@@ -78,7 +81,7 @@ class ReportComparisonDialog(QDialog):
         self._vm = view_model
         self._loaded_b: ReportComparisonSnapshot | None = None
         self._loaded_b_label = ""
-        self._load_error = ""
+        self._load_failed = False
         self.setWindowTitle(_TITLE)
         self.body_layout = QVBoxLayout(self)
         self.setObjectName("reportComparisonDialog")
@@ -168,27 +171,25 @@ class ReportComparisonDialog(QDialog):
         try:
             data = read_backtest_report_bytes(path)
         except OSError as exc:
-            self._load_error = f"Could not read file: {exc}"
-            self._loaded_b = None
-            self._loaded_b_label = ""
-            self.refresh()
+            self._fail_load(failure_detail(exc))
             return
         loaded = load_backtest_report(data, valid_strategy_keys=set())
         if loaded.report is None:
-            self._load_error = (
-                loaded.error.message
-                if loaded.error is not None
-                else "Could not load report."
-            )
-            self._loaded_b = None
-            self._loaded_b_label = ""
-            self.refresh()
+            self._fail_load(loaded.error.message if loaded.error else "")
             return
         run_config = backtest_report_to_run_config(loaded.report)
         self._loaded_b = ReportComparisonSnapshot(run_config, loaded.report.result)
         self._loaded_b_label = build_loaded_file_label(path)
-        self._load_error = ""
+        self._load_failed = False
         self.refresh()
+
+    def _fail_load(self, detail: str) -> None:
+        """Column B shows a constant sentence; `detail` goes to the notifier."""
+        self._load_failed = True
+        self._loaded_b = None
+        self._loaded_b_label = ""
+        self.refresh()
+        self._vm.run_result.comparisonReportLoadFailed.emit(detail)
 
     # -- rendering -----------------------------------------------------------
 
@@ -205,7 +206,7 @@ class ReportComparisonDialog(QDialog):
         self._column_b_label.setText(
             f"Column B — {self._loaded_b_label}"
             if snapshot_b is not None
-            else f"Column B — {self._load_error or _NO_COLUMN_B_TEXT}"
+            else f"Column B — {_LOAD_FAILED_TEXT if self._load_failed else _NO_COLUMN_B_TEXT}"
         )
 
         if snapshot_a is None or snapshot_b is None:

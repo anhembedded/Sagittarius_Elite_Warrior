@@ -5,6 +5,10 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
@@ -30,6 +34,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.ui.failure_notice_asserts import (
+    EXCEPTION_TEXT,
+    assert_log_list_has_no_exception_text,
+    assert_told_once,
+)
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 
@@ -83,6 +92,7 @@ def sync_fixture():
     signals = {
         "ui_log": Mock(),
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_single_sync_progress": Mock(),
         "ui_sync_complete": Mock(),
         "ui_unlock": Mock(),
@@ -99,6 +109,7 @@ def sync_fixture():
         tracker=tracker,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_single_sync_progress_signal=signals["ui_single_sync_progress"],
         ui_sync_complete_signal=signals["ui_sync_complete"],
         ui_unlock_signal=signals["ui_unlock"],
@@ -333,3 +344,33 @@ def test_request_bulk_sync_with_no_gap_targets_does_not_submit(sync_fixture):
     signals["ui_log"].assert_called_once()
     signals["transition_fsm"].assert_not_called()
     coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_a_failed_single_sync_is_a_command_failure_and_unlocks(sync_fixture):
+    coordinator, _, _dispatcher, tracker, signals, sync = sync_fixture
+
+    def fail(_request: MarketDataSyncRequest) -> None:
+        raise RuntimeError(EXCEPTION_TEXT)
+
+    sync.on_sync = fail
+
+    coordinator.run_single_sync("BTCUSDT", "1h", None, None)
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(
+        signals["notifier"], FailureKind.COMMAND, "market_data.sync_single"
+    )
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_unlock"].assert_called_once()
+
+
+def test_a_failed_bulk_sync_is_a_command_failure_and_unlocks(sync_fixture):
+    coordinator, _, dispatcher, tracker, signals, _sync = sync_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_bulk_sync([("BTCUSDT", "1h")])
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.sync_bulk")
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_unlock"].assert_called_once()

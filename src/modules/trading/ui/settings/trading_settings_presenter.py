@@ -21,6 +21,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
@@ -86,18 +92,25 @@ _CREDENTIALS_SOURCE_LABELS = EnumLabels(
 
 _Fields = tuple[str, str]
 
+_CHECK_FAILED_MESSAGE = "The connection check failed. Check the network and try again."
+_CHECK_RESULT_FAILED = "The connection check failed."
+#: `BOT-169` — the causes of the two commands this page runs.
+_CHECK_CAUSE = "trading.settings.connection_check"
+_SAVE_CAUSE = "trading.settings.save"
+
 
 class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
     """@brief Presenter for the Trading settings section."""
 
     #: `EPIC-021D` — emitted (from any thread; Qt marshals it to this
     #: QObject's own thread) with `(action_id, ExchangeConnectionStatus |
-    #: None, error_message | None)` when a background connection check
+    #: None, detail | None)` when a background connection check
     #: finishes.
     connectionCheckCompleted = Signal(tuple)
 
     def __init__(self, view: TradingSettingsView, container: IContainer) -> None:
         super().__init__(view, container, title=_TITLE)
+        self._notifier: INotifier = container.resolve(INotifier)
         # `EPIC-028B` — the credentials of the venue this screen configures,
         # the primary one, until each desk has its own settings (`EPIC-028C`).
         self._credentials_provider: IExchangeCredentialsProvider = (
@@ -156,7 +169,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
                 self.logger.error(
                     f"TradingSettingsPresenter: secrets.local.json write failed: {exc}"
                 )
-                view_model.set_status(_SECRETS_NOT_SAVED_MESSAGE, is_error=True)
+                self._tell_save_failed(_SECRETS_NOT_SAVED_MESSAGE, failure_detail(exc))
                 return False
         self._refresh_credentials_status()
         self.logger.info(
@@ -166,6 +179,17 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
         )
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
         return True
+
+    def _tell_save_failed(self, headline: str, detail: str = "") -> None:
+        """OK or Apply failed (`BOT-169`): a message box, not the status line."""
+        self._notifier.report_failure(
+            FailureNotice(
+                kind=FailureKind.COMMAND,
+                cause=_SAVE_CAUSE,
+                headline=headline,
+                detail=detail,
+            )
+        )
 
     def _undo_unsaved_writes(self) -> None:
         """The credentials are what `secrets.local.json` now holds: a failed
@@ -213,11 +237,15 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
         try:
             status: ExchangeConnectionStatus = self._account.check_connection()
             self.connectionCheckCompleted.emit((action_id, status, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self.connectionCheckCompleted.emit((action_id, None, str(exc)))
+        except Exception as exc:
+            self.logger.warning(
+                f"TradingSettingsPresenter: connection check {action_id} raised",
+                exc_info=True,
+            )
+            self.connectionCheckCompleted.emit((action_id, None, failure_detail(exc)))
 
     def _on_connection_check_completed(self, payload: tuple) -> None:
-        action_id, status, error = payload
+        action_id, status, detail = payload
         if not self._connection_check_tracker.is_current_pending(
             action_id, _CHECK_CONNECTION_ACTION
         ):
@@ -239,5 +267,13 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
                 action_id, ActionOutcome.FAILED
             )
             self._settings_view_model.set_connection_result(
-                f"Connection check error: {error}", is_error=True
+                _CHECK_RESULT_FAILED, is_error=True
+            )
+            self._notifier.report_failure(
+                FailureNotice(
+                    kind=FailureKind.COMMAND,
+                    cause=_CHECK_CAUSE,
+                    headline=_CHECK_FAILED_MESSAGE,
+                    detail=detail,
+                )
             )

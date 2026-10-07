@@ -16,6 +16,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    INotifier,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
@@ -53,7 +60,12 @@ _PRESENTER_MODULE = (
 
 
 @pytest.fixture
-def export_import_setup(qapp, tmp_path):
+def notifier():
+    return RecordingNotifier()
+
+
+@pytest.fixture
+def export_import_setup(qapp, tmp_path, notifier):
     mock_thread_mgr = Mock()
     mock_dispatcher = Mock()
     mock_repo = Mock()
@@ -76,6 +88,8 @@ def export_import_setup(qapp, tmp_path):
             return mock_repo
         if interface == IConfig:
             return mock_config
+        if interface == INotifier:
+            return notifier
         return Mock()
 
     container = Mock()
@@ -282,3 +296,20 @@ def test_csv_export_writes_real_file_end_to_end(export_import_setup, tmp_path):
         rows = list(csv.DictReader(csv_file))
     assert len(rows) == 1
     assert rows[0]["symbol"] == "BTCUSDT"
+
+
+def test_a_failed_export_reaches_the_containers_notifier(export_import_setup, notifier):
+    """`BOT-169` — the presenter hands its coordinators the container's one
+    `INotifier`: a worker's failure is a message box, not only a log line."""
+    presenter, _view_model, _thread_mgr, mock_dispatcher, _repo = export_import_setup
+    mock_dispatcher.dispatch.side_effect = RuntimeError("disk is gone")
+
+    presenter._export_import_coordinator.run_export(
+        "BTCUSDT", "15m", "out.csv", ExportFileFormat.CSV
+    )
+
+    assert [(n.kind, n.cause) for n in notifier.failures] == [
+        (FailureKind.COMMAND, "market_data.export")
+    ]
+    assert notifier.last.detail == "disk is gone"
+    assert "disk is gone" not in notifier.last.headline

@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.account_vie
     account_view_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    error_cause,
+    ACCOUNT_UNREADABLE,
     failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
@@ -100,13 +100,13 @@ def failed_view(failure: ConnectFailure) -> ConnectView:
     )
 
 
-def errored_view(source: AccountSource, error: str) -> ConnectView:
+def errored_view(source: AccountSource) -> ConnectView:
     return ConnectView(
         ReadinessState.FAILED,
         source.venue_title,
         NOT_CONNECTED_STATUS,
-        failure_sentence_for_error(error),
-        error_cause(error),
+        failure_sentence_for_error(),
+        ACCOUNT_UNREADABLE,
     )
 
 

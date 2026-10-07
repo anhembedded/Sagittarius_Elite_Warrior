@@ -11,7 +11,7 @@ next, so the two are written apart.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    error_cause,
+    ACCOUNT_UNREADABLE,
     failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
@@ -29,9 +29,9 @@ CONNECTING_STATUS = "Connecting…"
 RETRY_VENUE_ACCOUNT = "Then choose Bots → Retry venue account."
 
 
-def failure_sentence(failure: ConnectFailure) -> str:
-    return f"{failure_cause(failure)} {RETRY_VENUE_ACCOUNT}"
+def failure_sentence(problem: ConnectFailure) -> str:
+    return f"{failure_cause(problem)} {RETRY_VENUE_ACCOUNT}"
 
 
-def failure_sentence_for_error(error: str) -> str:
-    return f"{error_cause(error)} {RETRY_VENUE_ACCOUNT}"
+def failure_sentence_for_error() -> str:
+    return f"{ACCOUNT_UNREADABLE} {RETRY_VENUE_ACCOUNT}"

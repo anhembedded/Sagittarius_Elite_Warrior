@@ -121,8 +121,9 @@ class AccountSummaryRefreshService:
                     GetAccountSummaryQuery, GetAccountSummaryQuery(venue=self._venue)
                 ),
             )
-        except Exception as exc:  # noqa: BLE001 - worker boundary: a transient network hiccup must not kill the scheduler's job thread; the next tick tries again
-            self._mark_stale_if_newest(ticket, f"The account read failed: {exc}")
+        except Exception:
+            logger.warning("Account summary read failed", exc_info=True)
+            self._mark_stale_if_newest(ticket, "The account read failed.")
             return
         if summary is None:
             self._mark_stale_if_newest(ticket, "The account could not be read.")

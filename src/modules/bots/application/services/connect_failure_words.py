@@ -57,17 +57,17 @@ if _MISSING:
     raise ValueError(f"connection failure kinds without a sentence: {_MISSING}")
 
 #: What a failure's `detail` says when it names the read that failed.
-_THE_ACCOUNT = "the account"
+THE_ACCOUNT = "the account"
 
 
 def failure_cause(failure: ConnectFailure) -> str:
     """What went wrong and what to do about it, without how to read again."""
     sentence = _FAILURES[failure.kind]
-    if failure.detail and failure.detail != _THE_ACCOUNT:
+    if failure.detail and failure.detail != THE_ACCOUNT:
         return f"{sentence} It stopped while reading {failure.detail}."
     return sentence
 
 
-def error_cause(error: str) -> str:
-    """A read that raised instead of answering."""
-    return f"The account could not be read: {error}."
+#: A read that raised instead of answering: its text is behind Details…
+#: (`BOT-169`), never in the sentence.
+ACCOUNT_UNREADABLE = "The account could not be read."

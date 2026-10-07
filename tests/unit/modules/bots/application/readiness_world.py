@@ -87,6 +87,8 @@ class ReadinessWorld:
     account: FakeVenueAccountReader
     reader: BotReadinessReader
     caps: OwnerBudgetCaps
+    ports: FakeVenueTradingPorts
+    kinds: BotKindCatalog
 
 
 def readiness_world(
@@ -126,7 +128,7 @@ def readiness_world(
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
     reader = BotReadinessReader(store, kinds, FakeVenueAccounts(account), ports, caps)
-    return ReadinessWorld(store, clock, session, account, reader, caps)
+    return ReadinessWorld(store, clock, session, account, reader, caps, ports, kinds)
 
 
 def add_bot(

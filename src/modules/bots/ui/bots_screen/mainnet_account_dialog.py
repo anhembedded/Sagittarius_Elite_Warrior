@@ -19,8 +19,16 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_mainnet_account import (
     GetMainnetAccountQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+    ACCOUNT_UNREADABLE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     FencedReads,
@@ -54,8 +62,10 @@ class MainnetAccountDialog(QDialog):
         parent: QWidget | None,
         threads: IThreadManager,
         dispatcher: ICommandDispatcher,
+        notifier: INotifier,
     ) -> None:
         super().__init__(parent)
+        self._notifier = notifier
         self.setObjectName("dlgMainnetAccount")
         self.setWindowTitle("Mainnet account")
         self._dispatcher = dispatcher
@@ -95,8 +105,16 @@ class MainnetAccountDialog(QDialog):
                 f"the mainnet read answers a snapshot or a failure: {answer!r}"
             )
 
-    def _on_failed(self, _kind: ReadKind, _label: str, error: str) -> None:
-        self._write(error_text(error))
+    def _on_failed(self, _kind: ReadKind, _label: str, detail: str) -> None:
+        self._write(error_text())
+        self._notifier.report_failure(
+            FailureNotice(
+                FailureKind.COMMAND,
+                "bots.mainnet_account",
+                ACCOUNT_UNREADABLE,
+                detail=detail,
+            )
+        )
 
     def _write(self, text: MainnetAccountText) -> None:
         self.headline.setText(text.headline)
@@ -104,9 +122,12 @@ class MainnetAccountDialog(QDialog):
 
 
 def show_mainnet_account(
-    parent: QWidget, threads: IThreadManager, dispatcher: ICommandDispatcher
+    parent: QWidget,
+    threads: IThreadManager,
+    dispatcher: ICommandDispatcher,
+    notifier: INotifier,
 ) -> None:
     """Opens the window, reading the account as it opens, and waits for Close."""
-    dialog = MainnetAccountDialog(parent, threads, dispatcher)
+    dialog = MainnetAccountDialog(parent, threads, dispatcher, notifier)
     dialog.read()
     dialog.exec()

@@ -25,7 +25,9 @@ pushes equity samples. Neither refers to a live source, so no name excuses
 either.
 
 What it cannot see: a source reached under a name that matches none of these,
-and a chart handed candles by a caller that holds the source. The first is the
+a chart handed candles by a caller that holds the source (a generic callback
+from a non-UI file), and a file that merely mentions a `LiveCandleChart` while
+building a bare `ChartCard` (R2 is satisfied by the mention). The first is the
 pattern's reach, widened on the day a source is named otherwise; the second is
 the caller's file, which is scanned for the same source.
 """

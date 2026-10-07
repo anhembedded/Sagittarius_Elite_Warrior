@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
@@ -31,6 +32,10 @@ class LiveChartPorts:
     #: (`BOT-167`). Required: a caller that forgot it would silently offer `1s`
     #: on Futures.
     market: MarketType
+    #: Where a failed sync or stream is told (`BOT-169`).
+    notifier: INotifier
+    #: The mode whose message bar shows that failure: the owner's `*_ROUTE`.
+    scope: str
     #: Whether the chart shows the live chip and its command (`EPIC-034G`).
     #: `False` for a chart that only draws a finished run (a backtest's
     #: replay): its candles are recorded, and a stream would replace them.

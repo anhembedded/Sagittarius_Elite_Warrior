@@ -9,6 +9,10 @@ wiring is `test_strategy_rows_on_the_bots_screen.py`.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
     StrategyFormViewModel,
 )
@@ -52,8 +56,13 @@ class _Rows:
         qtbot.addWidget(self.panel)
         self.futures, self.spot = VenueArming(FUTURES), VenueArming(SPOT)
         self.asked, self.statuses = Asked(), Statuses()
+        self.notifier = RecordingNotifier()
         self.strategies: VenueStrategies = venue_strategies(
-            self.panel, (self.futures, self.spot), self.asked, self.statuses
+            self.panel,
+            (self.futures, self.spot),
+            self.asked,
+            self.statuses,
+            self.notifier,
         )
 
     def select(self, venue: TradingVenue) -> None:
@@ -117,8 +126,9 @@ def test_a_refused_arm_is_said_in_words_and_leaves_the_row_unarmed(rows) -> None
 
     rows.strategies.arm_selected()
 
-    text, is_error = rows.statuses[-1]
-    assert is_error and "position is open" in text
+    notice = rows.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert "position is open" in notice.headline
     assert rows.cell(FUTURES, "state") == NOT_ARMED_TEXT
 
 

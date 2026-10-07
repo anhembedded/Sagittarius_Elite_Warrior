@@ -15,7 +15,6 @@ from __future__ import annotations
 import concurrent.futures
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
-from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -29,6 +28,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing import recording_notifier
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -132,7 +133,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
     FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
-    a_venue_account_snapshot,
+    a_funded_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
     FakeVenueAccountReader,
@@ -286,6 +287,7 @@ class BotsScreen:
     trading_session: FakeTradingSession
     #: The venue's order history, which the fills are read from.
     activity: FakeAccountActivity
+    notifier: recording_notifier.RecordingNotifier
     #: The venue's account, as the Connect step reads it (`EPIC-034D`).
     account: FakeVenueAccountReader
     #: The owner's real account, read only (`EPIC-034E`).
@@ -331,6 +333,8 @@ def open_screen(
     container.singleton(IDispatcher, dispatcher)
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IThreadManager, pool)
+    notifier = recording_notifier.RecordingNotifier()
+    container.singleton(INotifier, notifier)
     trading_session = FakeTradingSession()
     activity = FakeAccountActivity()
     container.singleton(
@@ -346,8 +350,7 @@ def open_screen(
     )
     # Read at the screen's own clock, so the read is as fresh as a real one.
     account = FakeVenueAccountReader(
-        AccountSource.SPOT_TESTNET,
-        replace(a_venue_account_snapshot(), read_at=NOW, available=Decimal(50_000)),
+        AccountSource.SPOT_TESTNET, replace(a_funded_snapshot(), read_at=NOW)
     )
     mainnet = FakeVenueAccountReader(
         AccountSource.SPOT_MAINNET_READONLY,
@@ -390,6 +393,7 @@ def open_screen(
         strategy,
         trading_session,
         activity,
+        notifier,
         account,
         mainnet,
         dispatcher,

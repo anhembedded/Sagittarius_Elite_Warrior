@@ -244,5 +244,6 @@ def test_a_click_refused_after_the_screen_said_ready_reads_in_the_screens_words(
     screen.view.model.action_requested.emit(BotAction.START.value)
     screen.settle()
 
-    status = screen.view.model.statusMessage
-    assert "1 thing left: Bot b00002 is still active" in status
+    headline = screen.notifier.last.headline
+    assert headline.startswith("Start grid a00001: refused. 1 thing left: ")
+    assert "Bot b00002 is still active" in headline

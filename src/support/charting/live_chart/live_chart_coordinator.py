@@ -31,8 +31,10 @@ chart's subscription, never another chart's, even on the same symbol.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
@@ -55,6 +57,8 @@ if TYPE_CHECKING:
 #: How many candles a chart asks for on a (re)load: a fixed depth, since
 #: these charts draw no indicator script whose warm-up would need more.
 HISTORY_CANDLE_LIMIT = 500
+
+logger = logging.getLogger("App.LiveChartCoordinator")
 
 
 class LiveChartCoordinator:
@@ -117,9 +121,17 @@ class LiveChartCoordinator:
                 report.log(f"Syncing {symbol} data from Binance...")
                 try:
                     self._feed.sync(symbol, interval, token.is_cancelled)
-                except Exception as exc:  # noqa: BLE001 - the exchange refusing an interval (`BUG-159`) must still leave the chart showing this interval's own candles, not the previous one's
+                except Exception as exc:
+                    logger.warning(
+                        "[live-chart] sync of %s at %s failed",
+                        symbol,
+                        interval.value,
+                        exc_info=True,
+                    )
                     report.stream_failed(
-                        f"Could not sync {symbol} at {interval.value}: {exc}"
+                        f"Could not sync {symbol} at {interval.value} from the "
+                        "exchange. The chart shows the stored candles; try again.",
+                        failure_detail(exc),
                     )
                     self._load_history(symbol, interval, report)
                     return
@@ -135,8 +147,11 @@ class LiveChartCoordinator:
                 return
             if go_live:
                 self._start_stream(symbol, interval, report)
-        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            report.stream_failed(f"System error: {exc}")
+        except Exception as exc:
+            logger.warning("[live-chart] load of %s failed", symbol, exc_info=True)
+            report.stream_failed(
+                "The chart could not be loaded. Try again.", failure_detail(exc)
+            )
         finally:
             report.load_finished()
 
@@ -167,7 +182,10 @@ class LiveChartCoordinator:
         if outcome.success:
             report.stream_started(f"Streaming live data for {symbol}.")
         else:
-            report.stream_failed(f"Could not open live stream: {outcome.message}")
+            report.stream_failed(
+                f"Could not open the live stream for {symbol}. Try again.",
+                outcome.message,
+            )
 
 
 class _Reporter:
@@ -193,9 +211,9 @@ class _Reporter:
             self._token, self._callbacks.stream_started, self._token, text
         )
 
-    def stream_failed(self, text: str) -> None:
+    def stream_failed(self, headline: str, detail: str) -> None:
         report_unless_cancelled(
-            self._token, self._callbacks.stream_failed, self._token, text
+            self._token, self._callbacks.stream_failed, self._token, headline, detail
         )
 
     def load_finished(self) -> None:

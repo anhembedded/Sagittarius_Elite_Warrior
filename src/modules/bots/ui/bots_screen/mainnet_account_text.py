@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    error_cause,
+    ACCOUNT_UNREADABLE,
     failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
@@ -55,12 +55,12 @@ def reading_text() -> MainnetAccountText:
     return MainnetAccountText(f"{TITLE}: {READING}")
 
 
-def failure_text(failure: ConnectFailure) -> MainnetAccountText:
-    return MainnetAccountText(f"{TITLE}: not connected", (failure_cause(failure),))
+def failure_text(problem: ConnectFailure) -> MainnetAccountText:
+    return MainnetAccountText(f"{TITLE}: not connected", (failure_cause(problem),))
 
 
-def error_text(error: str) -> MainnetAccountText:
-    return MainnetAccountText(f"{TITLE}: not connected", (error_cause(error),))
+def error_text() -> MainnetAccountText:
+    return MainnetAccountText(f"{TITLE}: not connected", (ACCOUNT_UNREADABLE,))
 
 
 def account_text(snapshot: VenueAccountSnapshot) -> MainnetAccountText:

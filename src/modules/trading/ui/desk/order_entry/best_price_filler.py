@@ -15,8 +15,17 @@ import logging
 from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
     IOrderEntryTerms,
@@ -26,6 +35,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -58,12 +73,16 @@ class BestPriceFiller(QObject):
         view_model: OrderEntryViewModel,
         terms: IOrderEntryTerms,
         thread_manager: IThreadManager,
+        notifier: INotifier,
+        venue: TradingVenue,
     ) -> None:
         super().__init__(view_model)
         self._vm = view_model
         self._writes = view_model.presenter_side()
         self._terms = terms
         self._threads = thread_manager
+        self._notifier = notifier
+        self._cause = failure_cause(venue, "best_price")
         self._reads: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._book_read.connect(self._on_book_read)
         view_model.bestPriceRequested.connect(self._on_requested)
@@ -86,27 +105,48 @@ class BestPriceFiller(QObject):
             book = self._terms.best_bid_ask_for(symbol)
             self._book_read.emit((action_id, side, book, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._book_read.emit((action_id, side, None, str(exc)))
+            self._book_read.emit((action_id, side, None, failure_detail(exc)))
 
     def _on_book_read(self, payload: tuple) -> None:
-        action_id, side, book, error = payload
+        action_id, side, book, detail = payload
         if not self._reads.is_current_pending(action_id, _BOOK):
             self._reads.log_stale_callback("_on_book_read", action_id, _BOOK)
             return
         price = queue_price(side, book) if book is not None else None
-        if price is None:
+        if book is None:
             self._reads.finish_action(action_id, ActionOutcome.FAILED)
-            reason = error or f"the book has no {_QUEUE_NAME[side]} yet"
             logger.warning(
                 "Order panel could not read %s's book: %s",
                 self._vm.order_symbol,
-                reason,
+                detail,
             )
-            self._writes.show_result(
-                f"Could not read the best price: {reason}", is_error=True
+            self._writes.show_result("Could not read the best price.", is_error=True)
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.BACKGROUND,
+                    self._cause,
+                    "The best price could not be read. Check the connection and "
+                    "retry, or type a price.",
+                    scope=TRADE_ROUTE,
+                    detail=detail,
+                    retry=lambda: self._on_requested(side.value),
+                )
             )
             return
         self._reads.finish_action(action_id, ActionOutcome.SUCCEEDED)
+        self._notifier.clear_failure(self._cause)
+        if price is None:
+            logger.warning(
+                "Order panel could not read %s's book: no %s yet",
+                self._vm.order_symbol,
+                _QUEUE_NAME[side],
+            )
+            self._writes.show_result(
+                f"Could not read the best price: the book has no "
+                f"{_QUEUE_NAME[side]} yet",
+                is_error=True,
+            )
+            return
         logger.debug(
             "Order panel %s price set to the best %s %s",
             side.value,

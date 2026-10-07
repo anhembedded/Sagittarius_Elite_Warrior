@@ -9,6 +9,10 @@ from decimal import Decimal
 from pathlib import Path
 
 from PySide6.QtWidgets import QLineEdit, QPushButton
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -30,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotIdGenerator
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_dialog import (
     CREATE_BUTTON_TEXT,
@@ -85,7 +92,12 @@ def test_stop_names_the_base_the_run_holds(qtbot) -> None:
 def _symbols(*names: str) -> NewBotSymbols:
     """The picker's list, read by the same coordinator the other screens use,
     on a pool that runs a task where it is submitted."""
-    return NewBotSymbols(FakeSymbolCatalog(names), _InlinePool(), SymbolPreferences())
+    return NewBotSymbols(
+        FakeSymbolCatalog(names),
+        _InlinePool(),
+        SymbolPreferences(),
+        RecordingNotifier(),
+    )
 
 
 class _InlinePool(IThreadManager):
@@ -176,11 +188,15 @@ def test_the_symbol_is_chosen_in_the_picker_never_typed(qtbot) -> None:
 
 
 def test_a_symbol_list_that_cannot_be_read_is_said_not_left_empty(qtbot) -> None:
+    """`BOT-169`: the dialog says it in one constant sentence; the bar of the
+    Bots mode carries the failure with Retry, and the exception only as detail."""
+
     class _Down(FakeSymbolCatalog):
         def list_symbols(self, market, *, force_refresh=False):  # type: ignore[no-untyped-def]
             raise ConnectionError("exchange unreachable")
 
-    symbols = NewBotSymbols(_Down(), _InlinePool(), SymbolPreferences())
+    notifier = RecordingNotifier()
+    symbols = NewBotSymbols(_Down(), _InlinePool(), SymbolPreferences(), notifier)
     dialog = NewBotDialog(["grid"], [VENUE], symbols)
     qtbot.addWidget(dialog)
     dialog.show()
@@ -188,4 +204,33 @@ def test_a_symbol_list_that_cannot_be_read_is_said_not_left_empty(qtbot) -> None
     dialog.symbol.click()
 
     assert not dialog.problem.isHidden()
-    assert "exchange unreachable" in dialog.problem.text()
+    assert "unreachable" not in dialog.problem.text()
+    notice = notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert (notice.scope, notice.cause) == (BOTS_ROUTE, "bots.read.symbols")
+    assert "unreachable" not in notice.headline
+    assert notice.detail == "exchange unreachable"
+    assert notice.retry is not None
+
+
+def test_the_symbol_list_read_again_from_the_bar_clears_the_failure(qtbot) -> None:
+    class _Flaky(FakeSymbolCatalog):
+        down = True
+
+        def list_symbols(self, market, *, force_refresh=False):  # type: ignore[no-untyped-def]
+            if self.down:
+                raise ConnectionError("exchange unreachable")
+            return super().list_symbols(market, force_refresh=force_refresh)
+
+    catalog = _Flaky(["BTCUSDT"])
+    notifier = RecordingNotifier()
+    symbols = NewBotSymbols(catalog, _InlinePool(), SymbolPreferences(), notifier)
+    symbols.load_catalog()
+    retry = notifier.last.retry
+    assert retry is not None
+    catalog.down = False
+
+    retry()
+
+    assert list(symbols.catalog_symbols()) == ["BTCUSDT"]
+    assert notifier.cleared == ["bots.read.symbols"]

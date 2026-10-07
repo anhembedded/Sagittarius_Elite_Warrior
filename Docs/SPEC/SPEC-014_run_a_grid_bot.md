@@ -91,10 +91,11 @@ sound, I start it, and I watch what it does."*
    still meet is not in the list because only the exchange can answer it: reconciling the account
    (a position the app did not open, §5) and registering the owner budget; they
    refuse in their own words, and a race on a listed item (another bot started in the gap) refuses
-   in the list's words. Nothing is placed and nothing saved when it refuses.
+   in the list's words. Nothing is placed and nothing saved when the list refuses.
 7. The trader clicks **Save and start**. The edits on screen are judged as they would be saved, and
-   only a bot that is ready with them is saved and started, so a refused start never leaves them
-   half-applied; with no edits it starts what is saved. The bot places its ladder through trading,
+   only a bot that is ready with them is saved and started: a refusal from the list saves nothing. A
+   refusal only the exchange can give (the reconciliation, the budget's registration) comes after the
+   save, so the edits stay saved and the bot is not started; with no edits it starts what is saved. The bot places its ladder through trading,
    with its own tag, and moves through Starting to Running. The list and the panels follow each
    change without a refresh: the state, grid profit, unrealised PnL at the latest price, what it holds, its
    running time, its resting orders (Orders), its fills from the venue's history (Fills, by the

@@ -10,6 +10,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import replace
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
@@ -155,8 +156,9 @@ class ExecutionCoordinator:
                 if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
                 else "Static",
             )
-            self._log_dev_trace("worker_failed", message=str(exc))
-            self._emit_failed(resolved_action_id, str(exc))
+            detail = failure_detail(exc)
+            self._log_dev_trace("worker_failed", message=detail)
+            self._emit_failed(resolved_action_id, detail)
             return
 
         if isinstance(result, BacktestCancelled):

@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.resolve_unknown_outcome import (
+    resolve_unknown,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
     SessionReadiness,
 )
@@ -33,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
     ExecuteOrderTypeRejection,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderOutcomeUnknownError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
@@ -220,7 +226,19 @@ class ExecuteOrderCommandHandler(
                 session_state.owner_books.record_sent(
                     tag, preview.order, preview.estimated_notional, now
                 )
-            submitted_order = trading_client.place_order(preview.order)
+            try:
+                submitted_order = trading_client.place_order(preview.order)
+            except OrderOutcomeUnknownError as unknown:
+                try:
+                    submitted_order = resolve_unknown(trading_client, unknown)
+                except OrderOutcomeUnknownError:
+                    # It may be live: counted as sent, so the limits and the
+                    # symbol's open slot hold until something settles it.
+                    if tag is None and not command.purpose.only_reduces:
+                        session_state.record_order_sent(
+                            symbol, now, venue_has_positions=command.venue.has_positions
+                        )
+                    raise
             # `EPIC-028I` — a protective order or a close is not a new trade:
             # it neither uses up the session's orders nor delays the next entry.
             if tag is None and not command.purpose.only_reduces:

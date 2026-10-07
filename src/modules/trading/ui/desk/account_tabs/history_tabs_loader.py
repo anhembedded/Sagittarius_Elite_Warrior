@@ -23,6 +23,15 @@ from datetime import datetime, timedelta
 from typing import Protocol
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_request import (
     HistoryRequest,
 )
@@ -37,6 +46,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
     HistoryKind,
     HistoryView,
     history_view_for,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -75,8 +90,12 @@ class HistoryTabsLoader(QObject):
         activity: IAccountActivity,
         thread_manager: IThreadManager,
         clock: Clock,
+        notifier: INotifier,
+        venue: TradingVenue,
     ) -> None:
         super().__init__()
+        self._notifier = notifier
+        self._venue = venue
         self._display = display
         self._activity = activity
         self._threads = thread_manager
@@ -120,6 +139,9 @@ class HistoryTabsLoader(QObject):
         self._display.show_history_loading(kind)
         self._threads.submit(self._run_read, action.action_id, kind, request)
 
+    def _cause(self, kind: HistoryKind) -> str:
+        return failure_cause(self._venue, "history", kind.value)
+
     def _run_read(
         self, action_id: int, kind: HistoryKind, request: HistoryRequest
     ) -> None:
@@ -134,10 +156,10 @@ class HistoryTabsLoader(QObject):
                 view = history_view_for(trades, build_trade_history_row)
             self._read.emit((action_id, kind, view, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._read.emit((action_id, kind, None, str(exc)))
+            self._read.emit((action_id, kind, None, failure_detail(exc)))
 
     def _on_read(self, payload: tuple) -> None:
-        action_id, kind, view, error = payload
+        action_id, kind, view, detail = payload
         reads = self._reads[kind]
         if not reads.is_current_pending(action_id, kind.value):
             reads.log_stale_callback("_on_read", action_id, kind.value)
@@ -145,13 +167,25 @@ class HistoryTabsLoader(QObject):
         if view is None:
             reads.finish_action(action_id, ActionOutcome.FAILED)
             logger.warning(
-                "Account tabs could not read the %s history: %s", kind.value, error
+                "Account tabs could not read the %s history: %s", kind.value, detail
             )
             self._display.show_history_error(
-                kind, f"Could not read the {kind.value} history: {error}"
+                kind, f"The {kind.value} history could not be read."
+            )
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.BACKGROUND,
+                    self._cause(kind),
+                    f"The {self._venue.display_name} {kind.value} history could "
+                    "not be read. Check the connection and retry.",
+                    scope=TRADE_ROUTE,
+                    detail=detail,
+                    retry=lambda: self._load(kind, self._requests[kind]),
+                )
             )
             return
         reads.finish_action(action_id, ActionOutcome.SUCCEEDED)
+        self._notifier.clear_failure(self._cause(kind))
         logger.debug(
             "Account tabs read %s page %d of %d (%s)",
             kind.value,

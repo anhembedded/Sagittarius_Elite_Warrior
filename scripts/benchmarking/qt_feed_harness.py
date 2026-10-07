@@ -33,6 +33,9 @@ from dataclasses import dataclass
 from PySide6 import QtCore
 from sagittarius_engine.infrastructure.thread_manager import ThreadManager
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -94,6 +97,8 @@ def _build_runner(
         emit_info=bridge.info.emit,
         emit_markers=bridge.markers.emit,
         on_error=lambda _msg: None,
+        notifier=RecordingNotifier(),
+        scope="benchmark",
     )
     runner.rebuild(script_keys)
     return runner

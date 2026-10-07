@@ -25,8 +25,17 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -46,6 +55,14 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 logger = logging.getLogger("App.Trading.Desk")
 
 _STOP = "emergency_stop"
+_STOP_FAILED = (
+    "The emergency stop did not run. Orders and positions may still be open: "
+    "check Open orders and Positions, then stop again."
+)
+_STOP_PARTIAL = (
+    "The emergency stop did not finish everything. Check Open orders and "
+    "Positions, and see the desk log."
+)
 
 
 class DeskSessionControls(QObject):
@@ -65,13 +82,17 @@ class DeskSessionControls(QObject):
         session: ITradingSession,
         thread_manager: IThreadManager,
         venue: TradingVenue,
+        notifier: INotifier,
         parent: QObject | None = None,
     ) -> None:
         """@param venue The venue `session` trades, named in this desk's log
-        lines: with two desks open, a log must say which one stopped."""
+        lines: with two desks open, a log must say which one stopped.
+        @param notifier Where a failed enable, disable or stop is told
+        (`BOT-169`): a command the user ran, so a message box."""
         super().__init__(parent)
         self._session = session
         self._venue = venue
+        self._notifier = notifier
         self._threads = thread_manager
         self._stops: ActionOwnershipTracker[str, None, None] = ActionOwnershipTracker()
         self._stopped.connect(self._on_stopped)
@@ -100,17 +121,21 @@ class DeskSessionControls(QObject):
         try:
             self._stopped.emit((action_id, self._session.emergency_stop(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
-            self._stopped.emit((action_id, None, str(exc)))
+            self._stopped.emit((action_id, None, failure_detail(exc)))
 
     def _on_stopped(self, payload: tuple) -> None:
-        action_id, result, error = payload
+        action_id, result, detail = payload
         if not self._stops.is_current_pending(action_id, _STOP):
             self._stops.log_stale_callback("emergency_stop", action_id, _STOP)
             return
         if result is None:
             self._stops.finish_action(action_id, ActionOutcome.FAILED)
-            self.statusChanged.emit(f"Error during emergency stop: {error}", True)
-            self.logged.emit(f"[ERROR] Emergency stop failed: {error}")
+            logger.warning(
+                "Desk emergency stop failed on %s: %s", self._venue.value, detail
+            )
+            self.statusChanged.emit("Emergency stop did not run.", True)
+            self.logged.emit("[ERROR] Emergency stop failed. See the message shown.")
+            self._report_command_failure("emergency_stop", _STOP_FAILED, detail)
             return
         self._report_stop(action_id, result)
 
@@ -133,3 +158,18 @@ class DeskSessionControls(QObject):
             self.statusChanged.emit(
                 "EMERGENCY STOP — PARTIALLY FAILED. See the log.", True
             )
+            self._report_command_failure("emergency_stop.partial", _STOP_PARTIAL)
+
+    def _report_command_failure(
+        self, what: str, headline: str, detail: str = ""
+    ) -> None:
+        """Tells the user a command they ran failed or was refused: a message
+        box, one per kind of failure (`BOT-169`)."""
+        self._notifier.report_failure(
+            FailureNotice(
+                FailureKind.COMMAND,
+                failure_cause(self._venue, what),
+                headline,
+                detail=detail,
+            )
+        )

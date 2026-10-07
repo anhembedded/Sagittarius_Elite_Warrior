@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
     BotRunFactsReader,
 )
@@ -76,6 +77,8 @@ class BotsDependencies:
     #: What stands in a Grid's way beyond its plan and its account: the venue,
     #: the symbol's lease, the budget's caps (`EPIC-034H`).
     run_facts: BotRunFactsReader
+    #: How every failure of the screen reaches the user (`BOT-169`).
+    notifier: INotifier
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -93,6 +96,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
             container.resolve(IVenueTradingPorts),
             container.resolve(OwnerBudgetCaps),
         ),
+        notifier=container.resolve(INotifier),
     )
 
 
