@@ -9,6 +9,7 @@ exchange has none either. Driven synchronously over the verified fakes.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -53,6 +54,7 @@ def _coordinator(
         load_finished=MagicMock(),
         stream_started=MagicMock(),
         stream_failed=MagicMock(),
+        load_failed=MagicMock(),
         log=MagicMock(),
     )
     return LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.spot_testnet")
@@ -98,7 +100,7 @@ def test_an_empty_store_that_stays_empty_says_why_in_words() -> None:
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
-    headline = callbacks.stream_failed.call_args.args[1]
+    headline = callbacks.load_failed.call_args.args[1]
     assert "no 1m candles of BTCUSDT" in headline
     assert callbacks.history_ready.call_args.args[3] == [], "the empty window is drawn"
 
@@ -113,5 +115,32 @@ def test_an_empty_store_whose_fetch_fails_tells_it_and_draws_the_empty_window() 
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
-    assert "Could not sync BTCUSDT" in callbacks.stream_failed.call_args.args[1]
+    assert "Could not sync BTCUSDT" in callbacks.load_failed.call_args.args[1]
     assert callbacks.history_ready.call_args.args[3] == []
+
+
+def test_the_fetch_is_bounded_to_the_charts_window() -> None:
+    """At `1s` the default depth (30 days) is about 2.6 million candles for a chart
+    that draws 500; the at-rest fetch asks for the newest 500 only."""
+    history = FakeHistoricalKlines()
+    sync = _SeedingSync(history)
+    coordinator = _coordinator(sync, history)
+
+    coordinator._run("BTCUSDT", "1s", _FakeToken(), False)
+
+    (request,) = sync.requests
+    assert request.start_time is not None
+    window = datetime.now(UTC) - request.start_time
+    assert abs(window.total_seconds() - 500) < 60, window
+
+
+def test_a_failed_fetch_at_rest_does_not_fail_the_stream() -> None:
+    """Retry of a stream failure goes live; an empty store at rest has no stream to
+    retry, so its failure is a load failure (`BUG-172`)."""
+    coordinator = _coordinator(FakeMarketDataSync(), FakeHistoricalKlines())
+    callbacks = coordinator._callbacks
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
+
+    callbacks.stream_failed.assert_not_called()
+    callbacks.load_failed.assert_called_once()

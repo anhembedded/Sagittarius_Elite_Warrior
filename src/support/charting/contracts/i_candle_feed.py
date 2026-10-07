@@ -52,11 +52,19 @@ class ICandleFeed(ABC):
 
     @abstractmethod
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         """@brief Fetches what is missing from the exchange into the store.
         @param cancelled Polled between fetches; the sync returns early once it
         answers `True`.
+        @param newest When given, only the newest `newest` candles are wanted (a
+        chart's window), not the implementation's default depth: at `1s` that is
+        the difference between 500 candles and millions (`BUG-172`).
         @raise CandlesUnavailableError the exchange refuses these candles for good."""
 
     @abstractmethod

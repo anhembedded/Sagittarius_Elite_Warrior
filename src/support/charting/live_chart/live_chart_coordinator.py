@@ -165,11 +165,14 @@ class LiveChartCoordinator:
             f"No {interval.value} candles of {symbol} are stored; fetching them "
             "from the exchange (no live stream)."
         )
-        if not self._sync(symbol, interval, token, report) or token.is_cancelled():
+        fetched = self._sync(
+            symbol, interval, token, report, newest=HISTORY_CANDLE_LIMIT
+        )
+        if not fetched or token.is_cancelled():
             return []
         rows = self._read(symbol, interval)
         if not rows:
-            report.stream_failed(
+            report.load_failed(
                 f"The exchange has no {interval.value} candles of {symbol} for "
                 "this period (a testnet keeps a short history).",
                 "",
@@ -182,10 +185,15 @@ class LiveChartCoordinator:
         interval: TimeFrame,
         token: CancellationToken,
         report: _Reporter,
+        *,
+        newest: int | None = None,
     ) -> bool:
-        """Fetches what is missing; `False` once the failure has been told."""
+        """Fetches what is missing; `False` once the failure has been told. A
+        sync that is part of going live fails the stream (the chart goes to Error);
+        one that only fills a chart at rest (`newest` given) fails the load."""
+        failed = report.stream_failed if newest is None else report.load_failed
         try:
-            self._feed.sync(symbol, interval, token.is_cancelled)
+            self._feed.sync(symbol, interval, token.is_cancelled, newest=newest)
         except CandlesUnavailableError as refusal:
             # `BUG-172`: a refusal for good (a testnet's missing timeframe or
             # symbol): its reason is a sentence written for the user, said as it
@@ -197,7 +205,7 @@ class LiveChartCoordinator:
                 interval.value,
                 reason,
             )
-            report.stream_failed(
+            failed(
                 f"{reason} The chart shows the stored candles.",
                 failure_detail(refusal),
             )
@@ -209,7 +217,7 @@ class LiveChartCoordinator:
                 interval.value,
                 exc_info=True,
             )
-            report.stream_failed(
+            failed(
                 f"Could not sync {symbol} at {interval.value} from the "
                 "exchange. The chart shows the stored candles; try again.",
                 failure_detail(exc),
@@ -278,6 +286,11 @@ class _Reporter:
     def stream_failed(self, headline: str, detail: str) -> None:
         report_unless_cancelled(
             self._token, self._callbacks.stream_failed, self._token, headline, detail
+        )
+
+    def load_failed(self, headline: str, detail: str) -> None:
+        report_unless_cancelled(
+            self._token, self._callbacks.load_failed, self._token, headline, detail
         )
 
     def load_finished(self) -> None:

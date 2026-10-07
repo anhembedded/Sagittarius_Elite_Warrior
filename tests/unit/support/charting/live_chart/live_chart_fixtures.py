@@ -77,7 +77,12 @@ class ScriptedCandleFeed(ICandleFeed):
         self.stored: Sequence[MarketData] = ()
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         self.calls.append("sync")
         if self.sync_error is not None:

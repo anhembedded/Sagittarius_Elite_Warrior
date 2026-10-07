@@ -69,6 +69,7 @@ def _callbacks(history_ready: MagicMock | None = None) -> LiveChartCallbacks:
         load_finished=MagicMock(),
         stream_started=MagicMock(),
         stream_failed=MagicMock(),
+        load_failed=MagicMock(),
         log=MagicMock(),
     )
 
@@ -333,7 +334,7 @@ class _ScriptedFeed(ICandleFeed):
         self._read_error = read_error
         self._stream_message = stream_message
 
-    def sync(self, symbol, interval, cancelled) -> None:
+    def sync(self, symbol, interval, cancelled, *, newest=None) -> None:
         return None
 
     def load_history(self, symbol, interval, limit):

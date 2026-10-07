@@ -14,6 +14,7 @@ shows (`EPIC-028C`: a Futures desk charts Futures candles).
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -54,7 +55,12 @@ class MarketDataCandleFeed(ICandleFeed):
         self._market = market
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         try:
             self._sync.sync(
@@ -62,6 +68,12 @@ class MarketDataCandleFeed(ICandleFeed):
                     symbols=(symbol,),
                     interval=interval,
                     market=self._market,
+                    start_time=(
+                        None
+                        if newest is None
+                        else datetime.now(UTC)
+                        - timedelta(seconds=interval.to_seconds() * newest)
+                    ),
                     cancellation_requested=cancelled,
                 )
             )

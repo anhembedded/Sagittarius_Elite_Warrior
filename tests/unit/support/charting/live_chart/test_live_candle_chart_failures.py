@@ -44,7 +44,7 @@ class _Feed(ICandleFeed):
         self.sync_error: Exception | None = RuntimeError("HTTP 502 <html>")
         self.syncs = 0
 
-    def sync(self, symbol, interval, cancelled) -> None:
+    def sync(self, symbol, interval, cancelled, *, newest=None) -> None:
         self.syncs += 1
         if self.sync_error is not None:
             raise self.sync_error
@@ -146,3 +146,24 @@ def test_a_short_history_draws_what_exists_and_says_nothing_is_wrong(qapp) -> No
     chart.show_symbol("BTCUSDT")
 
     assert notifier.failures == []
+
+
+def test_retry_of_a_failed_fetch_at_rest_reloads_and_does_not_go_live(qapp) -> None:
+    """`BUG-172` (reviewer question Q): an empty store at rest that cannot be
+    fetched is a load failure. Its Retry loads the chart again, still at rest: it
+    must not open a stream the person never asked for."""
+    notifier = RecordingNotifier()
+    feed = _Feed()
+    feed.sync_error = OSError("no route")
+    chart = _chart(qapp, feed, notifier)
+
+    chart.show_symbol("BTCUSDT")
+    notice = notifier.last
+    assert notice.retry is not None
+    assert chart.live_state.name == "HISTORY"
+    feed.sync_error = None
+
+    notice.retry()
+
+    assert chart.live_state.name == "HISTORY"
+    assert feed.syncs == 2

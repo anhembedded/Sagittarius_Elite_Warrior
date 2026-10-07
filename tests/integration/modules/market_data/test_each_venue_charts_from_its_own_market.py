@@ -346,6 +346,7 @@ def test_a_chart_opened_on_an_empty_store_fetches_its_own_venues_history(
         load_finished=MagicMock(),
         stream_started=stream,
         stream_failed=MagicMock(),
+        load_failed=MagicMock(),
         log=MagicMock(),
     )
     feed = MarketDataCandleFeed(
