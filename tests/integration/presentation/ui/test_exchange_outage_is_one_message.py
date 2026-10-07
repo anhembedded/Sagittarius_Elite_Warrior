@@ -48,7 +48,7 @@ def _open_boxes() -> list[QMessageBox]:
 
 def test_one_outage_is_one_bar_and_no_dialog_and_no_page(spot_desk, qtbot) -> None:
     desk = spot_desk
-    desk.urls.outage.set()
+    desk.urls.maintenance.on = True
 
     # Every read the desk makes: the account tabs, the summary, the histories.
     desk.presenter.tabs.refresh()
@@ -66,11 +66,11 @@ def test_one_outage_is_one_bar_and_no_dialog_and_no_page(spot_desk, qtbot) -> No
 
 def test_the_bar_goes_when_the_exchange_answers_again(spot_desk, qtbot) -> None:
     desk = spot_desk
-    desk.urls.outage.set()
+    desk.urls.maintenance.on = True
     desk.presenter.tabs.refresh()
     qtbot.waitUntil(lambda: _bars(desk).bar_count() > 0, timeout=_WAIT_MS)
 
-    desk.urls.outage.clear()
+    desk.urls.maintenance.on = False
     desk.presenter.tabs.refresh()
 
     qtbot.waitUntil(lambda: _bars(desk).bar_count() == 0, timeout=_WAIT_MS)

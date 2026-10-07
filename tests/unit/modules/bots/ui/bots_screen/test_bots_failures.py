@@ -46,7 +46,7 @@ from .bots_screen_fixtures import (
 )
 
 
-@pytest.mark.parametrize("kind", list(ReadKind))
+@pytest.mark.parametrize("kind", [ReadKind.LIST, ReadKind.PLANNER, ReadKind.FILLS])
 def test_a_failed_read_is_a_bar_on_the_bots_mode_whose_retry_reads_it_again(
     kind: ReadKind,
 ) -> None:

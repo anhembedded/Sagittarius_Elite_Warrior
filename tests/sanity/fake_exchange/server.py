@@ -24,8 +24,24 @@ from urllib.parse import parse_qsl
 
 from .futures_routes import handle as handle_futures
 from .order_book_state import OrderBookState
+from .sapi_routes import ApiRestrictions
+from .sapi_routes import handle as handle_sapi
 from .spot_account_state import SpotAccountState
 from .spot_routes import handle as handle_spot
+
+#: What a proxy or the exchange itself serves while it is under maintenance:
+#: a web page, not an API reply (`EPIC-034D`).
+MAINTENANCE_PAGE = (
+    "<html><head><title>503 Service Temporarily Unavailable</title></head>"
+    "<body>The service is under maintenance.</body></html>"
+)
+
+
+class MaintenanceSwitch:
+    """While `on`, every request is answered with `MAINTENANCE_PAGE` and a 503."""
+
+    def __init__(self) -> None:
+        self.on = False
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -40,23 +56,18 @@ class _Handler(BaseHTTPRequestHandler):
     #: so a test can prove a command addressed to one venue sent nothing to
     #: the other's API family.
     requests: list[tuple[str, str]]
-    #: `BOT-169` — while set, every request is answered with a gateway's HTML
-    #: `502` page, as the Spot Testnet did on 2026-10-07.
-    outage: threading.Event
+    maintenance: MaintenanceSwitch
+    api_restrictions: ApiRestrictions
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
         # not a service anyone needs to watch run.
 
     def do_GET(self) -> None:
-        if self._answer_outage():
-            return
         path, query = self._split_path()
         self._respond_or_404(path, self._dispatch("GET", path, query))
 
     def do_POST(self) -> None:
-        if self._answer_outage():
-            return
         path, _ = self._split_path()
         body = self._read_form_body()
         self._respond_or_404(path, self._dispatch("POST", path, body))
@@ -71,21 +82,14 @@ class _Handler(BaseHTTPRequestHandler):
         body = self._read_form_body()
         self._respond_or_404(path, self._dispatch("DELETE", path, body))
 
-    def _answer_outage(self) -> bool:
-        if not self.outage.is_set():
-            return False
-        page = b"<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
-        self.send_response(502)
-        self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(page)))
-        self.end_headers()
-        self.wfile.write(page)
-        return True
-
     def _dispatch(
         self, method: str, path: str, params: dict[str, str]
     ) -> tuple[int, object] | None:
         self.requests.append((method, path))
+        if self.maintenance.on:
+            return 503, MAINTENANCE_PAGE
+        if path.startswith("/sapi/"):
+            return handle_sapi(method, path, self.api_restrictions)
         if path.startswith("/api/"):
             return handle_spot(method, path, params, self.spot_account)
         return handle_futures(method, path, params, self.order_book)
@@ -109,9 +113,10 @@ class _Handler(BaseHTTPRequestHandler):
         self._respond(status, body)
 
     def _respond(self, status: int, body: object) -> None:
-        payload = json.dumps(body).encode()
+        is_page = isinstance(body, str)
+        payload = body.encode() if isinstance(body, str) else json.dumps(body).encode()
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "text/html" if is_page else "application/json")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
@@ -126,6 +131,8 @@ class FakeServerUrls:
 
     spot: str
     futures: str
+    #: `EPIC-034E` — Spot mainnet's wallet family (`Client.MARGIN_API_URL`).
+    margin: str
     #: Every `(method, path)` the server answered (`EPIC-028P`). The same list
     #: the server appends to, so it grows while the `with` block runs.
     requests: list[tuple[str, str]] = field(default_factory=list)
@@ -135,8 +142,10 @@ class FakeServerUrls:
     #: `EPIC-028O` — the live Futures state, so a test can switch the account
     #: to Multi-Assets mode or read its positions.
     futures_book: OrderBookState = field(default_factory=OrderBookState)
-    #: `BOT-169` — set it and every request answers an HTML `502` page.
-    outage: threading.Event = field(default_factory=threading.Event)
+    #: `EPIC-034D` — turn `.on` to make the whole exchange answer a maintenance page.
+    maintenance: MaintenanceSwitch = field(default_factory=MaintenanceSwitch)
+    #: `EPIC-034E` — what the fake exchange says the API key may do.
+    api_restrictions: ApiRestrictions = field(default_factory=ApiRestrictions)
 
 
 @contextmanager
@@ -148,7 +157,8 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     _Handler.order_book = OrderBookState()
     _Handler.spot_account = SpotAccountState()
     _Handler.requests = []
-    _Handler.outage = threading.Event()
+    _Handler.maintenance = MaintenanceSwitch()
+    _Handler.api_restrictions = ApiRestrictions()
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -157,10 +167,12 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
         yield FakeServerUrls(
             spot=f"http://{host}:{port}/api",
             futures=f"http://{host}:{port}/fapi",
+            margin=f"http://{host}:{port}/sapi",
             requests=_Handler.requests,
             spot_account=_Handler.spot_account,
             futures_book=_Handler.order_book,
-            outage=_Handler.outage,
+            maintenance=_Handler.maintenance,
+            api_restrictions=_Handler.api_restrictions,
         )
     finally:
         server.shutdown()

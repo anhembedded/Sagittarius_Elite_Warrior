@@ -13,13 +13,16 @@ API, with the same live-call disclosure as `spot_account_reader.py`.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
 from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_parsing import (
+    parse_account_commission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
@@ -69,12 +72,7 @@ class SpotCommissionRateReader(ICommissionRateReader):
         try:
             client = self._session_factory.create_account_client(credentials)
             account: dict[str, Any] = client.get_account()
-            rates = account["commissionRates"]
-            return CommissionRate(
-                symbol=symbol,
-                maker=Decimal(str(rates["maker"])),
-                taker=Decimal(str(rates["taker"])),
-            )
+            return parse_account_commission(account, symbol)
         except _READ_FAILURES as exc:
             raise CommissionRateUnavailableError(
                 f"{symbol} Spot commission rate could not be read: {describe_failure(exc, repr)}"

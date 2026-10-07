@@ -46,6 +46,10 @@ _FAILURES = EnumLabels(
             "the exchange is unavailable (maintenance or a gateway error). Try "
             "again later."
         ),
+        ConnectionFailureKind.WITHDRAWAL_ENABLED: (
+            "the API key can withdraw funds. The app refuses it: create a "
+            "read-only key (reading only, withdrawals off) and use that."
+        ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "the account is in Hedge Mode. Switch it to One-way Mode on Binance "
             "and check again."

@@ -37,7 +37,16 @@ sound, I start it, and I watch what it does."*
    from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
    (`BOT-150`).
-3. The new bot is selected. The app reads the symbol's filters, fees and price from the venue and
+3. **Connect** (`EPIC-034D`). Selecting a bot reads its venue's account by itself, once for every bot
+   on the same venue and symbol, and again every minute: what the account can spend, what the venue
+   charges, whether the account's key may trade, and the symbol's filters and price, all as one
+   snapshot. An identity strip above the bot shows its name, kind, saved state, the venue by its
+   title with the result ("Spot Testnet: Connected · 900 USDT available · key can trade") and the
+   status bar names the same venue. Until the read succeeds the chart's place and the Plan are
+   locked and say why, and Start's reason names the connection; Bots → **Retry venue account**
+   reads again. A key the exchange says cannot trade opens the chart and keeps Start refused.
+   Reading places nothing and needs trading off.
+   The new bot's design follows: the app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
    the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
@@ -94,6 +103,7 @@ available while it runs.
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | No Spot venue is available in this build | New bot says so and Create is disabled | Only a Spot venue can run a Spot Grid |
+| The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and Start is disabled with the same reason; Bots → Retry venue account | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
 | The symbol is unknown, or the venue cannot be read | Start is disabled: "The plan cannot be judged: …" with the venue's reason | A plan judged against no numbers cannot start |
 | A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
 | A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
@@ -123,11 +133,11 @@ available while it runs.
 
 ## 7. Ports and modules it exercises
 
-- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
+- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
   `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`; `IBotKindCatalog`,
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`.
-- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`), `OwnerBudgetCaps`.
+- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
   `IMarketDataRepository` (the 1-second klines, streamed).
 - core: `ICloseObjections`, `ICommandDispatcher`.
@@ -145,6 +155,8 @@ available while it runs.
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
+| Selecting a bot reads its venue's account by itself; chart, Plan and Start wait for it and say why; Retry; a key that cannot trade; one read shared by bots on a venue and symbol; the timer's re-read; a late answer dropped | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py` · `test_bots_connect_chart.py` · `test_bot_connect_fsm_matrix.py` | unit (real bots graph) |
+| One read returns the snapshot a design needs, or a named failure; an HTML answer is MAINTENANCE | `tests/unit/modules/trading/application/account/test_composed_venue_account_reader.py` · `tests/unit/modules/trading/adapters/binance/test_html_answer_is_maintenance.py` · `tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py` | unit · integration (fake Binance server, with a maintenance switch) |
 | The chart is central; Bots, Plan, Orders, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
 | A draft's chart goes live only by the trader's command and draws what streams; a chart at rest draws no live candle; a running bot's chart is Live on its own | `tests/unit/modules/bots/ui/chart/test_bot_chart_live_state.py` | unit |
 | The chart, Plan, Orders, Fills and Log follow the selection, and say what to do with none | `tests/unit/modules/bots/ui/bots_screen/test_bots_selection.py` | unit (real bots graph) |

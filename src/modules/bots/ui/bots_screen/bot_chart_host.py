@@ -90,9 +90,20 @@ class BotChartHost:
         self._live_stream.bind_commands(binder)
         self._live_stream.follow_chart(self._chart)
 
+    def holds(self, bot: BotSnapshot | None) -> bool:
+        """Whether the chart in hand is `bot`'s."""
+        return bot is not None and bot.bot_id == self._bot_id and self._card is not None
+
+    def suspend_commands(self) -> None:
+        """Turns the Live stream command off while the chart is kept: the
+        chart is hidden, not closed, so what it holds survives (`EPIC-034D`).
+        `show` for the same bot turns it on again."""
+        self._live_stream.follow_chart(None)
+
     def show(self, bot: BotSnapshot | None) -> QWidget | None:
         """The chart for `bot`, built anew when the bot differs; `None` for no bot."""
-        if bot is not None and bot.bot_id == self._bot_id and self._card is not None:
+        if bot is not None and self.holds(bot):
+            self._live_stream.follow_chart(self._chart)
             self._follow_if_live(bot)
             return self._card
         self.close()

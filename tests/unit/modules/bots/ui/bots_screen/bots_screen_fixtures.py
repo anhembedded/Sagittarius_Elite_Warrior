@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -29,9 +29,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
-from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
-    RecordingNotifier,
-)
+from Sagittarius_Elite_Warrior.src.core.contracts.testing import recording_notifier
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -103,8 +101,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
+    IVenueAccounts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -125,11 +132,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
+    a_venue_account_snapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
+    FakeVenueAccountReader,
+    FakeVenueAccounts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     FakeVenueTradingPorts,
     fake_venue_ports,
 )
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
+    AccountSource,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -230,6 +247,7 @@ class Answers:
             ask_stop=self._ask_stop,
             confirm_delete=self._confirm_delete,
             ask_arm_strategy=self._ask_arm_strategy,
+            show_mainnet_account=lambda: self.asked.append("mainnet account"),
         )
 
     def _ask_arm_strategy(
@@ -269,8 +287,12 @@ class BotsScreen:
     trading_session: FakeTradingSession
     #: The venue's order history, which the fills are read from.
     activity: FakeAccountActivity
-    #: Every failure the screen told the user (`BOT-169`).
-    notifier: RecordingNotifier
+    notifier: recording_notifier.RecordingNotifier
+    #: The venue's account, as the Connect step reads it (`EPIC-034D`).
+    account: FakeVenueAccountReader
+    #: The owner's real account, read only (`EPIC-034E`).
+    mainnet: FakeVenueAccountReader
+    dispatcher: ICommandDispatcher
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -311,7 +333,7 @@ def open_screen(
     container.singleton(IDispatcher, dispatcher)
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IThreadManager, pool)
-    notifier = RecordingNotifier()
+    notifier = recording_notifier.RecordingNotifier()
     container.singleton(INotifier, notifier)
     trading_session = FakeTradingSession()
     activity = FakeAccountActivity()
@@ -326,6 +348,17 @@ def open_screen(
             )
         ),
     )
+    # Read at the screen's own clock, so the read is as fresh as a real one.
+    account = FakeVenueAccountReader(
+        AccountSource.SPOT_TESTNET, replace(a_venue_account_snapshot(), read_at=NOW)
+    )
+    mainnet = FakeVenueAccountReader(
+        AccountSource.SPOT_MAINNET_READONLY,
+        ConnectFailure(
+            AccountSource.SPOT_MAINNET_READONLY, ConnectionFailureKind.NOT_CONFIGURED
+        ),
+    )
+    container.singleton(IVenueAccounts, FakeVenueAccounts(account, mainnet))
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
@@ -361,4 +394,7 @@ def open_screen(
         trading_session,
         activity,
         notifier,
+        account,
+        mainnet,
+        dispatcher,
     )

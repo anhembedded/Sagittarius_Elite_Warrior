@@ -26,8 +26,10 @@ from .bots_commands import (
     ARM_STRATEGY,
     DISARM_STRATEGY,
     FIT_LEVELS,
+    MAINNET_ACCOUNT,
     NEW_BOT,
     REFRESH_FILLS,
+    RETRY_CONNECTION,
     lifecycle_id,
 )
 from .bots_view_model import BotsViewModel
@@ -81,6 +83,23 @@ def bind_bots_commands(
         lambda _checked: view_model.fit_levels_requested.emit(),
         enabled=chart.changed,
         initially_enabled=chart.value,
+    )
+    # `EPIC-034D`: a venue account that could not be read is read again.
+    retry = DerivedState(
+        view_model.connect_changed,
+        lambda: view_model.connect_view.can_retry,
+        view_model,
+    )
+    binder.bind(
+        RETRY_CONNECTION,
+        lambda _checked: view_model.retry_connect_requested.emit(),
+        enabled=retry.changed,
+        initially_enabled=retry.value,
+    )
+    # `EPIC-034E`: reading the real account needs no bot and no selection.
+    binder.bind(
+        MAINNET_ACCOUNT,
+        lambda _checked: view_model.mainnet_account_requested.emit(),
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)

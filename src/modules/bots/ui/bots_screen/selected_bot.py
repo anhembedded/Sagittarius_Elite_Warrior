@@ -47,6 +47,9 @@ class SelectedBot:
         self.last_price: Decimal | None = None
         self.edited: Mapping[str, str] | None = None
         self.panel: BotKindPanel | None = None
+        #: Why Start waits on the venue's account (`EPIC-034D`); the Connect
+        #: step sets it, so selecting a bot never clears it.
+        self.connection = ""
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
@@ -88,7 +91,13 @@ class SelectedBot:
             kind = None
         return detail_for(
             DetailInputs(
-                self.bot, kind, self.market, self.last_price, self._now(), self.edited
+                self.bot,
+                kind,
+                self.market,
+                self.last_price,
+                self._now(),
+                self.edited,
+                self.connection,
             )
         )
 

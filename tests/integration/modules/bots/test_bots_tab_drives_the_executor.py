@@ -96,6 +96,7 @@ class _Screen:
                 ask_stop=self._ask_stop,
                 confirm_delete=lambda _bot: False,
                 ask_arm_strategy=lambda _venue, _form: False,
+                show_mainnet_account=lambda: None,
             ),
         )
         self.actions = bound_actions(

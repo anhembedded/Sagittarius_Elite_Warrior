@@ -5,10 +5,11 @@ enabled exactly when the use case behind it would accept the command. A
 disabled button says why in its tooltip, so the reason is never colour alone
 (`ui-presentation-rule.md`).
 
-Start has two more conditions than the table, both shown before the click
-rather than refused after it: the kind's verdict (a REFUSED verdict names
-itself) and unsaved edits (a start runs the saved parameters, so the edits
-are saved first).
+Start has three more conditions than the table, all shown before the click
+rather than refused after it: the venue's account was read and its key may
+trade (`EPIC-034D`), the kind's verdict (a REFUSED verdict names itself) and
+unsaved edits (a start runs the saved parameters, so the edits are saved
+first).
 """
 
 from __future__ import annotations
@@ -58,6 +59,9 @@ class StartConditions:
     #: when the plan may start.
     refusal: str = ""
     unsaved_edits: bool = False
+    #: Why the bot's venue account has not been read, or may not trade
+    #: (`EPIC-034D`); empty when it says go.
+    connection: str = ""
 
 
 def availability(
@@ -72,6 +76,8 @@ def availability(
             False, f"{action.value} is not possible while the bot is {_name(state)}."
         )
     if action is BotAction.START:
+        if start.connection:
+            return ActionAvailability(False, start.connection)
         if start.unsaved_edits:
             return ActionAvailability(False, "Save the changed parameters first.")
         if start.refusal:
