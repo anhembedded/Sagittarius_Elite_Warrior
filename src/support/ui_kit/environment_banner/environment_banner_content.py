@@ -81,6 +81,6 @@ def venue_alignment_banner_content(
     it used to say "FUTURES TESTNET" even when only Spot was enabled."""
     icon, message, severity = _CONTENT[alignment]
     if alignment is VenueAlignment.ALIGNED and venues:
-        names = " · ".join(venue.value.replace("_", " ").upper() for venue in venues)
+        names = " · ".join(venue.display_name.upper() for venue in venues)
         message = f"{names} — simulated funds."
     return EnvironmentBannerContent(icon=icon, message=message, severity=severity)

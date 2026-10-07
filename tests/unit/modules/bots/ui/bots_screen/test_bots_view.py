@@ -19,8 +19,15 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
+    BotSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
+    ActionAvailability,
+    BotAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     BotFacts,
@@ -263,3 +270,24 @@ def _ancestors(widget: QWidget, stop: QWidget) -> Iterator[QWidget]:
     while parent is not None and parent is not stop and not parent.isWindow():
         yield parent
         parent = parent.parentWidget()
+
+
+def test_the_plan_says_why_start_is_unavailable_for_a_bot_at_rest(view) -> None:
+    """`EPIC-034A`: a line next to the state carries Start's reason, updated as
+    it changes; a refusal already under the verdicts is not said twice."""
+    bot = BotSnapshot.of(stored("a00001", S.DRAFT).bot, None)
+    view.model.set_selected(bot)
+    unsaved = ActionAvailability(False, "Save the changed parameters first.")
+
+    view.model.set_availability({BotAction.START: unsaved})
+    assert view.plan.start_reason.text() == "Start: Save the changed parameters first."
+    assert not view.plan.start_reason.isHidden()
+
+    view.model.set_availability({BotAction.START: ActionAvailability(True, "Go.")})
+    assert view.plan.start_reason.isHidden()
+
+    view.model.set_judgement((), "Set the capital.")
+    view.model.set_availability(
+        {BotAction.START: ActionAvailability(False, "Set the capital.")}
+    )
+    assert view.plan.start_reason.isHidden()

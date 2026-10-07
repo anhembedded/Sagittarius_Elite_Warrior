@@ -44,7 +44,7 @@ def stop_question(bot: BotSnapshot) -> str:
         else "It holds no base the run bought."
     )
     return (
-        f"Stop {bot.name}? Every resting order it placed on {bot.venue.value} is "
+        f"Stop {bot.name}? Every resting order it placed on {bot.venue.display_name} is "
         f"cancelled at the exchange. {holding}"
     )
 

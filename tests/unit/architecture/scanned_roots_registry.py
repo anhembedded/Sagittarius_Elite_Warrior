@@ -66,7 +66,10 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_display_values_go_through_the_formatter.py",
         (("src", "*.py"),),
     ),
-    # `BUG-168` — a label is made with `plain_label`, never a bare `QLabel`.
+    (
+        "tests/unit/architecture/test_venues_are_shown_by_title.py",
+        (("src", "*.py"),),
+    ),
     (
         "tests/unit/architecture/test_labels_show_plain_text.py",
         (("src", "*.py"),),

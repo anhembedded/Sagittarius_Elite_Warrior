@@ -91,7 +91,7 @@ class NewBotDialog(QDialog):
         self.venue = QComboBox()
         self.venue.setObjectName("cmbNewBotVenue")
         for venue in venues:
-            self.venue.addItem(venue.value, venue)
+            self.venue.addItem(venue.display_name, venue)
         self.symbol = QPushButton(CHOOSE_SYMBOL_TEXT)
         self.symbol.setObjectName("btnNewBotSymbol")
         self.symbol.clicked.connect(self._open_picker)

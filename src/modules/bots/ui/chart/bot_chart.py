@@ -19,7 +19,10 @@ runs; the overlay is drawn by `BotOverlayDrawer`, the one drawer.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_overlay_drawer import (
@@ -29,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.overlay_items import (
     OverlayItems,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.empty_chart_notice import (
+    EmptyChartNotice,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.price_level_layer import (
     PriceLevelLayer,
 )
@@ -55,6 +61,17 @@ class BotChart(LiveCandleChart):
         )
         self._ticks: BotTickFeed | None = None
         self._overlay = BotOverlay()
+        self._notice = EmptyChartNotice(chart)
+
+    def _on_history_drawn(self, klines: Sequence[MarketData]) -> None:
+        if klines:
+            self._notice.clear()
+        else:
+            self._notice.show(
+                f"No candles are stored for {self.shown_symbol} at "
+                f"{self.shown_interval}. Pick another timeframe, or sync this "
+                "symbol's history first."
+            )
 
     def show_overlay(self, overlay: BotOverlay) -> OverlayItems:
         """@brief Draws the bot's overlay, replacing the previous one.

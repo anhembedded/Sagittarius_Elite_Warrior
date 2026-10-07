@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pyqtgraph as pg
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
@@ -296,3 +297,26 @@ def test_fit_levels_with_nothing_drawn_leaves_the_axis_alone(qapp) -> None:
 
     assert not chart.fit_levels()
     assert card.plot_layout.main_plot.vb.viewRange()[1] == before
+
+
+def test_a_chart_with_no_candles_names_the_symbol_and_timeframe_not_an_axis(
+    qapp,
+) -> None:
+    """`EPIC-034A`: an empty history drew pyqtgraph's default axis (-50…50,
+    1970-01-01). The plot gives way to a sentence naming what is missing, and
+    comes back with the first candles."""
+    chart, card = build_chart(ChartWorld())
+    notice = card.findChild(QLabel, "lblChartNoCandles")
+    assert notice is not None
+
+    chart.show_symbol("BTCUSDT")
+    qapp.processEvents()
+
+    assert not notice.isHidden()
+    assert "BTCUSDT" in notice.text() and "1m" in notice.text()
+    assert card.plot_layout.widget.isHidden()
+
+    chart.draw_history([candle("BTCUSDT", minute) for minute in range(5)])
+
+    assert notice.isHidden()
+    assert not card.plot_layout.widget.isHidden()
