@@ -230,7 +230,6 @@ class MarketDataModule(BoundedContextModule):
             return
         try:
             exchange_client = context.container.resolve(IExchangeClient)
-            if hasattr(exchange_client, "close"):
-                exchange_client.close()
+            exchange_client.close()
         except Exception as exc:  # noqa: BLE001 — see the docstring
             logger.debug("Exchange client shutdown error: %s", exc)

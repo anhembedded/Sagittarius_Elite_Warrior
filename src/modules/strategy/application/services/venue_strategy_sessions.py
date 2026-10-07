@@ -60,5 +60,7 @@ class VenueStrategySessions:
             return tuple(
                 session
                 for venue, session in self._sessions.items()
-                if venue.market_type is market and venue.market_data_venue is source
+                if venue.supports_order_submission
+                and venue.market_type is market
+                and venue.market_data_venue is source
             )

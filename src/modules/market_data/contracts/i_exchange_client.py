@@ -36,6 +36,12 @@ class IExchangeClient(ABC):
     @brief Port for communicating with an external cryptocurrency exchange.
     """
 
+    def close(self) -> None:
+        """Releases what the client holds open (its HTTP session), so a request
+        blocked on the network does not outlive the app (`BUG-052`, `BUG-172`).
+        Idempotent; a client holding nothing keeps this default."""
+        return
+
     @abstractmethod
     def get_historical_klines(
         self,

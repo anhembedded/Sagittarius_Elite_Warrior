@@ -87,14 +87,27 @@ class _VenueInfrastructure:
             return self._client
 
     def close(self) -> None:
-        self.stream.stop_all()
-        close = getattr(self._client, "close", None)
-        if close is not None:
+        """Every step runs even when an earlier one raises: shutdown is
+        best-effort, and one venue's failure must not leave another's store open."""
+        client = self._client
+        for step, release in (
+            ("stream", self.stream.stop_all),
+            ("client", client.close if client is not None else _nothing),
+            ("store", self.manager.dispose_all),
+        ):
             try:
-                close()
-            except Exception as exc:  # noqa: BLE001 — shutdown must not raise
-                logger.debug("Client of %s did not close: %s", self._venue.value, exc)
-        self.manager.dispose_all()
+                release()
+            except Exception as exc:  # noqa: BLE001 - shutdown must not raise; logged
+                logger.warning(
+                    "Market data venue %s: closing its %s failed: %s",
+                    self._venue.value,
+                    step,
+                    exc,
+                )
+
+
+def _nothing() -> None:
+    return None
 
 
 class MarketDataVenues(IMarketDataVenues):
@@ -108,6 +121,7 @@ class MarketDataVenues(IMarketDataVenues):
         self._default = default
         self._lock = threading.Lock()
         self._others: dict[MarketDataVenue, _VenueInfrastructure] = {}
+        self._closed = False
 
     @property
     def default_venue(self) -> MarketDataVenue:
@@ -130,14 +144,22 @@ class MarketDataVenues(IMarketDataVenues):
 
     def close(self) -> None:
         """Stops every other venue's stream, closes its client and its store.
-        The default venue's are the container's and are closed with it."""
+        The default venue's are the container's and are closed with it.
+
+        Terminal: a venue asked for afterwards is an error, not a store nothing
+        would ever close (a worker still syncing at shutdown fails loudly)."""
         with self._lock:
+            self._closed = True
             built, self._others = list(self._others.values()), {}
         for infrastructure in built:
             infrastructure.close()
 
     def _other(self, venue: MarketDataVenue) -> _VenueInfrastructure:
         with self._lock:
+            if self._closed:
+                raise RuntimeError(
+                    f"market data venue {venue.value} was asked for after shutdown"
+                )
             infrastructure = self._others.get(venue)
             if infrastructure is None:
                 infrastructure = _VenueInfrastructure(

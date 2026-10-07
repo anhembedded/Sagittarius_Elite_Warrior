@@ -148,6 +148,12 @@ def test_closing_twice_and_closing_with_nothing_built_are_fine(
     venues: MarketDataVenues,
 ) -> None:
     venues.close()
+    venues.close()
+
+
+def test_closing_after_something_was_built_is_idempotent(
+    venues: MarketDataVenues,
+) -> None:
     venues.repository(_TESTNET)
     venues.close()
     venues.close()
@@ -171,3 +177,33 @@ def test_a_testnet_default_still_migrates_the_mainnets_legacy_shards(
 
     assert (tmp_path / "spot_BTCUSDT.db").is_file()
     assert not legacy.exists()
+
+
+def test_after_close_a_venue_is_an_error_not_a_store_nothing_would_close(
+    venues: MarketDataVenues,
+) -> None:
+    """A worker still syncing at shutdown must fail loudly, not open a store the
+    already-finished `close()` will never dispose."""
+    venues.close()
+
+    with pytest.raises(RuntimeError, match="after shutdown"):
+        venues.repository(_TESTNET)
+
+
+def test_one_step_failing_to_close_does_not_skip_the_rest(
+    venues: MarketDataVenues,
+) -> None:
+    """Shutdown is best-effort: a stream that will not stop must not leave a store
+    open, nor the next venue unclosed."""
+    first = venues.live_stream(_TESTNET)
+    second_repository = venues.repository(MarketDataVenue.FUTURES_TESTNET)
+    with (
+        patch.object(first, "stop_all", side_effect=OSError("socket")),
+        patch.object(
+            module.DatabaseManager, "dispose_all", autospec=True
+        ) as dispose_all,
+    ):
+        venues.close()
+
+    assert dispose_all.call_count == 2, "both stores were disposed"
+    assert second_repository is not None

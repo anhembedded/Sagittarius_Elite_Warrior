@@ -227,3 +227,15 @@ def test_a_mainnet_candle_never_drives_the_strategy_armed_on_the_testnet():
         event.market_data
     )
     built[TradingVenue.SPOT_TESTNET].dispatch_tick.assert_not_called()
+
+
+def test_a_session_of_a_venue_with_no_market_is_never_asked_for_its_source():
+    """`TradingVenue.DISABLED` trades no market and has no source to read; a
+    session stored under it must not make every tick raise."""
+    sessions = VenueStrategySessions(lambda _venue: Mock())
+    sessions.get(TradingVenue.DISABLED)
+    sessions.get(TradingVenue.SPOT_TESTNET)
+
+    reached = sessions.built_for(MarketType.SPOT, MarketDataVenue.SPOT_TESTNET)
+
+    assert len(reached) == 1

@@ -5,7 +5,7 @@ fixed for the whole session and needs no signal — a plain, immutable projectio
 not a reactive ViewModel.
 
 The banner used to judge, per venue, whether the chart's market matched the
-market the orders fill in (`VenueAlignment`, `EPIC-021K`) and to warn of a
+market the orders fill in (an alignment check, `EPIC-021K`) and to warn of a
 mismatch. Since `BUG-172` the chart a screen shows *is* its venue's own market
 (`TradingVenue.market_data_venue`), so no mismatch can occur on a venue screen and
 none of those states is left. Only the screens that act on no venue (Data mode, a
