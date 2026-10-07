@@ -1,7 +1,9 @@
 """`EPIC-034` D5 — `IKeyPermissionGate` over `GET /sapi/v1/account/apiRestrictions`.
 
-@details Asked before any account read of a mainnet venue. A key that can withdraw
-is refused with `WITHDRAWAL_ENABLED` and nothing else is read; any other key is
+@details Asked before a mainnet venue's key is used for anything: the Connect
+step's reader asks it first, and `KeyGatedCredentials` asks it for every other
+read and order. A key that can withdraw is refused with `WITHDRAWAL_ENABLED` and
+nothing else is read; any other key is
 accepted, trading keys included: the owner's decision is that mainnet trades
 exactly like testnet (D11). An answer missing the withdrawal flag, or carrying it
 as something other than a boolean, refuses the key as unreadable (never a guessed
@@ -11,11 +13,17 @@ Verification note: written from python-binance's own source and Binance's
 documented API; egress to `*.binance.com` is blocked in this sandbox (HTTP 451),
 so it was exercised against the fake Binance server only. The owner's own key is
 the live check.
+
+An accepted key is remembered for `ACCEPTED_FOR_SECONDS`, so the order path pays
+one request per key per interval; a refusal is never remembered, so the next
+call asks again and a key the owner has fixed is taken at once.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from collections.abc import Callable
 from decimal import InvalidOperation
 
@@ -52,6 +60,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 logger = logging.getLogger("App.KeyGate")
 
+#: How long an accepted key is trusted before the exchange is asked again.
+ACCEPTED_FOR_SECONDS = 300.0
 _THE_KEY = "the key's permissions"
 _NETWORK_FAILURES = (BinanceAPIException, BinanceRequestException, RequestException)
 _PARSE_FAILURES = (KeyError, TypeError, ValueError, InvalidOperation)
@@ -70,16 +80,39 @@ class ApiRestrictionsKeyGate(IKeyPermissionGate):
         venue: TradingVenue,
         credentials: CredentialsSource,
         clients: KeyPermissionsClients = open_key_permissions_client,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._venue = venue
         self._source = AccountSource.for_venue(venue)
         self._credentials = credentials
         self._clients = clients
+        self._clock = clock
+        self._lock = threading.Lock()
+        #: The key last accepted and when: its identifier only, never the secret.
+        self._accepted: tuple[str, float] | None = None
 
     def check(self) -> ConnectFailure | None:
         resolved = self._credentials()
         if resolved is None:
             return ConnectFailure(self._source, ConnectionFailureKind.NOT_CONFIGURED)
+        if self._remembers(resolved):
+            return None
+        refused = self._ask(resolved)
+        if refused is None:
+            with self._lock:
+                self._accepted = (resolved.api_key, self._clock())
+        return refused
+
+    def _remembers(self, key: ExchangeCredentials) -> bool:
+        with self._lock:
+            accepted = self._accepted
+        return (
+            accepted is not None
+            and accepted[0] == key.api_key
+            and self._clock() - accepted[1] < ACCEPTED_FOR_SECONDS
+        )
+
+    def _ask(self, resolved: ExchangeCredentials) -> ConnectFailure | None:
         try:
             client = self._clients(self._venue, resolved)
             permissions = parse_key_permissions(client.get_account_api_permissions())

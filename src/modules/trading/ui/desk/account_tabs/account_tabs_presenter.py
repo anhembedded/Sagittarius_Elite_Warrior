@@ -43,12 +43,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
     failure_cause,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
     VenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
+    ConfirmedClose,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_actions import (
     AccountTabActions,
@@ -105,11 +111,14 @@ class AccountTabsPresenter(QObject):
         feed: OrderFeed,
         thread_manager: IThreadManager,
         notifier: INotifier,
+        consent: IRealMoneyConsent,
         clock: Clock = _utc_now,
         has_key: KeyCheck = always_keyed,
     ) -> None:
         super().__init__(view)
         self._notifier = notifier
+        self._consent = consent
+        self._venue = ports.venue
         self._cause = failure_cause(ports.venue, "account_tabs")
         self._view = view
         self._ports = ports
@@ -128,7 +137,7 @@ class AccountTabsPresenter(QObject):
         self._loaded.connect(self._on_loaded)
         view.cancelRequested.connect(self._actions.cancel_one)
         view.cancelAllRequested.connect(self._actions.cancel_all)
-        view.closePositionRequested.connect(self._actions.close_position)
+        view.closePositionRequested.connect(self._close_position)
         view.hideOtherPairsChanged.connect(self._reopen_histories)
         view.historyPageRequested.connect(self._on_page_requested)
         self._actions.orderCancelled.connect(self._book.on_order_cancelled)
@@ -156,6 +165,13 @@ class AccountTabsPresenter(QObject):
         self._symbol = symbol
         self._view.set_desk_symbol(symbol)
         self.refresh()
+
+    def _close_position(self, confirmed: ConfirmedClose) -> None:
+        """A close is a market order: on a mainnet venue it is asked about like
+        any other first order of the session (`EPIC-034` D3, D11), after its own
+        confirmation and before anything is sent."""
+        if self._consent.confirmed(self._venue, "close a position"):
+            self._actions.close_position(confirmed)
 
     def refresh(self) -> None:
         """Reads the live tables and starts both histories over — or, for a

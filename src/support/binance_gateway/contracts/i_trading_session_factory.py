@@ -120,8 +120,7 @@ class ITradingSessionFactory(ABC):
     ) -> ITradingSessionClient:
         """@brief A signed session, authenticated with `credentials`, ready
         to place/cancel orders and read positions.
-        @details Always Futures Testnet on every implementation this app
-        ships (`TradingVenue` has no `MAINNET` member, ADR §3) — this port
-        does not parameterize venue because there is never a second one to
-        choose between.
+        @details On the exchange of the venue the implementation was built
+        for (`EPIC-034` D11): this port does not parameterize venue per call
+        because one factory serves exactly one venue.
         """

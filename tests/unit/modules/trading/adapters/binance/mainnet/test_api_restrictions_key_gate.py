@@ -5,11 +5,14 @@ trip is the integration test's."""
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from typing import Any
 
 import pytest
 from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_restrictions_key_gate import (
+    ACCEPTED_FOR_SECONDS,
     ApiRestrictionsKeyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.key_permissions_client import (
@@ -72,6 +75,7 @@ def _gate(
     venue: TradingVenue,
     answer: dict[str, Any] | Exception,
     credentials: ExchangeCredentials | None = _KEY,
+    clock: Callable[[], float] = time.monotonic,
 ) -> tuple[ApiRestrictionsKeyGate, _Client, list[TradingVenue]]:
     client = _Client(answer)
     opened: list[TradingVenue] = []
@@ -80,7 +84,11 @@ def _gate(
         opened.append(opened_for)
         return client
 
-    return ApiRestrictionsKeyGate(venue, lambda: credentials, clients), client, opened
+    return (
+        ApiRestrictionsKeyGate(venue, lambda: credentials, clients, clock),
+        client,
+        opened,
+    )
 
 
 @_BOTH
@@ -222,3 +230,66 @@ def test_the_client_port_lists_exactly_the_one_read_the_gate_makes() -> None:
     }
 
     assert members == {"get_account_api_permissions"}
+
+
+# -- an accepted key is remembered for a while, a refusal never ---------------
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_an_accepted_key_is_asked_once_within_the_interval() -> None:
+    clock = _Clock()
+    gate, client, _ = _gate(TradingVenue.SPOT_MAINNET, _READ_ONLY, clock=clock)
+
+    assert gate.check() is None
+    clock.now += ACCEPTED_FOR_SECONDS - 1
+    assert gate.check() is None
+
+    assert client.calls == 1
+
+
+def test_an_accepted_key_is_asked_again_once_the_interval_has_passed() -> None:
+    clock = _Clock()
+    gate, client, _ = _gate(TradingVenue.SPOT_MAINNET, _READ_ONLY, clock=clock)
+    gate.check()
+
+    clock.now += ACCEPTED_FOR_SECONDS
+    client.answer = {**_READ_ONLY, "enableWithdrawals": True}
+
+    refused = gate.check()
+
+    assert refused is not None
+    assert refused.kind is ConnectionFailureKind.WITHDRAWAL_ENABLED
+    assert client.calls == 2
+
+
+def test_a_refusal_is_never_remembered_so_a_fixed_key_is_taken_at_once() -> None:
+    gate, client, _ = _gate(
+        TradingVenue.SPOT_MAINNET, {**_READ_ONLY, "enableWithdrawals": True}
+    )
+    assert gate.check() is not None
+
+    client.answer = _READ_ONLY
+
+    assert gate.check() is None
+    assert client.calls == 2
+
+
+def test_another_key_is_asked_even_within_the_interval() -> None:
+    current = [ExchangeCredentials("first", "s")]
+    client = _Client(_READ_ONLY)
+    gate = ApiRestrictionsKeyGate(
+        TradingVenue.SPOT_MAINNET, lambda: current[0], lambda _v, _c: client
+    )
+    gate.check()
+
+    current[0] = ExchangeCredentials("second", "s")
+    gate.check()
+
+    assert client.calls == 2

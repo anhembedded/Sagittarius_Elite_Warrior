@@ -57,6 +57,25 @@ def test_the_single_venue_reader_is_the_first_in_venue_order() -> None:
 @pytest.mark.parametrize(
     "values",
     [
+        {},
+        {_LIST_KEY: ["futures_mainnet", "spot_mainnet"]},
+        {_SCALAR_KEY: "spot_mainnet"},
+        {_LIST_KEY: ["spot_mainnet"], _SCALAR_KEY: "futures_mainnet"},
+    ],
+)
+def test_the_primary_venue_is_never_a_mainnet_whatever_the_configuration_says(
+    values: dict[str, object],
+) -> None:
+    """`EPIC-034` D11 — the real-money question is asked by the screens, so the one
+    venue a caller without a venue of its own acts on (the CLI's `trade-once
+    --live`, Options) must never be real money. That is the order of
+    `TradingVenue`, and this is what holds the order to it."""
+    assert not resolve_trading_venue(DictConfig(values)).is_mainnet
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
         {_LIST_KEY: ["futures_testnet"]},
         {_LIST_KEY: []},
         {_SCALAR_KEY: "spot_testnet"},

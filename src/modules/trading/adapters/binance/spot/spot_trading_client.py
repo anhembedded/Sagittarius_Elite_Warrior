@@ -1,5 +1,5 @@
 """`EPIC-027K` — `ITradingClient` implementation: the adapter that actually
-sends a signed order request to Binance Spot Testnet.
+sends a signed order request to the Binance Spot exchange of its venue.
 
 @details Mirrors `FuturesTradingClient`'s own shape (same four constructor
 collaborators, same `OrderSubmissionMode`-gated `create_test_order`/
@@ -75,8 +75,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_spot_sess
 
 class SpotTradingClient(ITradingClient):
     """@brief The Spot half of the one instance in this app allowed to sign
-    an order request (ADR §2.1) — always Spot Testnet, `TradingVenue` has no
-    Spot mainnet member (ADR D8), so this is never ambiguous."""
+    an order request (ADR §2.1). Its session is its venue's own: Spot Testnet or Spot Mainnet,
+    decided by the `TradingVenue` the session factory was built for
+    (`EPIC-034` D11), never by this class."""
 
     def __init__(
         self,

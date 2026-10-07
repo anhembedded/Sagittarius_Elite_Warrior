@@ -3,22 +3,18 @@
 @details A source is a venue `IVenueContexts` enables, read through the same ports
 its desk uses; which venues exist is `IVenueContexts`'s answer and this registry
 keeps no second copy, only the readers it has built. Every reader is a
-`ComposedVenueAccountReader`; a mainnet venue's has the key gate in front
-(`EPIC-034` D5, D11), the one thing it does that a testnet venue's does not.
+`ComposedVenueAccountReader`; a mainnet venue's has the venue's key gate in
+front (`EPIC-034` D5, D11) to say why a key is refused. The gate also sits under
+every adapter's credentials (`VenueAssembly.order_credentials`), so it is not
+this reader alone that stops a key that can withdraw.
 """
 
 from __future__ import annotations
 
 import threading
 
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_restrictions_key_gate import (
-    ApiRestrictionsKeyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account.composed_venue_account_reader import (
     ComposedVenueAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_permission_gate import (
-    IKeyPermissionGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_account_reader import (
     IVenueAccountReader,
@@ -55,13 +51,5 @@ class VenueAccounts(IVenueAccounts):
             return reader
 
     def _build(self, source: AccountSource) -> IVenueAccountReader:
-        venue = source.trading_venue
-        context = self._contexts.get(venue)
-        gate: IKeyPermissionGate | None = (
-            ApiRestrictionsKeyGate(
-                venue, lambda: context.credentials_provider.resolve().credentials
-            )
-            if venue.is_mainnet
-            else None
-        )
-        return ComposedVenueAccountReader(source, context, key_gate=gate)
+        context = self._contexts.get(source.trading_venue)
+        return ComposedVenueAccountReader(source, context, key_gate=context.key_gate)

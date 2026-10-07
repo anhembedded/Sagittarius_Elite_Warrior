@@ -18,11 +18,21 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_connection import (
     GetVenueConnectionQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready import (
+    EnsureSessionReadyCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
     ConnectFailure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+    SessionReadyResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
     VenueAccountSnapshot,
@@ -179,3 +189,30 @@ def test_an_exchange_under_maintenance_is_named_for_a_mainnet_venue_too(
 
     assert isinstance(answer, ConnectFailure)
     assert answer.kind is ConnectionFailureKind.MAINTENANCE
+
+
+@pytest.mark.usefixtures("mainnet_keys", "mainnet_urls")
+@pytest.mark.parametrize("venue", _MAINNETS)
+def test_a_key_that_can_withdraw_opens_no_order_session_and_reads_nothing_else(
+    exchange: FakeExchange, tmp_path: Path, venue: TradingVenue
+) -> None:
+    """The gate is under every adapter's credentials, not in one reader: the order
+    path (`ensure_ready`) and the desk's own account read stop on a key that can
+    withdraw, with the Connect step never asked (D5)."""
+    exchange.urls.api_restrictions.enable_withdrawals = True
+
+    with composed_on_spot_testnet(spot_testnet_config(tmp_path)) as app:
+        exchange.urls.requests.clear()
+        opened = app.engine.dispatch(
+            EnsureSessionReadyCommand, EnsureSessionReadyCommand(venue=venue)
+        )
+        desk = app.engine.context.container.resolve(IVenueContexts).get(venue)
+        status = desk.account_reader.check_connection()
+
+    assert isinstance(opened, SessionReadyResult)
+    assert not opened.ready
+    assert opened.block_reason is SessionBlockReason.CONNECTION_NOT_READY
+    assert not status.reachable
+    assert status.failure is ConnectionFailureKind.NOT_CONFIGURED
+    assert set(_reads(exchange)) == {"/sapi/v1/account/apiRestrictions"}
+    assert not [r for r in exchange.urls.requests if r[0] in _PLACING]

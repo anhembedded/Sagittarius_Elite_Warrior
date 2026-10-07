@@ -40,7 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_spot_sess
 
 
 class SpotTradingClientFactory(ITradingClientFactory):
-    """@brief `ITradingClientFactory` for Spot Testnet."""
+    """@brief `ITradingClientFactory` for one Spot venue (Testnet or Mainnet)."""
 
     def __init__(
         self,

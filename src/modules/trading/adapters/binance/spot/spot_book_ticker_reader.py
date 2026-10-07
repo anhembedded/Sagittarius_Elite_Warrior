@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 
 
 class SpotBookTickerReader(IBookTickerReader):
-    """Reads the Spot Testnet book's best bid and ask."""
+    """Reads its Spot venue's book, best bid and ask."""
 
     def __init__(self, session_factory: SpotSessionFactory) -> None:
         self._session_factory = session_factory

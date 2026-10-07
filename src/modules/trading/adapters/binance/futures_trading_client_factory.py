@@ -4,11 +4,9 @@
 
 @details Holds the three raw collaborators every `FuturesTradingClient` needs
 so its own six former call sites (now callers of `create()`) no longer each
-carry them just to build one. Always Futures Testnet — bound unconditionally
-in `adapter_bindings.py` regardless of the configured `TradingVenue`, but
-order submission itself stays gated by `TradingVenue.supports_order_submission`
-(`EPIC-027G`), which is `False` for `SPOT_TESTNET` until `EPIC-027K` binds a
-Spot implementation of `ITradingClientFactory` alongside this one.
+carry them just to build one. One per Futures venue (Testnet and Mainnet,
+`EPIC-034` D11): `VenueAssembly` builds it over that venue's session factory
+and credentials, and the Spot venues have their own `SpotTradingClientFactory`.
 """
 
 from __future__ import annotations
@@ -41,7 +39,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 
 
 class FuturesTradingClientFactory(ITradingClientFactory):
-    """@brief `ITradingClientFactory` for Futures Testnet."""
+    """@brief `ITradingClientFactory` for one Futures venue (Testnet or Mainnet)."""
 
     def __init__(
         self,

@@ -388,4 +388,11 @@ def test_testnet_false_reaches_the_client_of_a_mainnet_venue_and_true_the_testne
 
     assert status.venue is venue
     assert [kwargs["testnet"] for kwargs in _RefusingClient.built] == [venue.is_testnet]
-    assert status.failure is ConnectionFailureKind.NETWORK
+    # A mainnet key is used only once the key gate has judged it (`EPIC-034` D5):
+    # the gate's own session is the one built here, it cannot be judged, and so
+    # the account read sees no usable key. A testnet reaches the exchange itself.
+    assert status.failure is (
+        ConnectionFailureKind.NETWORK
+        if venue.is_testnet
+        else ConnectionFailureKind.NOT_CONFIGURED
+    )

@@ -166,6 +166,7 @@ class DeskPresenter(BasePresenter):
             feeds.orders,
             threads,
             deps.notifier,
+            deps.consent,
             has_key=deps.has_key,
         )
         view.account_tabs.use_precisions(deps.precisions)

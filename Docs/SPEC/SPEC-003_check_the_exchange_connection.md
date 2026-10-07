@@ -59,9 +59,11 @@ cannot, tell me which part is wrong."*
    the account, the commission, the symbol's filters and the price. One step comes first: the key's
    permissions (`GET /sapi/v1/account/apiRestrictions`). A key that **can withdraw** is refused
    (`WITHDRAWAL_ENABLED`) before any account data is read, and the screen says so. A key that can trade
-   is accepted: mainnet trades exactly like testnet (D11).
+   is accepted: mainnet trades exactly like testnet (D11). The refusal is not this screen's alone: every
+   read and every order of a mainnet venue resolves its key through the same gate, so a key that can
+   withdraw places nothing and reads nothing, whichever way it was supplied.
 3. No key is `NOT_CONFIGURED`, answered without any request.
-4. The first Start, arm or manual order on a mainnet venue in a session asks one confirmation that
+4. The first Start, arm, manual order or Close position on a mainnet venue in a session asks one confirmation that
    names real money (`SPEC-004`); a testnet is never asked.
 
 Not proven here, and not provable from the build sandbox (HTTP 451 to `*.binance.com`): the trader's
@@ -139,5 +141,7 @@ resolution and the error translation.
 | Each mainnet venue connects through the same path as its testnet twin; the key is asked what it may do first; a key that can trade is accepted, one that can withdraw refused before any account read; no key, no request | `tests/integration/modules/bots/test_mainnet_venues_on_the_fake_exchange.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_api_restrictions_key_gate.py` | unit · integration (fake Binance server) |
 | A mainnet venue is the same classes as its testnet twin, `testnet=False` reaches its client and `True` the testnets', and its key never comes from a file | `tests/unit/modules/trading/test_module_venue_contexts_binding.py` · `tests/unit/modules/trading/adapters/binance/test_binance_client_builder.py` · `tests/unit/support/binance_gateway/adapters/test_mainnet_credentials_provider.py` | unit |
 | Every source is one assembler, with the key gate in front of the mainnet ones | `tests/unit/modules/trading/test_module_venue_accounts_binding.py` · `tests/unit/modules/trading/application/account/test_composed_venue_account_reader.py` | unit |
+| A key that can withdraw is refused by every adapter of a mainnet venue, not by the Connect reader alone: no order session opens, the desk's account read sees no key, an accepted key is remembered five minutes and a refusal never | `tests/unit/modules/trading/adapters/binance/mainnet/test_key_gated_credentials.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_api_restrictions_key_gate.py` · `tests/integration/modules/bots/test_mainnet_venues_on_the_fake_exchange.py` | unit · integration |
+| Each user data stream connects to its own venue's exchange; the primary venue is never a mainnet; Close position asks about real money | `tests/unit/modules/trading/adapters/binance/test_user_data_stream_exchange_flag.py` · `tests/unit/support/binance_gateway/contracts/test_resolve_trading_venues.py` · `tests/unit/modules/trading/ui/desk/test_account_tab_actions_presenter.py` | unit |
 | The owner's real balances with the owner's own key | — **the owner runs it**: set the venue's two variables or run `scripts/save_mainnet_key.py`, then Trade → Venue → Spot Mainnet | human |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

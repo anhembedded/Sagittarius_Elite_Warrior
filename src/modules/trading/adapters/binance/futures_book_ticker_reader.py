@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 
 
 class FuturesBookTickerReader(IBookTickerReader):
-    """Reads the Futures Testnet book's best bid and ask."""
+    """Reads its Futures venue's book, best bid and ask."""
 
     def __init__(self, session_factory: FuturesSessionFactory) -> None:
         self._session_factory = session_factory

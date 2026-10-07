@@ -21,11 +21,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
+    FakeRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
     ConfirmedClose,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     build_position_row,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 from .account_tabs_desk import AccountTabsDesk
@@ -164,3 +170,45 @@ def test_a_refused_close_names_the_gate(qtbot) -> None:
     desk.panel.closePositionRequested.emit(_confirmed())
 
     assert "order session" in desk.message().lower()
+
+
+def test_closing_on_a_mainnet_venue_asks_about_real_money_and_a_no_sends_nothing(
+    qtbot,
+) -> None:
+    """A close is a market order (`EPIC-034` D3, D11): it can be the first order of
+    a session, and its own confirmation does not say the account is real."""
+    consent = FakeRealMoneyConsent(agrees=False)
+    desk = AccountTabsDesk(qtbot, venue=TradingVenue.FUTURES_MAINNET, consent=consent)
+    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+    _accepts_one_close(desk)
+    desk.presenter.show_symbol("BTCUSDT")
+
+    desk.panel.closePositionRequested.emit(_confirmed())
+
+    assert consent.asked == [(TradingVenue.FUTURES_MAINNET, "close a position")]
+    assert desk.submission.submitted_live == []
+
+
+def test_closing_on_a_mainnet_venue_goes_on_once_real_money_is_agreed(qtbot) -> None:
+    consent = FakeRealMoneyConsent(agrees=True)
+    desk = AccountTabsDesk(qtbot, venue=TradingVenue.FUTURES_MAINNET, consent=consent)
+    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+    _accepts_one_close(desk)
+    desk.presenter.show_symbol("BTCUSDT")
+
+    desk.panel.closePositionRequested.emit(_confirmed())
+
+    assert len(desk.submission.submitted_live) == 1
+
+
+def test_closing_on_a_testnet_asks_nothing(qtbot) -> None:
+    consent = FakeRealMoneyConsent(agrees=False)
+    desk = AccountTabsDesk(qtbot, consent=consent)
+    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+    _accepts_one_close(desk)
+    desk.presenter.show_symbol("BTCUSDT")
+
+    desk.panel.closePositionRequested.emit(_confirmed())
+
+    assert consent.asked == []
+    assert len(desk.submission.submitted_live) == 1
