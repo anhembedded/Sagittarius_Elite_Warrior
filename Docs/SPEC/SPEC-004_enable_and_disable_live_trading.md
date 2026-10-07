@@ -109,9 +109,13 @@ holds before the app sends anything."*
   the session, cancels every open order, closes every position, then reads the account back to
   confirm — and reports each of those three steps separately, because a partial stop is a real
   outcome the actor must see.
-- **A mainnet venue is not here.** The first Start on a real-money venue will ask a confirmation
-  naming real money (decision D3); no mainnet `TradingVenue` exists (`EPIC-026`), so
-  `SessionReadiness` carries no such hook yet.
+- **A mainnet venue asks once.** The first Start (or Resume), arm or manual order on `SPOT_MAINNET` or
+  `FUTURES_MAINNET` in a session asks one confirmation that names real money (decisions D3 and D11);
+  declining sends nothing, agreeing is remembered for that venue until the app closes, and a testnet
+  is never asked. It is a question, not a block: nothing else differs from a testnet
+  (`tests/unit/modules/trading/application/test_real_money_consent.py`,
+  `tests/unit/modules/bots/ui/bots_screen/test_bots_real_money.py`,
+  `tests/unit/modules/trading/ui/desk/test_real_money_order_confirmation.py`).
 
 ## 7. Ports and modules it exercises
 

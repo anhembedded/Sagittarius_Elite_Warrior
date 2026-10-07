@@ -26,8 +26,8 @@ gantt
     034C trading switch folded into actions :crit,   c, after b, 3d
     034D connect step                      :         d, after a, 3d
 
-    section Milestone - mainnet read only
-    034E mainnet read-only account         :crit,    e, after d, 3d
+    section Milestone - mainnet venues
+    034E mainnet venues trade like testnet :crit,    e, after d, 3d
 
     section Phase 3 - Design and run
     034F design step constraints           :         f, after d, 4d
@@ -46,7 +46,7 @@ gantt
 | EPIC-034B | [Every venue with a key is on](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034C | [Trading switch folded into actions](completed/EPIC-034C_trading_switch_folded_into_actions.md) | — | 🔴 | ✅ Done (2026-10-07) | — |
 | EPIC-034D | [Connect step](completed/EPIC-034D_connect_step.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
-| EPIC-034E | [Mainnet read-only account](incomplete/EPIC-034E_mainnet_read_only_account.md) | — | 🔴 | 🟡 In progress | — |
+| EPIC-034E | [Mainnet venues trade like testnet](incomplete/EPIC-034E_mainnet_venues_trade_like_testnet.md) | — | 🔴 | 🟡 In progress | — |
 | EPIC-034F | [Design step constraints](incomplete/EPIC-034F_design_step_constraints.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-034G | [Chart live state](incomplete/EPIC-034G_chart_live_state.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-034H | [Run step readiness](incomplete/EPIC-034H_run_step_readiness.md) | — | 🟡 | 🔵 Planned | — |
@@ -58,6 +58,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-07 | Spec | Epic, decision record and eight sub-tasks written from the owner's proposal review. |
+| 2026-10-07 | D11 | The owner decided that mainnet trades exactly like testnet: `EPIC-034E` became two mainnet venues from the same code; D4 and `EPIC-026` D3 are superseded. |
 
 ---
 

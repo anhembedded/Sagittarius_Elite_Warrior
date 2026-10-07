@@ -46,27 +46,26 @@ cannot, tell me which part is wrong."*
 6. Each surface renders that one value: the Options page as a label, the command line as a short
    report.
 
-### The read-only mainnet account (`EPIC-034E`)
+### A mainnet venue (`EPIC-034E`, D11)
 
-*"I gave the app my real key; show me my account, and never let it touch my money."*
+*"I gave the app my real key; it connects like my testnet one, and a key that can move my money out is refused."*
 
-1. The trader sets `BINANCE_MAINNET_READONLY_API_KEY` and `BINANCE_MAINNET_READONLY_API_SECRET`
-   (their own names: a testnet key is never read as this one, nor this one as a testnet key; the
-   secret is never written to `secrets.local.json`; `scripts/save_mainnet_readonly_key.py` checks a
-   key, refuses one that can withdraw, and keeps the pair in the operating system's keyring, D10) and chooses Bots → **Mainnet account**.
-2. The app reads the key's permissions first (`GET /sapi/v1/account/apiRestrictions`). A key that
-   **can withdraw** is refused (`WITHDRAWAL_ENABLED`) before any account data is read, and the
-   window says so and what to do: create a read-only key.
-3. Otherwise it reads the account, its commission rates, its open orders, the symbol's filters and
-   price, and the window shows "Mainnet · read only: Connected" with what the key may do, what can
-   be spent, the fees, the open orders and every balance. A key that can trade is accepted, with the
-   advice to create a key that cannot.
-4. The source is not a `TradingVenue`: no order, test order or cancel is reachable from it
-   (`test_mainnet_has_no_order_path.py`). No key is `NOT_CONFIGURED`, answered
-   without any request.
+1. The trader sets `BINANCE_SPOT_MAINNET_API_KEY` and `_SECRET` (or the `BINANCE_FUTURES_MAINNET_` pair),
+   or runs `scripts/save_mainnet_key.py spot|futures` once, which checks the key, refuses one that can
+   withdraw, and keeps the pair in the operating system's keyring (D10). Each venue has its own names: a
+   testnet key is never read as a mainnet key, nor a Spot key as a Futures one; a mainnet secret is
+   never written to `secrets.local.json`.
+2. Selecting a bot on a mainnet venue connects exactly as on its testnet twin: the same adapters read
+   the account, the commission, the symbol's filters and the price. One step comes first: the key's
+   permissions (`GET /sapi/v1/account/apiRestrictions`). A key that **can withdraw** is refused
+   (`WITHDRAWAL_ENABLED`) before any account data is read, and the screen says so. A key that can trade
+   is accepted: mainnet trades exactly like testnet (D11).
+3. No key is `NOT_CONFIGURED`, answered without any request.
+4. The first Start, arm or manual order on a mainnet venue in a session asks one confirmation that
+   names real money (`SPEC-004`); a testnet is never asked.
 
-Not proven here, and not provable from the build sandbox (HTTP 451 to `*.binance.com`): the
-trader's real balances. That is the owner's manual check.
+Not proven here, and not provable from the build sandbox (HTTP 451 to `*.binance.com`): the trader's
+real balances and a real order. That is the owner's manual check.
 
 ## 4. What must be true afterwards
 
@@ -136,9 +135,9 @@ resolution and the error translation.
 | Every venue is assembled whatever the configuration says; a legacy venue setting is ignored and logged once | `tests/unit/support/binance_gateway/contracts/test_resolve_trading_venues.py`, `tests/unit/modules/trading/test_module_venue_contexts_binding.py` | unit |
 | The Options page has no venue control, promises no restart and writes no venue setting | `tests/unit/modules/trading/ui/settings/test_trading_settings_has_no_venue_control.py` | unit |
 | Tools → Check connection: the status bar's word, the failure named where the user looks, and only the newest check writes | `tests/unit/modules/trading/ui/market/test_market_connection_check.py` | unit |
-| The keyring store, the saved pair, and a key checked before it is kept | `tests/unit/modules/trading/adapters/binance/mainnet/test_keyring_secret_store.py` · `test_mainnet_key_enrolment.py` | unit |
-| The read-only mainnet account: balances, fees, open orders, permissions; a withdrawal key refused first; nothing placed; no key, no request; its own variable names | `tests/integration/modules/trading/test_mainnet_read_only_account.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_mainnet_readonly_account_reader.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_mainnet_readonly_credentials.py` | unit · integration (fake Binance server) |
-| The mainnet source has no import path to a trading client, session factory, order port or `execute_order`; `TradingVenue` has no mainnet member | `tests/unit/architecture/test_mainnet_has_no_order_path.py` | architecture guard |
-| The window and its command | `tests/unit/modules/bots/ui/bots_screen/test_mainnet_account.py` | unit |
-| The owner's real balances with the owner's own key | — **the owner runs it**: set the two variables, Bots → Mainnet account | human |
+| The keyring store, the saved pair, and a key checked before it is kept | `tests/unit/modules/trading/adapters/binance/mainnet/test_keyring_secret_store.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_mainnet_key_enrolment.py` | unit |
+| Each mainnet venue connects through the same path as its testnet twin; the key is asked what it may do first; a key that can trade is accepted, one that can withdraw refused before any account read; no key, no request | `tests/integration/modules/bots/test_mainnet_venues_on_the_fake_exchange.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_api_restrictions_key_gate.py` | unit · integration (fake Binance server) |
+| A mainnet venue is the same classes as its testnet twin, `testnet=False` reaches its client and `True` the testnets', and its key never comes from a file | `tests/unit/modules/trading/test_module_venue_contexts_binding.py` · `tests/unit/modules/trading/adapters/binance/test_binance_client_builder.py` · `tests/unit/support/binance_gateway/adapters/test_mainnet_credentials_provider.py` | unit |
+| Every source is one assembler, with the key gate in front of the mainnet ones | `tests/unit/modules/trading/test_module_venue_accounts_binding.py` · `tests/unit/modules/trading/application/account/test_composed_venue_account_reader.py` | unit |
+| The owner's real balances with the owner's own key | — **the owner runs it**: set the venue's two variables or run `scripts/save_mainnet_key.py`, then Trade → Venue → Spot Mainnet | human |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

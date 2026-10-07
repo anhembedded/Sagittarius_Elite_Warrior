@@ -6,7 +6,7 @@
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) and [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) §11.2; both are updated by the child that changes the flow they describe.
 - **Decisions:** [`DECISION_2026-10-07_bots_mode_flow.md`](DECISION_2026-10-07_bots_mode_flow.md) — D1–D10.
 - **Tracking:** [`TRACKING.md`](TRACKING.md).
-- **Dependencies:** None to start. [`EPIC-026`](../EPIC-026_road_to_real_money/README.md)'s D6 was cancelled by the owner on the same day, which is what lets `EPIC-034E` read a mainnet account before that epic's soak.
+- **Dependencies:** None to start. [`EPIC-026`](../EPIC-026_road_to_real_money/README.md)'s D6 was cancelled by the owner on the same day, which is what lets `EPIC-034E` put mainnet in the code before that epic's soak; D11 supersedes its D3 lock.
 
 ---
 
@@ -14,7 +14,7 @@
 1. A bot goes through three steps, each unlocking the next: **Connect** (the account is read), **Design** (chart and parameters, every constraint asserted), **Run** (D1, owner).
 2. Every venue with a usable key is on; the Spot and Futures toggles in Tools → Options leave (D2, owner).
 3. The trading ON/OFF switch leaves; its reconciliation runs inside Start, arm and a manual order instead (D3, owner chose option A).
-4. A mainnet key is read, never traded: a read-only account source that is not a `TradingVenue` (D4, owner milestone).
+4. Mainnet trades exactly like testnet: `SPOT_MAINNET` and `FUTURES_MAINNET` are venues built by the same code with `testnet=False` and their own key; a key that can withdraw is refused, the secret lives in the keyring, the first order of a session asks once (D11, which superseded the read-only source of D4).
 5. D5–D10 (key permissions, Connect runs by itself, blocking versus advisory constraints, Save and Start, a live chart for a draft, the mainnet secret in the keyring) were accepted as recommended.
 
 ## 2. Goals — measurable
@@ -26,13 +26,13 @@
 | Bot-chart messages that reach the user | 0 of 4 | 4 of 4 |
 | Plan constraints that use the real account balance before Start | 0 | capital, base inventory, key permission |
 | Steps between a new key and an order: Options venue tick, restart, Enable trading, Start | 4 | 1 (Start) |
-| A mainnet read-only key shows the real balances | no | yes, with withdrawal keys refused |
+| A mainnet key connects and trades like a testnet one | no | yes, with withdrawal keys refused and one real-money confirmation |
 
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | [EPIC-034C](completed/EPIC-034C_trading_switch_folded_into_actions.md) | The trading switch leaves; Start, arm and a manual order reconcile and open the order session themselves | Elite | EPIC-034B | 🔴 | ✅ Done (2026-10-07) |
-| [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | A mainnet key is read, never traded: balances, fees and key permissions; withdrawal keys refused | Elite | EPIC-034D | 🔴 | 🟡 In progress (the owner's check remains) |
+| [EPIC-034E](incomplete/EPIC-034E_mainnet_venues_trade_like_testnet.md) | Mainnet trades exactly like testnet: two mainnet venues from the same code, the keyring, withdrawal keys refused, one real-money confirmation | Elite | EPIC-034D | 🔴 | 🟡 In progress (the owner's check remains) |
 | [EPIC-034B](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | Every venue with a usable key is on; the Options venue toggles and the restart leave | Elite | None | 🟡 | ✅ Done (2026-10-07) |
 | [EPIC-034D](completed/EPIC-034D_connect_step.md) | Connect: one account snapshot per venue gates the chart and the plan | Elite | EPIC-034A | 🟡 | ✅ Done (2026-10-07) |
 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Design: every constraint is a named assertion, shown on its field, with the account's numbers | Elite | EPIC-034D | 🟡 | Planned |
@@ -45,11 +45,11 @@
 | :--- | :--- | :--- |
 | 1 — Say what it knows | `EPIC-034A` merged: no raw venue identifier, the bot chart's messages and empty state visible, a disabled action's reason visible | Its tests; a screenshot of a new bot on the owner's display. Not run |
 | 2 — Connect | `EPIC-034B`, `034C`, `034D` merged: a key is enough to reach the Connect step; no Enable trading switch | The SPEC journeys; the owner's Testnet run. Not run |
-| Milestone — mainnet read-only | `EPIC-034E` merged: the owner's mainnet read-only key shows the real balances; a withdrawal key is refused | The architecture guard; the owner's manual check. Not run |
+| Milestone — mainnet venues | `EPIC-034E` merged: the owner's own mainnet key connects like a testnet one; a withdrawal key is refused; the first order asks once | The fake-server tests of each mainnet venue; the owner's manual check. Not run |
 | 3 — Design and run | `EPIC-034F`, `034G`, `034H` merged: Start is reachable only through the three steps, every reason shown before the click | The SPEC-014 journeys; the desktop E2E. Not run |
 
 ## 5. Out of scope
-- Trading on mainnet: [`EPIC-026`](../EPIC-026_road_to_real_money/README.md) (its D3 and D5 still hold).
+- Mainnet limits and caps beyond what every venue has (`EPIC-026` D5, the typed acknowledgement): D11 says no order is blocked, so they are not part of this epic; `EPIC-026`'s remaining stages are the owner's to reopen.
 - Futures grids and other bot kinds: `EPIC-029K` / `EPIC-029L`.
 - The historical-tick backtest on Futures: [`BUG-166`](../../bug_report/incomplete/BUG-166_historical_tick_backtest_cannot_run_on_futures_and_its_execution_dialog_misleads.md) and [`BOT-168`](../../backlog/BOT-168_true_futures_one_second_ticks_for_the_realtime_backtest.md).
 
