@@ -1,5 +1,4 @@
 import os
-from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtCore import QEvent
@@ -28,10 +27,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         item.add_marker(marker)
 
 
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
@@ -42,15 +43,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverag
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
-    FakeHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
-    FakeMarketStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
-    FakeRangeCoverage,
-    fully_covered,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
@@ -82,9 +76,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
-    MOCK_KLINE_COUNT,
     SEEDED_SYMBOLS,
-    build_mock_klines,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -119,62 +111,6 @@ class _FakeResponse:
 
 
 @pytest.fixture
-def seeded_history():
-    """The history store every UI integration test reads through.
-
-    `EPIC-025` PR 1.1 — exposed as its own fixture because a test that needs
-    *more* history than the default page (the load-more ones) now seeds it
-    instead of hand-rolling a dispatcher that answers differently depending on
-    whether `end_time` was set. That hand-rolled version's own docstring
-    called itself "real handler behavior, just without a real database"; with
-    a store there is nothing left to simulate.
-    """
-    history = FakeHistoricalKlines()
-    for symbol in SEEDED_SYMBOLS:
-        # Chronological: `build_mock_klines` hands back newest-first because
-        # that is what a dispatch returned and the screen reversed. A store
-        # has no order of its own — the port applies `newest_first` on read.
-        history.seed(list(reversed(build_mock_klines(symbol))))
-    return history
-
-
-@pytest.fixture
-def market_stream():
-    """The live stream every UI integration test opens and releases.
-
-    `EPIC-025` PR 1.1b — its own fixture for the same reason `seeded_history`
-    is: a test that asserts "this screen is streaming ETHUSDT at 1m" reads it
-    directly, where before it had to find the right dispatch call and trust a
-    `MagicMock`'s `.success`.
-    """
-    return FakeMarketStream()
-
-
-#: The window the scripted coverage answer reports as complete. Any two
-#: instants in the right order would do — a screen renders them, it does not
-#: compute with them, and `mock_klines.build_mock_klines` decides what is
-#: actually stored.
-_COVERED_FROM = datetime(2024, 1, 1, tzinfo=UTC)
-_COVERED_TO = datetime(2024, 1, 2, tzinfo=UTC)
-
-
-@pytest.fixture
-def range_coverage():
-    """The coverage probe every Backtest integration test reads.
-
-    `EPIC-025` PR 1.2 — scripted to "fully covered" for the shard the seeded
-    history fills, because that is the state these tests were written
-    against: the mocked dispatcher used to answer exactly this.
-    """
-    fake = FakeRangeCoverage()
-    covered = fully_covered(_COVERED_FROM, _COVERED_TO, candles=MOCK_KLINE_COUNT)
-    for symbol in SEEDED_SYMBOLS:
-        for interval in (TimeFrame.ONE_MINUTE, TimeFrame.ONE_SECOND):
-            fake.answer_with(covered, symbol=symbol, interval=interval)
-    return fake
-
-
-@pytest.fixture
 def symbol_catalog():
     """The tradeable-symbol list every picker in these tests opens."""
     return FakeSymbolCatalog(SEEDED_SYMBOLS)
@@ -189,6 +125,8 @@ def app_engine(
     market_stream,
     range_coverage,
     symbol_catalog,
+    symbol_metadata,
+    market_data_sources,
 ):
     """
     Boot the Sagittarius Engine with all configurations but mock the
@@ -320,6 +258,13 @@ def app_engine(
     engine.context.container.singleton(IMarketStream, lambda _c: market_stream)
     engine.context.container.singleton(IRangeCoverage, lambda _c: range_coverage)
     engine.context.container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
+    engine.context.container.singleton(
+        IMarketDataSources, lambda _c: market_data_sources
+    )
+    # `BUG-182` — the Watchlist's filters read; the real provider went to Binance.
+    engine.context.container.singleton(
+        ISymbolMetadataProvider, lambda _c: symbol_metadata
+    )
 
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 
