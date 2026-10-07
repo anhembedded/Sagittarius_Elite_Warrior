@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
@@ -24,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -57,6 +61,7 @@ class VaultMaintenanceCoordinator:
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
         is_shutdown_requested: Callable[[], bool],
+        notifier: INotifier,
     ) -> None:
         self._dispatcher = dispatcher
         self._thread_manager = thread_manager
@@ -64,6 +69,7 @@ class VaultMaintenanceCoordinator:
         self._market_data_repo = market_data_repo
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
         self._ui_remove_symbol_signal = ui_remove_symbol_signal
         self._ui_clear_table_signal = ui_clear_table_signal
         self._ui_stats_refresh_signal = ui_stats_refresh_signal
@@ -113,7 +119,11 @@ class VaultMaintenanceCoordinator:
                     DataManagementActionKind.CLEAR_DATA,
                 )
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to clear market data: {exc}")
+            self._failures.command_failed(
+                "market_data.clear_data",
+                "Clearing the market data failed. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._ui_unlock_signal()
@@ -150,7 +160,11 @@ class VaultMaintenanceCoordinator:
                     DataManagementActionKind.PURGE_ALL,
                 )
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to purge vault: {exc}")
+            self._failures.command_failed(
+                "market_data.purge_all",
+                "Purging the Storage Vault failed. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._ui_unlock_signal()
@@ -174,7 +188,11 @@ class VaultMaintenanceCoordinator:
                     "vacuum", action.action_id, DataManagementActionKind.VACUUM
                 )
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"VACUUM optimization failed: {exc}")
+            self._failures.command_failed(
+                "market_data.vacuum",
+                "The database optimization (VACUUM) failed. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._ui_stats_refresh_signal()

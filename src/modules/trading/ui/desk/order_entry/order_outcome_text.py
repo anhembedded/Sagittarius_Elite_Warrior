@@ -25,11 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason
 )
 
 
-def preview_refusal(
-    preview: OrderPreview | None, error: str | None, limit: Decimal | None
-) -> str | None:
-    if preview is None:
-        return f"The order could not be checked: {error}"
+def preview_refusal(preview: OrderPreview, limit: Decimal | None) -> str | None:
     if preview.stop_check is StopPriceCheck.WRONG_SIDE:
         return (
             "The stop price has already been crossed; the order would trigger at once."
@@ -54,11 +50,7 @@ def preview_refusal(
     return None
 
 
-def result_text(
-    result: ExecuteOrderResult | None, error: str | None
-) -> tuple[str, bool]:
-    if result is None:
-        return f"The order failed: {error}", False
+def result_text(result: ExecuteOrderResult) -> tuple[str, bool]:
     if result.blocked:
         return format_execute_order_block_reason(result.blocked_by), False
     order = result.submitted_order

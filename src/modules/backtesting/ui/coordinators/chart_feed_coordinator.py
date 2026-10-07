@@ -21,6 +21,7 @@ import logging
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -29,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
     map_volume,
 )
 
+from ..failure_reporting import BacktestFailureReporter
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 logger = logging.getLogger("App.BackTestPresenter")
@@ -53,6 +55,7 @@ class ChartFeedCoordinator:
         historical_klines: IHistoricalKlines,
         script_runner,
         log_dev_trace: Callable[..., None],
+        failures: BacktestFailureReporter,
         emit_chart_data_ready: Callable[..., None],
         emit_strategy_indicator_lines: Callable[..., None],
         emit_strategy_trend_zones: Callable[..., None],
@@ -61,6 +64,7 @@ class ChartFeedCoordinator:
         self._historical_klines = historical_klines
         self._script_runner = script_runner
         self._log_dev_trace = log_dev_trace
+        self._failures = failures
         self._emit_chart_data_ready = emit_chart_data_ready
         self._emit_strategy_indicator_lines = emit_strategy_indicator_lines
         self._emit_strategy_trend_zones = emit_strategy_trend_zones
@@ -152,8 +156,11 @@ class ChartFeedCoordinator:
                 end_time=config.end_time,
                 newest_first=True,
             )
-            return list(reversed(newest_first_rows))
         except Exception as exc:
             logger.exception("Fetching chart klines failed")
-            self._log_dev_trace("chart_query_failed", message=str(exc))
+            detail = failure_detail(exc)
+            self._log_dev_trace("chart_query_failed", message=detail)
+            self._failures.chart_feed_failed(detail)
             return None
+        self._failures.chart_feed_recovered()
+        return list(reversed(newest_first_rows))

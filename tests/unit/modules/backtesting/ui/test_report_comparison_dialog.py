@@ -217,6 +217,60 @@ def test_loading_a_malformed_file_shows_an_error_instead_of_crashing(qapp, tmp_p
     dialog.close()
 
 
+def test_a_report_that_cannot_be_loaded_says_so_and_hands_the_detail_to_the_notifier(
+    qapp, tmp_path
+):
+    """`BOT-169` — Column B shows a constant sentence; the technical text
+    leaves through the view model's signal, to the presenter's notifier."""
+    vm = BackTestViewModel()
+    details: list[str] = []
+    vm.run_result.comparisonReportLoadFailed.connect(details.append)
+    dialog = ReportComparisonDialog(vm)
+    dialog.open_dialog()
+    path = tmp_path / "broken.sagi-report.json"
+    path.write_bytes(b"not json at all")
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals."
+        "report_comparison_dialog.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        dialog.findChild(QPushButton, "btnLoadComparisonReport").click()
+    qapp.processEvents()
+
+    assert dialog._column_b_label.text() == "Column B — The report could not be loaded."
+    assert len(details) == 1
+    assert details[0] not in dialog._column_b_label.text()
+    dialog.close()
+
+
+def test_an_unreadable_file_hands_the_failure_detail_to_the_notifier(qapp):
+    vm = BackTestViewModel()
+    details: list[str] = []
+    vm.run_result.comparisonReportLoadFailed.connect(details.append)
+    dialog = ReportComparisonDialog(vm)
+    dialog.open_dialog()
+
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals."
+            "report_comparison_dialog.QFileDialog.getOpenFileName",
+            return_value=("/missing/report.sagi-report.json", ""),
+        ),
+        patch(
+            "Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals."
+            "report_comparison_dialog.read_backtest_report_bytes",
+            side_effect=PermissionError("denied\n by policy"),
+        ),
+    ):
+        dialog.findChild(QPushButton, "btnLoadComparisonReport").click()
+    qapp.processEvents()
+
+    assert details == ["denied by policy"]
+    assert "denied" not in dialog._column_b_label.text()
+    dialog.close()
+
+
 def test_the_close_button_closes_the_dialog(qapp):
     vm = BackTestViewModel()
     dialog = ReportComparisonDialog(vm)

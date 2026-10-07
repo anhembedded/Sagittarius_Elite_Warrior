@@ -10,6 +10,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -140,9 +144,11 @@ class RaisingAccount(FakeAccountSnapshot):
         raise ConnectionError("proxy refused the tunnel")
 
 
-def presenter_container(event_bus: IEventBus) -> MagicMock:
-    """What `BasePresenter` resolves for itself; the Market presenter's own
-    ports come in `MarketDependencies`, never from here."""
+def presenter_container(
+    event_bus: IEventBus, notifier: RecordingNotifier | None = None
+) -> MagicMock:
+    """What `BasePresenter` resolves for itself, and the `INotifier` the Market
+    presenter tells (`BOT-169`); its own ports come in `MarketDependencies`."""
     config = MagicMock()
     config.get_all.return_value = {}
     config.get.side_effect = lambda key, default=None, cast=None: default
@@ -151,6 +157,7 @@ def presenter_container(event_bus: IEventBus) -> MagicMock:
         IConfig: config,
         ILogger: MagicMock(),
         IDispatcher: MagicMock(),
+        INotifier: notifier or RecordingNotifier(),
     }
     container = MagicMock()
     container.resolve.side_effect = services.__getitem__

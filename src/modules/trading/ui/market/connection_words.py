@@ -16,6 +16,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 NOT_CHECKED = "Exchange: not checked"
 CHECKING = "Exchange: checking…"
+#: A check that raised instead of answering; the exception is the notice's detail.
+CHECK_FAILED = "The connection check failed. Check the network and try again."
 
 _FAILURES = EnumLabels(
     ConnectionFailureKind,
@@ -66,8 +68,3 @@ def failure_text(status: ExchangeConnectionStatus) -> str | None:
     if status.failure is None:
         return None
     return f"{status.venue.name}: {_FAILURES[status.failure]}"
-
-
-def error_text(error: str) -> str:
-    """A check that raised instead of answering."""
-    return f"The connection check failed: {error}"

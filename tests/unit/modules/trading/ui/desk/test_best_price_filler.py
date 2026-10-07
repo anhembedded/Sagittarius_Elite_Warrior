@@ -7,6 +7,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
@@ -15,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.best_pric
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
 )
 
 from .order_entry_fixtures import SYMBOL, HeldThreadManager
@@ -42,6 +46,7 @@ def test_each_side_joins_its_own_queue(side: EntrySide, expected: str) -> None:
 
     assert panel.vm.entry(side).price == Decimal(expected)
     assert not panel.vm.message_is_error
+    assert "trading.spot_testnet.best_price" in panel.notifier.cleared
 
 
 def test_an_unreadable_book_is_reported_and_the_price_is_kept() -> None:
@@ -52,9 +57,26 @@ def test_an_unreadable_book_is_reported_and_the_price_is_kept() -> None:
     panel.vm.intents.use_best_price(EntrySide.BUY)
 
     assert panel.vm.entry(EntrySide.BUY).price == 98
-    assert panel.vm.message_is_error
-    assert panel.vm.message.startswith("Could not read the best price:")
-    assert SYMBOL in panel.vm.message
+    assert panel.vm.message == "Could not read the best price."
+    notice = panel.notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.cause == "trading.spot_testnet.best_price"
+    assert notice.scope == TRADE_ROUTE
+    assert notice.detail != ""
+    assert notice.detail not in notice.headline
+    assert notice.retry is not None
+
+
+def test_retrying_the_best_price_reads_the_book_again() -> None:
+    panel = presented_panel()  # no book seeded: every read fails
+    panel.presenter.show_symbol(SYMBOL)
+    panel.vm.intents.use_best_price(EntrySide.BUY)
+    retry = panel.notifier.last.retry
+    assert retry is not None
+
+    retry()
+
+    assert len(panel.notifier.failures) == 2
 
 
 def test_an_empty_side_of_the_book_is_named() -> None:

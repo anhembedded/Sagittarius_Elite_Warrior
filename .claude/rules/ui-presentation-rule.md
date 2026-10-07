@@ -80,6 +80,18 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 - Anything taking 2 s or more shows feedback; past about 5 s a determinate progress bar where possible, in the status bar when modeless; an operation with side effects stops with "Stop", not "Cancel" (MS `progress-bars`). `[review: H7]`
 - The status bar carries useful, non-critical state in plain text; an alarm never lives only there (MS `ctrl-status-bars`). `[review: H7]`
 - Errors name what failed and what to do (MS `mess-error`, KDE). `[review: H7]`
+- **One way to tell the user about a failure or an event** (`BOT-169`; MS `mess-error`, `mess-notifications`, KDE message boxes versus inline messages). A module never writes a failure into a panel of its own: it tells the `INotifier` port (`src/core/contracts/i_notifier.py`), which one Qt presenter (`NotifierPresenter`) maps to a surface by the kind of message: `[guard: test_ui_never_shows_an_exception.py; review: H7]`
+
+  | Kind of message | Surface | Example |
+  | :--- | :--- | :--- |
+  | A command the user just ran failed and they must decide something | **Modal message box** (`QMessageBox`): what failed and what to do, **Details…** for the technical text | Start bot refused; order rejected; key refused on Apply |
+  | A background read or connection failed; the app keeps working and retries | **Inline message bar** at the top of the affected mode (`ModeHost.message_bars`), with **Retry** and **Details…**, dismissible; **one bar per failure**: the same cause told again updates its bar, a cause with the same technical text, or one failing within three seconds of the last the bar took, joins it (one outage read four times is one bar, saying "and 3 more"), and it goes when every cause on it recovered | Spot Testnet unavailable (502); the live chart could not connect |
+  | Something happened while the user looked elsewhere | **Toast**: the system notification where the platform has one, the status bar for ten seconds where it has not; a line in the log | A bot stopped on its stop loss; trading paused by a limit |
+  | Routine progress or state | **Status bar** or the Output pane only; never an error | Sync finished; 3 bots running |
+
+  A modal box for a background failure interrupts typing, stacks up during an outage (one outage was four failed reads in 50 ms) and trains the user to click OK without reading, which hides the one message that matters, an order rejection; so a background failure is never a box. `[review: H7]`
+- **The headline is a sentence the author writes**: what failed and what to do (MS `mess-error`). An exception's text, `str(exc)`, an exchange's page or a traceback is never a headline and never written into a widget: it travels as the notice's `detail`, built by `failure_detail(exc)`, and is shown only behind Details…. A cause key (`"trading.futures_testnet.account"`) names what failed: the same cause told again, or another cause failing with the same technical text, or within three seconds of it, in the same mode, is one message, never one per read. `[guard: test_ui_never_shows_an_exception.py]`
+- A failure that left an order's outcome unknown (`OrderOutcomeUnknownError`) is a **command** failure whose headline says the order may be live; it is never worded "rejected" (`BUG-170`). `[review: H7]`
 - Confirm only risky or irreversible actions (Emergency Stop, Place Order, Cancel All, Delete Data): specific verbs, never OK/Cancel, the safe choice default, no "don't ask again" (MS `mess-confirm`). `[review: H7]`
 
 ## 11. Keyboard

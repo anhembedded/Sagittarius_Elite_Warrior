@@ -3,6 +3,10 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
     ExportMarketDataCommand,
     ExportMarketDataResult,
@@ -23,6 +27,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.ui.failure_notice_asserts import (
+    EXCEPTION_TEXT,
+    assert_log_list_has_no_exception_text,
+    assert_told_once,
+)
 
 
 @pytest.fixture
@@ -34,6 +43,7 @@ def export_import_fixture():
     signals = {
         "ui_log": Mock(),
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_unlock": Mock(),
         "ui_stats_refresh": Mock(),
         "transition_fsm": Mock(return_value=True),
@@ -47,6 +57,7 @@ def export_import_fixture():
         tracker=tracker,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_unlock_signal=signals["ui_unlock"],
         ui_stats_refresh_signal=signals["ui_stats_refresh"],
         transition_fsm=signals["transition_fsm"],
@@ -91,12 +102,17 @@ def test_export_failure_logs_error_and_marks_failed(export_import_fixture):
 
 def test_export_raising_exception_is_reported_not_propagated(export_import_fixture):
     coordinator, dispatcher, _thread_manager, tracker, signals = export_import_fixture
-    dispatcher.dispatch.side_effect = RuntimeError("boom")
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
 
     coordinator.run_export("BTCUSDT", "15m", "/tmp/out.csv", ExportFileFormat.CSV)
 
     assert tracker.active_outcome == ActionOutcome.FAILED
-    assert "boom" in signals["ui_error_log"].call_args[0][0]
+    notice = assert_told_once(
+        signals["notifier"], FailureKind.COMMAND, "market_data.export"
+    )
+    assert notice.retry is None
+    signals["ui_error_log"].assert_called_once_with(notice.headline)
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
 
 
 def test_import_success_dispatches_command_unlocks_and_refreshes_stats(
@@ -193,3 +209,17 @@ def test_request_import_data_does_nothing_once_shutdown(export_import_fixture):
 
     signals["transition_fsm"].assert_not_called()
     thread_manager.submit.assert_not_called()
+
+
+def test_import_raising_exception_is_a_command_failure_and_still_unlocks(
+    export_import_fixture,
+):
+    coordinator, dispatcher, _thread_manager, tracker, signals = export_import_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_import("BTCUSDT", "15m", "/tmp/in.csv")
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.import")
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_unlock"].assert_called_once()

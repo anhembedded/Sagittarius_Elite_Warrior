@@ -1,12 +1,11 @@
 # BOT-169 — The app tells the user about an error or an event one way, everywhere, never by printing it into a panel
 
-**Status:** 🔵 Backlog
-**Priority:** P2
-**Board:** Errors, exceptions and notices are written straight into panels as raw text (the Bots panel showed an exchange's HTML error page). Decide one mechanism for each kind of message and apply it across the app.
+**Status:** ✅ Done (2026-10-07)
+**Board:** One `INotifier` port and one Qt presenter now tell the user about failures and events: a message box for a failed command, an inline message bar per mode for a background failure (one outage is one bar), a toast for events. Every module's error paths moved onto it, and a guard fails a UI file that puts an exception into a widget. Rule: `ui-presentation-rule.md` §10.
 **Source:** the owner, 2026-10-07, on the Bots panel showing "502 Bad Gateway": *"mấy cái thông báo error, exception, hay info đều phải là box message hoặc là popup chứ gì, sao lại in trực tiếp lên khung UI. cái này không nằm ở epic, nhưng hãy tạo task hoặc bug doc trước"* (error, exception or info notices should be a message box or a popup; why are they printed straight into the UI frame? This is not in the epic, but file a task or bug document first.)
 **Risk:** 🟡 — every module's error path changes; a wrong choice either hides failures or interrupts the user with dialogs
 **Complexity:** M — one shared notification service and its presenter, then each module's error paths moved onto it
-**Depends on:** None; [BUG-168](../bug_report/incomplete/BUG-168_an_exchange_error_page_is_rendered_as_html_in_the_bots_panel.md) is the defect that prompted it and can be fixed first
+**Depends on:** None; [BUG-168](../bug_report/completed/BUG-168_an_exchange_error_page_is_rendered_as_html_in_the_bots_panel.md) is the defect that prompted it and can be fixed first
 
 ---
 
@@ -17,13 +16,13 @@
 - The owner asks for message boxes or popups instead of text printed into panels.
 
 ## 2. Acceptance criteria
-- [ ] A written rule in `ui-presentation-rule.md` §10 says which mechanism each kind of message uses. The owner approves it before code changes.
-- [ ] One notification service carries every user-facing error and notice: plain text, deduplicated, with the technical detail available on demand but never as the headline.
-- [ ] No panel shows an exception's text directly; a guard fails on a UI module that puts `str(exc)` or an exception into a widget.
-- [ ] A burst of the same failure (one outage, many reads) produces one message, not one per read.
+- [x] A written rule in `ui-presentation-rule.md` §10 says which mechanism each kind of message uses (approved by the owner before code changed).
+- [x] One notification service carries every user-facing error and notice: plain text, deduplicated, with the technical detail available on demand but never as the headline.
+- [x] No panel shows an exception's text directly; a guard fails on a UI module that puts `str(exc)` or an exception into a widget.
+- [x] A burst of the same failure (one outage, many reads) produces one message, not one per read.
 
 ## 3. Design
-Proposed, pending the owner's decision. It follows Microsoft's Windows guidance on error messages (`mess-error`) and notifications, and KDE's HIG on message boxes versus inline messages.
+Approved by the owner on 2026-10-07 as proposed. It follows Microsoft's Windows guidance on error messages (`mess-error`) and notifications, and KDE's HIG on message boxes versus inline messages.
 
 | Kind of message | Mechanism | Example |
 | :--- | :--- | :--- |
@@ -49,4 +48,9 @@ Proposed, pending the owner's decision. It follows Microsoft's Windows guidance 
 Unit tests on the presenter for each kind, including deduplication of a burst. The guard with a probe. A booted test: an exchange outage yields one message bar and no dialog. Not run.
 
 ## Implementation notes (written when done)
-Not started.
+- **Port and presenter:** `INotifier` (`src/core/contracts/i_notifier.py`) with `report_failure(FailureNotice)`, `clear_failure(cause)` and `notify(headline)`; the Qt `NotifierPresenter` (`src/presentation/ui/notifier.py`) picks the surface from the notice's `FailureKind`. It is bound before any screen is built (`install_notifier`) and adopts the window's modes afterwards (`adopt`); a headless run binds `LoggingNotifier`. Any thread may call it: delivery is queued to the UI thread.
+- **Surfaces:** a failed command is a `QMessageBox` with the technical text behind its own Details; a background failure is a `MessageBar` in the mode's `ModeHost.message_bars` with Retry and Details…; a toast is the system notification where the platform has one and the status bar for ten seconds where it has not. The status bar stays for routine state.
+- **Bursts:** one bar per failure. The same cause updates in place; a cause with the same technical text, or failing within `BURST_WINDOW_S` (3 s) of the last one the bar took, joins that bar ("and 3 more"); the bar goes when every cause on it recovered. Proven booted: `tests/integration/presentation/ui/test_exchange_outage_is_one_message.py` switches the fake server to an HTML `502` and finds one bar, no box and no page in any label.
+- **Guard:** `test_ui_never_shows_an_exception.py` (AST): in a UI file, no `str`/`repr`/f-string/`%`/`+`/`.format`/traceback of an exception name outside a logging call, a `raise` and `failure_detail(...)`. Two named exemptions (the crash dialog and its hook). It does not see text that reaches a widget through a name it cannot know is an exception's.
+- **Migration:** bots, trading (desk, market, settings), backtesting, market data, the live chart and the indicator runner. Worker threads carry `failure_detail(exc)` as `detail`; the UI thread tells the notifier with a headline the author wrote. The unknown-outcome order of `BUG-170` is its own headline ("may be live").
+- **Not changed:** `UiToastNotificationChannel` (`BOT-018`, the Telegram fan-out's UI channel) still writes to the status bar; unifying it with `notify()` is a follow-up. A command box opened while Tools → Options is showing is parented to the main window; checked reachable offscreen, not on a real Windows or macOS desktop.

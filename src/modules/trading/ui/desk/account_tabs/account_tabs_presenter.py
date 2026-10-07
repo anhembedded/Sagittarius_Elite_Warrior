@@ -27,12 +27,21 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
@@ -61,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices 
     holding_price_for_symbol,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -87,9 +99,12 @@ class AccountTabsPresenter(QObject):
         ports: VenueTradingPorts,
         feed: OrderFeed,
         thread_manager: IThreadManager,
+        notifier: INotifier,
         clock: Clock = _utc_now,
     ) -> None:
         super().__init__(view)
+        self._notifier = notifier
+        self._cause = failure_cause(ports.venue, "account_tabs")
         self._view = view
         self._ports = ports
         self._threads = thread_manager
@@ -99,9 +114,9 @@ class AccountTabsPresenter(QObject):
         self._loads: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._book = LiveOrderBookCoordinator(view, self._log_blocked)
         self._histories = HistoryTabsLoader(
-            view, ports.account_activity, thread_manager, clock
+            view, ports.account_activity, thread_manager, clock, notifier, ports.venue
         )
-        self._actions = AccountTabActions(ports, thread_manager)
+        self._actions = AccountTabActions(ports, thread_manager, notifier)
 
         self._loaded.connect(self._on_loaded)
         view.cancelRequested.connect(self._actions.cancel_one)
@@ -170,21 +185,32 @@ class AccountTabsPresenter(QObject):
                 holdings = account.check_connection().holdings or ()
             self._loaded.emit((action_id, (positions, orders, holdings), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._loaded.emit((action_id, None, str(exc)))
+            self._loaded.emit((action_id, None, failure_detail(exc)))
 
     def _on_loaded(self, payload: tuple) -> None:
-        action_id, snapshot, error = payload
+        action_id, snapshot, detail = payload
         if not self._loads.is_current_pending(action_id, _LOAD):
             self._loads.log_stale_callback("_on_loaded", action_id, _LOAD)
             return
         if snapshot is None:
             self._loads.finish_action(action_id, ActionOutcome.FAILED)
             logger.warning(
-                "Account tabs could not read %s: %s", self._ports.venue.value, error
+                "Account tabs could not read %s: %s", self._ports.venue.value, detail
             )
-            self._view.show_message(f"Could not read the account: {error}")
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.BACKGROUND,
+                    self._cause,
+                    f"The {self._ports.venue.display_name} orders and positions "
+                    "could not be read. Check the connection and retry.",
+                    scope=TRADE_ROUTE,
+                    detail=detail,
+                    retry=self.refresh,
+                )
+            )
             return
         self._loads.finish_action(action_id, ActionOutcome.SUCCEEDED)
+        self._notifier.clear_failure(self._cause)
         positions, orders, holdings = snapshot
         logger.info(
             "Account tabs loaded %s: %d open orders, %d positions",

@@ -37,21 +37,17 @@ from dataclasses import replace
 from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ExchangeConnectionStatus,
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    INotifier,
+    failure_detail,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
-    OrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.protective_levels import (
     ProtectiveLevels,
 )
@@ -75,10 +71,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_con
     ConfirmOrder,
     build_confirmation,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_failures import (
+    OrderEntryFailures,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_requests import (
+    order_entry_context_for,
+    order_request_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
-    OrderEntryContext,
-    SideFigures,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
@@ -86,6 +87,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_outcome_text import (
     preview_refusal,
     result_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
+    submit_failure_of,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -98,7 +102,6 @@ logger = logging.getLogger("App.Trading.OrderEntry")
 _LOAD = "load"
 _ORDER = "order"
 
-_ORDER_SIDE = {EntrySide.BUY: OrderSide.BUY, EntrySide.SELL: OrderSide.SELL}
 _DIRECTION = {
     EntrySide.BUY: ManualOrderDirection.LONG,
     EntrySide.SELL: ManualOrderDirection.SHORT,
@@ -124,6 +127,7 @@ class OrderEntryPresenter(QObject):
         ports: VenueTradingPorts,
         thread_manager: IThreadManager,
         confirm: ConfirmOrder,
+        notifier: INotifier,
     ) -> None:
         super().__init__(view_model)
         if ports.venue is not view_model.profile.venue:
@@ -138,13 +142,23 @@ class OrderEntryPresenter(QObject):
         self._confirm = confirm
         self._loads: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._orders: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
+        self._failures = OrderEntryFailures(notifier, ports.venue, self._writes)
         self._best_price = BestPriceFiller(
-            view_model, ports.order_entry_terms, thread_manager
+            view_model,
+            ports.order_entry_terms,
+            thread_manager,
+            notifier,
+            ports.venue,
         )
         self._protection: ProtectiveLevels | None = None
         if view_model.profile.futures_controls:
             FuturesSettingsChanger(
-                view_model, ports.futures_settings, thread_manager, self.refresh
+                view_model,
+                ports.futures_settings,
+                thread_manager,
+                self.refresh,
+                notifier,
+                ports.venue,
             )
         self._loaded.connect(self._on_loaded)
         self._previewed.connect(self._on_previewed)
@@ -177,7 +191,9 @@ class OrderEntryPresenter(QObject):
             terms = self._ports.order_entry_terms.terms_for(symbol)
             status = self._ports.account_snapshot.check_connection()
             limit = self._ports.order_entry_terms.order_notional_limit()
-            context = self._context_for(symbol, terms, status, limit)
+            context = order_entry_context_for(
+                self._vm.profile, symbol, terms, status, limit
+            )
             futures = (
                 read_futures_context(
                     self._ports.order_entry_terms,
@@ -190,46 +206,22 @@ class OrderEntryPresenter(QObject):
             )
             self._loaded.emit((action_id, replace(context, futures=futures), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._loaded.emit((action_id, None, str(exc)))
-
-    def _context_for(
-        self,
-        symbol: str,
-        terms: OrderEntryTerms,
-        status: ExchangeConnectionStatus,
-        notional_limit: Decimal,
-    ) -> OrderEntryContext:
-        quote = self._vm.profile.quote_asset
-        base = symbol.removesuffix(quote)
-        summary = status.summary if status.reachable else None
-        holdings = status.holdings if status.reachable else None
-        free_base: Decimal | None = None
-        if holdings is not None:
-            held = next((h for h in holdings if h.asset == base), None)
-            free_base = held.free if held is not None else Decimal(0)
-        return OrderEntryContext(
-            symbol=symbol,
-            base_asset=base,
-            quote_asset=quote,
-            terms=terms,
-            available_quote=summary.available_balance if summary else None,
-            free_base=free_base,
-            notional_limit=notional_limit,
-        )
+            self._loaded.emit((action_id, None, failure_detail(exc)))
 
     def _on_loaded(self, payload: tuple) -> None:
-        action_id, context, error = payload
+        action_id, context, detail = payload
         if not self._loads.is_current_pending(action_id, _LOAD):
             self._loads.log_stale_callback("_on_loaded", action_id, _LOAD)
             return
         if context is None:
             self._loads.finish_action(action_id, ActionOutcome.FAILED)
             logger.warning(
-                "Order panel could not read %s: %s", self._vm.order_symbol, error
+                "Order panel could not read %s: %s", self._vm.order_symbol, detail
             )
-            self._writes.show_error(f"Could not read {self._vm.order_symbol}: {error}")
+            self._failures.terms_unread(self._vm.order_symbol, detail, self.refresh)
             return
         self._loads.finish_action(action_id, ActionOutcome.SUCCEEDED)
+        self._failures.terms_read()
         self._writes.set_context(context)
         self._vm.options.show_setting(
             context.futures.setting if context.futures else None
@@ -247,40 +239,13 @@ class OrderEntryPresenter(QObject):
             reason = figures.problem if figures is not None else "Still loading."
             self._writes.show_result(reason or "Enter a price.", is_error=True)
             return
-        request = self._request_for(side, figures, figures.price)
+        request = order_request_for(self._vm, side, figures, figures.price)
         self._protection = (
             None if request.reduce_only else self._vm.options.protection(side)
         )
         action = self._orders.begin_action(_ORDER, side.value, None)
         self._writes.set_busy(True, "Checking the order...")
         self._threads.submit(self._run_preview, action.action_id, side, request)
-
-    def _request_for(
-        self, side: EntrySide, figures: SideFigures, price: Decimal
-    ) -> OrderRequest:
-        """The order a side asks for: a stop-limit carries its stop and the
-        last price it is judged against; a side sized by quote carries its
-        total, and its quantity is only the estimate at `price`. The
-        reduce-only box is read here, on the UI thread, as the user asked
-        (the review of PR 307): the box stays enabled while the order is out."""
-        entry = self._vm.entry(side)
-        order_type = self._vm.order_type
-        is_stop = order_type is OrderType.STOP_LIMIT
-        quote = entry.total if figures.sized_by_quote else None
-        quantity = quote / price if quote is not None else entry.quantity
-        resting = order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
-        return OrderRequest(
-            symbol=self._vm.order_symbol,
-            side=_ORDER_SIDE[side],
-            order_type=order_type,
-            quantity=quantity or Decimal(0),
-            reference_price=price,
-            stop_price=entry.stop_price if is_stop else None,
-            last_price=self._vm.last_price if is_stop else None,
-            quote_quantity=quote,
-            time_in_force=self._vm.options.time_in_force if resting else None,
-            reduce_only=self._vm.options.reduce_only,
-        )
 
     def _run_preview(
         self, action_id: int, side: EntrySide, request: OrderRequest
@@ -289,16 +254,21 @@ class OrderEntryPresenter(QObject):
             preview = self._ports.order_submission.preview(request)
             self._previewed.emit((action_id, side, request, preview, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
-            self._previewed.emit((action_id, side, request, None, str(exc)))
+            self._previewed.emit((action_id, side, request, None, failure_detail(exc)))
 
     def _on_previewed(self, payload: tuple) -> None:
-        action_id, side, request, preview, error = payload
+        action_id, side, request, preview, detail = payload
         if not self._orders.is_current_pending(action_id, _ORDER):
             self._orders.log_stale_callback("_on_previewed", action_id, _ORDER)
             return
+        if preview is None:
+            self._orders.finish_action(action_id, ActionOutcome.FAILED)
+            logger.warning("Order panel could not check the order: %s", detail)
+            self._failures.preview_failed(detail)
+            return
         context = self._vm.context
         limit = context.notional_limit if context else None
-        refusal = preview_refusal(preview, error, limit)
+        refusal = preview_refusal(preview, limit)
         if refusal is not None:
             self._orders.finish_action(action_id, ActionOutcome.FAILED)
             self._writes.show_result(refusal, is_error=True)
@@ -353,19 +323,32 @@ class OrderEntryPresenter(QObject):
             )
             self._submitted.emit((action_id, side, result, None, reduce_only))
         except Exception as exc:  # noqa: BLE001 - worker boundary
-            self._submitted.emit((action_id, side, None, str(exc), False))
+            failure = submit_failure_of(exc)
+            self._submitted.emit((action_id, side, None, failure, False))
 
     def _on_submitted(self, payload: tuple) -> None:
-        action_id, side, result, error, reduced = payload
+        action_id, side, result, failure, reduced = payload
         if not self._orders.is_current_pending(action_id, _ORDER):
             self._orders.log_stale_callback("_on_submitted", action_id, _ORDER)
             return
-        message, placed = result_text(result, error)
+        if result is None:
+            self._orders.finish_action(action_id, ActionOutcome.FAILED)
+            logger.warning(
+                "Order panel %s order failed (%s): %s",
+                side.value,
+                failure.kind.value,
+                failure.detail,
+            )
+            self._failures.submit_failed(failure)
+            return
+        message, placed = result_text(result)
         self._orders.finish_action(
             action_id, ActionOutcome.SUCCEEDED if placed else ActionOutcome.FAILED
         )
         logger.info("Order panel %s order: %s", side.value, message)
         self._writes.show_result(message, is_error=not placed)
+        if not placed:
+            self._failures.order_refused(message)
         if placed:
             if result is not None and result.submitted_order is not None:
                 self.orderAccepted.emit(result.submitted_order)

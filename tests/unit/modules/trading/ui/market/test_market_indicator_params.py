@@ -15,6 +15,7 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
@@ -207,3 +208,24 @@ def test_a_refilled_list_turns_the_command_off(mode, store):
     presenter.view.set_indicator_choices((IndicatorChoice("ema_20", "EMA 20", True),))
 
     assert not action.isEnabled()
+
+
+def test_stale_saved_parameters_are_told_to_the_user_in_the_market_mode(
+    mode, store, notifier, threads
+):
+    """`BOT-169`: a bound that tightened since the save falls back to the
+    defaults, and the Market mode's message bar says so."""
+    store.save("ema_20", {"period": -1})
+    presenter, _action = mode(params_store=store)
+    presenter.on_mode_shown(NavigationSource.RESTORE)
+    threads.run_all()
+
+    presenter.charts["BTCUSDT"].show_indicators(("ema_20",))
+
+    notice = notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.scope == MARKET_ROUTE
+    assert notice.cause == "indicators.saved_params.ema_20"
+    assert "ema_20" in notice.headline
+    assert notice.detail
+    assert _instance(presenter, "BTCUSDT", "ema_20") is not None

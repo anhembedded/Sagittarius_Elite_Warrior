@@ -14,6 +14,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
@@ -80,6 +83,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_pres
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view import (
     DeskView,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -133,6 +139,7 @@ class Desk:
     armed: FakeArmedStrategy
     #: Its Enable live trading and Emergency stop, bound as the window binds them.
     actions: DeskActions
+    notifier: RecordingNotifier
 
 
 @dataclass
@@ -145,6 +152,7 @@ class DeskFakes:
     arming: FakeStrategyArming
     armed: FakeArmedStrategy
     deps: DeskDependencies
+    notifier: RecordingNotifier
 
 
 @dataclass(frozen=True)
@@ -173,6 +181,7 @@ def desk_fakes(
     activity = FakeAccountActivity()
     arming, armed = FakeStrategyArming(), FakeArmedStrategy()
     threads = InlineThreadManager()
+    notifier = RecordingNotifier()
     deps = DeskDependencies(
         ports=fake_venue_ports(
             setup.ports_venue or venue,
@@ -196,12 +205,15 @@ def desk_fakes(
             market=market,
             stream_owner=stream_owner_for(venue),
             interval="1m",
+            notifier=notifier,
+            scope=TRADE_ROUTE,
         ),
         thread_manager=threads,
+        notifier=notifier,
         confirm=lambda _confirmation: True,
         precisions=setup.precisions,
     )
-    return DeskFakes(session, submission, activity, arming, armed, deps)
+    return DeskFakes(session, submission, activity, arming, armed, deps, notifier)
 
 
 #: The account tables' questions, answered Yes.
@@ -260,6 +272,7 @@ def build_desk(
         fakes.arming,
         fakes.armed,
         actions,
+        fakes.notifier,
     )
 
 

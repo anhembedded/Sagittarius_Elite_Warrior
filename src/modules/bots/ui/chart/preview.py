@@ -12,6 +12,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
@@ -35,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_stream_owner import (
@@ -84,6 +90,8 @@ def build_preview() -> QWidget:
         stream_owner=bot_stream_owner(BotId("a3f9c1")),
         interval=_INTERVAL.value,
         market=MarketType.SPOT,
+        notifier=RecordingNotifier(),
+        scope=BOTS_ROUTE,
     )
     chart = BotChart(card, ports, parent=card)
     chart.show_symbol(_SYMBOL)

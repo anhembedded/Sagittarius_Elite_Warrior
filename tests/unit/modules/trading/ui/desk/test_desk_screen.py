@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtWidgets import QComboBox, QLabel
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     desk_profile_for,
 )
@@ -77,7 +78,7 @@ def test_a_desk_opened_with_its_venues_trading_on_goes_live(qtbot) -> None:
     ]
 
 
-def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(
+def test_a_failed_enable_is_told_by_the_notifier_and_leaves_the_chart_local(
     qtbot,
 ) -> None:
     world = DeskWorld()
@@ -87,8 +88,10 @@ def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(
     desk.actions.enable_trading.trigger()
 
     status = desk.view.findChild(QLabel, "lblDeskStatus").text()
-    assert status.startswith("Error: ")
-    assert "keys rejected" in status
+    assert "keys rejected" not in status
+    assert desk.notifier.last.kind is FailureKind.COMMAND
+    assert desk.notifier.last.cause == "trading.spot_testnet.enable"
+    assert desk.notifier.last.detail == "keys rejected"
     assert world.stream.calls == []
 
 

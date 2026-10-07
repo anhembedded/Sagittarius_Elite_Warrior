@@ -7,6 +7,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
@@ -84,6 +87,7 @@ class PresentedPanel:
     account: FakeAccountSnapshot
     terms: FakeOrderEntryTerms
     confirm: Answers
+    notifier: RecordingNotifier
 
 
 def presented_panel(
@@ -104,10 +108,11 @@ def presented_panel(
     )
     vm = OrderEntryViewModel(desk_profile_for(SPOT))
     confirm = Answers(answer)
+    notifier = RecordingNotifier()
     presenter = OrderEntryPresenter(
-        vm, ports, threads or InlineThreadManager(), confirm
+        vm, ports, threads or InlineThreadManager(), confirm, notifier
     )
-    return PresentedPanel(vm, presenter, submission, account, terms, confirm)
+    return PresentedPanel(vm, presenter, submission, account, terms, confirm, notifier)
 
 
 def canned_preview(side: OrderSide, quantity: str, price: str | None) -> OrderPreview:

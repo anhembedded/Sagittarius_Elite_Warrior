@@ -1,11 +1,11 @@
 {
-  "src/modules/backtesting/ui/backtest_presenter.py": 2211,
+  "src/modules/backtesting/ui/backtest_presenter.py": 2210,
   "src/modules/backtesting/ui/backtest_view_model.py": 751,
   "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 454,
   "src/modules/market_data/adapters/persistence/sqlalchemy_repository.py": 419,
   "src/modules/market_data/ui/data_management_presenter.py": 620,
   "src/modules/market_data/ui/data_management_view_model.py": 444,
-  "src/presentation/ui/app_bootstrapper.py": 514,
+  "src/presentation/ui/app_bootstrapper.py": 513,
   "src/support/charting/chart_card/cached_frame_interaction.py": 663,
   "src/support/charting/chart_card/candlestick_item.py": 447,
   "src/support/charting/chart_card/chart_card.py": 767,

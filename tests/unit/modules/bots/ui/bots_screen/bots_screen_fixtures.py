@@ -28,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -265,6 +269,8 @@ class BotsScreen:
     trading_session: FakeTradingSession
     #: The venue's order history, which the fills are read from.
     activity: FakeAccountActivity
+    #: Every failure the screen told the user (`BOT-169`).
+    notifier: RecordingNotifier
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -305,6 +311,8 @@ def open_screen(
     container.singleton(IDispatcher, dispatcher)
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IThreadManager, pool)
+    notifier = RecordingNotifier()
+    container.singleton(INotifier, notifier)
     trading_session = FakeTradingSession()
     activity = FakeAccountActivity()
     container.singleton(
@@ -352,4 +360,5 @@ def open_screen(
         strategy,
         trading_session,
         activity,
+        notifier,
     )

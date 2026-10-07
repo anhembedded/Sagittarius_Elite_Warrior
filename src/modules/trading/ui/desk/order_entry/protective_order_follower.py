@@ -43,11 +43,19 @@ from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -65,10 +73,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.protective_levels i
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.protective_orders import (
     protective_orders_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_failure import (
+    submit_failure_notice,
+    submit_failure_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.Trading.OrderEntry")
@@ -110,11 +125,15 @@ class ProtectiveOrderFollower(QObject):
         feed: OrderFeed,
         thread_manager: IThreadManager,
         report: ReportOutcome,
+        notifier: INotifier,
+        venue: TradingVenue,
     ) -> None:
         super().__init__(feed)
         self._submission = submission
         self._threads = thread_manager
         self._report = report
+        self._notifier = notifier
+        self._venue = venue
         self._expected: dict[str, _Expected] = {}
         self._progress: OrderedDict[str, _Progress] = OrderedDict()
         self._placed.connect(self._on_placed)
@@ -196,22 +215,46 @@ class ProtectiveOrderFollower(QObject):
 
     def _run_place(self, requests: tuple[OrderRequest, ...], note: str | None) -> None:
         outcomes: list[tuple[str, bool]] = [] if note is None else [(note, False)]
+        failures: list[FailureNotice] = []
         for request in requests:
             kind = _KIND.get(request.order_type.value, request.order_type.value)
+            what = f"{kind.lower()} order"
+            area = f"protective.{request.order_type.value}"
             try:
                 result = self._submission.submit(request, live=True)
             except Exception as exc:  # noqa: BLE001 - worker boundary: one refused order must not hide the other's outcome
-                outcomes.append((f"{kind} failed: {exc}", True))
+                failure = submit_failure_of(exc)
+                logger.warning(
+                    "TP/SL %s failed (%s): %s", what, failure.kind.value, failure.detail
+                )
+                notice = submit_failure_notice(
+                    failure, venue=self._venue, area=area, what=what
+                )
+                outcomes.append((notice.headline, True))
+                failures.append(notice)
                 continue
             if result.blocked:
                 reason = format_execute_order_block_reason(result.blocked_by)
                 outcomes.append((f"{kind} not placed: {reason}", True))
+                failures.append(
+                    FailureNotice(
+                        FailureKind.COMMAND,
+                        failure_cause(self._venue, area, "refused"),
+                        f"The {what} was not placed: {reason.rstrip('.')}. The position "
+                        "is not protected by it.",
+                    )
+                )
             else:
                 outcomes.append((f"{kind} placed at {request.stop_price}.", False))
-        self._placed.emit(outcomes)
+        self._placed.emit((outcomes, failures))
 
-    def _on_placed(self, outcomes: list[tuple[str, bool]]) -> None:
+    def _on_placed(
+        self, placed: tuple[list[tuple[str, bool]], list[FailureNotice]]
+    ) -> None:
+        outcomes, failures = placed
         failed = any(is_error for _text, is_error in outcomes)
         text = " ".join(text for text, _is_error in outcomes)
         logger.info("TP/SL: %s", text)
         self._report(text, failed)
+        for notice in failures:
+            self._notifier.report_failure(notice)

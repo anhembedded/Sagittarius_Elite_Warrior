@@ -11,6 +11,8 @@ import logging
 from collections.abc import Callable, Sequence
 from random import Random
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
+
 from ...contracts.monte_carlo_simulation import (
     MonteCarloSimulationResult,
     run_monte_carlo_simulation,
@@ -70,6 +72,6 @@ class MonteCarloCoordinator:
             )
         except Exception as exc:
             logger.exception("Monte Carlo simulation failed")
-            self._emit_failed(run_id, str(exc))
+            self._emit_failed(run_id, failure_detail(exc))
             return
         self._emit_completed(run_id, result)

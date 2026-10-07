@@ -13,6 +13,10 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -25,6 +29,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
     OrderPurpose,
@@ -67,6 +75,7 @@ class _Desk:
         self.submission = FakeOrderSubmission()
         self.submission.submit_answers(placed(order()))
         self.reports: list[tuple[str, bool]] = []
+        self.notifier = RecordingNotifier()
         # Owned here, as the desk owns its feed (`parent=`); a bus
         # subscription keeps no subscriber alive (Engine `BUG-019`).
         self.feed = OrderFeed(self.bus, _FUTURES)
@@ -75,6 +84,8 @@ class _Desk:
             self.feed,
             InlineThreadManager(),
             lambda text, failed: self.reports.append((text, failed)),
+            self.notifier,
+            _FUTURES,
         )
         self.entry = order("BTCUSDT", "SEW-entry")
 
@@ -241,3 +252,63 @@ def test_a_refused_protective_order_is_named(qapp) -> None:
     ((text, failed),) = desk.reports
     assert failed
     assert text.startswith("Stop-loss not placed:")
+    (notice,) = desk.notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.futures_testnet.protective.stop_market.refused"
+    assert "The position is not protected by it" in notice.headline
+
+
+def test_a_protective_order_of_unknown_outcome_may_be_live_and_is_never_called_failed(
+    qapp,
+) -> None:
+    """`BUG-170` — a TP/SL submission with no readable answer may be resting on
+    the exchange; sending another by hand would double it."""
+    desk = _Desk(qapp)
+    desk.submission.submit_raises(
+        OrderOutcomeUnknownError("BTCUSDT", "SEW-tp", "502 Bad Gateway")
+    )
+    desk.follower.expect(desk.entry, ProtectiveLevels(None, Decimal(58000)))
+
+    desk.report(OrderStatus.FILLED)
+
+    (notice,) = desk.notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert (
+        notice.cause == "trading.futures_testnet.protective.stop_market.outcome_unknown"
+    )
+    assert "may be live" in notice.headline
+    assert "Open orders and Positions" in notice.headline
+    assert "stop-loss order" in notice.headline
+    for wrong in ("rejected", "failed", "not placed", "502"):
+        assert wrong not in notice.headline
+    assert "502 Bad Gateway" in notice.detail
+    ((text, failed),) = desk.reports
+    assert failed
+    assert text == notice.headline
+
+
+def test_a_protective_order_not_placed_is_said_so_per_order(qapp) -> None:
+    desk = _Desk(qapp)
+    desk.submission.submit_raises(OrderNotPlacedError("BTCUSDT", "SEW-tp", "unknown"))
+    desk.follower.expect(desk.entry, _LEVELS)
+
+    desk.report(OrderStatus.FILLED)
+
+    assert [n.cause for n in desk.notifier.failures] == [
+        "trading.futures_testnet.protective.take_profit_market.not_placed",
+        "trading.futures_testnet.protective.stop_market.not_placed",
+    ]
+    assert all("was not placed" in n.headline for n in desk.notifier.failures)
+
+
+def test_a_protective_order_that_raises_hides_no_text_in_the_headline(qapp) -> None:
+    desk = _Desk(qapp)
+    desk.submission.submit_raises(RuntimeError("socket closed"))
+    desk.follower.expect(desk.entry, ProtectiveLevels(None, Decimal(58000)))
+
+    desk.report(OrderStatus.FILLED)
+
+    (notice,) = desk.notifier.failures
+    assert notice.detail == "socket closed"
+    assert "socket closed" not in notice.headline
+    assert "socket closed" not in desk.reports[0][0]

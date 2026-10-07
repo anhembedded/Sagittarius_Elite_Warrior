@@ -1,7 +1,7 @@
 """A chart's toolbar actions as menu commands (`BOT-156`).
 
 `ChartToolbar` (in every `ChartCard`) holds the chart's navigation: the
-pinned timeframes, More timeframes…, the zoom actions and Go live. A
+pinned timeframes, More timeframes…, the zoom actions and Follow latest. A
 toolbar's buttons take no keyboard focus, so a mode that shows a chart also
 contributes these as commands in a menu (`ui-presentation-rule.md` §2, §6),
 which `ChartCommandMirror` keeps in step with the chart in front.
@@ -40,7 +40,7 @@ ZOOM_IN_VERTICALLY = "zoom_in_vertically"
 ZOOM_OUT_VERTICALLY = "zoom_out_vertically"
 BOX_ZOOM = "box_zoom"
 RESET_ZOOM = "reset_zoom"
-GO_LIVE = "go_live"
+FOLLOW_LATEST = "follow_latest"
 
 #: Key -> menu text, in menu order. The texts read as the toolbar's do.
 _TEXTS: tuple[tuple[str, str], ...] = (
@@ -51,7 +51,7 @@ _TEXTS: tuple[tuple[str, str], ...] = (
     (ZOOM_OUT_VERTICALLY, "Zoom out verticall&y"),
     (BOX_ZOOM, "Box &zoom"),
     (RESET_ZOOM, "&Reset zoom"),
-    (GO_LIVE, "&Go live"),
+    (FOLLOW_LATEST, "&Follow latest"),
 )
 #: The keys whose command keeps a checked state (a one-shot tool).
 CHECKABLE = frozenset({BOX_ZOOM})

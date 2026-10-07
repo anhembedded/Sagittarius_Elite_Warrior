@@ -40,16 +40,23 @@ class _Handler(BaseHTTPRequestHandler):
     #: so a test can prove a command addressed to one venue sent nothing to
     #: the other's API family.
     requests: list[tuple[str, str]]
+    #: `BOT-169` — while set, every request is answered with a gateway's HTML
+    #: `502` page, as the Spot Testnet did on 2026-10-07.
+    outage: threading.Event
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
         # not a service anyone needs to watch run.
 
     def do_GET(self) -> None:
+        if self._answer_outage():
+            return
         path, query = self._split_path()
         self._respond_or_404(path, self._dispatch("GET", path, query))
 
     def do_POST(self) -> None:
+        if self._answer_outage():
+            return
         path, _ = self._split_path()
         body = self._read_form_body()
         self._respond_or_404(path, self._dispatch("POST", path, body))
@@ -63,6 +70,17 @@ class _Handler(BaseHTTPRequestHandler):
         path, _ = self._split_path()
         body = self._read_form_body()
         self._respond_or_404(path, self._dispatch("DELETE", path, body))
+
+    def _answer_outage(self) -> bool:
+        if not self.outage.is_set():
+            return False
+        page = b"<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
+        self.send_response(502)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(page)))
+        self.end_headers()
+        self.wfile.write(page)
+        return True
 
     def _dispatch(
         self, method: str, path: str, params: dict[str, str]
@@ -117,6 +135,8 @@ class FakeServerUrls:
     #: `EPIC-028O` — the live Futures state, so a test can switch the account
     #: to Multi-Assets mode or read its positions.
     futures_book: OrderBookState = field(default_factory=OrderBookState)
+    #: `BOT-169` — set it and every request answers an HTML `502` page.
+    outage: threading.Event = field(default_factory=threading.Event)
 
 
 @contextmanager
@@ -128,6 +148,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     _Handler.order_book = OrderBookState()
     _Handler.spot_account = SpotAccountState()
     _Handler.requests = []
+    _Handler.outage = threading.Event()
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -139,6 +160,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             requests=_Handler.requests,
             spot_account=_Handler.spot_account,
             futures_book=_Handler.order_book,
+            outage=_Handler.outage,
         )
     finally:
         server.shutdown()

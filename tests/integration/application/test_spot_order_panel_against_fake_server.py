@@ -30,6 +30,9 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -259,7 +262,7 @@ def _spot_panel_on_fake_server() -> Iterator[_SpotPanel]:
             return True
 
         presenter = OrderEntryPresenter(
-            view_model, ports, _InlineThreadManager(), answer_yes
+            view_model, ports, _InlineThreadManager(), answer_yes, RecordingNotifier()
         )
         presenter.show_symbol(_SYMBOL)
         assert view_model.context is not None, view_model.message

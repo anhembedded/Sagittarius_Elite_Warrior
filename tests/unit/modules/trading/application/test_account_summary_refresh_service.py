@@ -231,7 +231,7 @@ def test_a_failed_read_marks_the_summary_stale_instead_of_raising() -> None:
     setup.service.refresh_once()
 
     assert setup.publisher.published == [
-        AccountSummaryStaleEvent(reason="The account read failed: reset", venue=_SPOT),
+        AccountSummaryStaleEvent(reason="The account read failed.", venue=_SPOT),
         AccountSummaryChangedEvent(summary=_summary("900")),
     ]
 

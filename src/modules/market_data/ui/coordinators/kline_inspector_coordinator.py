@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
@@ -11,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -45,12 +49,14 @@ class KLineInspectorCoordinator:
             [bool, int, str, list[dict[str, object]]], None
         ],
         get_current_fsm_state: Callable[[], UIMode],
+        notifier: INotifier,
     ) -> None:
         self._dispatcher = dispatcher
         self._historical_klines = historical_klines
         self._thread_manager = thread_manager
         self._tracker = tracker
         self._ui_error_log_signal = ui_error_log_signal
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
         self._ui_kline_inspector_signal = ui_kline_inspector_signal
         self._ui_audit_result_signal = ui_audit_result_signal
         self._get_current_fsm_state = get_current_fsm_state
@@ -83,7 +89,11 @@ class KLineInspectorCoordinator:
             self._ui_kline_inspector_signal(symbol, interval, list(klines))
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"Failed to inspect klines: {exc}")
+            self._failures.command_failed(
+                "market_data.inspect_klines",
+                "The candle inspector could not load the candles. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
 
     def run_audit(
@@ -140,6 +150,10 @@ class KLineInspectorCoordinator:
             )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"Failed to audit database: {exc}")
-            self._ui_audit_result_signal(False, 0, f"Audit error: {exc}", [])
+            self._failures.command_failed(
+                "market_data.audit",
+                "The audit could not run. Check the log and try again.",
+                exc,
+            )
+            self._ui_audit_result_signal(False, 0, "The audit could not run.", [])
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)

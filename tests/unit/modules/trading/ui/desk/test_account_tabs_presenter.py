@@ -13,6 +13,10 @@ from datetime import timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QLabel
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
 )
@@ -50,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     HeldTab,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -136,7 +143,64 @@ def test_a_failed_history_read_is_said_in_the_tab(qtbot) -> None:
     desk.presenter.show_symbol("BTCUSDT")
 
     empty = desk.panel.findChild(QLabel, "lblTradeHistoryEmpty").text()
-    assert "the venue did not answer" in empty
+    assert "the venue did not answer" not in empty
+    assert "could not be read" in empty
+    trades = _notice_for(desk, "trading.futures_testnet.history.trades")
+    assert trades.kind is FailureKind.BACKGROUND
+    assert trades.scope == TRADE_ROUTE
+    assert trades.detail == "the venue did not answer"
+    assert "the venue did not answer" not in trades.headline
+    assert trades.retry is not None
+
+
+def _notice_for(desk, cause: str):
+    return next(n for n in desk.notifier.failures if n.cause == cause)
+
+
+def test_retrying_a_failed_history_reads_it_again(qtbot) -> None:
+    desk = AccountTabsDesk(qtbot)
+    desk.activity.history_raises(RuntimeError("the venue did not answer"))
+    desk.presenter.show_symbol("BTCUSDT")
+    retry = _notice_for(desk, "trading.futures_testnet.history.orders").retry
+    assert retry is not None
+    reads = len(desk.activity.order_requests)
+
+    retry()
+
+    assert len(desk.activity.order_requests) == reads + 1
+
+
+def test_a_successful_load_clears_the_notices_of_what_it_read(qtbot) -> None:
+    desk = AccountTabsDesk(qtbot)
+
+    desk.presenter.show_symbol("BTCUSDT")
+
+    assert sorted(desk.notifier.cleared) == [
+        "trading.futures_testnet.account_tabs",
+        "trading.futures_testnet.history.orders",
+        "trading.futures_testnet.history.trades",
+    ]
+    assert desk.notifier.failures == []
+
+
+def test_a_failed_account_read_is_a_background_notice_with_refresh_as_retry(
+    qtbot, monkeypatch
+) -> None:
+    desk = AccountTabsDesk(qtbot)
+
+    def unreadable():
+        raise RuntimeError("502 Bad Gateway")
+
+    monkeypatch.setattr(desk.snapshot, "open_positions", unreadable)
+
+    desk.presenter.show_symbol("BTCUSDT")
+
+    notice = _notice_for(desk, "trading.futures_testnet.account_tabs")
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.scope == TRADE_ROUTE
+    assert notice.detail == "502 Bad Gateway"
+    assert "502" not in notice.headline
+    assert notice.retry == desk.presenter.refresh
 
 
 def test_a_superseded_load_is_dropped(qtbot) -> None:
@@ -210,6 +274,7 @@ def test_a_spot_desk_lists_its_assets_from_the_account(qtbot) -> None:
         ),
         OrderFeed(MemoryEventBus(), TradingVenue.SPOT_TESTNET, parent=panel),
         InlineThreadManager(),
+        RecordingNotifier(),
         clock=lambda: NOW,
     )
 

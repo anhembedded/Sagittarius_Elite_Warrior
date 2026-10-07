@@ -28,6 +28,12 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Protocol
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_block_messages import (
     ARM_BLOCK_MESSAGES,
@@ -58,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 logger = logging.getLogger("App.StrategyArming")
+
+_ARM_CAUSE = "bots.strategy.arm"
+_DISARM_CAUSE = "bots.strategy.disarm"
 
 
 class StrategyFormState(Protocol):
@@ -103,6 +112,7 @@ class StrategyArmingCoordinator:
         tracker: ActionOwnershipTracker,
         arm_action_kind: str,
         set_status: Callable[[str, bool], None],
+        notifier: INotifier,
         append_log: Callable[[str], None],
         on_armed_changed: Callable[[ArmedStrategyConfig | None, bool], None],
     ) -> None:
@@ -116,6 +126,7 @@ class StrategyArmingCoordinator:
         self._tracker = tracker
         self._arm_action_kind = arm_action_kind
         self._set_status = set_status
+        self._notifier = notifier
         self._append_log = append_log
         self._on_armed_changed = on_armed_changed
         self._params: dict[str, Any] = {}
@@ -231,7 +242,11 @@ class StrategyArmingCoordinator:
         except Exception as exc:  # noqa: BLE001 - reported, never swallowed
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
             self._report_state(busy=False)
-            self._set_status(f"Error arming strategy: {exc}", True)
+            self._command_failed(
+                _ARM_CAUSE,
+                "The strategy could not be armed. Check the venue and try again.",
+                failure_detail(exc),
+            )
             return
 
         self._tracker.finish_action(
@@ -257,22 +272,24 @@ class StrategyArmingCoordinator:
             if reason is not None
             else "Strategy could not be armed (no reason reported)."
         )
-        if result.error_message:
-            message = f"{message} ({result.error_message})"
-        self._set_status(message, True)
+        self._command_failed(_ARM_CAUSE, message, result.error_message or "")
 
     def on_disarm_clicked(self) -> None:
         """The "Gỡ" button, end to end."""
         try:
             result = self.disarm()
         except Exception as exc:  # noqa: BLE001 - reported, never swallowed
-            self._set_status(f"Error removing strategy: {exc}", True)
+            self._command_failed(
+                _DISARM_CAUSE,
+                "The strategy could not be removed. Check the venue and try again.",
+                failure_detail(exc),
+            )
             return
         self._report_state(busy=False)
         if result.disarmed:
             self._set_status("Strategy removed.", False)
         else:
-            self._set_status(DISARM_BLOCKED_MESSAGE, True)
+            self._command_failed(_DISARM_CAUSE, DISARM_BLOCKED_MESSAGE)
 
     def on_strategy_selection_changed(self) -> None:
         """Rebuilds the parameter form when the PICKED strategy changes.
@@ -292,6 +309,13 @@ class StrategyArmingCoordinator:
             return
         self._last_form_strategy_key = key
         self.refresh_params_rows()
+
+    def _command_failed(self, cause: str, headline: str, detail: str = "") -> None:
+        """A command the user ran did not happen (`BOT-169`): a message box,
+        the technical text behind its Details."""
+        self._notifier.report_failure(
+            FailureNotice(FailureKind.COMMAND, cause, headline, detail=detail)
+        )
 
     def _report_state(self, *, busy: bool) -> None:
         """Pushes what the SESSION says is armed, never what the combo

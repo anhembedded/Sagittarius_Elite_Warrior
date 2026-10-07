@@ -192,7 +192,7 @@ class ChartCard(ChartFrame):
 
         self.zoom = ChartZoomActions(self.plot_layout.main_plot, parent=self)
         self.toolbar.add_chart_actions(
-            [*self.zoom.toolbar_actions, self.viewport.go_live]
+            [*self.zoom.toolbar_actions, self.viewport.follow_latest]
         )
 
         self.edge_scroll_detector = EdgeScrollDetector(

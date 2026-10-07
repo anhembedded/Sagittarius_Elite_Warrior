@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
@@ -52,6 +53,7 @@ def strategies_for(
             symbol_options=default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS),
             ask=ask,
             set_status=set_status,
+            notifier=container.resolve(INotifier),
             trading_on=lambda venue: (
                 trading.get(venue).trading_session.snapshot().enabled
             ),

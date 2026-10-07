@@ -36,6 +36,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
     ArmedStrategyConfig,
@@ -87,6 +88,8 @@ class StrategyPorts:
     ask: AskArmStrategy
     #: The Bots panel's status line: `(text, is_error)`.
     set_status: Callable[[str, bool], None]
+    #: How a refused or failed arm or disarm reaches the user (`BOT-169`).
+    notifier: INotifier
     #: Whether a venue's live trading is on now.
     trading_on: Callable[[TradingVenue], bool]
 
@@ -109,6 +112,7 @@ class _Venue:
             tracker=ActionOwnershipTracker(),
             arm_action_kind=_ARM,
             set_status=ports.set_status,
+            notifier=ports.notifier,
             append_log=lambda line: logger.info(
                 "[strategies] %s: %s", controls.venue.value, line
             ),

@@ -26,6 +26,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QLabel, QPushButton
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    INotifier,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -126,7 +133,13 @@ def session_state() -> FakeTradingSession:
 
 
 @pytest.fixture
+def notifier() -> RecordingNotifier:
+    return RecordingNotifier()
+
+
+@pytest.fixture
 def container(
+    notifier,
     mock_config,
     account,
     mock_thread_manager,
@@ -148,6 +161,8 @@ def container(
             return primary_venue_ports(session_state)
         if interface is IAccountSnapshot:
             return account
+        if interface is INotifier:
+            return notifier
         return Mock()
 
     c.resolve.side_effect = resolve
@@ -215,7 +230,9 @@ def test_a_failed_status_renders_as_an_error(presenter, account):
     assert "NOT_CONFIGURED" in view_model.connectionResultText
 
 
-def test_an_exception_from_the_port_is_reported_not_raised(presenter, account):
+def test_an_exception_from_the_port_is_reported_not_raised(
+    presenter, account, notifier
+):
     # `IAccountSnapshot.check_connection()` promises never to raise, and the
     # fake keeps that promise — so the failure is injected the only way a
     # real one could reach here: the adapter behind the port breaking its
@@ -229,7 +246,13 @@ def test_an_exception_from_the_port_is_reported_not_raised(presenter, account):
     presenter._run_check_connection(action_id)  # must not raise
 
     assert view_model.connectionResultIsError is True
-    assert "boom" in view_model.connectionResultText
+    assert "boom" not in view_model.connectionResultText
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.settings.connection_check"
+    assert "boom" not in notice.headline
+    assert notice.detail == "boom"
+    assert notice.retry is None
 
 
 def test_a_stale_result_from_a_superseded_click_is_discarded(presenter, account):

@@ -22,6 +22,7 @@ from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
 )
@@ -58,7 +59,7 @@ class FencedReads(UiThreadRelay):
 
     #: The kind, the read's label, and its answer.
     answered = Signal(object, str, object)
-    #: The kind, the read's label, and what went wrong, in words.
+    #: The kind, the read's label, and the technical text of what went wrong.
     failed = Signal(object, str, str)
 
     def __init__(self, thread_manager: IThreadManager, trackers: ReadTrackers) -> None:
@@ -91,25 +92,25 @@ class FencedReads(UiThreadRelay):
         try:
             self._report((kind, action_id, label, task(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is shown in words, not lost to a pool thread
-            self._report((kind, action_id, label, None, str(exc) or type(exc).__name__))
+            self._report((kind, action_id, label, None, failure_detail(exc)))
 
     def _deliver(self, payload: object) -> None:
         if not isinstance(payload, tuple):
             raise TypeError(f"a read answers a tuple, not {type(payload).__name__}")
-        kind, action_id, label, answer, error = payload
+        kind, action_id, label, answer, detail = payload
         tracker = self._trackers[kind]
         if not tracker.is_current_pending(action_id, kind):
             tracker.log_stale_callback("_deliver", action_id, kind)
             return
-        if error is not None:
+        if detail is not None:
             tracker.finish_action(action_id, ActionOutcome.FAILED)
             # One line per failed operation (`logging-rule.md` §4): the engine's
             # dispatcher already wrote this failure at ERROR (`BUG-168` counted
             # it twice), so the screen's own record is DEBUG.
             logger.debug(
-                "Bots screen read %s (%s) failed: %s", kind.value, label, error
+                "Bots screen read %s (%s) failed: %s", kind.value, label, detail
             )
-            self.failed.emit(kind, label, error)
+            self.failed.emit(kind, label, detail)
             return
         tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
         self.answered.emit(kind, label, answer)
@@ -118,9 +119,15 @@ class FencedReads(UiThreadRelay):
 class BotQueries:
     """@brief The screen's three bots queries, each a fenced read."""
 
-    def __init__(self, dispatcher: ICommandDispatcher, reads: FencedReads) -> None:
+    def __init__(
+        self,
+        dispatcher: ICommandDispatcher,
+        reads: FencedReads,
+        selected: Callable[[], BotSnapshot | None],
+    ) -> None:
         self._dispatcher = dispatcher
         self._reads = reads
+        self._selected = selected
 
     def bots(self) -> None:
         self._read(ReadKind.LIST, "", ListBotsQuery())
@@ -133,6 +140,16 @@ class BotQueries:
     def fills(self, bot: BotSnapshot | None) -> None:
         if bot is not None:
             self._read(ReadKind.FILLS, bot.bot_id, GetBotFillsQuery(bot.bot_id))
+
+    def again(self, kind: ReadKind) -> None:
+        """Asks `kind` once more, for the selected bot (Retry on its message bar)."""
+        bot = self._selected()
+        if kind is ReadKind.LIST:
+            self.bots()
+        elif kind is ReadKind.PLANNER and bot is not None:
+            self.planner(bot)
+        else:
+            self.fills(bot)
 
     def _read(self, kind: ReadKind, label: str, query: object) -> None:
         dispatcher = self._dispatcher

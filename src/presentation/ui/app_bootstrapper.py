@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.notifier import install_notifier
 from Sagittarius_Elite_Warrior.src.presentation.ui.ui_toast_notification_channel import (
     UiToastNotificationChannel,
 )
@@ -251,10 +252,8 @@ def build() -> AppRuntime:
     # the same star every other picker shows, which is the whole reason favourites are
     # worth having across a 1,400-entry list.
     #
-    # Restored before the first screen is built, and marked dirty on every
-    # mutation so the coordinator's debounce writes it — the same two calls
-    # every other contributor makes, just made here because this one has no
-    # presenter of its own.
+    # Restored before the first screen is built and marked dirty on every
+    # mutation: the two calls every contributor makes, here as it has no presenter.
     symbol_preferences = SymbolPreferences()
     state_coordinator.restore_into(symbol_preferences)
     symbol_preferences.set_on_changed(
@@ -284,6 +283,8 @@ def build() -> AppRuntime:
     # 5.2). Order does not matter: ScreenRegistry sorts by declared sequence.
     # It runs *after* `app_engine.boot()` above, because that is when
     # `contribute()` may see a built object graph (SDD's hook table).
+    # `BOT-169` — the one `INotifier`, bound before the first screen is built.
+    notifier = install_notifier(app_engine.context.container)
     contributions = assemble_contributions(
         app_engine.context.container, dev_mode=dev_mode.is_enabled
     )
@@ -297,6 +298,7 @@ def build() -> AppRuntime:
         state_coordinator=state_coordinator,
         close_objections=app_engine.context.container.resolve(ICloseObjections),
     )
+    notifier.adopt(window)
     # `EPIC-033E` — Tools → Options: each module's page, then Developer.
     for page in build_options_pages(
         contributions,
@@ -311,11 +313,8 @@ def build() -> AppRuntime:
         INavigationService, window.navigation_service
     )
 
-    # `BOT-018` — the UI toast channel needs a real window to show a status
-    # bar message on, which does not exist until `window` above is built;
-    # `NotificationEventHandler` itself was already constructed in
-    # `composition_root.py`'s `create_app()`, the one place both entry
-    # points pass through, with only its headless-safe Telegram channel.
+    # `BOT-018` — the UI toast channel needs the window above; the handler
+    # itself is built in `create_app()` with its headless Telegram channel only.
     app_engine.context.container.resolve(NotificationEventHandler).add_channel(
         UiToastNotificationChannel(window)
     )

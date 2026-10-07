@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestContext,
     BacktestPorts,
@@ -42,12 +45,15 @@ class GridBacktest(BotBacktest):
                 stream_owner=BACKTEST_CHART_OWNER,
                 interval="15m",
                 market=MarketType.SPOT,
+                notifier=ports.notifier,
+                scope=BOTS_ROUTE,
+                live_commands=False,
             )
         )
         coordinator = GridBacktestCoordinator(
             ports.thread_manager, ports.dispatcher, ports.sync
         )
-        self._presenter = GridBacktestPresenter(self._view, coordinator)
+        self._presenter = GridBacktestPresenter(self._view, coordinator, ports.notifier)
 
     @property
     def page(self) -> QWidget:

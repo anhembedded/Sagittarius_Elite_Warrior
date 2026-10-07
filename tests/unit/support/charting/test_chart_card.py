@@ -891,30 +891,30 @@ def test_chart_card_zoom_actions_box_zoom_toggle(qapp):
     assert vb.state["mouseMode"] == pg.ViewBox.PanMode
 
 
-def test_chart_card_viewport_follow_and_go_live(qapp):
+def test_chart_card_viewport_follow_and_follow_latest(qapp):
     """
     A user-driven pan/zoom (sigRangeChangedManually) stops auto-follow and enables
-    the "Go live" action; triggering it resumes following and disables it again.
+    the "Follow latest" action; triggering it resumes following and disables it again.
     """
     card = ChartCard("BTCUSDT")
-    go_live = card.viewport.go_live
+    follow_latest = card.viewport.follow_latest
     assert card.viewport.following is True
-    assert go_live.isEnabled() is False
-    assert go_live in card.toolbar.actions()
-    assert go_live in card.plot_layout.main_plot.vb.menu.actions()
+    assert follow_latest.isEnabled() is False
+    assert follow_latest in card.toolbar.actions()
+    assert follow_latest in card.plot_layout.main_plot.vb.menu.actions()
 
     # Simulate the user dragging/zooming the main plot.
     card.plot_layout.main_plot.vb.sigRangeChangedManually.emit(None)
     assert card.viewport.following is False
-    assert go_live.isEnabled() is True
+    assert follow_latest.isEnabled() is True
 
     # A programmatic data update must NOT silently resume following.
     card.update_last_candle(2000.0, 100.0, 105.0, 95.0, 102.0)
     assert card.viewport.following is False
 
-    go_live.trigger()
+    follow_latest.trigger()
     assert card.viewport.following is True
-    assert go_live.isEnabled() is False
+    assert follow_latest.isEnabled() is False
 
 
 def test_chart_card_chart_type_switch_line_and_area(qapp):

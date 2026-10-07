@@ -18,6 +18,13 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    INotifier,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -123,8 +130,9 @@ def credentials_provider() -> Mock:
     return provider
 
 
-def _presenter(request, config, sessions, credentials_provider):
+def _presenter(request, config, sessions, credentials_provider, notifier=None):
     container = Mock()
+    notifier = notifier or RecordingNotifier()
 
     def resolve(interface):
         if interface is IConfig or getattr(interface, "__name__", "") == "IConfig":
@@ -135,6 +143,8 @@ def _presenter(request, config, sessions, credentials_provider):
             return sessions.ports()
         if interface is IAccountSnapshot:
             return FakeAccountSnapshot()
+        if interface is INotifier:
+            return notifier
         return Mock()
 
     container.resolve.side_effect = resolve
@@ -236,7 +246,10 @@ def test_saving_is_refused_while_any_venue_is_trading(
     still holds. Refused, not partially applied."""
     config = _FakeConfig({_LIST: [_FUTURES.value, _SPOT.value]})
     sessions = _Sessions()
-    presenter, _view = _presenter(request, config, sessions, credentials_provider)
+    notifier = RecordingNotifier()
+    presenter, _view = _presenter(
+        request, config, sessions, credentials_provider, notifier
+    )
     sessions.spot.set_enabled(enabled=True)
     view_model = presenter._settings_view_model
     view_model.requestVenueEnabled(_SPOT.value, False)
@@ -244,8 +257,10 @@ def test_saving_is_refused_while_any_venue_is_trading(
     presenter.apply()
 
     assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
-    assert view_model.statusIsError is True
-    assert "Trading is active" in view_model.statusMessage
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.settings.save"
+    assert "Trading is active" in notice.headline
 
 
 def test_the_toggles_are_disabled_while_trading_is_on(
@@ -299,7 +314,10 @@ def test_a_venue_change_that_cannot_be_written_is_taken_back(
     monkeypatch.setattr(ConfigManager, "save", refuse)
     config = ConfigManager()
     config.load_dict({_LIST: [_FUTURES.value, _SPOT.value], _SCALAR: _FUTURES.value})
-    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+    notifier = RecordingNotifier()
+    presenter, _view = _presenter(
+        request, config, _Sessions(), credentials_provider, notifier
+    )
     presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
 
     presenter.apply()
@@ -307,7 +325,32 @@ def test_a_venue_change_that_cannot_be_written_is_taken_back(
     assert config.get(_LIST) == [_FUTURES.value, _SPOT.value]
     assert config.get(_SCALAR) == _FUTURES.value
     assert presenter.is_dirty()
-    assert "venues were not changed" in presenter._settings_view_model.statusMessage
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert "venues were not changed" in notice.headline
+    assert notice.detail == "read-only file system"
+    assert "read-only" not in notice.headline
+
+
+def test_a_secret_that_cannot_be_written_is_told_in_a_box_and_changes_nothing(
+    qapp, request, credentials_provider
+):
+    credentials_provider.save_to_file.side_effect = OSError("disk full")
+    config = _FakeConfig({_LIST: [_FUTURES.value]})
+    notifier = RecordingNotifier()
+    presenter, _view = _presenter(
+        request, config, _Sessions(), credentials_provider, notifier
+    )
+    presenter._settings_view_model.apiKey = "k"
+
+    presenter.apply()
+
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.settings.save"
+    assert "secrets.local.json" in notice.headline
+    assert notice.detail == "disk full"
+    assert "disk full" not in notice.headline
 
 
 def test_a_key_already_written_stays_saved_when_the_venues_cannot_be(

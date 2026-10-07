@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, NamedTuple
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -62,6 +63,7 @@ def build_coordinators(
     own signals, tracker and FSM callbacks. `presenter` must already have its
     `_tracker` in place (read through the `tracker` property) before this is
     called."""
+    notifier = container.resolve(INotifier)  # BOT-169: one way to tell the user
     scan = ScanCoordinator(
         view_model=view_model,
         dispatcher=presenter.dispatcher,
@@ -81,6 +83,7 @@ def build_coordinators(
         transition_fsm=presenter._transition_fsm_safe,
         get_current_fsm_state=presenter._get_fsm_state,
         is_shutdown_requested=presenter._is_shutdown,
+        notifier=notifier,
     )
 
     sync = SyncCoordinator(
@@ -97,6 +100,7 @@ def build_coordinators(
         transition_fsm=presenter._transition_fsm_safe,
         get_current_fsm_state=presenter._get_fsm_state,
         is_shutdown_requested=presenter._is_shutdown,
+        notifier=notifier,
     )
 
     gap = GapCoordinator(
@@ -111,6 +115,7 @@ def build_coordinators(
         get_current_fsm_state=presenter._get_fsm_state,
         is_shutdown_requested=presenter._is_shutdown,
         on_check_status_callback=scan.run_check_status,
+        notifier=notifier,
     )
 
     kline_inspector = KLineInspectorCoordinator(
@@ -122,6 +127,7 @@ def build_coordinators(
         ui_kline_inspector_signal=presenter.ui_kline_inspector_signal.emit,
         ui_audit_result_signal=presenter.ui_audit_result_signal.emit,
         get_current_fsm_state=presenter._get_fsm_state,
+        notifier=notifier,
     )
 
     export_import = ExportImportCoordinator(
@@ -135,6 +141,7 @@ def build_coordinators(
         transition_fsm=presenter._transition_fsm_safe,
         get_current_fsm_state=presenter._get_fsm_state,
         is_shutdown_requested=presenter._is_shutdown,
+        notifier=notifier,
     )
 
     vault_maintenance = VaultMaintenanceCoordinator(
@@ -151,6 +158,7 @@ def build_coordinators(
         transition_fsm=presenter._transition_fsm_safe,
         get_current_fsm_state=presenter._get_fsm_state,
         is_shutdown_requested=presenter._is_shutdown,
+        notifier=notifier,
     )
 
     return DataManagementCoordinators(

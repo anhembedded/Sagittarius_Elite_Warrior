@@ -18,7 +18,7 @@
 - **Tools → Check connection (SPEC-003):** asks the account in the
   background, fenced by an action id (`async-ui-action-rule.md` §1), and
   shows the answer as a word in the status bar; a failure also says what to
-  do in a message.
+  do in a message box, through the `INotifier` (`BOT-169`).
 
 @par What it replaces
 The Watchlist screen (`watchlist_presenter.py`, retired here) and, for
@@ -31,6 +31,12 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
@@ -62,10 +68,10 @@ from sagittarius_engine.interfaces.i_container import IContainer
 from .chart_history import ChartHistory
 from .chart_history_commands import ChartHistoryCommands
 from .connection_words import (
+    CHECK_FAILED,
     CHECKING,
     NOT_CHECKED,
     connection_word,
-    error_text,
     failure_text,
 )
 from .indicator_params_command import IndicatorParamsCommand
@@ -79,13 +85,14 @@ from .watchlist_stream import WATCHLIST_INTERVAL, WatchlistStream
 logger = logging.getLogger("App.Trading.Market")
 
 _CHECK = "check_connection"
+_CHECK_CAUSE = "trading.market.connection_check"
 _NOT_LIVE = "Market data: not live. Choose Market on the mode bar to start."
 
 
 class MarketPresenter(CommandPresenter):
     """@brief The Watchlist, the charts and the connection check."""
 
-    #: `(action_id, status | None, error | None)`, from the worker thread.
+    #: `(action_id, status | None, detail | None)`, from the worker thread.
     connectionChecked = Signal(tuple)
     #: Whether Check connection may start: off while one runs.
     checkConnectionEnabled = Signal(bool)
@@ -101,6 +108,7 @@ class MarketPresenter(CommandPresenter):
         super().__init__(view, container)
         self.view: MarketView = view
         self._deps = dependencies
+        self._notifier: INotifier = container.resolve(INotifier)
         self._charts: dict[str, MarketChart] = {}
         self._indicators: tuple[str, ...] = self._default_indicators()
         self._opened = False
@@ -221,13 +229,16 @@ class MarketPresenter(CommandPresenter):
         """A worker thread: touches no widget, reports through a signal."""
         try:
             status = self._deps.account.check_connection()
-        except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is reported, not lost to a thread's traceback
-            self.connectionChecked.emit((action_id, None, str(exc)))
+        except Exception as exc:
+            logger.warning(
+                "[market] connection check %d raised", action_id, exc_info=True
+            )
+            self.connectionChecked.emit((action_id, None, failure_detail(exc)))
             return
         self.connectionChecked.emit((action_id, status, None))
 
     def _on_connection_checked(self, payload: tuple) -> None:
-        action_id, status, error = payload
+        action_id, status, detail = payload
         if not self._checks.is_current_pending(action_id, _CHECK):
             self._checks.log_stale_callback("check_connection", action_id, _CHECK)
             return
@@ -237,11 +248,10 @@ class MarketPresenter(CommandPresenter):
             self._show_status(status)
             return
         self._checks.finish_action(action_id, ActionOutcome.FAILED)
-        text = error_text(str(error))
-        logger.warning("[market] connection check %d failed: %s", action_id, error)
+        logger.warning("[market] connection check %d failed: %s", action_id, detail)
         self.view.set_connection_text("Exchange: not connected")
-        self.view.log.append(text, "error")
-        self.view.show_connection_failure(text)
+        self.view.log.append(CHECK_FAILED, "error")
+        self._tell_check_failed(CHECK_FAILED, detail)
 
     def _show_status(self, status: ExchangeConnectionStatus) -> None:
         word = connection_word(status)
@@ -257,7 +267,18 @@ class MarketPresenter(CommandPresenter):
             self.view.log.append(word)
             return
         self.view.log.append(problem, "warning")
-        self.view.show_connection_failure(problem)
+        self._tell_check_failed(problem, "")
+
+    def _tell_check_failed(self, headline: str, detail: str) -> None:
+        """The check the user pressed failed: a message box, not a panel."""
+        self._notifier.report_failure(
+            FailureNotice(
+                kind=FailureKind.COMMAND,
+                cause=_CHECK_CAUSE,
+                headline=headline,
+                detail=detail,
+            )
+        )
 
     # -- the charts -----------------------------------------------------------
 
@@ -272,7 +293,7 @@ class MarketPresenter(CommandPresenter):
             ChartHistory(self._deps.history, market),
             market,
         )
-        chart = MarketChart(card, self._deps, sources, symbol, self)
+        chart = MarketChart(card, self._deps, sources, symbol, self._notifier, self)
         chart.logged.connect(self.view.log.append)
         self._history.watch(chart)
         self._charts[symbol] = chart

@@ -14,6 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -62,12 +66,16 @@ class Rig:
     session: FakeTradingSession
     threads: HeldThreadManager
     seen: Seen
+    notifier: RecordingNotifier
 
 
 @pytest.fixture
 def rig(qapp) -> Rig:
     session, threads, seen = FakeTradingSession(), HeldThreadManager(), Seen()
-    controls = DeskSessionControls(session, threads, TradingVenue.FUTURES_TESTNET)
+    notifier = RecordingNotifier()
+    controls = DeskSessionControls(
+        session, threads, TradingVenue.FUTURES_TESTNET, notifier
+    )
     controls.stateChanged.connect(lambda on, busy: seen.states.append((on, busy)))
     controls.statusChanged.connect(lambda text, err: seen.statuses.append((text, err)))
     controls.logged.connect(seen.logs.append)
@@ -80,7 +88,7 @@ def rig(qapp) -> Rig:
 
     controls.tradingEnabled.connect(count_enable)
     controls.accountChanged.connect(count_reread)
-    return Rig(controls, session, threads, seen)
+    return Rig(controls, session, threads, seen, notifier)
 
 
 def _stop(
@@ -146,6 +154,8 @@ def test_a_refused_enable_names_the_reason_and_rereads_the_account(rig: Rig) -> 
     assert rig.seen.states[-1] == (False, False)
     assert rig.seen.enabled == 0
     assert rig.seen.rereads == 1
+    assert rig.notifier.last.kind is FailureKind.COMMAND
+    assert rig.notifier.last.headline == ENABLE_BLOCK_MESSAGES[reason]
 
 
 def test_an_enable_that_raises_is_reported_and_the_toggle_shows_the_truth(
@@ -156,10 +166,43 @@ def test_an_enable_that_raises_is_reported_and_the_toggle_shows_the_truth(
     rig.controls.toggle()
     rig.threads.run(0)  # must not raise
 
-    text, is_error = rig.seen.last_status
-    assert is_error is True
-    assert "network down" in text
+    assert rig.seen.last_status == ("Trading could not be enabled.", False)
     assert rig.seen.states[-1] == (False, False)
+    notice = rig.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.futures_testnet.enable"
+    assert notice.detail == "network down"
+    assert "network down" not in notice.headline
+    assert notice.retry is None
+
+
+def test_a_disable_that_raises_is_a_command_failure_and_shows_the_truth(
+    qapp,
+) -> None:
+    class _FailingDisable(FakeTradingSession):
+        def disable(self) -> None:
+            raise RuntimeError("socket closed")
+
+    session, threads, notifier = (
+        _FailingDisable(),
+        HeldThreadManager(),
+        RecordingNotifier(),
+    )
+    session.set_enabled(enabled=True)
+    controls = DeskSessionControls(
+        session, threads, TradingVenue.FUTURES_TESTNET, notifier
+    )
+    statuses: list[tuple[str, bool]] = []
+    controls.statusChanged.connect(lambda text, err: statuses.append((text, err)))
+
+    controls.toggle()
+    threads.run(0)
+
+    assert statuses[-1] == ("Trading could not be disabled.", False)
+    assert notifier.last.kind is FailureKind.COMMAND
+    assert notifier.last.cause == "trading.futures_testnet.disable"
+    assert notifier.last.detail == "socket closed"
+    assert "socket closed" not in notifier.last.headline
 
 
 def test_a_superseded_toggle_answer_is_discarded(rig: Rig) -> None:
@@ -200,6 +243,8 @@ def test_a_partial_stop_reads_as_a_failure(rig: Rig) -> None:
     assert is_error is True
     assert "PARTIALLY FAILED" in text
     assert any("APIError -2011" in line for line in rig.seen.logs)
+    assert rig.notifier.last.kind is FailureKind.COMMAND
+    assert rig.notifier.last.cause == "trading.futures_testnet.emergency_stop.partial"
 
 
 def test_an_unconfirmed_final_state_warns_and_still_rereads(rig: Rig) -> None:
@@ -221,11 +266,16 @@ def test_a_stop_that_raises_is_reported_not_raised(rig: Rig) -> None:
     rig.controls.emergency_stop()
     rig.threads.run(0)  # must not raise
 
-    text, is_error = rig.seen.last_status
-    assert is_error is True
-    assert "timeout" in text
-    assert rig.seen.logs[-1] == "[ERROR] Emergency stop failed: timeout"
+    assert rig.seen.last_status == ("Emergency stop did not run.", False)
+    assert "timeout" not in rig.seen.logs[-1]
+    assert rig.seen.logs[-1].startswith("[ERROR] Emergency stop failed")
     assert rig.seen.states[-1] == (True, False)  # nothing was disabled
+    notice = rig.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.futures_testnet.emergency_stop"
+    assert notice.detail == "timeout"
+    assert "timeout" not in notice.headline
+    assert "still be open" in notice.headline
 
 
 def test_a_toggle_while_a_stop_runs_is_refused_and_never_supersedes_it(

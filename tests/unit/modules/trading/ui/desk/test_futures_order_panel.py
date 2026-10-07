@@ -11,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_result import (
     AccountControlRefusal,
 )
@@ -74,6 +77,7 @@ class _Panel:
     terms: FakeOrderEntryTerms
     account: FakeAccountSnapshot
     announced: list[object]
+    notifier: RecordingNotifier
 
 
 def _panel(
@@ -92,14 +96,17 @@ def _panel(
         futures_settings=control,
     )
     vm = OrderEntryViewModel(desk_profile_for(_FUTURES))
+    notifier = RecordingNotifier()
     presenter = OrderEntryPresenter(
-        vm, ports, threads or InlineThreadManager(), Answers(True)
+        vm, ports, threads or InlineThreadManager(), Answers(True), notifier
     )
     announced: list[object] = []
     presenter.entryPlaced.connect(announced.append)
     presenter.show_symbol(SYMBOL)
     vm.presenter_side().set_last_price(MARK)
-    return _Panel(vm, presenter, submission, control, terms, account, announced)
+    return _Panel(
+        vm, presenter, submission, control, terms, account, announced, notifier
+    )
 
 
 def _type_limit(vm: OrderEntryViewModel, side: EntrySide, quantity: str) -> None:

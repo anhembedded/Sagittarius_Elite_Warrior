@@ -80,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
     ProtectiveOrderFollower,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
+    LiveChartState,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -136,14 +139,23 @@ class DeskPresenter(BasePresenter):
         feeds = screen_venue_feeds.build_for(self.event_bus, profile.venue, self)
 
         self.order_entry = OrderEntryPresenter(
-            self.orders, ports, threads, deps.confirm or confirm_with_message_box(view)
+            self.orders,
+            ports,
+            threads,
+            deps.confirm or confirm_with_message_box(view),
+            deps.notifier,
         )
         self.tabs = AccountTabsPresenter(
-            view.account_tabs, ports, feeds.orders, threads
+            view.account_tabs, ports, feeds.orders, threads, deps.notifier
         )
         view.account_tabs.use_precisions(deps.precisions)
         self.summary = AccountSummaryPresenter(
-            view.account_summary, ports.account_activity, feeds.orders, threads
+            view.account_summary,
+            ports.account_activity,
+            feeds.orders,
+            threads,
+            deps.notifier,
+            profile.venue,
         )
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
         feeds.orders.orderFilled.connect(self.chart.record_fill)
@@ -153,7 +165,7 @@ class DeskPresenter(BasePresenter):
             view.equity_chart, ports.equity_curve, feeds.equity, self
         )
         self.session = DeskSessionControls(
-            ports.trading_session, threads, profile.venue, self
+            ports.trading_session, threads, profile.venue, deps.notifier, self
         )
         # The chart draws what its venue has armed; the Bots mode arms it
         # (`EPIC-033K` stage 3), and says so on the bus.
@@ -162,12 +174,18 @@ class DeskPresenter(BasePresenter):
         self.follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             self.follower = ProtectiveOrderFollower(
-                ports.order_submission, feeds.orders, threads, self.desk.set_status
+                ports.order_submission,
+                feeds.orders,
+                threads,
+                self.desk.set_status,
+                deps.notifier,
+                profile.venue,
             )
             follower = self.follower
             self.order_entry.entryPlaced.connect(
                 lambda placed: follower.expect(*placed)
             )
+        self._stale_price_notice = False
         self._wire()
         self.desk.set_trading_state(self.session.is_enabled, False)
         if self.session.is_enabled:
@@ -213,6 +231,27 @@ class DeskPresenter(BasePresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
+        chart.liveStateChanged.connect(self._on_live_state)
+
+    def _on_live_state(self, state: LiveChartState) -> None:
+        """The order panel is valued at the chart's last price: with trading
+        on, a chart that stopped being live (History) or failed (Error) says
+        so, and the notice goes once it is Live again (`EPIC-034G`). Connecting
+        says nothing: a desk opened with trading on is connecting, not stale."""
+        if state is LiveChartState.LIVE:
+            if self._stale_price_notice:
+                self._stale_price_notice = False
+                self.desk.set_status("", False)
+            return
+        if state is LiveChartState.CONNECTING or not self.session.is_enabled:
+            return
+        command = "Retry" if state is LiveChartState.ERROR else "Go live"
+        self._stale_price_notice = True
+        self.desk.set_status(
+            "The price feed is not live: orders are valued at the last stored "
+            f"close. Use {command} on the chart.",
+            False,
+        )
 
     def _on_last_price(self, price: Decimal) -> None:
         self.order_entry.update_last_price(price)

@@ -37,7 +37,9 @@
 5. The app answers with two facts: whether the subscription set is now what the actor asked for,
    and a message when it is not.
 6. Candles arrive and the chart updates in place: the forming candle is rewritten, a closed one
-   is appended.
+   is appended. The chart's chip says whether it is live (History, Connecting, Live with the age
+   of the last update, or Error with its reason); its one command (Go live, Cancel, Stop live,
+   Retry) starts or stops the stream without trading being on (`EPIC-034G`).
 7. The actor stops the stream, or closes the screen, and the app releases **that owner's**
    subscription set.
 
@@ -112,6 +114,7 @@ consumer-facing port.
 | The stream's state reaches the actor in words, in the status bar | `tests/unit/modules/trading/ui/market/test_market_view.py` | unit |
 | In the booted app, the Market mode starts its Watchlist stream on the user's open and never on a restore | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | Leaving the Market mode stops the Watchlist owner only and returning starts it again, in the composed window, with another owner's stream of the same symbol surviving | `tests/integration/presentation/ui/test_main_window_state.py`, `tests/unit/modules/trading/ui/market/test_market_presenter_hidden.py` | integration, unit |
+| A chart's live state follows the coordinator (History, Connecting, Live, Error), each command moves it, a report of a replaced request moves nothing, and the age of the last update is rewritten while Live | `tests/unit/support/charting/live_chart/test_live_chart_fsm_matrix.py`, `tests/unit/support/charting/live_chart/test_live_candle_chart_state.py`, `tests/unit/modules/trading/ui/market/test_market_chart_live_state.py`, `tests/unit/modules/trading/ui/desk/test_desk_chart_live_state.py` | unit |
 | A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |

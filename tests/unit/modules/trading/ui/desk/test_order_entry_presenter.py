@@ -12,6 +12,10 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
@@ -141,6 +145,7 @@ def test_the_panel_refuses_another_venues_ports() -> None:
             fake_venue_ports(TradingVenue.FUTURES_TESTNET),
             InlineThreadManager(),
             Answers(),
+            RecordingNotifier(),
         )
 
 
@@ -221,6 +226,11 @@ def test_a_sell_whose_holding_is_gone_at_submit_time_is_refused() -> None:
     assert panel.submission.submitted_live == []
     assert panel.vm.message_is_error
     assert "no sellable holding" in panel.vm.message
+    notice = panel.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.spot_testnet.order.short_not_supported"
+    assert notice.headline == panel.vm.message
+    assert "not sent" in notice.headline
 
 
 def test_cancelling_the_dialog_sends_nothing() -> None:

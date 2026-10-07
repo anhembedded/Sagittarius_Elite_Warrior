@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
@@ -129,6 +130,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 from .backtest_command_binding import bind_backtest_commands
 from .backtest_view_model import BackTestViewModel
 from .coordinators import DataSyncCoordinator, ExecutionCoordinator, build_coordinators
+from .failure_reporting import BacktestFailureReporter
 from .logic import run_texts
 from .logic.backtest_chart_host import BacktestChartHostFactory
 from .logic.backtest_event_logger import BacktestEventLogger
@@ -206,7 +208,6 @@ _TRACE_PREFIX = "BACKTEST_TRACE"
 #: still has no symbol picker (out of scope, not requested), so whichever
 #: symbol this resolves to is the only one this screen ever backtests.
 _FALLBACK_SYMBOL = "ETHUSDT"
-
 
 _RUNNING_MESSAGE = "Running backtest..."
 _CANCELLING_MESSAGE = "Cancelling backtest..."
@@ -417,6 +418,7 @@ class BackTestPresenter(CommandPresenter):
             IStrategyChartOverlay
         )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+        self._failures = BacktestFailureReporter(container.resolve(INotifier))
         # `EPIC-025` PR 0.5: Backtest asks market_data for a sync through its
         # published port. Resolved here, once, because `build_coordinators`
         # reads presenter attributes rather than touching the container.
@@ -463,6 +465,8 @@ class BackTestPresenter(CommandPresenter):
             emit_info=self._chartScriptInfoSignal.emit,
             emit_markers=self._chartScriptMarkerSignal.emit,
             on_error=logger.warning,
+            notifier=self._failures.notifier,
+            scope=self._failures.scope,
         )
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
@@ -1082,7 +1086,7 @@ class BackTestPresenter(CommandPresenter):
 
     @Slot(int, str)
     @safe_ui_action
-    def _on_backtest_failed_for_action(self, action_id: int, message: str) -> None:
+    def _on_backtest_failed_for_action(self, action_id: int, detail: str) -> None:
         if self._is_cancelling_action(action_id):
             self._complete_cancelled_action(action_id)
             return
@@ -1091,7 +1095,8 @@ class BackTestPresenter(CommandPresenter):
                 "backtest_failed", action_id, BacktestActionKind.BACKTEST
             )
             return
-        self._on_backtest_failed(message)
+        self._on_backtest_failed(self._failures.RUN)
+        self._failures.run_failed(detail)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)
 
     @Slot(int, object)
@@ -1364,7 +1369,7 @@ class BackTestPresenter(CommandPresenter):
         self._view_model.run_result.set_limitations([])
         self._view_model.run_result.set_drawdown_points([])
         self._view_model.run_result.set_yearly_returns([])
-        self._view_model.run_result.set_result(f"Error: {message}", is_error=True)
+        self._view_model.run_result.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
         self._clear_out_of_sample_divider()
@@ -1574,10 +1579,9 @@ class BackTestPresenter(CommandPresenter):
         self._view_model.set_symbol_options(symbols)
 
     @Slot(str)
-    def _on_symbol_options_failed(self, message: str) -> None:
-        self._emit_ui_log(
-            f"Failed to load symbol list from exchange: {message}", level="error"
-        )
+    def _on_symbol_options_failed(self, detail: str) -> None:
+        self._emit_ui_log("Failed to load symbol list from exchange.", level="error")
+        self._failures.symbol_options_failed(detail)
 
     @Slot()
     @safe_ui_action
@@ -1691,10 +1695,11 @@ class BackTestPresenter(CommandPresenter):
 
     @Slot(int, str)
     @safe_ui_action
-    def _on_monte_carlo_failed(self, run_id: int, message: str) -> None:
+    def _on_monte_carlo_failed(self, run_id: int, detail: str) -> None:
         if run_id != self._active_monte_carlo_run_id:
             return
-        self._view_model.run_result.set_monte_carlo_error(message)
+        self._failures.monte_carlo_failed(detail)
+        self._view_model.run_result.set_monte_carlo_error(self._failures.MONTE_CARLO)
 
     def _is_busy_for_preview(self) -> bool:
         """A preview during a run would race the run's own chart writes."""
@@ -1866,7 +1871,7 @@ class BackTestPresenter(CommandPresenter):
 
     @Slot(int, str)
     @safe_ui_action
-    def _on_sync_failed_for_action(self, action_id: int, message: str) -> None:
+    def _on_sync_failed_for_action(self, action_id: int, detail: str) -> None:
         if self._is_cancelling_action(action_id):
             self._complete_cancelled_action(action_id)
             return
@@ -1876,7 +1881,8 @@ class BackTestPresenter(CommandPresenter):
             )
             return
         self._sync_cancellation_token = None
-        self._on_sync_failed(message)
+        self._on_sync_failed(detail)
+        self._failures.sync_failed(detail)
         self._finish_action(action_id, BacktestActionOutcome.FAILED)
 
     @Slot(int)
@@ -1917,16 +1923,16 @@ class BackTestPresenter(CommandPresenter):
 
     @Slot(str)
     @safe_ui_action
-    def _on_sync_failed(self, message: str) -> None:
-        self._log_dev_trace("sync_failed", message=message)
-        self._logger.log_sync_event(f"Sync failed: {message}", is_error=True)
+    def _on_sync_failed(self, detail: str) -> None:
+        self._log_dev_trace("sync_failed", message=detail)
+        self._logger.log_sync_event(f"Sync failed: {detail}", is_error=True)
         self._view_model.run_progress.reset_sync_progress()
         # needsDataSync / _last_no_data_config are left untouched — the sync
         # that just failed was for genuinely missing data, so "Đồng bộ ngay"
         # should stay offered for the user to retry.
         if self.fsm.can_dispatch(BacktestUiEvent.SYNC_FAILED):
             self.fsm.dispatch(BacktestUiEvent.SYNC_FAILED)
-        self._view_model.run_result.set_result(f"Sync failed: {message}", is_error=True)
+        self._view_model.run_result.set_result(self._failures.SYNC, is_error=False)
 
     def _ask_trade_log_export_path(self) -> str:
         """Where to write the CSV, or "" if the user cancelled
@@ -2008,21 +2014,14 @@ class BackTestPresenter(CommandPresenter):
         try:
             data = read_backtest_report_bytes(path)
         except OSError as exc:
-            self._view_model.run_result.set_result(
-                f"Không đọc được tệp: {exc}", is_error=True
-            )
+            self._failures.report_unreadable(exc)
             return
         valid_strategy_keys = {
             option.key for option in self._strategy_catalog.options()
         }
         loaded = load_backtest_report(data, valid_strategy_keys=valid_strategy_keys)
         if loaded.report is None:
-            error_message = (
-                loaded.error.message
-                if loaded.error is not None
-                else "Không nạp được báo cáo."
-            )
-            self._view_model.run_result.set_result(error_message, is_error=True)
+            self._failures.report_invalid(loaded.error.message if loaded.error else "")
             return
 
         report = loaded.report
