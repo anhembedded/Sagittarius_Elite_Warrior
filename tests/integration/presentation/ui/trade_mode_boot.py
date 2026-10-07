@@ -226,10 +226,6 @@ def trade_mode_running(
                 container,
             )
         finally:
-            # Answers still queued to the UI thread (an order's, say) are
-            # delivered while the pool is alive: one delivered after the
-            # shutdown asks it for a new future and raises in the Qt loop.
-            qapp.processEvents()
             threads = container.resolve(IThreadManager)
             # What the workers finish is delivered while the pool still takes
             # work and the widgets live: an order's answer makes its panel read

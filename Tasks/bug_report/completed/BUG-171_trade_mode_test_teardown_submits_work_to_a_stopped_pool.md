@@ -33,7 +33,12 @@ No case study: no net covered this and missed it; the red was the net.
 ## Fix
 `trade_mode_boot.py`: `settle_workers(qtbot, threads)` waits for the pool to be idle (`qtbot.waitUntil`, a named condition), delivers what the workers answered, and repeats until delivering starts no more work; the `finally` runs it before `threads.shutdown`. The later `processEvents()` after the shutdown is gone: nothing is left for it to deliver.
 
+After #416 (`48ec7cc`) merged, its fixture also pumped `processEvents()` once before the shutdown, for this same race. That single pass neither waits for a worker still running nor repeats when a delivered answer starts more work, so it narrowed the window without closing it; it is removed in favour of `settle_workers`, so the harness has one mechanism.
+
 Also carried from the `EPIC-034` PR-3 review: `test_module_venue_accounts_binding.py::test_a_source_the_configuration_does_not_enable_has_no_reader` restores the test of `UnknownAccountSourceError` in `VenueAccounts.reader` that the move to always-assembled venues removed.
+
+## Can the app's own window close hit the same race?
+Not by the same path, read from the code and not exercised. `app_bootstrapper.py` runs `app.exec()` and stops the engine (and so its `ThreadManager`) only after `exec()` returns; nothing under `src/` calls `processEvents()` or `sendPostedEvents()`, so an answer still queued when the loop ends is never delivered to a slot, let alone after the pool stops. The race needed a harness that stopped the pool and then ran the event loop again, which only a test does. Not verified: a dialog's nested `exec()` during teardown, and a worker that outlives `exec()`; neither was found in `src/`.
 
 ## Regression test
 `tests/integration/presentation/ui/test_trade_mode_against_fake_server.py::test_closing_the_desk_with_an_order_in_flight_leaves_no_qt_error`: holds the Spot order at the venue, releases it as the desk closes, and asserts the Qt loop caught nothing (`qtbot.capture_exceptions`). Red before the fix for the reason above (`RuntimeError('cannot schedule new futures after shutdown')`), green after; red again with the `settle_workers` call removed. The mutation of the unit test (`VenueAccounts.reader` without its source check) is red too.
