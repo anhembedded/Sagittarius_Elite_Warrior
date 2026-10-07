@@ -252,6 +252,7 @@ def test_a_symbol_held_by_another_owner_is_refused() -> None:
     assert refusal is not None
     assert refusal.refusal is BotRefusal.SYMBOL_LEASED
     assert world.session.budgets == {}
+    assert world.session.ready_requests == 0  # a refused start opens nothing
 
 
 def test_a_refused_budget_gives_the_lease_back() -> None:

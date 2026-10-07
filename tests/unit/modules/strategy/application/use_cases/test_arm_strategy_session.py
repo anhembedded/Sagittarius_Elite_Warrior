@@ -177,3 +177,33 @@ def test_a_closed_session_knows_no_positions_so_it_never_refuses_a_disarm() -> N
     )
 
     assert result.disarmed is True
+
+
+def test_a_parameter_set_the_strategy_rejects_opens_nothing() -> None:
+    """The strategy is built before the session opens or the symbol is claimed."""
+    session, state = new_session(), FakeTradingSession()
+
+    result = arm_handler(session, state).execute(
+        arm_command(config_for(strategy_params={"not_a_real_param": 1}))
+    )
+
+    assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
+    assert state.ready_requests == 0
+    assert state.claim_symbol("BTCUSDT", "someone_else") is True
+
+
+def test_a_refused_re_arm_gives_back_the_new_claim_and_keeps_the_old_one() -> None:
+    """A claim replaces the owner's earlier one, so refusing after claiming must
+    put the earlier symbol back, or the running strategy's symbol is free to
+    every manual order."""
+    session, state = new_session(), FakeTradingSession()
+    arm_handler(session, state).execute(arm_command(config_for(symbol="BTCUSDT")))
+    state.answer_with(_holding("BTCUSDT"))
+
+    result = arm_handler(session, state).execute(
+        arm_command(config_for(symbol="ETHUSDT"))
+    )
+
+    assert result.block_reason is ArmStrategyBlockReason.POSITION_OPEN
+    assert state.claim_symbol("BTCUSDT", "someone_else") is False
+    assert state.claim_symbol("ETHUSDT", "someone_else") is True

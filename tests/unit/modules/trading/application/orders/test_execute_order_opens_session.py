@@ -10,12 +10,14 @@ Stop closed.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
@@ -132,4 +134,39 @@ def test_an_open_session_is_not_reconciled_again_by_the_next_manual_order() -> N
 
     assert state.enabled is True
     assert second.blocked_by is not SessionBlockReason.UNEXPECTED_POSITIONS
+    raw_client.futures_position_information.assert_not_called()
+
+
+def test_an_order_refused_for_its_own_terms_opens_nothing() -> None:
+    """The preview's refusals cost nothing, so they come before the
+    reconciliation: a refused order starts no stream and resumes no bot."""
+    raw_client = _raw_client()
+    handler, state = make_handler(enabled=False, raw_client=raw_client)
+
+    result = handler.execute(
+        ExecuteOrderCommand(
+            order_request=order_request(quantity=Decimal("0.000001")),
+            live=True,
+            opens_session=True,
+        )
+    )
+
+    assert result.blocked_by is ExecuteOrderNotionalRejection.MIN_NOTIONAL
+    assert state.enabled is False
+    raw_client.futures_position_information.assert_not_called()
+
+
+def test_an_order_on_a_symbol_leased_to_another_owner_opens_nothing() -> None:
+    raw_client = _raw_client()
+    handler, state = make_handler(enabled=False, raw_client=raw_client)
+    state.claim_symbol("BTCUSDT", "strategy")
+
+    result = handler.execute(
+        ExecuteOrderCommand(
+            order_request=order_request(), live=True, opens_session=True
+        )
+    )
+
+    assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
+    assert state.enabled is False
     raw_client.futures_position_information.assert_not_called()

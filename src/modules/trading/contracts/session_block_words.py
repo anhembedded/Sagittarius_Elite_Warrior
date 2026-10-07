@@ -32,6 +32,10 @@ SESSION_BLOCK_WORDS: Mapping[SessionBlockReason, str] = {
         "account was being checked — nothing was started. Check the state and "
         "try again if you still want to."
     ),
+    SessionBlockReason.EMERGENCY_STOP_IN_PROGRESS: (
+        "An Emergency stop is still running on this venue — wait for it to "
+        "finish, then try again."
+    ),
 }
 
 

@@ -364,3 +364,15 @@ def test_a_second_submit_while_one_is_out_is_refused() -> None:
 
     assert len(threads.pending) == 2  # the load, and one preview
     assert panel.vm.message == "An order is already being placed."
+
+
+def test_a_venue_with_no_key_reads_nothing_and_says_so() -> None:
+    """`EPIC-034B` — the panel's reads would raise inside the dispatcher (ERROR
+    logs); a venue with no key is a state the panel states instead."""
+    panel = presented_panel(has_key=lambda: False)
+
+    panel.presenter.show_symbol(SYMBOL)
+
+    assert panel.terms.reads == []
+    assert panel.vm.message_is_error
+    assert "No API key" in panel.vm.message

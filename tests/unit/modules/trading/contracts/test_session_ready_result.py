@@ -26,6 +26,7 @@ _READ = {
 _NOT_READ = {
     SessionBlockReason.TRADING_VENUE_DISABLED,
     SessionBlockReason.CONNECTION_NOT_READY,
+    SessionBlockReason.EMERGENCY_STOP_IN_PROGRESS,
 }
 
 

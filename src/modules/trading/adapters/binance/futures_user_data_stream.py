@@ -152,7 +152,7 @@ class FuturesUserDataStream(IUserDataStream):
         #: cancel()` only *signals* cooperative cancellation
         #: (`CancellationToken`) — it does not wait for `_run_stream()`'s
         #: own teardown to actually finish, so an immediate `start()`
-        #: right after `stop()` (`DisableTradingCommand` followed by
+        #: right after `stop()` (an Emergency Stop followed by
         #: `EnsureSessionReadyCommand`, or `EmergencyStopCommandHandler`'s own
         #: step 1 followed by a stray re-enable) can have two `_run_stream()`
         #: coroutines alive at once. Each closure of `_run_stream()`

@@ -67,6 +67,10 @@ _LIVE_ORDER_CALLERS = {
         "a strategy's order: Arm strategy opened the session "
         "(`ArmStrategyCommandHandler`)"
     ),
+    "src/modules/strategy/cli/trade_once_cmd.py": (
+        "`trade-once --live`: never opens a session, so it only ever answers "
+        "`TRADING_SWITCH_OFF` (its process has none)"
+    ),
     "src/modules/trading/ui/desk/account_tabs/account_tab_actions.py": (
         "closes a position the session placed; reduce-only, session required"
     ),
@@ -95,11 +99,24 @@ def _calls(source: str) -> list[ast.Call]:
 
 
 def calls_state_enable(source: str) -> bool:
-    """A call of `<...>session_state.enable(...)`."""
+    """A call of `TradingSessionState.enable`, by its shape — the receiver may
+    be aliased (`state = scope.session_state; state.enable(...)`): a call of an
+    `enable` that takes the reconciled symbols as `set(...)` or the state's
+    own keywords."""
+    state_keywords = {"expected_generation", "spot_baseline_holdings"}
     return any(
         isinstance(call.func, ast.Attribute)
         and call.func.attr == "enable"
-        and ast.unparse(call.func.value).endswith("session_state")
+        and (
+            any(kw.arg in state_keywords for kw in call.keywords)
+            or any(
+                isinstance(arg, ast.Call)
+                and isinstance(arg.func, ast.Name)
+                and arg.func.id == "set"
+                for arg in call.args
+            )
+            or ast.unparse(call.func.value).endswith("session_state")
+        )
         for call in _calls(source)
     )
 
@@ -112,14 +129,14 @@ def calls_ensure_ready(source: str) -> bool:
 
 
 def sends_a_live_order(source: str) -> bool:
-    """A call of `<...>.submit(..., live=True)`."""
+    """A call of `<...>.submit(..., live=<anything but a literal False>)`: a
+    `live=args.live` may be True, so it counts."""
     return any(
         isinstance(call.func, ast.Attribute)
         and call.func.attr == "submit"
         and any(
             kw.arg == "live"
-            and isinstance(kw.value, ast.Constant)
-            and kw.value.value is True
+            and not (isinstance(kw.value, ast.Constant) and kw.value.value is False)
             for kw in call.keywords
         )
         for call in _calls(source)
@@ -185,6 +202,10 @@ def test_the_session_opens_in_one_place_and_that_place_reads_the_account() -> No
 def test_every_live_order_needs_the_session_open() -> None:
     handler = (_REPO_ROOT / _EXECUTE_ORDER).read_text(encoding="utf-8")
     assert first_gate_refuses_a_closed_session(handler)
+    gated = first_call_line(handler, "_first_blocked_safety_gate")
+    placed = first_call_line(handler, "place_order")
+    assert gated is not None and placed is not None
+    assert gated < placed  # the gate is asked before an order is placed
 
 
 def test_only_the_three_actions_open_the_session() -> None:
@@ -213,7 +234,12 @@ def test_the_scanners_can_fail() -> None:
     assert not calls_ensure_ready('"""ensure_ready()"""\nx = 1\n')
     assert sends_a_live_order("ports.order_submission.submit(request, live=True)\n")
     assert not sends_a_live_order("ports.order_submission.submit(request)\n")
-    assert not sends_a_live_order("ports.order_submission.submit(request, live=live)\n")
+    assert sends_a_live_order("ports.order_submission.submit(request, live=live)\n")
+    assert not sends_a_live_order(
+        "ports.order_submission.submit(request, live=False)\n"
+    )
+    assert calls_state_enable("state = x.session_state\nstate.enable(set())\n")
+    assert calls_state_enable("s.enable({'a'}, expected_generation=1)\n")
     assert passes_opens_session("replace(request, opens_session=True)\n")
     assert not passes_opens_session("replace(request, opens_session=False)\n")
     assert not passes_opens_session("Command(opens_session=request.opens_session)\n")

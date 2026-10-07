@@ -88,6 +88,8 @@ class SessionReadiness:
         # never touches the other's.
         scope = self._scopes.get(venue)
         session_state = scope.session_state
+        if session_state.stop_in_progress:
+            return self._blocked(SessionBlockReason.EMERGENCY_STOP_IN_PROGRESS)
         if session_state.enabled:
             return SessionReadyResult(
                 ready=True,

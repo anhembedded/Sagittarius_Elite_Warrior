@@ -38,14 +38,8 @@ from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ExchangeConnectionStatus,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
-    OrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
@@ -75,9 +69,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_con
     ConfirmOrder,
     build_confirmation,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_context import (
+    context_from_reads,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
-    OrderEntryContext,
     SideFigures,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
@@ -86,6 +82,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_outcome_text import (
     preview_refusal,
     result_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    KeyCheck,
+    always_keyed,
+    no_key_text,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -124,6 +125,7 @@ class OrderEntryPresenter(QObject):
         ports: VenueTradingPorts,
         thread_manager: IThreadManager,
         confirm: ConfirmOrder,
+        has_key: KeyCheck = always_keyed,
     ) -> None:
         super().__init__(view_model)
         if ports.venue is not view_model.profile.venue:
@@ -131,6 +133,7 @@ class OrderEntryPresenter(QObject):
                 f"the {view_model.profile.title} panel was given "
                 f"{ports.venue.value}'s ports"
             )
+        self._has_key = has_key
         self._vm = view_model
         self._writes = view_model.presenter_side()
         self._ports = ports
@@ -164,6 +167,10 @@ class OrderEntryPresenter(QObject):
         symbol = self._vm.order_symbol
         if not symbol:
             return
+        if not self._has_key():
+            # `EPIC-034B` — a venue with no key reads nothing (`venue_key.py`).
+            self._writes.show_error(no_key_text(self._ports.venue))
+            return
         action = self._loads.begin_action(_LOAD, symbol, None)
         self._threads.submit(self._run_load, action.action_id, symbol)
 
@@ -177,7 +184,9 @@ class OrderEntryPresenter(QObject):
             terms = self._ports.order_entry_terms.terms_for(symbol)
             status = self._ports.account_snapshot.check_connection()
             limit = self._ports.order_entry_terms.order_notional_limit()
-            context = self._context_for(symbol, terms, status, limit)
+            context = context_from_reads(
+                self._vm.profile.quote_asset, symbol, terms, status, limit
+            )
             futures = (
                 read_futures_context(
                     self._ports.order_entry_terms,
@@ -191,31 +200,6 @@ class OrderEntryPresenter(QObject):
             self._loaded.emit((action_id, replace(context, futures=futures), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self._loaded.emit((action_id, None, str(exc)))
-
-    def _context_for(
-        self,
-        symbol: str,
-        terms: OrderEntryTerms,
-        status: ExchangeConnectionStatus,
-        notional_limit: Decimal,
-    ) -> OrderEntryContext:
-        quote = self._vm.profile.quote_asset
-        base = symbol.removesuffix(quote)
-        summary = status.summary if status.reachable else None
-        holdings = status.holdings if status.reachable else None
-        free_base: Decimal | None = None
-        if holdings is not None:
-            held = next((h for h in holdings if h.asset == base), None)
-            free_base = held.free if held is not None else Decimal(0)
-        return OrderEntryContext(
-            symbol=symbol,
-            base_asset=base,
-            quote_asset=quote,
-            terms=terms,
-            available_quote=summary.available_balance if summary else None,
-            free_base=free_base,
-            notional_limit=notional_limit,
-        )
 
     def _on_loaded(self, payload: tuple) -> None:
         action_id, context, error = payload

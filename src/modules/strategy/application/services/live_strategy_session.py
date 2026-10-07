@@ -158,6 +158,21 @@ class LiveStrategySession(IArmedStrategy):
         with self._lock:
             return self._config
 
+    def validate(self, config: LiveStrategyConfig) -> None:
+        """@brief Builds the engine `arm()` would and discards it: nothing is
+        swapped or armed.
+
+        @raises ValueError As `arm()` does, for an incomplete config, an
+        unknown strategy key or an undeclared parameter.
+        """
+        if not config.is_complete:
+            raise ValueError(
+                "A live strategy needs a strategy key, a symbol and an interval; "
+                f"got key={config.strategy_key!r} symbol={config.symbol!r} "
+                f"interval={config.interval!r}."
+            )
+        self._factory.build(config)
+
     def arm(self, config: LiveStrategyConfig) -> None:
         """@brief Replaces whatever was armed with a freshly built pair.
 

@@ -33,6 +33,10 @@ class SessionBlockReason(str, Enum):
     #: reopening the session right after an Emergency Stop would defeat the
     #: whole point of that button.
     SUPERSEDED_BY_CONCURRENT_STATE_CHANGE = "superseded_by_concurrent_state_change"
+    #: `EPIC-034C` — an Emergency Stop is still running on this venue: it has
+    #: closed the session and is cancelling and selling. Nothing opens the
+    #: session until it finishes; refused before anything is read.
+    EMERGENCY_STOP_IN_PROGRESS = "emergency_stop_in_progress"
 
 
 #: `EPIC-028M`/`028S` (the PR 309 reviews) — the outcomes whose

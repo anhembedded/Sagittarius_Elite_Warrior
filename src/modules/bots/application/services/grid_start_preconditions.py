@@ -4,13 +4,14 @@ Checked by the start, **before** the `start` transition, so a refusal leaves the
 bot in DRAFT or STOPPED with nothing to clean up. In order, each naming its
 refusal:
 
-  1. **The venue** is a Spot venue this app trades on, and its order session
-     is open — Start opens it itself (`EPIC-034C`): the account is reconciled
-     first, and a position the app did not open refuses the start.
+  1. **The venue** is a Spot venue this app trades on.
   2. **The parameters** draw no REFUSED verdict at the current price.
   3. **The lease**: the bot claims its symbol under its own owner id, so a
      manual order or a strategy on that symbol is refused from now on.
-  4. **The budget**: trading registers the bot's owner budget for this run
+  4. **The order session** is open — Start opens it itself (`EPIC-034C`), after
+     the refusals that cost nothing: the account is reconciled, and a position
+     the app did not open refuses the start (the lease is given back).
+  5. **The budget**: trading registers the bot's owner budget for this run
      (`run_started_at` is the moment the start is decided), deriving its
      inventory itself. A refused budget gives the lease back.
 """
@@ -81,16 +82,6 @@ class GridStartPreconditions:
             )
         ports = self._ports.get(venue)
         session = ports.trading_session
-        # `EPIC-034C` — the same reconciliation every order path passes: it
-        # opens the session when closed, answers at once when open, and
-        # refuses with the switch's own words on a foreign position.
-        opened = session.ensure_ready()
-        if not opened.ready:
-            return _refused(
-                BotRefusal.VENUE_NOT_READY,
-                refusal_words(opened),
-                bot_id,
-            )
         symbol = bot.definition.symbol
         terms = exchange_terms_for(ports.order_entry_terms, symbol, self._caps)
         book = ports.order_entry_terms.best_bid_ask_for(symbol)
@@ -108,6 +99,15 @@ class GridStartPreconditions:
             return _refused(
                 BotRefusal.SYMBOL_LEASED, f"{symbol} is held by another owner", bot_id
             )
+        # `EPIC-034C` — the same reconciliation every order path passes: it
+        # opens the session when closed, answers at once when open, and
+        # refuses with the switch's own words on a foreign position. After the
+        # refusals that cost nothing (the verdict, the lease), so a refused
+        # start opens nothing; a refusal gives the lease back.
+        opened = session.ensure_ready()
+        if not opened.ready:
+            session.release_symbol(symbol, owner)
+            return _refused(BotRefusal.VENUE_NOT_READY, refusal_words(opened), bot_id)
         registration = session.register_owner_budget(
             grid_registration(
                 bot_id, symbol, now, grid_budget(evaluation.params, self._caps)

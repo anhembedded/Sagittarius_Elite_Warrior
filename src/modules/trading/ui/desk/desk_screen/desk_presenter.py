@@ -142,7 +142,11 @@ class DeskPresenter(BasePresenter):
         feeds = screen_venue_feeds.build_for(self.event_bus, profile.venue, self)
 
         self.order_entry = OrderEntryPresenter(
-            self.orders, ports, threads, deps.confirm or confirm_with_message_box(view)
+            self.orders,
+            ports,
+            threads,
+            deps.confirm or confirm_with_message_box(view),
+            has_key=deps.has_key,
         )
         self._has_key = deps.has_key
         self.tabs = AccountTabsPresenter(
