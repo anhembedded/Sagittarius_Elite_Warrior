@@ -114,6 +114,9 @@ class TradingSessionService(ITradingSession):
         """
         return self._session_state.claim_symbol(symbol, owner_id)
 
+    def lease_holder(self, symbol: str) -> str | None:
+        return self._session_state.lease_holder(symbol)
+
     def release_symbol(self, symbol: str, owner_id: str) -> None:
         self._session_state.release_symbol(symbol, owner_id)
 

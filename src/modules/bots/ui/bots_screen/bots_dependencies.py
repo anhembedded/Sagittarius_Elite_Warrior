@@ -17,6 +17,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
+    BotRunFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
@@ -34,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -67,6 +73,9 @@ class BotsDependencies:
     #: Each served venue's tick and step sizes, which the selected bot's
     #: orders and fills are written in (`EPIC-033N`).
     filters: Mapping[TradingVenue, ISymbolPrecisions]
+    #: What stands in a Grid's way beyond its plan and its account: the venue,
+    #: the symbol's lease, the budget's caps (`EPIC-034H`).
+    run_facts: BotRunFactsReader
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -80,6 +89,10 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         candles=candles,
         symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
+        run_facts=BotRunFactsReader(
+            container.resolve(IVenueTradingPorts),
+            container.resolve(OwnerBudgetCaps),
+        ),
     )
 
 

@@ -49,7 +49,7 @@ gantt
 | EPIC-034E | [Mainnet read-only account](incomplete/EPIC-034E_mainnet_read_only_account.md) | — | 🔴 | 🟡 In progress | — |
 | EPIC-034F | [Design step constraints](completed/EPIC-034F_design_step_constraints.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034G | [Chart live state](incomplete/EPIC-034G_chart_live_state.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-034H | [Run step readiness](incomplete/EPIC-034H_run_step_readiness.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-034H | [Run step readiness](completed/EPIC-034H_run_step_readiness.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 
 ---
 

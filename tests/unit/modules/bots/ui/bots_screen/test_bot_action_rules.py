@@ -44,18 +44,25 @@ def test_every_disabled_action_names_the_state_that_blocks_it(
         assert state.value.lower() in reason, (action, reason)
 
 
-def test_unsaved_edits_block_start_before_the_verdict_is_named() -> None:
-    both = StartConditions(refusal="Refused: too small", unsaved_edits=True)
-
-    assert availability(S.DRAFT, A.START, both).reason == (
-        "Save the changed parameters first."
+def test_what_is_left_blocks_start_and_is_its_reason() -> None:
+    """`EPIC-034H`: the readiness's words are Start's reason, whole."""
+    blocked = availability(
+        S.DRAFT, A.START, StartConditions(blocked_by="2 things left: a; b")
     )
-    refused = availability(S.DRAFT, A.START, StartConditions(refusal="Refused: x"))
-    assert (refused.enabled, refused.reason) == (False, "Refused: x")
+
+    assert (blocked.enabled, blocked.reason) == (False, "2 things left: a; b")
+
+
+def test_start_with_nothing_left_says_it_saves_first() -> None:
+    """Unsaved edits are not a thing left: Save and start saves them (D8)."""
+    ready = availability(S.DRAFT, A.START)
+
+    assert ready.enabled
+    assert "Save the changed parameters" in ready.reason
 
 
 def test_a_refusal_never_blocks_an_action_other_than_start() -> None:
-    refused = StartConditions(refusal="Refused: x", unsaved_edits=True)
+    refused = StartConditions(blocked_by="1 thing left: x")
 
     assert availability(S.DRAFT, A.SAVE, refused).enabled
     assert availability(S.RUNNING, A.STOP, refused).enabled

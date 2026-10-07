@@ -15,6 +15,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host im
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_step import (
+    ConnectStep,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fix_next_item import (
+    FixNextItem,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
     KindBacktests,
 )
@@ -32,7 +38,10 @@ class DetailEffects:
         model: BotsViewModel,
         charts: BotChartHost,
         backtests: KindBacktests,
+        step: ConnectStep,
     ) -> None:
+        self._step = step
+        self._fixes = FixNextItem(model, selected, step)
         self._selected = selected
         self._model = model
         self._charts = charts
@@ -41,8 +50,11 @@ class DetailEffects:
     def refresh(self) -> None:
         detail = self._selected.detail()
         self._model.set_facts(detail.facts if detail else None)
-        self._model.set_judgement(
-            detail.verdict_lines if detail else (), detail.refusal if detail else ""
+        self._model.set_judgement(detail.verdict_lines if detail else ())
+        readiness = detail.readiness if detail else None
+        self._step.assessed(readiness)
+        self._model.set_readiness(
+            readiness, self._step.state, self._fixes.available(readiness)
         )
         self._model.set_availability(detail.availability if detail else {})
         self._charts.draw(detail.overlay if detail else None)

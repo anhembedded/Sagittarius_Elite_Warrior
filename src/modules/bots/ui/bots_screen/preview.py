@@ -12,9 +12,20 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotRefusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotOrderLine,
     BotProgress,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    BotReadiness,
+    ReadinessFix,
+    ReadinessItem,
+    ReadinessStep,
+    StepReadiness,
+    StepStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -29,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     bot_facts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
     BotsUiState,
@@ -66,9 +80,9 @@ def build_preview() -> QWidget:
         (
             "OK: Every grid earns more than its fees (thinnest step 0.0145, fees 0.002)",
             "Warning: The range is narrower than two daily ATRs (range 10000, threshold 11400)",
-        ),
-        "",
+        )
     )
+    view.model.set_readiness(_sample_readiness(), ReadinessState.DESIGNING, True)
     view.model.set_availability(
         {
             action: availability(draft.state, action, StartConditions())
@@ -81,6 +95,26 @@ def build_preview() -> QWidget:
     view.apply_ui_mode(BotsUiState.EDITING_DRAFT)
     view.resize(1200, 760)
     return view
+
+
+def _sample_readiness() -> BotReadiness:
+    """A draft whose capital is above the balance: Design has one thing left."""
+    capital = ReadinessItem(
+        ReadinessStep.DESIGN,
+        "CAPITAL_ABOVE_BALANCE",
+        "The capital is 1000 USDT, above the 800.00 USDT available on Spot Testnet; "
+        "lower it to at most 800.00",
+        ReadinessFix.EDIT_FIELD,
+        BotRefusal.PARAMETERS_REFUSED,
+        "CAPITAL_ABOVE_BALANCE",
+    )
+    return BotReadiness(
+        (
+            StepReadiness(ReadinessStep.CONNECT, StepStatus.DONE),
+            StepReadiness(ReadinessStep.DESIGN, StepStatus.OPEN, (capital,)),
+            StepReadiness(ReadinessStep.RUN, StepStatus.WAITING),
+        )
+    )
 
 
 def _bot(index: int, state: BotLifecycleState) -> BotSnapshot:

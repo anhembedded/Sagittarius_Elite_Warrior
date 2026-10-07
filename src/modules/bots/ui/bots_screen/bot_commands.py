@@ -2,7 +2,8 @@
 
 Stop asks what to do with the base (O3), Delete asks to confirm; a cancelled
 question sends nothing, and the screen stays exactly as it was. Save sends
-the parameters on screen.
+the parameters on screen; so does Start (Save and start, D8) when they differ
+from the saved ones.
 """
 
 from __future__ import annotations
@@ -67,8 +68,12 @@ def command_for(
         return DeleteBotCommand(bot_id) if dialogs.confirm_delete(bot) else None
     if action is BotAction.SAVE:
         return EditBotCommand(bot_id, bot.name, dict(edited or bot.config))
+    if action is BotAction.START:
+        # Save and start (`EPIC-034H`, D8): the edits on screen travel with the
+        # start, which saves them only when the bot is ready with them.
+        unsaved = edited is not None and dict(edited) != dict(bot.config)
+        return StartBotCommand(bot_id, dict(edited) if unsaved and edited else None)
     return {
-        BotAction.START: StartBotCommand,
         BotAction.PAUSE: PauseBotCommand,
         BotAction.RESUME: ResumeBotCommand,
         BotAction.CONFIRM_RESUME: ConfirmBotResumeCommand,

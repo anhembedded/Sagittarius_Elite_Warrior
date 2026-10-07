@@ -158,12 +158,12 @@ class BotsPresenter(CommandPresenter):
         self._commands = BotActionsCoordinator(commands, threads)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
-        self._selected = SelectedBot(self._catalog, now)
+        self._selected = SelectedBot(self._catalog, now, deps.run_facts)
+        self._account = ConnectStep(threads, commands, now, self)
         self._detail = DetailEffects(
-            self._selected, self._model, self._charts, self._backtests
+            self._selected, self._model, self._charts, self._backtests, self._account
         )
         self._refresh_detail = self._detail.refresh
-        self._account = ConnectStep(threads, commands, now, self)
         self._account_effects = ConnectEffects(
             self._account, view, self._charts, self._selected, self._refresh_detail
         )
@@ -235,6 +235,9 @@ class BotsPresenter(CommandPresenter):
 
     def _on_list(self, bots: BotList) -> None:
         self._model.set_bots(bots.bots)
+        self._selected.take_bots(
+            bots.bots, tuple(refused.name for refused in bots.refused)
+        )
         if bots.refused:
             names = ", ".join(refused.name for refused in bots.refused)
             self._model.set_status(f"Bot files that could not be read: {names}", True)
@@ -342,7 +345,8 @@ class BotsPresenter(CommandPresenter):
             self._model.set_status(f"{label}: done.", False)
             if pending.action is None and result.bot_id:
                 self._select_after_create = result.bot_id
-            if pending.action is BotAction.SAVE:
+            if pending.action in (BotAction.SAVE, BotAction.START):
+                # Save and start saved the edits too (`EPIC-034H`, D8).
                 self._selected.saved()
         else:
             reason = result.message if isinstance(result, BotCommandResult) else error

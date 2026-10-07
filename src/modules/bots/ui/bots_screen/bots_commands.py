@@ -1,6 +1,6 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
-fills, Fit levels, Retry venue account (`EPIC-034D`), Mainnet account (`EPIC-034E`), and Arm strategy… / Disarm strategy for the Strategies
+fills, Fit levels, Retry venue account (`EPIC-034D`), Fix next item (`EPIC-034H`), Mainnet account (`EPIC-034E`), and Arm strategy… / Disarm strategy for the Strategies
 panel's selected venue (`EPIC-033K` stage 3; HLD §11.2: a strategy armed on a
 venue is a row of the Bots mode until `EPIC-029L`).
 
@@ -46,6 +46,7 @@ NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
 FIT_LEVELS = f"{_PREFIX}.fit_levels"
 RETRY_CONNECTION = f"{_PREFIX}.retry_connection"
+FIX_NEXT = f"{_PREFIX}.fix_next"
 MAINNET_ACCOUNT = f"{_PREFIX}.mainnet_account"
 ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
 DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
@@ -53,7 +54,8 @@ DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
     (BotAction.SAVE, "&Save bot", True),
-    (BotAction.START, "S&tart", True),
+    # Decision D8 (`EPIC-034H`): saves the edits on screen, then starts.
+    (BotAction.START, "Save and s&tart", True),
     (BotAction.PAUSE, "&Pause", True),
     (BotAction.RESUME, "&Resume", True),
     (BotAction.CONFIRM_RESUME, "&Confirm resume", True),
@@ -109,6 +111,8 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         command(FIT_LEVELS, "Fit &levels", on_toolbar=False),
         # `EPIC-034D`: reads the selected bot's venue account again.
         command(RETRY_CONNECTION, "Retry ven&ue account", on_toolbar=False),
+        # `EPIC-034H`: does the first fix the Plan's list of what is left offers.
+        command(FIX_NEXT, "Fi&x next item", on_toolbar=False),
         # `EPIC-034E`: the owner's real account, read and never traded.
         command(MAINNET_ACCOUNT, "Mainn&et account", on_toolbar=False),
         live_stream_command(_CONTRIBUTOR, _PREFIX, route, BOTS_MENU, "Li&ve stream"),

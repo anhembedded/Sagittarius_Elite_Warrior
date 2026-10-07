@@ -18,6 +18,9 @@ from PySide6.QtCore import QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    BotReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     BotFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
@@ -46,6 +52,8 @@ class BotsViewModel(StatusMessageViewModel):
     selection_changed = Signal()
     facts_changed = Signal()
     judgement_changed = Signal()
+    #: What is left before Start changed (`EPIC-034H`).
+    readiness_changed = Signal()
     actions_changed = Signal()
     fills_changed = Signal()
     log_changed = Signal()
@@ -63,6 +71,9 @@ class BotsViewModel(StatusMessageViewModel):
     refresh_fills_requested = Signal()
     #: Read the selected bot's venue account again (`EPIC-034D`).
     retry_connect_requested = Signal()
+    #: Do the first fix the readiness offers (`EPIC-034H`): bring the field
+    #: forward, read the account again, or select the bot that is still active.
+    fix_next_requested = Signal()
     #: Show the owner's real account, read only (`EPIC-034E`).
     mainnet_account_requested = Signal()
     #: Scale the chart's price axis to every level of the selected bot.
@@ -74,7 +85,12 @@ class BotsViewModel(StatusMessageViewModel):
         self.selected: BotSnapshot | None = None
         self.facts: BotFacts | None = None
         self.verdict_lines: tuple[str, ...] = ()
-        self.refusal = ""
+        #: What is left before Start, and where the bot stands among the three
+        #: steps; `None` while the bot has a run or none is selected.
+        self.readiness: BotReadiness | None = None
+        self.readiness_state = ReadinessState.NOT_CONNECTED
+        #: Whether the readiness has an item whose fix the screen can do.
+        self.fixable = False
         self.availability: Mapping[BotAction, ActionAvailability] = {}
         self.fills = BotFills()
         self.connect_view = ConnectView()
@@ -103,11 +119,21 @@ class BotsViewModel(StatusMessageViewModel):
         self.facts = facts
         self.facts_changed.emit()
 
-    @Slot(object, str)
-    def set_judgement(self, verdict_lines: tuple[str, ...], refusal: str) -> None:
+    @Slot(object)
+    def set_judgement(self, verdict_lines: tuple[str, ...]) -> None:
         self.verdict_lines = verdict_lines
-        self.refusal = refusal
         self.judgement_changed.emit()
+
+    @Slot(object, object, bool)
+    def set_readiness(
+        self,
+        readiness: BotReadiness | None,
+        state: ReadinessState,
+        fixable: bool = False,
+    ) -> None:
+        self.readiness, self.readiness_state = readiness, state
+        self.fixable = fixable
+        self.readiness_changed.emit()
 
     @Slot(object)
     def set_availability(

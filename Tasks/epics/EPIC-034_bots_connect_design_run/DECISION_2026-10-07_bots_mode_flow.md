@@ -50,11 +50,11 @@
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [EPIC-034D](completed/EPIC-034D_connect_step.md) (Connect), [EPIC-034F](completed/EPIC-034F_design_step_constraints.md), [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
+| D1 | [EPIC-034D](completed/EPIC-034D_connect_step.md) (Connect), [EPIC-034F](completed/EPIC-034F_design_step_constraints.md), [EPIC-034H](completed/EPIC-034H_run_step_readiness.md) | Implemented (PR-3, PR-5) | The readiness FSM matrix and its test, `test_bots_run_step.py` (Connect → Design → Run in order), the composed-app journey in `test_bots_tab_drives_the_executor.py`; the owner's own run: not run |
 | D2 | [EPIC-034B](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | Implemented (PR-2) | Unit, integration and sanity tiers green on the branch; testnet tier not run |
 | D3 | [EPIC-034C](completed/EPIC-034C_trading_switch_folded_into_actions.md) | Implemented (PR-2) | Unit, integration and sanity tiers on the branch; `test_every_order_is_reconciled.py`; testnet tier not run |
 | D4, D5, D10 | [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | Built; the owner's own-key check remains | The architecture guard `test_mainnet_has_no_order_path.py`, the fake-server tests; the owner's own key: not run |
-| D6 | [EPIC-034D](completed/EPIC-034D_connect_step.md) | Delivered (the locks are the screen's; Start's own refusal in the use case is unchanged until `EPIC-034H`'s one readiness query) | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py`; the owner's own run: not run |
+| D6 | [EPIC-034D](completed/EPIC-034D_connect_step.md), [EPIC-034H](completed/EPIC-034H_run_step_readiness.md) | Delivered (the locks are the screen's; Start asks the same readiness since `EPIC-034H`) | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py`; the owner's own run: not run |
 | D7 | [EPIC-034F](completed/EPIC-034F_design_step_constraints.md) | Implemented (PR-5) | `test_grid_constraints.py` provokes every violation code and holds its severity to the table; the owner's own look: not run |
-| D8 | [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
+| D8 | [EPIC-034H](completed/EPIC-034H_run_step_readiness.md) | Implemented (PR-5) | `test_save_and_start_*` (the edits are saved only when the bot is ready with them), `test_start_is_the_one_primary_action_and_is_worded_save_and_start`; the owner's own look: not run |
 | D9 | [EPIC-034G](incomplete/EPIC-034G_chart_live_state.md) | Not started | Not yet verified |

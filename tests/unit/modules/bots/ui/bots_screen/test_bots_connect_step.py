@@ -15,8 +15,8 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_connect_fsm_matrix import (
-    ConnectState,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     RETRY_CONNECTION,
@@ -55,7 +55,10 @@ def test_until_the_account_is_read_the_chart_and_the_plan_wait(
     assert not chart_shown(screen)
     assert locked_note(screen) == "Spot Testnet: Reading the account…"
     assert not screen.view.plan.isEnabled()
-    assert start_rule(screen) == (False, "Spot Testnet: Reading the account…")
+    assert start_rule(screen) == (
+        False,
+        "1 thing left: Spot Testnet: Reading the account…",
+    )
 
 
 def test_once_read_the_chart_and_the_plan_open_and_the_strip_says_who_and_where(
@@ -69,7 +72,7 @@ def test_once_read_the_chart_and_the_plan_open_and_the_strip_says_who_and_where(
 
     assert chart_shown(screen)
     assert screen.view.plan.isEnabled()
-    assert screen.presenter._account.view.state is ConnectState.CONNECTED
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING
     strip = screen.view.identity
     assert strip.isVisibleTo(screen.view)
     text = strip.who.text() + " | " + strip.connection.text()
@@ -190,7 +193,7 @@ def test_the_answer_for_the_bot_left_behind_is_dropped(open_bots_screen) -> None
 
     screen.settle()
 
-    assert screen.presenter._account.view.state is ConnectState.CONNECTED
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING
     assert chart_shown(screen)
 
 
@@ -222,7 +225,7 @@ def test_selecting_nothing_ends_the_step_and_the_timer(open_bots_screen) -> None
 
     select(screen, "")
 
-    assert screen.presenter._account.view.state is ConnectState.NOT_CONNECTED
+    assert screen.presenter._account.view.state is ReadinessState.NOT_CONNECTED
     assert not screen.presenter._account._timer.isActive()
     assert not screen.view.identity.isVisibleTo(screen.view)
 
@@ -275,8 +278,8 @@ def test_a_failed_re_read_is_not_papered_over_by_the_read_before_it(
 
     select(screen, "b00002")
 
-    assert screen.presenter._account.view.state is ConnectState.CONNECTING
+    assert screen.presenter._account.view.state is ReadinessState.CONNECTING
     assert not chart_shown(screen)
     screen.settle()
-    assert screen.presenter._account.view.state is ConnectState.FAILED
+    assert screen.presenter._account.view.state is ReadinessState.FAILED
     assert len(screen.account.symbols_read) == 3

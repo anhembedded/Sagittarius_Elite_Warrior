@@ -60,3 +60,8 @@ class BotKindPanel(QWidget):
         """Brings the field the verdict `code` is about forward for editing;
         `False` when it is about no field of this editor."""
         return False
+
+    def field_label(self, code: str) -> str | None:
+        """The name of the field(s) the verdict `code` is about, as the editor
+        labels them; `None` when it is about none of this editor's fields."""
+        return None

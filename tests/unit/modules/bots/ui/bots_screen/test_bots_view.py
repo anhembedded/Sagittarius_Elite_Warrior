@@ -19,18 +19,28 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotRefusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    BotReadiness,
+    ReadinessFix,
+    ReadinessItem,
+    ReadinessStep,
+    StepReadiness,
+    StepStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
-    ActionAvailability,
-    BotAction,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
     BotFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BOTS_SURFACE,
@@ -219,15 +229,12 @@ def test_the_bots_figures_are_a_read_out(view) -> None:
     assert facts.value_text("symbol") == ""
 
 
-def test_the_verdicts_and_the_start_refusal_read_as_lines(view) -> None:
-    view.model.set_judgement(("OK: fees covered",), "Set the capital.")
+def test_the_verdicts_read_as_lines(view) -> None:
+    view.model.set_judgement(("OK: fees covered", "Warning: thin"))
 
-    assert view.plan.verdict_lines() == (
-        "OK: fees covered",
-        "Start is blocked: Set the capital.",
-    )
+    assert view.plan.verdict_lines() == ("OK: fees covered", "Warning: thin")
 
-    view.model.set_judgement((), "")
+    view.model.set_judgement(())
     assert view.plan.verdict_lines() == ()
 
 
@@ -272,22 +279,68 @@ def _ancestors(widget: QWidget, stop: QWidget) -> Iterator[QWidget]:
         parent = parent.parentWidget()
 
 
-def test_the_plan_says_why_start_is_unavailable_for_a_bot_at_rest(view) -> None:
-    """`EPIC-034A`: a line next to the state carries Start's reason, updated as
-    it changes; a refusal already under the verdicts is not said twice."""
-    bot = BotSnapshot.of(stored("a00001", S.DRAFT).bot, None)
-    view.model.set_selected(bot)
-    unsaved = ActionAvailability(False, "Save the changed parameters first.")
-
-    view.model.set_availability({BotAction.START: unsaved})
-    assert view.plan.start_reason.text() == "Start: Save the changed parameters first."
-    assert not view.plan.start_reason.isHidden()
-
-    view.model.set_availability({BotAction.START: ActionAvailability(True, "Go.")})
-    assert view.plan.start_reason.isHidden()
-
-    view.model.set_judgement((), "Set the capital.")
-    view.model.set_availability(
-        {BotAction.START: ActionAvailability(False, "Set the capital.")}
+def _readiness(*items: ReadinessItem) -> BotReadiness:
+    connect = StepReadiness(ReadinessStep.CONNECT, StepStatus.DONE)
+    design = tuple(i for i in items if i.step is ReadinessStep.DESIGN)
+    run = tuple(i for i in items if i.step is ReadinessStep.RUN)
+    return BotReadiness(
+        (
+            connect,
+            StepReadiness(
+                ReadinessStep.DESIGN,
+                StepStatus.OPEN if design else StepStatus.DONE,
+                design,
+            ),
+            StepReadiness(
+                ReadinessStep.RUN,
+                StepStatus.OPEN
+                if run
+                else StepStatus.WAITING
+                if design
+                else StepStatus.DONE,
+                run,
+            ),
+        )
     )
-    assert view.plan.start_reason.isHidden()
+
+
+_CAPITAL_ITEM = ReadinessItem(
+    ReadinessStep.DESIGN,
+    "CAPITAL_ABOVE_BALANCE",
+    "The capital is 1000 USDT, above the 800.00 USDT available",
+    ReadinessFix.EDIT_FIELD,
+    BotRefusal.PARAMETERS_REFUSED,
+    "CAPITAL_ABOVE_BALANCE",
+)
+
+
+def test_the_plan_shows_the_three_steps_and_what_is_left_for_a_bot_at_rest(
+    view,
+) -> None:
+    """`EPIC-034H`: the count, each step in words and each item with its reason,
+    updated as the readiness changes."""
+    view.model.set_selected(BotSnapshot.of(stored("a00001", S.DRAFT).bot, None))
+
+    view.model.set_readiness(_readiness(_CAPITAL_ITEM), ReadinessState.DESIGNING)
+
+    assert view.plan.readiness_header.text() == "Start: 1 thing left"
+    assert view.plan.readiness_steps.text().splitlines() == [
+        "1. Connect: done",
+        "2. Design: 1 thing left",
+        "3. Run: waits for Design",
+    ]
+    assert _CAPITAL_ITEM.reason in view.plan.readiness_items.text()
+    assert not view.plan.readiness_items.isHidden()
+
+    view.model.set_readiness(_readiness(), ReadinessState.READY)
+    assert view.plan.readiness_header.text() == "Start: Ready to start"
+    assert view.plan.readiness_items.isHidden()
+
+
+def test_a_bot_with_a_run_shows_no_readiness(view) -> None:
+    view.model.set_selected(BotSnapshot.of(stored("a00001", S.RUNNING).bot, None))
+
+    view.model.set_readiness(None, ReadinessState.NOT_CONNECTED)
+
+    assert view.plan.readiness_header.isHidden()
+    assert view.plan.readiness_steps.isHidden()

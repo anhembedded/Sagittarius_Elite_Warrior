@@ -9,7 +9,8 @@ quick (a Grid of a thousand levels evaluates in milliseconds), so it runs on eac
 debounced by the presenter rather than moved off the UI thread.
 
 A plan that cannot be judged (the market numbers are not read yet, or could
-not be) cannot start either: Start says why.
+not be) has no verdicts and no overlay; what Start waits on, and why, is the
+readiness's to say (`EPIC-034H`), not this module's.
 """
 
 from __future__ import annotations
@@ -35,14 +36,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
-NOT_READ_YET = "The market numbers for this symbol are still being read."
-
 
 @dataclass(frozen=True, slots=True)
 class JudgedPlan:
     verdicts: tuple[Verdict, ...] = ()
-    #: Why the plan may not start; empty when it may.
-    refusal: str = ""
     #: The proposed levels to draw; `None` when there is nothing to draw.
     overlay: BotOverlay | None = None
 
@@ -53,18 +50,10 @@ def judge(
     market: PlannerMarket | None,
     account: AccountView | None = None,
 ) -> JudgedPlan:
-    if market is None:
-        return JudgedPlan(refusal=NOT_READ_YET)
-    if market.terms is None or market.market is None:
-        return JudgedPlan(refusal=f"The plan cannot be judged: {market.problem}")
+    if market is None or market.terms is None or market.market is None:
+        return JudgedPlan()
     inputs = BotKindInputs(config, market.terms, market.market, account)
-    verdicts = kind.validate(inputs)
-    refused = next((verdict for verdict in verdicts if verdict.refuses), None)
-    return JudgedPlan(
-        verdicts=verdicts,
-        refusal=f"Refused: {refused.reason}" if refused is not None else "",
-        overlay=kind.overlay(inputs),
-    )
+    return JudgedPlan(verdicts=kind.validate(inputs), overlay=kind.overlay(inputs))
 
 
 def verdict_line(verdict: Verdict) -> str:

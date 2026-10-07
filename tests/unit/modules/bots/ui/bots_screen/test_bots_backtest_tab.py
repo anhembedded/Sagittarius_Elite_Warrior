@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
     BotKindCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
+    BotRunFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
@@ -33,6 +36,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_backtest_view import (
     GridBacktestView,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 from .bots_screen_fixtures import GOOD_CONFIG, BotsScreen, stored
@@ -94,7 +107,12 @@ def test_the_context_is_the_parameters_on_screen_and_the_planners_terms(
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
     selected = SelectedBot(
-        BotKindCatalog(()), lambda: datetime(2026, 10, 4, tzinfo=UTC)
+        BotKindCatalog(()),
+        lambda: datetime(2026, 10, 4, tzinfo=UTC),
+        BotRunFactsReader(
+            FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
+            DEFAULT_OWNER_BUDGET_CAPS,
+        ),
     )
     assert backtest_context(selected) is None
 

@@ -28,6 +28,19 @@ LOWER, UPPER = "lower", "upper"
 GRID_COUNT, SPACING, CAPITAL = "grid_count", "spacing", "capital_quote"
 STOP_LOSS, TAKE_PROFIT = "stop_loss", "take_profit"
 
+#: What the editor labels each field.
+FIELD_LABELS: Mapping[str, str] = MappingProxyType(
+    {
+        LOWER: "Lower price",
+        UPPER: "Upper price",
+        GRID_COUNT: "Grids",
+        SPACING: "Spacing",
+        CAPITAL: "Capital (quote)",
+        STOP_LOSS: "Stop loss",
+        TAKE_PROFIT: "Take profit",
+    }
+)
+
 #: The field or fields to change, per violation code.
 FIELDS_OF_CODE: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {

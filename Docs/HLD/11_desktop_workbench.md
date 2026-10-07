@@ -105,7 +105,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | Emergency &stop | F8 | every mode | yes |
 | &Bots | &New bot… | — | Bots | — |
 | | &Save bot | Ctrl+S | Bots | — |
-| | S&tart | — | Bots | — |
+| | Save and s&tart (decision D8: saves the edits on screen, then starts; off while the plan's readiness has items left, and its tip says how many; `EPIC-034H`) | — | Bots | — |
 | | &Pause / &Resume | — | Bots | — |
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
@@ -113,6 +113,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
 | | Refresh &fills (the selected bot's fills, read again; enabled while a bot is selected; `EPIC-033K` stage 4) | — | — | — |
 | | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
+| | Retry ven&ue account (reads the selected bot's venue account again; enabled while it could not be read; `EPIC-034D`), Fi&x next item (does the first fix the Plan's list of what is left before Start offers: reads the account again, brings the field forward, or selects the bot that is still active; enabled while there is one; `EPIC-034H`) | — | — | — |
 | | Ar&m strategy…, D&isarm strategy (the Strategies panel's selected venue; `EPIC-033K` stage 3) | — | — | — |
 | | Li&ve stream (checkable: Go live / Retry when checked, Cancel / Stop live when unchecked, on the selected bot's chart; `EPIC-034G`) | — | the chart's chip | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
@@ -136,7 +137,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 
 **Until the mode tasks land** (`EPIC-033D` converted the screens as they are; `EPIC-033H`–`033L` rebuild them to the table above, and `EPIC-033P` built the Developer mode and deleted the Dev Board):
 
-- The table's menus, names and shortcuts hold where a screen already has the command: Trade's Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
+- The table's menus, names and shortcuts hold where a screen already has the command: Trade's Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Save and start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
 - Emergency stop is on every mode's toolbar since the single Trade mode (`EPIC-033I` stage 1), and stops every enabled venue: from another mode no venue shows, and the person pressing it wants trading stopped. Its confirmation names each venue and what it closes there.
 - Trade's Cancel order (Del) and Cancel all orders drive the chosen venue's account tables, which ask with their verbs (Cancel order / Keep order, Cancel all orders / Keep orders); the tables have no toolbar, and their rows' context menus repeat the commands (`EPIC-033I` stage 3). There is no Enable live trading command (`EPIC-034C`): starting a bot, arming a strategy and placing an order open the venue's order session after reconciling the account, and Emergency stop closes it; placing an order asks Place order / Cancel.
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:

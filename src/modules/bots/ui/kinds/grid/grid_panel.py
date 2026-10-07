@@ -48,6 +48,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
     CAPITAL,
+    FIELD_LABELS,
+    FIELDS_OF_CODE,
     GRID_COUNT,
     LOWER,
     SPACING,
@@ -222,13 +224,17 @@ class GridPanel(BotKindPanel):
 
     def _build_field_layout(self) -> None:
         form = QFormLayout()
-        form.addRow("Lower price", self._row(LOWER, self.lower_price))
-        form.addRow("Upper price", self._row(UPPER, self.upper_price))
-        form.addRow("Grids", self._row(GRID_COUNT, self.grid_count))
-        form.addRow("Spacing", self._row(SPACING, self.spacing))
-        form.addRow("Capital (quote)", self._row(CAPITAL, self.capital))
-        form.addRow("Stop loss", self._row(STOP_LOSS, self.stop_loss))
-        form.addRow("Take profit", self._row(TAKE_PROFIT, self.take_profit))
+        rows = (
+            (LOWER, self.lower_price),
+            (UPPER, self.upper_price),
+            (GRID_COUNT, self.grid_count),
+            (SPACING, self.spacing),
+            (CAPITAL, self.capital),
+            (STOP_LOSS, self.stop_loss),
+            (TAKE_PROFIT, self.take_profit),
+        )
+        for key, editor in rows:
+            form.addRow(FIELD_LABELS[key], self._row(key, editor))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.toolbar)
@@ -269,6 +275,10 @@ class GridPanel(BotKindPanel):
         else:
             (editor.value if isinstance(editor, _ExitField) else editor).setFocus()
         return True
+
+    def field_label(self, code: str) -> str | None:
+        keys = FIELDS_OF_CODE.get(code)
+        return " and ".join(FIELD_LABELS[key] for key in keys) if keys else None
 
     def field_error_text(self, key: str) -> str:
         """What a field says now, `""` when nothing is about it."""
