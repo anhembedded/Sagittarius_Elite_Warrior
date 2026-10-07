@@ -86,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protectiv
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
     no_key_text,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
+    LiveChartState,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -182,6 +185,7 @@ class DeskPresenter(BasePresenter):
             self.order_entry.entryPlaced.connect(
                 lambda placed: follower.expect(*placed)
             )
+        self._stale_price_notice = False
         self._wire()
         if self.session.is_open:
             # The session opened before this desk did (another visit, a bot
@@ -227,6 +231,27 @@ class DeskPresenter(BasePresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
+        chart.liveStateChanged.connect(self._on_live_state)
+
+    def _on_live_state(self, state: LiveChartState) -> None:
+        """The order panel is valued at the chart's last price: with trading
+        on, a chart that stopped being live (History) or failed (Error) says
+        so, and the notice goes once it is Live again (`EPIC-034G`). Connecting
+        says nothing: a desk opened with trading on is connecting, not stale."""
+        if state is LiveChartState.LIVE:
+            if self._stale_price_notice:
+                self._stale_price_notice = False
+                self.desk.set_status("", False)
+            return
+        if state is LiveChartState.CONNECTING or not self.session.is_open:
+            return
+        command = "Retry" if state is LiveChartState.ERROR else "Go live"
+        self._stale_price_notice = True
+        self.desk.set_status(
+            "The price feed is not live: orders are valued at the last stored "
+            f"close. Use {command} on the chart.",
+            False,
+        )
 
     def _on_last_price(self, price: Decimal) -> None:
         self.order_entry.update_last_price(price)

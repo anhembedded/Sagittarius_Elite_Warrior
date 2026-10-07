@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import 
     ChartCommandMirror,
     chart_command_actions,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_mirror import (
+    LiveStreamMirror,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
@@ -58,6 +61,7 @@ class ChartHistoryCommands(QObject):
         self._view = view
         self._charts = charts
         self._chart_commands = ChartCommandMirror(CHART_PREFIX, self)
+        self._live_stream = LiveStreamMirror(CHART_PREFIX, self)
         view.current_chart_changed.connect(lambda _symbol: self.refresh())
 
     def bind_commands(self, binder: ICommandBinder) -> None:
@@ -81,6 +85,7 @@ class ChartHistoryCommands(QObject):
             initially_enabled=self._front_shows_range(),
         )
         self._chart_commands.bind_commands(binder)
+        self._live_stream.bind_commands(binder)
         self._follow_front()
 
     def watch(self, chart: MarketChart) -> None:
@@ -134,6 +139,7 @@ class ChartHistoryCommands(QObject):
         self._chart_commands.follow_chart(
             chart_command_actions(chart.chart) if chart is not None else None
         )
+        self._live_stream.follow_chart(chart)
 
     def _front(self) -> MarketChart | None:
         return self._charts().get(self._view.current_symbol)

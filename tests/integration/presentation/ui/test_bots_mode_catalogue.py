@@ -37,6 +37,7 @@ BOTS_MENU = [
     "Fit levels",
     "Arm strategy…",
     "Disarm strategy",
+    "Live stream",
 ]
 #: HLD §11.2.3: the Bots commands with "Bots" in the toolbar column.
 BOTS_TOOLBAR = [

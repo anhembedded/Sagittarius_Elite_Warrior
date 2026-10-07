@@ -29,7 +29,7 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
   the three history loads another, so a separator sets the choice of market
   apart from the chart commands.
 - **View → Chart:** the chart toolbar's own actions (More timeframes…, the
-  zooms, Go live) as commands, since a toolbar's buttons take no keyboard
+  zooms, Follow latest) as commands, since a toolbar's buttons take no keyboard
   focus (`BOT-156`, `chart_commands.py`); they act on the chart in front.
 - **Tools → Indicator parameters…:** edits the parameters of the script
   selected in the Indicators panel, in the dialog the Dev Board used for it
@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     chart_commands,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    live_stream_command,
 )
 
 FILE_MENU = ("&File",)
@@ -132,6 +135,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             group=CHART_HISTORY,
         ),
         *chart_commands("trading", CHART_PREFIX, route, CHART_MENU),
+        live_stream_command("trading", CHART_PREFIX, route, CHART_MENU),
         CommandContribution(
             contributor_id="trading",
             command_id=INDICATOR_PARAMS,
