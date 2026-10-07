@@ -38,7 +38,9 @@ sound, I start it, and I watch what it does."*
 3. The new bot is selected. The app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
-   the bot's chart; Bots → **Fit levels** scales the price axis to show them all.
+   the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
+   reads stored candles until the trader's **Go live** on its chip opens a view-only price stream
+   (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`).
 4. The trader sets the parameters in the Plan panel, the kind's editor (lower and upper price, grids, spacing,
    capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
    one verdict is Refused and names them. The verdicts and the preview follow each edit.
@@ -138,6 +140,7 @@ available while it runs.
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
 | The chart is central; Bots, Plan, Orders, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
+| A draft's chart goes live only by the trader's command and draws what streams; a chart at rest draws no live candle; a running bot's chart is Live on its own | `tests/unit/modules/bots/ui/chart/test_bot_chart_live_state.py` | unit |
 | The chart, Plan, Orders, Fills and Log follow the selection, and say what to do with none | `tests/unit/modules/bots/ui/bots_screen/test_bots_selection.py` | unit (real bots graph) |
 | The Bots menu and the mode's toolbar hold exactly HLD §11.2.3's Bots commands | `tests/integration/presentation/ui/test_bots_mode_catalogue.py` | integration (booted app) |
 | Orders and fills are written in the bot's symbol filters; every column aligns, and its digits sit, by its kind | `tests/unit/modules/bots/ui/bots_screen/test_bot_tables_precision.py` · `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | unit · integration (fake exchange) |

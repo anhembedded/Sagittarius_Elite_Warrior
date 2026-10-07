@@ -23,6 +23,9 @@ class LiveChartCallbacks:
     #: The load asked with this token settled (drawn, empty or failed).
     #: Never called once the token is cancelled (`BUG-150`).
     load_finished: Callable[[CancellationToken], None]
-    stream_started: Callable[[str], None]
-    stream_failed: Callable[[str], None]
+    #: `(the request's token, a line)`: the chart matches the token to its
+    #: current request, so a report that was on its way when the request was
+    #: replaced (a new symbol, a Retry) moves nothing (`EPIC-034G`).
+    stream_started: Callable[[CancellationToken, str], None]
+    stream_failed: Callable[[CancellationToken, str], None]
     log: Callable[[str], None]

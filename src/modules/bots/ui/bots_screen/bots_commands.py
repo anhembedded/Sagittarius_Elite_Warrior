@@ -30,12 +30,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_commands import (
     all_kind_commands,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    live_stream_command,
+)
 
 from .bot_action_rules import BotAction
 
 BOTS_MENU = ("&Bots",)
 _CONTRIBUTOR = "bots"
 _PREFIX = "bots.bots"
+#: The prefix of the commands that follow the selected bot's chart.
+COMMAND_PREFIX = _PREFIX
 
 NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
@@ -100,6 +105,7 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         ),
         command(REFRESH_FILLS, "Refresh &fills", on_toolbar=False),
         command(FIT_LEVELS, "Fit &levels", on_toolbar=False),
+        live_stream_command(_CONTRIBUTOR, _PREFIX, route, BOTS_MENU, "Li&ve stream"),
         # The Strategies panel's selected venue: M and I are free in the menu.
         command(ARM_STRATEGY, "Ar&m strategy…", on_toolbar=False, needs_input=True),
         command(DISARM_STRATEGY, "D&isarm strategy", on_toolbar=False),

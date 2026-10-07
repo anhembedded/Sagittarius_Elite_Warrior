@@ -42,6 +42,7 @@ class GridBacktest(BotBacktest):
                 stream_owner=BACKTEST_CHART_OWNER,
                 interval="15m",
                 market=MarketType.SPOT,
+                live_commands=False,
             )
         )
         coordinator = GridBacktestCoordinator(

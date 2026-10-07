@@ -38,7 +38,15 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed impo
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_mirror import (
+    LiveStreamMirror,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+from .bots_commands import COMMAND_PREFIX
 
 #: The timeframe a bot's chart opens on; the chart's own picker changes it.
 BOT_CHART_INTERVAL = "1h"
@@ -76,6 +84,12 @@ class BotChartHost:
         self._chart: BotChart | None = None
         self._card: ChartCard | None = None
         self._bot_id: str | None = None
+        self._live_stream = LiveStreamMirror(COMMAND_PREFIX)
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        """Binds Live stream, which follows the selected bot's chart."""
+        self._live_stream.bind_commands(binder)
+        self._live_stream.follow_chart(self._chart)
 
     def show(self, bot: BotSnapshot | None) -> QWidget | None:
         """The chart for `bot`, built anew when the bot differs; `None` for no bot."""
@@ -97,9 +111,11 @@ class BotChartHost:
             ),
             parent=card,
         )
+        chart.attach_ticks(self._ports.ticks)
         chart.logged.connect(partial(self._on_chart_said, bot.bot_id))
         chart.show_symbol(bot.symbol)
         self._card, self._chart, self._bot_id = card, chart, bot.bot_id
+        self._live_stream.follow_chart(chart)
         self._follow_if_live(bot)
         return card
 
@@ -126,6 +142,7 @@ class BotChartHost:
 
     def close(self) -> None:
         """Releases the chart's stream and its load in flight. Safe to call twice."""
+        self._live_stream.follow_chart(None)
         if self._chart is not None:
             self._chart.shutdown()
         if self._card is not None:

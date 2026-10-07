@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     chart_commands,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    live_stream_command,
+)
 
 TRADE_MENU = ("T&rade",)
 VENUE_MENU = ("T&rade", "&Venue")
@@ -161,6 +164,7 @@ def trade_commands(
             checkable=True,
         ),
         *chart_commands(_CONTRIBUTOR, CHART_PREFIX, route, CHART_MENU),
+        live_stream_command(_CONTRIBUTOR, CHART_PREFIX, route, CHART_MENU),
     )
 
 

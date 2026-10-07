@@ -32,5 +32,8 @@ An application port `IVenueAccountReader` returning a `VenueAccountSnapshot` or 
 ## 5. Testing
 Unit: the classification of an HTML answer, red first; the gate on the real presenter. Integration on the composed app with the fake Binance server. A reviewer is required. Not run.
 
+## Resume
+- **Owns the Go live gate (handed over by `EPIC-034G`, 2026-10-07).** The chart's Go live for a draft bot (D9) is offered unconditionally today (`LiveCandleChart.run_command`, `BotChart`). This task disables that command until the account is read, as its criterion "the chart waits for Connect" requires. Not done in 034G because the Connect step did not exist.
+
 ## Implementation notes (written when done)
 Not started.

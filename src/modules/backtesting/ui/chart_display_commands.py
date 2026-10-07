@@ -14,7 +14,7 @@ the mode's other commands, it follows the toolbar drawn at that moment, and
 is parented to the presenter's view model. The view rebuilds the toolbar
 with every symbol it draws; `follow_controls_of()` hands each new one over.
 
-The chart card's own toolbar (zoom, Go live, More timeframes…) is in the
+The chart card's own toolbar (zoom, Follow latest, More timeframes…) is in the
 same submenu (`BOT-156`), kept in step by a `ChartCommandMirror` that
 follows the first card, the one the chart toolbar above it drives.
 """
