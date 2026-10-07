@@ -20,6 +20,12 @@ class ConfigKeys(str, Enum):
     #: Endpoint resolution is a function of this venue, computed by
     #: `binance_endpoints.py`, not a second config key to keep in sync.
     #: Values are `MarketDataVenue` members.
+    #:
+    #: `BUG-172` — read for the screens that act on **no** trading venue (Data mode,
+    #: the Market mode, a plain historical backtest) and for nothing else: every
+    #: desk, bot and venue backtest reads its own venue's market
+    #: (`TradingVenue.market_data_venue`), whatever this says.
+    #: `test_a_venue_screen_charts_its_own_venues_market.py` lists its only readers.
     EXCHANGE_MARKET_DATA_VENUE = "exchange.market_data_venue"
     #: `EPIC-021F` — separate from `EXCHANGE_MARKET_DATA_VENUE` on purpose
     #: (ADR §2): where chart data comes from and where an order would be

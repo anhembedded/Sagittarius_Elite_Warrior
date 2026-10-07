@@ -1,14 +1,16 @@
-"""What the environment banner says, computed once from `VenueAlignment`
-(`EPIC-021K`).
+"""What the environment banner says: which funds each enabled venue trades.
 
-@details `EXCHANGE_MARKET_DATA_VENUE` is read only at boot
-(`resolve_market_data_venue`, `binance_endpoints.py`) — Settings has no UI
-control for it (grep confirms), so it is file-edit-and-restart config, same
-tier as `DEFAULT_SYMBOLS`/`DEFAULT_INTERVAL`; the trading venues are every
-venue the build assembles (`EPIC-034B`). `VenueAlignment` is therefore fixed
-for the whole session, and `EnvironmentBannerContent` needs no signal to
-notify a change that can never happen — it is a plain, immutable
-projection, not a reactive ViewModel.
+@details Computed once from the venues the build assembles (`EPIC-034B`), so it is
+fixed for the whole session and needs no signal — a plain, immutable projection,
+not a reactive ViewModel.
+
+The banner used to judge, per venue, whether the chart's market matched the
+market the orders fill in (an alignment check, `EPIC-021K`) and to warn of a
+mismatch. Since `BUG-172` the chart a screen shows *is* its venue's own market
+(`TradingVenue.market_data_venue`), so no mismatch can occur on a venue screen and
+none of those states is left. Only the screens that act on no venue (Data mode, a
+plain historical backtest) read the configured `exchange.market_data_venue`, and
+they place no orders.
 """
 
 from __future__ import annotations
@@ -19,13 +21,10 @@ from enum import Enum
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
-    VenueAlignment,
-)
 
 
 class BannerSeverity(Enum):
-    """@brief How alarming the venue situation is, named by what it means.
+    """@brief How alarming the banner is, named by what it means.
 
     @details The banner shows it with the icon and the weight of its text,
     never by colour alone (`ui-presentation-rule.md` §1).
@@ -36,62 +35,30 @@ class BannerSeverity(Enum):
     DANGER = "danger"
 
 
-#: English copy, translated from the task's own worked mock (`EPIC-021K`
-#: §2.1's table).
-_CONTENT: dict[VenueAlignment, tuple[str, str, BannerSeverity]] = {
-    VenueAlignment.ALIGNED: (
-        "ⓘ",
-        "TESTNET — simulated funds.",
-        BannerSeverity.WARN,
-    ),
-    VenueAlignment.MARKET_MISMATCH: (
-        "⚠",
-        "Chart is showing a different market than your orders trade in. Price shown is not the order's fill market.",
-        BannerSeverity.DANGER,
-    ),
-    VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: (
-        "⚠",
-        "Chart is showing MAINNET prices, orders fill on TESTNET. Price shown ≠ fill price.",
-        # No money is at risk: the only cost is a price mismatch on a test venue
-        # (`EPIC-034` D11 — it was DANGER while the testnet was the only venue).
-        BannerSeverity.WARN,
-    ),
-    VenueAlignment.DATA_TESTNET_ORDERS_MAINNET: (
-        "⚠",
-        (
-            "Chart is showing TESTNET prices, orders fill on MAINNET with REAL MONEY. "
-            "Set the chart's data source to mainnet."
-        ),
-        BannerSeverity.DANGER,
-    ),
-}
-
-
 @dataclass(frozen=True)
 class EnvironmentBannerContent:
     """@brief Everything `EnvironmentBanner` renders — icon, message,
-    severity — as plain, already-decided values. No `VenueAlignment`
-    logic lives in the widget itself."""
+    severity — as plain, already-decided values."""
 
     icon: str
     message: str
     severity: BannerSeverity
 
 
-def venue_alignment_banner_content(
-    alignment: VenueAlignment, venues: tuple[TradingVenue, ...] = ()
-) -> EnvironmentBannerContent:
-    """@param venues The enabled venues (`EPIC-028K`). While aligned, the
-    banner names every one of them, since every desk may be open at once, and says
-    whether its funds are simulated or real; it used to say "FUTURES TESTNET" even
-    when only Spot was enabled."""
-    icon, message, severity = _CONTENT[alignment]
-    if alignment is VenueAlignment.ALIGNED and venues:
-        message = _aligned_message(venues)
-    return EnvironmentBannerContent(icon=icon, message=message, severity=severity)
+def venue_banner_content(venues: tuple[TradingVenue, ...]) -> EnvironmentBannerContent:
+    """@brief Names every enabled venue and whether its funds are simulated or
+    real (`EPIC-028K`, `EPIC-034` D11): every desk may be open at once.
+
+    @raise ValueError `venues` is empty: a build assembles at least one.
+    """
+    if not venues:
+        raise ValueError("the environment banner names at least one venue")
+    return EnvironmentBannerContent(
+        icon="ⓘ", message=_funds_message(venues), severity=BannerSeverity.WARN
+    )
 
 
-def _aligned_message(venues: tuple[TradingVenue, ...]) -> str:
+def _funds_message(venues: tuple[TradingVenue, ...]) -> str:
     """The testnets are simulated funds and the mainnets are real money
     (`EPIC-034` D11): both are said when both are there, each for its own."""
     sentences = [

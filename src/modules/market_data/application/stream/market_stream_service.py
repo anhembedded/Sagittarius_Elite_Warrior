@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
     IMarketStream,
     StreamOutcome,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 #: What a caller is told when the dispatcher answered nothing — no handler
 #: bound, or a test double that returns `None`. Named because it is the one
@@ -46,10 +49,15 @@ _NO_ANSWER = "the live stream command was not answered"
 
 
 class MarketStreamService(IMarketStream):
-    """The module's answer to "stream these symbols for me"."""
+    """The module's answer to "stream these symbols for me", for one venue.
 
-    def __init__(self, dispatcher: ICommandDispatcher) -> None:
+    `BUG-172`: bound to the venue whose stream it opens, so a desk's owner id
+    holds its subscription on that venue's connection and no other's.
+    """
+
+    def __init__(self, dispatcher: ICommandDispatcher, venue: MarketDataVenue) -> None:
         self._dispatcher = dispatcher
+        self._venue = venue
 
     def start(
         self,
@@ -67,11 +75,12 @@ class MarketStreamService(IMarketStream):
             market_type=market_type,
             symbols=list(symbols),
             interval=interval,
+            venue=self._venue,
         )
         return self._outcome(self._dispatcher.dispatch(StartLiveStreamCommand, command))
 
     def stop(self, owner_id: str) -> StreamOutcome:
-        command = StopLiveStreamCommand(owner=owner_id)
+        command = StopLiveStreamCommand(owner=owner_id, venue=self._venue)
         return self._outcome(self._dispatcher.dispatch(StopLiveStreamCommand, command))
 
     @staticmethod

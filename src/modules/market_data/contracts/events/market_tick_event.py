@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from sagittarius_engine.domain.base_event import BaseEvent
 
 
@@ -35,7 +38,16 @@ class MarketTickEvent(BaseEvent):
     never drive a Futures strategy or chart. Keyword-only with no default —
     a producer that forgets it is a `TypeError`, never a candle silently
     labelled Spot.
+
+    @par `market_data_venue` (`BUG-172`)
+    Which environment's stream the candle came from. Spot Testnet's `BTCUSDT`
+    and Spot Mainnet's are two series with two prices, and every venue now
+    streams its own, so a consumer keeps only the candles of the venue it acts
+    on (`TradingVenue.market_data_venue`): a testnet candle must never drive a
+    mainnet strategy, bot or chart. Keyword-only with no default, for the reason
+    `market_type` has none.
     """
 
     market_data: MarketData
     market_type: MarketType = field(kw_only=True)
+    market_data_venue: MarketDataVenue = field(kw_only=True)

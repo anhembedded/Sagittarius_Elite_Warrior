@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_view import (
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -117,6 +120,7 @@ def _deps(
         stream=stream or FakeMarketStream(),
         candles={MarketType.SPOT: sources[0], MarketType.FUTURES_USD_M: sources[1]},
         history=sources[2],
+        venue=MarketDataVenue.MAINNET_PUBLIC,
         thread_manager=threads,
         scripts=scripts,
         # As `market_dependencies_for` builds it: the charts read the store

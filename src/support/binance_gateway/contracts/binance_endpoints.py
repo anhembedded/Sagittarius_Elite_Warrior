@@ -35,10 +35,12 @@ _DEFAULT_MARKET_DATA_VENUE = MarketDataVenue.MAINNET_PUBLIC
 #: `python-binance`'s `Client(testnet=...)` is one flag that redirects every
 #: API family's host at once (`base_client.py`'s `_create_api_uri`/
 #: `_create_futures_api_uri` both check it) — there is no per-call override,
-#: so one client instance always serves exactly one of these two rows.
+#: so one client instance always serves exactly one environment: the testnet
+#: members share the flag, and the market picks which testnet host answers.
 _TESTNET_FLAG: dict[MarketDataVenue, bool] = {
     MarketDataVenue.MAINNET_PUBLIC: False,
     MarketDataVenue.FUTURES_TESTNET: True,
+    MarketDataVenue.SPOT_TESTNET: True,
 }
 
 #: Which `klines_type` `get_historical_klines_generator()` should use for a

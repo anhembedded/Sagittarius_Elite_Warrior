@@ -37,4 +37,14 @@ ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src", "*.py"), ("scripts", "*.py")),
     ),
     ("tests/unit/architecture/test_every_order_is_reconciled.py", (("src", "*.py"),)),
+    # `BUG-172` — a chart is its venue's own market: who may read the setting,
+    # and which trees must not take the default venue's ports.
+    (
+        "tests/unit/architecture/test_a_venue_screen_charts_its_own_venues_market.py",
+        (
+            ("src", "*.py"),
+            ("src/modules/trading/ui/desk", "*.py"),
+            ("src/modules/bots", "*.py"),
+        ),
+    ),
 )

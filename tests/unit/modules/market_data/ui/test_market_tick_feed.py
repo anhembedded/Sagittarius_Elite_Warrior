@@ -19,10 +19,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
     MarketTickFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
+_VENUE = MarketDataVenue.MAINNET_PUBLIC
 
-def _tick(market: MarketType) -> MarketTickEvent:
+
+def _tick(market: MarketType, source: MarketDataVenue = _VENUE) -> MarketTickEvent:
     moment = datetime(2026, 9, 29, tzinfo=UTC)
     return MarketTickEvent(
         market_data=MarketData(
@@ -41,12 +46,13 @@ def _tick(market: MarketType) -> MarketTickEvent:
             taker_buy_quote_asset_volume=50.0,
         ),
         market_type=market,
+        market_data_venue=source,
     )
 
 
 def test_only_the_screens_market_is_passed_on(qapp) -> None:
     bus = MemoryEventBus()
-    feed = MarketTickFeed(bus, lambda: MarketType.FUTURES_USD_M)
+    feed = MarketTickFeed(bus, lambda: MarketType.FUTURES_USD_M, _VENUE)
     seen: list[MarketTickEvent] = []
     feed.marketTick.connect(seen.append)
 
@@ -61,7 +67,7 @@ def test_the_market_is_read_per_tick(qapp) -> None:
     lives on; a Feed fixed at construction would keep the first market."""
     bus = MemoryEventBus()
     current = [MarketType.SPOT]
-    feed = MarketTickFeed(bus, lambda: current[0])
+    feed = MarketTickFeed(bus, lambda: current[0], _VENUE)
     seen: list[MarketTickEvent] = []
     feed.marketTick.connect(seen.append)
 
@@ -74,3 +80,18 @@ def test_the_market_is_read_per_tick(qapp) -> None:
         MarketType.SPOT,
         MarketType.FUTURES_USD_M,
     ]
+
+
+def test_only_the_screens_venue_is_passed_on(qapp) -> None:
+    """`BUG-172` — every venue streams its own market, so Spot Testnet's
+    `BTCUSDT@1m` and Spot Mainnet's are two series on one bus: a screen of one
+    hears nothing of the other."""
+    bus = MemoryEventBus()
+    feed = MarketTickFeed(bus, lambda: MarketType.SPOT, MarketDataVenue.SPOT_TESTNET)
+    seen: list[MarketTickEvent] = []
+    feed.marketTick.connect(seen.append)
+
+    bus.emit(_tick(MarketType.SPOT, MarketDataVenue.MAINNET_PUBLIC))
+    bus.emit(_tick(MarketType.SPOT, MarketDataVenue.SPOT_TESTNET))
+
+    assert [event.market_data_venue for event in seen] == [MarketDataVenue.SPOT_TESTNET]

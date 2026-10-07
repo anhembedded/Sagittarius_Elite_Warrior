@@ -30,4 +30,8 @@ class LiveChartCallbacks:
     #: `(token, headline, detail)`: what failed as a sentence, and the technical
     #: text behind Details… (`BOT-169`); never one string with the exception.
     stream_failed: Callable[[CancellationToken, str, str], None]
+    #: `(token, headline, detail)`: the history could not be loaded or fetched, at
+    #: rest, with no stream involved (`BUG-172`). Unlike `stream_failed` it does not
+    #: move the chart to Error, whose Retry would go live; its Retry loads again.
+    load_failed: Callable[[CancellationToken, str, str], None]
     log: Callable[[str], None]

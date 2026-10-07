@@ -41,12 +41,20 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqla
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler import (
     StoredKlinesReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     CONFIG,
     TERMS,
 )
 
 T0 = datetime(2026, 9, 1, tzinfo=UTC)
+#: The venue whose stored candles the replay reads (`BUG-172`).
+VENUE = TradingVenue.SPOT_TESTNET
 SYMBOL = "BTCUSDT"
 SECONDS = 2 * 60 * 60
 
@@ -119,8 +127,14 @@ def repository(tmp_path) -> Iterator[SQLAlchemyMarketDataRepository]:
 
 
 def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
-    handler = RunGridBacktestQueryHandler(StoredKlinesReader(repository), repository)
-    result = handler.execute(
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            VENUE.market_data_venue,
+            history=StoredKlinesReader(repository),
+            repository=repository,
+        )
+    )
+    result = RunGridBacktestQueryHandler(sources).execute(
         RunGridBacktestQuery(
             SYMBOL,
             CONFIG,
@@ -128,6 +142,7 @@ def _replay(repository: SQLAlchemyMarketDataRepository) -> GridBacktestResult:
             TimeFrame.ONE_MINUTE,
             T0,
             T0 + timedelta(seconds=SECONDS),
+            VENUE,
         )
     )
     assert isinstance(result, GridBacktestResult)

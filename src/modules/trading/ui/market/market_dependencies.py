@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
@@ -37,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_can
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
@@ -93,6 +99,10 @@ class MarketDependencies:
     candles: Mapping[MarketType, ICandleFeed]
     #: The stored candles a chart reads beyond its first window (`EPIC-033S`).
     history: IHistoricalKlines
+    #: The environment the mode reads: the Market mode acts on no venue, so it is
+    #: the default one (`exchange.market_data_venue`), and it hears only that
+    #: stream's ticks (`BUG-172`).
+    venue: MarketDataVenue
     thread_manager: IThreadManager
     scripts: IndicatorScriptRegistry
     #: A script's saved parameters, read on each build so an edit applies to
@@ -115,6 +125,7 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
     config = container.resolve(IConfig)
     values = config.get_all()
     stream = container.resolve(IMarketStream)
+    venue = container.resolve(IMarketDataSources).default_venue
     params = IndicatorScriptParamsStore(config)
     sync = container.resolve(IMarketDataSync)
     history = container.resolve(IHistoricalKlines)
@@ -125,6 +136,7 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
             for market in MARKETS
         },
         history=history,
+        venue=venue,
         thread_manager=container.resolve(IThreadManager),
         scripts=container.resolve(IndicatorScriptRegistry),
         script_params=lambda key: params.load_all().get(key),

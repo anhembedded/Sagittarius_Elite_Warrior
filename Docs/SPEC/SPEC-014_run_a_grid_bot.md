@@ -53,7 +53,8 @@ sound, I start it, and I watch what it does."*
    with the threshold beside the measured value. The planner preview draws the proposed levels on
    the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
    reads stored candles until the trader's **Go live** on its chip opens a view-only price stream
-   (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`).
+   (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`). The chart and the
+   Backtest tab read the bot's own venue's market and stored candles, never another venue's (`BUG-172`).
 4. **Design** (`EPIC-034F`). The trader sets the parameters in the Plan panel, the kind's editor (lower and
    upper price, grids, spacing, capital, stop loss, take profit). Until the lower price, upper price and
    capital are set, the one verdict is Refused and names them. Every constraint on the plan is a named

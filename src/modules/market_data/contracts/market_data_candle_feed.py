@@ -14,10 +14,14 @@ shows (`EPIC-028C`: a Futures desk charts Futures candles).
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    ExchangeRefusedKlinesError,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -30,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
+    CandlesUnavailableError,
     ICandleFeed,
 )
 
@@ -50,16 +55,30 @@ class MarketDataCandleFeed(ICandleFeed):
         self._market = market
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
-        self._sync.sync(
-            MarketDataSyncRequest(
-                symbols=(symbol,),
-                interval=interval,
-                market=self._market,
-                cancellation_requested=cancelled,
+        try:
+            self._sync.sync(
+                MarketDataSyncRequest(
+                    symbols=(symbol,),
+                    interval=interval,
+                    market=self._market,
+                    start_time=(
+                        None
+                        if newest is None
+                        else datetime.now(UTC)
+                        - timedelta(seconds=interval.to_seconds() * newest)
+                    ),
+                    cancellation_requested=cancelled,
+                )
             )
-        )
+        except ExchangeRefusedKlinesError as exc:
+            raise CandlesUnavailableError(exc.reason) from exc
 
     def load_history(
         self, symbol: str, interval: TimeFrame, limit: int

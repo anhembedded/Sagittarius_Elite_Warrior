@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
     FakeVenueContexts,
     fake_venue_context,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -140,7 +143,9 @@ def test_a_market_tick_on_the_bus_reaches_the_live_session() -> None:
 
     event_bus.emit(
         MarketTickEvent(
-            market_data=_market_data("ETHUSDT"), market_type=MarketType.FUTURES_USD_M
+            market_data=_market_data("ETHUSDT"),
+            market_type=MarketType.FUTURES_USD_M,
+            market_data_venue=MarketDataVenue.FUTURES_TESTNET,
         )
     )
 
@@ -167,7 +172,11 @@ def test_boot_subscribes_the_session_the_container_already_holds() -> None:
     tick = _market_data()
 
     event_bus.emit(
-        MarketTickEvent(market_data=tick, market_type=MarketType.FUTURES_USD_M)
+        MarketTickEvent(
+            market_data=tick,
+            market_type=MarketType.FUTURES_USD_M,
+            market_data_venue=MarketDataVenue.FUTURES_TESTNET,
+        )
     )
 
     assert session.ticks and session.ticks[0] is tick
