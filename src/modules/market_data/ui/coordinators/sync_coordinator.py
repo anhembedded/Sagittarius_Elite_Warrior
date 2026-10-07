@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
@@ -21,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_r
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
@@ -65,6 +69,7 @@ class SyncCoordinator:
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
         is_shutdown_requested: Callable[[], bool],
+        notifier: INotifier,
     ) -> None:
         self._view_model = view_model
         self._dispatcher = dispatcher
@@ -73,6 +78,7 @@ class SyncCoordinator:
         self._tracker = tracker
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
         self._ui_single_sync_progress_signal = ui_single_sync_progress_signal
         self._ui_sync_complete_signal = ui_sync_complete_signal
         self._ui_unlock_signal = ui_unlock_signal
@@ -163,7 +169,11 @@ class SyncCoordinator:
                 self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
                 self._ui_sync_complete_signal()
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Sync failed: {exc}")
+            self._failures.command_failed(
+                "market_data.sync_single",
+                "The sync failed. Check the connection and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
@@ -211,7 +221,11 @@ class SyncCoordinator:
             else:
                 self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to dispatch bulk sync: {exc}")
+            self._failures.command_failed(
+                "market_data.sync_bulk",
+                "The bulk sync failed. Check the connection and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None

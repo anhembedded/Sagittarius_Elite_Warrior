@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
@@ -48,6 +51,7 @@ def scan_fixture():
     signals = {
         "ui_log": Mock(),
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_status_table": Mock(),
         "ui_remove_symbol": Mock(),
         "ui_clear_table": Mock(),
@@ -71,6 +75,7 @@ def scan_fixture():
         symbol_catalog=symbol_catalog,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_status_table_signal=signals["ui_status_table"],
         ui_remove_symbol_signal=signals["ui_remove_symbol"],
         ui_clear_table_signal=signals["ui_clear_table"],

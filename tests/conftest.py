@@ -96,13 +96,20 @@ def real_main_window(app_engine, **kwargs):
     commands (`EPIC-033D`), as `build()` makes it. An engine booted with
     `dev.mode` on gets what only developer mode has (`EPIC-033P`)."""
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+    from Sagittarius_Elite_Warrior.src.presentation.ui.notifier import (
+        install_notifier,
+    )
     from sagittarius_engine.interfaces.i_config import IConfig
 
     container = app_engine.context.container
     dev_mode = bool(container.resolve(IConfig).get("dev.mode", False))
-    return MainWindow(
+    # `BOT-169` — bound before any screen is built, as `build()` does.
+    notifier = install_notifier(container)
+    window = MainWindow(
         app_engine, real_screen_registry(container, dev_mode=dev_mode), **kwargs
     )
+    notifier.adopt(window)
+    return window
 
 
 def real_navigable_routes(container) -> list[str]:

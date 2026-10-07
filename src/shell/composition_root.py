@@ -42,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfig
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
 )
@@ -63,6 +64,7 @@ from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notific
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
+from Sagittarius_Elite_Warrior.src.shell.logging_notifier import LoggingNotifier
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
@@ -193,6 +195,10 @@ def create_app(config_manager: ConfigManager) -> App:
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
     # `EPIC-029F` (ADR O4) — modules register in `boot()`, the window asks.
     container.singleton(ICloseObjections, CloseObjections())
+    # `BOT-169` — what a module tells the user goes through one port. A run
+    # with no window logs it; the GUI entry point replaces this with the Qt
+    # presenter before any screen is built.
+    container.singleton(INotifier, LoggingNotifier())
     container.singleton(IConfigReader, EngineConfigReader(config_manager))
     container.singleton(
         ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)

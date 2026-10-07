@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
     StrategyFormViewModel,
 )
@@ -149,6 +152,7 @@ def venue_strategies(
     venues: Sequence[VenueArming],
     ask: Asked | None = None,
     statuses: Statuses | None = None,
+    notifier: RecordingNotifier | None = None,
 ) -> VenueStrategies:
     return VenueStrategies(
         panel,
@@ -158,5 +162,6 @@ def venue_strategies(
             symbol_options=SYMBOLS,
             ask=ask or Asked(),
             set_status=statuses if statuses is not None else Statuses(),
+            notifier=notifier if notifier is not None else RecordingNotifier(),
         ),
     )

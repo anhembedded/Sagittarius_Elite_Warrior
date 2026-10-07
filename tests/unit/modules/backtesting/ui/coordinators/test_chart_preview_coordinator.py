@@ -11,8 +11,19 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
+    BACKTEST_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.coordinators import (
     ChartPreviewCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.failure_reporting import (
+    CAUSE_CHART_PREVIEW,
+    BacktestFailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
@@ -29,6 +40,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
     fully_covered,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.backtesting.ui.coordinators.conftest import (
+    FailingHistoricalKlines,
     FakeBacktestView,
     FakeChartCard,
     FakeChartViewModel,
@@ -46,6 +58,7 @@ def _build(
     execution_mode=BacktestExecutionMode.BAR_CLOSE,
     history=None,
     coverage=None,
+    notifier=None,
 ):
     """Returns the coordinator plus everything a test asserts against."""
     view = FakeBacktestView(card)
@@ -60,6 +73,7 @@ def _build(
         range_coverage=coverage or FakeRangeCoverage(),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         log_dev_trace=lambda *a, **k: None,
+        failures=BacktestFailureReporter(notifier or RecordingNotifier()),
         format_coverage_message=lambda _c: "missing data",
         get_current_config=lambda: SimpleNamespace(
             start_time=start_time,
@@ -248,3 +262,43 @@ def test_run_preview_emits_the_coverage_the_module_answered() -> None:
     emitted_coverage = ctx.calls.emitted[0][1]
     assert emitted_coverage is answered
     assert coverage.was_asked_about("BTCUSDT", MINUTE)
+
+
+def test_a_failed_preview_read_is_a_background_notice_that_retries_the_preview() -> (
+    None
+):
+    """`BOT-169` — the toolbar preview is a background read: an inline bar on
+    the Backtest mode whose Retry asks for the preview again."""
+    history = FailingHistoricalKlines()
+    history.error = RuntimeError("connection reset")
+    notifier = RecordingNotifier()
+    ctx = _build(history=history, notifier=notifier)
+    config = SimpleNamespace(timeframe=MINUTE, start_time=None, end_time=None)
+
+    ctx.c.run_preview(config, preview_id=7)
+
+    notice = notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.cause == CAUSE_CHART_PREVIEW
+    assert notice.scope == BACKTEST_ROUTE
+    assert notice.detail == "connection reset"
+    assert "connection reset" not in notice.headline
+    assert ctx.calls.emitted == []
+    assert notice.retry is not None
+    notice.retry()
+    assert len(ctx.calls.previews) == 1
+
+
+def test_a_preview_that_works_again_clears_the_notice() -> None:
+    history = FailingHistoricalKlines()
+    notifier = RecordingNotifier()
+    ctx = _build(history=history, notifier=notifier)
+    config = SimpleNamespace(timeframe=MINUTE, start_time=None, end_time=None)
+    history.error = RuntimeError("boom")
+    ctx.c.run_preview(config, preview_id=7)
+    assert notifier.cleared == []
+
+    history.error = None
+    ctx.c.run_preview(config, preview_id=8)
+
+    assert notifier.cleared == [CAUSE_CHART_PREVIEW]

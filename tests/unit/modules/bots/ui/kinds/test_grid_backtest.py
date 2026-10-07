@@ -11,10 +11,14 @@ from typing import Any
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     FILL_RULE,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
@@ -263,3 +267,52 @@ def test_closing_the_page_mid_run_drops_the_answer_without_an_error(
     world.pool.run_all()
 
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+
+
+def test_a_backtest_that_raised_is_a_command_failure_not_the_page_text(
+    qtbot: Any,
+) -> None:
+    """`BOT-169`: the page keeps a plain state line; the box says what to do
+    and carries the exception only behind its Details."""
+    world = build_backtest()
+    view = world.backtest.view
+    qtbot.addWidget(view)
+    world.backtest.follow(context())
+    world.dispatcher.raises = ConnectionError("klines store unreachable")
+
+    _run(world, qtbot)
+    world.pool.run_all()
+
+    notice = world.notifier.last
+    assert (notice.kind, notice.cause) == (
+        FailureKind.COMMAND,
+        "bots.backtest.backtest",
+    )
+    assert "unreachable" not in notice.headline
+    assert notice.detail == "klines store unreachable"
+    assert notice.retry is None
+    assert "unreachable" not in view.status.text()
+    assert view.run_button.isEnabled()
+    world.backtest.shutdown()
+
+
+def test_a_sync_that_raised_is_told_as_a_sync_failure(qtbot: Any) -> None:
+    class _Down(FakeMarketDataSync):
+        def sync(self, request) -> None:  # type: ignore[no-untyped-def]
+            raise TimeoutError("exchange timed out")
+
+    world = build_backtest(stored=False, sync=_Down())
+    view = world.backtest.view
+    qtbot.addWidget(view)
+    world.backtest.follow(context())
+    _run(world, qtbot)
+    world.pool.run_all()
+    qtbot.mouseClick(view.sync_button, Qt.MouseButton.LeftButton)
+
+    world.pool.run_all()
+
+    notice = world.notifier.last
+    assert (notice.kind, notice.cause) == (FailureKind.COMMAND, "bots.backtest.sync")
+    assert "sync" in notice.headline and "timed out" not in notice.headline
+    assert notice.detail == "exchange timed out"
+    world.backtest.shutdown()

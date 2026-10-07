@@ -22,25 +22,6 @@ copies were wrong.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
-import pytest
-from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
-    StrategyArmingControlAdapter,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
-    StrategyCatalogReaderAdapter,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
-    StrategyCatalogService,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
     ArmStrategyBlockReason,
     ArmStrategyResult,
@@ -55,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
     FakeStrategyArming,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     ArmedStrategyConfig,
 )
@@ -67,97 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
     DisarmStrategyBlockReason as TradingDisarmStrategyBlockReason,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-    ActionOwnershipTracker,
-)
 
-TEST_STRATEGY_KEY = "ema_crossover"
+from .arming_coordinator_fakes import TEST_STRATEGY_KEY, coordinator_for
+
 _INTERVALS = ["1m", "5m", "1h"]
-
-
-class _FakeCardViewModel:
-    """The Protocol's exact shape, nothing more — a double built from the
-    calls the coordinator makes would pass no matter what it forgot to
-    apply (`pitfalls/tests.md` #5), so this implements what
-    `StrategyArmingCoordinator`'s `StrategyFormState` declares instead."""
-
-    def __init__(self) -> None:
-        self.selected_strategy_key = ""
-        self.live_interval = ""
-        self.sizing_percent = 0.0
-        self.leverage = 0.0
-        self.strategy_options: list[tuple[str, str]] = []
-        self.interval_options: list[str] = []
-        self.bot_params_groups: tuple[ParamGroup, ...] = ()
-        self.bot_params_error = ""
-
-    def set_strategy_options(
-        self,
-        strategy_options: Sequence[tuple[str, str]],
-        interval_options: Sequence[str],
-    ) -> None:
-        self.strategy_options = list(strategy_options)
-        self.interval_options = list(interval_options)
-
-    def set_strategy_selection(
-        self, strategy_key: str, interval: str, sizing_percent: float, leverage: float
-    ) -> None:
-        self.selected_strategy_key = strategy_key
-        self.live_interval = interval
-        self.sizing_percent = sizing_percent
-        self.leverage = leverage
-
-    def set_bot_params(self, groups: tuple[ParamGroup, ...]) -> None:
-        self.bot_params_groups = groups
-
-    def set_bot_params_error(self, message: str) -> None:
-        self.bot_params_error = message
-
-
-@pytest.fixture
-def strategy_registry() -> StrategyRegistry:
-    registry = StrategyRegistry()
-    registry.register(TEST_STRATEGY_KEY, EmaCrossoverStrategy)
-    return registry
-
-
-@pytest.fixture
-def catalog(strategy_registry: StrategyRegistry) -> StrategyCatalogService:
-    """The real, cheap service over an in-memory registry, not a `Mock`:
-    `testing-rule.md` §2 prefers the real thing when it costs nothing."""
-    return StrategyCatalogService(strategy_registry)
-
-
-@pytest.fixture
-def arming() -> FakeStrategyArming:
-    return FakeStrategyArming()
-
-
-@pytest.fixture
-def view_model() -> _FakeCardViewModel:
-    return _FakeCardViewModel()
-
-
-def _coordinator(view_model, catalog, arming, armed=None):
-    """Wraps the raw strategy-owned `catalog`/`arming` fakes with the same
-    adapters `StrategyModule.register()` binds in production
-    (`EPIC-025` PR 4.4c §8) — the coordinator now talks to trading's own
-    `IStrategyCatalogReader`/`IStrategyArmingControl`, never the
-    strategy-owned ports directly. Tests still script and introspect the
-    RAW fake (`arming.armed_with`, `arming.script_arm()`, …), on the other
-    side of that same adapter."""
-    return StrategyArmingCoordinator(
-        view_model=view_model,
-        catalog=StrategyCatalogReaderAdapter(catalog),
-        arming=StrategyArmingControlAdapter(arming),
-        get_active_symbol=lambda: "BTCUSDT",
-        get_armed_config=lambda: armed,
-        tracker=ActionOwnershipTracker(),
-        arm_action_kind="arm_strategy",
-        set_status=lambda _message, _is_error: None,
-        append_log=lambda _line: None,
-        on_armed_changed=lambda _config, _busy: None,
-    )
 
 
 def _seed_saved_selection(
@@ -185,7 +76,7 @@ def test_restore_fills_the_card_without_arming(view_model, catalog, arming):
             strategy_params={"fast_period": 8},
         ),
     )
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
 
     coordinator.restore_into_view_model(_INTERVALS)
 
@@ -199,7 +90,7 @@ def test_restore_fills_the_card_without_arming(view_model, catalog, arming):
 def test_restore_leaves_nothing_armed(view_model, catalog, arming):
     """The card shows the saved choice; the engine stays empty until the
     user presses "Nạp chiến lược" themselves."""
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
 
     coordinator.restore_into_view_model(_INTERVALS)
 
@@ -215,7 +106,7 @@ def test_a_saved_key_that_no_longer_exists_falls_back_without_arming(
             strategy_key="strategy_deleted_last_year", symbol="", interval="1m"
         ),
     )
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
 
     coordinator.restore_into_view_model(_INTERVALS)
 
@@ -226,7 +117,7 @@ def test_a_saved_key_that_no_longer_exists_falls_back_without_arming(
 def test_picking_a_strategy_rebuilds_the_form_but_does_not_arm(
     view_model, catalog, arming
 ):
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     coordinator.on_strategy_selection_changed()
@@ -236,7 +127,7 @@ def test_picking_a_strategy_rebuilds_the_form_but_does_not_arm(
 
 
 def test_arming_calls_the_port_with_what_the_card_shows(view_model, catalog, arming):
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
     view_model.live_interval = "1h"
     view_model.sizing_percent = 12.5
@@ -255,7 +146,7 @@ def test_arming_calls_the_port_with_what_the_card_shows(view_model, catalog, arm
 
 
 def test_invalid_parameters_are_reported_and_not_kept(view_model, catalog, arming):
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     accepted = coordinator.apply_params({"fast_period": "not a number"})
@@ -268,7 +159,7 @@ def test_invalid_parameters_are_reported_and_not_kept(view_model, catalog, armin
 def test_valid_parameters_are_kept_and_carried_into_the_armed_config(
     view_model, catalog, arming
 ):
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     accepted = coordinator.apply_params({"fast_period": "9", "slow_period": "21"})
@@ -286,7 +177,7 @@ def test_a_refused_arm_is_reported_by_the_ports_own_result(view_model, catalog, 
             armed=False, block_reason=ArmStrategyBlockReason.POSITION_OPEN
         )
     )
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     result = coordinator.arm()
@@ -297,7 +188,7 @@ def test_a_refused_arm_is_reported_by_the_ports_own_result(view_model, catalog, 
 
 def test_disarm_calls_the_port(view_model, catalog, arming):
     arming.script_disarm(DisarmStrategyResult(disarmed=True))
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     result = coordinator.disarm()
@@ -312,7 +203,7 @@ def test_a_blocked_disarm_is_reported_not_swallowed(view_model, catalog, arming)
             disarmed=False, block_reason=DisarmStrategyBlockReason.POSITION_OPEN
         )
     )
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
 
     result = coordinator.disarm()
 
@@ -326,7 +217,7 @@ def test_the_armed_summary_distinguishes_two_armings_of_one_strategy(
     """Two runs of the same strategy with different periods are different
     bots; a summary that could not tell them apart would be the same kind
     of half-truth this epic removed from the toggle."""
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     fast = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY,
         symbol="BTCUSDT",
@@ -349,7 +240,7 @@ def test_the_armed_summarys_figures_are_written_by_the_formatter(
 ):
     """`EPIC-033N`: the sizing is a percent and the leverage a figure, as
     every percent and quantity of the app reads."""
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     armed = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY,
         symbol="BTCUSDT",
@@ -367,7 +258,7 @@ def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arm
     """The combo shows a label but must arm by key — deriving one from the
     other by string surgery is how a renamed strategy stops being
     armable."""
-    coordinator = _coordinator(view_model, catalog, arming)
+    coordinator = coordinator_for(view_model, catalog, arming)
     coordinator.restore_into_view_model(_INTERVALS)
 
     options = view_model.strategy_options

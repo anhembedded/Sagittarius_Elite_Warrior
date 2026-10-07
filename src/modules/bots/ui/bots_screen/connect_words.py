@@ -61,28 +61,28 @@ _FAILURES = EnumLabels(
 )
 
 #: What a failure's `detail` says when it names the read that failed.
-_THE_ACCOUNT = "the account"
+THE_ACCOUNT = "the account"
 #: Said after a failure of a bot's venue, whose account Bots → Retry venue
 #: account reads again; the Mainnet account window is opened again instead.
 RETRY_VENUE_ACCOUNT = "Then choose Bots → Retry venue account."
 
 
-def failure_cause(failure: ConnectFailure) -> str:
+#: A read that raised instead of answering: its text is behind Details…
+#: (`BOT-169`), never in the sentence.
+ACCOUNT_UNREADABLE = "The account could not be read."
+
+
+def failure_cause(problem: ConnectFailure) -> str:
     """What went wrong and what to do about it, without how to read again."""
-    sentence = _FAILURES[failure.kind]
-    if failure.detail and failure.detail != _THE_ACCOUNT:
-        return f"{sentence} It stopped while reading {failure.detail}."
+    sentence = _FAILURES[problem.kind]
+    if problem.detail and problem.detail != THE_ACCOUNT:
+        return f"{sentence} It stopped while reading {problem.detail}."
     return sentence
 
 
-def failure_sentence(failure: ConnectFailure) -> str:
-    return f"{failure_cause(failure)} {RETRY_VENUE_ACCOUNT}"
+def failure_sentence(problem: ConnectFailure) -> str:
+    return f"{failure_cause(problem)} {RETRY_VENUE_ACCOUNT}"
 
 
-def error_cause(error: str) -> str:
-    """A read that raised instead of answering."""
-    return f"The account could not be read: {error}."
-
-
-def failure_sentence_for_error(error: str) -> str:
-    return f"{error_cause(error)} {RETRY_VENUE_ACCOUNT}"
+def failure_sentence_for_error() -> str:
+    return f"{ACCOUNT_UNREADABLE} {RETRY_VENUE_ACCOUNT}"

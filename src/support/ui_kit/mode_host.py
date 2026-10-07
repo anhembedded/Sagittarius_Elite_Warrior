@@ -17,6 +17,9 @@ Every mode also has a commands toolbar (`EPIC-033D`): the window places each
 contributed command marked for the toolbar there, as the action its menu entry
 shares. View → Toolbars lists it beside the surface's own toolbars.
 
+A mode's central widget is a frame holding its message bars above the screen
+(`BOT-169`); `view` is the screen itself.
+
 The mode's layout is both: this host's own (the commands toolbar) and the
 surface's (the panels). Window → Reset layout resets both, and the window
 remembers both across a restart, one saved layout per host
@@ -32,7 +35,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QToolBar, QWidget
+from PySide6.QtWidgets import QToolBar, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.message_bar import MessageBarHost
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_stack import ISurfaceStack
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_host import RegionHost
 from sagittarius_engine.extensions.pyside_mvc.runtime.region_kind import RegionKind
@@ -72,11 +76,26 @@ class ModeHost(RegionHost):
         self._view = view
         self._stack = view if isinstance(view, ISurfaceStack) else None
         self._inner = _surface_of(view)
-        self.place_widget(_SCREEN_PLACE, view)
+        # `BOT-169` — the mode's message bars sit above its screen, taking no
+        # height until a background failure is told (`INotifier`).
+        self._message_bars = MessageBarHost()
+        frame = QWidget()
+        column = QVBoxLayout(frame)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(0)
+        column.addWidget(self._message_bars)
+        column.addWidget(view, 1)
+        self._frame = frame
+        self.place_widget(_SCREEN_PLACE, frame)
 
     @property
     def view(self) -> QWidget:
         return self._view
+
+    @property
+    def message_bars(self) -> MessageBarHost:
+        """Where this mode's background failures are shown."""
+        return self._message_bars
 
     def dock_toggle_actions(self) -> tuple[QAction, ...]:
         shown = self._shown_surface()

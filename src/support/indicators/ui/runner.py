@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -16,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
 from sagittarius_engine.runtime.tasks import ResourceScope
 
 from .region_tracker import RegionSpan, ScriptRegionTracker
+from .saved_params_failures import SavedParamsFailures
 
 #: One marker as forwarded to the chart: (x, y, text, color, direction).
 MarkerPoint = tuple[float, float, str, str, str]
@@ -110,6 +112,8 @@ class IndicatorScriptRunner:
         emit_info: Callable[[str, list[InfoField]], None],
         emit_markers: Callable[[str, list[MarkerPoint]], None],
         on_error: Callable[[str], None],
+        notifier: INotifier,
+        scope: str,
         bar_width_seconds: float = _DEFAULT_BAR_WIDTH_SECONDS,
         get_params: Callable[[str], Mapping[str, Any] | None] | None = None,
     ) -> None:
@@ -119,6 +123,7 @@ class IndicatorScriptRunner:
         self._emit_info = emit_info
         self._emit_markers = emit_markers
         self._on_error = on_error
+        self._params_failures = SavedParamsFailures(notifier, scope)
         self._bar_width_seconds = bar_width_seconds
         #: `BOT-063` — a script's saved params, by key. Optional: Backtest's
         #: own `IndicatorScriptRunner` has no per-script params UI, so it
@@ -141,22 +146,8 @@ class IndicatorScriptRunner:
         """
         active: dict[str, ActiveScript] = {}
         for key in enabled_keys:
-            try:
-                script = self._registry.create(key, self._get_params(key))
-            except KeyError:
-                # A stale key (script removed since it was enabled) must not
-                # take the whole Load History down.
-                self._on_error(f"Unknown indicator script: {key}")
+            if (script := self._create(key)) is None:
                 continue
-            except ValueError as exc:
-                # `BOT-063` — saved params are validated at Save time
-                # (`IndicatorScriptParamsSink`), never re-validated on load;
-                # a script's declared bounds tightening in a later release
-                # can strand an old value on disk. Falls back to every
-                # declared default rather than taking Load History/Start
-                # Live down over one script's stale config.
-                self._on_error(f"Ignoring saved params for {key}: {exc}")
-                script = self._registry.create(key)
             active[key] = ActiveScript(
                 script=script,
                 overlay=script.overlay,
@@ -164,19 +155,28 @@ class IndicatorScriptRunner:
             )
         self.active = active
 
+    def _create(self, key: str) -> BaseIndicatorScript | None:
+        """A fresh script of `key`, or `None` for a stale key."""
+        try:
+            script = self._registry.create(key, self._get_params(key))
+        except KeyError:
+            # A stale key must not take the whole Load History down.
+            self._on_error(f"Unknown indicator script: {key}")
+            return None
+        except ValueError as exc:
+            # `BOT-063`: a tightened bound can strand an old saved value; use
+            # the defaults and tell the user (`BOT-169`), keep Load History up.
+            self._params_failures.ignored(key, exc)
+            return self._registry.create(key)
+        self._params_failures.accepted(key)
+        return script
+
     def add_script(self, key: str, candles: Iterable[MarketData] | None = None) -> None:
         """Adds a single script dynamically and optionally feeds it over existing candles."""
         if key in self.active:
             return
-        try:
-            script = self._registry.create(key, self._get_params(key))
-        except KeyError:
-            self._on_error(f"Unknown indicator script: {key}")
+        if (script := self._create(key)) is None:
             return
-        except ValueError as exc:
-            # Same fallback as `rebuild()` above — see its comment.
-            self._on_error(f"Ignoring saved params for {key}: {exc}")
-            script = self._registry.create(key)
         active = ActiveScript(
             script=script,
             overlay=script.overlay,

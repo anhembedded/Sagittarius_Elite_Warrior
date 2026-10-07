@@ -26,6 +26,7 @@ from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     RunGridBacktestQuery,
 )
@@ -44,7 +45,7 @@ SYNCED = "synced"
 class GridBacktestCoordinator(QObject):
     """@brief One backtest or sync at a time, cancellable, answered on Qt."""
 
-    #: The action id, the answer (or `None`), and an error in words (or "").
+    #: The action id, the answer (or `None`), and a failure's detail (or "").
     finished = Signal(int, object, str)
 
     def __init__(
@@ -102,13 +103,13 @@ class GridBacktestCoordinator(QObject):
 
     def _on_pool(self, action_id: int, work: Callable[[], object]) -> None:
         answer: object = None
-        error = ""
+        detail = ""
         try:
             answer = work()
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is shown in words, not lost to a pool thread
             logger.warning("Grid backtest work %s failed: %s", action_id, exc)
-            error = str(exc) or type(exc).__name__
+            detail = failure_detail(exc)
         if self._closed.is_set():
             logger.debug("Grid backtest work %s ended after its page closed", action_id)
             return
-        self.finished.emit(action_id, answer, error)
+        self.finished.emit(action_id, answer, detail)

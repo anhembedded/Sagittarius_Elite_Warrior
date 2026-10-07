@@ -89,12 +89,12 @@ def failed_view(failure: ConnectFailure) -> ConnectView:
     )
 
 
-def errored_view(source: AccountSource, error: str) -> ConnectView:
+def errored_view(source: AccountSource) -> ConnectView:
     return ConnectView(
         ConnectState.FAILED,
         source.venue_title,
         NOT_CONNECTED_STATUS,
-        failure_sentence_for_error(error),
+        failure_sentence_for_error(),
     )
 
 

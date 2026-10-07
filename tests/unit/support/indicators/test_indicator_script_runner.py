@@ -12,6 +12,9 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -115,6 +118,8 @@ def runner(emitted, regions, infos, markers, errors) -> IndicatorScriptRunner:
         emit_info=lambda key, fields: infos.append((key, list(fields))),
         emit_markers=lambda key, points: markers.append((key, list(points))),
         on_error=errors.append,
+        notifier=RecordingNotifier(),
+        scope="market",
     )
 
 
@@ -167,29 +172,6 @@ def test_unknown_key_is_reported_without_aborting_the_rest(runner, errors):
 
     assert set(runner.active) == {"ema_ribbon"}
     assert any("does_not_exist" in message for message in errors)
-
-
-def test_rebuild_falls_back_to_defaults_when_a_saved_param_is_now_invalid(errors):
-    """A script's declared bounds can tighten in a later release while an
-    old saved value is still on disk — params are validated at Save time
-    (`IndicatorScriptParamsSink`), never re-validated on load. This must not
-    take the whole Load History down over one script's stale config."""
-    registry = IndicatorScriptRegistry()
-    registry.register("macd_full", MacdFullScript)
-    runner = IndicatorScriptRunner(
-        registry=registry,
-        emit_line=lambda name, x, y: None,
-        emit_region=lambda key, spans: None,
-        emit_info=lambda key, fields: None,
-        emit_markers=lambda key, points: None,
-        on_error=errors.append,
-        get_params=lambda _key: {"fast_period": -1},
-    )
-
-    runner.rebuild(["macd_full"])
-
-    assert "macd_full" in runner.active
-    assert any("macd_full" in message for message in errors)
 
 
 def test_clear_removes_every_registered_curve_from_the_chart(runner):

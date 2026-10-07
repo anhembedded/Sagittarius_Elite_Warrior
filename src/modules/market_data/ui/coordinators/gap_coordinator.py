@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
@@ -12,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_signal_payloads import (
     GapInspectorPayload,
@@ -53,12 +57,14 @@ class GapCoordinator:
         get_current_fsm_state: Callable[[], UIMode],
         is_shutdown_requested: Callable[[], bool],
         on_check_status_callback: Callable[[str, str], None],
+        notifier: INotifier,
     ) -> None:
         self._dispatcher = dispatcher
         self._thread_manager = thread_manager
         self._tracker = tracker
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
         self._ui_gap_inspector_signal = ui_gap_inspector_signal
         self._ui_unlock_signal = ui_unlock_signal
         self._transition_fsm = transition_fsm
@@ -136,7 +142,11 @@ class GapCoordinator:
             )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"Error inspecting gaps for {symbol}: {exc}")
+            self._failures.command_failed(
+                "market_data.inspect_gaps",
+                "The gap inspection failed. Check the log and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
 
     def run_repair_gap(
@@ -198,7 +208,11 @@ class GapCoordinator:
                 self.run_inspect_gaps(symbol, interval)
                 self._on_check_status_callback(symbol, interval)
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"Failed to repair gap: {exc}")
+            self._failures.command_failed(
+                "market_data.repair_gap",
+                "The gap repair failed. Check the connection and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None
@@ -265,7 +279,11 @@ class GapCoordinator:
                 self.run_inspect_gaps(symbol, interval)
                 self._on_check_status_callback(symbol, interval)
         except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"Failed to repair all gaps: {exc}")
+            self._failures.command_failed(
+                "market_data.repair_all_gaps",
+                "Repairing all gaps failed. Check the connection and try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._cancellation_token = None

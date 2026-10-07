@@ -13,7 +13,16 @@ import logging
 from collections.abc import Sequence
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -26,14 +35,20 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.Bots.NewBot")
 
+_CATALOG_CAUSE = "bots.read.symbols"
+_CATALOG_HEADLINE = (
+    "The Spot symbol list could not be read. Retry, or check the connection."
+)
+
 
 class NewBotSymbols(QObject):
     """@brief The Spot catalog, favourites and recents the New bot picker reads."""
 
     #: Emitted on the main thread when the catalog has been read.
     catalog_ready = Signal()
-    #: Emitted on the main thread with why the catalog could not be read.
-    catalog_failed = Signal(str)
+    #: Emitted on the main thread when the catalog could not be read; the
+    #: message bar carries why (`BOT-169`).
+    catalog_failed = Signal()
 
     # Worker-thread side of the read; the queued connection moves each answer
     # onto the main thread.
@@ -44,9 +59,11 @@ class NewBotSymbols(QObject):
         catalog: ISymbolCatalog,
         threads: IThreadManager,
         preferences: SymbolPreferences,
+        notifier: INotifier,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
+        self._notifier = notifier
         self._catalog = catalog
         self._threads = threads
         self._preferences = preferences
@@ -84,20 +101,33 @@ class NewBotSymbols(QObject):
         except Exception as exc:
             logger.exception("Could not read the Spot symbol list")
             self._asked = False
-            self.catalog_failed.emit(str(exc))
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.BACKGROUND,
+                    _CATALOG_CAUSE,
+                    _CATALOG_HEADLINE,
+                    scope=BOTS_ROUTE,
+                    detail=failure_detail(exc),
+                    retry=self.load_catalog,
+                )
+            )
+            self.catalog_failed.emit()
             return
         self._catalog_read.emit(symbols)
 
     def _on_catalog_read(self, symbols: list[str]) -> None:
         self._listed = symbols
+        self._notifier.clear_failure(_CATALOG_CAUSE)
         self.catalog_ready.emit()
 
 
 def new_bot_symbols(
-    catalog: ISymbolCatalog, threads: IThreadManager, container: IContainer
+    catalog: ISymbolCatalog,
+    threads: IThreadManager,
+    container: IContainer,
+    notifier: INotifier,
 ) -> NewBotSymbols:
     """The picker's data, on the app-wide favourites and recents when the
     container holds them."""
-    return NewBotSymbols(
-        catalog, threads, find_symbol_preferences(container) or SymbolPreferences()
-    )
+    preferences = find_symbol_preferences(container) or SymbolPreferences()
+    return NewBotSymbols(catalog, threads, preferences, notifier)

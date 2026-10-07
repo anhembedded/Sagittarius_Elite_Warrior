@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
@@ -192,8 +193,9 @@ class DataSyncCoordinator:
             )
         except Exception as exc:
             logger.exception("Market data sync failed")
-            self._log_dev_trace("sync_worker_failed", message=str(exc))
-            self._emit_failed(resolved_action_id, str(exc))
+            detail = failure_detail(exc)
+            self._log_dev_trace("sync_worker_failed", message=detail)
+            self._emit_failed(resolved_action_id, detail)
             return
         finally:
             self._active_correlation_id = None

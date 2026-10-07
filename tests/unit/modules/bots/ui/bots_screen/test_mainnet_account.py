@@ -11,8 +11,12 @@ from dataclasses import replace
 
 import pytest
 from PySide6.QtWidgets import QPlainTextEdit
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     MAINNET_ACCOUNT,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
+    ReadKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.mainnet_account_dialog import (
     MainnetAccountDialog,
@@ -140,8 +144,8 @@ def test_no_key_says_where_to_set_one() -> None:
     assert "API key" in text.lines[0]
 
 
-def test_a_read_that_raised_is_said() -> None:
-    assert "boom" in error_text("boom").lines[0]
+def test_a_read_that_raised_is_said_without_its_text() -> None:
+    assert error_text().lines == ("The account could not be read.",)
 
 
 def test_the_command_is_always_available_and_asks_the_screen_to_show_it(
@@ -157,7 +161,9 @@ def test_the_command_is_always_available_and_asks_the_screen_to_show_it(
 
 
 def _open(screen: BotsScreen, qtbot) -> MainnetAccountDialog:
-    dialog = MainnetAccountDialog(screen.view, screen.pool, screen.dispatcher)
+    dialog = MainnetAccountDialog(
+        screen.view, screen.pool, screen.dispatcher, screen.notifier
+    )
     qtbot.addWidget(dialog)
     return dialog
 
@@ -219,3 +225,17 @@ def test_the_window_has_a_read_only_text_and_only_a_close_button(
     assert [
         b.text().replace("&", "") for b in dialog.findChildren(QAbstractButton)
     ] == ["Close"]
+
+
+def test_a_read_that_raised_is_a_command_failure_with_its_text_as_detail(
+    open_bots_screen, qtbot
+) -> None:
+    screen = open_bots_screen()
+    dialog = _open(screen, qtbot)
+
+    dialog._on_failed(ReadKind.MAINNET, "mainnet", "timed out")
+
+    notice = screen.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.detail == "timed out"
+    assert "timed out" not in dialog.body.toPlainText()

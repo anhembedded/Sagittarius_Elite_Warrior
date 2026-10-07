@@ -7,6 +7,9 @@ pool runs inline unless a test hands in a held one."""
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
@@ -55,6 +58,7 @@ class AccountTabsDesk:
         self.snapshot = FakeAccountSnapshot()
         self.submission = FakeOrderSubmission()
         self.threads = threads or InlineThreadManager()
+        self.notifier = RecordingNotifier()
         self.panel = AccountTabsPanel(
             HeldTab.POSITIONS,
             AccountTabConfirmations(
@@ -74,6 +78,7 @@ class AccountTabsDesk:
             ),
             OrderFeed(self.bus, FUTURES, parent=self.panel),
             self.threads,
+            self.notifier,
             clock=lambda: self.now,
         )
 

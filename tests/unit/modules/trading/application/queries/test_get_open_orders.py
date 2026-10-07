@@ -64,6 +64,9 @@ class _OpenOrdersClient(ITradingClient):
     def place_order(self, order: Order) -> Order:
         raise AssertionError("a read never places")
 
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        raise AssertionError("not part of this read")
+
     def cancel_order(self, symbol: str, client_order_id: str) -> Order:
         raise AssertionError("a read never cancels")
 

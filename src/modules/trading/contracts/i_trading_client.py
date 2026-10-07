@@ -36,6 +36,20 @@ class ITradingClient(ABC):
         @return The same order as the exchange acknowledged it — at minimum
         with `status` advanced off `OrderStatus.NEW` if the exchange
         responded synchronously.
+        @raise OrderRejectedByExchangeError The exchange read the order and
+        refused it: nothing is live.
+        @raise OrderOutcomeUnknownError A live submission got no readable
+        answer: the order may be live (`BUG-170`).
+        """
+
+    @abstractmethod
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        """@brief Reads one order by the id this app generated before sending
+        it (`BUG-170`): how a submission whose answer was unreadable is resolved.
+        @return The order as the exchange holds it, or `None` when the
+        exchange answers that it has none with that id.
+        @raise OrderOutcomeUnknownError The exchange could not be asked: the
+        answer is not an API reply, or the transport failed.
         """
 
     @abstractmethod

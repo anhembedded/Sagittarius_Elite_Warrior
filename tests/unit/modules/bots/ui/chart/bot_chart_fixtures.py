@@ -11,6 +11,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
@@ -29,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_stream_owner import (
@@ -80,6 +86,7 @@ class ChartWorld:
     history: FakeHistoricalKlines = field(default_factory=FakeHistoricalKlines)
     stream: FakeMarketStream = field(default_factory=FakeMarketStream)
     market: MarketType = MarketType.SPOT
+    notifier: RecordingNotifier = field(default_factory=RecordingNotifier)
 
 
 def build_chart(world: ChartWorld | None = None) -> tuple[BotChart, ChartCard]:
@@ -93,6 +100,8 @@ def build_chart(world: ChartWorld | None = None) -> tuple[BotChart, ChartCard]:
         stream_owner=bot_stream_owner(BOT),
         interval="1m",
         market=world.market,
+        notifier=world.notifier,
+        scope=BOTS_ROUTE,
     )
     return BotChart(card, ports, parent=card), card
 

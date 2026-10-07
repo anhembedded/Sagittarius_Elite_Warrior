@@ -149,15 +149,26 @@ class DeskPresenter(BasePresenter):
             ports,
             threads,
             deps.confirm or confirm_with_message_box(view),
+            deps.notifier,
             has_key=deps.has_key,
         )
         self._has_key = deps.has_key
         self.tabs = AccountTabsPresenter(
-            view.account_tabs, ports, feeds.orders, threads, has_key=deps.has_key
+            view.account_tabs,
+            ports,
+            feeds.orders,
+            threads,
+            deps.notifier,
+            has_key=deps.has_key,
         )
         view.account_tabs.use_precisions(deps.precisions)
         self.summary = AccountSummaryPresenter(
-            view.account_summary, ports.account_activity, feeds.orders, threads
+            view.account_summary,
+            ports.account_activity,
+            feeds.orders,
+            threads,
+            deps.notifier,
+            profile.venue,
         )
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
         feeds.orders.orderFilled.connect(self.chart.record_fill)
@@ -167,7 +178,7 @@ class DeskPresenter(BasePresenter):
             view.equity_chart, ports.equity_curve, feeds.equity, self
         )
         self.session = DeskSessionControls(
-            ports.trading_session, threads, profile.venue, self
+            ports.trading_session, threads, profile.venue, deps.notifier, self
         )
         # The chart draws what its venue has armed; the Bots mode arms it
         # (`EPIC-033K` stage 3), and says so on the bus.
@@ -179,7 +190,12 @@ class DeskPresenter(BasePresenter):
         self.follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             self.follower = ProtectiveOrderFollower(
-                ports.order_submission, feeds.orders, threads, self.desk.set_status
+                ports.order_submission,
+                feeds.orders,
+                threads,
+                self.desk.set_status,
+                deps.notifier,
+                profile.venue,
             )
             follower = self.follower
             self.order_entry.entryPlaced.connect(

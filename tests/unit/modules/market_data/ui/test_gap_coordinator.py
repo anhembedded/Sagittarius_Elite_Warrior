@@ -3,6 +3,10 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,
@@ -22,6 +26,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.ui.failure_notice_asserts import (
+    EXCEPTION_TEXT,
+    assert_log_list_has_no_exception_text,
+    assert_told_once,
+)
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 
@@ -34,6 +43,7 @@ def gap_fixture():
     signals = {
         "ui_log": Mock(),
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_gap_inspector": Mock(),
         "ui_unlock": Mock(),
         "transition_fsm": Mock(return_value=True),
@@ -48,6 +58,7 @@ def gap_fixture():
         tracker=tracker,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_gap_inspector_signal=signals["ui_gap_inspector"],
         ui_unlock_signal=signals["ui_unlock"],
         transition_fsm=signals["transition_fsm"],
@@ -221,3 +232,30 @@ def test_request_repair_all_gaps_transitions_and_submits(gap_fixture):
     assert method == coordinator.run_repair_all_gaps
     assert (symbol, interval) == ("BTCUSDT", "1m")
     assert token is coordinator.cancellation_token
+
+
+@pytest.mark.parametrize(
+    ("run", "cause"),
+    [
+        (lambda c: c.run_inspect_gaps("BTCUSDT", "1m"), "market_data.inspect_gaps"),
+        (
+            lambda c: c.run_repair_gap(
+                "BTCUSDT", "1m", "2024-01-01T00:00:00", "2024-01-01T01:00:00"
+            ),
+            "market_data.repair_gap",
+        ),
+        (
+            lambda c: c.run_repair_all_gaps("BTCUSDT", "1m"),
+            "market_data.repair_all_gaps",
+        ),
+    ],
+)
+def test_a_failed_gap_job_is_a_command_failure(gap_fixture, run, cause):
+    coordinator, dispatcher, tracker, signals = gap_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    run(coordinator)
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, cause)
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])

@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.ports import (
     IBacktestScreenState,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 
 
 class InMemoryScreenState(IBacktestScreenState):
@@ -90,6 +93,23 @@ class InMemoryScreenState(IBacktestScreenState):
         self.chart_script_keys = (
             chart_script_keys if chart_script_keys is not None else []
         )
+
+
+class FailingHistoricalKlines(FakeHistoricalKlines):
+    """`IHistoricalKlines` whose read raises while `error` is set (`BOT-169`).
+
+    Derived from the verified fake, not a `Mock`: the failure is one scripted
+    outcome of the same port, and a later read can succeed again.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.error: Exception | None = None
+
+    def load(self, *args, **kwargs):
+        if self.error is not None:
+            raise self.error
+        return super().load(*args, **kwargs)
 
 
 @pytest.fixture

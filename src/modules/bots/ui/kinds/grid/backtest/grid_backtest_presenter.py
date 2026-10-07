@@ -20,6 +20,11 @@ import logging
 from datetime import datetime
 
 from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
@@ -57,17 +62,26 @@ logger = logging.getLogger("App.Bots.Backtest")
 _KIND = "grid_backtest"
 _NO_BOT = "Select a bot to backtest its parameters."
 _NO_TERMS = "The market numbers for this symbol are still being read."
+#: What failed, by the action's label: the headline the user reads (`BOT-169`).
+_FAILED_HEADLINES = {
+    "backtest": "The backtest could not run. Check the period and try again.",
+    "sync": "The candle sync could not finish. Check the connection and try again.",
+}
 
 
 class GridBacktestPresenter(QObject):
     """@brief Runs, cancels and shows one Grid backtest at a time."""
 
     def __init__(
-        self, view: GridBacktestView, coordinator: GridBacktestCoordinator
+        self,
+        view: GridBacktestView,
+        coordinator: GridBacktestCoordinator,
+        notifier: INotifier,
     ) -> None:
         super().__init__(view)
         self._view = view
         self._coordinator = coordinator
+        self._notifier = notifier
         self._tracker: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._context: BacktestContext | None = None
         self._last: RunGridBacktestQuery | None = None
@@ -147,16 +161,23 @@ class GridBacktestPresenter(QObject):
 
     # -- answers -------------------------------------------------------------- #
 
-    def _on_finished(self, action_id: int, answer: object, error: str) -> None:
+    def _on_finished(self, action_id: int, answer: object, detail: str) -> None:
         if not self._tracker.is_current_pending(action_id, _KIND):
             self._tracker.log_stale_callback("_on_finished", action_id, _KIND)
             return
+        label = self._active_label()
         self._tracker.finish_action(
-            action_id, ActionOutcome.FAILED if error else ActionOutcome.SUCCEEDED
+            action_id, ActionOutcome.FAILED if detail else ActionOutcome.SUCCEEDED
         )
-        if error:
-            self._view.show_refusal(
-                f"The backtest could not run: {error}", offer_sync=False
+        if detail:
+            self._view.show_refusal("The run failed.", offer_sync=False)
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.COMMAND,
+                    f"bots.backtest.{label}",
+                    _FAILED_HEADLINES.get(label, _FAILED_HEADLINES["backtest"]),
+                    detail=detail,
+                )
             )
         elif answer == SYNCED:
             self._view.show_idle(self._why_not())

@@ -47,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_request imp
     HistoryRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
@@ -152,7 +156,9 @@ class BotOrderGateway:
             logger.exception(
                 "Bot %s: cancel %s raised", self._identity.tag, client_order_id
             )
-            return OrderOutcome(OrderOutcomeKind.FAULT, client_order_id, str(exc))
+            return OrderOutcome(
+                OrderOutcomeKind.FAULT, client_order_id, _fault_text(exc)
+            )
         return _classify_cancel(result, client_order_id)
 
     def market_price(self) -> Decimal:
@@ -234,6 +240,27 @@ class BotOrderGateway:
         self._pacer.wait_turn()
         try:
             result = self._ports.order_submission.submit(request, live=True)
+        except OrderOutcomeUnknownError as unknown:
+            # `BUG-170` — the order may be live. The id is carried so the stop
+            # sequence marks it off the ladder and a later fill is booked as
+            # what it is; the bot itself stops in ERROR, never retries blind.
+            logger.error(
+                "Bot %s: order %s outcome unknown, it may be live: %s",
+                self._identity.tag,
+                unknown.client_order_id,
+                unknown.reason,
+            )
+            return OrderOutcome(
+                OrderOutcomeKind.FAULT, unknown.client_order_id, str(unknown)
+            )
+        except OrderNotPlacedError as refused:
+            logger.warning(
+                "Bot %s: order %s was not placed: %s",
+                self._identity.tag,
+                refused.client_order_id,
+                refused.reason,
+            )
+            return OrderOutcome(OrderOutcomeKind.FAULT, detail=str(refused))
         except Exception as exc:  # converted to a named fault at this seam
             logger.exception(
                 "Bot %s: %s %s %s raised",
@@ -242,8 +269,15 @@ class BotOrderGateway:
                 request.side.value,
                 request.quantity,
             )
-            return OrderOutcome(OrderOutcomeKind.FAULT, detail=str(exc))
+            return OrderOutcome(OrderOutcomeKind.FAULT, detail=_fault_text(exc))
         return _classify_submit(result)
+
+
+def _fault_text(exc: Exception) -> str:
+    """What the bot's state line says of a request that raised: its kind, never
+    its text, which is an exchange's or a library's (`BOT-169`); the exception
+    is in the log (`logger.exception` at each caller)."""
+    return f"the request failed ({type(exc).__name__}); see the log"
 
 
 def _classify_submit(result: ExecuteOrderResult) -> OrderOutcome:

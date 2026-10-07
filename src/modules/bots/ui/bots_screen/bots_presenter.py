@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs impo
     BotsDialogs,
     dialogs_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_failures import (
+    BotsFailures,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
     BOTS_UI_TRANSITIONS,
     BotsUiEvent,
@@ -135,14 +138,14 @@ class BotsPresenter(CommandPresenter):
         view.use_venue_filters(deps.filters)
         self._dialogs = dialogs or dialogs_for(
             view,
-            new_bot_symbols(deps.symbols, threads, container),
-            lambda: show_mainnet_account(view, threads, commands),
+            new_bot_symbols(deps.symbols, threads, container, deps.notifier),
+            lambda: show_mainnet_account(view, threads, commands, deps.notifier),
         )
         self._now = now
         self._catalog, self._venues = deps.kinds, deps.venues
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
         self._charts = BotChartHost(
-            BotChartPorts(threads, feed, self._ticks), self._model.set_status
+            BotChartPorts(threads, feed, self._ticks, deps.notifier)
         )
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
@@ -151,14 +154,18 @@ class BotsPresenter(CommandPresenter):
             ActionOwnershipTracker()
         )
         self._backtests = KindBacktests(
-            BacktestPorts(threads, commands, deps.sync, feed), view.set_backtest_page
+            BacktestPorts(threads, commands, deps.sync, feed, deps.notifier),
+            view.set_backtest_page,
         )
-        self._queries = BotQueries(commands, self._reads)
+        self._queries = BotQueries(commands, self._reads, lambda: self._model.selected)
+        self._failures = BotsFailures(
+            deps.notifier, self._queries.again, self._model.set_fills
+        )
         self._commands = BotActionsCoordinator(commands, threads)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now)
-        self._account = ConnectStep(threads, commands, now, self)
+        self._account = ConnectStep(threads, commands, now, deps.notifier, self)
         self._account_effects = ConnectEffects(
             self._account, view, self._charts, self._selected, self._refresh_detail
         )
@@ -189,7 +196,7 @@ class BotsPresenter(CommandPresenter):
         )
         model.fit_levels_requested.connect(self._charts.fit_levels)
         self._reads.answered.connect(self._on_read_answered)
-        self._reads.failed.connect(self._on_failed)
+        self._reads.failed.connect(self._failures.read_failed)
         self._commands.finished.connect(self._on_finished)
         self._changes.changed.connect(self._on_bot_changed)
         self._log.line.connect(model.append_log_line)
@@ -207,6 +214,7 @@ class BotsPresenter(CommandPresenter):
         self._reread.start()
 
     def _on_read_answered(self, kind: ReadKind, label: str, answer: object) -> None:
+        self._failures.read_recovered(kind)
         selected = self._model.selected
         if kind is ReadKind.LIST and isinstance(answer, BotList):
             self._on_list(answer)
@@ -222,17 +230,9 @@ class BotsPresenter(CommandPresenter):
         elif kind is ReadKind.FILLS and isinstance(answer, BotFills):
             self._model.set_fills(answer)
 
-    def _on_failed(self, kind: ReadKind, label: str, error: str) -> None:
-        if kind is ReadKind.FILLS:
-            self._model.set_fills(BotFills(problem=error))
-            return
-        self._model.set_status(f"Could not read the {kind.value}: {error}", True)
-
     def _on_list(self, bots: BotList) -> None:
         self._model.set_bots(bots.bots)
-        if bots.refused:
-            names = ", ".join(refused.name for refused in bots.refused)
-            self._model.set_status(f"Bot files that could not be read: {names}", True)
+        self._failures.files_refused([refused.name for refused in bots.refused])
         wanted = self._select_after_create or (
             self._model.selected.bot_id if self._model.selected else ""
         )
@@ -333,7 +333,7 @@ class BotsPresenter(CommandPresenter):
         logger.info("Bots screen: %s", label)
         self._commands.send(action.action_id, command)
 
-    def _on_finished(self, action_id: int, result: object, error: str) -> None:
+    def _on_finished(self, action_id: int, result: object, detail: str) -> None:
         if not self._actions.is_current_pending(action_id, ACTION):
             self._actions.log_stale_callback("_on_finished", action_id, ACTION)
             return
@@ -351,8 +351,8 @@ class BotsPresenter(CommandPresenter):
             if pending.action is BotAction.SAVE:
                 self._selected.saved()
         else:
-            reason = result.message if isinstance(result, BotCommandResult) else error
-            self._model.set_status(f"{label}: refused. {reason}", True)
+            self._model.set_status(f"{label}: not done.", True)
+            self._failures.command_refused(label, result, detail)
         logger.info("Bots screen: %s %s", label, "accepted" if accepted else "refused")
         self._dispatch(settled_event(self._model.selected))
         self._follow_selection()

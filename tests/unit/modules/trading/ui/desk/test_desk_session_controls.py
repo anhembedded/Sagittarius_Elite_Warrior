@@ -14,6 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -53,12 +57,16 @@ class Rig:
     session: FakeTradingSession
     threads: HeldThreadManager
     seen: Seen
+    notifier: RecordingNotifier
 
 
 @pytest.fixture
 def rig(qapp) -> Rig:
     session, threads, seen = FakeTradingSession(), HeldThreadManager(), Seen()
-    controls = DeskSessionControls(session, threads, TradingVenue.FUTURES_TESTNET)
+    notifier = RecordingNotifier()
+    controls = DeskSessionControls(
+        session, threads, TradingVenue.FUTURES_TESTNET, notifier
+    )
     controls.statusChanged.connect(lambda text, err: seen.statuses.append((text, err)))
     controls.logged.connect(seen.logs.append)
 
@@ -66,7 +74,7 @@ def rig(qapp) -> Rig:
         seen.rereads += 1
 
     controls.accountChanged.connect(count_reread)
-    return Rig(controls, session, threads, seen)
+    return Rig(controls, session, threads, seen, notifier)
 
 
 def _stop(
@@ -111,6 +119,8 @@ def test_a_partial_stop_reads_as_a_failure(rig: Rig) -> None:
     assert is_error is True
     assert "PARTIALLY FAILED" in text
     assert any("APIError -2011" in line for line in rig.seen.logs)
+    assert rig.notifier.last.kind is FailureKind.COMMAND
+    assert rig.notifier.last.cause == "trading.futures_testnet.emergency_stop.partial"
 
 
 def test_an_unconfirmed_final_state_warns_and_still_rereads(rig: Rig) -> None:
@@ -132,10 +142,15 @@ def test_a_stop_that_raises_is_reported_not_raised(rig: Rig) -> None:
     rig.controls.emergency_stop()
     rig.threads.run(0)  # must not raise
 
-    text, is_error = rig.seen.last_status
-    assert is_error is True
-    assert "timeout" in text
-    assert rig.seen.logs[-1] == "[ERROR] Emergency stop failed: timeout"
+    assert rig.seen.last_status == ("Emergency stop did not run.", True)
+    assert "timeout" not in rig.seen.logs[-1]
+    assert rig.seen.logs[-1].startswith("[ERROR] Emergency stop failed")
+    notice = rig.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.futures_testnet.emergency_stop"
+    assert notice.detail == "timeout"
+    assert "timeout" not in notice.headline
+    assert "still be open" in notice.headline
     assert rig.session.snapshot().enabled is True  # nothing was closed
 
 

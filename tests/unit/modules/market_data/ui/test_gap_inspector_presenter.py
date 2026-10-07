@@ -4,6 +4,10 @@ import os
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,
@@ -57,6 +61,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher):
                 True if key == DEV_MODE_CONFIG_KEY else default
             )
             return mock_config
+        if interface == INotifier:
+            return RecordingNotifier()
         return Mock()
 
     container.resolve.side_effect = resolve_mock
