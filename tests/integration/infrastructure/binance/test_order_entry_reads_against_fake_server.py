@@ -76,6 +76,9 @@ class _Credentials(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise AssertionError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 @contextmanager
 def _fake_exchange() -> Iterator[FakeServerUrls]:

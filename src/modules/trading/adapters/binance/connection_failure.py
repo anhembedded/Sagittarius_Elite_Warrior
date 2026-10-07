@@ -5,7 +5,7 @@ through `classify_connection_failure`, so the code-to-kind table exists once.
 
 Binance `-2015` ("Invalid API-key, IP, or permissions for action") is not an
 expiry: the exchange rejected the key for a reason it does not name — an unknown
-key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
+key (a key of another environment, such as a mainnet key sent to a testnet), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
 `KEY_REJECTED`, as do `-2008` (unknown key) and `-2014` (bad key format). No Binance code means "expired", so no such kind exists.
 
@@ -35,6 +35,14 @@ logger = logging.getLogger("App.TradingAdapter")
 #: Binance error codes that name a failure precisely. Any other
 #: `BinanceAPIException` code — or a failure with no code at all — degrades to
 #: `ConnectionFailureKind.NETWORK`.
+#: `BUG-175`/`BUG-176`: the codes that say the exchange does not know the key
+#: (`-2008` Invalid Api-Key ID, `-2014` API-key format invalid), as against `-2015`,
+#: which says it knows the key and refuses this request. All three are
+#: `KEY_REJECTED`; Add key… on the Options page tells the first two from the third
+#: (the key is for another environment, or it is known and refused here) and reads
+#: them from here, so the codes exist once.
+UNKNOWN_KEY_CODES = frozenset({-2008, -2014})
+
 _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -1021: ConnectionFailureKind.CLOCK_SKEW,
     -1022: ConnectionFailureKind.BAD_SIGNATURE,
@@ -42,8 +50,7 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     #: `BUG-175`: "Invalid Api-Key ID" (the exchange does not know the key: a
     #: testnet key pasted for mainnet, or the reverse) and "API-key format
     #: invalid". Both are about the key, never the network.
-    -2008: ConnectionFailureKind.KEY_REJECTED,
-    -2014: ConnectionFailureKind.KEY_REJECTED,
+    **dict.fromkeys(UNKNOWN_KEY_CODES, ConnectionFailureKind.KEY_REJECTED),
 }
 
 #: `BUG-175`: what to do about the key codes, in plain words. `describe_failure`

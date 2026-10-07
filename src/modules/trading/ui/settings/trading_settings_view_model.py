@@ -1,109 +1,88 @@
-"""`trading`'s own slice of `SettingsViewModel` (`EPIC-025E` PR 4.4e).
+"""`trading`'s Options page state (`BUG-176`): one row per venue, never a key.
 
-Carries exactly the fields this module owns: API credentials and the
-connection check (`EPIC-034B`: no venue toggles — every venue with a key is on). `market_data`'s venue and sync defaults
-moved to `modules/market_data/ui/settings/` instead.
+@details The page holds no credential. A row carries a fingerprint (first and last
+four characters of the key) and the words of its state; what the user types goes
+from the dialog to the use case and nowhere in between.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
 
 
+@dataclass(frozen=True)
+class KeyRow:
+    #: What a row's buttons name when pressed.
+    venue: TradingVenue
+    title: str
+    #: The key's fingerprint and where it is kept; "No key" when there is none.
+    key: str
+    state: str
+    state_is_error: bool
+    has_key: bool
+    #: Whether Replace and Remove can act: not for a key that is an environment variable.
+    editable: bool
+
+
 class TradingSettingsViewModel(StatusMessageViewModel):
     """@brief State for the Trading settings section."""
 
-    apiKeyChanged = Signal()
-    apiSecretChanged = Signal()
-    credentialsSourceChanged = Signal()
-    connectionCheckChanged = Signal()
+    rowsChanged = Signal()
+    busyChanged = Signal()
 
-    #: `EPIC-021D` — emitted when the user clicks "Check Connection".
-    checkConnectionRequested = Signal()
+    addKeyRequested = Signal()
+    replaceKeyRequested = Signal(object)
+    removeKeyRequested = Signal(object)
+    checkConnectionsRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self._api_key = ""
-        self._api_secret = ""
-        self._credentials_source_label = ""
-        self._credentials_locked = False
-        self._connection_checking = False
-        self._connection_result_text = ""
-        self._connection_result_is_error = False
+        self._rows: tuple[KeyRow, ...] = ()
+        self._busy_text = ""
 
     @property
-    def apiKey(self) -> str:
-        return self._api_key
+    def rows(self) -> tuple[KeyRow, ...]:
+        return self._rows
 
-    @apiKey.setter
-    def apiKey(self, value: str) -> None:
-        if value != self._api_key:
-            self._api_key = value
-            self.apiKeyChanged.emit()
-
-    @property
-    def apiSecret(self) -> str:
-        return self._api_secret
-
-    @apiSecret.setter
-    def apiSecret(self, value: str) -> None:
-        if value != self._api_secret:
-            self._api_secret = value
-            self.apiSecretChanged.emit()
+    @Slot(object)
+    def set_rows(self, rows: tuple[KeyRow, ...]) -> None:
+        self._rows = rows
+        self.rowsChanged.emit()
 
     @property
-    def credentialsSourceLabel(self) -> str:
-        return self._credentials_source_label
+    def busyText(self) -> str:
+        """What is being done, or "" when nothing is."""
+        return self._busy_text
 
     @property
-    def credentialsLocked(self) -> bool:
-        return self._credentials_locked
+    def busy(self) -> bool:
+        return bool(self._busy_text)
 
-    @Slot(str, bool)
-    def set_credentials_source(self, label: str, locked: bool) -> None:
-        """@param label Human-readable name of the source currently in
-        effect. @param locked True when an environment variable is what is
-        in effect — editing the field here would silently be ignored, so
-        the View disables it and shows `label` instead."""
-        self._credentials_source_label = label
-        self._credentials_locked = locked
-        self.credentialsSourceChanged.emit()
-
-    @property
-    def connectionChecking(self) -> bool:
-        return self._connection_checking
-
-    @property
-    def connectionResultText(self) -> str:
-        return self._connection_result_text
-
-    @property
-    def connectionResultIsError(self) -> bool:
-        return self._connection_result_is_error
-
-    @Slot(bool)
-    def set_connection_checking(self, checking: bool) -> None:
-        self._connection_checking = checking
-        self.connectionCheckChanged.emit()
-
-    @Slot(str, bool)
-    def set_connection_result(self, text: str, is_error: bool) -> None:
-        self._connection_checking = False
-        self._connection_result_text = text
-        self._connection_result_is_error = is_error
-        self.connectionCheckChanged.emit()
+    @Slot(str)
+    def set_busy(self, text: str) -> None:
+        self._busy_text = text
+        self.busyChanged.emit()
 
     @Slot()
-    def requestCheckConnection(self) -> None:
-        self.checkConnectionRequested.emit()
+    def requestAddKey(self) -> None:
+        self.addKeyRequested.emit()
 
-    def load_fields(
-        self,
-        api_key: str,
-        api_secret: str,
-    ) -> None:
-        self.apiKey = api_key
-        self.apiSecret = api_secret
+    @Slot(object)
+    def requestReplaceKey(self, venue: TradingVenue) -> None:
+        self.replaceKeyRequested.emit(venue)
+
+    @Slot(object)
+    def requestRemoveKey(self, venue: TradingVenue) -> None:
+        self.removeKeyRequested.emit(venue)
+
+    @Slot()
+    def requestCheckConnections(self) -> None:
+        self.checkConnectionsRequested.emit()

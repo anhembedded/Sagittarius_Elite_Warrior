@@ -62,6 +62,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def test_check_connection_round_trips_the_fake_servers_account_snapshot():
     with (

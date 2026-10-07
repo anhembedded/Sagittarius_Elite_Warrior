@@ -63,7 +63,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-    IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
@@ -73,6 +72,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.credentials_doubles import ResolveOnlyCredentials
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -92,15 +92,12 @@ _OPEN_BTC_POSITION = {
 }
 
 
-class _Credentials(IExchangeCredentialsProvider):
+class _Credentials(ResolveOnlyCredentials):
     def resolve(self) -> ResolvedCredentials:
         return ResolvedCredentials(
             ExchangeCredentials(api_key="key", api_secret="secret"),
             CredentialsSource.FILE,
         )
-
-    def save_to_file(self, api_key: str, api_secret: str) -> None:
-        raise AssertionError("not used")
 
 
 class _Sessions(ITradingSessionFactory):

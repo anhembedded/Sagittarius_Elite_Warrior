@@ -53,6 +53,9 @@
 #    `modules/trading/ui/market_ticks.py`, which the desks use too).
 # -> 7 after PR EPIC-033P stage 3 (9 - 2 retired + 0 new: the Dev Board's
 #    `symbol_options_coordinator` and `sync_progress_feed` lines left with it).
+# -> 6 after PR BUG-176 (7 - 1 retired + 0 new: the Trading Options page no longer
+#    renders an `ExchangeConnectionStatus` through the CLI formatter; it words each
+#    venue's state itself, `ui/settings/connection_state_words.py`).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -772,15 +775,6 @@ modules.backtesting.ui.signal_wiring -> modules.market_data.ui.sync_progress_fee
 # monolith carried zero allowlist entries of its own (it read only within
 # `presentation/`), so nothing here retires.
 #
-# 1 new entry: `TradingSettingsPresenter` renders the same
-# `ExchangeConnectionStatus` the Trading screen's Check Connection button
-# always has, through the one formatter both the CLI and the UI already
-# shared (`format_exchange_connection_status`). That formatter still lives
-# under `presentation/cli/` -- migrating trading's CLI formatting into
-# `modules/trading/cli/`, the way `modules/market_data/cli/` already did in
-# PR 0.4a-2, is real work of its own and out of this PR's bounded scope
-# (`task-execution-rule.md`). It exits when that migration lands.
-modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.exchange_status_formatter
 
 # PR 4.4f-4 -- trading's own infrastructure/commands/queries move out of
 # `binance_bot_module.py` (`EPIC-025E_phase4_support_and_dissolve_common.md`

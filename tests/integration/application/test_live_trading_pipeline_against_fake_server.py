@@ -163,6 +163,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 class _RecordingDispatcher(ICommandDispatcher):
     """The real `ExecuteOrderCommandHandler` behind the port, plus a record

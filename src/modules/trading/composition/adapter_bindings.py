@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environment_probe import (
+    BinanceKeyEnvironmentProbe,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
     KeyringSecretStore,
 )
@@ -51,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_environment_probe import (
+    IKeyEnvironmentProbe,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_checkpoints import (
     IOwnerInventoryCheckpoints,
@@ -118,6 +124,8 @@ def bind_adapters(container: IContainer) -> None:
         ),
     )
     container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))
+    # BUG-176: how Add key finds which environment a key belongs to.
+    container.singleton(IKeyEnvironmentProbe, BinanceKeyEnvironmentProbe())
 
     # The primary venue — the first one in `TradingVenue` order (`EPIC-034B`:
     # every venue is assembled, none is chosen by configuration).

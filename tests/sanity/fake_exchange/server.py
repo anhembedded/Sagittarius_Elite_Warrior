@@ -44,6 +44,32 @@ class MaintenanceSwitch:
         self.on = False
 
 
+class KeyPolicy:
+    """Which API keys this fake environment knows (`BUG-176`).
+
+    By default every key is known, as before. Once `known` is a set, a signed request
+    (one carrying `signature`, the only kind Binance checks the key of) answers `-2008`
+    for a key outside it and `-2015` for one in `refused`: known, but refused here,
+    like an IP off the key's allowlist.
+    """
+
+    def __init__(self) -> None:
+        self.known: set[str] | None = None
+        self.refused: set[str] = set()
+
+    def rejection(self, api_key: str | None) -> tuple[int, object] | None:
+        if self.known is None:
+            return None
+        if api_key in self.refused:
+            return 401, {
+                "code": -2015,
+                "msg": "Invalid API-key, IP, or permissions for action.",
+            }
+        if api_key not in self.known:
+            return 401, {"code": -2008, "msg": "Invalid Api-Key ID."}
+        return None
+
+
 class _Handler(BaseHTTPRequestHandler):
     #: Set per-server-instance by `run_binance_fake_server()` via
     #: `HTTPServer`'s own `RequestHandlerClass` attribute-sharing —
@@ -58,6 +84,7 @@ class _Handler(BaseHTTPRequestHandler):
     requests: list[tuple[str, str]]
     maintenance: MaintenanceSwitch
     api_restrictions: ApiRestrictions
+    keys: KeyPolicy
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -88,6 +115,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.requests.append((method, path))
         if self.maintenance.on:
             return 503, MAINTENANCE_PAGE
+        if "signature" in params:
+            rejection = self.keys.rejection(self.headers.get("X-MBX-APIKEY"))
+            if rejection is not None:
+                return rejection
         if path.startswith("/sapi/"):
             return handle_sapi(method, path, self.api_restrictions)
         if path.startswith("/api/"):
@@ -146,6 +177,8 @@ class FakeServerUrls:
     maintenance: MaintenanceSwitch = field(default_factory=MaintenanceSwitch)
     #: `EPIC-034E` — what the fake exchange says the API key may do.
     api_restrictions: ApiRestrictions = field(default_factory=ApiRestrictions)
+    #: `BUG-176` — which keys this environment knows; every key until a test narrows it.
+    keys: KeyPolicy = field(default_factory=KeyPolicy)
 
 
 @contextmanager
@@ -153,13 +186,16 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     """Starts the server on an OS-assigned free port, yields its spot and
     futures base URLs, stops it on exit. A fresh `OrderBookState` and
     `SpotAccountState` per call — order-lifecycle state never survives past
-    one `with` block."""
-    _Handler.order_book = OrderBookState()
-    _Handler.spot_account = SpotAccountState()
-    _Handler.requests = []
-    _Handler.maintenance = MaintenanceSwitch()
-    _Handler.api_restrictions = ApiRestrictions()
-    server = HTTPServer(("127.0.0.1", 0), _Handler)
+    one `with` block. Each call has a handler class of its own, so several servers
+    can run at once (`BUG-176`: mainnet and both testnets, each knowing other keys)."""
+    handler = type("_ServerHandler", (_Handler,), {})
+    handler.order_book = OrderBookState()
+    handler.spot_account = SpotAccountState()
+    handler.requests = []
+    handler.maintenance = MaintenanceSwitch()
+    handler.api_restrictions = ApiRestrictions()
+    handler.keys = KeyPolicy()
+    server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -168,11 +204,12 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             spot=f"http://{host}:{port}/api",
             futures=f"http://{host}:{port}/fapi",
             margin=f"http://{host}:{port}/sapi",
-            requests=_Handler.requests,
-            spot_account=_Handler.spot_account,
-            futures_book=_Handler.order_book,
-            maintenance=_Handler.maintenance,
-            api_restrictions=_Handler.api_restrictions,
+            requests=handler.requests,
+            spot_account=handler.spot_account,
+            futures_book=handler.order_book,
+            maintenance=handler.maintenance,
+            api_restrictions=handler.api_restrictions,
+            keys=handler.keys,
         )
     finally:
         server.shutdown()
