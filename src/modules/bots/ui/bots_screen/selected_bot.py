@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     IBotKindCatalog,
     UnknownBotKindError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    AccountView,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import (
     BotDetail,
     DetailInputs,
@@ -50,6 +53,9 @@ class SelectedBot:
         #: Why Start waits on the venue's account (`EPIC-034D`); the Connect
         #: step sets it, so selecting a bot never clears it.
         self.connection = ""
+        #: What the Connect step read, for the balance and the key
+        #: constraints (`EPIC-034F`); `None` while the account is unread.
+        self.account: AccountView | None = None
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
@@ -98,6 +104,7 @@ class SelectedBot:
                 self._now(),
                 self.edited,
                 self.connection,
+                self.account,
             )
         )
 

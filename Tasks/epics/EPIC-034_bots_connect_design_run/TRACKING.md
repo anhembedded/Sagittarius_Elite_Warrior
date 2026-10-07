@@ -47,7 +47,7 @@ gantt
 | EPIC-034C | [Trading switch folded into actions](completed/EPIC-034C_trading_switch_folded_into_actions.md) | — | 🔴 | ✅ Done (2026-10-07) | — |
 | EPIC-034D | [Connect step](completed/EPIC-034D_connect_step.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034E | [Mainnet read-only account](incomplete/EPIC-034E_mainnet_read_only_account.md) | — | 🔴 | 🟡 In progress | — |
-| EPIC-034F | [Design step constraints](incomplete/EPIC-034F_design_step_constraints.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-034F | [Design step constraints](completed/EPIC-034F_design_step_constraints.md) | — | 🟡 | ✅ Done (2026-10-07) | — |
 | EPIC-034G | [Chart live state](incomplete/EPIC-034G_chart_live_state.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-034H | [Run step readiness](incomplete/EPIC-034H_run_step_readiness.md) | — | 🟡 | 🔵 Planned | — |
 

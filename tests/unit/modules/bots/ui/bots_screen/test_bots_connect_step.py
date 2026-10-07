@@ -21,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_connect_fsm_m
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     RETRY_CONNECTION,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
-    KEY_CANNOT_TRADE,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
@@ -80,7 +77,7 @@ def test_once_read_the_chart_and_the_plan_open_and_the_strip_says_who_and_where(
     assert "Spot Testnet" in text
     assert "spot_testnet" not in text
     assert "Connected" in text
-    assert "900" in text
+    assert "50,000.00" in text
     assert "key can trade" in text
     assert screen.account.symbols_read == ["BTCUSDT"]
 
@@ -134,7 +131,10 @@ def test_a_key_that_cannot_trade_opens_the_chart_but_not_start(
     screen.settle()
 
     assert chart_shown(screen)
-    assert start_rule(screen) == (False, KEY_CANNOT_TRADE)
+    enabled, reason = start_rule(screen)
+    assert not enabled
+    assert "cannot trade" in reason
+    assert "Spot Testnet" in reason
     assert "key cannot trade" in screen.view.identity.connection.text()
 
 

@@ -52,15 +52,27 @@ sound, I start it, and I watch what it does."*
    the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
    reads stored candles until the trader's **Go live** on its chip opens a view-only price stream
    (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`).
-4. The trader sets the parameters in the Plan panel, the kind's editor (lower and upper price, grids, spacing,
-   capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
-   one verdict is Refused and names them. The verdicts and the preview follow each edit.
+4. **Design** (`EPIC-034F`). The trader sets the parameters in the Plan panel, the kind's editor (lower and
+   upper price, grids, spacing, capital, stop loss, take profit). Until the lower price, upper price and
+   capital are set, the one verdict is Refused and names them. Every constraint on the plan is a named
+   assertion that answers with its numbers, judged beside the account the Connect step read; the
+   verdicts, the field messages and the drawn levels follow each edit.
    **Suggest from ATR** or **Suggest from Bollinger**, the Grid's own commands (Bots menu, and the
    Grid toolbar at the top of the editor, shown while a Grid is selected), fills the range only
    when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. Start waits until the edits are saved with **Save bot** (Ctrl+S). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
-5. While any verdict is Refused, Start is disabled and the Plan panel's verdicts name the refusal
-   ("Start is blocked: …").
+5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
+   Start**: the capital against the balance the account can spend, the minimum notional, trading's
+   per-order cap, the open-order limit, the price band, break-even after fees (every grid loses), the
+   key's permission to trade, and a stop loss or take profit on the wrong side of the range. One that
+   is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how far
+   an exit sits, some grids losing on each cycle. The field the number lives in carries the sentence
+   under it, "Blocks Start: The capital is 10,000 USDT, above the 9,999.99 USDT available on Spot
+   Testnet; lower it to at most 9,999.99", or "Advice: …"; a constraint about the key, which is no
+   field, appears in the verdicts and in Start's reason. While any verdict is Refused, Start is
+   disabled and the Plan panel's verdicts name the refusal ("Start is blocked: …"). **The sell
+   levels need no base in the account**: Start buys the base they sell at market first, out of the
+   same capital, and the "Opening buy" verdict says how much and for about what (ADR O2).
 6. The trader clicks **Start**. The bot places its ladder through trading, with its own tag, and
    moves through Starting to Running. The list and the panels follow each change without a
    refresh: the state, grid profit, unrealised PnL at the latest price, what it holds, its
@@ -106,7 +118,11 @@ available while it runs.
 | The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and Start is disabled with the same reason; Bots → Retry venue account | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
 | The symbol is unknown, or the venue cannot be read | Start is disabled: "The plan cannot be judged: …" with the venue's reason | A plan judged against no numbers cannot start |
 | A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
-| A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
+| A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it, and the same sentence under the field to change, with the number that fixes it ("raise the capital to about …", "lower it to at most …"); Start disabled | The kind refuses only certain losses and certain rejections: the exchange's rules and money (`EPIC-029C`, `EPIC-034F`, D7) |
+| The capital is more than the account can spend | "Blocks Start: The capital is … USDT, above the … USDT available on …; lower it to at most …" under Capital; Start disabled | The balance is read once by the Connect step, so the click is no longer the first time it is compared (D7) |
+| The key cannot trade | A Refused verdict "The API key for … cannot trade"; Start's reason says it; the chart stays open | The exchange's own `canTrade` flag; an unknown flag never blocks, its order check decides |
+| A stop loss at or above the lower limit, or a take profit at or below the upper | Refused, under the exit's field: put it below, or above, the range | An exit on the wrong side would fire inside the grid or close it while it earns (D7) |
+| The ATR, the slippage room, the spacing or an exit's distance is outside advice | "Advice: …" under the field; Start stays enabled | Strategy judgement is the trader's (D7) |
 | Start's reconciliation refuses: the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
 | An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
 | The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
@@ -149,6 +165,8 @@ available while it runs.
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
+| Every constraint at and around its boundary; the balance, the key and the opening buy read the account; each violation blocks exactly when D7 says | `tests/unit/modules/bots/domain/grid/test_grid_checks.py` · `test_grid_account_checks.py` · `test_grid_constraints.py` | unit |
+| A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |

@@ -12,6 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.account_view import (
+    account_view_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -73,6 +76,10 @@ class ConnectEffects:
 
     def _apply(self, connection: ConnectView) -> None:
         self._model.set_connect(connection)
-        self._selected.connection = start_refusal(connection, self._step.snapshot)
+        snapshot = self._step.snapshot
+        self._selected.connection = start_refusal(connection)
+        self._selected.account = (
+            account_view_of(snapshot) if snapshot is not None else None
+        )
         self.present_chart(self._model.selected)
         self._refresh_detail()

@@ -21,7 +21,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    AccountView,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     ActionAvailability,
     BotAction,
@@ -52,11 +56,14 @@ class DetailInputs:
     #: Why Start waits on the venue's account (`EPIC-034D`); empty when it
     #: says go.
     connection: str = ""
+    #: What the Connect step read, once it did (`EPIC-034F`).
+    account: AccountView | None = None
 
 
 @dataclass(frozen=True)
 class BotDetail:
     facts: BotFacts
+    verdicts: tuple[Verdict, ...]
     verdict_lines: tuple[str, ...]
     refusal: str
     availability: Mapping[BotAction, ActionAvailability]
@@ -67,7 +74,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     bot = inputs.bot
     config = inputs.edited if inputs.edited is not None else bot.config
     judged = (
-        judge(inputs.kind, config, inputs.market)
+        judge(inputs.kind, config, inputs.market, inputs.account)
         if inputs.kind is not None
         else JudgedPlan(refusal=f"No kind of bot is called {bot.kind!r}.")
     )
@@ -77,6 +84,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     )
     return BotDetail(
         facts=bot_facts(bot, inputs.last_price, inputs.now),
+        verdicts=judged.verdicts,
         verdict_lines=tuple(verdict_line(verdict) for verdict in judged.verdicts),
         refusal=judged.refusal,
         availability={

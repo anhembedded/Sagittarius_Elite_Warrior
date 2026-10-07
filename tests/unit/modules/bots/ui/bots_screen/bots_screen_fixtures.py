@@ -15,6 +15,7 @@ from __future__ import annotations
 import concurrent.futures
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -345,7 +346,8 @@ def open_screen(
     )
     # Read at the screen's own clock, so the read is as fresh as a real one.
     account = FakeVenueAccountReader(
-        AccountSource.SPOT_TESTNET, replace(a_venue_account_snapshot(), read_at=NOW)
+        AccountSource.SPOT_TESTNET,
+        replace(a_venue_account_snapshot(), read_at=NOW, available=Decimal(50_000)),
     )
     mainnet = FakeVenueAccountReader(
         AccountSource.SPOT_MAINNET_READONLY,

@@ -3,8 +3,9 @@ judgement.
 
 The screen never judges a plan itself: it asks the bot's kind
 (`IBotKind.validate`, `IBotKind.overlay`) with the planner's market numbers,
-so the verdicts shown are the ones a start would meet. Pure and quick (a
-Grid of a thousand levels evaluates in milliseconds), so it runs on each edit,
+so the verdicts shown are the ones a start would meet. The account (`EPIC-034F`) is the Connect
+step's read, so the balance and the key are judged beside the rest. Pure and
+quick (a Grid of a thousand levels evaluates in milliseconds), so it runs on each edit,
 debounced by the presenter rather than moved off the UI thread.
 
 A plan that cannot be judged (the market numbers are not read yet, or could
@@ -21,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    AccountView,
     BotKindInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
@@ -46,13 +48,16 @@ class JudgedPlan:
 
 
 def judge(
-    kind: IBotKind, config: Mapping[str, str], market: PlannerMarket | None
+    kind: IBotKind,
+    config: Mapping[str, str],
+    market: PlannerMarket | None,
+    account: AccountView | None = None,
 ) -> JudgedPlan:
     if market is None:
         return JudgedPlan(refusal=NOT_READ_YET)
     if market.terms is None or market.market is None:
         return JudgedPlan(refusal=f"The plan cannot be judged: {market.problem}")
-    inputs = BotKindInputs(config, market.terms, market.market)
+    inputs = BotKindInputs(config, market.terms, market.market, account)
     verdicts = kind.validate(inputs)
     refused = next((verdict for verdict in verdicts if verdict.refuses), None)
     return JudgedPlan(

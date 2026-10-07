@@ -35,10 +35,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
-#: What Start says while the key may not trade: the account answered, the
-#: exchange's `canTrade` flag is off.
-KEY_CANNOT_TRADE = "The account's key cannot trade. Use a key with trading allowed."
-
 
 @dataclass(frozen=True, slots=True)
 class ConnectView:
@@ -98,14 +94,12 @@ def errored_view(source: AccountSource, error: str) -> ConnectView:
     )
 
 
-def start_refusal(view: ConnectView, snapshot: VenueAccountSnapshot | None) -> str:
-    """Why Start waits on the account: not read, or its key may not trade;
-    empty when the account says go."""
-    if view.locked:
-        return view.lock_reason
-    if snapshot is not None and snapshot.can_trade is False:
-        return KEY_CANNOT_TRADE
-    return ""
+def start_refusal(view: ConnectView) -> str:
+    """Why Start waits on the account: it has not been read; empty once it was.
+    Whether the key may trade is a constraint on the plan
+    (`KEY_CANNOT_TRADE`, `EPIC-034F`), judged with the rest, not a second
+    place that says so."""
+    return view.lock_reason
 
 
 def _key_words(snapshot: VenueAccountSnapshot) -> str:

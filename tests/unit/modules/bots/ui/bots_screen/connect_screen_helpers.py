@@ -4,6 +4,7 @@ shows, Start's rule, and the two answers a venue can give."""
 from __future__ import annotations
 
 from dataclasses import replace
+from decimal import Decimal
 
 from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
@@ -56,8 +57,13 @@ def start_rule(screen: BotsScreen) -> tuple[bool, str]:
     return rule.enabled, rule.reason
 
 
+#: More than any capital the screen tests plan with, so the balance
+#: constraint (`EPIC-034F`) passes unless a test is about it.
+FUNDED = Decimal(50_000)
+
+
 def fresh_snapshot() -> VenueAccountSnapshot:
-    return replace(a_venue_account_snapshot(), read_at=NOW)
+    return replace(a_venue_account_snapshot(), read_at=NOW, available=FUNDED)
 
 
 def failure(kind: ConnectionFailureKind, detail: str = "the account") -> ConnectFailure:

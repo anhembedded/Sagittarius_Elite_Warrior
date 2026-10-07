@@ -98,6 +98,7 @@ from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import bots_dependencies_for
 from .connect_effects import ConnectEffects
 from .connect_step import ConnectStep
+from .detail_effects import DetailEffects
 from .kind_command_binding import KindCommands
 from .mainnet_account_dialog import show_mainnet_account
 from .new_bot_dialog import spot_venues_enabled_first
@@ -158,6 +159,10 @@ class BotsPresenter(CommandPresenter):
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now)
+        self._detail = DetailEffects(
+            self._selected, self._model, self._charts, self._backtests
+        )
+        self._refresh_detail = self._detail.refresh
         self._account = ConnectStep(threads, commands, now, self)
         self._account_effects = ConnectEffects(
             self._account, view, self._charts, self._selected, self._refresh_detail
@@ -279,24 +284,13 @@ class BotsPresenter(CommandPresenter):
             self._queries.planner(bot)
             self._queries.fills(bot)
 
-    def _refresh_detail(self) -> None:
-        detail = self._selected.detail()
-        self._model.set_facts(detail.facts if detail else None)
-        self._model.set_judgement(
-            detail.verdict_lines if detail else (), detail.refusal if detail else ""
-        )
-        self._model.set_availability(detail.availability if detail else {})
-        self._charts.draw(detail.overlay if detail else None)
-        self._backtests.follow(self._selected)
-
     def _on_config_edited(self, config: Mapping[str, str]) -> None:
         self._selected.edit(config)
         self._rejudge.start()
 
     def _on_candle(self, candle: MarketData) -> None:
         if self._selected.take_price(candle.symbol, Decimal(str(candle.close_price))):
-            detail = self._selected.detail()
-            self._model.set_facts(detail.facts if detail else None)
+            self._detail.show_price()
 
     # -- actions ----------------------------------------------------------- #
 
