@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -105,7 +106,7 @@ class LimitationsDialog(QDialog):
         """One wrapped line. A `QLabel` rather than a two-widget row, because
         the bullet belongs to the same wrapped paragraph as its text — laid out
         as two widgets it would hang at the top of a three-line caveat."""
-        label = QLabel(f"{bullet} {text}".strip())
+        label = plain_label(f"{bullet} {text}".strip())
         label.setObjectName(f"lblLimitation_{index}")
         label.setWordWrap(True)
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)

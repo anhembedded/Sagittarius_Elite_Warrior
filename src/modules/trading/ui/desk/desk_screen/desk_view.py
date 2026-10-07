@@ -28,7 +28,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
-    QLabel,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -61,6 +60,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_S
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -120,7 +120,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         self.account_summary = AccountSummaryPanel()
         self._symbol = QComboBox()
         self._symbol.setObjectName("cboDeskSymbol")
-        self._status = QLabel()
+        self._status = plain_label()
         self._status.setObjectName("lblDeskStatus")
         self._status.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -200,7 +200,7 @@ class DeskView(QWidget):  # base-exempt: a page of the Trade mode's view
         bar.setObjectName("deskContextBar")
         row = QHBoxLayout(bar)
         row.setContentsMargins(0, 0, 0, 0)
-        symbol = QLabel("&Symbol:")
+        symbol = plain_label("&Symbol:")
         symbol.setBuddy(self._symbol)
         row.addWidget(symbol)
         row.addWidget(self._symbol)

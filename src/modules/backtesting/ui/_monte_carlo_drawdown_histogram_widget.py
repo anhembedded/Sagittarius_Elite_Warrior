@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import pyqtgraph as pg  # type: ignore[import-untyped]
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import BEAR_COLOR
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .logic.monte_carlo_rules import DrawdownHistogramBucket
 
@@ -25,7 +26,9 @@ class MonteCarloDrawdownHistogramWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._empty_label = QLabel("Run a simulation to see the drawdown distribution")
+        self._empty_label = plain_label(
+            "Run a simulation to see the drawdown distribution"
+        )
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_label)
 

@@ -40,11 +40,11 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QLabel,
     QLineEdit,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -80,7 +80,7 @@ class CapitalDialogWidget(QDialog):
         self._currency.setObjectName("cboBacktestCurrency")
         self._currency.addItems([str(code) for code in view_model.currencyOptions])
 
-        self._message = QLabel()
+        self._message = plain_label()
         self._message.setObjectName("txtCapitalValidationMessage")
         self._message.setWordWrap(True)
         self._message.setVisible(False)

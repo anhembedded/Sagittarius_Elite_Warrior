@@ -7,6 +7,7 @@ from typing import Any
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 _MONTH_HEADERS = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -29,6 +30,10 @@ class _HeatmapCell(QLabel):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # The one label that is markup on purpose: its text is built here from
+        # a number and a colour, never from outside (`BUG-168`'s guard names
+        # a subclass that says so).
+        self.setTextFormat(Qt.TextFormat.RichText)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def set_empty(self) -> None:
@@ -59,7 +64,7 @@ class MonthlyReturnsHeatmapWidget(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
-        self._empty_label = QLabel("No trade data yet")
+        self._empty_label = plain_label("No trade data yet")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         outer.addWidget(self._empty_label)
 
@@ -67,7 +72,7 @@ class MonthlyReturnsHeatmapWidget(QWidget):
         self._grid = QGridLayout(self._grid_container)
         self._grid.setSpacing(2)
         for column, header in enumerate((*_MONTH_HEADERS, "YTD"), start=1):
-            label = QLabel(header)
+            label = plain_label(header)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._grid.addWidget(label, 0, column)
         self._grid_container.setVisible(False)
@@ -92,7 +97,7 @@ class MonthlyReturnsHeatmapWidget(QWidget):
         self._row_widgets = []
 
         for grid_row, row in enumerate(rows, start=1):
-            year_label = QLabel(str(row["year"]))
+            year_label = plain_label(str(row["year"]))
             year_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._grid.addWidget(year_label, grid_row, 0)
             self._row_widgets.append(year_label)

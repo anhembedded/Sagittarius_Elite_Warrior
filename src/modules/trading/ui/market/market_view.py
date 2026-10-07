@@ -21,7 +21,6 @@ from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
-    QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -43,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     StrategyParamsDialog,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -115,9 +115,9 @@ class MarketView(OutputSourceView):
         self._central = QStackedWidget()
         self._central.addWidget(self._no_chart)
         self._central.addWidget(self.tabs)
-        self.connection = QLabel()
+        self.connection = plain_label()
         self.connection.setObjectName("lblConnection")
-        self.stream = QLabel()
+        self.stream = plain_label()
         self.stream.setObjectName("lblMarketStream")
         self._charts: dict[str, ChartCard] = {}
         self._surface = WorkbenchSurface(MARKET_SURFACE)

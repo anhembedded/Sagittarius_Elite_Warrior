@@ -16,6 +16,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
@@ -65,7 +68,9 @@ def history_read_failures(what: str) -> Iterator[None]:
     try:
         yield
     except READ_FAILURES as exc:
-        raise AccountHistoryUnavailableError(f"{what}: {exc}") from exc
+        raise AccountHistoryUnavailableError(
+            f"{what}: {describe_failure(exc)}"
+        ) from exc
     except MAPPING_FAILURES as exc:
         raise AccountHistoryUnavailableError(f"{what}: malformed row: {exc!r}") from exc
 

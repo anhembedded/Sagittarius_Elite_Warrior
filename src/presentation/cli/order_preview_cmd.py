@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_formatter import (
     format_order_preview,
     order_preview_to_dict,
@@ -45,7 +48,12 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> None:
     except ValueError as exc:
         print(f"Could not preview the order: {exc}")
         return
-    except (BinanceAPIException, BinanceRequestException, RequestException):
+    except (
+        BinanceAPIException,
+        BinanceRequestException,
+        RequestException,
+        SymbolRulesUnavailableError,
+    ):
         # `IMarketMetadataProvider`, unlike `ITradingAccountReader`
         # (EPIC-021D), makes no "never raises" promise — this is the one
         # network call this task's CLI makes, and this is where its

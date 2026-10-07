@@ -12,7 +12,8 @@ used of `Card` — `title`, `header_actions` and `body_layout` — on a plain
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 
 class ChartFrame(QWidget):
@@ -24,7 +25,7 @@ class ChartFrame(QWidget):
         header = QWidget()
         header_row = QHBoxLayout(header)
         header_row.setContentsMargins(0, 0, 0, 0)
-        self._title_label = QLabel(title)
+        self._title_label = plain_label(title)
         header_row.addWidget(self._title_label)
         header_row.addStretch()
         #: Header-level controls, right-aligned in the order they are added.

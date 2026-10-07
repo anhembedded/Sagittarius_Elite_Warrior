@@ -18,11 +18,11 @@ from enum import Enum
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QStyle,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 
 class NoticeKind(Enum):
@@ -46,10 +46,10 @@ class NoticeBar(QFrame):
         super().__init__(parent)
         self.setObjectName(object_name)
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        icon = QLabel()
+        icon = plain_label()
         size = self.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize)
         icon.setPixmap(self.style().standardIcon(kind.value).pixmap(size, size))
-        self._message = QLabel()
+        self._message = plain_label()
         self._message.setWordWrap(True)
         self.action_button = QPushButton(action_text)
         self.action_button.setVisible(bool(action_text))

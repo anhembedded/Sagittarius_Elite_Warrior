@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_formatter import (
     format_submission_accepted,
     format_submission_rejected,
@@ -56,7 +59,12 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
     except ValueError as exc:
         print(f"Could not preview the order: {exc}")
         return
-    except (BinanceAPIException, BinanceRequestException, RequestException):
+    except (
+        BinanceAPIException,
+        BinanceRequestException,
+        RequestException,
+        SymbolRulesUnavailableError,
+    ):
         print(
             "Could not fetch exchange rules for "
             f"{args.symbol} — check your network connection and try again."

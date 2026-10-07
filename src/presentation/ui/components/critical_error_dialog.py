@@ -21,13 +21,13 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QStyle,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 _DEFAULT_DIALOG_WIDTH: int = 620
 _DEFAULT_DIALOG_HEIGHT: int = 320
@@ -90,19 +90,19 @@ class CriticalErrorDialog(QDialog):
         column = QVBoxLayout(self)
         header = QHBoxLayout()
         header.setAlignment(Qt.AlignmentFlag.AlignTop)
-        icon_label = QLabel(self)
+        icon_label = plain_label(parent=self)
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical)
         icon_label.setPixmap(icon.pixmap(_DEFAULT_ICON_SIZE, _DEFAULT_ICON_SIZE))
         header.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
         text = QVBoxLayout()
-        title_lbl = QLabel(message, self)
+        title_lbl = plain_label(message, self)
         title_font = title_lbl.font()
         title_font.setBold(True)
         title_lbl.setFont(title_font)
         title_lbl.setWordWrap(True)
         text.addWidget(title_lbl)
         if error_details:
-            details_lbl = QLabel(error_details, self)
+            details_lbl = plain_label(error_details, self)
             details_lbl.setWordWrap(True)
             text.addWidget(details_lbl)
         header.addLayout(text, 1)

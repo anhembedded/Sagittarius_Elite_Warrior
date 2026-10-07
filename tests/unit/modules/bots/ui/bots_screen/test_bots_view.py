@@ -224,6 +224,17 @@ def test_the_verdicts_and_the_start_refusal_read_as_lines(view) -> None:
     assert view.plan.verdict_lines() == ()
 
 
+def test_the_status_line_shows_an_exchange_page_as_text_not_as_a_web_page(view) -> None:
+    """`BUG-168`: a gateway's HTML page, carried by an error message, was drawn
+    by the status label as a "502 Bad Gateway" heading."""
+    page = "<html><head><title>502 Bad Gateway</title></head><h1>502</h1></html>"
+
+    view.model.set_status(page, True)
+
+    assert view.status.textFormat() == Qt.TextFormat.PlainText
+    assert view.status.text() == page
+
+
 def _is_ours(button: QAbstractButton) -> bool:
     """A dock's own float and close buttons, and the tab bar's scroll arrows,
     are the platform's, not the mode's."""

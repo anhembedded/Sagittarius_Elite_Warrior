@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
     QDialogButtonBox,
-    QLabel,
     QRadioButton,
     QVBoxLayout,
     QWidget,
@@ -25,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     write_value,
 )
@@ -55,7 +55,7 @@ class StopBotDialog(QDialog):
     def __init__(self, bot: BotSnapshot, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(f"Stop {bot.name}")
-        text = QLabel(stop_question(bot))
+        text = plain_label(stop_question(bot))
         text.setWordWrap(True)
         self.keep = QRadioButton("Keep the base in the account")
         self.keep.setObjectName("radioStopKeepBase")

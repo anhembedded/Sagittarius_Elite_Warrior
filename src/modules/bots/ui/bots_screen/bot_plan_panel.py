@@ -16,7 +16,6 @@ not a list scrolling inside it.
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QLabel,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -26,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
     BotsViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -65,14 +65,14 @@ class BotPlanPanel(QStackedWidget):
         super().__init__(parent)
         self.setObjectName("panelBotPlan")
         self._model = model
-        self.title = QLabel()
+        self.title = plain_label()
         self.title.setObjectName("lblBotName")
-        self.state = QLabel()
+        self.state = plain_label()
         self.state.setObjectName("lblBotState")
         self.state.setWordWrap(True)
         self.facts = ReadoutForm(FACT_SPECS, APP_VALUE_FORMATTER)
         self.facts.setObjectName("roBotFacts")
-        self.verdicts = QLabel()
+        self.verdicts = plain_label()
         self.verdicts.setObjectName("lblBotVerdicts")
         self.verdicts.setWordWrap(True)
         self._panel_slot = QVBoxLayout()
@@ -91,7 +91,7 @@ class BotPlanPanel(QStackedWidget):
         column.addWidget(self.state)
         column.addWidget(self.facts)
         column.addLayout(self._panel_slot)
-        column.addWidget(QLabel("What the kind says about these parameters:"))
+        column.addWidget(plain_label("What the kind says about these parameters:"))
         column.addWidget(self.verdicts)
         column.addStretch(1)
         scroll = QScrollArea()

@@ -55,6 +55,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .instant_text import format_instant
 from .range_rules import (
@@ -208,13 +209,13 @@ class TimeRangePickerDialog(QDialog):
         self._body_layout.addLayout(row)
 
     def _build_summary_row(self) -> None:
-        self._summary_label = QLabel()
+        self._summary_label = plain_label()
         self._summary_label.setObjectName("lblTimeRangeSummary")
         self._body_layout.addWidget(self._summary_label)
 
     @staticmethod
     def _heading(text: str) -> QLabel:
-        return QLabel(text)
+        return plain_label(text)
 
     def _build_buttons(self) -> None:
         """OK applies the pair; it is disabled while the pair cannot be
