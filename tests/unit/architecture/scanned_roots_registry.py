@@ -13,6 +13,7 @@ retargeted and its row here changes in the same commit.
 
 from __future__ import annotations
 
+from .scanned_roots_registry_order_paths import ORDER_PATH_GUARDS
 from .ui_trees import UI_TREE_PATHS
 
 #: The UI trees as registry rows. Four guards below read `UI_TREES` from
@@ -205,6 +206,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_ruff_debt_only_shrinks.py",
         (("src", "*.py"), ("scripts", "*.py"), ("tools", "*.py"), ("tests", "*.py")),
     ),
+    # `EPIC-034I` — every UI file under `src/`, read for a live price wired
+    # into a chart outside `LiveCandleChart` (`live_chart_wiring.py`).
+    (
+        "tests/unit/architecture/test_every_live_chart_goes_through_the_live_chart.py",
+        (("src", "*.py"),),
+    ),
     # `EPIC-030G` — replaces `test_preview_fixtures_exist.py`'s static check,
     # which listed targets from the deleted `src/presentation/ui/screens`.
     (
@@ -271,34 +278,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("src/support/indicators/indicator_scripts", "*.py"),
         ),
     ),
-    (
-        "tests/unit/architecture/test_only_the_session_factory_constructs_binance_client.py",
-        (("src", "*.py"), ("scripts", "*.py")),
-    ),
-    (
-        "tests/unit/architecture/test_only_the_factory_constructs_futures_trading_client.py",
-        (("src", "*.py"), ("scripts", "*.py")),
-    ),
-    (
-        "tests/unit/architecture/test_only_the_factory_constructs_spot_trading_client.py",
-        (("src", "*.py"), ("scripts", "*.py")),
-    ),
-    (
-        "tests/unit/architecture/test_only_the_venue_assembly_constructs_venue_adapters.py",
-        (("src", "*.py"),),
-    ),
-    (
-        "tests/unit/architecture/test_venue_addressed_handlers_resolve_their_venue.py",
-        (
-            ("src/modules/trading/application", "handler.py"),
-            ("src/modules/strategy/application/use_cases", "handler.py"),
-        ),
-    ),
-    (
-        "tests/unit/architecture/test_order_submission_mode_live_is_restricted.py",
-        (("src", "*.py"), ("scripts", "*.py")),
-    ),
-    ("tests/unit/architecture/test_every_order_is_reconciled.py", (("src", "*.py"),)),
+    *ORDER_PATH_GUARDS,
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
     # Guard 3's cross-screen check used to register a second root here

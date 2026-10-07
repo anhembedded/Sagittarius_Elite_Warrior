@@ -38,6 +38,7 @@
 | [EPIC-034F](completed/EPIC-034F_design_step_constraints.md) | Design: every constraint is a named assertion, shown on its field, with the account's numbers | Elite | EPIC-034D | 🟡 | ✅ Done (2026-10-07) |
 | [EPIC-034G](completed/EPIC-034G_chart_live_state.md) | The chart states whether it is live, and the user starts and stops it | Elite | EPIC-034A | 🟡 | ✅ Done (2026-10-07) |
 | [EPIC-034H](completed/EPIC-034H_run_step_readiness.md) | Run: one readiness query serves the screen and the Start handler; Save and Start | Elite | EPIC-034C, EPIC-034F | 🟡 | ✅ Done (2026-10-07) |
+| [EPIC-034I](completed/EPIC-034I_every_live_chart_goes_through_the_shared_live_chart.md) | Every chart that shows live market prices is built on the shared live chart: an architecture guard | Elite | EPIC-034G | 🟢 | ✅ Done (2026-10-07) |
 | [EPIC-034A](completed/EPIC-034A_bots_mode_says_what_it_knows.md) | The Bots mode says what it already knows: venue titles, the chart's messages, why an action is disabled | Elite | None | 🟢 | ✅ Done (2026-10-07) |
 
 ## 4. Phase exit criteria
