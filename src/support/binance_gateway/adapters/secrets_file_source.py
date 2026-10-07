@@ -60,7 +60,8 @@ class SecretsFileSource:
         one that epic checked for. A no-op on Windows (permission bits
         don't map the same way there), never raises either way.
         """
-        data = _without_legacy_pair(self._load() or {})
+        _require_testnet(venue)
+        data = _without_legacy_pair(self._load_for_change())
         _entries(data)[venue.value] = {
             _API_KEY_FIELD: api_key,
             _API_SECRET_FIELD: api_secret,
@@ -70,10 +71,10 @@ class SecretsFileSource:
     def remove(self, venue: TradingVenue) -> None:
         """Deletes `venue`'s pair; every other venue's stays. A venue with no
         pair is left as it is."""
-        data = self._load()
-        if data is None:
+        _require_testnet(venue)
+        if not os.path.exists(self._filepath):
             return
-        data = _without_legacy_pair(data)
+        data = _without_legacy_pair(self._load_for_change())
         _entries(data).pop(venue.value, None)
         self._save(data)
 
@@ -92,20 +93,47 @@ class SecretsFileSource:
             return None
         return data if isinstance(data, dict) else None
 
+    def _load_for_change(self) -> dict[str, Any]:
+        """The file's content to change. A file that exists but cannot be read
+        as a JSON object is moved to `<file>.corrupt` first, never overwritten:
+        rewriting it from nothing would destroy every other venue's key in it."""
+        data = self._load()
+        if data is not None:
+            return data
+        if os.path.exists(self._filepath):
+            backup = f"{self._filepath}.corrupt"
+            os.replace(self._filepath, backup)
+            logger.warning(
+                "%s could not be read; kept as %s and started afresh.",
+                self._filepath,
+                backup,
+            )
+        return {}
+
     def _save(self, data: dict[str, Any]) -> None:
+        """Writes to a temporary file in the same directory and swaps it in, so a
+        crash mid-write leaves the old file whole."""
         directory = os.path.dirname(self._filepath)
         if directory:
             os.makedirs(directory, exist_ok=True)
-        with open(self._filepath, "w", encoding="utf-8") as f:
+        temporary = f"{self._filepath}.tmp"
+        with open(temporary, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         try:
-            os.chmod(self._filepath, 0o600)
+            os.chmod(temporary, 0o600)
         except OSError as exc:
             logger.warning(
                 "Could not set owner-only permissions on %s: %s",
                 self._filepath,
                 exc,
             )
+        os.replace(temporary, self._filepath)
+
+
+def _require_testnet(venue: TradingVenue) -> None:
+    """A real-money secret never reaches this file (`EPIC-034` D10)."""
+    if venue.is_mainnet:
+        raise ValueError(f"{venue.name} keys are kept in the keyring, never in a file")
 
 
 def _entries(data: dict[str, Any]) -> dict[str, Any]:

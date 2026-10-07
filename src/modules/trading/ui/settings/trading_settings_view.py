@@ -73,7 +73,7 @@ class TradingSettingsView(BaseView):
         dialog = AddKeyDialog(hint, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
-        return dialog.entered()
+        return dialog.take_entry()
 
     def _apply_rows(self, view_model: TradingSettingsViewModel) -> None:
         for row in view_model.rows:

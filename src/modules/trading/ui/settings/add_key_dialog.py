@@ -2,8 +2,8 @@
 
 @details Two masked fields, key and secret, and the standard OK and Cancel. OK waits
 until both are filled. The dialog is built for one entry and thrown away: what was
-typed lives in its two fields until `entered()` hands it to the caller, and the
-fields are cleared when it closes.
+typed lives in its two fields until `take_entry()` hands it to the caller, which clears
+the fields, or Cancel clears them.
 """
 
 from __future__ import annotations
@@ -51,11 +51,18 @@ class AddKeyDialog(QDialog):
         self._key_field.textChanged.connect(self._update_ok)
         self._secret_field.textChanged.connect(self._update_ok)
         self._update_ok()
-        self.finished.connect(self._clear)
+        self.rejected.connect(self._clear)
 
     def entered(self) -> tuple[str, str]:
         """The key and the secret as typed, without surrounding whitespace."""
         return self._key_field.text().strip(), self._secret_field.text().strip()
+
+    def take_entry(self) -> tuple[str, str]:
+        """`entered()`, and the fields are cleared: the one read the caller makes
+        after OK. (Clearing as the dialog closes would empty them before that read.)"""
+        entry = self.entered()
+        self._clear()
+        return entry
 
     def _masked_field(self, object_name: str) -> QLineEdit:
         field = QLineEdit()

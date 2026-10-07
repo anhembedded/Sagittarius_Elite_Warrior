@@ -264,3 +264,22 @@ def test_remove_stored_forgets_this_venues_key_and_not_the_other_mainnet_venue(
     assert removed.resolve().source is CredentialsSource.NONE
     assert kept.resolve().source is CredentialsSource.KEYRING
     assert len(store.secrets) == 2
+
+
+def test_a_failed_save_leaves_no_half_pair_in_the_keyring() -> None:
+    """The reviewer's finding on PR #423: the key was written, the secret was not."""
+
+    class _FailsOnTheSecret(InMemorySecretStore):
+        def write(self, name: str, value: str) -> None:
+            if name.endswith("_api_secret"):
+                raise SecretStoreUnavailableError("locked")
+            super().write(name, value)
+
+    store = _FailsOnTheSecret()
+    provider = MainnetCredentialsProvider(store, _SPOT)
+
+    with pytest.raises(SecretStoreUnavailableError):
+        provider.save_to_file("key", "secret")
+
+    assert store.secrets == {}
+    assert provider.resolve().source is CredentialsSource.NONE

@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
     KeyEnvironment,
     KeyStanding,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import (
+    key_fingerprint,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -99,7 +102,7 @@ class BinanceKeyEnvironmentProbe(IKeyEnvironmentProbe):
         logger.info(
             "%s: the key %s was %s [key-probe]",
             environment.label,
-            credentials,
+            key_fingerprint(credentials.api_key),
             verdict.standing.value,
         )
         return verdict
@@ -128,8 +131,12 @@ def _verdict_of_failure(
     if isinstance(exc, KeyError | TypeError | ValueError):
         # An answer that is not what the exchange documents: not an answer about
         # the key, so never read as accepted or refused (`code/errors.md` #7).
+        # The exception's type only: `requests` puts the key itself in a
+        # `UnicodeEncodeError`'s text when the key has a character it cannot send.
         logger.warning(
-            "%s: the answer could not be read: %r [key-probe]", environment.label, exc
+            "%s: the answer could not be read (%s) [key-probe]",
+            environment.label,
+            type(exc).__name__,
         )
         return EnvironmentVerdict(
             environment, KeyStanding.UNREACHABLE, failure=ConnectionFailureKind.NETWORK

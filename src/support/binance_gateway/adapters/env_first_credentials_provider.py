@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
     ISecretStore,
+    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -152,7 +153,14 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         """@raise SecretStoreUnavailableError The keyring cannot be used here."""
         self._store.write(self._key_name, api_key)
-        self._store.write(self._secret_name, api_secret)
+        try:
+            self._store.write(self._secret_name, api_secret)
+        except SecretStoreUnavailableError:
+            # Never leave a key with no secret (or a new key beside an old secret).
+            self._store.delete(self._key_name)
+            self._stored = None
+            self._stored_read = False
+            raise
         self._stored = ExchangeCredentials(api_key, api_secret)
         self._stored_read = True
 

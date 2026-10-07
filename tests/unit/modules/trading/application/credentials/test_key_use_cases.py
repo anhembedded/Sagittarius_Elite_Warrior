@@ -158,9 +158,9 @@ def test_a_locked_keyring_stores_nothing_and_says_so(tmp_path) -> None:
 
 
 def test_an_unwritable_secrets_file_stores_nothing_and_says_so(tmp_path) -> None:
-    blocked = tmp_path / "secrets.local.json"
-    blocked.mkdir()  # a directory where the file should be: opening it for writing fails
-    contexts, _ = _contexts(tmp_path)
+    blocked = tmp_path / "blocked"
+    blocked.write_text("a file where the secrets directory should be")
+    contexts, _ = _contexts(blocked)
     probe = ScriptedKeyProbe()
     probe.verdicts[KeyEnvironment.SPOT_TESTNET] = EnvironmentVerdict(
         KeyEnvironment.SPOT_TESTNET, KeyStanding.ACCEPTED

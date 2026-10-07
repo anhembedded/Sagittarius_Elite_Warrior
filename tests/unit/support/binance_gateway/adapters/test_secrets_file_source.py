@@ -152,3 +152,37 @@ def test_write_hardens_the_file_to_owner_only(tmp_path):
 
     mode = stat.S_IMODE(path.stat().st_mode)
     assert mode == 0o600
+
+
+def test_changing_an_unreadable_file_keeps_it_aside_instead_of_overwriting_it(tmp_path):
+    """The reviewer's finding on PR #423: rewriting a file that could not be read
+    would destroy every other venue's key in it."""
+    path = tmp_path / "secrets.local.json"
+    path.write_text('{"venues": {"spot_testnet": {"API_KEY": "k", ', encoding="utf-8")
+    source = SecretsFileSource(str(path))
+
+    source.write(_FUTURES, "new-key", "new-secret")
+
+    assert source.read(_FUTURES) == ("new-key", "new-secret")
+    assert "spot_testnet" in (tmp_path / "secrets.local.json.corrupt").read_text()
+
+
+def test_a_write_leaves_no_temporary_file_behind(tmp_path):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+
+    source.write(_FUTURES, "key-1", "secret-1")
+
+    assert [p.name for p in tmp_path.iterdir()] == ["secrets.local.json"]
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_a_mainnet_secret_is_refused_by_the_file(tmp_path, venue):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+
+    with pytest.raises(ValueError, match="keyring"):
+        source.write(venue, "key", "secret")
+    with pytest.raises(ValueError, match="keyring"):
+        source.remove(venue)
+    assert not (tmp_path / "secrets.local.json").exists()

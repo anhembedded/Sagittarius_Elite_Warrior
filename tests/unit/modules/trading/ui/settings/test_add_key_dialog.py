@@ -45,19 +45,67 @@ def test_ok_waits_for_both_the_key_and_the_secret(qapp, request) -> None:
     assert _ok(dialog).isEnabled()
 
 
-def test_what_is_entered_comes_back_trimmed_and_the_fields_are_cleared_on_close(
+def test_what_is_entered_comes_back_trimmed_and_taking_it_clears_the_fields(
     qapp, request
 ) -> None:
     dialog = _dialog(qapp, request)
     dialog.findChild(QLineEdit, "txtNewApiKey").setText("  the-key \n")
     dialog.findChild(QLineEdit, "txtNewApiSecret").setText("the-secret ")
-    entered = dialog.entered()
 
     dialog.accept()
+    assert dialog.entered() == ("the-key", "the-secret")  # still there after OK
+    entry = dialog.take_entry()
 
-    assert entered == ("the-key", "the-secret")
+    assert entry == ("the-key", "the-secret")
     assert [f.text() for f in dialog.findChildren(QLineEdit)] == ["", ""]
 
 
 def test_the_dialog_is_titled_for_the_command_that_opened_it(qapp, request) -> None:
     assert _dialog(qapp, request).windowTitle() == "Add Key"
+
+
+def test_the_view_hands_back_what_was_typed_when_the_dialog_is_accepted(
+    qapp, request
+) -> None:
+    """The reviewer's blocker on PR #423: the dialog cleared its fields as it closed,
+    before the view read them, so every Add key came back empty. This runs the real
+    dialog through the view's own `ask_for_key`."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+        TradingSettingsView,
+    )
+
+    view = TradingSettingsView()
+    request.addfinalizer(view.deleteLater)
+
+    def type_and_accept() -> None:
+        dialog = next(
+            w for w in QApplication.topLevelWidgets() if isinstance(w, AddKeyDialog)
+        )
+        dialog.findChild(QLineEdit, "txtNewApiKey").setText("the-key")
+        dialog.findChild(QLineEdit, "txtNewApiSecret").setText("the-secret")
+        dialog.accept()
+
+    QTimer.singleShot(0, type_and_accept)
+
+    assert view.ask_for_key("hint") == ("the-key", "the-secret")
+
+
+def test_cancelling_the_real_dialog_hands_back_nothing(qapp, request) -> None:
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+        TradingSettingsView,
+    )
+
+    view = TradingSettingsView()
+    request.addfinalizer(view.deleteLater)
+    QTimer.singleShot(
+        0,
+        lambda: next(
+            w for w in QApplication.topLevelWidgets() if isinstance(w, AddKeyDialog)
+        ).reject(),
+    )
+
+    assert view.ask_for_key("hint") is None

@@ -180,3 +180,22 @@ def test_the_log_names_the_key_by_fingerprint_never_the_secret(caplog) -> None:
     assert "KKKK…KKKK" in caplog.text
     assert "S" * 8 not in caplog.text
     assert "K" * 8 not in caplog.text
+
+
+def test_a_key_python_cannot_send_leaks_nowhere_in_the_log(caplog) -> None:
+    """The reviewer's blocker on PR #423: a key with a character outside Latin-1 makes
+    `requests` raise `UnicodeEncodeError`, whose repr holds the header value, the
+    whole key."""
+    key = "k" * 30 + "é€" + "z" * 30
+    try:
+        key.encode("latin-1")
+    except UnicodeEncodeError as exc:
+        raised = exc
+    probe, _, _ = _probe(raised)
+
+    with caplog.at_level(logging.DEBUG):
+        verdict = probe.probe(KeyEnvironment.MAINNET, ExchangeCredentials(key, "s"))
+
+    assert verdict.standing is KeyStanding.UNREACHABLE
+    assert "kkkkkkkkkk" not in caplog.text
+    assert "zzzzzzzzzz" not in caplog.text
