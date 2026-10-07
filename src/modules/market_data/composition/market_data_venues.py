@@ -75,27 +75,40 @@ class _VenueInfrastructure:
         )
         self._venue = venue
         self._client: IExchangeClient | None = None
-        #: Two screens syncing the same venue on two workers must share one client.
-        self._client_lock = threading.Lock()
+        #: Two screens syncing the same venue on two workers must share one client,
+        #: so one builds at a time; `_state_lock` guards only the fields, briefly.
+        self._build_lock = threading.Lock()
+        self._state_lock = threading.Lock()
         self._closed = False
 
     def client(self) -> IExchangeClient:
-        with self._client_lock:
-            if self._closed:
-                raise RuntimeError(
-                    f"market data venue {self._venue.value}'s client was asked for "
-                    "after it was closed"
-                )
-            if self._client is None:
-                self._client = MarketDataSessionFactory(
-                    self._venue
-                ).create_market_data_client()
-            return self._client
+        with self._build_lock:
+            with self._state_lock:
+                self._refuse_if_closed()
+                if self._client is not None:
+                    return self._client
+            # The network ping happens here, outside `_state_lock`: `close()` must
+            # never wait on it.
+            built = MarketDataSessionFactory(self._venue).create_market_data_client()
+            with self._state_lock:
+                if not self._closed:
+                    self._client = built
+                    return built
+            built.close()
+            self._refuse_if_closed()
+            raise AssertionError("unreachable: the venue is closed")
+
+    def _refuse_if_closed(self) -> None:
+        if self._closed:
+            raise RuntimeError(
+                f"market data venue {self._venue.value}'s client was asked for "
+                "after it was closed"
+            )
 
     def close(self) -> None:
         """Every step runs even when an earlier one raises: shutdown is
         best-effort, and one venue's failure must not leave another's store open."""
-        with self._client_lock:
+        with self._state_lock:
             self._closed = True
             client = self._client
         for step, release in (

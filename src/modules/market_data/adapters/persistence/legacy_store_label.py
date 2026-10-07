@@ -18,7 +18,8 @@ a testnet candle into a mainnet one: the rows belong to the venue the setting na
 
 Runs once: `MARKER` records the outcome, and a store with nothing to label gets
 one too, so rows written afterwards are never taken for legacy ones. Moves only
-files named like a shard, never deletes data, and never overwrites a file that is
+files named like a shard as an earlier build wrote one (a bare upper-case symbol or
+`<market>_<symbol>`, so a sibling `bots.db` stays), never deletes data, and never overwrites a file that is
 already there. A move that fails for any other reason (permissions, a full disk)
 stops boot with the error logged: leaving the shards in place would serve them as
 the mainnet's whatever the setting says.

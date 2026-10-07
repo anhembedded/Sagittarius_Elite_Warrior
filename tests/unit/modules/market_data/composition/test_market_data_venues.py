@@ -219,3 +219,33 @@ def test_a_client_asked_for_after_close_is_an_error_not_one_nothing_would_close(
 
     with pytest.raises(RuntimeError, match="after it was closed"):
         held.client()
+
+
+def test_close_does_not_wait_for_a_client_that_is_still_being_built(
+    venues: MarketDataVenues,
+) -> None:
+    """Building a client pings the network (`BUG-045`); a shutdown must not wait on
+    it, and the client that finishes after `close()` is closed, not kept."""
+    held = venues._other(_TESTNET)
+    late_client = Mock()
+    closed_while_building: list[bool] = []
+
+    def building(_venue: MarketDataVenue) -> Mock:
+        factory = Mock()
+
+        def create() -> Mock:
+            venues.close()  # returns at once: no lock is held across the ping
+            closed_while_building.append(True)
+            return late_client
+
+        factory.create_market_data_client.side_effect = create
+        return factory
+
+    with (
+        patch.object(module, "MarketDataSessionFactory", side_effect=building),
+        pytest.raises(RuntimeError, match="after it was closed"),
+    ):
+        held.client()
+
+    assert closed_while_building == [True]
+    late_client.close.assert_called_once_with()
