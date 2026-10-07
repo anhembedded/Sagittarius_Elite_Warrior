@@ -41,8 +41,8 @@ _FAILURES = EnumLabels(
             "check again."
         ),
         ConnectionFailureKind.MAINTENANCE: (
-            "the exchange answered with a maintenance page, not an API reply. "
-            "Wait a few minutes and check again."
+            "the exchange is unavailable (maintenance or a gateway error). Try "
+            "again later."
         ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "the account is in Hedge Mode. Switch it to One-way Mode on Binance "

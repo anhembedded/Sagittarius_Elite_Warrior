@@ -4,14 +4,16 @@ enabled by that action's rule (`bot_action_rules.py`) unless another action
 is in flight. The commands themselves are declared Qt-free in
 `bots_commands.py`.
 
-A disabled button used to say why in its tooltip; an action's tooltip is
-fixed by its declaration, so that reason is not shown on the action. The
-Start refusal still reads in the Plan panel's verdicts. Recorded in
-`EPIC-033D`'s notes.
+A disabled button used to say why in its tooltip. `EPIC-033D` accepted losing
+that reason because an action's tip is fixed by its declaration; `EPIC-034A`
+reversed the trade-off: the binding sets the tip on the `QAction` itself, so
+the menu, the toolbar and any shortcut hint carry the reason
+(`ActionAvailability.reason`), and the Plan panel shows Start's on a line.
 """
 
 from __future__ import annotations
 
+from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
@@ -30,6 +32,9 @@ from .bots_commands import (
 )
 from .bots_view_model import BotsViewModel
 from .kind_command_binding import KindCommands
+
+NO_SELECTION_REASON = "Select a bot first."
+ANOTHER_ACTION_REASON = "Another action is still running."
 
 
 def bind_bots_commands(
@@ -104,9 +109,30 @@ def _bind_lifecycle(
 
     state = DerivedState(view_model.actions_changed, applies, view_model)
     state.listen(view_model.action_in_flight_changed)
+    command = lifecycle_id(action)
     binder.bind(
-        lifecycle_id(action),
+        command,
         lambda _checked: view_model.action_requested.emit(action.value),
         enabled=state.changed,
         initially_enabled=state.value,
     )
+    _keep_tip_in_step(binder.action(command), view_model, action)
+
+
+def _keep_tip_in_step(
+    qaction: QAction, view_model: BotsViewModel, action: BotAction
+) -> None:
+    """The action's tip says what it does, and while it is disabled why not:
+    `ActionAvailability.reason`, updated as the selection and the bot change."""
+    declared = qaction.toolTip()
+
+    def say() -> None:
+        rule = view_model.availability.get(action)
+        reason = rule.reason if rule is not None else NO_SELECTION_REASON
+        if view_model.action_in_flight and rule is not None and rule.enabled:
+            reason = ANOTHER_ACTION_REASON
+        qaction.setToolTip(f"{declared}\n{reason}")
+
+    view_model.actions_changed.connect(say)
+    view_model.action_in_flight_changed.connect(say)
+    say()

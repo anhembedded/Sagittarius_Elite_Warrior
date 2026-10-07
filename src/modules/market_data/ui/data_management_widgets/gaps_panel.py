@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
@@ -121,7 +122,7 @@ class GapsPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self._table = SpecTable(
             self.model, object_name="tblGaps", empty_text=_EMPTY_TEXT
         )
-        self._summary = QLabel()
+        self._summary = plain_label()
         self._summary.setObjectName("lblGapsSummary")
         self._summary.setWordWrap(True)
         self._summary.hide()

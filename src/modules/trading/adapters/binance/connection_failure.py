@@ -9,14 +9,21 @@ key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
 `KEY_REJECTED`. No Binance code means "expired", so no such kind exists.
 
-An answer that is not JSON at all (a proxy's or the exchange's HTML maintenance
-page) reaches `python-binance` as `BinanceAPIException` with code 0. It maps to
-`MAINTENANCE` (EPIC-034D): the exchange answered, but not with an API reply.
+A non-JSON answer (a gateway's HTML page: `502 Bad Gateway`, a maintenance
+notice) is the other thing this module names once, `BUG-168`: python-binance
+wraps the whole page in `BinanceAPIException(code=0)`, and every adapter used
+to forward that text to a screen and a log. `describe_failure` is the one
+function an adapter calls to word any failure: a short plain reason, the page
+itself written once at DEBUG. The connection check names the same answer
+`ConnectionFailureKind.MAINTENANCE`.
 """
 
 from __future__ import annotations
 
 import logging
+import re
+from collections.abc import Callable
+from typing import TypeGuard
 
 from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -34,14 +41,57 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -2015: ConnectionFailureKind.KEY_REJECTED,
 }
 
+#: The text python-binance starts a non-JSON answer's message with
+#: (`binance.exceptions.BinanceAPIException`).
+_NON_JSON_MESSAGE_PREFIX = "Invalid JSON error message from Binance"
+_TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+_TAG = re.compile(r"<[^>]*>?")
+_MAX_TITLE_CHARS = 60
+#: How much of a page the DEBUG line carries.
+_MAX_LOGGED_BODY_CHARS = 2000
 
-#: How `python-binance` words an answer it could not parse as JSON
-#: (`binance/exceptions.py`, `BinanceAPIException.__init__`).
-_NOT_JSON_MESSAGE = "Invalid JSON error message from Binance"
+
+def is_non_json_answer(exc: BaseException) -> TypeGuard[BinanceAPIException]:
+    """Whether `exc` is the exchange answering with something that is not an
+    API reply (an HTML error page) — python-binance's `code=0` exception."""
+    return (
+        isinstance(exc, BinanceAPIException)
+        and not exc.code
+        and str(exc.message).startswith(_NON_JSON_MESSAGE_PREFIX)
+    )
 
 
-def _is_not_json_answer(exc: BinanceAPIException) -> bool:
-    return exc.code == 0 and str(exc.message).startswith(_NOT_JSON_MESSAGE)
+def _page_title(page: str) -> str:
+    """The page's `<title>` as plain words: tags dropped, whitespace
+    collapsed, capped. Empty when the page has none."""
+    found = _TITLE.search(page)
+    if found is None:
+        return ""
+    words = " ".join(_TAG.sub("", found.group(1)).replace("<", "").split())
+    return words[:_MAX_TITLE_CHARS]
+
+
+def describe_failure(
+    exc: BaseException, other: Callable[[BaseException], str] = str
+) -> str:
+    """A short plain-text reason for a failed exchange call, never a body.
+
+    A non-JSON answer reads "the exchange is unavailable (HTTP 502 Bad
+    Gateway)"; the page is written once, at DEBUG. Any other failure keeps its
+    own short text, worded by `other` (`str` by default; `repr` for a payload
+    that could not be mapped).
+    """
+    if not is_non_json_answer(exc):
+        return other(exc)
+    page = str(getattr(exc.response, "text", "") or "")
+    title = _page_title(page)
+    status = f"HTTP {exc.status_code}" if exc.status_code else "no HTTP status"
+    logger.debug(
+        "Exchange answered %s with a non-JSON page: %s [exchange-unavailable]",
+        status,
+        page[:_MAX_LOGGED_BODY_CHARS],
+    )
+    return f"the exchange is unavailable ({status}{' ' + title if title else ''})"
 
 
 def classify_connection_failure(
@@ -51,10 +101,10 @@ def classify_connection_failure(
 
     `venue_label` ("Futures Testnet", "Spot Testnet") only words the log line.
     """
-    if not isinstance(exc, BinanceAPIException):
-        kind = ConnectionFailureKind.NETWORK
-    elif _is_not_json_answer(exc):
+    if is_non_json_answer(exc):
         kind = ConnectionFailureKind.MAINTENANCE
+    elif not isinstance(exc, BinanceAPIException):
+        kind = ConnectionFailureKind.NETWORK
     else:
         kind = _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
     if kind is ConnectionFailureKind.NETWORK:

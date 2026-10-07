@@ -10,8 +10,9 @@ from pyqtgraph import (  # type: ignore[import-untyped]
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import BEAR_COLOR
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 #: Alpha (0-255) for the fill beneath the curve — visible as a tinted area
 #: without drowning the axis grid behind it.
@@ -40,7 +41,7 @@ class DrawdownChartWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._empty_label = QLabel("No trade data yet")
+        self._empty_label = plain_label("No trade data yet")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_label)
 

@@ -10,13 +10,14 @@ reads the view model, as the Plan panel does, and decides nothing.
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     state_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 _SEPARATOR = " · "
 
@@ -28,14 +29,14 @@ class IdentityStrip(QWidget):
         super().__init__(parent)
         self.setObjectName("stripBotIdentity")
         self._model = model
-        self.who = QLabel()
+        self.who = plain_label()
         self.who.setObjectName("lblBotIdentity")
-        self.connection = QLabel()
+        self.connection = plain_label()
         self.connection.setObjectName("lblBotConnection")
         self.connection.setWordWrap(True)
         #: The selected bot's venue, for the window's status bar, which shows
         #: it in every mode while a bot is selected (`EPIC-034D`).
-        self.status_label = QLabel()
+        self.status_label = plain_label()
         self.status_label.setObjectName("lblBotVenueStatus")
         row = QHBoxLayout(self)
         row.setContentsMargins(6, 2, 6, 2)

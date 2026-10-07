@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QVBoxLayout,
@@ -43,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPickerOverlay,
 )
@@ -91,21 +91,21 @@ class NewBotDialog(QDialog):
         self.venue = QComboBox()
         self.venue.setObjectName("cmbNewBotVenue")
         for venue in venues:
-            self.venue.addItem(venue.value, venue)
+            self.venue.addItem(venue.display_name, venue)
         self.symbol = QPushButton(CHOOSE_SYMBOL_TEXT)
         self.symbol.setObjectName("btnNewBotSymbol")
         self.symbol.clicked.connect(self._open_picker)
         self.name = QLineEdit()
         self.name.setObjectName("editNewBotName")
-        self.problem = QLabel()
+        self.problem = plain_label()
         self.problem.setObjectName("lblNewBotProblem")
         self.problem.setWordWrap(True)
         self.problem.setVisible(False)
         symbols.catalog_failed.connect(self._show_catalog_problem)
-        self.venue_hint = QLabel(VENUE_HINT)
+        self.venue_hint = plain_label(VENUE_HINT)
         self.venue_hint.setObjectName("lblNewBotVenueHint")
         self.venue_hint.setWordWrap(True)
-        self.parameters_hint = QLabel(PARAMETERS_HINT)
+        self.parameters_hint = plain_label(PARAMETERS_HINT)
         self.parameters_hint.setObjectName("lblNewBotParametersHint")
         self.parameters_hint.setWordWrap(True)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)

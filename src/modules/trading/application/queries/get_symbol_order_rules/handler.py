@@ -40,6 +40,6 @@ class GetSymbolOrderRulesQueryHandler(
         rules = provider.get_or_fetch(query.symbol)
         if rules is None:
             raise SymbolRulesUnavailableError(
-                f"{query.venue.value} does not list {query.symbol}"
+                f"{query.venue.display_name} does not list {query.symbol}"
             )
         return rules

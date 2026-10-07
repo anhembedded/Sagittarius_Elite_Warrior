@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-034](README.md)
 **Date:** 2026-10-07
-**Status:** Accepted (D1–D4); Proposed (D5–D10)
-**Decided by:** the owner for D1–D4, each quoted below; D5–D10 are the proposal's recommendations, which the owner has not answered one by one.
+**Status:** Accepted (D1–D10)
+**Decided by:** the owner. D1–D4 are quoted where they are made; D5–D10 were accepted as recommended on 2026-10-07: *"duyệt hết"* (approve them all). That includes D10's new `keyring` dependency, which ONBOARDING §7 reserves to the owner.
 
 | Label | Meaning |
 | :--- | :--- |
@@ -29,12 +29,12 @@
 | D2 | Every venue with a usable key is on. The Spot and Futures toggles in Tools → Options leave, and with them the restart a venue change needed. | Accepted | 🟢 the owner: *"2 tính năng enable trading và enable spot, future tui thấy thừa và không cần thiết, xóa đi, mặc định là enable hết luôn"* (the enable trading and enable Spot/Futures features are redundant and unnecessary; delete them; everything enabled by default) | A venue without a key is still shown, with "no key" as its Connect result. Delivered by `EPIC-034B`. |
 | D3 | The trading ON/OFF switch leaves. Its reconciliation (read the whole account, refuse when a position the app did not open exists) and the opening of the order session and user data stream run inside the action that needs them: Start a bot, arm a strategy, place a manual order. Emergency stop stays. The first Start on a mainnet venue, when one exists (`EPIC-026`), asks a confirmation that names real money. | Accepted | 🟢 the owner chose option A of two: *"A, làm theo đề xuất của bạn"* (A, do as you propose). Option B, always on with no check, was rejected. | One step instead of three; the guard against foreign positions is kept. SPEC-004 changes from a switch to a precondition. Delivered by `EPIC-034C`. |
 | D4 | A mainnet key is read, never traded. The read-only mainnet account is an `AccountSource` with a reader port only. It is not a `TradingVenue`: no trading session factory, no trading client, no path through `execute_order`. An architecture guard fails if any path from it reaches order submission. Its credentials have their own names (`BINANCE_MAINNET_READONLY_API_KEY` / `_SECRET`). | Accepted | 🟢 the owner: *"giờ tui đưa key mainnet thì nó phải get được thông tin của tôi, đó là 1 milestone trong epic"* (when I give a mainnet key it must read my information; that is a milestone of this epic) | `EPIC-026` D3 keeps its lock: no mainnet `TradingVenue` member. Its D6 was cancelled by the owner the same day, so reading mainnet before a soak contradicts nothing. Delivered by `EPIC-034E`. |
-| D5 | The key's permissions are read (`GET /sapi/v1/account/apiRestrictions`). A key that can withdraw is refused, and the refusal names the permission. A key that can trade is accepted read-only, with advice to create a read-only key. | Proposed | 🔵 Pending (owner) | The app never holds a credential that can move funds off the exchange. |
-| D6 | Connect runs by itself when a bot is selected. One snapshot per venue is shared by every bot on it, re-read on a timer and on Refresh. | Proposed | 🔵 Pending (owner) | Reading is risk-free; the user never has to ask for what the screen needs. |
-| D7 | A constraint either **blocks Start** or **advises**. It blocks for the exchange's rules and for money: balance, minimum notional, per-order cap, open-order limit, price band, break-even after fees, the stop loss and take profit on the right side of the range. It advises for strategy judgement: ATR, slippage room, spacing. | Proposed | 🔵 Pending (owner) | A blocked Start names the constraint and the field; advice never blocks. |
-| D8 | "Save and Start" is the Run step's one primary action; Save stays for drafts. | Proposed | 🔵 Pending (owner) | The hidden "save first" refusal disappears. |
-| D9 | The chart can go live while the bot is a draft. It is a view-only price stream that places nothing and needs no trading. | Proposed | 🔵 Pending (owner) | The user sets the range against the live price. Delivered by `EPIC-034G`. |
-| D10 | The mainnet secret is stored in the operating system's keyring, not in `secrets.local.json`. | Proposed | 🔵 Pending (owner); adds the `keyring` package, a dependency change ONBOARDING §7 reserves to the owner | Without it, the mainnet key is read from the environment only and never written to disk. |
+| D5 | The key's permissions are read (`GET /sapi/v1/account/apiRestrictions`). A key that can withdraw is refused, and the refusal names the permission. A key that can trade is accepted read-only, with advice to create a read-only key. | Accepted | 🟢 the owner: *"duyệt hết"* | The app never holds a credential that can move funds off the exchange. |
+| D6 | Connect runs by itself when a bot is selected. One snapshot per venue is shared by every bot on it, re-read on a timer and on Refresh. | Accepted | 🟢 the owner: *"duyệt hết"* | Reading is risk-free; the user never has to ask for what the screen needs. |
+| D7 | A constraint either **blocks Start** or **advises**. It blocks for the exchange's rules and for money: balance, minimum notional, per-order cap, open-order limit, price band, break-even after fees, the stop loss and take profit on the right side of the range. It advises for strategy judgement: ATR, slippage room, spacing. | Accepted | 🟢 the owner: *"duyệt hết"* | A blocked Start names the constraint and the field; advice never blocks. |
+| D8 | "Save and Start" is the Run step's one primary action; Save stays for drafts. | Accepted | 🟢 the owner: *"duyệt hết"* | The hidden "save first" refusal disappears. |
+| D9 | The chart can go live while the bot is a draft. It is a view-only price stream that places nothing and needs no trading. | Accepted | 🟢 the owner: *"duyệt hết"* | The user sets the range against the live price. Delivered by `EPIC-034G`. |
+| D10 | The mainnet secret is stored in the operating system's keyring, not in `secrets.local.json`. | Accepted | 🟢 the owner: *"duyệt hết"*, which approves adding the `keyring` package (ONBOARDING §7) | Without it, the mainnet key is read from the environment only and never written to disk. |
 
 ## 3. Alternatives considered
 - **Option B for D3: always on, no reconciliation.** Rejected by the owner. With a mainnet key it would let a bot or an armed strategy trade real money the moment the app starts, next to positions the app did not open.
@@ -44,17 +44,17 @@
 ## 4. Open questions
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | D5–D10 as recommended? | the child that delivers each | 2026-10-07 |
+| O1 | ~~D5–D10 as recommended?~~ Answered 2026-10-07: accepted. | — | 2026-10-07 |
 | O2 | Does the plan already check the base inventory needed by the sell levels above the price? To be read in the code by `EPIC-034F`. | EPIC-034F's design | 2026-10-07 |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [EPIC-034D](incomplete/EPIC-034D_connect_step.md), [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md), [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
+| D1 | [EPIC-034D](completed/EPIC-034D_connect_step.md) (Connect), [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md), [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
 | D2 | [EPIC-034B](incomplete/EPIC-034B_every_venue_with_a_key_is_on.md) | Not started | Not yet verified |
 | D3 | [EPIC-034C](incomplete/EPIC-034C_trading_switch_folded_into_actions.md) | Not started | Not yet verified |
 | D4, D5, D10 | [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | Not started | Not yet verified |
-| D6 | [EPIC-034D](incomplete/EPIC-034D_connect_step.md) | Not started | Not yet verified |
+| D6 | [EPIC-034D](completed/EPIC-034D_connect_step.md) | Delivered | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py`; the owner's own run: not run |
 | D7 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Not started | Not yet verified |
 | D8 | [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
 | D9 | [EPIC-034G](incomplete/EPIC-034G_chart_live_state.md) | Not started | Not yet verified |

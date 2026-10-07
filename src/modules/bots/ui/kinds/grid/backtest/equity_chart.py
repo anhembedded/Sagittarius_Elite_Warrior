@@ -17,7 +17,7 @@ from pyqtgraph import (  # type: ignore[import-untyped]
     PlotWidget,
     mkPen,
 )
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     EquityPoint,
 )
@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     EMPTY_LEVEL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 KEY_TEXT = "Green: the grid's equity. Grey: buy and hold, from the same capital."
 
@@ -43,7 +44,7 @@ class EquityChart(QWidget):
         self.hold_curve = PlotCurveItem(pen=mkPen(EMPTY_LEVEL_COLOR, width=1))
         self.plot.addItem(self.hold_curve)
         self.plot.addItem(self.grid_curve)
-        key = QLabel(KEY_TEXT)
+        key = plain_label(KEY_TEXT)
         key.setWordWrap(True)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -49,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_import im
     backtest_report_to_run_config,
     read_backtest_report_bytes,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from ..metric_comparison_model import ReportComparisonModel, comparison_table
 
@@ -98,11 +98,11 @@ class ReportComparisonDialog(QDialog):
 
     def _build_column_labels(self) -> None:
         row = QHBoxLayout()
-        self._column_a_label = QLabel()
+        self._column_a_label = plain_label()
         self._column_a_label.setObjectName("lblComparisonColumnA")
         row.addWidget(self._column_a_label, 1)
 
-        self._column_b_label = QLabel()
+        self._column_b_label = plain_label()
         self._column_b_label.setObjectName("lblComparisonColumnB")
         row.addWidget(self._column_b_label, 1)
 
@@ -113,12 +113,12 @@ class ReportComparisonDialog(QDialog):
         self.body_layout.addLayout(row)
 
     def _build_diff_and_warning_labels(self) -> None:
-        self._diff_label = QLabel()
+        self._diff_label = plain_label()
         self._diff_label.setObjectName("lblComparisonConfigDiff")
         self._diff_label.setWordWrap(True)
         self.body_layout.addWidget(self._diff_label)
 
-        self._warning_label = QLabel()
+        self._warning_label = plain_label()
         self._warning_label.setObjectName("lblComparisonWarning")
         self._warning_label.setWordWrap(True)
         self._warning_label.setVisible(False)

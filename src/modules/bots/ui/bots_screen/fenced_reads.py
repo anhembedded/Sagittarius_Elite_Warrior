@@ -106,7 +106,10 @@ class FencedReads(UiThreadRelay):
             return
         if error is not None:
             tracker.finish_action(action_id, ActionOutcome.FAILED)
-            logger.warning(
+            # One line per failed operation (`logging-rule.md` §4): the engine's
+            # dispatcher already wrote this failure at ERROR (`BUG-168` counted
+            # it twice), so the screen's own record is DEBUG.
+            logger.debug(
                 "Bots screen read %s (%s) failed: %s", kind.value, label, error
             )
             self.failed.emit(kind, label, error)

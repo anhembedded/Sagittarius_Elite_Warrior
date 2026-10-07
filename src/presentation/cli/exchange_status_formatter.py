@@ -52,8 +52,8 @@ _FAILURE_GUIDANCE = EnumLabels(
             "Could not connect to the exchange. Check your network/proxy and try again."
         ),
         ConnectionFailureKind.MAINTENANCE: (
-            "The exchange answered with a maintenance page, not an API reply. "
-            "Wait a few minutes and try again."
+            "The exchange is unavailable (maintenance or a gateway error). "
+            "Try again later."
         ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "The account is in Hedge Mode. This epic assumes One-way Mode — "

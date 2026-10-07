@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from PySide6.QtCore import SignalInstance
+    from PySide6.QtGui import QAction
 
 
 class ICommandBinder(Protocol):
@@ -31,4 +32,9 @@ class ICommandBinder(Protocol):
         """`handler` gets the checked state (`False` for a plain command).
         `enabled` and `checked` keep the action in step with the presenter;
         `initially_enabled` holds until `enabled` first fires."""
+        ...
+
+    def action(self, action_id: str) -> QAction:
+        """The action behind `action_id`, for a presenter that keeps its tip
+        in step with a reason (`EPIC-034A`: why a command is disabled)."""
         ...

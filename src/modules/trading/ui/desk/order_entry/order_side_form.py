@@ -25,7 +25,6 @@ from decimal import Decimal
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSlider,
@@ -53,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.side_read
     SideUnits,
     side_readout,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
 _SLIDER_STEP = 25
@@ -105,8 +105,8 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._best.setText("BBO")
         self._best.setToolTip(_BEST_PRICE_TIP[side])
         self._best.clicked.connect(lambda: view_model.intents.use_best_price(side))
-        self._market_price = QLabel("Market price")
-        self._price_unit = QLabel()
+        self._market_price = plain_label("Market price")
+        self._price_unit = plain_label()
 
         self._stop = QLineEdit()
         self._stop.setObjectName(f"txtStopPrice{name}")
@@ -115,7 +115,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._stop.textEdited.connect(
             lambda text: view_model.intents.set_stop_price(side, text)
         )
-        self._stop_unit = QLabel()
+        self._stop_unit = plain_label()
 
         self._quantity = QLineEdit()
         self._quantity.setObjectName(f"txtAmount{name}")
@@ -123,7 +123,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._quantity.textEdited.connect(
             lambda text: view_model.intents.set_quantity(side, text)
         )
-        self._quantity_unit = QLabel()
+        self._quantity_unit = plain_label()
 
         self._spend = QLineEdit()
         self._spend.setObjectName(f"txtTotal{name}")
@@ -132,7 +132,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._spend.textEdited.connect(
             lambda text: view_model.intents.set_total(side, text)
         )
-        self._spend_unit = QLabel()
+        self._spend_unit = plain_label()
 
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setObjectName(f"sldPercent{name}")
@@ -151,7 +151,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._figures.setObjectName(f"roFigures{name}")
         self._futures = view_model.profile.futures_controls
         self._protection = ProtectionFields(view_model.options, side)
-        self._problem = QLabel()
+        self._problem = plain_label()
         self._problem.setObjectName(f"lblProblem{name}")
         self._problem.setWordWrap(True)
         self._submit = QPushButton()
