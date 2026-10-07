@@ -319,7 +319,6 @@ def test_a_refused_sync_is_named_and_the_stored_candles_still_draw() -> None:
 def test_the_stream_reports_carry_the_token_of_the_request_they_answer() -> None:
     """`EPIC-034G`: the chart fences a report of a replaced request by it."""
     callbacks = _callbacks()
-    coordinator = _coordinator(stream=FakeMarketStream())
     coordinator = LiveChartCoordinator(
         MagicMock(),
         MarketDataCandleFeed(
