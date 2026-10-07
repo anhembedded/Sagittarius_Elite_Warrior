@@ -163,4 +163,4 @@ def test_a_refused_close_names_the_gate(qtbot) -> None:
 
     desk.panel.closePositionRequested.emit(_confirmed())
 
-    assert "trading" in desk.message().lower()
+    assert "order session" in desk.message().lower()

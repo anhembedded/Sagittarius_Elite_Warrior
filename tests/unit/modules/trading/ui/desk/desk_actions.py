@@ -17,7 +17,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_command_bindin
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands import (
     EMERGENCY_STOP,
-    ENABLE_TRADING,
     NEW_ORDER,
     trade_commands,
 )
@@ -51,10 +50,6 @@ class DeskActions:
     venue: TradingVenue
 
     @property
-    def enable_trading(self) -> QAction:
-        return self.registry.action(ENABLE_TRADING)
-
-    @property
     def emergency_stop(self) -> QAction:
         return self.registry.action(EMERGENCY_STOP)
 
@@ -70,9 +65,7 @@ def bind_desk_actions(owner: QWidget, presenter: DeskPresenter) -> DeskActions:
     confirmer = RecordingConfirmer()
     binding_owner = QObject(owner)
     choice = VenueChoice((venue,), None, binding_owner)
-    binding = TradeCommandBinding(
-        {venue: presenter}, choice, lambda _title: True, binding_owner
-    )
+    binding = TradeCommandBinding({venue: presenter}, choice, binding_owner)
 
     def bind(binder: ICommandBinder) -> None:
         choice.bind_commands(binder)

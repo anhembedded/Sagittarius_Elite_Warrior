@@ -30,12 +30,6 @@ _LOGGING_CALLS = frozenset(
 
 #: path -> the identifier its `venue.value` is.
 EXEMPT: dict[str, str] = {
-    "src/modules/trading/ui/settings/trading_settings_presenter.py": (
-        "the settings keys of the enabled venues"
-    ),
-    "src/modules/trading/ui/settings/trading_settings_view.py": (
-        "a toggle's object name and the settings key it requests"
-    ),
     "src/modules/trading/ui/trade/trade_commands.py": "a command id",
     "src/modules/trading/ui/trade/venue_choice.py": (
         "the remembered state's key and a log field"

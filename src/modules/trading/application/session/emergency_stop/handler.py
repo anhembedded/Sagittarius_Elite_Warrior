@@ -6,19 +6,16 @@ for the guard listing both by name). `EPIC-027F` — resolves its trading
 client from `ITradingClientFactory` rather than constructing
 `FuturesTradingClient` itself.
 
-@details Does **not** go through `ExecuteOrderCommand`/`DisableTradingCommand`
-for its own steps, on purpose:
+@details Does **not** go through `ExecuteOrderCommand` for its own steps, on
+purpose: `ExecuteOrderCommandHandler._first_blocked_safety_gate()` refuses
+whenever `not session_state.enabled`, and step 1 here closes the session
+*before* step 3 needs to place closing orders, so routing step 3 through it
+would make it refuse every single time. It closes the session inline rather
+than dispatching a command: handlers take shared services as direct
+constructor dependencies, not each other's commands through the dispatcher.
 
-- `ExecuteOrderCommandHandler._first_blocked_safety_gate()` refuses
-  whenever `not session_state.enabled` — and step 1 here disables trading
-  *before* step 3 needs to place closing orders, so routing step 3 through
-  `ExecuteOrderCommand` would make it refuse every single time, the exact
-  opposite of what an emergency close needs.
-- Reusing `DisableTradingCommandHandler`'s logic inline (rather than
-  dispatching that command) matches this app's existing pattern of
-  handlers taking shared services as direct constructor dependencies
-  (`ExecuteOrderCommandHandler` does the same for `TradingSessionState`),
-  not calling one handler from another through the dispatcher.
+`EPIC-034C` — the run is marked on the session state (`begin_stop`/`end_stop`)
+so nothing reopens the session before the last read.
 """
 
 from __future__ import annotations
@@ -100,7 +97,7 @@ class EmergencyStopCommandHandler(
        the opposite direction.
 
     Never gated on `TradingVenue`/connection readiness — same reasoning
-    `DisableTradingCommandHandler` documents for step 1: an emergency stop
+    the session's `disable()` documents for step 1: an emergency stop
     must always be attempted. A step's own API calls failing (network,
     exchange rejection, insufficient margin) is reported through that
     step's own `EmergencyStopStepResult`, not raised — one step failing
@@ -130,6 +127,17 @@ class EmergencyStopCommandHandler(
         # Spot baseline. Another venue's session is never read or touched.
         scope = self._scopes.get(command.venue)
 
+        # `EPIC-034C` — nothing reopens the session (and re-baselines the Spot
+        # holdings step 3 sells above) until the last read.
+        scope.session_state.begin_stop()
+        try:
+            return self._stop(scope, command)
+        finally:
+            scope.session_state.end_stop()
+
+    def _stop(
+        self, scope: VenueTradingScope, command: EmergencyStopCommand
+    ) -> EmergencyStopResult:
         # `EPIC-029` ADR D6 r2 — read before step 1 clears the books: each
         # bot's share of the Spot liquidation goes out under its own tag.
         owner_shares = scope.session_state.owner_books.shares()
@@ -264,7 +272,7 @@ class EmergencyStopCommandHandler(
         never a symbol this app cannot safely size an order for.
 
         @details Reads current holdings fresh (`ITradingAccountReader.
-        check_connection()`), never the stale figures `EnableTradingCommand`
+        check_connection()`), never the stale figures `EnsureSessionReadyCommand`
         baselined at — the same "re-fetch, never trust a remembered value"
         principle every other reconciliation in this app already applies.
         A holding with no recorded baseline at all (`spot_baseline_holdings()`

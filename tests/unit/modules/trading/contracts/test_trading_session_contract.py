@@ -4,7 +4,7 @@ against the half that needs no dispatcher (HLD §10.3).
 @par The recorded deferral had expired, and PR 2.1f is where that showed
 This file used to say the real `TradingSessionService` would run the suite
 *"once PR 1.3c moves the handler registrations into the module"*, because
-`enable()` needs `EnableTradingCommandHandler` behind a real dispatcher. PR
+`ensure_ready()` needs `EnsureSessionReadyCommandHandler` behind a real dispatcher. PR
 1.3c has long since landed — 1.3c-4 even split the shared `FuturesSessionFactory`
 the note names — and the real service still was not running it, which is how a
 deferral outlives its own reason.
@@ -13,7 +13,7 @@ The lease shipped in PR 2.1f needs none of that machinery: `claim_symbol` and
 `release_symbol` go straight to `TradingSessionState`. So the suite was split
 (`SymbolLeaseContract`), and the real service runs that half **here and now**
 rather than inheriting a blocker that has nothing to do with it. What is still
-deferred is honestly narrower than before: `enable()` / `emergency_stop()` /
+deferred is honestly narrower than before: `ensure_ready()` / `emergency_stop()` /
 `snapshot()` against the real service, which wants the handler wiring a
 sanity-tier boot already builds.
 """
@@ -33,12 +33,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_resu
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingBlockReason,
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     TradingSessionSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+    SessionReadyResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_trading_session import (
     GivenSession,
@@ -112,26 +112,26 @@ class TestTheFakesOwnBookkeeping:
         assert answer.orders_sent_this_session == 4
         assert answer.known_open_symbols == ("BTCUSDT",)
 
-    def test_enable_answers_drives_a_refusal_and_leaves_the_session_off(self) -> None:
-        """A blocked enable must not flip the snapshot on — that combination
+    def test_ready_answers_drives_a_refusal_and_leaves_the_session_closed(self) -> None:
+        """A blocked open must not flip the snapshot on — that combination
         (result refused, session enabled) never happens in production, and a
         fake that allowed it would let a caller's error branch pass while the
         success branch was the one running."""
         fake = FakeTradingSession()
-        fake.enable_answers(
-            EnableTradingResult(
-                enabled=False,
-                block_reason=EnableTradingBlockReason.CONNECTION_NOT_READY,
+        fake.ready_answers(
+            SessionReadyResult(
+                ready=False,
+                block_reason=SessionBlockReason.CONNECTION_NOT_READY,
                 reconciled_positions=(),
                 reconciled_open_orders=(),
             )
         )
 
-        result = fake.enable()
+        result = fake.ensure_ready()
 
-        assert result.enabled is False
+        assert result.ready is False
         assert fake.snapshot().enabled is False
-        assert fake.enables == 1
+        assert fake.ready_requests == 1
 
     def test_emergency_stop_answers_drives_a_partial_stop(self) -> None:
         partial = EmergencyStopResult(
@@ -148,12 +148,12 @@ class TestTheFakesOwnBookkeeping:
         # on" is not one of its forms.
         assert fake.snapshot().enabled is False
 
-    def test_the_default_enable_succeeds_and_shows_up(self) -> None:
-        """A fake whose `enable()` left the snapshot False would let a
-        caller's "did it turn on?" assertion pass for the wrong reason."""
+    def test_the_default_open_succeeds_and_shows_up(self) -> None:
+        """A fake whose `ensure_ready()` left the snapshot False would let a
+        caller's "did it open?" assertion pass for the wrong reason."""
         fake = FakeTradingSession()
 
-        assert fake.enable().enabled is True
+        assert fake.ensure_ready().ready is True
         assert fake.snapshot().enabled is True
 
     def test_it_counts_each_call_separately(self) -> None:
@@ -161,23 +161,27 @@ class TestTheFakesOwnBookkeeping:
 
         fake.snapshot()
         fake.snapshot()
-        fake.disable()
+        fake.emergency_stop()
 
-        assert (fake.snapshot_reads, fake.disables, fake.enables) == (2, 1, 0)
+        assert (fake.snapshot_reads, fake.emergency_stops, fake.ready_requests) == (
+            2,
+            1,
+            0,
+        )
 
-    def test_enable_raises_produces_a_failure_the_caller_must_handle(self) -> None:
+    def test_ready_raises_produces_a_failure_the_caller_must_handle(self) -> None:
         """`EPIC-025` PR 1.3c-1 — a refusal is a result, but the two network
-        round trips behind `enable()` can still fail, and both Presenters carry
+        round trips behind `ensure_ready()` can still fail, and both Presenters carry
         a test that the failure is reported rather than raised at the UI. The
         call is still counted: "it was attempted and blew up" is a different
         fact from "it was never attempted"."""
         fake = FakeTradingSession()
-        fake.enable_raises(RuntimeError("boom"))
+        fake.ready_raises(RuntimeError("boom"))
 
         with pytest.raises(RuntimeError, match="boom"):
-            fake.enable()
+            fake.ensure_ready()
 
-        assert fake.enables == 1
+        assert fake.ready_requests == 1
         assert fake.snapshot().enabled is False
 
     def test_emergency_stop_raises_leaves_the_session_as_it_was(self) -> None:

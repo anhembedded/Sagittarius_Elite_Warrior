@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -88,6 +91,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -170,6 +176,9 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
             single_venue_scopes(context, session_state),
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(_LIMITS),
+            SessionReadiness(
+                single_venue_scopes(context, session_state), RecordingPublisher()
+            ),
         )
         result = handler.execute(
             ExecuteOrderCommand(
@@ -239,6 +248,9 @@ def test_a_second_manual_buy_on_the_same_symbol_is_not_blocked_by_a_position_lim
             single_venue_scopes(context, session_state),
             PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(no_interval),
+            SessionReadiness(
+                single_venue_scopes(context, session_state), RecordingPublisher()
+            ),
         )
         command = ExecuteOrderCommand(
             order_request=PreviewOrderQuery(

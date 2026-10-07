@@ -196,6 +196,12 @@ def trade_mode_running(
         container.singleton(IRangeCoverage, lambda _c: range_coverage)
         container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
         engine.boot()
+        # The fake server speaks no websocket, so opening a venue's order
+        # session (`EPIC-034C`: a start, an arm or a manual order opens it) must
+        # not start the real user data stream; everything else is real.
+        scopes = container.resolve(VenueTradingScopes)
+        for venue in (FUTURES, SPOT):
+            scopes.get(venue).ports.user_data_stream.start = lambda: None  # type: ignore[method-assign]
         window = real_main_window(engine)
         window.show()
         # Not handed to `qtbot.addWidget`: the `finally` below closes and
@@ -223,6 +229,10 @@ def trade_mode_running(
             threads = container.resolve(IThreadManager)
             threads.shutdown(wait=True)
             assert threads.stats().in_flight == 0
+            # What the workers finished is delivered while the widgets live:
+            # a session opened by the test's last action puts its desk's chart
+            # live (`EPIC-034C`), and its history answer is queued to the UI.
+            qapp.processEvents()
             window.close()
             window.deleteLater()
             engine.stop()

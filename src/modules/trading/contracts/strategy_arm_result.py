@@ -14,7 +14,8 @@ from enum import Enum
 class ArmStrategyBlockReason(str, Enum):
     """@brief Why a strategy was not armed — named, never a bare `False`."""
 
-    TRADING_IS_ENABLED = "trading_is_enabled"
+    SESSION_NOT_READY = "session_not_ready"
+    POSITION_OPEN = "position_open"
     STRATEGY_NOT_FOUND = "strategy_not_found"
     INVALID_PARAMS = "invalid_params"
     MISSING_SYMBOL_OR_INTERVAL = "missing_symbol_or_interval"
@@ -34,5 +35,6 @@ class ArmStrategyResult:
     block_reason: ArmStrategyBlockReason | None = None
     #: The rejecting exception's own text when `block_reason` is
     #: `INVALID_PARAMS`, so the UI can show which field was wrong instead
-    #: of a generic "invalid parameters".
+    #: of a generic "invalid parameters"; the refusal's words for
+    #: `SESSION_NOT_READY`.
     error_message: str | None = None

@@ -19,19 +19,21 @@ sound, I start it, and I watch what it does."*
 
 ## 2. Preconditions
 
-- Spot Testnet is enabled in Tools → Options → Trading and the app was restarted after the change;
-  `secrets.local.json` holds its key pair.
+- `secrets.local.json` (or the environment) holds Spot Testnet's key pair. There is no venue switch
+  in Tools → Options and no restart (`EPIC-034B`): a venue with a key is on, and a key saved there
+  is used by the next request.
 - The symbol's daily candles are stored (Database tab) for the ATR and Bollinger suggestions and
   the ATR zones; without them the plan is still judged, only those are missing.
-- Live trading is on for Spot (`SPEC-004`) for a start to place anything.
+- Nothing has to be switched on for a start to place anything: Start opens Spot's order session
+  itself, after reconciling the account (`SPEC-004`, `EPIC-034C`).
 
 ## 3. Main flow
 
 1. The trader opens the Bots mode. The Bots panel lists every saved bot: name, kind, venue, symbol,
    state in words (Draft, Running, Paused, Recovering, Halted, Stopped, Error) and grid profit.
 2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Spot Grid), the
-   Spot venue (preselected, an enabled one first, and never blocking: Start refuses a venue that is
-   not enabled), the symbol (chosen in the shared symbol picker over the Spot catalog, never taken
+   Spot venue (preselected, and never blocking: Start refuses a venue that is not a Spot venue
+   this app trades on), the symbol (chosen in the shared symbol picker over the Spot catalog, never taken
    from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
    (`BOT-150`).
@@ -89,6 +91,9 @@ available while it runs.
 
 - A created bot is still listed after a restart, in the state it was saved in; a bot that was
   running comes back Recovering and is reconciled before it acts (ADR D12).
+  It is reconciled when the venue's order session opens, which only a deliberate action does
+  (a Start, an arm or a manual order, SPEC-004, `EPIC-034C`): nothing trades at start-up without a
+  person acting, so a restored bot stays Recovering until then.
 - A stopped bot has no resting order carrying its tag on the venue, and holds the base or sold
   it, as chosen.
 - Grid profit counts only completed buy-then-sell cycles, net of both fees.
@@ -97,12 +102,13 @@ available while it runs.
 
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| No Spot venue is enabled | New bot says so and Create is disabled | Only an enabled Spot venue can run a Spot Grid |
+| No Spot venue is available in this build | New bot says so and Create is disabled | Only a Spot venue can run a Spot Grid |
 | The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and Start is disabled with the same reason; Bots → Retry venue account | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
 | The symbol is unknown, or the venue cannot be read | Start is disabled: "The plan cannot be judged: …" with the venue's reason | A plan judged against no numbers cannot start |
 | A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
 | A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
-| Trading is off, or the switch turns off while running | The use case refuses with its reason in the status line, or the bot moves to Halted with the reason beside its state | trading is the only module that sends orders, and its switch wins |
+| Start's reconciliation refuses: the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
+| An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
 | The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
 | A bot file on disk cannot be read | The status line names the file | The store refuses it rather than guessing (`EPIC-029B`) |
 | The action's answer arrives after the trader moved on or left the mode | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |

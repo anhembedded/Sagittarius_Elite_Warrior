@@ -51,8 +51,8 @@
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [EPIC-034D](completed/EPIC-034D_connect_step.md) (Connect), [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md), [EPIC-034H](incomplete/EPIC-034H_run_step_readiness.md) | Not started | Not yet verified |
-| D2 | [EPIC-034B](incomplete/EPIC-034B_every_venue_with_a_key_is_on.md) | Not started | Not yet verified |
-| D3 | [EPIC-034C](incomplete/EPIC-034C_trading_switch_folded_into_actions.md) | Not started | Not yet verified |
+| D2 | [EPIC-034B](completed/EPIC-034B_every_venue_with_a_key_is_on.md) | Implemented (PR-2) | Unit, integration and sanity tiers green on the branch; testnet tier not run |
+| D3 | [EPIC-034C](completed/EPIC-034C_trading_switch_folded_into_actions.md) | Implemented (PR-2) | Unit, integration and sanity tiers on the branch; `test_every_order_is_reconciled.py`; testnet tier not run |
 | D4, D5, D10 | [EPIC-034E](incomplete/EPIC-034E_mainnet_read_only_account.md) | Built; the owner's own-key check remains | The architecture guard `test_mainnet_has_no_order_path.py`, the fake-server tests; the owner's own key: not run |
 | D6 | [EPIC-034D](completed/EPIC-034D_connect_step.md) | Delivered (the locks are the screen's; Start's own refusal in the use case is unchanged until `EPIC-034H`'s one readiness query) | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py`; the owner's own run: not run |
 | D7 | [EPIC-034F](incomplete/EPIC-034F_design_step_constraints.md) | Not started | Not yet verified |

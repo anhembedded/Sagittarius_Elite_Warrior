@@ -117,12 +117,9 @@ _WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
 )
 
 _SWITCH_OFF_DETAIL = {
-    TradingSwitchCause.DISABLED: (
-        "trading was disabled; the bot's resting orders are still on the exchange"
-    ),
     TradingSwitchCause.EMERGENCY_STOP: (
         "Emergency Stop cancelled every order and sold what was bought since "
-        "the last enable"
+        "the session opened"
     ),
 }
 

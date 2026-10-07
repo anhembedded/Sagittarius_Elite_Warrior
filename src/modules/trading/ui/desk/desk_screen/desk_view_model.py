@@ -28,11 +28,8 @@ class DeskViewModel(StatusMessageViewModel):
 
     symbolOptionsChanged = Signal()
     symbolChanged = Signal()
-    tradingStateChanged = Signal()
     #: Emitted when the user picks a different symbol for the chart.
     symbolChangeRequested = Signal(str)
-    #: Emitted when the user triggers Enable live trading (`EPIC-033D`).
-    toggleRequested = Signal()
     #: Emitted when the user confirms Emergency stop (`EPIC-021K`, `EPIC-033D`).
     emergencyStopRequested = Signal()
 
@@ -51,14 +48,12 @@ class DeskViewModel(StatusMessageViewModel):
         super().__init__(parent)
         self._symbol_options: list[str] = []
         self._symbol = ""
-        self._enabled = False
-        self._toggle_busy = False
         self._log_model = log_model if log_model is not None else LogListModel(self)
         self._log_prefix = log_prefix
 
     # ------------------------------------------------------------------ #
     # Symbol (chart only — independent of the Enable/Disable toggle,
-    # which is account-wide, not per-symbol; see EnableTradingCommand).
+    # which is account-wide, not per-symbol; see EnsureSessionReadyCommand).
     # ------------------------------------------------------------------ #
 
     @property
@@ -96,28 +91,8 @@ class DeskViewModel(StatusMessageViewModel):
             self.symbolChangeRequested.emit(symbol)
 
     # ------------------------------------------------------------------ #
-    # Enable/Disable trading toggle (written from Python only, except the
-    # click itself)
+    # Emergency stop (written from Python only, except the click itself)
     # ------------------------------------------------------------------ #
-
-    @property
-    def enabled(self) -> bool:
-        return self._enabled
-
-    @property
-    def toggleBusy(self) -> bool:
-        return self._toggle_busy
-
-    @Slot(bool, bool)
-    def set_trading_state(self, enabled: bool, busy: bool) -> None:
-        self._enabled = enabled
-        self._toggle_busy = busy
-        self.tradingStateChanged.emit()
-
-    @Slot()
-    def requestToggle(self) -> None:
-        """Called by the Trade mode's Enable live trading (`trade_commands.py`)."""
-        self.toggleRequested.emit()
 
     @Slot()
     def requestEmergencyStop(self) -> None:

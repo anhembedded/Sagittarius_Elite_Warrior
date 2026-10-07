@@ -6,15 +6,15 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
     FuturesTradingClientFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
-    EnableTradingCommandHandler,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready import (
+    EnsureSessionReadyCommand,
+    EnsureSessionReadyCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     PositionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -84,7 +87,7 @@ def _handler(
     open_order_payloads: list[dict] | None = None,
     algo_order_payloads: list[dict] | None = None,
     publisher: RecordingPublisher | None = None,
-) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock, Mock]:
+) -> tuple[EnsureSessionReadyCommandHandler, TradingSessionState, Mock, Mock]:
     account_reader = Mock()
     account_reader.check_connection.return_value = status or _ready_status()
 
@@ -107,17 +110,19 @@ def _handler(
     user_data_stream = Mock()
 
     return (
-        EnableTradingCommandHandler(
-            single_venue_scopes(
-                venue_context(
-                    trading_venue,
-                    account_reader=account_reader,
-                    client_factory=trading_client_factory,
-                    user_data_stream=user_data_stream,
+        EnsureSessionReadyCommandHandler(
+            SessionReadiness(
+                single_venue_scopes(
+                    venue_context(
+                        trading_venue,
+                        account_reader=account_reader,
+                        client_factory=trading_client_factory,
+                        user_data_stream=user_data_stream,
+                    ),
+                    session_state,
                 ),
-                session_state,
-            ),
-            publisher or RecordingPublisher(),
+                publisher or RecordingPublisher(),
+            )
         ),
         session_state,
         user_data_stream,
@@ -125,12 +130,14 @@ def _handler(
     )
 
 
-def test_enables_when_account_is_flat() -> None:
+def test_opens_when_account_is_flat() -> None:
     handler, session_state, user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.enabled is True
+    assert result.ready is True
     assert result.block_reason is None
     assert result.account_was_read is True
     assert session_state.enabled is True
@@ -142,16 +149,16 @@ def test_blocked_when_trading_venue_disabled() -> None:
         trading_venue=TradingVenue.DISABLED
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.DISABLED))
+    result = handler.execute(EnsureSessionReadyCommand(venue=TradingVenue.DISABLED))
 
-    assert result.enabled is False
-    assert result.block_reason is EnableTradingBlockReason.TRADING_VENUE_DISABLED
+    assert result.ready is False
+    assert result.block_reason is SessionBlockReason.TRADING_VENUE_DISABLED
     assert result.account_was_read is False  # nothing was asked of the venue
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
 
-def test_enables_when_trading_venue_is_spot_testnet() -> None:
+def test_opens_when_trading_venue_is_spot_testnet() -> None:
     """`EPIC-027K` — the gate asks `TradingVenue.supports_order_submission`,
     not a literal `is not FUTURES_TESTNET`. `SPOT_TESTNET` now has a real
     order-submission implementation (`SpotTradingClient`), so this gate no
@@ -160,9 +167,9 @@ def test_enables_when_trading_venue_is_spot_testnet() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
+    result = handler.execute(EnsureSessionReadyCommand(venue=TradingVenue.SPOT_TESTNET))
 
-    assert result.enabled is True
+    assert result.ready is True
     assert result.block_reason is None
     assert session_state.enabled is True
     user_data_stream.start.assert_called_once()
@@ -183,9 +190,11 @@ def test_blocked_when_connection_not_reachable() -> None:
         status=unreachable
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
+    assert result.block_reason is SessionBlockReason.CONNECTION_NOT_READY
     assert result.account_was_read is False  # positions were never read
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
@@ -206,16 +215,18 @@ def test_blocked_when_hedge_mode() -> None:
         status=hedge_mode
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
+    assert result.block_reason is SessionBlockReason.CONNECTION_NOT_READY
     assert result.account_was_read is False
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
 
 def test_a_concurrent_emergency_stop_during_reconciliation_is_not_overridden() -> None:
-    """`BUG-088` — `EnableTradingCommand` does two network round-trips
+    """`BUG-088` — `SessionReadiness` does two network round-trips
     (`check_connection()`, `get_positions()`/`get_open_orders()`) before it
     ever calls `session_state.enable()`. If an Emergency Stop's `disable()`
     lands on another thread while that reconciliation is still in flight,
@@ -233,29 +244,32 @@ def test_a_concurrent_emergency_stop_during_reconciliation_is_not_overridden() -
         _check_connection_then_concurrent_emergency_stop
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.enabled is False
+    assert result.ready is False
     assert (
-        result.block_reason
-        is EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE
+        result.block_reason is SessionBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE
     )
     assert result.account_was_read is True  # read before the stop landed
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
 
-def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
+def test_refuses_and_does_not_open_when_unexpected_position_exists() -> None:
     """`EPIC-021G` §2.4: an existing position the app has no record of
-    refuses the enable — it is never auto-adopted, never auto-closed."""
+    refuses to open the session — it is never auto-adopted, never auto-closed."""
     handler, session_state, user_data_stream, _account_reader = _handler(
         position_payloads=[_position_payload()]
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.enabled is False
-    assert result.block_reason is EnableTradingBlockReason.UNEXPECTED_POSITIONS
+    assert result.ready is False
+    assert result.block_reason is SessionBlockReason.UNEXPECTED_POSITIONS
     assert result.account_was_read is True
     assert len(result.reconciled_positions) == 1
     assert result.reconciled_positions[0].symbol == "BTCUSDT"
@@ -263,7 +277,7 @@ def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
     user_data_stream.start.assert_not_called()
 
 
-def test_enables_without_any_strategy_armed() -> None:
+def test_opens_without_any_strategy_armed() -> None:
     """`BUG-112` — `EPIC-022B` originally refused to enable trading with
     nothing armed ("trading enabled" would describe a system that could
     never produce a signal). `EPIC-024B` gave `ExecuteOrderCommand` a
@@ -277,9 +291,11 @@ def test_enables_without_any_strategy_armed() -> None:
     no strategy required, ordinary reconciliation still runs."""
     handler, session_state, user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.enabled is True
+    assert result.ready is True
     assert result.block_reason is None
     assert session_state.enabled is True
     user_data_stream.start.assert_called_once()
@@ -317,9 +333,9 @@ def test_records_a_spot_baseline_from_current_holdings() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET, status=status
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
+    result = handler.execute(EnsureSessionReadyCommand(venue=TradingVenue.SPOT_TESTNET))
 
-    assert result.enabled is True
+    assert result.ready is True
     assert session_state.spot_baseline_holdings() == {"BTC": Decimal("0.5")}
 
 
@@ -328,9 +344,9 @@ def test_records_an_empty_spot_baseline_when_holding_nothing() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET, status=_spot_status()
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
+    result = handler.execute(EnsureSessionReadyCommand(venue=TradingVenue.SPOT_TESTNET))
 
-    assert result.enabled is True
+    assert result.ready is True
     assert session_state.spot_baseline_holdings() == {}
 
 
@@ -339,9 +355,11 @@ def test_does_not_record_a_spot_baseline_on_futures() -> None:
     leave one behind for a later Spot session to misread."""
     handler, session_state, _user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
-    assert result.enabled is True
+    assert result.ready is True
     assert session_state.spot_baseline_holdings() is None
 
 
@@ -364,7 +382,9 @@ def test_reconciliation_sees_a_conditional_order_in_the_algo_order_api() -> None
         ]
     )
 
-    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+    result = handler.execute(
+        EnsureSessionReadyCommand(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     assert [o.client_order_id for o in result.reconciled_open_orders] == [
         "SEW-a91f4c72e0b8"

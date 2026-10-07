@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.handler import (
     EmergencyStopCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -145,6 +148,7 @@ def _place_sell_stop(context: VenueContext) -> Order:
         single_venue_scopes(context, state),
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
+        SessionReadiness(single_venue_scopes(context, state), RecordingPublisher()),
     )
     result = handler.execute(
         ExecuteOrderCommand(

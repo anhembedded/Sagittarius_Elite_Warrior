@@ -1,4 +1,4 @@
-"""Port: *is live trading on, and turn it on or off* (HLD §3.4).
+"""Port: *is the order session open, and open it* (HLD §3.4).
 
 **Why this port exists, and the part that is not about imports.** Three
 Presenters and the Options dialog read `TradingSessionState` **directly** —
@@ -53,12 +53,12 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionReadyResult,
 )
 
 
@@ -73,10 +73,10 @@ class TradingSessionSnapshot:
     is halfway through reading it.
     """
 
-    #: Whether live submission is currently allowed. Never persisted across
-    #: runs: `EPIC-021G` requires the user to turn trading on explicitly every
-    #: session, the one place this app deliberately does not remember the last
-    #: value the user set.
+    #: Whether live submission is currently allowed: the order session is open.
+    #: Never persisted across runs: every session is opened again by a deliberate
+    #: action that reconciles the account first (`EPIC-021G`, `EPIC-034C`), the
+    #: one place this app deliberately does not remember the last state.
     enabled: bool
     #: Orders sent since this process started — the counter the session's
     #: `max_orders_per_session` limit is checked against.
@@ -110,7 +110,7 @@ class TradingSessionSnapshot:
 
 
 class ITradingSession(ABC):
-    """Read the live trading session, and turn it on or off."""
+    """Read the live trading session, open it, and stop it."""
 
     @abstractmethod
     def snapshot(self) -> TradingSessionSnapshot:
@@ -118,21 +118,21 @@ class ITradingSession(ABC):
         after it returns."""
 
     @abstractmethod
-    def enable(self) -> EnableTradingResult:
-        """Reconcile against the exchange and, if that succeeds, allow live
-        submission.
+    def ensure_ready(self) -> SessionReadyResult:
+        """Open the venue's order session if it is not open: reconcile against
+        the exchange and, if that succeeds, allow live submission (`EPIC-034C`,
+        decision D3 — there is no switch to turn it on).
 
-        Two network round trips, then a generation check: reconciliation
-        succeeding does not mean nothing else happened while it ran, so a
-        concurrent Emergency Stop wins and this answers `enabled=False` with a
-        named `block_reason` rather than blindly turning trading back on.
+        Called first by the three actions that start trading: starting a
+        bot, arming a strategy and placing a manual order. Never by an
+        automated caller, so a late order cannot undo an Emergency Stop.
+
+        On a closed session: two network round trips, then a generation check —
+        reconciliation succeeding does not mean nothing else happened while it
+        ran, so a concurrent Emergency Stop wins and this answers `ready=False`
+        with a named `block_reason` rather than blindly reopening the session.
+        On an open one it answers `ready` with nothing read (`already_open`).
         """
-
-    @abstractmethod
-    def disable(self) -> None:
-        """Stop allowing live submission. Returns nothing because it cannot
-        refuse — it always succeeds, which is why there is no
-        `DisableTradingResult`."""
 
     @abstractmethod
     def claim_symbol(self, symbol: str, owner_id: str) -> bool:
@@ -179,7 +179,7 @@ class ITradingSession(ABC):
 
     @abstractmethod
     def emergency_stop(self) -> EmergencyStopResult:
-        """Disable, cancel every open order, close every position, then read
+        """Close the session, cancel every open order, close every position, then read
         the account back to confirm.
 
         Each of the three steps answers separately

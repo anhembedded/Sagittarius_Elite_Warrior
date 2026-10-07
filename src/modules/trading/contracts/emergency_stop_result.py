@@ -6,7 +6,7 @@ insufficient margin) — reporting that as a bare `bool` would be the exact
 design section names: a button that says "stopped" while a position is
 still open. Each step gets its own `EmergencyStopStepResult` (`succeeded`
 + a human `detail`, never `succeeded` alone), the same "never a bare bool"
-idiom `EnableTradingResult`/`EnableTradingBlockReason` already established
+idiom `SessionReadyResult`/`SessionBlockReason` already established
 for this app's other safety-critical outcome.
 """
 

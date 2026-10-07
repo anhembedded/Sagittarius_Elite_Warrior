@@ -44,6 +44,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_confirmation import (
     ConfirmOrder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
+    KeyCheck,
+    always_keyed,
+    venue_key_check,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -80,6 +85,9 @@ class DeskDependencies:
     #: The venue's tick and step sizes the account tabs write prices and
     #: sizes in; none known keeps the formatter's magnitude rule.
     precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS
+    #: Whether the venue has a key now (`EPIC-034B`): the desk reads its account
+    #: only when it does, and says "No API key" when it does not.
+    has_key: KeyCheck = always_keyed
 
 
 def stream_owner_for(venue: TradingVenue) -> str:
@@ -115,4 +123,5 @@ def desk_dependencies_for(
         precisions=FilterPrecisions(
             container.resolve(IVenueContexts).get(venue).metadata_cache
         ),
+        has_key=venue_key_check(container, venue),
     )

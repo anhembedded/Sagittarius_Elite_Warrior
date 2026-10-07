@@ -1,7 +1,7 @@
 """`EnvironmentBanner` — the global "which venue am I in" banner every
-mode shows in the workbench host's top row (`EPIC-021K`), except for the
-calm "Trading is OFF" state, which the window title and the status bar say
-(`environment_banner_factory`, `BUG-156`).
+mode shows in the workbench host's top row (`EPIC-021K`); a calm content
+(`BannerSeverity.INFO`) takes no strip (`environment_banner_factory`,
+`BUG-156`; the "Trading is OFF" state that was calm left with `EPIC-034C`).
 
 @details Content is computed once, at boot, from `VenueAlignment` — it
 never changes within a session (`EXCHANGE_MARKET_DATA_VENUE`/

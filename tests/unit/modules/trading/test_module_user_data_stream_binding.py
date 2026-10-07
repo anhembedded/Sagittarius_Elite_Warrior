@@ -110,8 +110,12 @@ def test_user_data_stream_is_spot_when_venue_is_spot_testnet():
     resolved `FuturesUserDataStream`, which would have opened Futures'
     `bsm.futures_user_socket()` against Spot Testnet credentials instead of
     the real Spot entry point (`bsm.user_socket()`)."""
-    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
+    container = _container_with_venue(None)
 
-    stream = container.resolve(IVenueContexts).primary().user_data_stream
+    stream = (
+        container.resolve(IVenueContexts)
+        .get(TradingVenue.SPOT_TESTNET)
+        .user_data_stream
+    )
 
     assert isinstance(stream, SpotUserDataStream)

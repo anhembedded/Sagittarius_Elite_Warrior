@@ -175,8 +175,13 @@ class FakeExchange:
 
 
 @contextmanager
-def booted(exchange: FakeExchange) -> Iterator[BootedApp]:
-    """The app with Spot Testnet on; its bots on the serial queue."""
+def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[BootedApp]:
+    """The app with Spot Testnet on; its bots on the serial queue.
+
+    @param open_session Seed the Spot session as open (what most journeys
+    start from, the fake having no websocket for a real open to start). False
+    leaves it closed, as a fresh app is: Start opens it itself (`EPIC-034C`).
+    """
     engine = create_app(app_config(exchange.tmp_path))
     container = engine.context.container
     holder: list[BootedApp] = []
@@ -201,7 +206,8 @@ def booted(exchange: FakeExchange) -> Iterator[BootedApp]:
     assert isinstance(stream, SpotUserDataStream)
     app = BootedApp(engine, exchange.urls, container.resolve(IBotStore), scope, stream)
     holder.append(app)
-    scope.session_state.enable(set(), spot_baseline_holdings=dict(BASELINE))
+    if open_session:
+        scope.session_state.enable(set(), spot_baseline_holdings=dict(BASELINE))
     try:
         yield app
     finally:

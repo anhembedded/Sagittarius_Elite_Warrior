@@ -90,8 +90,12 @@ def test_metadata_provider_is_spot_when_venue_is_spot_testnet():
     """`EPIC-027I` — before this bind existed, every venue silently
     resolved `FuturesMetadataProvider`, which would round a Spot order's
     quantity against Futures' own `stepSize`/`tickSize`/`minNotional`."""
-    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
+    container = _container_with_venue(None)
 
-    provider = container.resolve(IVenueContexts).primary().metadata_provider
+    provider = (
+        container.resolve(IVenueContexts)
+        .get(TradingVenue.SPOT_TESTNET)
+        .metadata_provider
+    )
 
     assert isinstance(provider, SpotMetadataProvider)

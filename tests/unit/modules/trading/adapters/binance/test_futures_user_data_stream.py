@@ -456,7 +456,7 @@ async def test_equity_sample_sums_unrealized_pnl_across_positions_not_just_this_
 
 
 async def test_start_resets_the_running_per_symbol_pnl_total() -> None:
-    """`BUG-092` — `EnableTradingCommand` only ever starts this stream
+    """`BUG-092` — `EnsureSessionReadyCommand` only ever starts this stream
     once reconciliation has confirmed the account is flat, so a fresh
     `start()` must not carry over a stale PnL total from a previous
     session (e.g. a stop/restart within the same process)."""
@@ -597,7 +597,7 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
     """`BUG-094` — `ITaskHandle.cancel()` only *signals* cooperative
     cancellation; it does not wait for `_run_stream()`'s own teardown. A
     `stop()` immediately followed by a `start()` (`EmergencyStopCommandHandler`'s
-    own step 1, or an `EnableTradingCommand` racing a `DisableTradingCommand`)
+    own step 1, or an `EnsureSessionReadyCommand` racing a `DisableTradingCommand`)
     bumps `self._generation` while the old coroutine may still be inside
     its message loop — it must stop calling `_handle_message()` the
     instant that happens, not keep processing (and duplicating) events

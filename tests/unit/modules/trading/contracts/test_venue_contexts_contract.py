@@ -8,15 +8,22 @@ and event bus; the `ITaskManager` is only stored, never started.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import cast
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
+    VenueAssembly,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
+    VenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -39,14 +46,9 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
-def _real(venues: list[TradingVenue]) -> IVenueContexts:
+def _real() -> IVenueContexts:
     container = StdLibContainer()
-    container.singleton(
-        IConfig,
-        DictConfig(
-            {ConfigKeys.EXCHANGE_TRADING_VENUES.value: [v.value for v in venues]}
-        ),
-    )
+    container.singleton(IConfig, DictConfig())
     container.singleton(IEventBus, MemoryEventBus())
     container.singleton(ITaskManager, Mock())
     bind_adapters(container)
@@ -57,11 +59,19 @@ def _real(venues: list[TradingVenue]) -> IVenueContexts:
 class TestVenueContexts(VenueContextsContract):
     @pytest.fixture
     def impl(self) -> IVenueContexts:
-        return _real([TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET])
+        return _real()
 
     @pytest.fixture
     def impl_off(self) -> IVenueContexts:
-        return _real([])
+        """`EPIC-034B`: the composition root always serves every venue, so
+        "nothing enabled" is built by hand — the class still owes the port's
+        rule for it (`VenueContexts`'s `enabled` argument is a plain tuple)."""
+        return VenueContexts(
+            (),
+            lambda venue: cast(
+                VenueAssembly, SimpleNamespace(context=fake_venue_context(venue))
+            ),
+        )
 
 
 class TestFakeVenueContexts(VenueContextsContract):

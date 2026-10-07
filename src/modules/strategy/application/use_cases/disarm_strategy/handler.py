@@ -34,14 +34,15 @@ logger = logging.getLogger("App.CommandHandler")
 class DisarmStrategyCommandHandler(
     ICommandHandler[DisarmStrategyCommand, DisarmStrategyResult]
 ):
-    """@brief Clears the armed strategy, unless trading is on.
+    """@brief Clears the armed strategy, unless it holds an open position.
 
-    @details Disarming while trading is enabled is refused for the mirror
-    image of `ArmStrategyCommandHandler`'s reason: it would produce a
-    session that reports "trading is ON" while nothing can ever generate
-    a signal, which is precisely the untruthful state this epic exists to
-    remove. `ITradingSession.emergency_stop()` remains the way out of a live
-    session: it disables trading first, and is not gated on any of this.
+    @details Disarming while the strategy's symbol has a position open is
+    refused for the mirror image of `ArmStrategyCommandHandler`'s reason: it
+    would leave that position with nothing planning its exit. It was refused
+    while trading was enabled (`EPIC-022B`); with no switch (`EPIC-034C`) the
+    cause itself refuses, and only while the session is open — a closed one
+    knows no positions. `ITradingSession.emergency_stop()` remains the way out:
+    it closes the session and the positions, and is not gated on any of this.
 
     `EPIC-033K` stage 3 — a disarm that took effect publishes
     `ArmedStrategyChangedEvent`, as an arm does.
@@ -61,12 +62,17 @@ class DisarmStrategyCommandHandler(
         logger.debug("Handling DisarmStrategyCommand on %s", command.venue.value)
         session = self._sessions.get(command.venue)
         trading_session = self._trading_ports.get(command.venue).trading_session
-        if trading_session.snapshot().enabled:
+        armed_symbol = session.config.symbol if session.config else None
+        snapshot = trading_session.snapshot()
+        if (
+            snapshot.enabled
+            and armed_symbol is not None
+            and armed_symbol in snapshot.known_open_symbols
+        ):
             return DisarmStrategyResult(
                 disarmed=False,
-                block_reason=DisarmStrategyBlockReason.TRADING_IS_ENABLED,
+                block_reason=DisarmStrategyBlockReason.POSITION_OPEN,
             )
-        armed_symbol = session.config.symbol if session.config else None
         session.disarm()
         if armed_symbol is not None:
             trading_session.release_symbol(armed_symbol, STRATEGY_OWNER)

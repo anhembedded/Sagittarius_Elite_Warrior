@@ -25,7 +25,14 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 from .account_tabs_fixtures import order
-from .desk_screen_fixtures import STRATEGY_KEY, Desk, DeskWorld, build_desk, market_of
+from .desk_screen_fixtures import (
+    STRATEGY_KEY,
+    Desk,
+    DeskWorld,
+    build_desk,
+    market_of,
+    open_session,
+)
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
@@ -114,18 +121,17 @@ def test_an_armed_strategy_is_drawn_only_over_its_own_symbol(qtbot, qapp) -> Non
     assert drawn is not None and drawn.symbol == "ETHUSDT"
 
 
-def test_each_desk_streams_its_own_market_and_enabling_one_leaves_the_other(
-    qtbot,
+def test_each_desk_streams_its_own_market_and_opening_one_leaves_the_other(
+    qtbot, qapp
 ) -> None:
     world, futures, spot = _two_desks(qtbot)
 
-    futures.actions.enable_trading.trigger()
+    open_session(world, futures, qapp)
 
-    assert futures.session.enables == 1
-    assert spot.session.enables == 0
+    assert world.stream.held_by("desk.futures_testnet") is not None
     assert world.stream.held_by("desk.spot_testnet") is None
 
-    spot.actions.enable_trading.trigger()
+    open_session(world, spot, qapp)
 
     held_futures = world.stream.held_by("desk.futures_testnet")
     held_spot = world.stream.held_by("desk.spot_testnet")

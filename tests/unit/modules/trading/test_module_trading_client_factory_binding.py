@@ -95,9 +95,11 @@ def test_factory_is_spot_when_venue_is_spot_testnet():
     """`EPIC-027K` — before this bind existed, every venue silently
     resolved `FuturesTradingClientFactory`, which would sign a Spot Testnet
     request with Futures-only fields (`positionSide`/`reduceOnly`)."""
-    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
+    container = _container_with_venue(None)
 
-    factory = container.resolve(IVenueContexts).primary().client_factory
+    factory = (
+        container.resolve(IVenueContexts).get(TradingVenue.SPOT_TESTNET).client_factory
+    )
 
     assert isinstance(factory, SpotTradingClientFactory)
 
@@ -105,8 +107,10 @@ def test_factory_is_spot_when_venue_is_spot_testnet():
 def test_spot_factory_produces_a_spot_trading_client():
     """The factory's own job, not just its type: `create()` must hand back
     an actual `SpotTradingClient`, the concrete adapter this task built."""
-    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
-    factory = container.resolve(IVenueContexts).primary().client_factory
+    container = _container_with_venue(None)
+    factory = (
+        container.resolve(IVenueContexts).get(TradingVenue.SPOT_TESTNET).client_factory
+    )
 
     client = factory.create(OrderSubmissionMode.VALIDATE_ONLY)
 

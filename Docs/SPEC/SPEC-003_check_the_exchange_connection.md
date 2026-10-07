@@ -1,7 +1,7 @@
 # SPEC-003 — Check that the app can reach the exchange
 
 - **Status:** ✅ built and proven
-- **Actor:** trader (before turning trading on), operator (diagnosing a setup)
+- **Actor:** trader (before a first start), operator (diagnosing a setup)
 - **Origin:** `EPIC-021D`. Its §2.2 is where the rule "an English string from the exchange is
   not a stable contract" was decided, which is why this use case answers with named failure
   kinds.
@@ -16,11 +16,15 @@ cannot, tell me which part is wrong."*
 
 ## 2. Preconditions
 
-1. A Futures Testnet API key pair is configured, from the environment or from
+1. An API key pair for the venue is configured, from the environment or from
    `src/config/secrets.local.json`. **Not** having one is a first-class answer below, not a
    precondition failure.
-2. The configured trading venue is Futures Testnet. This app does not **trade** on mainnet: a
-   mainnet key is only *read*, by the read-only case under §3 (`EPIC-034E`).
+2. Every testnet venue (Futures Testnet and Spot Testnet) is assembled at start-up whatever the
+   configuration says (`EPIC-034B`): there is no Options setting that turns one on, and no
+   restart after a key is saved — each reader resolves its credentials on every call, so the next
+   check uses the key just saved. A venue with no key is still listed, and its check answers
+   `NOT_CONFIGURED`. This app does not **trade** on mainnet: a mainnet key is only *read*, by the read-only
+   case under §3 (`EPIC-034E`).
 
 ## 3. Main flow
 
@@ -84,8 +88,8 @@ trader's real balances. That is the owner's manual check.
   an invented zero — and a Spot summary's equity is `None` when a holding cannot be priced.
   A Futures summary is also `None` when the asset mode cannot be read: guessing it would label
   one mode's figures as the other's.
-- A successful check is not permission to trade. Turning trading on is SPEC-004, and it runs its
-  own check.
+- A successful check is not permission to trade. The first start, arm or order opens the order
+  session (SPEC-004), and it runs its own check.
 
 ## 5. When it goes wrong
 
@@ -129,6 +133,8 @@ resolution and the error translation.
 | The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
 | The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
 | The Options page renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
+| Every venue is assembled whatever the configuration says; a legacy venue setting is ignored and logged once | `tests/unit/support/binance_gateway/contracts/test_resolve_trading_venues.py`, `tests/unit/modules/trading/test_module_venue_contexts_binding.py` | unit |
+| The Options page has no venue control, promises no restart and writes no venue setting | `tests/unit/modules/trading/ui/settings/test_trading_settings_has_no_venue_control.py` | unit |
 | Tools → Check connection: the status bar's word, the failure named where the user looks, and only the newest check writes | `tests/unit/modules/trading/ui/market/test_market_connection_check.py` | unit |
 | The keyring store, the saved pair, and a key checked before it is kept | `tests/unit/modules/trading/adapters/binance/mainnet/test_keyring_secret_store.py` · `test_mainnet_key_enrolment.py` | unit |
 | The read-only mainnet account: balances, fees, open orders, permissions; a withdrawal key refused first; nothing placed; no key, no request; its own variable names | `tests/integration/modules/trading/test_mainnet_read_only_account.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_mainnet_readonly_account_reader.py` · `tests/unit/modules/trading/adapters/binance/mainnet/test_mainnet_readonly_credentials.py` | unit · integration (fake Binance server) |

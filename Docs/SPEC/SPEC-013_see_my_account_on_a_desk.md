@@ -18,10 +18,10 @@ I did, and how the account is doing."*
 
 ## 2. Preconditions
 
-- The desk's venue is enabled in Tools → Options → Trading (Futures Testnet or Spot Testnet) and the app was
-  restarted after the change; `secrets.local.json` holds that venue's key pair.
-- For figures to be current, the venue's user-data stream runs (started at boot for every enabled
-  venue, `EPIC-028C`).
+- The desk's venue is Futures Testnet or Spot Testnet, both always assembled (`EPIC-034B`);
+  `secrets.local.json` holds that venue's key pair.
+- For figures to be current, the venue's user-data stream runs: it starts when the venue's order
+  session opens, by a start, an arm or a manual order (SPEC-004, `EPIC-034C`).
 
 ## 3. Main flow
 
@@ -58,7 +58,7 @@ I did, and how the account is doing."*
 
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| The venue is not enabled | The desk says "… Testnet is not enabled — turn it on in Tools > Options > Trading, then restart the app" and holds nothing that could send an order | A route that vanished from the menu would say nothing at all |
+| The venue has no key | The desk's account reads are refused as `NOT_CONFIGURED` (SPEC-003) and it holds nothing that could send an order | A route that vanished from the menu would say nothing at all |
 | The account cannot be read when the desk opens | The summary is marked "Out of date: the account could not be read", and shows no figure it does not have | An empty panel would read as a zero balance |
 | The venue reports the summary stale later | The figures stay, marked "Out of date: <the venue's reason>", until the next change clears the mark | The last known figures are still the best information, said to be old |
 | A history read fails | The tab says the read failed | An empty table would read as no history |
@@ -70,7 +70,7 @@ I did, and how the account is doing."*
 - No history older than seven days, and no pair the app does not read (the tab names the pairs).
 - No account figures in the app's own bookkeeping: every figure is the venue's answer or event.
 - No equity history across restarts: the curve is this session's samples.
-- No live market data on a desk whose venue's trading is off: its chart shows stored candles.
+- No live market data on a desk whose venue's order session is closed: its chart shows stored candles until a start, an arm or an order opens the session.
 
 ## 7. Ports and modules it exercises
 

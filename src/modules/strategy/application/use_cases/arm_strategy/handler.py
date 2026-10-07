@@ -34,8 +34,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.armed_strategy_changed_event import (
     ArmedStrategyChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
+    refusal_words,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -55,26 +61,34 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
     @details Order of checks is deliberate, cheapest and most important
     first:
 
-    1. **Trading is on** → refuse. This is a safety rule, not a
-       convenience one (`EPIC-022` §4.1), so it is checked before any
-       work that could succeed and make refusing look arbitrary.
-    2. **Symbol/interval present** → an incomplete config can never be
+    1. **Symbol/interval present** → an incomplete config can never be
        armed; `LiveStrategySession.arm()` would raise, and a raised
        exception is not a UI-branchable answer.
-    3. **Strategy key known** → asked of the same `StrategyRegistry` the
+    2. **Strategy key known** → asked of the same `StrategyRegistry` the
        factory will build from, not a second one resolved separately.
-    4. **Parameters accepted** → by building it. `BaseStrategy.__init__`
+    3. **`EPIC-027N`: three Spot-only refusals** (leverage fixed at 1, no
+       `SHORT`-capable strategy, USDT-quoted symbols only) → checked only
+       once the strategy key and symbol/interval are known good, since two
+       of the three need the resolved strategy's own `supported_directions`
+       or the symbol string. A no-op on every other venue.
+    4. **Parameters accepted** → by building it (`validate`), before anything is
+       opened or claimed. `BaseStrategy.__init__`
        already raises `ValueError` for an undeclared name and each
        `input_*()` enforces its own `minval`/`maxval`, so re-validating
        here would create a second validator free to disagree with the
        strategy's own. The build that validates is the build that gets
        armed — there is no window where a config passes validation and
        then fails to construct.
-    5. **`EPIC-027N`: three Spot-only refusals** (leverage fixed at 1, no
-       `SHORT`-capable strategy, USDT-quoted symbols only) → checked only
-       once the strategy key and symbol/interval are known good, since two
-       of the three need the resolved strategy's own `supported_directions`
-       or the symbol string. A no-op on every other venue.
+    5. **`EPIC-034C`: the order session** is opened — the account is
+       reconciled first, and a position the app did not open refuses the arm
+       (`SESSION_NOT_READY`). Arming is one of the three actions that start
+       trading, so there is no switch to turn on first.
+    6. **The symbol is claimed**, then **no open position on it** (the symbol
+       being armed or already armed) → refuse (`POSITION_OPEN`) and give the
+       claim back. This is the safety rule that refused arming while trading
+       was ON (`EPIC-022` §4.1), restated as its cause: swapping the engine
+       underneath an open position strands that position. The claim comes
+       first so no manual order can open a position between the check and the arm.
     """
 
     def __init__(
@@ -110,10 +124,6 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         trading_session = self._trading_ports.get(command.venue).trading_session
 
         snapshot = trading_session.snapshot()
-        if snapshot.enabled:
-            return ArmStrategyResult(
-                armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
-            )
         if not config.strategy_key:
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.STRATEGY_NOT_FOUND
@@ -147,12 +157,38 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                     block_reason=ArmStrategyBlockReason.SPOT_QUOTE_ASSET_NOT_SUPPORTED,
                 )
 
+        # The strategy is built (validated) before anything is opened or claimed,
+        # so a refused parameter set costs nothing and opens nothing.
+        try:
+            session.validate(config)
+        except ValueError as exc:
+            logger.info(
+                "Refused to arm '%s': %s", config.strategy_key, exc, exc_info=False
+            )
+            return ArmStrategyResult(
+                armed=False,
+                block_reason=ArmStrategyBlockReason.INVALID_PARAMS,
+                error_message=str(exc),
+            )
+
+        # `EPIC-034C` — arming starts trading: the order session opens here,
+        # after every refusal that costs nothing and before anything is claimed.
+        opened = trading_session.ensure_ready()
+        if not opened.ready:
+            return ArmStrategyResult(
+                armed=False,
+                block_reason=ArmStrategyBlockReason.SESSION_NOT_READY,
+                error_message=refusal_words(opened),
+            )
+
         # `EPIC-025` PR 2.1f — claim the symbol BEFORE arming, so a refused
         # claim means nothing was armed. The reverse order would arm a strategy
         # and then discover it may not have the symbol, leaving a live engine
         # to unwind. A claim cannot be refused today (one armed strategy means
         # one owner), which is exactly why the order has to be the one that
         # stays correct when ADR §7 item 15's second strategy arrives.
+        armed_config = session.config
+        previous_symbol = armed_config.symbol if armed_config else None
         if not trading_session.claim_symbol(config.symbol, STRATEGY_OWNER):
             logger.info(
                 "Refused to arm '%s': %s is managed by another owner.",
@@ -163,16 +199,24 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 armed=False, block_reason=ArmStrategyBlockReason.SYMBOL_LEASED
             )
 
+        # `EPIC-034C` — the open-position check comes after the claim: the lease
+        # already refuses a manual order on this symbol, so no position can open
+        # on it between the check and the arm. `known_open_symbols` is read
+        # after the session opened, which resets it from the account just read.
+        held = {config.symbol, previous_symbol}
+        if held & set(trading_session.snapshot().known_open_symbols):
+            self._give_back_claim(trading_session, config.symbol, previous_symbol)
+            return ArmStrategyResult(
+                armed=False, block_reason=ArmStrategyBlockReason.POSITION_OPEN
+            )
+
         try:
             session.arm(config)
         except ValueError as exc:
             logger.info(
                 "Refused to arm '%s': %s", config.strategy_key, exc, exc_info=False
             )
-            # The claim was this call's, so this call gives it back. Leaving it
-            # held would block the user's own next manual order on a symbol no
-            # strategy is running.
-            trading_session.release_symbol(config.symbol, STRATEGY_OWNER)
+            self._give_back_claim(trading_session, config.symbol, previous_symbol)
             return ArmStrategyResult(
                 armed=False,
                 block_reason=ArmStrategyBlockReason.INVALID_PARAMS,
@@ -181,3 +225,15 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         self._config_store.save(command.venue, config)
         self._publisher.publish(ArmedStrategyChangedEvent(True, venue=command.venue))
         return ArmStrategyResult(armed=True)
+
+    @staticmethod
+    def _give_back_claim(
+        trading_session: ITradingSession, symbol: str, previous_symbol: str | None
+    ) -> None:
+        """The claim was this call's, so this call gives it back — and, because
+        a claim replaces the owner's earlier one, takes the earlier symbol
+        back too. Leaving the new one held would block the user's own next
+        manual order on a symbol no strategy is running."""
+        trading_session.release_symbol(symbol, STRATEGY_OWNER)
+        if previous_symbol is not None and previous_symbol != symbol:
+            trading_session.claim_symbol(previous_symbol, STRATEGY_OWNER)

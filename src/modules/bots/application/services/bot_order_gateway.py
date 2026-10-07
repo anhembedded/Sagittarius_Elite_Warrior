@@ -8,8 +8,8 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
 
 **Every answer is classified (D9).** A refusal is a value, never an exception:
 
-  · `SWITCH_OFF` — `TRADING_SWITCH_OFF` or `CONNECTION_NOT_READY`. Trading is
-    off or not yet connected; the bot halts (or waits, when STOPPING). Never a
+  · `SWITCH_OFF` — `TRADING_SWITCH_OFF` or `CONNECTION_NOT_READY`. The order
+    session is closed (Emergency Stop) or not yet connected; the bot halts (or waits, when STOPPING). Never a
     fault: an Emergency Stop racing a submit must lead to HALTED, not ERROR.
   · `REFUSED` — any other gate or limit, or the exchange's minimum notional;
     the bot halts naming it.

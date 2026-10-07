@@ -92,6 +92,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_symbo
     GetSymbolOrderRulesQuery,
     GetSymbolOrderRulesQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -132,6 +135,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -242,6 +248,10 @@ def _spot_panel_on_fake_server() -> Iterator[_SpotPanel]:
                     single_venue_scopes(context, session_state),
                     preview_handler,
                     limit_policy,
+                    SessionReadiness(
+                        single_venue_scopes(context, session_state),
+                        RecordingPublisher(),
+                    ),
                 ),
             }
         )

@@ -10,7 +10,7 @@ its commands' real actions (`desk_actions.py`, `EPIC-033D`).
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QComboBox, QLabel
+from PySide6.QtWidgets import QComboBox
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     desk_profile_for,
 )
@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
-from .desk_screen_fixtures import DeskWorld, build_desk, market_of
+from .desk_screen_fixtures import DeskWorld, build_desk, market_of, open_session
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
@@ -39,22 +39,32 @@ def test_opening_a_desk_reads_its_own_markets_history_and_streams_nothing(
     assert world.stream.calls == []
 
 
-def test_enabling_trading_puts_this_desks_chart_live_under_its_own_owner(
-    qtbot,
+def test_the_session_opening_puts_this_desks_chart_live_under_its_own_owner(
+    qtbot, qapp
 ) -> None:
+    """`EPIC-034C` — whichever action opened the venue's order session (a
+    bot's Start, an arm, a manual order), the desk's chart hears it on the bus."""
     world = DeskWorld()
     desk = build_desk(qtbot, FUTURES, world)
-    toggle = desk.actions.enable_trading
+    assert world.stream.calls == []
 
-    toggle.trigger()
+    open_session(world, desk, qapp)
 
-    assert desk.session.enables == 1
-    assert toggle.isChecked()
-    assert toggle.isEnabled()
     held = world.stream.held_by("desk.futures_testnet")
     assert held is not None
     assert held.market_type is market_of(FUTURES)
     assert world.sync.was_asked_for("BTCUSDT")
+
+
+def test_another_venues_session_opening_leaves_this_chart_local(qtbot, qapp) -> None:
+    world = DeskWorld()
+    futures = build_desk(qtbot, FUTURES, world)
+    spot = build_desk(qtbot, SPOT, world)
+
+    open_session(world, spot, qapp)
+
+    assert world.stream.held_by("desk.futures_testnet") is None
+    assert futures.session.snapshot().enabled is False
 
 
 def test_a_desk_opened_with_its_venues_trading_on_goes_live(qtbot) -> None:
@@ -75,21 +85,6 @@ def test_a_desk_opened_with_its_venues_trading_on_goes_live(qtbot) -> None:
     assert [owner for call, owner in world.stream.calls if call == "start"] == [
         "desk.spot_testnet"
     ]
-
-
-def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(
-    qtbot,
-) -> None:
-    world = DeskWorld()
-    desk = build_desk(qtbot, SPOT, world)
-    desk.session.enable_raises(RuntimeError("keys rejected"))
-
-    desk.actions.enable_trading.trigger()
-
-    status = desk.view.findChild(QLabel, "lblDeskStatus").text()
-    assert status.startswith("Error: ")
-    assert "keys rejected" in status
-    assert world.stream.calls == []
 
 
 def test_emergency_stop_reaches_this_desks_session_and_rereads_its_account(
@@ -141,7 +136,7 @@ def test_a_desks_lines_go_to_the_log_it_was_given_naming_its_venue(
     Trade mode's one channel, each saying which venue it is about."""
     desk = build_desk(qtbot, venue)
 
-    desk.actions.enable_trading.trigger()
+    desk.actions.emergency_stop.trigger()
 
     assert desk.presenter.desk.log_model is desk.view.log_model
     lines = [entry.message for entry in desk.view.log_model.entries]

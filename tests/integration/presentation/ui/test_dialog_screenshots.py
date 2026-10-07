@@ -155,7 +155,6 @@ def _timeframe_picker() -> QWidget:
 _BANNER_WIDTH = 1024
 
 _PICTURED: dict[str, Callable[[], QWidget]] = {
-    "banner-trading-off": _banner(VenueAlignment.TRADING_DISABLED),
     "banner-aligned": _banner(VenueAlignment.ALIGNED),
     "banner-market-mismatch": _banner(VenueAlignment.MARKET_MISMATCH),
     "banner-mainnet-data-testnet-orders": _banner(

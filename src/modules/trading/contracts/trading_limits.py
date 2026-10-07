@@ -91,7 +91,7 @@ class TradingLimitContext:
     """The live, per-attempt facts `TradingLimitPolicy` checks against
     `TradingLimits`. Sourced from `TradingSessionState`, never from a
     fresh network call per order — reconciliation happens once, at
-    `EnableTradingCommand` time (`ADR §4`)."""
+    `EnsureSessionReadyCommand` time (`ADR §4`)."""
 
     orders_sent_this_session: int
     order_notional: Decimal
