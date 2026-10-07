@@ -27,7 +27,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_mainnet_account import (
     GetMainnetAccountQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_words import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
     ACCOUNT_UNREADABLE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (

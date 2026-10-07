@@ -11,6 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fill
     GetBotFillsQuery,
     GetBotFillsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_readiness import (
+    GetBotReadinessQuery,
+    GetBotReadinessQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_mainnet_account import (
     GetMainnetAccountQuery,
     GetMainnetAccountQueryHandler,
@@ -39,6 +43,7 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetBotQuery, GetBotQueryHandler)
     container.bind(GetPlannerMarketQuery, GetPlannerMarketQueryHandler)
     container.bind(GetBotFillsQuery, GetBotFillsQueryHandler)
+    container.bind(GetBotReadinessQuery, GetBotReadinessQueryHandler)
     container.bind(GetVenueConnectionQuery, GetVenueConnectionQueryHandler)
     container.bind(GetMainnetAccountQuery, GetMainnetAccountQueryHandler)
     container.bind(RunGridBacktestQuery, RunGridBacktestQueryHandler)

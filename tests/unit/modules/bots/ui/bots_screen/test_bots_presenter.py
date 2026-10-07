@@ -79,7 +79,7 @@ def test_a_draft_opens_editable_and_may_start_once_its_plan_is_judged(
     assert _mode(screen) is BotsUiState.EDITING_DRAFT
     assert _rule(screen, BotAction.START) == (
         False,
-        "Spot Testnet: Reading the account…",
+        "1 thing left: Spot Testnet: Reading the account…",
     )
     screen.settle()
 
@@ -100,14 +100,16 @@ def test_a_refused_plan_disables_start_and_says_why(open_bots_screen, qtbot) -> 
 
     enabled, reason = _rule(screen, BotAction.START)
     assert not enabled
-    assert reason.startswith("Refused:")
+    assert reason.startswith("1 thing left: ")
     assert "minimum" in reason
     assert any(line.startswith("Refused:") for line in screen.view.model.verdict_lines)
 
 
-def test_an_edit_waits_for_save_then_save_stores_the_parameters(
+def test_an_edit_does_not_wait_for_save_and_save_stores_the_parameters(
     open_bots_screen, qtbot
 ) -> None:
+    """Start is Save and start (D8): unsaved edits are not a thing left, and
+    Save, for drafts, still stores them."""
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
     _select(screen, "a00001")
@@ -116,8 +118,8 @@ def test_an_edit_waits_for_save_then_save_stores_the_parameters(
 
     panel.capital.setText("1500")
     panel.capital.textEdited.emit("1500")
-    qtbot.waitUntil(lambda: not _rule(screen, BotAction.START)[0])
-    assert _rule(screen, BotAction.START)[1] == "Save the changed parameters first."
+    screen.presenter._refresh_detail()
+    assert _rule(screen, BotAction.START)[0]
 
     screen.view.model.action_requested.emit(BotAction.SAVE.value)
     assert _mode(screen) is BotsUiState.ACTION_IN_FLIGHT
@@ -271,7 +273,7 @@ def test_a_read_for_the_bot_left_behind_is_dropped(open_bots_screen, qtbot) -> N
     assert screen.view.model.selected.bot_id == "a00002"
     assert screen.view.model.verdict_lines == ()
     screen.settle()
-    assert _rule(screen, BotAction.START)[1].startswith("Refused:")
+    assert _rule(screen, BotAction.START)[1].startswith("1 thing left: ")
 
 
 def test_an_answer_after_the_screen_closed_is_dropped(open_bots_screen, qtbot) -> None:

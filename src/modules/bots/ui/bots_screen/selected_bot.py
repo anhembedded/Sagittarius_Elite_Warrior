@@ -16,6 +16,15 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
+    BotRunFactsReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
+    other_active_bot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+    ConnectionRead,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -39,17 +48,28 @@ logger = logging.getLogger("App.Bots.Screen")
 class SelectedBot:
     """@brief The selection's market numbers, price, edits and editor."""
 
-    def __init__(self, catalog: IBotKindCatalog, now: Callable[[], datetime]) -> None:
+    def __init__(
+        self,
+        catalog: IBotKindCatalog,
+        now: Callable[[], datetime],
+        run_facts: BotRunFactsReader,
+    ) -> None:
         self._catalog = catalog
         self._now = now
+        self._run_facts = run_facts
+        #: Every bot the list shows, and the files it refused: what "another
+        #: bot is active" is read from (ADR D20).
+        self._bots: tuple[BotSnapshot, ...] = ()
+        self._refused: tuple[str, ...] = ()
         self.bot: BotSnapshot | None = None
         self.market: PlannerMarket | None = None
         self.last_price: Decimal | None = None
         self.edited: Mapping[str, str] | None = None
         self.panel: BotKindPanel | None = None
-        #: Why Start waits on the venue's account (`EPIC-034D`); the Connect
-        #: step sets it, so selecting a bot never clears it.
-        self.connection = ""
+        #: What the Connect step answered (`EPIC-034D`); the step sets it, so
+        #: selecting a bot never clears it. It carries the account the balance
+        #: and key constraints read (`EPIC-034F`).
+        self.connection: ConnectionRead | None = None
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
@@ -58,6 +78,11 @@ class SelectedBot:
         if self.panel is not None and bot is not None:
             self.panel.set_config(bot.config)
         return self.panel
+
+    def take_bots(
+        self, bots: tuple[BotSnapshot, ...], refused_files: tuple[str, ...]
+    ) -> None:
+        self._bots, self._refused = bots, refused_files
 
     def take_snapshot(self, bot: BotSnapshot) -> None:
         """The same bot, re-read: its state and progress may have moved."""
@@ -89,6 +114,18 @@ class SelectedBot:
             kind = self._catalog.kind(self.bot.kind)
         except UnknownBotKindError:
             kind = None
+        config = self.edited if self.edited is not None else self.bot.config
+        run = self._run_facts.read(
+            self.bot.bot_id,
+            self.bot.venue,
+            self.bot.symbol,
+            config,
+            other_active_bot(
+                self.bot.bot_id,
+                ((other.bot_id, other.state) for other in self._bots),
+                self._refused,
+            ),
+        )
         return detail_for(
             DetailInputs(
                 self.bot,
@@ -98,6 +135,7 @@ class SelectedBot:
                 self._now(),
                 self.edited,
                 self.connection,
+                run,
             )
         )
 

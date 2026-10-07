@@ -2,7 +2,7 @@
 itself, and the answer opens or locks the chart and the Plan (D1, D6).
 
 Owned by the presenter. It owns the step's lifecycle
-(`bot_connect_fsm_matrix.py`), its own fenced reads (a newer read supersedes an
+(`bot_readiness_fsm_matrix.py`), its own fenced reads (a newer read supersedes an
 older one, so a late answer for a bot no longer selected is dropped), the
 shared snapshots and the re-read timer, and tells the screen through one
 signal; `ConnectEffects` applies it. It reads and never trades: the query it
@@ -31,12 +31,21 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_connection import (
     GetVenueConnectionQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+    ACCOUNT_UNREADABLE,
+    THE_ACCOUNT,
+    failure_cause,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    BotReadiness,
+    ReadinessStep,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_connect_fsm_matrix import (
-    ConnectEvent,
-    ConnectState,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessEvent,
+    ReadinessState,
     next_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
@@ -48,11 +57,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view impo
     connecting_view,
     errored_view,
     failed_view,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_words import (
-    ACCOUNT_UNREADABLE,
-    THE_ACCOUNT,
-    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     FencedReads,
@@ -102,7 +106,7 @@ class ConnectStep(QObject):
         self._dispatcher = dispatcher
         self._reads = FencedReads(threads, {ReadKind.CONNECT: ActionOwnershipTracker()})
         self._now = now
-        self._state = ConnectState.NOT_CONNECTED
+        self._state = ReadinessState.NOT_CONNECTED
         self._bot: BotSnapshot | None = None
         self._snapshots: dict[SnapshotKey, VenueAccountSnapshot] = {}
         self.view = ConnectView()
@@ -119,24 +123,44 @@ class ConnectStep(QObject):
         if bot is None:
             self._timer.stop()
             self._recovered()
-            self._transition(ConnectEvent.DESELECTED, ConnectView(), None)
+            self._transition(ReadinessEvent.DESELECTED, ConnectView(), None)
             return
         self._timer.start()
         source = AccountSource.for_venue(bot.venue)
         shared = self._shared(source, bot.symbol)
         if shared is not None:
             logger.debug("Connect %s: %s shares a fresh read", source.value, bot.name)
-            self._transition(ConnectEvent.SELECTED, connecting_view(source), None)
-            self._transition(ConnectEvent.READ_OK, connected_view(shared), shared)
+            self._transition(ReadinessEvent.SELECTED, connecting_view(source), None)
+            self._transition(ReadinessEvent.READ_OK, connected_view(shared), shared)
             return
-        self._transition(ConnectEvent.SELECTED, connecting_view(source), None)
+        self._transition(ReadinessEvent.SELECTED, connecting_view(source), None)
         self._ask(bot)
+
+    @property
+    def state(self) -> ReadinessState:
+        return self._state
+
+    def assessed(self, readiness: BotReadiness | None) -> None:
+        """A fresh assessment of the selected bot (`EPIC-034H`): a connected
+        bot moves to the state its items name; nothing else is moved by it."""
+        if readiness is None:
+            return
+        steps = {step.step: step for step in readiness.steps}
+        if steps[ReadinessStep.DESIGN].items:
+            event = ReadinessEvent.DESIGN_OPEN
+        elif readiness.items:
+            event = ReadinessEvent.RUN_OPEN
+        else:
+            event = ReadinessEvent.ALL_CLEAR
+        self._state = next_state(self._state, event)
 
     def retry(self) -> None:
         bot = self._bot
-        if bot is not None and self._state is not ConnectState.CONNECTING:
+        if bot is not None and self._state is not ReadinessState.CONNECTING:
             source = AccountSource.for_venue(bot.venue)
-            self._transition(ConnectEvent.RETRY, connecting_view(source), self.snapshot)
+            self._transition(
+                ReadinessEvent.RETRY, connecting_view(source), self.snapshot
+            )
             self._ask(bot)
 
     def stop(self) -> None:
@@ -152,11 +176,11 @@ class ConnectStep(QObject):
         if isinstance(answer, VenueAccountSnapshot):
             self._snapshots[(answer.source, answer.symbol)] = answer
             self._recovered()
-            self._transition(ConnectEvent.READ_OK, connected_view(answer), answer)
+            self._transition(ReadinessEvent.READ_OK, connected_view(answer), answer)
         elif isinstance(answer, ConnectFailure):
             self._forget(answer.source)
             self._failed(answer.source, failure_cause(answer), answer.detail)
-            self._transition(ConnectEvent.READ_FAILED, failed_view(answer), None)
+            self._transition(ReadinessEvent.READ_FAILED, failed_view(answer), None)
         else:
             raise TypeError(
                 f"a connect read answers a snapshot or a failure, not {answer!r}"
@@ -168,7 +192,7 @@ class ConnectStep(QObject):
             source = AccountSource.for_venue(bot.venue)
             self._forget(source)
             self._failed(source, ACCOUNT_UNREADABLE, detail)
-            self._transition(ConnectEvent.READ_FAILED, errored_view(source), None)
+            self._transition(ReadinessEvent.READ_FAILED, errored_view(source), None)
 
     def _failed(self, source: AccountSource, headline: str, detail: str) -> None:
         """The account could not be read: the strip says so and locks what needs
@@ -199,10 +223,10 @@ class ConnectStep(QObject):
 
     def _on_timer(self) -> None:
         bot = self._bot
-        if bot is None or self._state is ConnectState.CONNECTING:
+        if bot is None or self._state is ReadinessState.CONNECTING:
             return
-        self._state = next_state(self._state, ConnectEvent.REFRESH)
-        if self._state is ConnectState.CONNECTING:
+        self._state = next_state(self._state, ReadinessEvent.REFRESH)
+        if self._state is ReadinessState.CONNECTING:
             self._publish(connecting_view(AccountSource.for_venue(bot.venue)))
         self._ask(bot)
 
@@ -231,7 +255,7 @@ class ConnectStep(QObject):
 
     def _transition(
         self,
-        event: ConnectEvent,
+        event: ReadinessEvent,
         view: ConnectView,
         snapshot: VenueAccountSnapshot | None,
     ) -> None:

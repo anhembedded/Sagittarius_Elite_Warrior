@@ -23,7 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_step impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
-    start_refusal,
+    connection_read,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
@@ -73,6 +73,6 @@ class ConnectEffects:
 
     def _apply(self, connection: ConnectView) -> None:
         self._model.set_connect(connection)
-        self._selected.connection = start_refusal(connection, self._step.snapshot)
+        self._selected.connection = connection_read(connection, self._step.snapshot)
         self.present_chart(self._model.selected)
         self._refresh_detail()

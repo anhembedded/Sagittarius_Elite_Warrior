@@ -1,6 +1,6 @@
 """`EPIC-029B` — what a bot kind is given to judge the user's parameters.
 
-Three parts, each from a different owner, bundled into one frozen object so a
+Four parts, each from a different owner, bundled into one frozen object so a
 kind's methods take one argument (`code/quality.md` §7):
 
   · `config` — the user's parameters, as the definition stores them;
@@ -10,7 +10,9 @@ kind's methods take one argument (`code/quality.md` §7):
     (`EPIC-029E`); the backtest fills it from recorded terms (`EPIC-029D`).
     It is the bots module's own value, so its domain names no other module;
   · `MarketView` — the last price and, when candles are available, the daily
-    ATR(14) a range is compared against.
+    ATR(14) a range is compared against;
+  · `AccountView` — what the account can spend and whether its key may trade
+    (`EPIC-034F`), once the Connect step has read it.
 """
 
 from __future__ import annotations
@@ -94,12 +96,37 @@ class MarketView:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountView:
+    """`EPIC-034F` — what the venue's account says about money and permission,
+    as the bots module's own value (the Connect step's snapshot, narrowed to
+    what a kind's constraints read).
+
+    @details `can_trade` is the account's own flag: `None` means the exchange
+    did not say, which is not the same as "may trade".
+    """
+
+    #: What a new order can spend, in `quote_asset`.
+    available_quote: Decimal
+    quote_asset: str
+    can_trade: bool | None
+    #: The venue's title, for a sentence that names where the money is.
+    venue_title: str
+
+    def __post_init__(self) -> None:
+        if self.available_quote < 0:
+            raise ValueError("available_quote must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
 class BotKindInputs:
     """One kind's whole input: the user's parameters and the world they meet."""
 
     config: Mapping[str, str]
     terms: ExchangeTerms
     market: MarketView
+    #: The Connect step's read of the account; `None` until it was read, and
+    #: the constraints that need it then say they did not run.
+    account: AccountView | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))

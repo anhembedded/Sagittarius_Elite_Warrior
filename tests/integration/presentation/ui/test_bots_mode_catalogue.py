@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.workbench_widge
 BOTS_MENU = [
     "New bot…",
     "Save bot",
-    "Start",
+    "Save and start",
     "Pause",
     "Resume",
     "Confirm resume",
@@ -36,6 +36,7 @@ BOTS_MENU = [
     "Refresh fills",
     "Fit levels",
     "Retry venue account",
+    "Fix next item",
     "Mainnet account",
     "Arm strategy…",
     "Disarm strategy",
@@ -45,7 +46,7 @@ BOTS_MENU = [
 BOTS_TOOLBAR = [
     "New bot…",
     "Save bot",
-    "Start",
+    "Save and start",
     "Pause",
     "Resume",
     "Confirm resume",

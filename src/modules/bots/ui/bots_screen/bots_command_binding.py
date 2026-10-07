@@ -26,6 +26,7 @@ from .bots_commands import (
     ARM_STRATEGY,
     DISARM_STRATEGY,
     FIT_LEVELS,
+    FIX_NEXT,
     MAINNET_ACCOUNT,
     NEW_BOT,
     REFRESH_FILLS,
@@ -95,6 +96,19 @@ def bind_bots_commands(
         lambda _checked: view_model.retry_connect_requested.emit(),
         enabled=retry.changed,
         initially_enabled=retry.value,
+    )
+    # `EPIC-034H`: the first fix of what is left before Start, while there is one.
+    fix = DerivedState(
+        view_model.readiness_changed,
+        lambda: view_model.fixable and not view_model.action_in_flight,
+        view_model,
+    )
+    fix.listen(view_model.action_in_flight_changed)
+    binder.bind(
+        FIX_NEXT,
+        lambda _checked: view_model.fix_next_requested.emit(),
+        enabled=fix.changed,
+        initially_enabled=fix.value,
     )
     # `EPIC-034E`: reading the real account needs no bot and no selection.
     binder.bind(

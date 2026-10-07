@@ -69,11 +69,10 @@ class FakeTradingSession(ITradingSession):
         #: which is the `BUG-026`/`BUG-027` failure the contract suite exists
         #: to stop.
         #:
-        #: No `lease_holder()` reader beside it, on purpose: one was written and
-        #: then deleted, because `TradingSessionContract` proves every lease
-        #: guarantee through `claim_symbol`'s own return value — a refused claim
-        #: *is* the observation that somebody else holds it. A helper a fake adds
-        #: beyond its port that no test needs is exactly what `BUG-120` was.
+        #: `lease_holder()` is on the port since `EPIC-034H`: the Bots screen
+        #: shows before the click who holds a symbol, and the contract suite
+        #: proves it. (An earlier reader was deleted when nothing used it; a
+        #: helper a fake adds beyond its port is what `BUG-120` was.)
         self._symbol_by_owner: dict[str, str] = {}
         #: `EPIC-029` ADR D6 — the budgets registered this session, by owner.
         #: Cleared on Emergency Stop, as the real state clears
@@ -173,6 +172,12 @@ class FakeTradingSession(ITradingSession):
             return False
         self._symbol_by_owner[owner_id] = symbol
         return True
+
+    def lease_holder(self, symbol: str) -> str | None:
+        return next(
+            (owner for owner, held in self._symbol_by_owner.items() if held == symbol),
+            None,
+        )
 
     def release_symbol(self, symbol: str, owner_id: str) -> None:
         if self._symbol_by_owner.get(owner_id) == symbol:

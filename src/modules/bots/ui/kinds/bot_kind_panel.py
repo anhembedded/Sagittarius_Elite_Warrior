@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 
 class BotKindPanel(QWidget):
@@ -50,3 +51,17 @@ class BotKindPanel(QWidget):
         same id triggers it and is enabled while it is. A kind with no
         commands of its own keeps this default."""
         return {}
+
+    def show_verdicts(self, verdicts: tuple[Verdict, ...]) -> None:
+        """Marks each field a verdict is about with its message and number
+        (`EPIC-034F`). A kind that marks none keeps this default."""
+
+    def focus_field(self, code: str) -> bool:
+        """Brings the field the verdict `code` is about forward for editing;
+        `False` when it is about no field of this editor."""
+        return False
+
+    def field_label(self, code: str) -> str | None:
+        """The name of the field(s) the verdict `code` is about, as the editor
+        labels them; `None` when it is about none of this editor's fields."""
+        return None
