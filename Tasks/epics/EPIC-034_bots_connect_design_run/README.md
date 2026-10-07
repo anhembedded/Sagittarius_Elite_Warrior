@@ -15,7 +15,7 @@
 2. Every venue with a usable key is on; the Spot and Futures toggles in Tools → Options leave (D2, owner).
 3. The trading ON/OFF switch leaves; its reconciliation runs inside Start, arm and a manual order instead (D3, owner chose option A).
 4. A mainnet key is read, never traded: a read-only account source that is not a `TradingVenue` (D4, owner milestone).
-5. The remaining design choices (D5–D10) are in the decision record, with their status.
+5. D5–D10 (key permissions, Connect runs by itself, blocking versus advisory constraints, Save and Start, a live chart for a draft, the mainnet secret in the keyring) were accepted as recommended.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-07) | When the epic is done |
