@@ -1,6 +1,6 @@
 """`IMarketDataVenues`, assembled from the container (`BUG-172`).
 
-**One venue is the container's own.** The default venue (`exchange.market_data_venue`)
+**One venue is the container's own.** The default venue (the public mainnet)
 keeps the bindings every consumer already resolves — `IMarketDataRepository`,
 `IExchangeClient`, `ILiveStreamService` — so the CLI, the bulk sync, Data mode and
 the shutdown order all stay as they were. Every other venue gets its own store,

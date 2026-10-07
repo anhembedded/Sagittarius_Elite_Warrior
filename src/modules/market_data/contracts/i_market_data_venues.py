@@ -2,7 +2,7 @@
 
 **Why this port exists.** Until `BUG-172` this context owned one exchange
 client, one candle store and one live stream, all pointed at the single
-process-wide `exchange.market_data_venue`. A desk on Spot Testnet therefore
+process-wide Data Source setting (since removed). A desk on Spot Testnet therefore
 charted mainnet prices while its orders filled on the testnet. A venue now has
 its own three, and the use-case handlers (sync, stream) reach them through this
 port by the venue their command names, so the handlers keep one execution path
@@ -39,7 +39,7 @@ class IMarketDataVenues(ABC):
     @property
     @abstractmethod
     def default_venue(self) -> MarketDataVenue:
-        """The venue of screens that act on none: `exchange.market_data_venue`."""
+        """The venue of screens that act on none: the public mainnet."""
 
     @abstractmethod
     def exchange_client(self, venue: MarketDataVenue) -> IExchangeClient:

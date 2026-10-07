@@ -33,7 +33,7 @@ class SyncMarketDataCommand(BaseModel):
     market: MarketType = Field(description="Which market's shard(s) to sync")
     #: `BUG-172` — whose exchange the candles are fetched from and whose store
     #: they are written to. `None` is the screens that act on no venue (the CLI,
-    #: the bulk sync, Data mode): `exchange.market_data_venue`.
+    #: the bulk sync, Data mode): the public mainnet.
     venue: MarketDataVenue | None = Field(
         default=None, description="Which market-data venue to sync"
     )

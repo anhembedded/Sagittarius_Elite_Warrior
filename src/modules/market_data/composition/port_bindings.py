@@ -76,7 +76,7 @@ def bind_published_ports(container: IContainer) -> None:
 
     `BUG-172`: `IMarketDataSources` is the port of a screen that acts on a
     venue — it asks for that venue's four ports. The four bound below are the
-    default venue's (`exchange.market_data_venue`), for the screens that act on
+    default venue's (the public mainnet), for the screens that act on
     none (Data mode, a plain historical backtest, the CLI): the same objects as
     `ports_for(default)`, so a stream owner and its sync agree wherever each was
     resolved from."""

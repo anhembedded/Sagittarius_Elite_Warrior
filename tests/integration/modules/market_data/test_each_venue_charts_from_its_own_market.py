@@ -1,7 +1,7 @@
 """`BUG-172` — the chart a desk shows is the market of the venue it trades on.
 
 @details Until this bug was fixed every desk read one process-wide market-data
-venue (`exchange.market_data_venue`, default `mainnet_public`), so Spot Testnet
+venue (the since-removed `exchange.market_data_venue`, default `mainnet_public`), so Spot Testnet
 and Futures Testnet charted mainnet prices while their orders filled on the
 testnet. These tests compose the real app over the fake Binance server and
 ask each of the four venues' desk chart ports for candles; nothing is
@@ -108,7 +108,8 @@ _VENUES = [
     TradingVenue.SPOT_MAINNET,
     TradingVenue.FUTURES_MAINNET,
 ]
-#: What `exchange.market_data_venue` may say; it must change nothing for a venue.
+#: What a configuration of an earlier build may still say in the retired
+#: `exchange.market_data_venue`; it must change nothing for a venue.
 _GLOBAL_SETTINGS = ["mainnet_public", "futures_testnet"]
 
 
@@ -301,7 +302,7 @@ def test_the_booted_app_gives_legacy_candles_the_venue_the_setting_named(
     other: TradingVenue,
 ) -> None:
     """`BUG-172` — wiring: candles stored by an earlier build, in the configured
-    directory, are served to the venue `exchange.market_data_venue` named when the
+    directory, are served to the venue the retired `exchange.market_data_venue` named when the
     app first boots with the fix, and to no other (never a testnet price as a
     mainnet one)."""
     legacy = DatabaseManager(DatabaseConfig(db_dir=str(tmp_path / "database")))
@@ -363,7 +364,7 @@ def test_older_candles_are_fetched_from_the_charts_own_venue(
 ) -> None:
     """`BUG-178` — panning a desk chart past its oldest candle on an empty store
     fetches the window from the chart's own venue's market (only that
-    environment answers here), never from `exchange.market_data_venue`, stores
+    environment answers here), never from the retired `exchange.market_data_venue`, stores
     it in that venue's store and hands it to the chart."""
     exchange = composed(global_setting, venue.is_testnet)
     ports = exchange.desk_chart(venue)

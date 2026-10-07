@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.json
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.legacy_store_label import (
     label_legacy_store,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.retired_data_source_setting import (
+    retired_data_source_setting,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
@@ -79,10 +82,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_market_data_venue,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    DEFAULT_MARKET_DATA_VENUE,
     MarketDataVenue,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -125,11 +126,12 @@ def bind_adapters(container: IContainer) -> None:
 
 
 def _build_market_data_venue(container: IContainer) -> MarketDataVenue:
-    """`EPIC-021A`: registered as its own singleton so `BinanceWebsocketService`'s
-    constructor (which needs it for the testnet flag) picks up the real
-    configured value via auto-wiring — not its own default fallback, which
-    would silently pin every install to MAINNET_PUBLIC regardless of config."""
-    return resolve_market_data_venue(container.resolve(IConfig))
+    """The default venue — the market of every screen that acts on no trading
+    venue — is always the public mainnet (`DEFAULT_MARKET_DATA_VENUE`): its own
+    singleton so `BinanceWebsocketService`'s constructor (which needs it for the
+    testnet flag) picks it up via auto-wiring."""
+    del container
+    return DEFAULT_MARKET_DATA_VENUE
 
 
 def _build_market_data_venues(container: IContainer) -> IMarketDataVenues:
@@ -156,7 +158,8 @@ def _build_database_config(container: IContainer) -> DatabaseConfig:
 
     `BUG-172`: also the one place, before any store is opened, where the candles
     stored before each venue had a store of its own are given the venue the
-    setting names (`label_legacy_store`) — or quarantined when it names none."""
+    retired Data Source setting names (`label_legacy_store`) — or quarantined when
+    it names none."""
     config = container.resolve(IConfig)
     configured = config.get(ConfigKeys.DATABASE_DIR.value)
     db_dir = database_directory(
@@ -164,9 +167,7 @@ def _build_database_config(container: IContainer) -> DatabaseConfig:
         data_root_override(),
         os.getcwd(),
     )
-    label_legacy_store(
-        db_dir, config.get(ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value, None)
-    )
+    label_legacy_store(db_dir, retired_data_source_setting(config))
     return DatabaseConfig(db_dir=db_dir)
 
 
@@ -176,7 +177,7 @@ def _build_database_manager(container: IContainer) -> DatabaseManager:
     precondition), so a pre-existing install's shards are tagged Spot (ADR
     O3) before the first read or sync ever asks for a market.
 
-    `BUG-172`: the manager of the *default* venue — `exchange.market_data_venue`,
+    `BUG-172`: the manager of the *default* venue — the public mainnet,
     for the screens that act on no venue — whose shards sit in that venue's own
     directory (`venue_directory`). The other venues' managers are built by
     `MarketDataVenues`."""

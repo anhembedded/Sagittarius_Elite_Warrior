@@ -1,7 +1,7 @@
 """Gives the candles stored before `BUG-172` the source they came from, once.
 
 @details Before `BUG-172` the store held one series per market, fetched from
-whatever `exchange.market_data_venue` said when it was synced, with no label. Now
+whatever the Data Source setting (`exchange.market_data_venue`, since removed) said when it was synced, with no label. Now
 each venue has its own store, so those rows must be given one without ever turning
 a testnet candle into a mainnet one: the rows belong to the venue the setting names
 **when this runs**, which is the only evidence the app has of where they came from.
@@ -9,7 +9,7 @@ a testnet candle into a mainnet one: the rows belong to the venue the setting na
 - The setting names a venue: the legacy shards move into that venue's store
   (`venue_directory`); for the mainnet they stay where they are.
 - The setting is **absent**: the app read its default, `mainnet_public` (what
-  `resolve_market_data_venue` did before), so that is what the rows are.
+  the app read before), so that is what the rows are.
 - The setting is present but names no venue (`"mainnet"`, `5`, `""`): the provenance
   is unknown, so the shards are **quarantined** under `QUARANTINE_DIRECTORY` —
   unlabelled, never read by any venue — and the history syncs again. Nothing is
@@ -67,7 +67,7 @@ class LegacyStoreOutcome(Enum):
 
 def label_legacy_store(base: str, configured: object) -> LegacyStoreOutcome:
     """@brief Labels the shards directly in `base` with the venue `configured`
-    (the raw `exchange.market_data_venue`) names, or quarantines them.
+    (the raw, retired Data Source setting) names, or quarantines them.
 
     """
     directory = Path(base)
@@ -97,7 +97,7 @@ def label_legacy_store(base: str, configured: object) -> LegacyStoreOutcome:
     _record(directory, f"labelled: {venue.value}")
     logger.info(
         "Stored candles from before the market-data source was kept are labelled "
-        "%s, the venue exchange.market_data_venue names (%d files).",
+        "%s, the venue the retired Data Source setting names (%d files).",
         venue.value,
         len(legacy),
     )

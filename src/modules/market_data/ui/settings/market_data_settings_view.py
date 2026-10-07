@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
-    QComboBox,
     QFormLayout,
     QGroupBox,
     QLineEdit,
@@ -12,9 +11,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
     TimeframePickerDialog,
@@ -22,21 +18,11 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     all_options as all_timeframe_options,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
     from .market_data_settings_view_model import MarketDataSettingsViewModel
-
-_MARKET_DATA_VENUE_LABELS = EnumLabels(
-    MarketDataVenue,
-    {
-        MarketDataVenue.MAINNET_PUBLIC: "Mainnet — real, public prices (mainnet_public)",
-        MarketDataVenue.FUTURES_TESTNET: "Futures Testnet — testnet prices (futures_testnet)",
-        MarketDataVenue.SPOT_TESTNET: "Spot Testnet — testnet prices (spot_testnet)",
-    },
-)
 
 
 class MarketDataSettingsView(BaseView):
@@ -56,19 +42,10 @@ class MarketDataSettingsView(BaseView):
         self._btn_default_interval.setText(view_model.defaultInterval)
         self._sync_days_spin.setValue(view_model.defaultSyncDays)
         self._apply_status(view_model.statusMessage, view_model.statusIsError)
-        self._apply_venue(view_model.marketDataVenue)
 
         self._default_symbols_field.textEdited.connect(self._on_default_symbols_edited)
         self._sync_days_spin.valueChanged.connect(self._on_sync_days_changed)
-        self._market_data_venue_combo.currentIndexChanged.connect(
-            lambda _index: view_model.requestMarketDataVenue(
-                self._market_data_venue_combo.currentData() or ""
-            )
-        )
 
-        view_model.venueChanged.connect(
-            lambda: self._apply_venue(view_model.marketDataVenue)
-        )
         view_model.defaultSymbolsChanged.connect(
             lambda: self._default_symbols_field.setText(view_model.defaultSymbols)
         )
@@ -97,40 +74,18 @@ class MarketDataSettingsView(BaseView):
         prefix = "Error: " if is_error and message else ""
         self._status_label.setText(prefix + message)
 
-    def _apply_venue(self, market_data_venue: str) -> None:
-        index = self._market_data_venue_combo.findData(market_data_venue)
-        self._market_data_venue_combo.blockSignals(True)
-        if index >= 0:
-            self._market_data_venue_combo.setCurrentIndex(index)
-        self._market_data_venue_combo.blockSignals(False)
-
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
         warning = plain_label(
             "Default Symbols/Interval/Sync Days are written to "
-            "user_config.json. Data Source requires an app restart to take "
-            "effect — it is only read once, on app startup. It applies to "
-            "Data mode, the Market mode and historical backtests only: every "
-            "trading desk and bot charts the market its own orders fill in, "
-            "whatever this says."
+            "user_config.json. Data mode, the Market mode and historical "
+            "backtests read the public mainnet; every trading desk and bot "
+            "charts the market its own orders fill in."
         )
         warning.setObjectName("lblMarketDataSettingsWarning")
         warning.setWordWrap(True)
         layout.addWidget(warning)
-
-        source_box = QGroupBox("Data source")
-        source_form = QFormLayout(source_box)
-        self._market_data_venue_combo = QComboBox()
-        self._market_data_venue_combo.setObjectName("cboMarketDataVenue")
-        for venue in MarketDataVenue:
-            self._market_data_venue_combo.addItem(
-                _MARKET_DATA_VENUE_LABELS[venue], venue.value
-            )
-        source_form.addRow(
-            "Data Source (no trading venue):", self._market_data_venue_combo
-        )
-        layout.addWidget(source_box)
 
         defaults_box = QGroupBox("Defaults")
         defaults_form = QFormLayout(defaults_box)

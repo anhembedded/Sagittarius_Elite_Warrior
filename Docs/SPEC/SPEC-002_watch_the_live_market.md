@@ -43,7 +43,10 @@
    A desk or a bot charts the market of **its own venue** (Spot Testnet the Spot testnet, Futures
    Testnet the futures testnet, both mainnet venues the public mainnet), so the price shown is the
    price its orders fill at; a timeframe or symbol that exchange does not serve (Futures has no `1s`,
-   a testnet lists fewer symbols) is said in words on the chart (`BUG-172`).
+   a testnet lists fewer symbols) is said in words on the chart (`BUG-172`). A screen that acts on no
+   venue (Data mode, the Market mode, a historical backtest, the CLI) always reads the public
+   mainnet: there is no option to change it, because a testnet's short history and fake liquidity
+   are no basis for research (`BOT-170`).
 7. The actor stops the stream, or closes the screen, and the app releases **that owner's**
    subscription set.
 

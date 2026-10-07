@@ -16,8 +16,8 @@ objects, so a stream owner and its sync agree.
 
 A screen with no venue (Data mode, a plain historical backtest) resolves the
 four ports directly from the container: they are `ports_for(default venue)`,
-where the default is `exchange.market_data_venue`, a setting that exists for
-those screens alone.
+where the default is the public mainnet (`DEFAULT_MARKET_DATA_VENUE`, not a
+setting).
 
 Seam now, variant later (`architecture-rule.md` §7.2.1): a venue is one more
 `MarketDataVenue` member and one line in `TradingVenue.market_data_venue`; no
@@ -70,8 +70,7 @@ class IMarketDataSources(ABC):
     @abstractmethod
     def default_venue(self) -> MarketDataVenue:
         """The venue of the screens that act on none (Data mode, a plain
-        historical backtest): `exchange.market_data_venue`, a setting that
-        exists for them alone."""
+        historical backtest): the public mainnet, not a setting."""
 
     @abstractmethod
     def ports_for(self, venue: MarketDataVenue) -> MarketDataPorts:
