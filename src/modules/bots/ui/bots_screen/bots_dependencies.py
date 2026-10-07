@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
     MarketDataCandleFeed,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -70,6 +73,9 @@ class BotsDependencies:
     filters: Mapping[TradingVenue, ISymbolPrecisions]
     #: How every failure of the screen reaches the user (`BOT-169`).
     notifier: INotifier
+    #: The one question that names real money, asked before a mainnet venue's
+    #: first Start or Arm of the session (`EPIC-034` D3, D11).
+    consent: IRealMoneyConsent
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -84,6 +90,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
         notifier=container.resolve(INotifier),
+        consent=container.resolve(IRealMoneyConsent),
     )
 
 

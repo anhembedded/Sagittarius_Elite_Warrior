@@ -14,6 +14,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_estimates import (
     estimated_fee,
 )
@@ -21,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
     OrderPreview,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind, Precision
 
@@ -67,6 +73,19 @@ class OrderConfirmation:
 #: a modal dialog waiting for a click (`open_orders_panel.py`'s
 #: `ConfirmCancel` established the shape).
 type ConfirmOrder = Callable[[OrderConfirmation], bool]
+
+
+def with_real_money_consent(
+    confirm: ConfirmOrder, consent: IRealMoneyConsent, venue: TradingVenue
+) -> ConfirmOrder:
+    """`confirm`, preceded on a mainnet venue's first order of the session by the
+    one question that names real money (`EPIC-034` D3, D11). Declining it declines
+    the order; a testnet venue is never asked."""
+
+    def ask(confirmation: OrderConfirmation) -> bool:
+        return consent.confirmed(venue, "place an order") and confirm(confirmation)
+
+    return ask
 
 
 def build_confirmation(

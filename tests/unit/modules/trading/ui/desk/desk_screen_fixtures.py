@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
+    FakeRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
@@ -187,6 +190,7 @@ def desk_fakes(
     threads = InlineThreadManager()
     notifier = RecordingNotifier()
     deps = DeskDependencies(
+        consent=FakeRealMoneyConsent(),
         ports=fake_venue_ports(
             setup.ports_venue or venue,
             trading_session=session,

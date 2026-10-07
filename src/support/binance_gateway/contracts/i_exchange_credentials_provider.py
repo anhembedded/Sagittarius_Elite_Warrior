@@ -18,7 +18,7 @@ class CredentialsSource(str, Enum):
 
     ENV = "env"
     FILE = "file"
-    #: `EPIC-034E` — the operating system's keyring (the read-only mainnet key).
+    #: `EPIC-034E` — the operating system's keyring (a mainnet venue's key, D10).
     KEYRING = "keyring"
     NONE = "none"
 

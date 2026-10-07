@@ -102,7 +102,6 @@ from .bots_dependencies import bots_dependencies_for
 from .connect_effects import ConnectEffects
 from .connect_step import ConnectStep
 from .kind_command_binding import KindCommands
-from .mainnet_account_dialog import show_mainnet_account
 from .new_bot_dialog import spot_venues_enabled_first
 from .new_bot_symbols import new_bot_symbols
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
@@ -139,7 +138,7 @@ class BotsPresenter(CommandPresenter):
         self._dialogs = dialogs or dialogs_for(
             view,
             new_bot_symbols(deps.symbols, threads, container, deps.notifier),
-            lambda: show_mainnet_account(view, threads, commands, deps.notifier),
+            deps.consent,
         )
         self._now = now
         self._catalog, self._venues = deps.kinds, deps.venues
@@ -189,7 +188,6 @@ class BotsPresenter(CommandPresenter):
         model = self._model
         model.select_requested.connect(self._on_select)
         model.new_bot_requested.connect(self._on_new_bot)
-        model.mainnet_account_requested.connect(self._dialogs.show_mainnet_account)
         model.action_requested.connect(self._on_action)
         model.refresh_fills_requested.connect(
             lambda: self._queries.fills(self._model.selected)

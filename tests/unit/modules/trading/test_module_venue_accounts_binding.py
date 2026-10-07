@@ -13,6 +13,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.account.composed_venue_account_reader import (
+    ComposedVenueAccountReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -25,18 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_accounts import (
     VenueAccounts,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
-    ConnectFailure,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ConnectionFailureKind,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
     IVenueAccounts,
     UnknownAccountSourceError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
-    FakeVenueAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
@@ -70,13 +64,14 @@ def _accounts() -> IVenueAccounts:
     return container.resolve(IVenueAccounts)
 
 
-def test_every_venue_is_a_source_then_the_mainnet_one() -> None:
+def test_every_venue_is_a_source_in_the_order_venues_are_listed() -> None:
     accounts = _accounts()
 
     assert accounts.sources() == (
         AccountSource.FUTURES_TESTNET,
         AccountSource.SPOT_TESTNET,
-        AccountSource.SPOT_MAINNET_READONLY,
+        AccountSource.FUTURES_MAINNET,
+        AccountSource.SPOT_MAINNET,
     )
 
 
@@ -92,6 +87,16 @@ def test_each_source_has_its_own_reader_and_the_same_instance_every_time(
     assert accounts.reader(source) is reader
 
 
+def test_every_source_is_assembled_by_the_same_class() -> None:
+    """`EPIC-034` D11 — one snapshot assembler, so a testnet run proves the code
+    a mainnet account runs on."""
+    accounts = _accounts()
+
+    kinds = {type(accounts.reader(source)) for source in accounts.sources()}
+
+    assert kinds == {ComposedVenueAccountReader}
+
+
 def test_the_readers_are_distinct() -> None:
     accounts = _accounts()
 
@@ -100,30 +105,23 @@ def test_the_readers_are_distinct() -> None:
     assert len({id(reader) for reader in readers}) == len(readers)
 
 
-def test_the_mainnet_reader_is_not_a_venues_reader() -> None:
-    accounts = _accounts()
+@pytest.mark.parametrize("source", list(AccountSource))
+def test_only_a_mainnet_source_has_the_key_gate_in_front(
+    source: AccountSource,
+) -> None:
+    reader = _accounts().reader(source)
 
-    mainnet = accounts.reader(AccountSource.SPOT_MAINNET_READONLY)
-
-    assert mainnet.source.trading_venue is None
+    assert isinstance(reader, ComposedVenueAccountReader)
+    assert reader.has_key_gate is source.trading_venue.is_mainnet
 
 
 def test_a_source_the_configuration_does_not_enable_has_no_reader() -> None:
-    """A testnet venue left out of `IVenueContexts` is no source: asking for it
-    is an error, not a reader that fails on every read."""
-    mainnet = FakeVenueAccountReader(
-        AccountSource.SPOT_MAINNET_READONLY,
-        ConnectFailure(
-            AccountSource.SPOT_MAINNET_READONLY, ConnectionFailureKind.NOT_CONFIGURED
-        ),
-    )
+    """A venue left out of `IVenueContexts` is no source: asking for it is an
+    error, not a reader that fails on every read."""
     accounts = VenueAccounts(
-        FakeVenueContexts(fake_venue_context(TradingVenue.FUTURES_TESTNET)), mainnet
+        FakeVenueContexts(fake_venue_context(TradingVenue.FUTURES_TESTNET))
     )
 
-    assert accounts.sources() == (
-        AccountSource.FUTURES_TESTNET,
-        AccountSource.SPOT_MAINNET_READONLY,
-    )
+    assert accounts.sources() == (AccountSource.FUTURES_TESTNET,)
     with pytest.raises(UnknownAccountSourceError):
         accounts.reader(AccountSource.SPOT_TESTNET)

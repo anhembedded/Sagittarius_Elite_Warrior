@@ -1,9 +1,8 @@
 """`EPIC-034E` — what a Spot `GET /api/v3/account` answer holds, read once.
 
-@details Shared by the testnet venue's `SpotAccountReader` and
-`EPIC-034E`'s read-only mainnet source, so the two read one payload the same
-way and the mainnet source need not import a reader that also builds trading
-sessions. Pure functions over the payload.
+@details Shared by `SpotAccountReader` (one class for Spot Testnet and Spot
+Mainnet, `EPIC-034` D11) and the Spot commission reader, so the two read one
+payload the same way. Pure functions over the payload.
 """
 
 from __future__ import annotations

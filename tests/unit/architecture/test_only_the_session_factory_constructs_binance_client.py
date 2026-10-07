@@ -6,7 +6,8 @@ pull requests that file was `ExchangeSessionFactory` — one class implementing
 two contexts' ports, which is exactly what `EPIC-025` PR 1.3c-4 split. The
 point was never the number: it is that venue flags and credentials must not be
 scattered across the app, so **only a session factory mints a session**. There
-are three session factories now, and all are named below by exact path — no
+are two construction sites now (the market-data session factory and the trading
+builder `EPIC-034` D11 made of the Futures and Spot factories' own copies), both named below by exact path — no
 wildcard, no directory, so a fourth construction site anywhere still fails
 this test.
 
@@ -42,30 +43,17 @@ _ALLOWED_FILES = [
     / "adapters"
     / "binance"
     / "market_data_session_factory.py",
+    # `EPIC-034` D11 — the one function that builds a trading venue's `Client`, for
+    # all four venues (Futures and Spot, testnet and mainnet); the two session
+    # factories call it and choose what each caller may reach. It replaced the
+    # four construction sites those factories had.
     _REPO_ROOT
     / "src"
     / "modules"
     / "trading"
     / "adapters"
     / "binance"
-    / "futures_session_factory.py",
-    _REPO_ROOT
-    / "src"
-    / "modules"
-    / "trading"
-    / "adapters"
-    / "binance"
-    / "spot"
-    / "spot_session_factory.py",
-    # `EPIC-034E` — the read-only mainnet session, whose port lists reads only.
-    _REPO_ROOT
-    / "src"
-    / "modules"
-    / "trading"
-    / "adapters"
-    / "binance"
-    / "mainnet"
-    / "mainnet_read_session_factory.py",
+    / "binance_client_builder.py",
 ]
 
 
@@ -101,7 +89,7 @@ def _files_constructing_binance_client() -> list[Path]:
 def test_only_a_session_factory_constructs_binance_client() -> None:
     hits = _files_constructing_binance_client()
     assert hits == sorted(_ALLOWED_FILES), (
-        "binance.client.Client() constructed outside the two session "
+        "binance.client.Client() constructed outside the allowed "
         "factories: "
         f"{[str(p.relative_to(_REPO_ROOT)) for p in hits if p not in _ALLOWED_FILES]}"
     )

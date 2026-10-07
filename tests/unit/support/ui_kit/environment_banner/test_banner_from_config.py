@@ -34,7 +34,10 @@ def test_every_venue_is_named_whatever_the_legacy_setting_lists() -> None:
         content = environment_banner_content_for(_config(venues))
 
         assert content.severity is Severity.WARN
-        assert content.message == "FUTURES TESTNET · SPOT TESTNET — simulated funds."
+        assert content.message == (
+            "FUTURES TESTNET · SPOT TESTNET — simulated funds. "
+            "FUTURES MAINNET · SPOT MAINNET — REAL MONEY."
+        )
 
 
 def test_mainnet_data_with_testnet_orders_is_still_the_danger_state() -> None:

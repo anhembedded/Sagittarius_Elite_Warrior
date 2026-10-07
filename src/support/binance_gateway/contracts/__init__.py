@@ -14,9 +14,8 @@ this app's own vocabulary instead. These contracts are that vocabulary —
 - **the credentials port** (`IExchangeCredentialsProvider`). The trading
   session port (`ITradingSessionFactory`, `ITradingSessionClient`) is imported
   from its own module, not re-exported here: importing any contract of this
-  package runs this file, and the read-only mainnet source
-  (`EPIC-034E`) imports contracts from it and must not load a trading-session
-  port as a side effect (`test_mainnet_has_no_order_path.py`).
+  package runs this file, and every importer would load a trading-session
+  port as a side effect.
   `IExchangeSessionFactory` is deliberately
   **not** here: its `create_market_data_client()` returns `IExchangeClient`, a
   market-data shape built out of `MarketData` candles, so the port belongs to

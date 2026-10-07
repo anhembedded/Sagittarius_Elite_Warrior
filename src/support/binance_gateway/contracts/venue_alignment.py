@@ -71,7 +71,12 @@ def compute_venue_alignment(
             f"{trading_venue.value} places no orders, so its alignment with the "
             "chart is not a question (`EPIC-034C` removed the 'Trading is OFF' state)"
         )
-    if market_data_venue is MarketDataVenue.MAINNET_PUBLIC:
+    if (
+        market_data_venue is MarketDataVenue.MAINNET_PUBLIC
+        and not trading_venue.is_mainnet
+    ):
+        # Real prices behind testnet orders; behind a mainnet venue's they are the
+        # right prices (`EPIC-034` D11).
         return VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
     if chart_market_type is not trading_venue.market_type:
         return VenueAlignment.MARKET_MISMATCH

@@ -18,7 +18,12 @@ from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _LIST_KEY = ConfigKeys.EXCHANGE_TRADING_VENUES.value
 _SCALAR_KEY = ConfigKeys.EXCHANGE_TRADING_VENUE.value
-_ALL = (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)
+_ALL = (
+    TradingVenue.FUTURES_TESTNET,
+    TradingVenue.SPOT_TESTNET,
+    TradingVenue.FUTURES_MAINNET,
+    TradingVenue.SPOT_MAINNET,
+)
 
 
 @pytest.mark.parametrize(

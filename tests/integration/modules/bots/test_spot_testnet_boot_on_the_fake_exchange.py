@@ -15,13 +15,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
-from binance.client import Client
-from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_mainnet_account import (
-    GetMainnetAccountQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
     PlannerMarket,
@@ -29,18 +23,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_venue_connection import (
     GetVenueConnectionQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_readonly_credentials import (
-    MAINNET_READONLY_ENV_API_KEY,
-    MAINNET_READONLY_ENV_API_SECRET,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
     ConnectFailure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
-    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
     VenueAccountSnapshot,
@@ -104,29 +91,3 @@ def test_a_maintenance_page_is_named_not_left_unclassified(
 
         assert isinstance(answer, ConnectFailure), answer
         assert answer.kind is ConnectionFailureKind.MAINTENANCE
-
-
-def test_the_composed_app_reads_the_mainnet_account_and_never_trades_it(
-    exchange: FakeExchange, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`EPIC-034E` — the whole composition: the owner's variables, the real
-    registry, the bots query, the real adapters over HTTP. The testnet venue
-    next to it stays a venue and the mainnet source is no venue at all."""
-    monkeypatch.setenv(MAINNET_READONLY_ENV_API_KEY, "mainnet-key")
-    monkeypatch.setenv(MAINNET_READONLY_ENV_API_SECRET, "mainnet-secret")
-    urls = exchange.urls
-    with (
-        patch.object(Client, "API_URL", urls.spot),
-        patch.object(Client, "MARGIN_API_URL", urls.margin),
-        composed_on_spot_testnet(spot_testnet_config(tmp_path)) as app,
-    ):
-        urls.requests.clear()
-        answer = app.engine.dispatch(GetMainnetAccountQuery, GetMainnetAccountQuery())
-        enabled = app.engine.context.container.resolve(IVenueContexts).enabled()
-
-        assert isinstance(answer, VenueAccountSnapshot), answer
-        assert answer.source is AccountSource.SPOT_MAINNET_READONLY
-        assert answer.key_permissions is not None
-        assert answer.key_permissions.is_read_only
-        assert all(venue.market_type is not None for venue in enabled)
-        assert not [r for r in urls.requests if r[0] in ("POST", "PUT", "DELETE")]

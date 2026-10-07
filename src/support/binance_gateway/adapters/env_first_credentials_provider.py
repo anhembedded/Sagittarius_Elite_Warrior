@@ -1,6 +1,8 @@
 """`EPIC-021B` — env-var first, gitignored file second, then none.
 `EPIC-027G` — the env var pair is now looked up per `TradingVenue`, so
-Futures Testnet and Spot Testnet keys can never be mixed up."""
+Futures Testnet and Spot Testnet keys can never be mixed up.
+`EPIC-034` D11 — the mainnet venues have their own pairs and their own provider:
+env first, then the operating system's keyring, never a file (D10)."""
 
 from __future__ import annotations
 
@@ -17,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
+    ISecretStore,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -29,6 +34,12 @@ FUTURES_ENV_API_KEY = "BINANCE_FUTURES_TESTNET_API_KEY"
 FUTURES_ENV_API_SECRET = "BINANCE_FUTURES_TESTNET_API_SECRET"  # noqa: S105 - env var name, not a secret value
 SPOT_ENV_API_KEY = "BINANCE_SPOT_TESTNET_API_KEY"
 SPOT_ENV_API_SECRET = "BINANCE_SPOT_TESTNET_API_SECRET"  # noqa: S105 - env var name, not a secret value
+#: `EPIC-034` D11 — a mainnet key is never read as a testnet key, nor the reverse:
+#: each of the four venues has a pair of its own.
+FUTURES_MAINNET_ENV_API_KEY = "BINANCE_FUTURES_MAINNET_API_KEY"
+FUTURES_MAINNET_ENV_API_SECRET = "BINANCE_FUTURES_MAINNET_API_SECRET"  # noqa: S105 - env var name, not a secret value
+SPOT_MAINNET_ENV_API_KEY = "BINANCE_SPOT_MAINNET_API_KEY"
+SPOT_MAINNET_ENV_API_SECRET = "BINANCE_SPOT_MAINNET_API_SECRET"  # noqa: S105 - env var name, not a secret value
 
 #: `DISABLED` is deliberately absent — a disabled venue has no key set to
 #: read; `resolve()` falls through to the (venue-agnostic) file fallback for
@@ -36,6 +47,11 @@ SPOT_ENV_API_SECRET = "BINANCE_SPOT_TESTNET_API_SECRET"  # noqa: S105 - env var 
 _ENV_VAR_NAMES: dict[TradingVenue, tuple[str, str]] = {
     TradingVenue.FUTURES_TESTNET: (FUTURES_ENV_API_KEY, FUTURES_ENV_API_SECRET),
     TradingVenue.SPOT_TESTNET: (SPOT_ENV_API_KEY, SPOT_ENV_API_SECRET),
+    TradingVenue.FUTURES_MAINNET: (
+        FUTURES_MAINNET_ENV_API_KEY,
+        FUTURES_MAINNET_ENV_API_SECRET,
+    ),
+    TradingVenue.SPOT_MAINNET: (SPOT_MAINNET_ENV_API_KEY, SPOT_MAINNET_ENV_API_SECRET),
 }
 
 
@@ -50,6 +66,13 @@ def _stripped_env(name: str) -> str | None:
     through to the file source, same as a truly missing var."""
     value = os.environ.get(name)
     return value.strip() if value is not None else None
+
+
+def _env_credentials(venue: TradingVenue) -> ExchangeCredentials | None:
+    names = _ENV_VAR_NAMES.get(venue)
+    api_key = _stripped_env(names[0]) if names else None
+    api_secret = _stripped_env(names[1]) if names else None
+    return ExchangeCredentials(api_key, api_secret) if api_key and api_secret else None
 
 
 class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
@@ -71,13 +94,9 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
         self._trading_venue = trading_venue
 
     def resolve(self) -> ResolvedCredentials:
-        env_var_names = _ENV_VAR_NAMES.get(self._trading_venue)
-        api_key = _stripped_env(env_var_names[0]) if env_var_names else None
-        api_secret = _stripped_env(env_var_names[1]) if env_var_names else None
-        if api_key and api_secret:
-            return ResolvedCredentials(
-                ExchangeCredentials(api_key, api_secret), CredentialsSource.ENV
-            )
+        from_env = _env_credentials(self._trading_venue)
+        if from_env is not None:
+            return ResolvedCredentials(from_env, CredentialsSource.ENV)
 
         from_file = self._secrets_file.read()
         if from_file is not None:
@@ -90,3 +109,54 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         self._secrets_file.write(api_key, api_secret)
+
+
+class MainnetCredentialsProvider(IExchangeCredentialsProvider):
+    """@brief A mainnet venue's key: the environment first, then the operating
+    system's keyring, and no file (`EPIC-034` D10, D11).
+
+    @details Its own class rather than a flag on `EnvFirstCredentialsProvider`:
+    that one falls back to `secrets.local.json`, and a real-money secret must
+    never reach a file, so the wrong state has no code path (`code/errors.md` #8).
+    Two names per venue in the store, `<venue>_api_key` and `<venue>_api_secret`,
+    so a Spot key is never read for Futures. The store is read once and kept:
+    the keyring can be a round trip to the desktop's secret service and this is
+    asked every few seconds by the refresh services; a key saved while the app
+    runs through `save_to_file` is picked up at once, one saved by the
+    enrolment script at the next start.
+
+    `save_to_file` keeps the port's name, which predates mainnet; for a mainnet
+    venue the durable store it writes to is the keyring, never a file.
+    """
+
+    def __init__(self, store: ISecretStore, trading_venue: TradingVenue) -> None:
+        self._store = store
+        self._venue = trading_venue
+        self._key_name = f"{trading_venue.value}_api_key"
+        self._secret_name = f"{trading_venue.value}_api_secret"
+        self._stored: ExchangeCredentials | None = None
+        self._stored_read = False
+
+    def resolve(self) -> ResolvedCredentials:
+        from_env = _env_credentials(self._venue)
+        if from_env is not None:
+            return ResolvedCredentials(from_env, CredentialsSource.ENV)
+        stored = self._stored_pair()
+        if stored is not None:
+            return ResolvedCredentials(stored, CredentialsSource.KEYRING)
+        return ResolvedCredentials(None, CredentialsSource.NONE)
+
+    def save_to_file(self, api_key: str, api_secret: str) -> None:
+        """@raise SecretStoreUnavailableError The keyring cannot be used here."""
+        self._store.write(self._key_name, api_key)
+        self._store.write(self._secret_name, api_secret)
+        self._stored = ExchangeCredentials(api_key, api_secret)
+        self._stored_read = True
+
+    def _stored_pair(self) -> ExchangeCredentials | None:
+        if not self._stored_read:
+            key = self._store.read(self._key_name)
+            secret = self._store.read(self._secret_name)
+            self._stored = ExchangeCredentials(key, secret) if key and secret else None
+            self._stored_read = True
+        return self._stored

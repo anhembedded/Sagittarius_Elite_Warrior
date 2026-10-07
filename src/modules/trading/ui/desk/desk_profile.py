@@ -106,7 +106,7 @@ def _spot_profile(venue: TradingVenue) -> DeskProfile:
     return DeskProfile(
         venue=venue,
         market_type=MarketType.SPOT,
-        title="Spot",
+        title=venue.display_name,
         quote_asset=_QUOTE_ASSET,
         order_types=(OrderType.LIMIT, OrderType.MARKET, OrderType.STOP_LIMIT),
         side_layout=SideLayout.TWO_COLUMNS,
@@ -125,7 +125,7 @@ def _futures_profile(venue: TradingVenue) -> DeskProfile:
     return DeskProfile(
         venue=venue,
         market_type=MarketType.FUTURES_USD_M,
-        title="Futures",
+        title=venue.display_name,
         quote_asset=_QUOTE_ASSET,
         order_types=(OrderType.LIMIT, OrderType.MARKET, OrderType.STOP_LIMIT),
         side_layout=SideLayout.TWO_COLUMNS,

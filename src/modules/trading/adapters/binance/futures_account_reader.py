@@ -95,10 +95,6 @@ _SUMMARY_READ_FAILURES = (
 logger = logging.getLogger("App.TradingAdapter")
 
 
-def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    return classify_connection_failure(exc, "Futures Testnet")
-
-
 def _extract_usdt_balance(account: dict[str, Any]) -> Decimal | None:
     for asset in account.get("assets", []):
         if asset.get("asset") == _USDT_ASSET:
@@ -144,7 +140,10 @@ def _asset_mode(answer: dict[str, Any]) -> AssetMode:
 
 
 def _parse_summary(
-    figures: dict[str, Any], position_mode: PositionMode, asset_mode: AssetMode
+    figures: dict[str, Any],
+    position_mode: PositionMode,
+    asset_mode: AssetMode,
+    venue: TradingVenue,
 ) -> FuturesAccountSummary:
     """The desk's figures from `figures`: the USDT asset row in Single-Asset
     mode, the account itself in Multi-Assets mode. @throws KeyError,
@@ -154,7 +153,7 @@ def _parse_summary(
         Decimal(str(figures[key])) for key in _SUMMARY_KEYS[asset_mode]
     )
     return FuturesAccountSummary(
-        venue=TradingVenue.FUTURES_TESTNET,
+        venue=venue,
         available_balance=available,
         equity=margin,
         wallet_balance=wallet,
@@ -195,9 +194,13 @@ class FuturesAccountReader(ITradingAccountReader):
         session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
         clock: Callable[[], float] = time.monotonic,
+        venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
     ) -> None:
+        """@param venue The Futures venue this reader reads; the factory it is
+        given opens that venue's sessions (`EPIC-034` D11)."""
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
+        self._venue = venue
         self._clock = clock
         #: `EPIC-028O` — the last mode read and when; a failed read is never
         #: cached.
@@ -211,11 +214,10 @@ class FuturesAccountReader(ITradingAccountReader):
     def check_connection(self) -> ExchangeConnectionStatus:
         resolution = self._credentials_provider.resolve()
         if resolution.credentials is None:
-            # `venue` still reports FUTURES_TESTNET rather than DISABLED:
-            # this diagnostic only ever checks the one futures venue that
-            # exists (ADR §3), and `NOT_CONFIGURED` already says the real
-            # story on its own — a second, differently-named "no venue"
-            # signal here would only be confusing.
+            # `venue` still names this reader's own venue rather than
+            # DISABLED: `NOT_CONFIGURED` already says the real story on its
+            # own — a second, differently-named "no venue" signal here would
+            # only be confusing.
             return self._status(failure=ConnectionFailureKind.NOT_CONFIGURED)
 
         try:
@@ -226,7 +228,7 @@ class FuturesAccountReader(ITradingAccountReader):
             client = self._session_factory.create_trading_client(resolution.credentials)
             client.futures_ping()
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
-            return self._status(failure=_classify_exception(exc))
+            return self._status(failure=self._classify(exc))
 
         server_time_skew_ms: int | None = None
         try:
@@ -235,13 +237,13 @@ class FuturesAccountReader(ITradingAccountReader):
                 server_time["serverTime"]
             )
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
-            return self._status(failure=_classify_exception(exc))
+            return self._status(failure=self._classify(exc))
 
         try:
             account = client.futures_account()
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
             return self._status(
-                failure=_classify_exception(exc),
+                failure=self._classify(exc),
                 server_time_skew_ms=server_time_skew_ms,
             )
 
@@ -253,7 +255,7 @@ class FuturesAccountReader(ITradingAccountReader):
             position_mode_payload = client.futures_get_position_mode()
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
             return self._status(
-                failure=_classify_exception(exc),
+                failure=self._classify(exc),
                 server_time_skew_ms=server_time_skew_ms,
                 usdt_balance=usdt_balance,
                 margin_type=margin_type,
@@ -302,7 +304,7 @@ class FuturesAccountReader(ITradingAccountReader):
         if figures is None:
             return None
         try:
-            summary = _parse_summary(figures, position_mode, asset_mode)
+            summary = _parse_summary(figures, position_mode, asset_mode, self._venue)
         except (KeyError, InvalidOperation, TypeError) as exc:
             self._report_unreadable_summary(
                 f"a balance figure ({asset_mode.value})", exc
@@ -337,8 +339,11 @@ class FuturesAccountReader(ITradingAccountReader):
         else:
             logger.debug("Futures account summary still unreadable: %r", cause)
 
-    @staticmethod
+    def _classify(self, exc: Exception) -> ConnectionFailureKind:
+        return classify_connection_failure(exc, self._venue.display_name)
+
     def _status(
+        self,
         *,
         reachable: bool = False,
         failure: ConnectionFailureKind | None,
@@ -351,7 +356,7 @@ class FuturesAccountReader(ITradingAccountReader):
         can_trade: bool | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
-            venue=TradingVenue.FUTURES_TESTNET,
+            venue=self._venue,
             reachable=reachable,
             failure=failure,
             server_time_skew_ms=server_time_skew_ms,

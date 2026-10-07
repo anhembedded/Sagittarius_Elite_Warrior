@@ -70,18 +70,18 @@ _QUOTE_ASSET = "USDT"
 _NETWORK_EXCEPTIONS = (BinanceAPIException, BinanceRequestException, RequestException)
 
 
-def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    return classify_connection_failure(exc, "Spot Testnet")
-
-
 class SpotAccountReader(ITradingAccountReader):
     def __init__(
         self,
         session_factory: ISpotSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
+        venue: TradingVenue = TradingVenue.SPOT_TESTNET,
     ) -> None:
+        """@param venue The Spot venue this reader reads; the factory it is
+        given opens that venue's sessions (`EPIC-034` D11)."""
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
+        self._venue = venue
         # `BUG-139` — the live UI polls `check_connection()` every few
         # seconds (`HoldingsRefreshService`); a holding with no real
         # `<asset>USDT` market (a Testnet-only junk asset, or a genuinely
@@ -104,7 +104,7 @@ class SpotAccountReader(ITradingAccountReader):
             client = self._session_factory.create_account_client(resolution.credentials)
             client.ping()
         except _NETWORK_EXCEPTIONS as exc:
-            return self._status(failure=_classify_exception(exc))
+            return self._status(failure=self._classify(exc))
 
         server_time_skew_ms: int | None = None
         try:
@@ -113,13 +113,13 @@ class SpotAccountReader(ITradingAccountReader):
                 server_time["serverTime"]
             )
         except _NETWORK_EXCEPTIONS as exc:
-            return self._status(failure=_classify_exception(exc))
+            return self._status(failure=self._classify(exc))
 
         try:
             account = client.get_account()
         except _NETWORK_EXCEPTIONS as exc:
             return self._status(
-                failure=_classify_exception(exc),
+                failure=self._classify(exc),
                 server_time_skew_ms=server_time_skew_ms,
             )
 
@@ -129,7 +129,7 @@ class SpotAccountReader(ITradingAccountReader):
         equity = self._compute_equity(client, quote_balance, holdings)
         quote_free = quote_holding.free if quote_holding is not None else Decimal(0)
         summary = SpotAccountSummary(
-            venue=TradingVenue.SPOT_TESTNET,
+            venue=self._venue,
             available_balance=quote_free,
             equity=equity,
             quote_asset=_QUOTE_ASSET,
@@ -189,8 +189,11 @@ class SpotAccountReader(ITradingAccountReader):
             equity += holding.total * price
         return equity
 
-    @staticmethod
+    def _classify(self, exc: Exception) -> ConnectionFailureKind:
+        return classify_connection_failure(exc, self._venue.display_name)
+
     def _status(
+        self,
         *,
         reachable: bool = False,
         failure: ConnectionFailureKind | None,
@@ -202,7 +205,7 @@ class SpotAccountReader(ITradingAccountReader):
         can_trade: bool | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
-            venue=TradingVenue.SPOT_TESTNET,
+            venue=self._venue,
             reachable=reachable,
             failure=failure,
             server_time_skew_ms=server_time_skew_ms,

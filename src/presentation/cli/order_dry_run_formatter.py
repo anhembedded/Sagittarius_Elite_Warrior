@@ -17,8 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectedByExchangeError,
 )
 
-#: `TradingVenue` has no `MAINNET` member (ADR §3), so this is the one host
-#: this app's trading path ever talks to.
+#: The dry run is a validate-only call against the Futures Testnet: a mainnet venue
+#: is never reached from this CLI (`EPIC-034` D11 made mainnet a venue; this
+#: command still names its one testnet host).
 _VALIDATE_ONLY_URL = "https://testnet.binancefuture.com/fapi/v1/order/test"
 
 

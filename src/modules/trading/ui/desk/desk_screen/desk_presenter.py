@@ -71,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
     DeskViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_confirmation import (
+    with_real_money_consent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
     confirm_with_message_box,
 )
@@ -148,7 +151,11 @@ class DeskPresenter(BasePresenter):
             self.orders,
             ports,
             threads,
-            deps.confirm or confirm_with_message_box(view),
+            with_real_money_consent(
+                deps.confirm or confirm_with_message_box(view),
+                deps.consent,
+                profile.venue,
+            ),
             deps.notifier,
             has_key=deps.has_key,
         )

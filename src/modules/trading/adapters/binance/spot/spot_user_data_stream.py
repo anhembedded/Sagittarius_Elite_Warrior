@@ -157,7 +157,7 @@ class SpotUserDataStream(IUserDataStream):
             client = await AsyncClient.create(
                 api_key=resolution.credentials.api_key,
                 api_secret=resolution.credentials.api_secret,
-                testnet=True,
+                testnet=self._events.venue.is_testnet,
             )
             bsm = BinanceSocketManager(client)
 

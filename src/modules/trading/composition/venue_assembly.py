@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Self, overload
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -131,12 +132,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context impor
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
+    MainnetCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
+    ISecretStore,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -154,10 +159,10 @@ class SharedVenueInputs:
     only when a user data stream is built."""
 
     container: IContainer
-    futures_session_factory: FuturesSessionFactory
-    spot_session_factory: SpotSessionFactory
     secrets_file_path: str
     session_states: VenueSessionStates
+    #: Where a mainnet venue's key is kept (`EPIC-034` D10).
+    secret_store: ISecretStore
 
 
 class _LockedCachedProperty[T](cached_property[T]):
@@ -194,10 +199,24 @@ class VenueAssembly:
 
     @property
     def _is_spot(self) -> bool:
-        return self._venue is TradingVenue.SPOT_TESTNET
+        return self._venue.market_type is MarketType.SPOT
+
+    @_LockedCachedProperty
+    def _futures_sessions(self) -> FuturesSessionFactory:
+        """This venue's own session factory (`EPIC-034` D11): the venue is what
+        tells it which exchange to open sessions on, so Futures Testnet and
+        Futures Mainnet are this class with one argument different."""
+        return FuturesSessionFactory(self._venue)
+
+    @_LockedCachedProperty
+    def _spot_sessions(self) -> SpotSessionFactory:
+        return SpotSessionFactory(self._venue)
 
     @_LockedCachedProperty
     def credentials_provider(self) -> IExchangeCredentialsProvider:
+        if self._venue.is_mainnet:
+            # `EPIC-034` D10/D11 — a real-money secret lives in the keyring.
+            return MainnetCredentialsProvider(self._shared.secret_store, self._venue)
         return EnvFirstCredentialsProvider(
             SecretsFileSource(self._shared.secrets_file_path), self._venue
         )
@@ -209,23 +228,19 @@ class VenueAssembly:
     @_LockedCachedProperty
     def metadata_provider(self) -> IMarketMetadataProvider:
         if self._is_spot:
-            return SpotMetadataProvider(
-                self._shared.spot_session_factory, self.metadata_cache
-            )
-        return FuturesMetadataProvider(
-            self._shared.futures_session_factory, self.metadata_cache
-        )
+            return SpotMetadataProvider(self._spot_sessions, self.metadata_cache)
+        return FuturesMetadataProvider(self._futures_sessions, self.metadata_cache)
 
     @_LockedCachedProperty
     def client_factory(self) -> ITradingClientFactory:
         if self._is_spot:
             return SpotTradingClientFactory(
-                self._shared.spot_session_factory,
+                self._spot_sessions,
                 self.credentials_provider,
                 self.metadata_provider,
             )
         return FuturesTradingClientFactory(
-            self._shared.futures_session_factory,
+            self._futures_sessions,
             self.credentials_provider,
             self.metadata_provider,
         )
@@ -234,10 +249,10 @@ class VenueAssembly:
     def account_reader(self) -> ITradingAccountReader:
         if self._is_spot:
             return SpotAccountReader(
-                self._shared.spot_session_factory, self.credentials_provider
+                self._spot_sessions, self.credentials_provider, self._venue
             )
         return FuturesAccountReader(
-            self._shared.futures_session_factory, self.credentials_provider
+            self._futures_sessions, self.credentials_provider, venue=self._venue
         )
 
     @_LockedCachedProperty
@@ -247,25 +262,23 @@ class VenueAssembly:
         if self._is_spot:
             return CachedAccountHistoryReader(
                 SpotHistoryReader(
-                    self._shared.spot_session_factory,
+                    self._spot_sessions,
                     self.credentials_provider,
                     ListedSymbols(self.metadata_provider, self.metadata_cache),
                 )
             )
         return CachedAccountHistoryReader(
-            FuturesHistoryReader(
-                self._shared.futures_session_factory, self.credentials_provider
-            )
+            FuturesHistoryReader(self._futures_sessions, self.credentials_provider)
         )
 
     @_LockedCachedProperty
     def commission_reader(self) -> ICommissionRateReader:
         if self._is_spot:
             return SpotCommissionRateReader(
-                self._shared.spot_session_factory, self.credentials_provider
+                self._spot_sessions, self.credentials_provider
             )
         return FuturesCommissionRateReader(
-            self._shared.futures_session_factory, self.credentials_provider
+            self._futures_sessions, self.credentials_provider
         )
 
     @_LockedCachedProperty
@@ -275,15 +288,13 @@ class VenueAssembly:
         handlers refuse it before reaching here."""
         if self._is_spot:
             return None
-        return FuturesAccountControl(
-            self._shared.futures_session_factory, self.credentials_provider
-        )
+        return FuturesAccountControl(self._futures_sessions, self.credentials_provider)
 
     @_LockedCachedProperty
     def book_ticker_reader(self) -> IBookTickerReader:
         if self._is_spot:
-            return SpotBookTickerReader(self._shared.spot_session_factory)
-        return FuturesBookTickerReader(self._shared.futures_session_factory)
+            return SpotBookTickerReader(self._spot_sessions)
+        return FuturesBookTickerReader(self._futures_sessions)
 
     @_LockedCachedProperty
     def mark_price_reader(self) -> IMarkPriceReader | None:
@@ -291,7 +302,7 @@ class VenueAssembly:
         has no `account_control`."""
         if self._is_spot:
             return None
-        return FuturesMarkPriceReader(self._shared.futures_session_factory)
+        return FuturesMarkPriceReader(self._futures_sessions)
 
     @property
     def session_state(self) -> TradingSessionState:

@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
 from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
     live_stream_command,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 TRADE_MENU = ("T&rade",)
 VENUE_MENU = ("T&rade", "&Venue")
@@ -157,7 +158,7 @@ def trade_commands(
 def emergency_stop_consequence(venues: Sequence[TradingVenue]) -> str:
     """What Emergency stop says it will do, venue by venue."""
     profiles = [desk_profile_for(venue) for venue in venues]
-    names = " and ".join(f"{profile.title} Testnet" for profile in profiles)
+    names = " and ".join(profile.title for profile in profiles)
     clauses = [
         "every open order is cancelled",
         *(_WHAT_IT_CLOSES[profile.market_type] for profile in profiles),
@@ -170,11 +171,26 @@ def emergency_stop_consequence(venues: Sequence[TradingVenue]) -> str:
     return f"The order session closes on {names or 'every venue'}; {listed}."
 
 
+#: Each venue's entry in Trade → Venue, with its access key: one per entry, F and S
+#: for the testnets, U and P for the mainnets, so no two entries share one
+#: (`ui-presentation-rule.md`: a menu's access keys are unique).
+_VENUE_MENU_TEXT = EnumLabels(
+    TradingVenue,
+    {
+        TradingVenue.DISABLED: "Trading &off",
+        TradingVenue.FUTURES_TESTNET: "&Futures Testnet",
+        TradingVenue.SPOT_TESTNET: "&Spot Testnet",
+        TradingVenue.FUTURES_MAINNET: "F&utures Mainnet",
+        TradingVenue.SPOT_MAINNET: "S&pot Mainnet",
+    },
+)
+
+
 def _venue_choice(route: str, venue: TradingVenue) -> CommandContribution:
     return CommandContribution(
         contributor_id=_CONTRIBUTOR,
         command_id=venue_choice_id(venue),
-        text=f"&{desk_profile_for(venue).title}",
+        text=_VENUE_MENU_TEXT[venue],
         menu_path=VENUE_MENU,
         mode=route,
         on_toolbar=True,

@@ -1,19 +1,24 @@
 """`EPIC-034D` — `IVenueAccounts`, one reader per served account source.
 
-@details The testnet sources are the venues `IVenueContexts` enables, each
-read through the same ports its desk uses. Which venues exist is
-`IVenueContexts`'s answer; this registry keeps no second copy, only the
-readers it has built. The read-only mainnet source (`EPIC-034E`) is always
-served, last: it has no venue and no desk, and without a key its reader says so
-(`NOT_CONFIGURED`) instead of the source being absent.
+@details A source is a venue `IVenueContexts` enables, read through the same ports
+its desk uses; which venues exist is `IVenueContexts`'s answer and this registry
+keeps no second copy, only the readers it has built. Every reader is a
+`ComposedVenueAccountReader`; a mainnet venue's has the key gate in front
+(`EPIC-034` D5, D11), the one thing it does that a testnet venue's does not.
 """
 
 from __future__ import annotations
 
 import threading
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_restrictions_key_gate import (
+    ApiRestrictionsKeyGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account.composed_venue_account_reader import (
     ComposedVenueAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_permission_gate import (
+    IKeyPermissionGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_account_reader import (
     IVenueAccountReader,
@@ -31,29 +36,32 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 
 
 class VenueAccounts(IVenueAccounts):
-    def __init__(
-        self, contexts: IVenueContexts, mainnet_read_only: IVenueAccountReader
-    ) -> None:
+    def __init__(self, contexts: IVenueContexts) -> None:
         self._contexts = contexts
-        self._mainnet = mainnet_read_only
         self._readers: dict[AccountSource, IVenueAccountReader] = {}
         self._lock = threading.Lock()
 
     def sources(self) -> tuple[AccountSource, ...]:
-        testnets = tuple(AccountSource.for_venue(v) for v in self._contexts.enabled())
-        return (*testnets, self._mainnet.source)
+        return tuple(AccountSource.for_venue(v) for v in self._contexts.enabled())
 
     def reader(self, source: AccountSource) -> IVenueAccountReader:
         if source not in self.sources():
             raise UnknownAccountSourceError(source)
-        if source is self._mainnet.source:
-            return self._mainnet
         with self._lock:
             reader = self._readers.get(source)
             if reader is None:
-                venue = source.trading_venue
-                if venue is None:
-                    raise UnknownAccountSourceError(source)
-                reader = ComposedVenueAccountReader(source, self._contexts.get(venue))
+                reader = self._build(source)
                 self._readers[source] = reader
             return reader
+
+    def _build(self, source: AccountSource) -> IVenueAccountReader:
+        venue = source.trading_venue
+        context = self._contexts.get(venue)
+        gate: IKeyPermissionGate | None = (
+            ApiRestrictionsKeyGate(
+                venue, lambda: context.credentials_provider.resolve().credentials
+            )
+            if venue.is_mainnet
+            else None
+        )
+        return ComposedVenueAccountReader(source, context, key_gate=gate)

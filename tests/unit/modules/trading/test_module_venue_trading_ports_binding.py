@@ -139,7 +139,12 @@ def test_ports_are_one_instance_per_venue() -> None:
 
     assert ports.get(_SPOT) is ports.get(_SPOT)
     assert ports.get(_SPOT).equity_curve is not ports.get(_FUTURES).equity_curve
-    assert ports.enabled() == (_FUTURES, _SPOT)
+    assert ports.enabled() == (
+        _FUTURES,
+        _SPOT,
+        TradingVenue.FUTURES_MAINNET,
+        TradingVenue.SPOT_MAINNET,
+    )
 
 
 def test_the_single_published_ports_are_the_primary_venues_own() -> None:

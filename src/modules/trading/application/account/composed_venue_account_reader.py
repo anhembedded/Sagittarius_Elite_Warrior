@@ -9,7 +9,10 @@ half-filled snapshot (`code/errors.md` #7). The reads are the same ports the
 order desks use, so the Connect step reads exactly what an order will be
 judged by.
 
-It holds the read ports only: it cannot place, test or cancel an order.
+It holds the read ports only: it cannot place, test or cancel an order. Every
+account source is read by this one class — Spot Testnet, Futures Testnet and,
+since `EPIC-034` D11, the mainnet venues, which differ only by the key gate that
+runs first — so a testnet run proves the code a mainnet account runs on.
 """
 
 from __future__ import annotations
@@ -34,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_permission_gate import (
+    IKeyPermissionGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_account_reader import (
     IVenueAccountReader,
@@ -71,16 +77,30 @@ class ComposedVenueAccountReader(IVenueAccountReader):
         source: AccountSource,
         context: VenueContext,
         clock: Callable[[], datetime] = _utc_now,
+        key_gate: IKeyPermissionGate | None = None,
     ) -> None:
+        """@param key_gate The step a venue with a key that can do more than
+        trade has first (`EPIC-034` D5): a mainnet venue's refusal of a key that
+        can withdraw. Testnet venues have none."""
         self._source = source
         self._context = context
+        self._key_gate = key_gate
         self._clock = clock
 
     @property
     def source(self) -> AccountSource:
         return self._source
 
+    @property
+    def has_key_gate(self) -> bool:
+        """Whether a key gate runs before the account is read (a mainnet venue)."""
+        return self._key_gate is not None
+
     def read(self, symbol: str) -> VenueAccountSnapshot | ConnectFailure:
+        if self._key_gate is not None:
+            refused = self._key_gate.check()
+            if refused is not None:
+                return refused
         status = self._context.account_reader.check_connection()
         if status.failure is not None or not status.reachable:
             return self._failed(

@@ -75,3 +75,31 @@ def test_an_aligned_banner_names_every_enabled_venue() -> None:
     )
     assert "FUTURES" not in spot_only.message
     assert "SPOT TESTNET" in spot_only.message
+
+
+def test_a_mainnet_venue_is_named_as_real_money_beside_the_simulated_testnets() -> None:
+    """`EPIC-034` D11 — what is real is said, apart from what is not."""
+    content = venue_alignment_banner_content(
+        VenueAlignment.ALIGNED,
+        (
+            TradingVenue.FUTURES_TESTNET,
+            TradingVenue.SPOT_TESTNET,
+            TradingVenue.FUTURES_MAINNET,
+            TradingVenue.SPOT_MAINNET,
+        ),
+    )
+
+    assert content.message == (
+        "FUTURES TESTNET · SPOT TESTNET — simulated funds. "
+        "FUTURES MAINNET · SPOT MAINNET — REAL MONEY."
+    )
+
+
+def test_a_build_with_only_a_mainnet_venue_says_real_money_and_no_simulated_funds() -> (
+    None
+):
+    content = venue_alignment_banner_content(
+        VenueAlignment.ALIGNED, (TradingVenue.SPOT_MAINNET,)
+    )
+
+    assert content.message == "SPOT MAINNET — REAL MONEY."

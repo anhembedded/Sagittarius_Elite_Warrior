@@ -33,8 +33,8 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
-    SpotSessionFactory,
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
+    KeyringSecretStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
     JsonOwnerInventoryCheckpoints,
@@ -111,10 +111,9 @@ def bind_adapters(container: IContainer) -> None:
             c,
             SharedVenueInputs(
                 container=c,
-                futures_session_factory=session_factory,
-                spot_session_factory=SpotSessionFactory(),
                 secrets_file_path=secrets_file_path,
                 session_states=c.resolve(VenueSessionStates),
+                secret_store=KeyringSecretStore(),
             ),
         ),
     )

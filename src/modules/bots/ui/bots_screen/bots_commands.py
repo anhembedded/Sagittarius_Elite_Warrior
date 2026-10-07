@@ -1,6 +1,6 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
-fills, Fit levels, Retry venue account (`EPIC-034D`), Mainnet account (`EPIC-034E`), and Arm strategy… / Disarm strategy for the Strategies
+fills, Fit levels, Retry venue account (`EPIC-034D`), and Arm strategy… / Disarm strategy for the Strategies
 panel's selected venue (`EPIC-033K` stage 3; HLD §11.2: a strategy armed on a
 venue is a row of the Bots mode until `EPIC-029L`).
 
@@ -46,7 +46,6 @@ NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
 FIT_LEVELS = f"{_PREFIX}.fit_levels"
 RETRY_CONNECTION = f"{_PREFIX}.retry_connection"
-MAINNET_ACCOUNT = f"{_PREFIX}.mainnet_account"
 ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
 DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
 
@@ -109,8 +108,6 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         command(FIT_LEVELS, "Fit &levels", on_toolbar=False),
         # `EPIC-034D`: reads the selected bot's venue account again.
         command(RETRY_CONNECTION, "Retry ven&ue account", on_toolbar=False),
-        # `EPIC-034E`: the owner's real account, read and never traded.
-        command(MAINNET_ACCOUNT, "Mainn&et account", on_toolbar=False),
         live_stream_command(_CONTRIBUTOR, _PREFIX, route, BOTS_MENU, "Li&ve stream"),
         # The Strategies panel's selected venue: M and I are free in the menu.
         command(ARM_STRATEGY, "Ar&m strategy…", on_toolbar=False, needs_input=True),

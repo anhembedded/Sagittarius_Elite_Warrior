@@ -4,7 +4,7 @@ the `keyring` package.
 
 @details One service name, one entry per secret name. `read` never raises: a
 machine with no usable backend (a headless server, a locked keyring) reads as
-"nothing stored", logged once, and the environment variables remain the way to
+"nothing stored", logged once at INFO, and the environment variables remain the way to
 give the key. `write` raises `SecretStoreUnavailableError` instead, because a
 save that silently went nowhere would let the owner believe a key was kept.
 
@@ -24,7 +24,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_st
     SecretStoreUnavailableError,
 )
 
-logger = logging.getLogger("App.MainnetReadOnly")
+logger = logging.getLogger("App.Keyring")
 
 SERVICE = "Sagittarius_Elite_Warrior"
 
@@ -55,9 +55,11 @@ class KeyringSecretStore(ISecretStore):
     def _log_unavailable(self, exc: KeyringError) -> None:
         if not self._unavailable_logged:
             self._unavailable_logged = True
-            logger.warning(
-                "The operating system's keyring cannot be read (%s); the mainnet "
-                "read-only key is read from the environment only "
-                "[mainnet-readonly]",
+            # INFO, not WARNING: a headless machine (CI, a server) has no keyring and
+            # reading the venues' keys is ordinary there; the environment variables
+            # are the way, and the run-log scan would fail every such run.
+            logger.info(
+                "The operating system's keyring cannot be read (%s); a mainnet "
+                "key is read from the environment only [keyring]",
                 exc,
             )

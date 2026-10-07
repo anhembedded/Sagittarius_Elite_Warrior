@@ -63,7 +63,7 @@ _FAILURES = EnumLabels(
 #: What a failure's `detail` says when it names the read that failed.
 THE_ACCOUNT = "the account"
 #: Said after a failure of a bot's venue, whose account Bots → Retry venue
-#: account reads again; the Mainnet account window is opened again instead.
+#: account reads again.
 RETRY_VENUE_ACCOUNT = "Then choose Bots → Retry venue account."
 
 
