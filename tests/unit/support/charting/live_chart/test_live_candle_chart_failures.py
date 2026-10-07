@@ -167,3 +167,35 @@ def test_retry_of_a_failed_fetch_at_rest_reloads_and_does_not_go_live(qapp) -> N
 
     assert chart.live_state.name == "HISTORY"
     assert feed.syncs == 2
+
+
+def test_a_successful_retry_clears_the_notice_of_the_failed_load(qapp) -> None:
+    """`BUG-172` (reviewer finding T): the bar of a failed load at rest goes when
+    its Retry loads the chart, not only when a stream opens."""
+    notifier = RecordingNotifier()
+    feed = _Feed()
+    feed.sync_error = OSError("no route")
+    chart = _chart(qapp, feed, notifier)
+    chart.show_symbol("BTCUSDT")
+    cleared_before = len(notifier.cleared)
+    feed.sync_error = None
+
+    notifier.last.retry()
+
+    assert notifier.cleared[cleared_before:] == [_CAUSE]
+
+
+def test_another_timeframe_clears_the_notice_of_the_failed_load(qapp) -> None:
+    """The bar's Retry reloads the chart now shown, so it must not stay up
+    naming the timeframe the person left."""
+    notifier = RecordingNotifier()
+    feed = _Feed()
+    feed.sync_error = OSError("no route")
+    chart = _chart(qapp, feed, notifier)
+    chart.show_symbol("BTCUSDT")
+    cleared_before = len(notifier.cleared)
+    feed.sync_error = None
+
+    chart._on_timeframe_changed("5m")
+
+    assert notifier.cleared[cleared_before:] == [_CAUSE]

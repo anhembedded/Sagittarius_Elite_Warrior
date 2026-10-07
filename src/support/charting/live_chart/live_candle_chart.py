@@ -294,7 +294,9 @@ class LiveCandleChart(QObject):
 
     def _restart(self) -> None:
         # The load this cancels reports nothing any more (`BUG-150`), so it
-        # settles here, on the Qt thread: once per request still holds.
+        # settles here, on the Qt thread: once per request still holds. A new
+        # request supersedes the notice of the last one (`BUG-172`).
+        self._failures.clear()
         if self._pending:
             self._pending = False
             self._on_first_window_settled()
