@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callba
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
     LiveChartCoordinator,
 )
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    silent_callbacks,
+)
 
 _OWNER = "desk.spot_testnet"
 
@@ -64,14 +67,8 @@ class _FakeToken:
 
 
 def _callbacks(history_ready: MagicMock | None = None) -> LiveChartCallbacks:
-    return LiveChartCallbacks(
-        history_ready=history_ready or MagicMock(),
-        load_finished=MagicMock(),
-        stream_started=MagicMock(),
-        stream_failed=MagicMock(),
-        older_ready=MagicMock(),
-        older_failed=MagicMock(),
-        log=MagicMock(),
+    return silent_callbacks(
+        **({"history_ready": history_ready} if history_ready else {})
     )
 
 
@@ -98,15 +95,17 @@ def _coordinator(
     )
 
 
-def test_go_live_false_never_touches_the_network() -> None:
-    """The default path: local history only — no sync, no live stream."""
+def test_go_live_false_with_candles_stored_never_touches_the_network() -> None:
+    """The default path: stored history only — no sync, no live stream."""
     sync = FakeMarketDataSync()
     stream = FakeMarketStream()
-    coordinator = _coordinator(sync, stream=stream)
+    history = FakeHistoricalKlines()
+    history.seed([candle("BTCUSDT", 0)])
+    coordinator = _coordinator(sync, history, stream=stream)
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
-    assert sync.requests == [], "no sync may be started for a local-only load"
+    assert sync.requests == [], "no sync may be started when something is stored"
     # `EPIC-025` PR 1.1b — the guarantee moved rather than disappeared:
     # `StartLiveStreamCommand not in dispatched` used to prove it, and after
     # the move it would pass even if the screen opened every socket on the
@@ -333,7 +332,7 @@ class _ScriptedFeed(ICandleFeed):
         self._read_error = read_error
         self._stream_message = stream_message
 
-    def sync(self, symbol, interval, cancelled) -> None:
+    def sync(self, symbol, interval, cancelled, *, newest=None) -> None:
         return None
 
     def load_history(self, symbol, interval, limit):

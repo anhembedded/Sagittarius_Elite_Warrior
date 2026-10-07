@@ -1,4 +1,3 @@
-import gc
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -16,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqla
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     DatabaseStatusSnapshot,
 )
+from Sagittarius_Elite_Warrior.tests.market_data_watch import MarketDataWatch
 
 
 @pytest.fixture
@@ -317,17 +317,6 @@ def test_get_range_coverage_is_half_open_and_reports_first_gap(repo):
     assert snapshot.first_gap_after == start + timedelta(minutes=1)
 
 
-def _live_market_data_count() -> int:
-    """Counts real, currently-alive `MarketData` instances via the GC heap —
-    deterministic and reproducible across machines/CI, unlike sampling OS-level
-    RSS (noisy, affected by allocator behavior — see BUG-025's own report for
-    why an RSS-based test was rejected). Same helper as the Sync side's proof
-    in `test_python_binance_client_unit.py`, duplicated locally rather than
-    shared since it is 4 lines and this is the only other file that needs it."""
-    gc.collect()
-    return sum(1 for obj in gc.get_objects() if type(obj) is MarketData)
-
-
 def test_count_klines_matches_get_klines_length(repo):
     base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     klines = [
@@ -425,18 +414,18 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
     ]
     repo.save_klines(MarketType.SPOT, klines)
 
-    baseline = _live_market_data_count()
+    watch = MarketDataWatch()
     peak_live_beyond_baseline = 0
 
     for index, row in enumerate(
         repo.stream_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
     ):
         if index % sample_every == 0:
-            live_now = _live_market_data_count() - baseline
+            live_now = watch.new_live_count()
             peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
         del row
 
-    final_live = _live_market_data_count() - baseline
+    final_live = watch.new_live_count()
 
     # Generous bound: well under total_rows is enough to prove this isn't a
     # full materialization, without pinning to SQLAlchemy's exact internal

@@ -71,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
+    ListVenueKeysQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
 )
@@ -280,18 +283,12 @@ def app_engine(
                 engine.context.container.resolve(SessionReadiness),
             )
             return handler.execute(command_obj)
-        if command_type is GetOpenPositionsQuery:
-            # `GetOpenPositionsQueryHandler` itself builds a real
-            # `FuturesTradingClient` and hits the network
-            # (`get_positions()`) unconditionally — safe to do against a
-            # real exchange/fake server (see
-            # `test_manual_order_pipeline_against_fake_server.py`), but not
-            # something this offscreen Qt suite's shared engine should do on
-            # every manual-order click. The order path only wants a real
-            # tuple shape back (it iterates `positions` directly), not a
-            # network round trip, so a flat empty tuple —
-            # "no open position for any symbol" — is the correct fixture
-            # answer here, same spirit as the `_FakeResponse` branches below.
+        if command_type in (GetOpenPositionsQuery, ListVenueKeysQuery):
+            # Both real handlers reach outside this offscreen suite: open positions
+            # build a real `FuturesTradingClient` and hit the network; the key list
+            # (`BUG-176`, the Options page) reads the machine's own
+            # `secrets.local.json` and keyring. Callers want a real tuple back, not a
+            # round trip, so "no open position / no venue has a key" is the answer.
             return ()
 
         response = _FakeResponse()

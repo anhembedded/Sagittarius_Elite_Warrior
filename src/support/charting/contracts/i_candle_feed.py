@@ -49,17 +49,37 @@ class OlderCandlesRequest:
     limit: int
 
 
+class CandlesUnavailableError(RuntimeError):
+    """The exchange will not serve these candles, and asking again will not help
+    (`BUG-172`): a timeframe its market has none of (Futures has no `1s`), a
+    symbol it does not list (a testnet lists fewer). `reason` is a sentence for
+    the user; a screen shows it as it is, never as "try again"."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class ICandleFeed(ABC):
     """One market's candles: stored history, a sync from the exchange, and a
     live stream held per owner."""
 
     @abstractmethod
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         """@brief Fetches what is missing from the exchange into the store.
         @param cancelled Polled between fetches; the sync returns early once it
-        answers `True`."""
+        answers `True`.
+        @param newest When given, only the newest `newest` candles are wanted (a
+        chart's window), not the implementation's default depth: at `1s` that is
+        the difference between 500 candles and millions (`BUG-172`).
+        @raise CandlesUnavailableError the exchange refuses these candles for good."""
 
     @abstractmethod
     def load_history(

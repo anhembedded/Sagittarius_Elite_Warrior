@@ -74,6 +74,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def _order(client_order_id: str = "SEW-lifecycle0001") -> Order:
     """A resting order: `EPIC-028O`'s fake fills a market order at once, so

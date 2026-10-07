@@ -57,8 +57,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contrac
     Holdings,
     MarketStreamContract,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_venues import (
+    FakeMarketDataVenues,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 _MINUTE = TimeFrame.ONE_MINUTE
@@ -76,8 +82,9 @@ class _StreamCommandDispatcher:
     """
 
     def __init__(self, stream_service: ILiveStreamService) -> None:
-        self._start = StartLiveStreamCommandHandler(stream_service)
-        self._stop = StopLiveStreamCommandHandler(stream_service)
+        venues = FakeMarketDataVenues(Mock(), Mock(), stream_service)
+        self._start = StartLiveStreamCommandHandler(venues)
+        self._stop = StopLiveStreamCommandHandler(venues)
 
     def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
         if handler_class is StartLiveStreamCommand:
@@ -129,7 +136,9 @@ class TestTheRealServiceOverTheRealBookkeeping(MarketStreamContract):
 
     @pytest.fixture
     def impl(self, websocket_service) -> IMarketStream:
-        return MarketStreamService(_StreamCommandDispatcher(websocket_service))
+        return MarketStreamService(
+            _StreamCommandDispatcher(websocket_service), MarketDataVenue.MAINNET_PUBLIC
+        )
 
     @pytest.fixture
     def holdings(self, websocket_service) -> Holdings:
@@ -249,9 +258,32 @@ def test_an_unanswered_dispatch_is_reported_as_a_failure() -> None:
         def dispatch(self, handler_class: type, input_dto: object = None) -> None:
             return None
 
-    service = MarketStreamService(_AnsweringNothing())
+    service = MarketStreamService(_AnsweringNothing(), MarketDataVenue.MAINNET_PUBLIC)
 
     outcome = service.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
     assert outcome.success is False
     assert outcome.message
+
+
+@pytest.mark.parametrize("venue", list(MarketDataVenue))
+def test_every_command_names_the_venue_the_service_is_bound_to(
+    venue: MarketDataVenue,
+) -> None:
+    """`BUG-172` — a desk's owner id holds its subscription on its own venue's
+    connection: the start and the stop both say which."""
+
+    class _Recording:
+        def __init__(self) -> None:
+            self.venues: list[MarketDataVenue | None] = []
+
+        def dispatch(self, handler_class: type, input_dto: object = None) -> None:
+            self.venues.append(getattr(input_dto, "venue", "no venue field"))
+
+    dispatcher = _Recording()
+    service = MarketStreamService(dispatcher, venue)
+
+    service.start("desk.x", _SPOT, ["BTCUSDT"], _MINUTE)
+    service.stop("desk.x")
+
+    assert dispatcher.venues == [venue, venue]

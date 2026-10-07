@@ -40,6 +40,10 @@
    is appended. The chart's chip says whether it is live (History, Connecting, Live with the age
    of the last update, or Error with its reason); its one command (Go live, Cancel, Stop live,
    Retry) starts or stops the stream without trading being on (`EPIC-034G`).
+   A desk or a bot charts the market of **its own venue** (Spot Testnet the Spot testnet, Futures
+   Testnet the futures testnet, both mainnet venues the public mainnet), so the price shown is the
+   price its orders fill at; a timeframe or symbol that exchange does not serve (Futures has no `1s`,
+   a testnet lists fewer symbols) is said in words on the chart (`BUG-172`).
 7. The actor stops the stream, or closes the screen, and the app releases **that owner's**
    subscription set.
 

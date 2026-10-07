@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtWidgets import QComboBox
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    candle,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     desk_profile_for,
 )
@@ -28,14 +31,32 @@ SPOT = TradingVenue.SPOT_TESTNET
 def test_opening_a_desk_reads_its_own_markets_history_and_streams_nothing(
     qtbot, venue
 ) -> None:
-    """`BUG-107`: opening a screen is not a request to go on the network."""
+    """`BUG-107`: opening a screen is not a request to go live: with candles
+    stored it reads them and goes on no network."""
     world = DeskWorld()
+    world.history.seed([candle("BTCUSDT", 0), candle("ETHUSDT", 0)], market_of(venue))
 
     build_desk(qtbot, venue, world)
 
     assert world.history.reads, "the chart reads local history on open"
     assert {read.market for read in world.history.reads} == {market_of(venue)}
     assert world.sync.requests == []
+    assert world.stream.calls == []
+
+
+@pytest.mark.parametrize("venue", [FUTURES, SPOT])
+def test_opening_a_desk_on_an_empty_store_fetches_its_own_markets_history(
+    qtbot, venue
+) -> None:
+    """`BUG-172` — a desk chart with nothing stored fetched nothing and sat empty
+    (the owner's Futures Testnet ETHUSDT chart). It now syncs its own venue's
+    market, then reads; it still opens no stream."""
+    world = DeskWorld()
+
+    build_desk(qtbot, venue, world)
+
+    assert world.sync.requests, "an empty store is fetched"
+    assert {request.market for request in world.sync.requests} == {market_of(venue)}
     assert world.stream.calls == []
 
 

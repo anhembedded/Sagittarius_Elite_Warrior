@@ -1,0 +1,390 @@
+"""`BUG-172` — the chart a desk shows is the market of the venue it trades on.
+
+@details Until this bug was fixed every desk read one process-wide market-data
+venue (`exchange.market_data_venue`, default `mainnet_public`), so Spot Testnet
+and Futures Testnet charted mainnet prices while their orders filled on the
+testnet. These tests compose the real app over the fake Binance server and
+ask each of the four venues' desk chart ports for candles; nothing is
+substituted but the network.
+
+The fake server has no notion of "mainnet" or "testnet": both families of
+`python-binance` URLs point at it. To tell which family a read used, only one
+family is live at a time and the other points at a closed port, so a read that
+went to the wrong environment cannot be answered and the store stays empty.
+No request here ever leaves the machine, and none places an order.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import socket
+import sys
+from collections.abc import Callable, Iterator
+from contextlib import ExitStack, closing
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from binance.client import Client
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
+    DatabaseConfig,
+    DatabaseManager,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
+    SQLAlchemyMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    MarketDataSyncRequest,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
+    MarketDataCandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    candle,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart_ports import (
+    DeskChartPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
+    desk_dependencies_for,
+)
+from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    FUTURES_ENV_API_KEY,
+    FUTURES_ENV_API_SECRET,
+    FUTURES_MAINNET_ENV_API_KEY,
+    FUTURES_MAINNET_ENV_API_SECRET,
+    SPOT_ENV_API_KEY,
+    SPOT_ENV_API_SECRET,
+    SPOT_MAINNET_ENV_API_KEY,
+    SPOT_MAINNET_ENV_API_SECRET,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    CandlesUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
+    LiveChartCoordinator,
+)
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    silent_callbacks,
+)
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "sanity"))
+from binance_fake_server import FakeServerUrls, run_binance_fake_server
+
+_CONFIG_DIR = Path(__file__).resolve().parents[4] / "src" / "config"
+_SYMBOL = "BTCUSDT"
+#: The fake's one kline opens at 2023-01-01T00:00Z (`fake_exchange/spot_routes.py`).
+_SINCE = datetime(2023, 1, 1, tzinfo=UTC)
+_UNTIL = datetime(2023, 1, 2, tzinfo=UTC)
+#: What the fake's fixed row says per market: `spot_routes.py` / `futures_routes.py`.
+_FAKE_OPEN = {"spot": 111.0, "futures_usd_m": 222.0}
+_GET_LOOP_BINDINGS = (
+    "binance.base_client.get_loop",
+    "binance.async_client.get_loop",
+    "binance.ws.reconnecting_websocket.get_loop",
+    "binance.ws.streams.get_loop",
+    "binance.ws.threaded_stream.get_loop",
+    "binance.ws.depthcache.get_loop",
+)
+_KEYS = (
+    (SPOT_ENV_API_KEY, SPOT_ENV_API_SECRET),
+    (FUTURES_ENV_API_KEY, FUTURES_ENV_API_SECRET),
+    (SPOT_MAINNET_ENV_API_KEY, SPOT_MAINNET_ENV_API_SECRET),
+    (FUTURES_MAINNET_ENV_API_KEY, FUTURES_MAINNET_ENV_API_SECRET),
+)
+_VENUES = [
+    TradingVenue.SPOT_TESTNET,
+    TradingVenue.FUTURES_TESTNET,
+    TradingVenue.SPOT_MAINNET,
+    TradingVenue.FUTURES_MAINNET,
+]
+#: What `exchange.market_data_venue` may say; it must change nothing for a venue.
+_GLOBAL_SETTINGS = ["mainnet_public", "futures_testnet"]
+
+
+def _closed_port_url(family: str) -> str:
+    with closing(socket.socket()) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    return f"http://127.0.0.1:{port}/{family}"
+
+
+@dataclass
+class Exchange:
+    """The composed app, with one environment answering and the other not."""
+
+    urls: FakeServerUrls
+    desk_chart: Callable[[TradingVenue], DeskChartPorts]
+
+
+def _sync_and_load(ports: DeskChartPorts, venue: TradingVenue) -> tuple[object, ...]:
+    market = venue.market_type
+    assert market is not None
+    ports.market_data_sync.sync(
+        MarketDataSyncRequest(
+            symbols=(_SYMBOL,),
+            interval=TimeFrame.ONE_MINUTE,
+            market=market,
+            start_time=_SINCE,
+            end_time=_UNTIL,
+        )
+    )
+    return ports.historical_klines.load(market, _SYMBOL, TimeFrame.ONE_MINUTE)
+
+
+@pytest.fixture
+def composed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, request: pytest.FixtureRequest
+) -> Iterator[Callable[[str, bool], Exchange]]:
+    """`composed(global_setting, testnet_is_live)` -> the booted app's desk charts."""
+    for key, secret in _KEYS:
+        monkeypatch.setenv(key, "fake-key")
+        monkeypatch.setenv(secret, "fake-secret")
+    loop = asyncio.new_event_loop()
+    stack = ExitStack()
+    request.addfinalizer(stack.close)
+    request.addfinalizer(loop.close)
+
+    def build(global_setting: str, testnet_is_live: bool) -> Exchange:
+        user_json = tmp_path / "user_config.json"
+        user_json.write_text(json.dumps({}))
+        config = ConfigManager()
+        config.load_json(str(_CONFIG_DIR / "app_config.json"))
+        config.load_json(str(user_json), writable=True)
+        config.load_dict(
+            {
+                "exchange.market_data_venue": global_setting,
+                "database.dir": str(tmp_path / "database"),
+                "bots.state_dir": str(tmp_path / "bots"),
+            }
+        )
+        urls = stack.enter_context(run_binance_fake_server())
+        dead_spot, dead_futures = _closed_port_url("api"), _closed_port_url("fapi")
+        live_testnet = testnet_is_live
+        for name, live, dead in (
+            ("API_TESTNET_URL", urls.spot, dead_spot),
+            ("FUTURES_TESTNET_URL", urls.futures, dead_futures),
+        ):
+            stack.enter_context(
+                patch.object(Client, name, live if live_testnet else dead)
+            )
+        for name, live, dead in (
+            ("API_URL", urls.spot, dead_spot),
+            ("FUTURES_URL", urls.futures, dead_futures),
+        ):
+            stack.enter_context(
+                patch.object(Client, name, dead if live_testnet else live)
+            )
+        for binding in _GET_LOOP_BINDINGS:
+            stack.enter_context(patch(binding, lambda: loop))
+        engine = create_app(config)
+        engine.boot()
+        stack.callback(engine.stop)
+        container = engine.context.container
+        return Exchange(
+            urls, lambda venue: desk_dependencies_for(container, venue).chart
+        )
+
+    return build
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+@pytest.mark.parametrize("venue", _VENUES)
+def test_a_venues_chart_is_read_from_the_environment_its_orders_go_to(
+    composed: Callable[[str, bool], Exchange],
+    venue: TradingVenue,
+    global_setting: str,
+) -> None:
+    # Only the venue's own environment answers: a read that went anywhere else
+    # finds a closed port, and the sync raises instead of storing a candle.
+    exchange = composed(global_setting, venue.is_testnet)
+
+    candles = _sync_and_load(exchange.desk_chart(venue), venue)
+
+    assert [c.open_price for c in candles] == [_FAKE_OPEN[venue.market_type.value]]  # type: ignore[union-attr, attr-defined]
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+def test_testnet_candles_are_never_served_as_mainnet_ones(
+    composed: Callable[[str, bool], Exchange], global_setting: str
+) -> None:
+    """The store is keyed by the market-data source as well as the symbol and
+    the interval: Spot Testnet's `BTCUSDT` and Spot Mainnet's are two series."""
+    exchange = composed(global_setting, True)
+    testnet, mainnet = TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET
+
+    assert _sync_and_load(exchange.desk_chart(testnet), testnet)
+
+    mainnet_ports = exchange.desk_chart(mainnet)
+    assert (
+        mainnet_ports.historical_klines.load(
+            mainnet.market_type,
+            _SYMBOL,
+            TimeFrame.ONE_MINUTE,  # type: ignore[arg-type]
+        )
+        == ()
+    )
+
+
+def test_futures_testnets_missing_one_second_klines_is_a_readable_refusal(
+    composed: Callable[[str, bool], Exchange],
+) -> None:
+    """`BUG-172` — the exchange answers -1120 ("Invalid interval") for `1s` on
+    USDⓈ-M Futures. It reaches the chart's feed as a sentence a person can read,
+    through the real client, handler and dispatcher, instead of a raw API error."""
+    exchange = composed("mainnet_public", True)
+    venue = TradingVenue.FUTURES_TESTNET
+    ports = exchange.desk_chart(venue)
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync,
+        ports.historical_klines,
+        ports.market_stream,
+        MarketType.FUTURES_USD_M,
+    )
+
+    with pytest.raises(CandlesUnavailableError) as refused:
+        feed.sync("BTCUSDT", TimeFrame.ONE_SECOND, lambda: False)
+
+    assert refused.value.reason == (
+        "This exchange has no 1s candles for its USDⓈ-M Futures market."
+    )
+    assert (
+        ports.historical_klines.load(
+            MarketType.FUTURES_USD_M, "BTCUSDT", TimeFrame.ONE_SECOND
+        )
+        == ()
+    )
+
+
+def test_a_short_history_on_spot_testnet_is_an_ordinary_sync(
+    composed: Callable[[str, bool], Exchange],
+) -> None:
+    """`BUG-172` — Spot Testnet keeps little history (the fake answers one candle
+    for any period): the sync succeeds and the chart reads what it stored."""
+    exchange = composed("mainnet_public", True)
+    venue = TradingVenue.SPOT_TESTNET
+    ports = exchange.desk_chart(venue)
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync,
+        ports.historical_klines,
+        ports.market_stream,
+        MarketType.SPOT,
+    )
+
+    feed.sync("BTCUSDT", TimeFrame.ONE_MINUTE, lambda: False)
+
+    assert len(feed.load_history("BTCUSDT", TimeFrame.ONE_MINUTE, 500)) == 1
+
+
+@pytest.mark.parametrize(
+    ("setting", "labelled", "other"),
+    [
+        ("futures_testnet", TradingVenue.FUTURES_TESTNET, TradingVenue.FUTURES_MAINNET),
+        ("mainnet_public", TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET),
+    ],
+)
+def test_the_booted_app_gives_legacy_candles_the_venue_the_setting_named(
+    composed: Callable[[str, bool], Exchange],
+    tmp_path: Path,
+    setting: str,
+    labelled: TradingVenue,
+    other: TradingVenue,
+) -> None:
+    """`BUG-172` — wiring: candles stored by an earlier build, in the configured
+    directory, are served to the venue `exchange.market_data_venue` named when the
+    app first boots with the fix, and to no other (never a testnet price as a
+    mainnet one)."""
+    legacy = DatabaseManager(DatabaseConfig(db_dir=str(tmp_path / "database")))
+    SQLAlchemyMarketDataRepository(legacy).save_klines(
+        MarketType.FUTURES_USD_M, [candle(_SYMBOL, 0, close_price=333.0)]
+    )
+    legacy.dispose_all()
+    exchange = composed(setting, True)
+
+    def closes(venue: TradingVenue) -> list[float]:
+        history = exchange.desk_chart(venue).historical_klines
+        rows = history.load(MarketType.FUTURES_USD_M, _SYMBOL, TimeFrame.ONE_MINUTE)
+        return [row.close_price for row in rows]
+
+    assert closes(labelled) == [333.0]
+    assert closes(other) == []
+
+
+class _NeverCancelled:
+    def is_cancelled(self) -> bool:
+        return False
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+@pytest.mark.parametrize("venue", _VENUES)
+def test_a_chart_opened_on_an_empty_store_fetches_its_own_venues_history(
+    composed: Callable[[str, bool], Exchange],
+    venue: TradingVenue,
+    global_setting: str,
+) -> None:
+    """`BUG-172` — the owner's Futures Testnet desk chart stayed empty: opened at
+    rest on an empty store it read nothing and fetched nothing. It now syncs its
+    own venue's market (only that environment answers here), reads, and draws."""
+    exchange = composed(global_setting, venue.is_testnet)
+    ports = exchange.desk_chart(venue)
+    market = venue.market_type
+    assert market is not None
+    drawn = MagicMock()
+    stream = MagicMock()
+    callbacks = silent_callbacks(history_ready=drawn, stream_started=stream)
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync, ports.historical_klines, ports.market_stream, market
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.test")
+
+    coordinator._run(_SYMBOL, "1m", _NeverCancelled(), False)  # type: ignore[arg-type]
+
+    candles = drawn.call_args.args[3]
+    assert [c.open_price for c in candles] == [_FAKE_OPEN[market.value]]
+    stream.assert_not_called()
+
+
+@pytest.mark.parametrize("global_setting", _GLOBAL_SETTINGS)
+@pytest.mark.parametrize("venue", _VENUES)
+def test_older_candles_are_fetched_from_the_charts_own_venue(
+    composed: Callable[[str, bool], Exchange],
+    venue: TradingVenue,
+    global_setting: str,
+) -> None:
+    """`BUG-178` — panning a desk chart past its oldest candle on an empty store
+    fetches the window from the chart's own venue's market (only that
+    environment answers here), never from `exchange.market_data_venue`, stores
+    it in that venue's store and hands it to the chart."""
+    exchange = composed(global_setting, venue.is_testnet)
+    ports = exchange.desk_chart(venue)
+    market = venue.market_type
+    assert market is not None
+    ready = MagicMock()
+    failed = MagicMock()
+    callbacks = silent_callbacks(older_ready=ready, older_failed=failed)
+    feed = MarketDataCandleFeed(
+        ports.market_data_sync, ports.historical_klines, ports.market_stream, market
+    )
+    coordinator = LiveChartCoordinator(MagicMock(), feed, callbacks, "desk.test")
+    token = _NeverCancelled()
+    before = datetime.now(UTC)
+
+    coordinator._run_older(_SYMBOL, "1m", before, token)  # type: ignore[arg-type]
+
+    failed.assert_not_called()
+    rows = ready.call_args.args[1]
+    assert rows, "the venue's market answered with candles"
+    assert [row.open_price for row in rows] == [_FAKE_OPEN[market.value]] * len(rows)
+    assert all(row.open_time < before for row in rows)
+    stored = ports.historical_klines.load(market, _SYMBOL, TimeFrame.ONE_MINUTE)
+    assert len(stored) >= len(rows), "fetched candles are stored before they are drawn"

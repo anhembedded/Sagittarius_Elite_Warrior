@@ -32,19 +32,29 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
     IMarketDataSync,
     MarketDataSyncRequest,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 
 class MarketDataSyncService(IMarketDataSync):
-    """The module's answer to "make sure this history is on disk"."""
+    """The module's answer to "make sure this history is on disk", for one venue.
 
-    def __init__(self, dispatcher: ICommandDispatcher) -> None:
+    `BUG-172`: bound to the venue whose exchange it fetches from and whose store
+    it writes to (`IMarketDataSources`), so the request — which names a market,
+    never a venue — cannot reach another venue's history.
+    """
+
+    def __init__(self, dispatcher: ICommandDispatcher, venue: MarketDataVenue) -> None:
         self._dispatcher = dispatcher
+        self._venue = venue
 
     def sync(self, request: MarketDataSyncRequest) -> None:
         command = SyncMarketDataCommand(
             symbols=list(request.symbols),
             interval=request.interval,
             market=request.market,
+            venue=self._venue,
             start_time=request.start_time,
             end_time=request.end_time,
             cancellation_requested=request.cancellation_requested,

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timedelta
 from typing import Protocol
 
@@ -133,6 +134,13 @@ class HistoryTabsLoader(QObject):
     def request_for(self, kind: HistoryKind) -> HistoryRequest | None:
         return self._requests.get(kind)
 
+    def _retry(self, kind: HistoryKind) -> None:
+        """Reads the failed page again over a span taken now: the `since` of
+        the failed read is minutes old and, kept, only ever gets older
+        (`BUG-173`)."""
+        request = self._requests[kind]
+        self._load(kind, replace(request, since=self._clock() - DESK_HISTORY_SPAN))
+
     def _load(self, kind: HistoryKind, request: HistoryRequest) -> None:
         self._requests[kind] = request
         action = self._reads[kind].begin_action(kind.value, request.page, None)
@@ -180,7 +188,7 @@ class HistoryTabsLoader(QObject):
                     "not be read. Check the connection and retry.",
                     scope=TRADE_ROUTE,
                     detail=detail,
-                    retry=lambda: self._load(kind, self._requests[kind]),
+                    retry=lambda: self._retry(kind),
                 )
             )
             return

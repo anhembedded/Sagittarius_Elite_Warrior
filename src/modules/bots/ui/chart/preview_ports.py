@@ -59,7 +59,12 @@ class SampleCandleFeed(ICandleFeed):
         self._interval = interval
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         return None
 

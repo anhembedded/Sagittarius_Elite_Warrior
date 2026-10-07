@@ -71,6 +71,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_trade
     GetTradeHistoryQuery,
     GetTradeHistoryQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
+    ListVenueKeysQuery,
+    ListVenueKeysQueryHandler,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -95,3 +99,5 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetMarkPriceQuery, GetMarkPriceQueryHandler)
     container.bind(GetBestBidAskQuery, GetBestBidAskQueryHandler)
     container.bind(GetOrderNotionalLimitQuery, GetOrderNotionalLimitQueryHandler)
+    # BUG-176: the Options page lists each venue's key as a fingerprint.
+    container.bind(ListVenueKeysQuery, ListVenueKeysQueryHandler)

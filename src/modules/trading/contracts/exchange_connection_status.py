@@ -45,8 +45,8 @@ class ConnectionFailureKind(str, Enum):
     #: Binance `-1021` — local clock too far from server time for the
     #: request's `recvWindow`.
     CLOCK_SKEW = "clock_skew"
-    #: Binance `-2015` — the exchange rejected the key: unknown key (a mainnet
-    #: key sent to the testnet — this app is testnet-only), an IP off the key's
+    #: Binance `-2015` — the exchange rejected the key: a key of another
+    #: environment (a mainnet key sent to a testnet, or the reverse), an IP off the key's
     #: allowlist, or a key without the needed permission. Never "expired": no
     #: Binance code says so (`BUG-167`).
     KEY_REJECTED = "key_rejected"

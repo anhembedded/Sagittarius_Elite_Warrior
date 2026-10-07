@@ -203,3 +203,32 @@ def test_disabled_venue_has_no_env_vars_and_falls_back_to_the_file(
     resolution = provider.resolve()
 
     assert resolution.source is CredentialsSource.FILE
+
+
+def test_remove_stored_forgets_this_venues_file_key_and_leaves_the_other_testnet(
+    tmp_path, monkeypatch
+):
+    """`BUG-176` — each testnet venue has its own entry in the file."""
+    _clear_all_venue_env_vars(monkeypatch)
+    futures = _provider(tmp_path, TradingVenue.FUTURES_TESTNET)
+    spot = _provider(tmp_path, TradingVenue.SPOT_TESTNET)
+    futures.save_to_file("futures-key", "futures-secret")
+    spot.save_to_file("spot-key", "spot-secret")
+
+    futures.remove_stored()
+
+    assert futures.resolve().source is CredentialsSource.NONE
+    assert spot.resolve().credentials.api_key == "spot-key"
+
+
+def test_saving_one_testnet_venues_key_does_not_change_the_other_venues(
+    tmp_path, monkeypatch
+):
+    _clear_all_venue_env_vars(monkeypatch)
+    futures = _provider(tmp_path, TradingVenue.FUTURES_TESTNET)
+    spot = _provider(tmp_path, TradingVenue.SPOT_TESTNET)
+    futures.save_to_file("futures-key", "futures-secret")
+
+    spot.save_to_file("spot-key", "spot-secret")
+
+    assert futures.resolve().credentials.api_key == "futures-key"

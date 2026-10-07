@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import concurrent.futures
+import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Any
+from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
@@ -21,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed impo
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
@@ -73,9 +78,17 @@ class ScriptedCandleFeed(ICandleFeed):
         self.stream_message: str | None = None
         self.sync_error: str | None = None
         self.calls: list[str] = []
+        #: What is stored: a chart opened at rest on an empty store fetches
+        #: it (`BUG-172`), so most tests of "no network at rest" store a candle.
+        self.stored: Sequence[MarketData] = ()
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
         self.calls.append("sync")
         if self.sync_error is not None:
@@ -85,7 +98,7 @@ class ScriptedCandleFeed(ICandleFeed):
         self, symbol: str, interval: TimeFrame, limit: int
     ) -> Sequence[MarketData]:
         self.calls.append("history")
-        return []
+        return list(self.stored)
 
     def load_older(
         self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
@@ -103,6 +116,15 @@ class ScriptedCandleFeed(ICandleFeed):
 
     def stop_stream(self, owner_id: str) -> None:
         self.calls.append("stop_stream")
+
+
+def silent_callbacks(**overrides: Callable[..., None]) -> LiveChartCallbacks:
+    """Every callback of `LiveChartCallbacks` a `MagicMock`, but those a test
+    names: a new callback needs no edit in each test that builds them."""
+    named = {
+        field.name: MagicMock() for field in dataclasses.fields(LiveChartCallbacks)
+    }
+    return LiveChartCallbacks(**{**named, **overrides})
 
 
 class Clock:

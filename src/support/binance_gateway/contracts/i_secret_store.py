@@ -31,3 +31,8 @@ class ISecretStore(ABC):
     def write(self, name: str, value: str) -> None:
         """Stores `value` under `name`, replacing any earlier one.
         @raise SecretStoreUnavailableError The store cannot be used."""
+
+    @abstractmethod
+    def delete(self, name: str) -> None:
+        """Forgets the secret called `name`; nothing happens when none is stored.
+        @raise SecretStoreUnavailableError The store cannot be used."""

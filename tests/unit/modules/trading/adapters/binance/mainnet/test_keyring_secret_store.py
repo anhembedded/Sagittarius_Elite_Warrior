@@ -9,6 +9,7 @@ import logging
 import pytest
 from keyring.backend import KeyringBackend
 from keyring.backends.fail import Keyring as FailingKeyring
+from keyring.errors import PasswordDeleteError
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
     SERVICE,
     KeyringSecretStore,
@@ -32,6 +33,8 @@ class _MemoryKeyring(KeyringBackend):
         self.entries[(service, username)] = password
 
     def delete_password(self, service: str, username: str) -> None:
+        if (service, username) not in self.entries:
+            raise PasswordDeleteError("Password not found")  # keyring's own contract
         del self.entries[(service, username)]
 
 
@@ -67,3 +70,20 @@ def test_a_machine_with_no_keyring_reads_none_and_says_so_once(
 def test_a_machine_with_no_keyring_refuses_a_save_instead_of_losing_it() -> None:
     with pytest.raises(SecretStoreUnavailableError):
         KeyringSecretStore(FailingKeyring()).write("a", "b")
+
+
+def test_a_deleted_secret_reads_as_none_and_deleting_it_again_is_not_an_error() -> None:
+    """`BUG-176` — Remove on a venue forgets its key; a second Remove is already done."""
+    backend = _MemoryKeyring()
+    store = KeyringSecretStore(backend)
+    store.write("name", "value")
+
+    store.delete("name")
+    store.delete("name")
+
+    assert store.read("name") is None
+
+
+def test_a_machine_with_no_keyring_refuses_to_delete_and_says_why() -> None:
+    with pytest.raises(SecretStoreUnavailableError):
+        KeyringSecretStore(FailingKeyring()).delete("name")

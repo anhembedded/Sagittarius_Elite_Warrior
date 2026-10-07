@@ -75,6 +75,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def _limit_order(client_order_id: str = "SEW-lifecycle0001") -> Order:
     return Order(

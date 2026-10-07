@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
     ISecretStore,
+    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -98,7 +99,7 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
         if from_env is not None:
             return ResolvedCredentials(from_env, CredentialsSource.ENV)
 
-        from_file = self._secrets_file.read()
+        from_file = self._secrets_file.read(self._trading_venue)
         if from_file is not None:
             file_key, file_secret = from_file
             return ResolvedCredentials(
@@ -108,7 +109,10 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
         return ResolvedCredentials(None, CredentialsSource.NONE)
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
-        self._secrets_file.write(api_key, api_secret)
+        self._secrets_file.write(self._trading_venue, api_key, api_secret)
+
+    def remove_stored(self) -> None:
+        self._secrets_file.remove(self._trading_venue)
 
 
 class MainnetCredentialsProvider(IExchangeCredentialsProvider):
@@ -148,9 +152,33 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         """@raise SecretStoreUnavailableError The keyring cannot be used here."""
-        self._store.write(self._key_name, api_key)
-        self._store.write(self._secret_name, api_secret)
+        previous = (
+            self._store.read(self._key_name),
+            self._store.read(self._secret_name),
+        )
+        try:
+            self._store.write(self._key_name, api_key)
+            self._store.write(self._secret_name, api_secret)
+        except SecretStoreUnavailableError:
+            # Never leave half a pair: put back what was there, or nothing.
+            for name, before in zip(
+                (self._key_name, self._secret_name), previous, strict=True
+            ):
+                if before is None:
+                    self._store.delete(name)
+                else:
+                    self._store.write(name, before)
+            self._stored = None
+            self._stored_read = False
+            raise
         self._stored = ExchangeCredentials(api_key, api_secret)
+        self._stored_read = True
+
+    def remove_stored(self) -> None:
+        """@raise SecretStoreUnavailableError The keyring cannot be used here."""
+        self._store.delete(self._key_name)
+        self._store.delete(self._secret_name)
+        self._stored = None
         self._stored_read = True
 
     def _stored_pair(self) -> ExchangeCredentials | None:

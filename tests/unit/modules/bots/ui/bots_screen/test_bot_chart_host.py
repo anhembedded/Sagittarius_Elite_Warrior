@@ -9,6 +9,7 @@ the notifier, on the Bots message bar; the host only logs what it says.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
@@ -38,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_can
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtures import (
     ChartWorld,
     InlineThreadManager,
@@ -58,7 +62,9 @@ def _host(world: ChartWorld, notifier: RecordingNotifier) -> BotChartHost:
     return BotChartHost(
         BotChartPorts(
             InlineThreadManager(),
-            MarketDataCandleFeed(world.sync, world.history, world.stream, world.market),
+            lambda _venue: MarketDataCandleFeed(
+                world.sync, world.history, world.stream, world.market
+            ),
             BotTickFeed(MemoryEventBus(), MarketType.SPOT),
             notifier,
         )
@@ -96,3 +102,44 @@ def test_a_failure_with_no_text_is_logged_and_does_not_raise(qapp, caplog) -> No
 
     assert "Bot a00001 chart: " in caplog.text
     assert notifier.failures == []
+
+
+_IDS = {TradingVenue.SPOT_MAINNET: "a00002", TradingVenue.SPOT_TESTNET: "a00003"}
+
+
+def _bot_on(venue: TradingVenue) -> BotSnapshot:
+    """A bot's venue never changes, so each venue's bot is a bot of its own."""
+    return replace(
+        BotSnapshot.of(stored(_IDS[venue], BotLifecycleState.DRAFT).bot, None),
+        venue=venue,
+    )
+
+
+def test_a_bots_chart_reads_its_own_venues_feed_and_ticks(qapp) -> None:
+    """`BUG-172` — a Spot Mainnet bot charts the mainnet and a Spot Testnet bot the
+    testnet: the host asks for the bot's venue's feed and tells the one tick Feed
+    to hear that venue only."""
+    world = ChartWorld()
+    asked: list[TradingVenue] = []
+    ticks = BotTickFeed(MemoryEventBus(), MarketType.SPOT)
+
+    def feeds(venue: TradingVenue) -> MarketDataCandleFeed:
+        asked.append(venue)
+        return MarketDataCandleFeed(
+            world.sync, world.history, world.stream, world.market
+        )
+
+    host = BotChartHost(
+        BotChartPorts(InlineThreadManager(), feeds, ticks, RecordingNotifier())
+    )
+
+    host.show(_bot_on(TradingVenue.SPOT_MAINNET))
+    assert asked == [TradingVenue.SPOT_MAINNET]
+    assert ticks._venue is TradingVenue.SPOT_MAINNET.market_data_venue
+
+    host.show(_bot_on(TradingVenue.SPOT_TESTNET))
+    assert asked == [TradingVenue.SPOT_MAINNET, TradingVenue.SPOT_TESTNET]
+    assert ticks._venue is TradingVenue.SPOT_TESTNET.market_data_venue
+
+    host.close()
+    assert ticks._venue is None

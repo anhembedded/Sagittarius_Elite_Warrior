@@ -82,6 +82,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     DeskDependencies,
+    always_keyed,
     stream_owner_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_presenter import (
@@ -173,6 +174,9 @@ class DeskSetup:
     order_entry_terms: FakeOrderEntryTerms | None = None
     trading_on: bool = False
     precisions: ISymbolPrecisions = NO_SYMBOL_PRECISIONS
+    #: Whether the venue has an API key saved (a mainnet desk with
+    #: one must take part in an Emergency stop).
+    keyed: bool = True
 
 
 def desk_fakes(
@@ -211,6 +215,7 @@ def desk_fakes(
             market_stream=world.stream,
             overlay=StrategyChartOverlayReaderAdapter(FakeStrategyChartOverlay()),
             market=market,
+            market_data_venue=venue.market_data_venue,
             stream_owner=stream_owner_for(venue),
             interval="1m",
             notifier=notifier,
@@ -220,6 +225,7 @@ def desk_fakes(
         notifier=notifier,
         confirm=lambda _confirmation: True,
         precisions=setup.precisions,
+        has_key=always_keyed if setup.keyed else (lambda: False),
     )
     return DeskFakes(session, submission, activity, arming, armed, deps, notifier)
 

@@ -68,6 +68,9 @@ class _StaticCredentialsProvider(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this tier")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def _build_client(
     testnet_credentials: ExchangeCredentials, mode: OrderSubmissionMode

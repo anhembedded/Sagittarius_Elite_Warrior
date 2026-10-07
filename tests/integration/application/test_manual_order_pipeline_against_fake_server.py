@@ -146,6 +146,9 @@ class _FakeCredentialsProvider:
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 def _orders_the_exchange_received(futures_url: str) -> list[dict[str, Any]]:
     """Same technique `test_live_trading_pipeline_against_fake_server.py`

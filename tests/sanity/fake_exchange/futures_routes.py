@@ -6,7 +6,8 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/ping            Client() construction ping (`BUG-045`)
     GET    /fapi/v1/time            `FuturesAccountReader.check_connection()`
     GET    /fapi/v1/exchangeInfo    `FuturesMetadataProvider` (`EPIC-021C`)
-    GET    /fapi/v1/klines          futures kline fetch (`EPIC-021A`)
+    GET    /fapi/v1/klines          futures kline fetch (`EPIC-021A`); `interval=1s`
+                                    is Binance's -1120, Futures has no 1s klines
     GET    /fapi/v2/account         `futures_account()` — version 2
     GET    /fapi/v1/positionSide/dual  hedge-mode check (`EPIC-021D`)
     POST   /fapi/v1/order/test      `futures_create_test_order()` (`EPIC-021F`)
@@ -167,6 +168,10 @@ def handle(
 def _handle_get(
     path: str, params: dict[str, str], state: OrderBookState
 ) -> tuple[int, object] | None:
+    if path == "/fapi/v1/klines" and params.get("interval") == "1s":
+        # Binance's own answer: USDⓈ-M Futures, testnet and mainnet alike, has no
+        # 1-second klines (`BUG-172`).
+        return 400, {"code": -1120, "msg": "Invalid interval."}
     if path in GET_ROUTES:
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":
@@ -208,6 +213,7 @@ def _handle_get(
 #: `EPIC-028Q` — Binance's Futures limit on `endTime - startTime` for the
 #: history endpoints, and how long it keeps an unfilled cancelled order.
 _FUTURES_HISTORY_SPAN_MS = 7 * 24 * 60 * 60 * 1000
+_FUTURES_AGED_HISTORY_PATHS = ("/fapi/v1/allOrders", "/fapi/v1/userTrades")
 _FUTURES_UNFILLED_ORDER_KEPT_MS = 3 * 24 * 60 * 60 * 1000
 
 
@@ -222,6 +228,17 @@ def _history(
             "code": -1127,
             "msg": "More than 7 days between startTime and endTime.",
         }
+    if (
+        path in _FUTURES_AGED_HISTORY_PATHS
+        and "startTime" in params
+        and now_ms() - start > _FUTURES_HISTORY_SPAN_MS
+    ):
+        # A start older than seven days at the exchange: the owner's testnet
+        # answered -4181 to `allOrders` and `userTrades` for a `startTime` of
+        # "now minus seven days" computed before the request arrived
+        # (`BUG-173`). Binance's docs do not list this code; the rule is
+        # the observed one.
+        return 400, {"code": -4181, "msg": "Invalid start time."}
     if path == "/fapi/v1/income":
         return 200, state.history.income(start, end, int(params.get("limit", 100)))
     query = HistoryQuery.parse(params)

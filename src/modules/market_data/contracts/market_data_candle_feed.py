@@ -14,11 +14,14 @@ shows (`EPIC-028C`: a Futures desk charts Futures candles).
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    ExchangeRefusedKlinesError,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -31,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
+    CandlesUnavailableError,
     ICandleFeed,
     OlderCandlesRequest,
 )
@@ -52,16 +56,35 @@ class MarketDataCandleFeed(ICandleFeed):
         self._market = market
 
     def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        cancelled: Callable[[], bool],
+        *,
+        newest: int | None = None,
     ) -> None:
-        self._sync.sync(
+        self._fetch(
             MarketDataSyncRequest(
                 symbols=(symbol,),
                 interval=interval,
                 market=self._market,
+                start_time=(
+                    None
+                    if newest is None
+                    else datetime.now(UTC)
+                    - timedelta(seconds=interval.to_seconds() * newest)
+                ),
                 cancellation_requested=cancelled,
             )
         )
+
+    def _fetch(self, request: MarketDataSyncRequest) -> None:
+        """Syncs from this feed's own market; a refusal for good (a timeframe or
+        symbol the market does not serve) is `CandlesUnavailableError`."""
+        try:
+            self._sync.sync(request)
+        except ExchangeRefusedKlinesError as exc:
+            raise CandlesUnavailableError(exc.reason) from exc
 
     def load_history(
         self, symbol: str, interval: TimeFrame, limit: int
@@ -84,7 +107,7 @@ class MarketDataCandleFeed(ICandleFeed):
         # already stored are written again, never twice), then read it back,
         # so what is drawn is what a restart reads.
         span = timedelta(seconds=request.interval.to_seconds() * request.limit)
-        self._sync.sync(
+        self._fetch(
             MarketDataSyncRequest(
                 symbols=(request.symbol,),
                 interval=request.interval,

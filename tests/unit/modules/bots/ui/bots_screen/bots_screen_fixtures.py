@@ -74,29 +74,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
     StrategyFormViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
-    IMarketDataRepository,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
-    IMarketStream,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
-    FakeMarketDataRepository,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
-    FakeMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
-    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
@@ -174,7 +153,7 @@ from .bots_market_fixtures import (
     NOW,
     SYMBOL,
     VENUE,
-    daily_candles,
+    register_market_data,
     terms,
     venue_contexts,
 )
@@ -360,11 +339,8 @@ def open_screen(
     container.singleton(IRealMoneyConsent, FakeRealMoneyConsent())
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
-    container.singleton(IHistoricalKlines, daily_candles())
     container.singleton(ISymbolCatalog, FakeSymbolCatalog([SYMBOL, "ETHUSDT"]))
-    container.singleton(IMarketDataSync, FakeMarketDataSync())
-    container.singleton(IMarketDataRepository, FakeMarketDataRepository())
-    container.singleton(IMarketStream, FakeMarketStream())
+    register_market_data(container, VENUE.market_data_venue)
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
     strategy = VenueArming(VENUE)

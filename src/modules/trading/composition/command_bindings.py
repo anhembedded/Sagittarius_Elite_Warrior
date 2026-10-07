@@ -17,6 +17,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.account_control.c
     ChangeMarginTypeCommand,
     ChangeMarginTypeCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
+    EnrolKeyCommand,
+    EnrolKeyCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.remove_key import (
+    RemoveKeyCommand,
+    RemoveKeyCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
     CancelOrderCommandHandler,
@@ -54,3 +62,6 @@ def bind_commands(container: IContainer) -> None:
     container.bind(CancelOrderCommand, CancelOrderCommandHandler)
     container.bind(ChangeLeverageCommand, ChangeLeverageCommandHandler)
     container.bind(ChangeMarginTypeCommand, ChangeMarginTypeCommandHandler)
+    # BUG-176: the Options page's Add key / Replace and Remove.
+    container.bind(EnrolKeyCommand, EnrolKeyCommandHandler)
+    container.bind(RemoveKeyCommand, RemoveKeyCommandHandler)

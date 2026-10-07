@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     CancellationCheck,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 # `CancellationCheck` is imported, not redeclared: `EPIC-025` PR 0.5 published
 # it with `IMarketDataSync`, the port that hands this command its caller's
@@ -28,6 +31,12 @@ class SyncMarketDataCommand(BaseModel):
     #: market's shard(s) it means, so a sync can never silently write into
     #: the wrong market's storage.
     market: MarketType = Field(description="Which market's shard(s) to sync")
+    #: `BUG-172` — whose exchange the candles are fetched from and whose store
+    #: they are written to. `None` is the screens that act on no venue (the CLI,
+    #: the bulk sync, Data mode): `exchange.market_data_venue`.
+    venue: MarketDataVenue | None = Field(
+        default=None, description="Which market-data venue to sync"
+    )
     days_back_if_empty: int = Field(
         default=30, description="How far back to sync if no data"
     )

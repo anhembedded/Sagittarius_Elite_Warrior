@@ -36,4 +36,8 @@ class LiveChartCallbacks:
     #: `(token, headline, detail)` of an older window that could not be read
     #: or fetched, told as `stream_failed` is.
     older_failed: Callable[[CancellationToken, str, str], None]
+    #: `(token, headline, detail)`: the history could not be loaded or fetched, at
+    #: rest, with no stream involved (`BUG-172`). Unlike `stream_failed` it does not
+    #: move the chart to Error, whose Retry would go live; its Retry loads again.
+    load_failed: Callable[[CancellationToken, str, str], None]
     log: Callable[[str], None]

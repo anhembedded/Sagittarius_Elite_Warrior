@@ -87,7 +87,7 @@ class WorkbenchSurface(RegionHost):
 
     #: The global "which venue am I in" banner, set once by the composition
     #: root and never here: this package knows no domain concept, so it holds
-    #: a bare widget factory and never `VenueAlignment` itself.
+    #: a bare widget factory and never `EnvironmentBannerContent` itself.
     #: `test_environment_banner_all_screens.py` scans every navigable route
     #: for the widget, which is why the host has the slot at all rather than
     #: each View remembering to add a banner itself.

@@ -112,11 +112,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -196,6 +202,7 @@ def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
     container.singleton(IVenueAccounts, FakeVenueAccounts())
     container.singleton(IHistoricalKlines, FakeHistoricalKlines())
     container.singleton(IMarketDataRepository, FakeMarketDataRepository())
+    container.singleton(IMarketDataSources, FakeMarketDataSources())
     event_bus = MemoryEventBus()
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
     container.singleton(ICloseObjections, CloseObjections())

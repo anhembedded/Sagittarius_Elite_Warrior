@@ -12,6 +12,7 @@ drawer of this screen's own (the PR 321 review).
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
@@ -33,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotChart
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_stream_owner import (
     bot_stream_owner,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
@@ -67,8 +71,9 @@ class BotChartPorts:
     """What every bot chart is built from."""
 
     thread_manager: IThreadManager
-    #: The Spot candles (a Grid is a Spot kind): `MarketDataCandleFeed`.
-    feed: ICandleFeed
+    #: The Spot candles of a bot's own venue (a Grid is a Spot kind): the
+    #: chart shows the market the bot's orders fill in (`BUG-172`).
+    feeds: Callable[[TradingVenue], ICandleFeed]
     ticks: BotTickFeed
     #: Where the chart tells a failed load or stream (`BOT-169`).
     notifier: INotifier
@@ -114,7 +119,7 @@ class BotChartHost:
             card,
             LiveChartPorts(
                 thread_manager=self._ports.thread_manager,
-                feed=self._ports.feed,
+                feed=self._ports.feeds(bot.venue),
                 stream_owner=bot_stream_owner(BotId(bot.bot_id)),
                 interval=BOT_CHART_INTERVAL,
                 market=self._ports.market,
@@ -123,6 +128,7 @@ class BotChartHost:
             ),
             parent=card,
         )
+        self._ports.ticks.listen_to(bot.venue.market_data_venue)
         chart.attach_ticks(self._ports.ticks)
         chart.logged.connect(partial(self._on_chart_said, bot.bot_id))
         chart.show_symbol(bot.symbol)
@@ -153,6 +159,7 @@ class BotChartHost:
     def close(self) -> None:
         """Releases the chart's stream and its load in flight. Safe to call twice."""
         self._live_stream.follow_chart(None)
+        self._ports.ticks.listen_to(None)
         if self._chart is not None:
             self._chart.shutdown()
         if self._card is not None:

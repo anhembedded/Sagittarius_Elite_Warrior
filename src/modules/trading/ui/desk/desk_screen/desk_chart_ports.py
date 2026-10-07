@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
@@ -34,6 +37,9 @@ class DeskChartPorts:
     overlay: IStrategyChartOverlayReader
     #: The desk's venue's market: what the chart syncs, reads and streams.
     market: MarketType
+    #: The environment the ports above are bound to, and the only one whose
+    #: ticks the chart draws: the desk's own venue's market (`BUG-172`).
+    market_data_venue: MarketDataVenue
     #: The desk's own owner on `IMarketStream` (`LiveChartCoordinator`).
     stream_owner: str
     #: The timeframe the chart opens on.

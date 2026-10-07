@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
@@ -38,6 +41,8 @@ class BacktestContext:
     """What is selected, as a backtest needs it."""
 
     bot_id: str
+    #: The bot's venue: the market the replay reads is the one its orders fill in.
+    venue: TradingVenue
     symbol: str
     #: The parameters on screen: the user's edits when there are any.
     config: Mapping[str, str]
@@ -47,12 +52,13 @@ class BacktestContext:
 
 @dataclass(frozen=True)
 class BacktestPorts:
-    """What every kind's backtest is built from."""
+    """What every kind's backtest is built from, for one venue (`BUG-172`):
+    the sync and the result chart read that venue's market."""
 
     thread_manager: IThreadManager
     dispatcher: ICommandDispatcher
     sync: IMarketDataSync
-    #: The Spot candle feed the result chart is built on (it only draws).
+    #: The venue's Spot candle feed the result chart is built on (it only draws).
     feed: ICandleFeed
     #: How a backtest that could not run reaches the user (`BOT-169`).
     notifier: INotifier

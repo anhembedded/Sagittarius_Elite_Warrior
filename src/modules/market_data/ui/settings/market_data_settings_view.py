@@ -34,6 +34,7 @@ _MARKET_DATA_VENUE_LABELS = EnumLabels(
     {
         MarketDataVenue.MAINNET_PUBLIC: "Mainnet — real, public prices (mainnet_public)",
         MarketDataVenue.FUTURES_TESTNET: "Futures Testnet — testnet prices (futures_testnet)",
+        MarketDataVenue.SPOT_TESTNET: "Spot Testnet — testnet prices (spot_testnet)",
     },
 )
 
@@ -109,7 +110,10 @@ class MarketDataSettingsView(BaseView):
         warning = plain_label(
             "Default Symbols/Interval/Sync Days are written to "
             "user_config.json. Data Source requires an app restart to take "
-            "effect — it is only read once, on app startup."
+            "effect — it is only read once, on app startup. It applies to "
+            "Data mode, the Market mode and historical backtests only: every "
+            "trading desk and bot charts the market its own orders fill in, "
+            "whatever this says."
         )
         warning.setObjectName("lblMarketDataSettingsWarning")
         warning.setWordWrap(True)
@@ -123,7 +127,9 @@ class MarketDataSettingsView(BaseView):
             self._market_data_venue_combo.addItem(
                 _MARKET_DATA_VENUE_LABELS[venue], venue.value
             )
-        source_form.addRow("Data Source (chart):", self._market_data_venue_combo)
+        source_form.addRow(
+            "Data Source (no trading venue):", self._market_data_venue_combo
+        )
         layout.addWidget(source_box)
 
         defaults_box = QGroupBox("Defaults")

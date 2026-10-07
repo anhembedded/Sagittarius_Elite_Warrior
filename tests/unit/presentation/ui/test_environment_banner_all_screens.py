@@ -19,12 +19,12 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtWidgets import QToolBar, QWidget
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
-    VenueAlignment,
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
-    venue_alignment_banner_content,
+    venue_banner_content,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -44,7 +44,7 @@ def _environment_banner_factory_registered():
     here directly (not via a full app boot) because `create_view()` needs
     nothing else `booted_app` would provide.
     """
-    content = venue_alignment_banner_content(VenueAlignment.ALIGNED)
+    content = venue_banner_content((TradingVenue.SPOT_TESTNET,))
     WorkbenchSurface.set_environment_banner_factory(lambda: EnvironmentBanner(content))
     yield
     WorkbenchSurface.set_environment_banner_factory(None)

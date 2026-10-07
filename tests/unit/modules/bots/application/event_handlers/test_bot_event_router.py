@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -97,7 +100,12 @@ def _order(
     )
 
 
-def _tick(symbol: str, close: float, market: MarketType) -> MarketTickEvent:
+def _tick(
+    symbol: str,
+    close: float,
+    market: MarketType,
+    source: MarketDataVenue = MarketDataVenue.SPOT_TESTNET,
+) -> MarketTickEvent:
     return MarketTickEvent(
         market_data=MarketData(
             symbol=symbol,
@@ -115,6 +123,7 @@ def _tick(symbol: str, close: float, market: MarketType) -> MarketTickEvent:
             taker_buy_quote_asset_volume=0.0,
         ),
         market_type=market,
+        market_data_venue=source,
     )
 
 
@@ -200,6 +209,20 @@ def test_a_tick_reaches_the_bot_on_its_symbol_and_market_only() -> None:
     assert world.state() is S.RUNNING
 
     parts.router.on_tick(_tick(SYMBOL, 89.0, MarketType.SPOT))
+    assert world.state() is S.STOPPED
+
+
+def test_a_tick_of_another_venues_stream_never_reaches_the_bot() -> None:
+    """`BUG-172` — Spot Mainnet's `BTCUSDT` is not Spot Testnet's: the bot on one
+    venue must never act on the other's price."""
+    world, parts = _running()
+
+    parts.router.on_tick(
+        _tick(SYMBOL, 89.0, MarketType.SPOT, MarketDataVenue.MAINNET_PUBLIC)
+    )
+    assert world.state() is S.RUNNING
+
+    parts.router.on_tick(_tick(SYMBOL, 89.0, MarketType.SPOT, VENUE.market_data_venue))
     assert world.state() is S.STOPPED
 
 

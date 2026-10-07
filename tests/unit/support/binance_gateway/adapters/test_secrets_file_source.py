@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import stat
 import sys
 
@@ -7,36 +9,108 @@ import pytest
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+
+_FUTURES = TradingVenue.FUTURES_TESTNET
+_SPOT = TradingVenue.SPOT_TESTNET
 
 
 def test_read_returns_none_when_the_file_does_not_exist(tmp_path):
     source = SecretsFileSource(str(tmp_path / "missing.json"))
-    assert source.read() is None
+    assert source.read(_FUTURES) is None
 
 
 def test_write_then_read_round_trips(tmp_path):
     source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
 
-    source.write("key-1", "secret-1")
+    source.write(_FUTURES, "key-1", "secret-1")
 
-    assert source.read() == ("key-1", "secret-1")
+    assert source.read(_FUTURES) == ("key-1", "secret-1")
 
 
 def test_write_creates_parent_directories(tmp_path):
     source = SecretsFileSource(str(tmp_path / "nested" / "dir" / "secrets.local.json"))
 
-    source.write("key-1", "secret-1")
+    source.write(_FUTURES, "key-1", "secret-1")
 
-    assert source.read() == ("key-1", "secret-1")
+    assert source.read(_FUTURES) == ("key-1", "secret-1")
 
 
 def test_a_second_write_overwrites_the_first(tmp_path):
     source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
-    source.write("old-key", "old-secret")
+    source.write(_FUTURES, "old-key", "old-secret")
 
-    source.write("new-key", "new-secret")
+    source.write(_FUTURES, "new-key", "new-secret")
 
-    assert source.read() == ("new-key", "new-secret")
+    assert source.read(_FUTURES) == ("new-key", "new-secret")
+
+
+def test_each_venue_has_its_own_pair(tmp_path):
+    """`BUG-176` — writing one venue's key reads back unchanged for the others."""
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    source.write(_FUTURES, "futures-key", "futures-secret")
+
+    source.write(_SPOT, "spot-key", "spot-secret")
+
+    assert source.read(_FUTURES) == ("futures-key", "futures-secret")
+    assert source.read(_SPOT) == ("spot-key", "spot-secret")
+
+
+def test_remove_forgets_one_venue_and_keeps_the_other(tmp_path):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    source.write(_FUTURES, "futures-key", "futures-secret")
+    source.write(_SPOT, "spot-key", "spot-secret")
+
+    source.remove(_FUTURES)
+
+    assert source.read(_FUTURES) is None
+    assert source.read(_SPOT) == ("spot-key", "spot-secret")
+
+
+def test_removing_a_venue_with_no_pair_changes_nothing(tmp_path):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    source.write(_SPOT, "spot-key", "spot-secret")
+
+    source.remove(_FUTURES)
+
+    assert source.read(_SPOT) == ("spot-key", "spot-secret")
+
+
+def test_a_pair_written_before_the_file_had_venues_is_read_for_both_testnets(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    path.write_text('{"API_KEY": "old-key", "API_SECRET": "old-secret"}')
+    source = SecretsFileSource(str(path))
+
+    assert source.read(_FUTURES) == ("old-key", "old-secret")
+    assert source.read(_SPOT) == ("old-key", "old-secret")
+
+
+def test_a_mainnet_venue_never_reads_the_old_shared_pair(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    path.write_text('{"API_KEY": "old-key", "API_SECRET": "old-secret"}')
+    source = SecretsFileSource(str(path))
+
+    assert source.read(TradingVenue.SPOT_MAINNET) is None
+    assert source.read(TradingVenue.FUTURES_MAINNET) is None
+
+
+def test_changing_one_venue_keeps_the_old_shared_pair_for_the_other(tmp_path):
+    """The old pair served both testnets: replacing one venue's key must not take
+    the other's with it, and removing one must not let the old pair come back."""
+    path = tmp_path / "secrets.local.json"
+    path.write_text('{"API_KEY": "old-key", "API_SECRET": "old-secret"}')
+    source = SecretsFileSource(str(path))
+
+    source.write(_FUTURES, "new-key", "new-secret")
+    assert source.read(_FUTURES) == ("new-key", "new-secret")
+    assert source.read(_SPOT) == ("old-key", "old-secret")
+
+    source.remove(_SPOT)
+    assert source.read(_SPOT) is None
+    assert source.read(_FUTURES) == ("new-key", "new-secret")
+    assert "API_KEY" not in json.loads(path.read_text())
 
 
 def test_malformed_json_reads_as_none_rather_than_raising(tmp_path):
@@ -44,15 +118,15 @@ def test_malformed_json_reads_as_none_rather_than_raising(tmp_path):
     path.write_text("{not valid json", encoding="utf-8")
     source = SecretsFileSource(str(path))
 
-    assert source.read() is None
+    assert source.read(_FUTURES) is None
 
 
-def test_a_file_missing_one_field_reads_as_none(tmp_path):
+def test_a_venue_entry_missing_one_field_reads_as_none(tmp_path):
     path = tmp_path / "secrets.local.json"
-    path.write_text('{"API_KEY": "only-the-key"}', encoding="utf-8")
+    path.write_text('{"venues": {"futures_testnet": {"API_KEY": "only-the-key"}}}')
     source = SecretsFileSource(str(path))
 
-    assert source.read() is None
+    assert source.read(_FUTURES) is None
 
 
 def test_a_file_with_an_empty_field_reads_as_none(tmp_path):
@@ -60,7 +134,7 @@ def test_a_file_with_an_empty_field_reads_as_none(tmp_path):
     path.write_text('{"API_KEY": "", "API_SECRET": "s"}', encoding="utf-8")
     source = SecretsFileSource(str(path))
 
-    assert source.read() is None
+    assert source.read(_FUTURES) is None
 
 
 @pytest.mark.skipif(
@@ -75,7 +149,104 @@ def test_write_hardens_the_file_to_owner_only(tmp_path):
     path = tmp_path / "secrets.local.json"
     source = SecretsFileSource(str(path))
 
-    source.write("key-1", "secret-1")
+    source.write(_FUTURES, "key-1", "secret-1")
 
     mode = stat.S_IMODE(path.stat().st_mode)
     assert mode == 0o600
+
+
+def test_changing_an_unreadable_file_keeps_it_aside_instead_of_overwriting_it(tmp_path):
+    """The reviewer's finding on PR #423: rewriting a file that could not be read
+    would destroy every other venue's key in it."""
+    path = tmp_path / "secrets.local.json"
+    path.write_text('{"venues": {"spot_testnet": {"API_KEY": "k", ', encoding="utf-8")
+    source = SecretsFileSource(str(path))
+
+    source.write(_FUTURES, "new-key", "new-secret")
+
+    assert source.read(_FUTURES) == ("new-key", "new-secret")
+    assert "spot_testnet" in (tmp_path / "secrets.local.json.corrupt").read_text()
+
+
+def test_a_write_leaves_no_temporary_file_behind(tmp_path):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+
+    source.write(_FUTURES, "key-1", "secret-1")
+
+    assert [p.name for p in tmp_path.iterdir()] == ["secrets.local.json"]
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_a_mainnet_secret_is_refused_by_the_file(tmp_path, venue):
+    source = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+
+    with pytest.raises(ValueError, match="keyring"):
+        source.write(venue, "key", "secret")
+    with pytest.raises(ValueError, match="keyring"):
+        source.remove(venue)
+    assert not (tmp_path / "secrets.local.json").exists()
+
+
+def test_a_second_unreadable_file_does_not_overwrite_the_first_one_kept_aside(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+    path.write_text("{first", encoding="utf-8")
+    source.write(_FUTURES, "k1", "s1")
+    path.write_text("{second", encoding="utf-8")
+
+    source.write(_FUTURES, "k2", "s2")
+
+    kept = sorted(p.read_text() for p in tmp_path.glob("secrets.local.json.corrupt*"))
+    assert kept == ["{first", "{second"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_the_temporary_file_is_never_readable_by_others_even_under_umask_zero(tmp_path):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+    seen: list[int] = []
+    real_replace = os.replace
+
+    def spy(src, dst):
+        seen.append(stat.S_IMODE(os.stat(src).st_mode))
+        real_replace(src, dst)
+
+    old = os.umask(0)
+    try:
+        monkey = pytest.MonkeyPatch()
+        monkey.setattr(os, "replace", spy)
+        source.write(_FUTURES, "key-1", "secret-1")
+        monkey.undo()
+    finally:
+        os.umask(old)
+
+    assert seen == [0o600]
+
+
+def test_a_failed_write_leaves_no_partial_temporary_file(tmp_path, monkeypatch):
+    path = tmp_path / "secrets.local.json"
+    source = SecretsFileSource(str(path))
+
+    def explode(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(json, "dump", explode)
+
+    with pytest.raises(OSError, match="disk full"):
+        source.write(_FUTURES, "key-1", "secret-1")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
+)
+def test_a_mainnet_entry_in_the_file_is_never_read(tmp_path, venue):
+    path = tmp_path / "secrets.local.json"
+    path.write_text(
+        json.dumps({"venues": {venue.value: {"API_KEY": "k", "API_SECRET": "s"}}})
+    )
+
+    assert SecretsFileSource(str(path)).read(venue) is None

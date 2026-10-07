@@ -109,7 +109,9 @@ class DeskChart(LiveCandleChart):
         )
         self._candle.connect(self.apply_candle)
         market: MarketType = ports.market
-        self._ticks = market_tick_feed(event_bus, lambda: market, self)
+        self._ticks = market_tick_feed(
+            event_bus, lambda: market, ports.market_data_venue, self
+        )
         self._ticks.marketTick.connect(self._on_tick)
 
     def record_fill(self, event: OrderFilledEvent) -> None:

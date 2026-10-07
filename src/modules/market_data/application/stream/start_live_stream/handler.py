@@ -1,8 +1,8 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_live_stream_service import (
-    ILiveStreamService,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_venues import (
+    IMarketDataVenues,
 )
 
 from .command import StartLiveStreamCommand, StartLiveStreamResponse
@@ -13,8 +13,8 @@ logger = logging.getLogger("App.LiveStreamUseCase")
 class StartLiveStreamCommandHandler(
     ICommandHandler[StartLiveStreamCommand, StartLiveStreamResponse]
 ):
-    def __init__(self, stream_service: ILiveStreamService):
-        self._stream_service = stream_service
+    def __init__(self, venues: IMarketDataVenues):
+        self._venues = venues
 
     def execute(self, request: StartLiveStreamCommand) -> StartLiveStreamResponse:
         logger.info(
@@ -22,7 +22,8 @@ class StartLiveStreamCommandHandler(
             f"{request.market_type.value} {request.symbols} at "
             f"{request.interval.value}"
         )
-        success = self._stream_service.subscribe(
+        stream = self._venues.live_stream(request.venue or self._venues.default_venue)
+        success = stream.subscribe(
             request.owner, request.market_type, request.symbols, request.interval
         )
         if success:

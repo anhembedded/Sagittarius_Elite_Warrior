@@ -12,14 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
-    IMarketStream,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
     IRealMoneyConsent,
@@ -119,16 +113,21 @@ def desk_dependencies_for(
     market = venue.market_type
     if market is None:
         raise ValueError(f"{venue.value} trades no market; it has no desk")
+    # `BUG-172`: the chart is the market the desk's orders fill in.
+    market_data = container.resolve(IMarketDataSources).ports_for(
+        venue.market_data_venue
+    )
     return DeskDependencies(
         ports=ports,
         strategy=container.resolve(IVenueStrategyControls).get(venue),
         chart=DeskChartPorts(
             thread_manager=threads,
-            market_data_sync=container.resolve(IMarketDataSync),
-            historical_klines=container.resolve(IHistoricalKlines),
-            market_stream=container.resolve(IMarketStream),
+            market_data_sync=market_data.sync,
+            historical_klines=market_data.history,
+            market_stream=market_data.stream,
             overlay=container.resolve(IStrategyChartOverlayReader),
             market=market,
+            market_data_venue=market_data.venue,
             stream_owner=stream_owner_for(venue),
             interval=interval,
             notifier=notifier,

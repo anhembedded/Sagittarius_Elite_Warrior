@@ -96,6 +96,9 @@ class _Credentials(IExchangeCredentialsProvider):
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise AssertionError("not used by this test")
 
+    def remove_stored(self) -> None:
+        raise AssertionError("not used by this test")
+
 
 @contextmanager
 def _fake_exchange() -> Iterator[FakeServerUrls]:
@@ -222,4 +225,20 @@ def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
     assert [(row.order.client_order_id, row.order.status) for row in rows] == [
         (ClientOrderId("SEW-hist-fut-lim01"), OrderStatus.CANCELED)
     ]
+    assert fills == ()
+
+
+def test_a_futures_week_read_is_not_refused_for_a_start_older_than_seven_days() -> None:
+    """`BUG-173` — the desk asks for "now minus seven days"; by the time the
+    request reaches Binance that start is older than seven days and `allOrders`
+    and `userTrades` answer -4181 `Invalid start time`. The reader keeps its
+    start inside what the exchange accepts."""
+    with _fake_exchange():
+        sessions = FuturesSessionFactory()
+        history = FuturesHistoryReader(sessions, _Credentials())
+
+        orders = history.order_history("BTCUSDT", _week_ago())
+        fills = history.trade_history("BTCUSDT", _week_ago())
+
+    assert orders == ()
     assert fills == ()

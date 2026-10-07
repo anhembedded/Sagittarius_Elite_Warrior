@@ -11,7 +11,7 @@ which the threshold exists to prevent).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -24,14 +24,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_fac
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
+    BacktestPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
-    MarketDataCandleFeed,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
     IRealMoneyConsent,
@@ -48,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    ICandleFeed,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.filter_precisions import (
     FilterPrecisions,
 )
@@ -57,7 +57,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-from .spot_candle_feed import spot_candle_feed
+from .venue_candles import venue_candles
 
 
 @dataclass(frozen=True)
@@ -70,8 +70,12 @@ class BotsDependencies:
     commands: ICommandDispatcher
     kinds: IBotKindCatalog
     venues: IVenueTradingPorts
-    sync: IMarketDataSync
-    candles: MarketDataCandleFeed
+    #: Each bot venue's Spot candle feed, for a bot's chart (`BUG-172`): it
+    #: shows the market the bot's orders fill in.
+    feeds: Callable[[TradingVenue], ICandleFeed]
+    #: What a kind's backtest is built from, for a bot's venue: its sync and its
+    #: result chart read that venue's market (`BUG-172`).
+    backtest_ports: Callable[[TradingVenue], BacktestPorts]
     #: The Spot symbols New bot's picker lists (`BUG-155`).
     symbols: ISymbolCatalog
     #: Each served venue's tick and step sizes, which the selected bot's
@@ -88,21 +92,26 @@ class BotsDependencies:
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
-    sync, candles = spot_candle_feed(container)
+    threads = container.resolve(IThreadManager)
+    commands = container.resolve(ICommandDispatcher)
+    notifier = container.resolve(INotifier)
+    candles = venue_candles(container)
     return BotsDependencies(
-        threads=container.resolve(IThreadManager),
-        commands=container.resolve(ICommandDispatcher),
+        threads=threads,
+        commands=commands,
         kinds=container.resolve(IBotKindCatalog),
         venues=container.resolve(IVenueTradingPorts),
-        sync=sync,
-        candles=candles,
+        feeds=lambda venue: candles(venue).feed,
+        backtest_ports=lambda venue: BacktestPorts(
+            threads, commands, candles(venue).sync, candles(venue).feed, notifier
+        ),
         symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
         run_facts=BotRunFactsReader(
             container.resolve(IVenueTradingPorts),
             container.resolve(OwnerBudgetCaps),
         ),
-        notifier=container.resolve(INotifier),
+        notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
     )
 

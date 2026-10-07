@@ -3,8 +3,10 @@
 @details Binance answers `{"enableReading": true, "enableWithdrawals": false,
 "enableSpotAndMarginTrading": true, ...}`. Each of the three flags the gate
 decides on must be a boolean in the answer: a missing or non-boolean flag is an
-error, never a `False`. The answer's other flags (Margin, Futures, transfers) are
-not read: they decide nothing the gate does.
+error, never a `False`. `enableFutures` is read too, for enrolment only (which
+mainnet venues a key may be kept for): absent, it is `False`, so a key is never
+kept for Futures on a guess. The answer's other flags (Margin, transfers) are not
+read: they decide nothing the app does.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_permissions imp
 _READING = "enableReading"
 _SPOT_TRADING = "enableSpotAndMarginTrading"
 _WITHDRAWALS = "enableWithdrawals"
+_FUTURES_TRADING = "enableFutures"
 
 
 def _flag(payload: dict[str, Any], name: str) -> bool:
@@ -34,4 +37,5 @@ def parse_key_permissions(payload: dict[str, Any]) -> KeyPermissions:
         can_read=_flag(payload, _READING),
         can_trade_spot=_flag(payload, _SPOT_TRADING),
         can_withdraw=_flag(payload, _WITHDRAWALS),
+        can_trade_futures=payload.get(_FUTURES_TRADING) is True,
     )

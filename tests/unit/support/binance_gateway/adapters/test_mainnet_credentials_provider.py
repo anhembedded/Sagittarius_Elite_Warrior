@@ -245,3 +245,70 @@ def test_a_pair_saved_while_running_is_used_at_once() -> None:
     provider.save_to_file("k", "s")
 
     assert provider.resolve().credentials == ExchangeCredentials("k", "s")
+
+
+@_BOTH
+def test_remove_stored_forgets_this_venues_key_and_not_the_other_mainnet_venue(
+    venue: TradingVenue,
+) -> None:
+    """`BUG-176` — Remove on a venue deletes its two names from the keyring."""
+    store = InMemorySecretStore()
+    spot = MainnetCredentialsProvider(store, _SPOT)
+    futures = MainnetCredentialsProvider(store, _FUTURES)
+    spot.save_to_file("spot-key", "spot-secret")
+    futures.save_to_file("futures-key", "futures-secret")
+    removed, kept = (spot, futures) if venue is _SPOT else (futures, spot)
+
+    removed.remove_stored()
+
+    assert removed.resolve().source is CredentialsSource.NONE
+    assert kept.resolve().source is CredentialsSource.KEYRING
+    assert len(store.secrets) == 2
+
+
+def test_a_failed_save_leaves_no_half_pair_in_the_keyring() -> None:
+    """The reviewer's finding on PR #423: the key was written, the secret was not."""
+
+    class _FailsOnTheSecret(InMemorySecretStore):
+        def write(self, name: str, value: str) -> None:
+            if name.endswith("_api_secret"):
+                raise SecretStoreUnavailableError("locked")
+            super().write(name, value)
+
+    store = _FailsOnTheSecret()
+    provider = MainnetCredentialsProvider(store, _SPOT)
+
+    with pytest.raises(SecretStoreUnavailableError):
+        provider.save_to_file("key", "secret")
+
+    assert store.secrets == {}
+    assert provider.resolve().source is CredentialsSource.NONE
+
+
+def test_a_failed_replace_puts_the_previous_pair_back() -> None:
+    """The review's finding on PR #423: the new key was written, the secret was not,
+    and the old key was lost with only the old secret left."""
+
+    class _FailsOnTheSecret(InMemorySecretStore):
+        armed = False
+
+        def write(self, name: str, value: str) -> None:
+            if self.armed and name.endswith("_api_secret"):
+                raise SecretStoreUnavailableError("locked")
+            super().write(name, value)
+
+    store = _FailsOnTheSecret()
+    provider = MainnetCredentialsProvider(store, _SPOT)
+    provider.save_to_file("old-key", "old-secret")
+    store.armed = True
+
+    with pytest.raises(SecretStoreUnavailableError):
+        provider.save_to_file("new-key", "new-secret")
+
+    assert store.secrets == {
+        "spot_mainnet_api_key": "old-key",
+        "spot_mainnet_api_secret": "old-secret",
+    }
+    assert provider.resolve().credentials == ExchangeCredentials(
+        "old-key", "old-secret"
+    )

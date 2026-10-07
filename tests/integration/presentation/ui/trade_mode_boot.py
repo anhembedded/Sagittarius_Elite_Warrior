@@ -185,6 +185,10 @@ def trade_mode_running(
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
+        # `BUG-172`: every venue is built, so the mainnet desks' charts fetch an
+        # empty store's history too; their hosts are the fake's, never binance.com.
+        patch.object(Client, "API_URL", urls.spot),
+        patch.object(Client, "FUTURES_URL", urls.futures),
         ExitStack() as owned_loop,
     ):
         for binding in _GET_LOOP_BINDINGS:
