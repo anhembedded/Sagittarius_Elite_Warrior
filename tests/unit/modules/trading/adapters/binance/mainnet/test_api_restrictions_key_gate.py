@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from binance.exceptions import BinanceAPIException
+from binance.exceptions import BinanceAPIException, BinanceRequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_restrictions_key_gate import (
     ACCEPTED_FOR_SECONDS,
     ApiRestrictionsKeyGate,
@@ -293,3 +293,73 @@ def test_another_key_is_asked_even_within_the_interval() -> None:
     gate.check()
 
     assert client.calls == 2
+
+
+# -- the exchange not answering never cuts off a key that was accepted --------
+
+
+def _accepted_then_expired(
+    answer_after: dict[str, Any] | Exception,
+) -> tuple[ApiRestrictionsKeyGate, _Client]:
+    clock = _Clock()
+    gate, client, _ = _gate(TradingVenue.SPOT_MAINNET, _READ_ONLY, clock=clock)
+    assert gate.check() is None
+    clock.now += ACCEPTED_FOR_SECONDS
+    client.answer = answer_after
+    return gate, client
+
+
+def test_an_accepted_key_stands_while_the_exchange_does_not_answer() -> None:
+    """Emergency stop, a cancel and a close resolve the key like any order: an outage
+    after the session opened must not strand the person with open positions."""
+    gate, client = _accepted_then_expired(_api_error(-1003))
+
+    assert gate.check() is None
+    assert client.calls == 2
+
+
+def test_an_accepted_key_stands_through_maintenance_too() -> None:
+    maintenance = BinanceRequestException("<html>502 Bad Gateway</html>")
+
+    gate, _ = _accepted_then_expired(maintenance)
+
+    assert gate.check() is None
+
+
+def test_an_exchange_that_answers_the_key_can_withdraw_now_refuses_it_after_all() -> (
+    None
+):
+    gate, _ = _accepted_then_expired({**_READ_ONLY, "enableWithdrawals": True})
+
+    refused = gate.check()
+
+    assert refused is not None
+    assert refused.kind is ConnectionFailureKind.WITHDRAWAL_ENABLED
+
+
+def test_an_answer_that_cannot_be_read_refuses_even_an_accepted_key() -> None:
+    gate, _ = _accepted_then_expired({"enableWithdrawals": "no"})
+
+    assert gate.check() is not None
+
+
+def test_a_key_never_judged_is_refused_while_the_exchange_does_not_answer() -> None:
+    gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(-1003))
+
+    refused = gate.check()
+
+    assert refused is not None
+    assert refused.kind is ConnectionFailureKind.NETWORK
+
+
+def test_another_key_does_not_borrow_the_accepted_ones_standing() -> None:
+    current = [ExchangeCredentials("first", "s")]
+    client = _Client(_READ_ONLY)
+    gate = ApiRestrictionsKeyGate(
+        TradingVenue.SPOT_MAINNET, lambda: current[0], lambda _v, _c: client
+    )
+    gate.check()
+    current[0] = ExchangeCredentials("second", "s")
+    client.answer = _api_error(-1003)
+
+    assert gate.check() is not None

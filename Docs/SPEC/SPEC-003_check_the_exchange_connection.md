@@ -61,7 +61,8 @@ cannot, tell me which part is wrong."*
    (`WITHDRAWAL_ENABLED`) before any account data is read, and the screen says so. A key that can trade
    is accepted: mainnet trades exactly like testnet (D11). The refusal is not this screen's alone: every
    read and every order of a mainnet venue resolves its key through the same gate, so a key that can
-   withdraw places nothing and reads nothing, whichever way it was supplied.
+   withdraw places nothing and reads nothing, whichever way it was supplied. A key that was accepted earlier
+   stands while the exchange does not answer, so an outage never strands Emergency stop, a cancel or a close.
 3. No key is `NOT_CONFIGURED`, answered without any request.
 4. The first Start, arm, manual order or Close position on a mainnet venue in a session asks one confirmation that
    names real money (`SPEC-004`); a testnet is never asked.

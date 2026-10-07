@@ -17,6 +17,12 @@ the live check.
 An accepted key is remembered for `ACCEPTED_FOR_SECONDS`, so the order path pays
 one request per key per interval; a refusal is never remembered, so the next
 call asks again and a key the owner has fixed is taken at once.
+
+Fail closed, except for a key already accepted: a key never judged, or one whose
+permissions come back unreadable, is refused; but when the exchange merely does
+not answer (unreachable, under maintenance) and this very key was accepted earlier,
+that answer stands, so Emergency stop, a cancel and a close are not cut off by an
+outage (`EPIC-034` D5). Only an answer from the exchange refuses an accepted key.
 """
 
 from __future__ import annotations
@@ -63,6 +69,10 @@ logger = logging.getLogger("App.KeyGate")
 #: How long an accepted key is trusted before the exchange is asked again.
 ACCEPTED_FOR_SECONDS = 300.0
 _THE_KEY = "the key's permissions"
+#: The kinds that say the exchange did not answer, not that it answered about the key.
+_NOT_ANSWERING = frozenset(
+    {ConnectionFailureKind.NETWORK, ConnectionFailureKind.MAINTENANCE}
+)
 _NETWORK_FAILURES = (BinanceAPIException, BinanceRequestException, RequestException)
 _PARSE_FAILURES = (KeyError, TypeError, ValueError, InvalidOperation)
 
@@ -97,11 +107,28 @@ class ApiRestrictionsKeyGate(IKeyPermissionGate):
             return ConnectFailure(self._source, ConnectionFailureKind.NOT_CONFIGURED)
         if self._remembers(resolved):
             return None
-        refused = self._ask(resolved)
+        refused, unreachable = self._ask(resolved)
+        if refused is not None and unreachable and self._accepted_before(resolved):
+            # The exchange did not answer, but this very key was accepted earlier
+            # in this session: Emergency stop, a cancel and a close must still go
+            # out, so the earlier answer stands for another interval. Only an
+            # answer from the exchange ever refuses a key that was accepted.
+            logger.info(
+                "%s: the key's permissions could not be asked (%s); the key accepted "
+                "earlier stands [key-gate]",
+                self._venue.display_name,
+                refused.kind.value,
+            )
+            refused = None
         if refused is None:
             with self._lock:
                 self._accepted = (resolved.api_key, self._clock())
         return refused
+
+    def _accepted_before(self, key: ExchangeCredentials) -> bool:
+        with self._lock:
+            accepted = self._accepted
+        return accepted is not None and accepted[0] == key.api_key
 
     def _remembers(self, key: ExchangeCredentials) -> bool:
         with self._lock:
@@ -112,18 +139,22 @@ class ApiRestrictionsKeyGate(IKeyPermissionGate):
             and self._clock() - accepted[1] < ACCEPTED_FOR_SECONDS
         )
 
-    def _ask(self, resolved: ExchangeCredentials) -> ConnectFailure | None:
+    def _ask(self, resolved: ExchangeCredentials) -> tuple[ConnectFailure | None, bool]:
+        """The exchange's answer as a refusal (or `None`), and whether the refusal
+        is the exchange not answering (unreachable or under maintenance) as
+        opposed to an answer about the key."""
         try:
             client = self._clients(self._venue, resolved)
             permissions = parse_key_permissions(client.get_account_api_permissions())
         except _NETWORK_FAILURES as exc:
             kind = classify_connection_failure(exc, self._venue.display_name)
             # A named kind says it all; only the catch-all names the read.
-            return ConnectFailure(
+            failure = ConnectFailure(
                 self._source,
                 kind,
                 _THE_KEY if kind is ConnectionFailureKind.NETWORK else "",
             )
+            return failure, kind in _NOT_ANSWERING
         except _PARSE_FAILURES as exc:
             logger.warning(
                 "%s: %s could not be read: %r [key-gate]",
@@ -131,13 +162,17 @@ class ApiRestrictionsKeyGate(IKeyPermissionGate):
                 _THE_KEY,
                 exc,
             )
-            return ConnectFailure(self._source, ConnectionFailureKind.NETWORK, _THE_KEY)
+            failure = ConnectFailure(
+                self._source, ConnectionFailureKind.NETWORK, _THE_KEY
+            )
+            return failure, False
         if permissions.can_withdraw:
             logger.warning(
                 "%s: the key can withdraw; refused before reading anything [key-gate]",
                 self._venue.display_name,
             )
-            return ConnectFailure(
+            failure = ConnectFailure(
                 self._source, ConnectionFailureKind.WITHDRAWAL_ENABLED, "withdrawals"
             )
-        return None
+            return failure, False
+        return None, False

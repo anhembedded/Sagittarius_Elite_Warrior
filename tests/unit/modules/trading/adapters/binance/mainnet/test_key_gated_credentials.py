@@ -5,6 +5,11 @@ scripted; the HTTP round trip is the fake-exchange integration test's."""
 
 from __future__ import annotations
 
+from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_restrictions_key_gate import (
+    ACCEPTED_FOR_SECONDS,
+    ApiRestrictionsKeyGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.key_gated_credentials import (
     KeyGatedCredentials,
 )
@@ -27,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     CredentialsSource,
     IExchangeCredentialsProvider,
     ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 _KEY = ExchangeCredentials("k", "s")
@@ -93,3 +101,43 @@ def test_saving_goes_to_the_stored_provider() -> None:
     KeyGatedCredentials(stored, _Gate()).save_to_file("a", "b")
 
     assert stored.saved == [("a", "b")]
+
+
+def test_emergency_stop_still_gets_its_key_when_the_gate_cannot_reach_the_exchange() -> (
+    None
+):
+    """Emergency stop, a cancel and a close resolve their key through this provider
+    like any order. The key was accepted when the session opened; the five-minute
+    memory has expired and the exchange does not answer: the key must still resolve
+    (`EPIC-034` D5), while a key the exchange says can withdraw does not."""
+    now = [0.0]
+    read_only = {
+        "enableReading": True,
+        "enableSpotAndMarginTrading": False,
+        "enableWithdrawals": False,
+    }
+    answer: list[dict[str, bool] | Exception] = [read_only]
+
+    class _Client:
+        def get_account_api_permissions(self) -> dict[str, bool]:
+            if isinstance(answer[0], Exception):
+                raise answer[0]
+            return answer[0]
+
+    gate = ApiRestrictionsKeyGate(
+        TradingVenue.SPOT_MAINNET,
+        lambda: _KEY,
+        lambda _venue, _key: _Client(),
+        lambda: now[0],
+    )
+    gated = KeyGatedCredentials(_Stored(_STORED), gate)
+    assert gated.resolve() == _STORED  # the session opens
+
+    now[0] += ACCEPTED_FOR_SECONDS
+    answer[0] = RequestException("the exchange does not answer")
+
+    assert gated.resolve() == _STORED
+
+    now[0] += ACCEPTED_FOR_SECONDS
+    answer[0] = {**read_only, "enableWithdrawals": True}
+    assert gated.resolve() == _NO_KEY
