@@ -86,6 +86,8 @@ def _chart(
     threads: ThreadManager,
     stored: range,
     exchange: range,
+    *,
+    settled: bool = True,
 ) -> tuple[LiveCandleChart, ChartCard, _GatedExchange, RecordingNotifier]:
     store = FakeHistoricalKlines()
     store.seed([candle("BTCUSDT", minute) for minute in [*stored, *_NEWEST]], _SPOT)
@@ -113,6 +115,11 @@ def _chart(
     )
     chart.show_symbol("BTCUSDT")
     qtbot.waitUntil(lambda: len(card._raw_history) == len(_NEWEST), timeout=10_000)
+    if settled:
+        # Drawn is not settled: the settle is its own queued signal, and a pan
+        # before it is dropped with nothing to ask again (`BUG-184`). The
+        # backfill asks for its window, so it is the window that is waited on.
+        qtbot.waitUntil(lambda: chart._backfill_window() is not None, timeout=10_000)
     return chart, card, sync, notifier
 
 
@@ -146,6 +153,38 @@ def test_older_candles_come_from_the_store_when_it_has_them(
     assert _opens(card) == list(range(500, 1500))
     assert sync.requests == [], "the store held them: no call to the exchange"
     assert chart.older_candles.loading is False
+
+
+def test_a_pan_before_the_first_window_settles_asks_for_nothing_until_it_has(
+    qtbot: QtBot, threads: ThreadManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`BUG-184` — the pan the flaky test made early, made on purpose: candles
+    drawn, settle not yet delivered. The pan is dropped and nothing re-asks; a
+    pan once it has settled loads them."""
+    held: list[tuple[LiveCandleChart, object]] = []
+    settle = LiveCandleChart._on_load_settled
+    monkeypatch.setattr(
+        LiveCandleChart,
+        "_on_load_settled",
+        lambda self, token: held.append((self, token)),
+    )
+    chart, card, sync, _notifier = _chart(
+        qtbot, threads, stored=range(300, 1000), exchange=range(0), settled=False
+    )
+    qtbot.waitUntil(lambda: bool(held), timeout=10_000)
+    assert chart._backfill_window() is None
+
+    _pan_left_past_the_oldest(card)
+    QApplication.processEvents()
+
+    assert not chart.older_candles.loading
+    assert len(card._raw_history) == len(_NEWEST)
+    for owner, token in held:
+        settle(owner, token)
+    assert chart._backfill_window() is not None
+    _pan_left_past_the_oldest(card)
+    qtbot.waitUntil(lambda: len(card._raw_history) == 1000, timeout=10_000)
+    assert sync.requests == []
 
 
 def test_with_an_empty_store_older_candles_are_fetched_stored_and_drawn(
