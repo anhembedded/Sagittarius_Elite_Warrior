@@ -13,8 +13,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.account_vie
     account_view_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    ACCOUNT_UNREADABLE,
-    failure_cause,
+    ACCOUNT_UNREADABLE_STATE,
+    state_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
     ConnectionRead,
@@ -29,8 +29,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_words imp
     CONNECTING_STATUS,
     NOT_CONNECTED,
     NOT_CONNECTED_STATUS,
-    failure_sentence,
-    failure_sentence_for_error,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
     ConnectFailure,
@@ -53,10 +51,11 @@ class ConnectView:
     #: The venue's title, never its identifier; empty with no bot selected.
     venue: str = ""
     status: str = NOT_CONNECTED_STATUS
-    #: The balances line when connected, the reason when not.
+    #: The balances line when connected, the state in a few words when not
+    #: ("key refused"): the advice is the message bar's alone (`BUG-181`).
     detail: str = NOT_CONNECTED
-    #: Why a failed read failed and what to do, without how to read again:
-    #: what the readiness item for it says (`EPIC-034H`).
+    #: What the readiness item for a failed read says (`EPIC-034H`): the same
+    #: few words, "Not connected: key refused".
     cause: str = ""
 
     @property
@@ -71,6 +70,8 @@ class ConnectView:
 
     @property
     def lock_reason(self) -> str:
+        if self.state is ReadinessState.FAILED:
+            return f"{self.venue}: {self.status}: {self.detail}"
         return f"{self.venue}: {self.detail}" if self.locked else ""
 
 
@@ -91,22 +92,20 @@ def connected_view(snapshot: VenueAccountSnapshot) -> ConnectView:
 
 
 def failed_view(failure: ConnectFailure) -> ConnectView:
-    return ConnectView(
-        ReadinessState.FAILED,
-        failure.source.venue_title,
-        NOT_CONNECTED_STATUS,
-        failure_sentence(failure),
-        failure_cause(failure),
-    )
+    return _failed(failure.source, state_words(failure))
 
 
 def errored_view(source: AccountSource) -> ConnectView:
+    return _failed(source, ACCOUNT_UNREADABLE_STATE)
+
+
+def _failed(source: AccountSource, state: str) -> ConnectView:
     return ConnectView(
         ReadinessState.FAILED,
         source.venue_title,
         NOT_CONNECTED_STATUS,
-        failure_sentence_for_error(),
-        ACCOUNT_UNREADABLE,
+        state,
+        f"{NOT_CONNECTED_STATUS}: {state}",
     )
 
 

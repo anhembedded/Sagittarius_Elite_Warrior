@@ -35,51 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
-    BotAction,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_actions_coordinator import (
-    BotActionsCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_changes_feed import (
-    BotChangesFeed,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
-    BotChartHost,
-    BotChartPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands import (
-    PendingAction,
-    command_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_log_feed import (
-    BotLogFeed,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
-    BotsDialogs,
-    dialogs_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_failures import (
-    BotsFailures,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
-    BOTS_UI_TRANSITIONS,
-    BotsUiEvent,
-    BotsUiState,
-    selection_event,
-    settled_event,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
-    BotQueries,
-    FencedReads,
-    ReadKind,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
-    KindBacktests,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
-    SelectedBot,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -96,15 +51,33 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 )
 
 from ..strategies.strategies_wiring import strategies_for
+from .bot_action_rules import BotAction
+from .bot_actions_coordinator import BotActionsCoordinator
+from .bot_changes_feed import BotChangesFeed
+from .bot_chart_host import BotChartHost, BotChartPorts
+from .bot_commands import PendingAction, command_for
+from .bot_log_feed import BotLogFeed
 from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import bots_dependencies_for
+from .bots_dialogs import BotsDialogs, dialogs_for
+from .bots_failures import BotsFailures
+from .bots_ui_fsm_matrix import (
+    BOTS_UI_TRANSITIONS,
+    BotsUiEvent,
+    BotsUiState,
+    selection_event,
+    settled_event,
+)
 from .connect_effects import ConnectEffects
 from .connect_step import ConnectStep
 from .detail_effects import DetailEffects
+from .fenced_reads import BotQueries, FencedReads, ReadKind
+from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
 from .new_bot_dialog import spot_venues_enabled_first
 from .new_bot_symbols import new_bot_symbols
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
+from .selected_bot import SelectedBot
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -157,14 +130,17 @@ class BotsPresenter(CommandPresenter):
             view.set_backtest_page,
         )
         self._queries = BotQueries(commands, self._reads, lambda: self._model.selected)
+        self._account = ConnectStep(threads, commands, now, deps.notifier, self)
         self._failures = BotsFailures(
-            deps.notifier, self._queries.again, self._model.set_fills
+            deps.notifier,
+            self._queries.again,
+            self._model.set_fills,
+            self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, deps.run_facts)
-        self._account = ConnectStep(threads, commands, now, deps.notifier, self)
         self._detail = DetailEffects(
             self._selected, self._model, self._charts, self._backtests, self._account
         )
@@ -230,7 +206,7 @@ class BotsPresenter(CommandPresenter):
             self._selected.take_market(answer)
             self._refresh_detail()
         elif kind is ReadKind.FILLS and isinstance(answer, BotFills):
-            self._model.set_fills(answer)
+            self._failures.fills_answered(answer)
 
     def _on_list(self, bots: BotList) -> None:
         self._model.set_bots(bots.bots)

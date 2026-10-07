@@ -18,9 +18,13 @@ from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
+    named_failure_kind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_lookback import (
     require_within_lookback,
@@ -60,7 +64,8 @@ def span_ms(since: datetime, now: datetime) -> tuple[int, int]:
 def history_read_failures(what: str) -> Iterator[None]:
     """Raises `AccountHistoryUnavailableError("<what>: <cause>")` from any
     SDK or network failure inside the block, and from a row the block could
-    not map (`"<what>: malformed row: <cause>"`), the cause chained.
+    not map (`"<what>: malformed row: <cause>"`), the cause chained. The error's
+    `kind` names the failure when the exchange's answer does (`BUG-181`).
 
     @details Callers map their rows inside the block (`EPIC-028Q`, the PR
     #300 epic review): a malformed row used to escape the port as a raw
@@ -69,7 +74,7 @@ def history_read_failures(what: str) -> Iterator[None]:
         yield
     except READ_FAILURES as exc:
         raise AccountHistoryUnavailableError(
-            f"{what}: {describe_failure(exc)}"
+            f"{what}: {describe_failure(exc)}", named_failure_kind(exc)
         ) from exc
     except MAPPING_FAILURES as exc:
         raise AccountHistoryUnavailableError(f"{what}: malformed row: {exc!r}") from exc
@@ -83,6 +88,7 @@ def require_credentials(
     credentials = provider.resolve().credentials
     if credentials is None:
         raise AccountHistoryUnavailableError(
-            f"No {venue_label} credentials configured — cannot read account history."
+            f"No {venue_label} credentials configured — cannot read account history.",
+            ConnectionFailureKind.NOT_CONFIGURED,
         )
     return credentials

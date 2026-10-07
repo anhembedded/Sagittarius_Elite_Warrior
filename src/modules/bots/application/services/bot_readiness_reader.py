@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_fac
     BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    failure_cause,
+    failure_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
     other_active_bot,
@@ -152,7 +152,7 @@ class BotReadinessReader:
                 True,
             )
         return (
-            ConnectionRead(ConnectionState.FAILED, title, reason=failure_cause(answer)),
+            ConnectionRead(ConnectionState.FAILED, title, reason=failure_state(answer)),
             False,
         )
 

@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    ReadinessState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_failures import (
     BotsFailures,
 )
@@ -34,6 +37,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     ReadKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
+    AccountHistoryUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
 )
 
 from .bots_screen_fixtures import (
@@ -44,14 +53,15 @@ from .bots_screen_fixtures import (
     ContainerDispatcher,
     stored,
 )
+from .connect_screen_helpers import failure, select
 
 
 @pytest.mark.parametrize("kind", [ReadKind.LIST, ReadKind.PLANNER, ReadKind.FILLS])
 def test_a_failed_read_is_a_bar_on_the_bots_mode_whose_retry_reads_it_again(
     kind: ReadKind,
 ) -> None:
-    notifier, again, shown = RecordingNotifier(), [], []
-    failures = BotsFailures(notifier, again.append, shown.append)
+    notifier, again, shown, refused = RecordingNotifier(), [], [], []
+    failures = BotsFailures(notifier, again.append, shown.append, refused.append)
 
     failures.read_failed(kind, "a00001", "timed out")
 
@@ -189,3 +199,63 @@ def test_fills_that_could_not_be_read_say_so_without_the_exception(
     assert notice.cause == "bots.read.fills"
     assert notice.detail == "history is down"
     assert "history is down" not in screen.view.fills.note.text()
+
+
+def _refused_history() -> AccountHistoryUnavailableError:
+    return AccountHistoryUnavailableError(
+        "order history: -2015 Invalid API-key, IP, or permissions for action.",
+        ConnectionFailureKind.KEY_REJECTED,
+    )
+
+
+def test_fills_the_venue_refuses_raise_no_bar_of_their_own(open_bots_screen) -> None:
+    """`BUG-181` — the owner's screenshot: a key the exchange refuses made the
+    fills read fail too, and "The fills of this bot could not be read" was a
+    second bar for the one cause the Connect step had already told."""
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.account.answer_with(failure(ConnectionFailureKind.KEY_REJECTED))
+    screen.activity.history_raises(_refused_history())
+    screen.settle()
+
+    select(screen, "a00001")
+    screen.settle()
+
+    bars = screen.notifier.failures_of(FailureKind.BACKGROUND)
+    assert {bar.cause for bar in bars} == {"bots.connect.spot_testnet"}
+    assert screen.view.fills.note.text().endswith("not read: key refused")
+
+
+def test_fills_the_venue_refuses_fail_a_step_that_believed_it_was_connected(
+    open_bots_screen,
+) -> None:
+    """The account read passed and the fills were refused: the connection is not
+    what the step thought, so it fails and tells it once, in its own bar."""
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    select(screen, "a00001")
+    screen.settle()
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING
+
+    screen.activity.history_raises(_refused_history())
+    screen.view.model.refresh_fills_requested.emit()
+    screen.settle()
+
+    assert screen.presenter._account.view.state is ReadinessState.FAILED
+    bars = screen.notifier.failures_of(FailureKind.BACKGROUND)
+    assert [bar.cause for bar in bars] == ["bots.connect.spot_testnet"]
+    assert screen.notifier.last.retry is not None
+
+
+def test_a_fills_failure_the_exchange_does_not_name_stays_its_own_bar(
+    open_bots_screen,
+) -> None:
+    screen = open_bots_screen([stored("a00001", S.RUNNING)])
+    screen.settle()
+    screen.activity.history_raises(AccountHistoryUnavailableError("order history: odd"))
+
+    select(screen, "a00001")
+    screen.settle()
+
+    bars = screen.notifier.failures_of(FailureKind.BACKGROUND)
+    assert [bar.cause for bar in bars] == ["bots.read.fills"]
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING

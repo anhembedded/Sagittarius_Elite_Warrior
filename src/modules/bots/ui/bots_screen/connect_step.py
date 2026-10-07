@@ -44,6 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
+    CONNECTED_STATES,
     ReadinessEvent,
     ReadinessState,
     next_state,
@@ -162,6 +163,20 @@ class ConnectStep(QObject):
                 ReadinessEvent.RETRY, connecting_view(source), self.snapshot
             )
             self._ask(bot)
+
+    def venue_refused(self, refusal: ConnectFailure) -> None:
+        """Another read of the selected bot's venue was refused (`BUG-181`: the
+        fills, with the key refused): that is evidence about the connection. A
+        step still reading or already failed says it itself, in its own bar; one
+        that believed itself connected now fails, here, and tells it once."""
+        bot = self._bot
+        if bot is None or self._state not in CONNECTED_STATES:
+            return
+        if AccountSource.for_venue(bot.venue) is not refusal.source:
+            return
+        self._forget(refusal.source)
+        self._failed(refusal.source, failure_cause(refusal), refusal.detail)
+        self._transition(ReadinessEvent.READ_FAILED, failed_view(refusal), None)
 
     def stop(self) -> None:
         """Answers in flight are dropped and no read is asked again."""
