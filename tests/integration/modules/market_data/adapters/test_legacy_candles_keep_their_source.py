@@ -93,7 +93,7 @@ def test_a_mainnet_setting_labels_the_rows_mainnet(legacy_store: Path, served) -
         assert _served_by(legacy_store, testnet, served) == []
 
 
-@pytest.mark.parametrize("setting", [None, "", "mainnet", 5, "FUTURES_TESTNET"])
+@pytest.mark.parametrize("setting", ["", "mainnet", 5, "FUTURES_TESTNET"])
 def test_an_unreadable_setting_serves_the_rows_to_no_venue(
     legacy_store: Path, served, setting: object
 ) -> None:
@@ -137,16 +137,40 @@ def test_a_store_with_nothing_in_it_is_marked_so_later_rows_are_not_legacy(
     assert (tmp_path / MARKER).is_file()
 
 
-def test_a_clash_moves_nothing_and_leaves_the_next_start_to_try_again(
-    legacy_store: Path,
+def test_an_absent_setting_is_the_default_the_app_read_before_the_fix(
+    legacy_store: Path, served
+) -> None:
+    """`resolve_market_data_venue` defaulted a missing key to `mainnet_public`, so
+    that is what a default install's rows are: they are not quarantined."""
+    outcome = label_legacy_store(str(legacy_store), None)
+
+    assert outcome is LegacyStoreOutcome.LABELLED
+    assert _served_by(legacy_store, MarketDataVenue.MAINNET_PUBLIC, served) == [111.0]
+
+
+def test_only_files_named_like_a_shard_are_moved(legacy_store: Path) -> None:
+    (legacy_store / "my_notes.txt").write_text("keep")
+    (legacy_store / "my backup.db").write_bytes(b"not a shard")
+
+    label_legacy_store(str(legacy_store), "futures_testnet")
+
+    assert (legacy_store / "my_notes.txt").is_file()
+    assert (legacy_store / "my backup.db").is_file()
+    testnet = legacy_store / MarketDataVenue.FUTURES_TESTNET.value
+    assert [p.name for p in testnet.glob("*.db")] == ["spot_BTCUSDT.db"]
+
+
+def test_a_clash_quarantines_instead_of_stopping_boot_or_overwriting(
+    legacy_store: Path, served
 ) -> None:
     testnet_dir = legacy_store / MarketDataVenue.FUTURES_TESTNET.value
     testnet_dir.mkdir()
     (testnet_dir / "spot_BTCUSDT.db").write_bytes(b"already here")
 
-    with pytest.raises(FileExistsError):
-        label_legacy_store(str(legacy_store), "futures_testnet")
+    outcome = label_legacy_store(str(legacy_store), "futures_testnet")
 
-    assert (legacy_store / "spot_BTCUSDT.db").is_file()
+    assert outcome is LegacyStoreOutcome.QUARANTINED
     assert (testnet_dir / "spot_BTCUSDT.db").read_bytes() == b"already here"
-    assert not (legacy_store / MARKER).exists()
+    assert (legacy_store / QUARANTINE_DIRECTORY / "spot_BTCUSDT.db").is_file()
+    assert (legacy_store / MARKER).is_file()
+    assert _served_by(legacy_store, MarketDataVenue.MAINNET_PUBLIC, served) == []

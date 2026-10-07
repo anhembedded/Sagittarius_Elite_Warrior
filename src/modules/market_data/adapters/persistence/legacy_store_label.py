@@ -8,18 +8,24 @@ a testnet candle into a mainnet one: the rows belong to the venue the setting na
 
 - The setting names a venue: the legacy shards move into that venue's store
   (`venue_directory`); for the mainnet they stay where they are.
-- The setting is missing or names no venue: the provenance is unknown, so the
-  shards are **quarantined** under `QUARANTINE_DIRECTORY` — unlabelled, never read
-  by any venue — and the history syncs again. Nothing is guessed.
+- The setting is **absent**: the app read its default, `mainnet_public` (what
+  `resolve_market_data_venue` did before), so that is what the rows are.
+- The setting is present but names no venue (`"mainnet"`, `5`, `""`): the provenance
+  is unknown, so the shards are **quarantined** under `QUARANTINE_DIRECTORY` —
+  unlabelled, never read by any venue — and the history syncs again. Nothing is
+  guessed. Quarantine is also where shards go when their venue's store already
+  holds a file of the same name: boot goes on, and nothing is overwritten.
 
 Runs once: `MARKER` records the outcome, and a store with nothing to label gets
-one too, so rows written afterwards are never taken for legacy ones. Moves files,
-never deletes data, and refuses to overwrite one that is already there.
+one too, so rows written afterwards are never taken for legacy ones. Moves only
+files named like a shard (`<name>.db` and its WAL sidecars), never deletes data,
+and never overwrites a file that is already there.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from enum import Enum
 from pathlib import Path
@@ -38,7 +44,9 @@ logger = logging.getLogger("App.Database")
 MARKER = ".market_data_source"
 #: Where legacy shards of unknown origin wait; no venue's store is this directory.
 QUARANTINE_DIRECTORY = "legacy_unlabelled"
-_SHARD_FILES = ("*.db", "*.db-wal", "*.db-shm")
+#: A shard file and its SQLite sidecars: the shard-name alphabet, then the suffix.
+#: Anything else in the directory (a user's own `.db`, a note) is not ours to move.
+_SHARD_FILE = re.compile(r"^[A-Za-z0-9_-]+\.db(-wal|-shm)?$")
 
 
 class LegacyStoreOutcome(Enum):
@@ -54,30 +62,31 @@ def label_legacy_store(base: str, configured: object) -> LegacyStoreOutcome:
     """@brief Labels the shards directly in `base` with the venue `configured`
     (the raw `exchange.market_data_venue`) names, or quarantines them.
 
-    @raise FileExistsError a destination file exists already; nothing was moved
-    and no marker was written, so the next start tries again.
     """
     directory = Path(base)
     if base == IN_MEMORY or (directory / MARKER).exists():
         return LegacyStoreOutcome.ALREADY_LABELLED
-    legacy = [path for pattern in _SHARD_FILES for path in directory.glob(pattern)]
+    legacy = sorted(
+        path
+        for path in (directory.iterdir() if directory.is_dir() else ())
+        if path.is_file() and _SHARD_FILE.match(path.name)
+    )
     if not legacy:
         _record(directory, "nothing to label")
         return LegacyStoreOutcome.NOTHING_TO_LABEL
-    venue = _venue_named(configured)
+    venue = (
+        MarketDataVenue.MAINNET_PUBLIC
+        if configured is None
+        else _venue_named(configured)
+    )
     if venue is None:
-        _move(legacy, directory / QUARANTINE_DIRECTORY)
-        _record(directory, f"quarantined: setting {configured!r} names no venue")
-        logger.warning(
-            "Stored candles of unknown origin (exchange.market_data_venue is %r) "
-            "were set aside in %s; they are served to no venue and will sync again.",
-            configured,
-            directory / QUARANTINE_DIRECTORY,
-        )
-        return LegacyStoreOutcome.QUARANTINED
+        return _quarantine(directory, legacy, f"setting {configured!r} names no venue")
     target = Path(venue_directory(base, venue))
     if target != directory:
-        _move(legacy, target)
+        try:
+            _move(legacy, target)
+        except FileExistsError as clash:
+            return _quarantine(directory, legacy, str(clash))
     _record(directory, f"labelled: {venue.value}")
     logger.info(
         "Stored candles from before the market-data source was kept are labelled "
@@ -86,6 +95,23 @@ def label_legacy_store(base: str, configured: object) -> LegacyStoreOutcome:
         len(legacy),
     )
     return LegacyStoreOutcome.LABELLED
+
+
+def _quarantine(directory: Path, files: list[Path], why: str) -> LegacyStoreOutcome:
+    target = directory / QUARANTINE_DIRECTORY
+    suffix = 1
+    while target.exists():
+        suffix += 1
+        target = directory / f"{QUARANTINE_DIRECTORY}-{suffix}"
+    _move(files, target)
+    _record(directory, f"quarantined: {why}")
+    logger.warning(
+        "Stored candles of unknown origin (%s) were set aside in %s; they are "
+        "served to no venue and will sync again.",
+        why,
+        target,
+    )
+    return LegacyStoreOutcome.QUARANTINED
 
 
 def _venue_named(configured: object) -> MarketDataVenue | None:
