@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderOutcomeUnknownError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
@@ -156,6 +159,25 @@ def test_a_submit_that_raises_is_a_fault() -> None:
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
     assert runtime.reason is GridReason.ORDER_FAILED
     assert "reset by peer" in runtime.reason_detail
+
+
+def test_a_submit_whose_outcome_is_unknown_is_a_fault_saying_the_order_may_be_live() -> (
+    None
+):
+    """`BUG-170`: the order may be on the exchange, so the bot never reads the
+    failure as "not placed"; it stops in ERROR, whose exit derives the book again."""
+    world = grid_world()
+    world.book.raise_next = [
+        OrderOutcomeUnknownError("BTCUSDT", "SEW-abc123-0123456789", "HTTP 502")
+    ]
+
+    world.executor.start()
+
+    assert world.state() is S.ERROR
+    runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
+    assert runtime.reason is GridReason.ORDER_FAILED
+    assert "may be live" in runtime.reason_detail
+    assert "SEW-abc123-0123456789" in runtime.reason_detail
 
 
 def test_a_start_outside_starting_does_nothing() -> None:

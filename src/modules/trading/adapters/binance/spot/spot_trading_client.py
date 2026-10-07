@@ -36,6 +36,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_erro
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_failure import (
+    SEND_FAILURES,
+    raise_for_failed_read,
+    raise_for_failed_send,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_order_payload_mapper import (
     map_order_to_spot_params,
     map_spot_order_payload_to_order,
@@ -107,9 +112,22 @@ class SpotTradingClient(ITradingClient):
                 client.create_test_order(**params)
             else:
                 client.create_order(**params)
-        except BinanceAPIException as exc:
-            _raise_rejection(exc)
+        except SEND_FAILURES as exc:
+            raise_for_failed_send(
+                order,
+                exc,
+                live=self._submission_mode is not OrderSubmissionMode.VALIDATE_ONLY,
+            )
         return order
+
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        client = self._resolve_client()
+        try:
+            payload = client.get_order(symbol=symbol, origClientOrderId=client_order_id)
+        except SEND_FAILURES as exc:
+            raise_for_failed_read(symbol, client_order_id, exc)
+            return None
+        return map_spot_order_payload_to_order(payload)
 
     def cancel_order(self, symbol: str, client_order_id: str) -> Order:
         client = self._resolve_client()

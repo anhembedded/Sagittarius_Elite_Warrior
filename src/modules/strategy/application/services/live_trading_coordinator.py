@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_actio
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -62,6 +65,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -233,24 +240,8 @@ class LiveTradingCoordinator:
         # declares `ExecuteOrderResult`, so mypy (which checks this file,
         # unlike the `presentation/` call sites it is excluded from) reads the
         # type instead of being told to trust one.
-        # `BUG-090` — an exchange rejection (margin, rate limit, a
-        # notional/precision edge `preview.notional_check` didn't catch)
-        # is expected, named domain state, not a bug: it must not escape
-        # to `MarketTickEventHandler.handle()`, which has no `except` of
-        # its own and would otherwise let one rejected order take down
-        # tick processing for the rest of the session.
-        try:
-            result = self._order_submission.submit(order_request, live=True)
-        except OrderRejectedByExchangeError as exc:
-            logger.warning("Live order rejected by exchange: %s", exc)
-            return
-        except Exception as exc:  # noqa: BLE001 - worker boundary: a network/exchange
-            # failure below `ITradingClient` must not propagate through this
-            # application-layer coordinator (`architecture-rule.md` §3 bars
-            # importing infra-specific exception types like
-            # `BinanceRequestException` here to narrow this further) and
-            # crash the rest of this session's tick processing.
-            logger.error("Live order attempt failed — network/exchange error: %s", exc)
+        result = self._submit_live(order_request)
+        if result is None:
             return
         if result.blocked:
             logger.info("Live order blocked: %s", result.blocked_by)
@@ -269,6 +260,37 @@ class LiveTradingCoordinator:
             logger.info(
                 "Live order submitted for %s: %s", signal.symbol, signal.action.value
             )
+
+    def _submit_live(self, order_request: OrderRequest) -> ExecuteOrderResult | None:
+        """@return The result, or `None` when the submission raised: every
+        failure below is logged here and never escapes the tick."""
+        # `BUG-090` — an exchange rejection (margin, rate limit, a
+        # notional/precision edge `preview.notional_check` didn't catch)
+        # is expected, named domain state, not a bug: it must not escape
+        # to `MarketTickEventHandler.handle()`, which has no `except` of
+        # its own and would otherwise let one rejected order take down
+        # tick processing for the rest of the session.
+        try:
+            return self._order_submission.submit(order_request, live=True)
+        except OrderRejectedByExchangeError as exc:
+            logger.warning("Live order rejected by exchange: %s", exc)
+            return None
+        except OrderOutcomeUnknownError as exc:
+            # `BUG-170` — not a rejection: the order may be live, and the
+            # trading session already counts it as sent, so the limits hold.
+            logger.error("Live order outcome unknown, it may be live: %s", exc)
+            return None
+        except OrderNotPlacedError as exc:
+            logger.warning("Live order was not placed: %s", exc)
+            return None
+        except Exception as exc:  # noqa: BLE001 - worker boundary: a network/exchange
+            # failure below `ITradingClient` must not propagate through this
+            # application-layer coordinator (`architecture-rule.md` §3 bars
+            # importing infra-specific exception types like
+            # `BinanceRequestException` here to narrow this further) and
+            # crash the rest of this session's tick processing.
+            logger.error("Live order attempt failed — network/exchange error: %s", exc)
+            return None
 
     def _is_ignored(self, signal: Signal) -> bool:
         """@return True when `handle()` stops before any read: a signal for

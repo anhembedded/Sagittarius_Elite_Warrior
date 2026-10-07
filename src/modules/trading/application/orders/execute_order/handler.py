@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
@@ -31,8 +34,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderStopRejection,
     ExecuteOrderTypeRejection,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
+    ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -201,7 +215,12 @@ class ExecuteOrderCommandHandler(
                 session_state.owner_books.record_sent(
                     tag, preview.order, preview.estimated_notional, now
                 )
-            submitted_order = trading_client.place_order(preview.order)
+            try:
+                submitted_order = trading_client.place_order(preview.order)
+            except OrderOutcomeUnknownError as unknown:
+                submitted_order = self._resolve_unknown_outcome(
+                    command, trading_client, unknown, session_state, now
+                )
             # `EPIC-028I` — a protective order or a close is not a new trade:
             # it neither uses up the session's orders nor delays the next entry.
             if tag is None and not command.purpose.only_reduces:
@@ -217,6 +236,64 @@ class ExecuteOrderCommandHandler(
             return ExecuteOrderResult(
                 None, preview, checks, submitted_order, context, limits
             )
+
+    @staticmethod
+    def _resolve_unknown_outcome(
+        command: ExecuteOrderCommand,
+        trading_client: ITradingClient,
+        unknown: OrderOutcomeUnknownError,
+        session_state: TradingSessionState,
+        now: datetime,
+    ) -> Order:
+        """`BUG-170` — the submission got no readable answer, so the order may
+        be live. Ask the exchange for it by the client order id sent.
+
+        @return The order the exchange holds: it was placed, and the caller
+        continues as for any placed order.
+        @raise OrderNotPlacedError The exchange holds no such order.
+        @raise OrderOutcomeUnknownError It could not be asked either. The order
+        may be live, so it is counted as sent: the limits and the symbol's open
+        slot hold until the user or a read settles it.
+        """
+        try:
+            found = trading_client.find_order(unknown.symbol, unknown.client_order_id)
+        except (OrderOutcomeUnknownError, OrderRejectedByExchangeError) as unread:
+            reason = (
+                unread.reason
+                if isinstance(unread, OrderOutcomeUnknownError)
+                else unread.raw_message
+            )
+            if command.order_request.client_order_tag is None and (
+                not command.purpose.only_reduces
+            ):
+                session_state.record_order_sent(
+                    unknown.symbol, now, venue_has_positions=command.venue.has_positions
+                )
+            logger.error(
+                "Order %s on %s: outcome still unknown after asking the exchange: %s [order-outcome-unknown]",
+                unknown.client_order_id,
+                unknown.symbol,
+                reason,
+            )
+            raise OrderOutcomeUnknownError(
+                unknown.symbol, unknown.client_order_id, f"{unknown.reason}; {reason}"
+            ) from unread
+        if found is None:
+            logger.warning(
+                "Order %s on %s: the exchange holds no such order, not placed [order-not-placed]",
+                unknown.client_order_id,
+                unknown.symbol,
+            )
+            raise OrderNotPlacedError(
+                unknown.symbol, unknown.client_order_id, unknown.reason
+            ) from unknown
+        logger.warning(
+            "Order %s on %s: the submission's answer was unreadable, the exchange holds it as %s [order-confirmed]",
+            unknown.client_order_id,
+            unknown.symbol,
+            found.status.name,
+        )
+        return found
 
     @staticmethod
     def _first_blocked_safety_gate(

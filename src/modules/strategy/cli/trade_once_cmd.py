@@ -51,6 +51,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
     InvalidOrderForSubmissionError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
@@ -59,6 +63,27 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from sagittarius_engine import App
+
+
+def _refusal_words(
+    exc: OrderRejectedByExchangeError
+    | OrderOutcomeUnknownError
+    | OrderNotPlacedError
+    | InvalidOrderForSubmissionError,
+) -> str:
+    """What the user is told for an order that was not placed, or may be
+    live (`BUG-170`): an unknown outcome is never worded as a rejection."""
+    if isinstance(exc, OrderOutcomeUnknownError):
+        return (
+            f"The exchange gave no readable answer, so the order may be live: {exc}\n"
+            "Check the open orders and positions before sending another."
+        )
+    if isinstance(exc, OrderNotPlacedError):
+        return f"The order was not placed: {exc}"
+    if isinstance(exc, InvalidOrderForSubmissionError):
+        return f"Order is not valid for submission: {exc}"
+    return f"Exchange rejected the order: {exc}"
+
 
 #: How many closed candles to warm indicators up on before trusting the
 #: latest one's signal — generous enough for this repo's slower
@@ -155,11 +180,13 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         result: ExecuteOrderResult = app.container.resolve(IOrderSubmission).submit(
             order_request, live=args.live
         )
-    except OrderRejectedByExchangeError as exc:
-        print(f"Exchange rejected the order: {exc}")
-        return
-    except InvalidOrderForSubmissionError as exc:
-        print(f"Order is not valid for submission: {exc}")
+    except (
+        OrderRejectedByExchangeError,
+        OrderOutcomeUnknownError,
+        OrderNotPlacedError,
+        InvalidOrderForSubmissionError,
+    ) as exc:
+        print(_refusal_words(exc))
         return
     except (BinanceAPIException, BinanceRequestException, RequestException):
         print(

@@ -123,7 +123,7 @@
       "src/modules/market_data/cli/stream_cmd.py": 5,
       "src/modules/market_data/cli/sync_cli_handler.py": 5,
       "src/modules/market_data/cli/sync_cmd.py": 2,
-      "src/modules/strategy/cli/trade_once_cmd.py": 12,
+      "src/modules/strategy/cli/trade_once_cmd.py": 11,
       "src/presentation/cli/exchange_status_cmd.py": 1,
       "src/presentation/cli/handlers/exchange_status_cli_handler.py": 1,
       "src/presentation/cli/interactive_shell.py": 13,

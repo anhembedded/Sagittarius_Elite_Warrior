@@ -10,16 +10,17 @@ repo is allowed to construct this adapter with `OrderSubmissionMode.LIVE`
 until `EPIC-021G` — guarded by
 `tests/unit/architecture/test_order_submission_mode_live_is_restricted.py`.
 
-Only `BinanceAPIException` (a response the exchange actually sent back,
-carrying a code) is translated into a named `OrderRejectedByExchangeError`
-here. A network-level failure (`BinanceRequestException`,
-`requests.exceptions.RequestException`; `Client(...)` no longer pings on
-construction, `EPIC-028P`) is left to
-propagate: `ITradingClient` makes no "never raises" promise the way
-`ITradingAccountReader` (`EPIC-021D`) does, and a caller two frames up
-already has to decide what "no connection" means for its own UI/CLI —
-translating it into an order-rejection reason here would misname a
-problem that has nothing to do with the order's content.
+Only `BinanceAPIException` carrying an exchange code (a response the
+exchange actually sent back) is translated into a named
+`OrderRejectedByExchangeError` here. A live submission with no readable
+answer (a non-JSON page, `BinanceRequestException`,
+`requests.exceptions.RequestException`) is `OrderOutcomeUnknownError`, never a
+rejection: the order may be live (`BUG-170`, `order_send_failure.py`), and
+`find_order` reads it back by its client order id. Any other read-side
+transport failure is left to propagate: `ITradingClient` makes no "never
+raises" promise the way `ITradingAccountReader` (`EPIC-021D`) does, and a
+caller two frames up already has to decide what "no connection" means for its
+own UI/CLI.
 
 `EPIC-028R` — a stop-limit goes through Binance's Algo Order API
 (`futures_algo_order_mapper.py`) with the app's client order id as its
@@ -51,6 +52,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_orde
     map_futures_order_payload_to_order,
     map_futures_position_payload_to_live_position,
     map_order_to_futures_params,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_failure import (
+    SEND_FAILURES,
+    raise_for_failed_read,
+    raise_for_failed_send,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -131,9 +137,31 @@ class FuturesTradingClient(ITradingClient):
                 client.futures_create_test_order(**params)
             else:
                 client.futures_create_order(**params)
-        except BinanceAPIException as exc:
-            _raise_rejection(exc)
+        except SEND_FAILURES as exc:
+            raise_for_failed_send(order, exc, live=self._is_live)
         return order
+
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        """@details A regular order by `origClientOrderId`; an id that is not
+        one is tried as an algo order's `clientAlgoId`, as `cancel_order` does.
+        """
+        client = self._resolve_client()
+        try:
+            payload = client.futures_get_order(
+                symbol=symbol, origClientOrderId=client_order_id
+            )
+        except SEND_FAILURES as exc:
+            raise_for_failed_read(symbol, client_order_id, exc)
+        else:
+            return map_futures_order_payload_to_order(payload)
+        try:
+            algo_payload = client.futures_get_algo_order(
+                symbol=symbol, clientAlgoId=client_order_id
+            )
+        except SEND_FAILURES as exc:
+            raise_for_failed_read(symbol, client_order_id, exc)
+            return None
+        return map_futures_algo_payload_to_order(algo_payload)
 
     def cancel_order(self, symbol: str, client_order_id: str) -> Order:
         """@details A regular order keeps its one request. An id the regular
@@ -209,8 +237,8 @@ class FuturesTradingClient(ITradingClient):
             )
         try:
             client.futures_create_algo_order(**params)
-        except BinanceAPIException as exc:
-            _raise_rejection(exc)
+        except SEND_FAILURES as exc:
+            raise_for_failed_send(order, exc, live=True)
 
     @staticmethod
     def _cancel_algo_order(
@@ -235,6 +263,11 @@ class FuturesTradingClient(ITradingClient):
         except BinanceAPIException as exc:
             _raise_rejection(exc)
         return map_futures_algo_payload_to_order(payload)
+
+    @property
+    def _is_live(self) -> bool:
+        """Whether a send can create an order (the test endpoint never does)."""
+        return self._submission_mode is not OrderSubmissionMode.VALIDATE_ONLY
 
     def _resolve_client(self) -> ITradingSessionClient:
         resolution = self._credentials_provider.resolve()

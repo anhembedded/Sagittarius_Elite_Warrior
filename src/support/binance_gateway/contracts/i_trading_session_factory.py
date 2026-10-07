@@ -49,6 +49,12 @@ class ITradingSessionClient(Protocol):
 
     def futures_create_order(self, **params: Any) -> dict[str, Any]: ...
 
+    def futures_get_order(
+        self,
+        symbol: str,
+        origClientOrderId: str,  # noqa: N803 - Binance's own REST param name, called by keyword
+    ) -> dict[str, Any]: ...
+
     def futures_cancel_order(
         self,
         symbol: str,
