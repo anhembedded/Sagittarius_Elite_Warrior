@@ -31,9 +31,10 @@ _FAILURES = EnumLabels(
             "this computer's clock is too far from the exchange's. Resync the "
             "system clock and check again."
         ),
-        ConnectionFailureKind.KEY_EXPIRED: (
-            "the exchange refused the API key. It may have expired or be a key "
-            "for another venue; get a new testnet key."
+        ConnectionFailureKind.KEY_REJECTED: (
+            "the exchange rejected the API key. This app talks to the testnet, "
+            "so a mainnet key is not accepted. Otherwise check the key's IP "
+            "allowlist and permissions, or get a new testnet key."
         ),
         ConnectionFailureKind.NETWORK: (
             "the exchange could not be reached. Check the network or proxy and "

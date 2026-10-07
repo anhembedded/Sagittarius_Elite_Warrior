@@ -71,7 +71,7 @@ cannot, tell me which part is wrong."*
 | No credentials configured | `NOT_CONFIGURED`, and the report says so plainly | Decided before any request; there is nothing to ask the exchange |
 | The API secret does not match the key | `BAD_SIGNATURE` | Binance `-1022`, translated once, at the one place allowed to read an exchange error code |
 | The machine's clock is too far from the exchange's | `CLOCK_SKEW`, with the measured skew in milliseconds | Binance `-1021`. The number is shown because the fix is the actor's clock, and they need to see how far off it is |
-| A Spot Testnet or mainnet key was pasted in | `KEY_EXPIRED` | Binance `-2015` covers invalid key, IP allowlist and permissions; the name is the most common real cause here |
+| The exchange rejected the key (a mainnet or other-venue key, an IP off the allowlist, a missing permission) | `KEY_REJECTED` | Binance `-2015` covers all three and names none; the app is testnet-only, so a mainnet key is unknown there. The words list the causes and never say "expired" |
 | DNS, TCP, TLS or a timeout — or any error code without a narrower name | `NETWORK` | The honest bucket. It is named `NETWORK` rather than `UNKNOWN` because that is what it is from the actor's side |
 | The account is in Hedge mode | `HEDGE_MODE_UNSUPPORTED` — reachable, but not usable | This app's order model assumes One-way. "Connected fine, but this account cannot trade here" is not one of the other five, so it is its own answer |
 | The Futures asset mode cannot be read (no answer, or an answer of another shape) | Reachable, no failure, and no account summary; one WARNING until it is readable again | The connection is fine; only which figures to show is unknown, and a guessed mode would mislabel them (`EPIC-028O`) |

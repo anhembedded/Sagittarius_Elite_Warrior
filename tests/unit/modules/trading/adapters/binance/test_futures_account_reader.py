@@ -118,7 +118,7 @@ def test_no_credentials_returns_not_configured_without_touching_the_network():
     [
         (-1021, ConnectionFailureKind.CLOCK_SKEW),
         (-1022, ConnectionFailureKind.BAD_SIGNATURE),
-        (-2015, ConnectionFailureKind.KEY_EXPIRED),
+        (-2015, ConnectionFailureKind.KEY_REJECTED),
         (-9999, ConnectionFailureKind.NETWORK),  # unrecognized code -> fallback
     ],
 )
