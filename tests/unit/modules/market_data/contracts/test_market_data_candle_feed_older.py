@@ -1,4 +1,4 @@
-"""`BUG-177` — `MarketDataCandleFeed.load_older`: the window before a chart's
+"""`BUG-178` — `MarketDataCandleFeed.load_older`: the window before a chart's
 oldest candle, from the store when it holds a full one, else fetched from the
 chart's own market first, and joined to the drawn candles with neither a gap
 nor a duplicate.

@@ -1,4 +1,4 @@
-# BUG-176 — The live chart's last-price tag is cut ("2,56" for "2,565.43"); the left axis shows "750" for "2,750"
+# BUG-177 — The live chart's last-price tag is cut ("2,56" for "2,565.43"); the left axis shows "750" for "2,750"
 
 - **Reported:** 2026-10-07 (the owner's screenshot, via the coordinator: Windows, 2560x1440, DPR 1, Trade mode, ETHUSDT live candle chart, master `6aa3586`)
 - **Severity:** 🟡 P2 — the price the trader reads off the chart is unreadable; no order is affected

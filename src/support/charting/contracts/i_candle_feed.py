@@ -73,7 +73,7 @@ class ICandleFeed(ABC):
         self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
     ) -> Sequence[MarketData]:
         """@brief Up to `request.limit` candles that open before
-        `request.before`, **oldest first** (`BUG-177`): what a chart draws to
+        `request.before`, **oldest first** (`BUG-178`): what a chart draws to
         the left of its oldest candle.
         @details The stored candles when the store holds a full window; else
         the exchange's, fetched into the store first, so a chart never draws

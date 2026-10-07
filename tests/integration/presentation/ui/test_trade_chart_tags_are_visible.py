@@ -1,4 +1,4 @@
-"""`BUG-176`: in the real Trade mode, at each conformance window size, the
+"""`BUG-177`: in the real Trade mode, at each conformance window size, the
 desk chart's price tag and axis labels are whole inside the chart's viewport.
 
 The owner saw the last-price tag as "2,56" and the left axis as "750" on a

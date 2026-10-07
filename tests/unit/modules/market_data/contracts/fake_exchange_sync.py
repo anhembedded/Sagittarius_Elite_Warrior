@@ -1,4 +1,4 @@
-"""A fake exchange behind `IMarketDataSync` (`BUG-177`): what a sync asks of
+"""A fake exchange behind `IMarketDataSync` (`BUG-178`): what a sync asks of
 the exchange is stored, as the sync handler stores what the exchange sent."""
 
 from __future__ import annotations

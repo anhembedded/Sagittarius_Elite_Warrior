@@ -14,7 +14,7 @@ from replacing another's (the epic review of PR 300 found that with desks).
 **Beyond the first window (`EPIC-033S`).** `load_older` asks for the window
 right before the oldest candle drawn, as a pan past it does: the shared
 chart's `older_candles` loads it from the store, else from the exchange
-(`BUG-177`); `load_range` draws exactly a chosen span, read through
+(`BUG-178`); `load_range` draws exactly a chosen span, read through
 `ChartHistory` on the thread pool. The range comes back on a Qt signal
 carrying the load's generation (`async-ui-action-rule.md` §1): asking for a
 new first window (another timeframe, going live), drawing a range, or closing

@@ -224,7 +224,7 @@ class LiveCandleChart(QObject):
 
     @property
     def older_candles(self) -> OlderCandlesBackfill:
-        """Older candles (`BUG-177`): a pan past the oldest loads them by
+        """Older candles (`BUG-178`): a pan past the oldest loads them by
         itself; `request_now()` asks for them."""
         return self._older
 

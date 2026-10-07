@@ -1,4 +1,4 @@
-# BUG-177 — Panning or zooming a chart past its oldest candle loads no older candles (regression)
+# BUG-178 — Panning or zooming a chart past its oldest candle loads no older candles (regression)
 
 - **Reported:** 2026-10-07 (the owner, via the coordinator: "this worked before"; Trade mode, ETHUSDT live chart, master `6aa3586`)
 - **Severity:** 🟡 P2 — a chart cannot be scrolled back beyond its first 500 candles; Market's View → Load older is the only way, and only for stored candles

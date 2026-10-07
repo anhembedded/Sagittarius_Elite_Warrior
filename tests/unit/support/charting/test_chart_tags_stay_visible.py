@@ -1,4 +1,4 @@
-"""`BUG-176`: a chart's price tags and axis labels are whole inside what the
+"""`BUG-177`: a chart's price tags and axis labels are whole inside what the
 person sees, at every width.
 
 The owner's Trade mode (Windows, 2560x1440) showed the last-price tag as

@@ -1,6 +1,6 @@
 """The stored candles a Market chart asks for beyond its first window
 (`EPIC-033S`): a chosen range. (The window before the oldest candle drawn is
-the shared chart's, `BUG-177`: `ICandleFeed.load_older`.)
+the shared chart's, `BUG-178`: `ICandleFeed.load_older`.)
 
 Qt-free and thread-free: the chart calls these on a worker thread and draws
 the answer on the Qt thread. One market per instance, as a candle feed is

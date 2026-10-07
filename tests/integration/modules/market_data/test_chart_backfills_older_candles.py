@@ -1,4 +1,4 @@
-"""`BUG-177` — a live chart that is panned past its oldest candle loads older
+"""`BUG-178` — a live chart that is panned past its oldest candle loads older
 candles, from the store when it has them and from the exchange when it has not,
 with a real worker pool, the real candle feed over the market-data ports and a
 real `ChartCard`; only the exchange and the store are fakes.

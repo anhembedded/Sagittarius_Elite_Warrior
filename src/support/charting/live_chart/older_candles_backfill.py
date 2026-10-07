@@ -1,4 +1,4 @@
-"""`BUG-177` — older candles for a live chart: when the user pans or zooms past
+"""`BUG-178` — older candles for a live chart: when the user pans or zooms past
 the oldest candle drawn, the window right before it is loaded (from the store,
 else from the exchange, `ICandleFeed.load_older`) and drawn to its left.
 

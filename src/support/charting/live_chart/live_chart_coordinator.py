@@ -106,7 +106,7 @@ class LiveChartCoordinator:
     def load_older(
         self, symbol: str, interval_str: str, before: datetime, token: CancellationToken
     ) -> None:
-        """Submits the read of the window right before `before` (`BUG-177`):
+        """Submits the read of the window right before `before` (`BUG-178`):
         the stored candles, or the exchange's when the store has fewer than a
         window. It reports through `older_ready` or `older_failed`, and says
         nothing once `token` is cancelled."""

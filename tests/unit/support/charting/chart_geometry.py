@@ -1,5 +1,5 @@
 """Where a chart's tags and axis labels are drawn, measured against the
-widget the person sees (`BUG-176`).
+widget the person sees (`BUG-177`).
 
 A chart is a `GraphicsLayoutWidget`; what it draws outside its viewport is
 cut, and a plot's view box clips its children to its own rect. So a tag or a

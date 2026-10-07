@@ -1,4 +1,4 @@
-"""`BUG-177`: panning or zooming a live chart left past its oldest candle loads
+"""`BUG-178`: panning or zooming a live chart left past its oldest candle loads
 older candles, on every chart that is a `LiveCandleChart` (desk, Market, a
 bot's).
 

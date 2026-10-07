@@ -6,7 +6,7 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 from . import theme
 
 #: Where a horizontal line's tag holds on its text, for the line's two label
-#: positions (`BUG-176`). pyqtgraph centres the text on the position, so a tag
+#: positions (`BUG-177`). pyqtgraph centres the text on the position, so a tag
 #: at the right edge (`position` 1.0) had half of itself outside the plot's view
 #: box, which clips its children: "2,565.43" showed as "2,56". `(1, y)` puts the
 #: tag's right edge on the position, inside the plot at any width. Every tag
