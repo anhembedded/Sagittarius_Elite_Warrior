@@ -5,6 +5,7 @@ chip a user sees."""
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
@@ -345,3 +346,17 @@ def test_checking_the_menu_action_in_error_retries_and_stays_unchecked_if_it_fai
 
     assert feed.calls.count("start_stream") == 2
     assert chart.live_state is S.ERROR and not action.isChecked()
+
+
+def test_an_error_reason_that_looks_like_markup_is_shown_as_text(qapp) -> None:
+    """`BUG-168`: the reason is an exchange's answer."""
+    feed = ScriptedCandleFeed()
+    feed.stream_message = "<h1>502 Bad Gateway</h1>"
+    chart, card = build_chart(feed)
+    chart.show_symbol("BTCUSDT")
+
+    chart.run_command(C.GO_LIVE)
+
+    label = card.findChild(object, "liveStateLabel")
+    assert label.textFormat() == Qt.TextFormat.PlainText
+    assert "<h1>502 Bad Gateway</h1>" in label.toolTip()

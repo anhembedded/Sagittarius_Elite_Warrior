@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedSt
 
 from ..strategies.venue_strategies import VenueStrategies
 from .bot_action_rules import BotAction
+from .bot_chart_host import BotChartHost
 from .bots_commands import (
     ARM_STRATEGY,
     DISARM_STRATEGY,
@@ -37,7 +38,10 @@ ANOTHER_ACTION_REASON = "Another action is still running."
 
 
 def bind_bots_commands(
-    binder: ICommandBinder, view_model: BotsViewModel, strategies: VenueStrategies
+    binder: ICommandBinder,
+    view_model: BotsViewModel,
+    strategies: VenueStrategies,
+    charts: BotChartHost | None = None,
 ) -> None:
     """What `BotsPresenter.bind_commands` binds."""
     idle = DerivedState(
@@ -85,6 +89,9 @@ def bind_bots_commands(
     KindCommands(view_model).bind_commands(binder)
     # The Strategies panel's selected venue (`EPIC-033K` stage 3).
     strategies.bind_commands(binder, ARM_STRATEGY, DISARM_STRATEGY)
+    # Live stream follows the selected bot's chart, when the mode has charts.
+    if charts is not None:
+        charts.bind_commands(binder)
 
 
 def _bind_lifecycle(

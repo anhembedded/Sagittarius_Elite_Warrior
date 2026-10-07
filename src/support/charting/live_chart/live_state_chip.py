@@ -13,13 +13,14 @@ from collections.abc import Callable
 
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolButton, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QToolButton, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
     COMMAND_WORDS,
     STATE_COMMAND,
     STATE_WORDS,
     LiveChartState,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 #: How often the age of the last update is written again, while Live.
 AGE_REFRESH_MS = 1000
@@ -69,7 +70,7 @@ class LiveStateChip(QWidget):
         self.setObjectName("liveStateChip")
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        self._label = QLabel()
+        self._label = plain_label()
         self._label.setObjectName("liveStateLabel")
         row.addWidget(self._label)
         self.command = QAction(self)
