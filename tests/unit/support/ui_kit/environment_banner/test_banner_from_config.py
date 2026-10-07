@@ -45,12 +45,16 @@ def test_the_legacy_venue_setting_changes_nothing_the_banner_says() -> None:
     assert len(said) == 1
 
 
-def test_mainnet_data_with_testnet_orders_is_still_the_danger_state() -> None:
-    content = environment_banner_content_for(
-        _config(["spot_testnet"], data="mainnet_public")
-    )
+def test_under_the_default_config_there_is_no_danger_banner_at_all() -> None:
+    """`EPIC-034` D11 — every venue is always on, so the testnets read mainnet
+    prices under the default `mainnet_public`; that costs a price mismatch on a test
+    venue and no money, so it is a warning, and nothing about the mainnet venues
+    raises an alarm. A banner red under the default is one the owner stops reading."""
+    for venues in (["spot_testnet"], []):
+        content = environment_banner_content_for(_config(venues, data="mainnet_public"))
 
-    assert content.severity is Severity.DANGER
+        assert content.severity is Severity.WARN
+        assert "MAINNET prices, orders fill on TESTNET" in content.message
 
 
 def test_testnet_data_with_a_mainnet_venue_enabled_says_real_money_on_testnet_prices() -> (
@@ -66,11 +70,14 @@ def test_testnet_data_with_a_mainnet_venue_enabled_says_real_money_on_testnet_pr
     assert "REAL MONEY" in content.message
 
 
-def test_mainnet_data_names_the_testnet_trap_not_the_mainnet_one() -> None:
-    content = environment_banner_content_for(_config([], data="mainnet_public"))
+def test_only_testnet_data_behind_a_mainnet_venue_is_danger() -> None:
+    danger = {
+        data: environment_banner_content_for(_config([], data=data)).severity
+        is Severity.DANGER
+        for data in ("mainnet_public", "futures_testnet")
+    }
 
-    assert content.severity is Severity.DANGER
-    assert "MAINNET prices, orders fill on TESTNET" in content.message
+    assert danger == {"mainnet_public": False, "futures_testnet": True}
 
 
 _MAINNETS = (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET)

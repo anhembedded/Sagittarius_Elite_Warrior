@@ -41,7 +41,9 @@ class VenueAlignment(str, Enum):
     #: `MarketDataVenue.MAINNET_PUBLIC` while `TradingVenue.FUTURES_TESTNET`
     #: — real prices on screen, fake money behind the order button. The
     #: literal trap `EPIC-021`'s ADR §2.2 names: "chart hiển thị giá
-    #: mainnet trong khi lệnh khớp trên testnet."
+    #: mainnet trong khi lệnh khớp trên testnet." A warning, since `EPIC-034` D11:
+    #: with every venue always on it is the default setting's state, and no money
+    #: is at risk (the banner's severity, `environment_banner_content.py`).
     DATA_MAINNET_ORDERS_TESTNET = "data_mainnet_orders_testnet"
     #: `MarketDataVenue.FUTURES_TESTNET` while a mainnet venue is the one the
     #: orders go to (`EPIC-034` D11) — testnet prices on screen, real money

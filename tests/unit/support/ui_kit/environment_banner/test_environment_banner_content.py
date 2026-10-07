@@ -32,7 +32,7 @@ def test_mainnet_data_trap_names_both_venues() -> None:
     content = venue_alignment_banner_content(VenueAlignment.DATA_MAINNET_ORDERS_TESTNET)
     assert "MAINNET" in content.message
     assert "TESTNET" in content.message
-    assert content.severity is Severity.DANGER
+    assert content.severity is Severity.WARN
 
 
 def test_testnet_data_behind_mainnet_orders_says_real_money() -> None:
@@ -53,15 +53,14 @@ def test_market_mismatch_warns_the_chart_is_not_the_fill_market() -> None:
 
 
 def test_each_alignment_state_maps_to_its_documented_severity() -> None:
-    """Two states are legitimately both `DANGER` (`MARKET_MISMATCH` and
-    `DATA_MAINNET_ORDERS_TESTNET` are independent real risks, not variants
-    of the same one) — this locks each state's own expected severity
-    instead of assuming severities must be pairwise distinct, and still
-    fails if a state is added here without an entry below."""
+    """Severity follows the money at risk (`EPIC-034` D11): `DANGER` only where real
+    money is planned against a price that is wrong — a market mismatch, or testnet
+    data behind a mainnet venue; testnet orders on mainnet prices cost a price
+    mismatch on a test venue, a warning. Fails if a state is added without an entry."""
     expected_severity = {
         VenueAlignment.ALIGNED: Severity.WARN,
         VenueAlignment.MARKET_MISMATCH: Severity.DANGER,
-        VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: Severity.DANGER,
+        VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: Severity.WARN,
         VenueAlignment.DATA_TESTNET_ORDERS_MAINNET: Severity.DANGER,
     }
     assert set(expected_severity) == set(VenueAlignment)

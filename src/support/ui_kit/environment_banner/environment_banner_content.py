@@ -52,7 +52,9 @@ _CONTENT: dict[VenueAlignment, tuple[str, str, BannerSeverity]] = {
     VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: (
         "⚠",
         "Chart is showing MAINNET prices, orders fill on TESTNET. Price shown ≠ fill price.",
-        BannerSeverity.DANGER,
+        # No money is at risk: the only cost is a price mismatch on a test venue
+        # (`EPIC-034` D11 — it was DANGER while the testnet was the only venue).
+        BannerSeverity.WARN,
     ),
     VenueAlignment.DATA_TESTNET_ORDERS_MAINNET: (
         "⚠",
