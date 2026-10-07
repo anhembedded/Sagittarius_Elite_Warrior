@@ -18,8 +18,10 @@ a testnet candle into a mainnet one: the rows belong to the venue the setting na
 
 Runs once: `MARKER` records the outcome, and a store with nothing to label gets
 one too, so rows written afterwards are never taken for legacy ones. Moves only
-files named like a shard (`<name>.db` and its WAL sidecars), never deletes data,
-and never overwrites a file that is already there.
+files named like a shard, never deletes data, and never overwrites a file that is
+already there. A move that fails for any other reason (permissions, a full disk)
+stops boot with the error logged: leaving the shards in place would serve them as
+the mainnet's whatever the setting says.
 """
 
 from __future__ import annotations
@@ -44,9 +46,13 @@ logger = logging.getLogger("App.Database")
 MARKER = ".market_data_source"
 #: Where legacy shards of unknown origin wait; no venue's store is this directory.
 QUARANTINE_DIRECTORY = "legacy_unlabelled"
-#: A shard file and its SQLite sidecars: the shard-name alphabet, then the suffix.
-#: Anything else in the directory (a user's own `.db`, a note) is not ours to move.
-_SHARD_FILE = re.compile(r"^[A-Za-z0-9_-]+\.db(-wal|-shm)?$")
+#: A shard file as an earlier build wrote it — a bare upper-case symbol
+#: (`BTCUSDT`, before `EPIC-027A`) or `<market>_<symbol>` — and its SQLite sidecars.
+#: Anything else in the directory (`bots.db`, a user's own `.db`, a note) is not ours
+#: to move.
+_SHARD_FILE = re.compile(
+    r"^((spot|futures_usd_m|futures_coin_m)_)?[A-Z0-9]+\.db(-wal|-shm)?$"
+)
 
 
 class LegacyStoreOutcome(Enum):
@@ -127,7 +133,19 @@ def _move(files: list[Path], target: Path) -> None:
     if clashes:
         raise FileExistsError(f"{target} already holds {sorted(clashes)}")
     for path in files:
-        shutil.move(str(path), str(target / path.name))
+        try:
+            shutil.move(str(path), str(target / path.name))
+        except OSError as failure:
+            # Fail closed: shards left in the configured directory would be served
+            # as the mainnet's whatever the setting says, so the app does not start.
+            logger.error(
+                "Could not move stored candles %s to %s (%s); refusing to start "
+                "rather than serve candles of unknown origin.",
+                path,
+                target,
+                failure,
+            )
+            raise
 
 
 def _record(directory: Path, outcome: str) -> None:

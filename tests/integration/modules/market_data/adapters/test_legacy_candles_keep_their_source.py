@@ -174,3 +174,27 @@ def test_a_clash_quarantines_instead_of_stopping_boot_or_overwriting(
     assert (legacy_store / QUARANTINE_DIRECTORY / "spot_BTCUSDT.db").is_file()
     assert (legacy_store / MARKER).is_file()
     assert _served_by(legacy_store, MarketDataVenue.MAINNET_PUBLIC, served) == []
+
+
+def test_a_sibling_database_that_is_not_a_shard_is_never_moved(
+    legacy_store: Path,
+) -> None:
+    (legacy_store / "bots.db").write_bytes(b"the bots' own store")
+
+    label_legacy_store(str(legacy_store), "futures_testnet")
+
+    assert (legacy_store / "bots.db").read_bytes() == b"the bots' own store"
+
+
+def test_a_move_that_fails_stops_boot_rather_than_leave_shards_to_be_served(
+    legacy_store: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(_source: str, _target: str) -> None:
+        raise PermissionError("read-only disk")
+
+    monkeypatch.setattr("shutil.move", refuse)
+
+    with pytest.raises(PermissionError):
+        label_legacy_store(str(legacy_store), "futures_testnet")
+
+    assert not (legacy_store / MARKER).exists(), "the next start tries again"
