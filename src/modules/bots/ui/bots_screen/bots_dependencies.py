@@ -70,6 +70,9 @@ class BotsDependencies:
     commands: ICommandDispatcher
     kinds: IBotKindCatalog
     venues: IVenueTradingPorts
+    #: Each venue's stored key, which New bot and the Plan's Venue field show as
+    #: the venue's connection state (`BOT-171`).
+    contexts: IVenueContexts
     #: Each bot venue's Spot candle feed, for a bot's chart (`BUG-172`): it
     #: shows the market the bot's orders fill in.
     feeds: Callable[[TradingVenue], ICandleFeed]
@@ -101,6 +104,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         commands=commands,
         kinds=container.resolve(IBotKindCatalog),
         venues=container.resolve(IVenueTradingPorts),
+        contexts=container.resolve(IVenueContexts),
         feeds=lambda venue: candles(venue).feed,
         backtest_ports=lambda venue: BacktestPorts(
             threads, commands, candles(venue).sync, candles(venue).feed, notifier

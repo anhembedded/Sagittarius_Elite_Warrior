@@ -50,6 +50,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     StopBotDialog,
     stop_question,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    KEY_SAVED,
+    VenueChoice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
@@ -66,6 +70,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .bots_screen_fixtures import VENUE, stored
+
+CHOICE = VenueChoice(VENUE, KEY_SAVED)
 
 _RUNNING = BotSnapshot.of(stored("a00001", BotLifecycleState.RUNNING).bot)
 
@@ -118,7 +124,7 @@ def _pick(dialog: NewBotDialog, symbol: str) -> None:
 
 
 def test_create_waits_for_a_picked_symbol_and_names_what_it_does(qtbot) -> None:
-    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT", "ETHUSDT"))
+    dialog = NewBotDialog(["grid"], [CHOICE], _symbols("BTCUSDT", "ETHUSDT"))
     qtbot.addWidget(dialog)
 
     assert dialog.create_button.text() == CREATE_BUTTON_TEXT
@@ -132,18 +138,19 @@ def test_create_waits_for_a_picked_symbol_and_names_what_it_does(qtbot) -> None:
 
 
 def test_the_new_bot_dialog_offers_venue_titles_and_hands_back_the_venue(qtbot) -> None:
-    """`EPIC-034A`: the combo reads "Spot Testnet", the command carries the enum."""
-    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
+    """`EPIC-034A`: the combo reads the venue's title and its connection state, the
+    command carries the enum."""
+    dialog = NewBotDialog(["grid"], [CHOICE], _symbols("BTCUSDT"))
     qtbot.addWidget(dialog)
 
-    assert dialog.venue.itemText(0) == VENUE.display_name
+    assert dialog.venue.itemText(0) == f"{VENUE.display_name} — {KEY_SAVED}"
     assert TradingVenue(dialog.venue.itemData(0)) is VENUE
 
 
 def test_new_bot_asks_only_the_minimum_and_saves_no_parameters(qtbot) -> None:
     """`BOT-150` — the user's rule (2026-10-04): creating a bot asks the least;
     its parameters are set afterwards, while it is a draft or stopped."""
-    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
+    dialog = NewBotDialog(["grid"], [CHOICE], _symbols("BTCUSDT"))
     qtbot.addWidget(dialog)
     _pick(dialog, "btcusdt")
 
@@ -159,7 +166,7 @@ def test_the_new_bot_command_carries_the_venue_enum_and_saves(
     from Qt as a plain `str`, which compares equal to the member, so the test
     above stayed green while saving the bot crashed on `venue.value`. The
     command is saved through the real handler and store here."""
-    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
+    dialog = NewBotDialog(["grid"], [CHOICE], _symbols("BTCUSDT"))
     qtbot.addWidget(dialog)
     _pick(dialog, "btcusdt")
 
@@ -176,7 +183,7 @@ def test_the_symbol_is_chosen_in_the_picker_never_typed(qtbot) -> None:
     """`BUG-155` — Symbol was a free-text field ("e.g. BTCUSDT"); it is the
     shared picker the other screens use, listing the Spot catalog."""
     symbols = _symbols("BTCUSDT", "ETHUSDT")
-    dialog = NewBotDialog(["grid"], [VENUE], symbols)
+    dialog = NewBotDialog(["grid"], [CHOICE], symbols)
     qtbot.addWidget(dialog)
 
     assert dialog.findChild(QLineEdit, "editNewBotSymbol") is None
@@ -197,7 +204,7 @@ def test_a_symbol_list_that_cannot_be_read_is_said_not_left_empty(qtbot) -> None
 
     notifier = RecordingNotifier()
     symbols = NewBotSymbols(_Down(), _InlinePool(), SymbolPreferences(), notifier)
-    dialog = NewBotDialog(["grid"], [VENUE], symbols)
+    dialog = NewBotDialog(["grid"], [CHOICE], symbols)
     qtbot.addWidget(dialog)
     dialog.show()
 

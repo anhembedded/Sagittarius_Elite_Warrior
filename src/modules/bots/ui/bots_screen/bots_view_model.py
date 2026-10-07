@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    VenueChoice,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
 )
@@ -76,6 +79,11 @@ class BotsViewModel(StatusMessageViewModel):
     fix_next_requested = Signal()
     #: Scale the chart's price axis to every level of the selected bot.
     fit_levels_requested = Signal()
+    #: The user picked another Spot venue for the selected draft bot
+    #: (`BOT-171`): a `TradingVenue` value.
+    venue_change_requested = Signal(str)
+    #: The venues the Plan's Venue field offers changed.
+    venue_choices_changed = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -92,6 +100,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.availability: Mapping[BotAction, ActionAvailability] = {}
         self.fills = BotFills()
         self.connect_view = ConnectView()
+        self.venue_choices: tuple[VenueChoice, ...] = ()
         self.action_in_flight = False
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
@@ -144,6 +153,11 @@ class BotsViewModel(StatusMessageViewModel):
     def set_connect(self, view: ConnectView) -> None:
         self.connect_view = view
         self.connect_changed.emit()
+
+    @Slot(object)
+    def set_venue_choices(self, choices: tuple[VenueChoice, ...]) -> None:
+        self.venue_choices = choices
+        self.venue_choices_changed.emit()
 
     @Slot(bool)
     def set_action_in_flight(self, in_flight: bool) -> None:

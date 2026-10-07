@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -33,15 +33,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing import recording_notif
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
-    CreateBotCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
-    BotSnapshot,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
@@ -59,9 +50,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
-    BotsDialogs,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter import (
     BotsPresenter,
 )
@@ -71,11 +59,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.strategy_form_view_model import (
-    StrategyFormViewModel,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
@@ -149,7 +137,9 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_logger import ILogger
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .bots_answers import Answers
 from .bots_market_fixtures import (
+    MAINNET,
     NOW,
     SYMBOL,
     VENUE,
@@ -158,7 +148,7 @@ from .bots_market_fixtures import (
     venue_contexts,
 )
 
-__all__ = ["NOW", "SYMBOL", "VENUE"]
+__all__ = ["NOW", "SYMBOL", "VENUE", "Answers"]
 
 #: A plan every check accepts at 65,000: ten levels of about 100 USDT.
 GOOD_CONFIG = {
@@ -210,53 +200,6 @@ class HeldPool(IThreadManager):
 
 
 @dataclass
-class Answers:
-    """What the screen's questions answer; each records that it was asked."""
-
-    new_bot: CreateBotCommand | None = None
-    stop: BaseHandling | None = None
-    delete: bool = False
-    #: Bots → Arm strategy…: `True` arms what the form holds.
-    arm_strategy: bool = False
-    #: The real-money question's answer (`EPIC-034` D3, D11).
-    real_money: bool = True
-    asked: list[str] = field(default_factory=list)
-
-    def dialogs(self) -> BotsDialogs:
-        return BotsDialogs(
-            ask_new_bot=self._ask_new_bot,
-            ask_stop=self._ask_stop,
-            confirm_delete=self._confirm_delete,
-            ask_arm_strategy=self._ask_arm_strategy,
-            allow_real_money=self._allow_real_money,
-        )
-
-    def _allow_real_money(self, venue: TradingVenue, what: str) -> bool:
-        self.asked.append(f"real money {venue.value}: {what}")
-        return self.real_money
-
-    def _ask_arm_strategy(
-        self, venue: TradingVenue, _form: StrategyFormViewModel
-    ) -> bool:
-        self.asked.append(f"arm {venue.value}")
-        return self.arm_strategy
-
-    def _ask_new_bot(
-        self, kinds: Sequence[str], venues: Sequence[TradingVenue]
-    ) -> CreateBotCommand | None:
-        self.asked.append(f"new bot {list(kinds)} {[v.value for v in venues]}")
-        return self.new_bot
-
-    def _ask_stop(self, bot: BotSnapshot) -> BaseHandling | None:
-        self.asked.append(f"stop {bot.bot_id}")
-        return self.stop
-
-    def _confirm_delete(self, bot: BotSnapshot) -> bool:
-        self.asked.append(f"delete {bot.bot_id}")
-        return self.delete
-
-
-@dataclass
 class BotsScreen:
     view: BotsView
     presenter: BotsPresenter
@@ -276,6 +219,11 @@ class BotsScreen:
     #: The venue's account, as the Connect step reads it (`EPIC-034D`).
     account: FakeVenueAccountReader
     dispatcher: ICommandDispatcher
+    #: Spot Mainnet's account and order history (`BOT-171`).
+    mainnet_account: FakeVenueAccountReader
+    mainnet_activity: FakeAccountActivity
+    #: Each venue's market data, which records the venues asked for.
+    market_sources: FakeMarketDataSources
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -319,7 +267,7 @@ def open_screen(
     notifier = recording_notifier.RecordingNotifier()
     container.singleton(INotifier, notifier)
     trading_session = FakeTradingSession()
-    activity = FakeAccountActivity()
+    activity, mainnet_activity = FakeAccountActivity(), FakeAccountActivity()
     container.singleton(
         IVenueTradingPorts,
         FakeVenueTradingPorts(
@@ -328,23 +276,35 @@ def open_screen(
                 order_entry_terms=terms(),
                 trading_session=trading_session,
                 account_activity=activity,
-            )
+            ),
+            fake_venue_ports(
+                MAINNET,
+                order_entry_terms=terms(),
+                account_activity=mainnet_activity,
+            ),
         ),
     )
     # Read at the screen's own clock, so the read is as fresh as a real one.
     account = FakeVenueAccountReader(
         AccountSource.SPOT_TESTNET, replace(a_funded_snapshot(), read_at=NOW)
     )
-    container.singleton(IVenueAccounts, FakeVenueAccounts(account))
+    mainnet_account = FakeVenueAccountReader(
+        AccountSource.SPOT_MAINNET,
+        replace(a_funded_snapshot(), source=AccountSource.SPOT_MAINNET, read_at=NOW),
+    )
+    container.singleton(IVenueAccounts, FakeVenueAccounts(account, mainnet_account))
     container.singleton(IRealMoneyConsent, FakeRealMoneyConsent())
     container.singleton(IVenueContexts, venue_contexts())
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(ISymbolCatalog, FakeSymbolCatalog([SYMBOL, "ETHUSDT"]))
-    register_market_data(container, VENUE.market_data_venue)
+    market_sources = register_market_data(container, VENUE.market_data_venue)
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
     strategy = VenueArming(VENUE)
-    container.singleton(IVenueStrategyControls, FakeVenueStrategyControls(strategy))
+    container.singleton(
+        IVenueStrategyControls,
+        FakeVenueStrategyControls(strategy, VenueArming(MAINNET)),
+    )
     container.singleton(IStrategyCatalogReader, strategy_catalog())
     BotsModule().register(SimpleNamespace(container=container, event_bus=bus))
     store = container.resolve(IBotStore)
@@ -371,4 +331,7 @@ def open_screen(
         notifier,
         account,
         dispatcher,
+        mainnet_account,
+        mainnet_activity,
+        market_sources,
     )

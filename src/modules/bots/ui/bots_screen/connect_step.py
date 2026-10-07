@@ -141,6 +141,11 @@ class ConnectStep(QObject):
     def state(self) -> ReadinessState:
         return self._state
 
+    @property
+    def bot(self) -> BotSnapshot | None:
+        """The bot whose venue account this step is bound to."""
+        return self._bot
+
     def assessed(self, readiness: BotReadiness | None) -> None:
         """A fresh assessment of the selected bot (`EPIC-034H`): a connected
         bot moves to the state its items name; nothing else is moved by it."""

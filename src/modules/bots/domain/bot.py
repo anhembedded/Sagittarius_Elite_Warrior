@@ -14,6 +14,12 @@ move when the bot halts and resumes; a resume from HALTED is the same run.
 @par `recovering_from`
 The state `reconcile_ok` returns to. Recorded when the bot enters RECOVERING
 from RUNNING or PAUSED, kept while it stays there, cleared when it leaves.
+
+@par The venue
+A bot's orders, lease and derived inventory are tied to its venue (ADR D6), so it
+is fixed once the bot has run. A bot that is still a DRAFT and **never ran** has
+none of those, and may move between the Spot venues (`moved_to`); every other bot,
+and any Futures bot, may not (`venue_locked_reason`).
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from types import MappingProxyType
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RECOVERABLE_STATES,
@@ -36,6 +43,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+
+class BotVenueFixedError(ValueError):
+    """The bot's venue cannot change; the message says why, in words."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +113,29 @@ class Bot:
     def edited(self, definition: BotDefinition, at: datetime) -> Bot:
         """The bot with new parameters; only DRAFT and STOPPED accept an edit."""
         return replace(self.apply(BotLifecycleEvent.EDIT, at), definition=definition)
+
+    @property
+    def venue_locked_reason(self) -> str:
+        """Why the venue cannot change now, or `""` when it can."""
+        if self.definition.venue.market_type is not MarketType.SPOT:
+            return "Only a Spot bot can change its venue."
+        if self.state is not BotLifecycleState.DRAFT:
+            return f"A bot's venue is fixed once it has run; this one is {self.state.value.lower()}."
+        if self.lifecycle.run_started_at is not None:
+            return "A bot's venue is fixed once it has run."
+        return ""
+
+    def moved_to(self, venue: TradingVenue) -> Bot:
+        """The bot on another Spot venue.
+
+        @raise BotVenueFixedError The bot may not change its venue, or `venue`
+            is not a Spot venue.
+        """
+        if reason := self.venue_locked_reason:
+            raise BotVenueFixedError(reason)
+        if venue.market_type is not MarketType.SPOT:
+            raise BotVenueFixedError(f"{venue.display_name} is not a Spot venue.")
+        return replace(self, definition=replace(self.definition, venue=venue))
 
     def restored(self, at: datetime) -> Bot:
         """The bot as it is after an app restart (ADR D12)."""

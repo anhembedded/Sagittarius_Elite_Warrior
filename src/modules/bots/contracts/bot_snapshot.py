@@ -39,6 +39,8 @@ class BotSnapshot:
     #: The run's own account (`EPIC-029F`); `None` before a first run, or for
     #: a kind that keeps none.
     progress: BotProgress | None = None
+    #: Why the venue cannot change, or `""` when it can (`Bot.venue_locked_reason`).
+    venue_locked: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))
@@ -57,4 +59,5 @@ class BotSnapshot:
             run_started_at=bot.lifecycle.run_started_at,
             config=definition.config,
             progress=progress,
+            venue_locked=bot.venue_locked_reason,
         )

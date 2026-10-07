@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_credentials_provider import (
+    FakeCredentialsProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
@@ -76,6 +79,8 @@ from sagittarius_engine.interfaces.i_container import IContainer
 
 SYMBOL = "BTCUSDT"
 VENUE = TradingVenue.SPOT_TESTNET
+#: The other Spot venue a draft bot may be moved to (`BOT-171`).
+MAINNET = TradingVenue.SPOT_MAINNET
 NOW = datetime(2026, 10, 4, 12, tzinfo=UTC)
 
 
@@ -103,13 +108,24 @@ def terms() -> FakeOrderEntryTerms:
     return FakeOrderEntryTerms(entry, books={SYMBOL: book})
 
 
-def venue_contexts() -> FakeVenueContexts:
-    """The venue, its metadata cache holding the symbol's filters, as a
-    desk's order panel or the Grid's planner leaves it once read."""
+def venue_contexts(mainnet_key: bool = True) -> FakeVenueContexts:
+    """Each Spot venue, its metadata cache holding the symbol's filters, as a
+    desk's order panel or the Grid's planner leaves it once read; the testnet
+    has an API key saved, the mainnet one when `mainnet_key`."""
+    return FakeVenueContexts(
+        _venue_context(VENUE, has_key=True),
+        _venue_context(MAINNET, has_key=mainnet_key),
+    )
+
+
+def _venue_context(venue: TradingVenue, *, has_key: bool):
     cache = InMemorySymbolOrderMetadataCache()
     cache.put(order_rules())
-    return FakeVenueContexts(
-        dataclasses.replace(fake_venue_context(VENUE), metadata_cache=cache)
+    return dataclasses.replace(
+        fake_venue_context(
+            venue, credentials_provider=FakeCredentialsProvider(has_key=has_key)
+        ),
+        metadata_cache=cache,
     )
 
 
@@ -130,25 +146,31 @@ def daily_candles(days: int = 30) -> FakeHistoricalKlines:
     return klines
 
 
-def register_market_data(container: IContainer, venue: MarketDataVenue) -> None:
-    """The market data of one venue's bots, each port its verified fake: the
+def register_market_data(
+    container: IContainer, venue: MarketDataVenue
+) -> FakeMarketDataSources:
+    """The market data of each venue's bots, each port its verified fake: the
     default ports and the venue's own (`BUG-172`: a bot reads the market of the
-    venue it trades on, through `IMarketDataSources`)."""
+    venue it trades on, through `IMarketDataSources`). The public mainnet, where
+    Spot Mainnet bots read, has ports of its own, so a test can tell which
+    market a chart read (`BOT-171`)."""
     history, sync = daily_candles(), FakeMarketDataSync()
     repository, stream = FakeMarketDataRepository(), FakeMarketStream()
     container.singleton(IHistoricalKlines, history)
     container.singleton(IMarketDataSync, sync)
     container.singleton(IMarketDataRepository, repository)
     container.singleton(IMarketStream, stream)
-    container.singleton(
-        IMarketDataSources,
-        FakeMarketDataSources().serving(
-            FakeMarketDataSources.ports(
-                venue,
-                sync=sync,
-                history=history,
-                stream=stream,
-                repository=repository,
-            )
-        ),
+    sources = FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            venue,
+            sync=sync,
+            history=history,
+            stream=stream,
+            repository=repository,
+        )
     )
+    sources.serving(
+        FakeMarketDataSources.ports(MAINNET.market_data_venue, history=daily_candles())
+    )
+    container.singleton(IMarketDataSources, sources)
+    return sources
