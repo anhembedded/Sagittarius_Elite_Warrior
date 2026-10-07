@@ -33,8 +33,9 @@ _FAILURES: dict[ConnectionFailureKind, str] = {
         "This computer's clock is too far from the exchange's. Resync the system clock."
     ),
     ConnectionFailureKind.KEY_REJECTED: (
-        "The exchange rejected the API key. Check the key's IP allowlist "
-        "and permissions, or create a new key for this venue."
+        "The exchange does not accept this API key. A testnet key does not work "
+        "on mainnet, nor the reverse. Check the key's IP allowlist and "
+        "permissions, or create a new key for this venue."
     ),
     ConnectionFailureKind.NETWORK: (
         "The exchange could not be reached. Check the network or proxy."

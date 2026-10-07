@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyr
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_key_enrolment import (
     enrol_key,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     MainnetCredentialsProvider,
 )
@@ -72,6 +75,11 @@ def main(argv: list[str]) -> int:
         return 2
     if refused is not None:
         _say(f"Nothing stored: {refused.kind.name} {refused.detail}".rstrip())
+        if refused.kind is ConnectionFailureKind.KEY_REJECTED:
+            _say(
+                "The exchange does not recognise this key. A testnet key does not "
+                "work on mainnet: create the key on binance.com."
+            )
         return 1
     _say(
         f"The key was checked and stored in the operating system's keyring ({venue.display_name})."

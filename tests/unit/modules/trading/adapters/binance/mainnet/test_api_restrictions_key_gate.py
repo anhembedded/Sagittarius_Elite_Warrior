@@ -143,6 +143,10 @@ def test_no_key_is_not_configured_and_nothing_is_opened(venue: TradingVenue) -> 
     ("code", "kind"),
     [
         (-2015, ConnectionFailureKind.KEY_REJECTED),
+        # `BUG-175`: the exchange does not know the key (a testnet key pasted
+        # for mainnet) or the key is malformed; neither is a network failure.
+        (-2008, ConnectionFailureKind.KEY_REJECTED),
+        (-2014, ConnectionFailureKind.KEY_REJECTED),
         (-1022, ConnectionFailureKind.BAD_SIGNATURE),
         (-1021, ConnectionFailureKind.CLOCK_SKEW),
     ],

@@ -7,7 +7,7 @@ Binance `-2015` ("Invalid API-key, IP, or permissions for action") is not an
 expiry: the exchange rejected the key for a reason it does not name — an unknown
 key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
-`KEY_REJECTED`. No Binance code means "expired", so no such kind exists.
+`KEY_REJECTED`, as do `-2008` (unknown key) and `-2014` (bad key format). No Binance code means "expired", so no such kind exists.
 
 A non-JSON answer (a gateway's HTML page: `502 Bad Gateway`, a maintenance
 notice) is the other thing this module names once, `BUG-168`: python-binance
@@ -39,6 +39,11 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -1021: ConnectionFailureKind.CLOCK_SKEW,
     -1022: ConnectionFailureKind.BAD_SIGNATURE,
     -2015: ConnectionFailureKind.KEY_REJECTED,
+    #: `BUG-175`: "Invalid Api-Key ID" (the exchange does not know the key: a
+    #: testnet key pasted for mainnet, or the reverse) and "API-key format
+    #: invalid". Both are about the key, never the network.
+    -2008: ConnectionFailureKind.KEY_REJECTED,
+    -2014: ConnectionFailureKind.KEY_REJECTED,
 }
 
 #: The text python-binance starts a non-JSON answer's message with
