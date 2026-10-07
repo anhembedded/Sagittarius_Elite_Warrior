@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.key_page_world import (
     KEY,
     OLD_TESTNET_KEY,
+    REFUSED_REASON,
     SECRET,
     VENUES,
     KeyPage,
@@ -104,7 +105,8 @@ def test_a_key_that_works_nowhere_says_why_for_each_environment(page) -> None:
     assert notice.kind is FailureKind.COMMAND
     for environment in KeyEnvironment:
         assert environment.label in notice.headline
-    assert "A testnet key does not work on mainnet" in notice.headline
+    assert "-2008 Invalid Api-Key ID" in notice.headline  # the exchange's own words
+    assert "does not work on mainnet" in notice.headline
     assert KEY not in notice.headline + notice.detail
     assert all(not r.has_key for r in page.presenter._settings_view_model.rows)
 
@@ -112,15 +114,15 @@ def test_a_key_that_works_nowhere_says_why_for_each_environment(page) -> None:
 def test_a_refusal_by_a_known_key_points_at_the_ip_allowlist(page) -> None:
     page.probe.verdicts = unknown_everywhere()
     page.probe.verdicts[KeyEnvironment.MAINNET] = EnvironmentVerdict(
-        KeyEnvironment.MAINNET, KeyStanding.REFUSED
+        KeyEnvironment.MAINNET, KeyStanding.REFUSED, reason=REFUSED_REASON
     )
     page.type_in_dialog()
 
     page.click_add()
 
     headline = page.notifier.last.headline
-    assert "knows this key but refused" in headline
-    assert "public IP" in headline
+    assert "-2015 Invalid API-key, IP, or permissions for action" in headline
+    assert "IP whitelist" in headline
     assert "192.168" in headline
 
 

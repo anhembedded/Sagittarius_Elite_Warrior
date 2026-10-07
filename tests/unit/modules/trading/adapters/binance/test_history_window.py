@@ -87,3 +87,15 @@ def test_a_span_that_ends_before_it_starts_asks_for_nothing() -> None:
 
     assert fetch_span(endpoint, 50, 10, rules) == []
     assert endpoint.windows == []
+
+
+def test_a_start_older_than_the_endpoints_age_limit_is_moved_forward() -> None:
+    """`BUG-173` — the oldest start an endpoint accepts is `max_age_ms` before
+    the end of the span; rows older than that are not asked for."""
+    rules = HistoryWindowRules(max_span_ms=100, limit=10, max_age_ms=150)
+    endpoint = _Endpoint([5, 60, 299], rules)
+
+    rows = fetch_span(endpoint, 0, 300, rules)
+
+    assert endpoint.windows[0][0] == 150
+    assert rows == [299]

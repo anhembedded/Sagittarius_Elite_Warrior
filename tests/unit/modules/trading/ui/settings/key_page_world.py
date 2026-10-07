@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
+from binance.exceptions import BinanceAPIException
 from PySide6.QtWidgets import QLabel, QLineEdit
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
@@ -25,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
     EnrolKeyCommand,
@@ -99,8 +103,28 @@ VENUES = (
 )
 
 
+def reason_of(code: int, message: str) -> str:
+    """The wording the probe gives an exchange's refusal: `describe_failure`'s."""
+    exc = BinanceAPIException.__new__(BinanceAPIException)
+    exc.code, exc.message, exc.status_code, exc.response, exc.request = (
+        code,
+        message,
+        401,
+        None,
+        None,
+    )
+    return describe_failure(exc)
+
+
+UNKNOWN_REASON = reason_of(-2008, "Invalid Api-Key ID.")
+REFUSED_REASON = reason_of(-2015, "Invalid API-key, IP, or permissions for action.")
+
+
 def unknown_everywhere() -> dict[KeyEnvironment, EnvironmentVerdict]:
-    return {e: EnvironmentVerdict(e, KeyStanding.UNKNOWN) for e in KeyEnvironment}
+    return {
+        e: EnvironmentVerdict(e, KeyStanding.UNKNOWN, reason=UNKNOWN_REASON)
+        for e in KeyEnvironment
+    }
 
 
 def mainnet_accepts(

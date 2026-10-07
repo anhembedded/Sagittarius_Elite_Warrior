@@ -24,3 +24,7 @@ class ConnectFailure:
     source: AccountSource
     kind: ConnectionFailureKind
     detail: str = ""
+    #: What the exchange answered and what to do about it, in plain words
+    #: (`describe_failure`); empty when the exchange did not answer about the
+    #: key (`BUG-175`).
+    reply: str = ""

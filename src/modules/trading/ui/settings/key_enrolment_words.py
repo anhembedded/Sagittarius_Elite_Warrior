@@ -4,10 +4,9 @@
 key and what to do (`ui-presentation-rule.md` §10); the technical text, the standing
 of each environment, goes behind Details…. A key that works nowhere is explained
 once per environment asked, because the three answers are different advice: the
-key is for another environment (`-2008`: a testnet key does not work on mainnet nor
-the reverse), or Binance knows it and refused the request (`-2015`: an IP off the
-key's allowlist — a LAN address such as 192.168.x.x never matches, only the public
-one — or a missing permission), or Binance could not be asked.
+key is for another environment (`-2008`), or Binance knows it and refused the request
+(`-2015`), or Binance could not be asked. Each line is `describe_failure`'s wording
+(the exchange's code and message, then the reason and the fixes), not a second text.
 """
 
 from __future__ import annotations
@@ -21,8 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_enrolment impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment import (
     EnvironmentVerdict,
-    KeyEnvironment,
-    KeyStanding,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.connection_state_words import (
     failure_words,
@@ -44,22 +41,12 @@ def kept_message(enrolment: KeyEnrolment) -> str:
 
 
 def _environment_line(verdict: EnvironmentVerdict) -> str:
+    """One environment's answer: the exchange's own words (`describe_failure`: its
+    code and message, then the reason and the fixes) when it gave a reason, else
+    what the failure kind means."""
     title = verdict.environment.label
-    if verdict.standing is KeyStanding.UNKNOWN:
-        hint = (
-            " A testnet key does not work on mainnet, nor a mainnet key on a "
-            "testnet: check that the key and secret come from the right Binance site."
-            if verdict.environment is KeyEnvironment.MAINNET
-            else " It was not made for this environment."
-        )
-        return f"{title}: Binance does not know this key.{hint}"
-    if verdict.standing is KeyStanding.REFUSED:
-        return (
-            f"{title}: Binance knows this key but refused the request. If the key is "
-            "restricted to trusted IP addresses, add this computer's public IP "
-            "address (a LAN address such as 192.168.x.x never matches), and check "
-            "that the key has the permissions it needs."
-        )
+    if verdict.reason:
+        return f"{title}: {verdict.reason}"
     if verdict.failure is not None:
         return f"{title}: {failure_words(verdict.failure)}"
     return f"{title}: Binance could not be asked."

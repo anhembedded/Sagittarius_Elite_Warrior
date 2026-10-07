@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     AccountSummary,
     SpotAccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -44,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summ
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -233,6 +239,23 @@ def test_a_failed_read_marks_the_summary_stale_instead_of_raising() -> None:
     assert setup.publisher.published == [
         AccountSummaryStaleEvent(reason="The account read failed.", venue=_SPOT),
         AccountSummaryChangedEvent(summary=_summary("900")),
+    ]
+
+
+def test_a_rejected_key_marks_the_summary_stale_with_its_kind() -> None:
+    """`BUG-174` — the stale reason says why, not only that."""
+    setup = _Service(
+        _ScriptedDispatcher(
+            AccountSummaryUnavailableError(ConnectionFailureKind.KEY_REJECTED)
+        )
+    )
+
+    setup.service.refresh_once()
+
+    assert setup.publisher.published == [
+        AccountSummaryStaleEvent(
+            reason="The account could not be read (key_rejected).", venue=_SPOT
+        )
     ]
 
 

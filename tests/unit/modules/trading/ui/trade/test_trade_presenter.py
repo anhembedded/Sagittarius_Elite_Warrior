@@ -95,6 +95,41 @@ def test_emergency_stop_asks_once_then_stops_every_venue(qtbot) -> None:
     assert trade.fakes[SPOT].session.emergency_stops == 1
 
 
+ALL_FOUR = (
+    TradingVenue.FUTURES_TESTNET,
+    TradingVenue.SPOT_TESTNET,
+    TradingVenue.FUTURES_MAINNET,
+    TradingVenue.SPOT_MAINNET,
+)
+
+
+def test_emergency_stop_reaches_a_mainnet_venue_that_has_a_key(qtbot) -> None:
+    """Real money: a mainnet venue with a key is stopped like a testnet one
+    (the owner's 2026-10-07 log showed the testnet pair only because
+    the mainnet venues had no key)."""
+    trade = build_trade(qtbot, ALL_FOUR)
+
+    trade.emergency_stop.trigger()
+
+    assert {
+        v: trade.fakes[v].session.emergency_stops for v in ALL_FOUR
+    } == dict.fromkeys(ALL_FOUR, 1)
+
+
+def test_emergency_stop_skips_only_the_venues_with_no_key_and_no_session(
+    qtbot,
+) -> None:
+    unkeyed = DeskSetup(keyed=False)
+    mainnet = (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET)
+    trade = build_trade(qtbot, ALL_FOUR, dict.fromkeys(mainnet, unkeyed))
+
+    trade.emergency_stop.trigger()
+
+    assert trade.fakes[FUTURES].session.emergency_stops == 1
+    assert trade.fakes[SPOT].session.emergency_stops == 1
+    assert [trade.fakes[v].session.emergency_stops for v in mainnet] == [0, 0]
+
+
 def test_a_declined_emergency_stop_stops_nothing(qtbot) -> None:
     trade = build_trade(qtbot, BOTH)
     trade.confirmer.answer = False

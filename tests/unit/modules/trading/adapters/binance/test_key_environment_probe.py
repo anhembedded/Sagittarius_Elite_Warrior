@@ -12,6 +12,9 @@ from typing import Any
 import pytest
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import ConnectionError as RequestsConnectionError
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance import (
+    key_environment_probe,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environment_probe import (
     BinanceKeyEnvironmentProbe,
 )
@@ -199,3 +202,22 @@ def test_a_key_python_cannot_send_leaks_nowhere_in_the_log(caplog) -> None:
     assert verdict.standing is KeyStanding.UNREACHABLE
     assert "kkkkkkkkkk" not in caplog.text
     assert "zzzzzzzzzz" not in caplog.text
+
+
+def test_a_refusal_carries_the_exchanges_code_and_message_then_the_hint() -> None:
+    """The one wording (`describe_failure`) the Connect step and the log use."""
+    unknown, _, _ = _probe(_api_error(-2008, "Invalid Api-Key ID."))
+    refused, _, _ = _probe(_api_error(-2015, "Invalid API-key, IP, or permissions."))
+
+    unknown_reason = unknown.probe(KeyEnvironment.MAINNET, _CREDENTIALS).reason
+    refused_reason = refused.probe(KeyEnvironment.MAINNET, _CREDENTIALS).reason
+
+    assert unknown_reason.startswith("-2008 Invalid Api-Key ID.")
+    assert "does not work on mainnet" in unknown_reason
+    assert refused_reason.startswith("-2015 Invalid API-key, IP, or permissions.")
+    assert "192.168.x.x" in refused_reason
+
+
+def test_the_codes_that_mean_unknown_are_the_shared_modules_not_a_copy() -> None:
+    assert not hasattr(key_environment_probe, "_UNKNOWN_KEY_CODES")
+    assert {-2008, -2014} == key_environment_probe.UNKNOWN_KEY_CODES

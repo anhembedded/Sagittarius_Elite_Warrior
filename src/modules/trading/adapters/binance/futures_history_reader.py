@@ -1,7 +1,8 @@
 """`EPIC-028E` — `IAccountHistoryReader` for USD-M Futures.
 
 @details `GET /fapi/v1/allOrders` and `GET /fapi/v1/userTrades` both need a
-symbol, accept at most seven days between `startTime` and `endTime`, and
+symbol, accept at most seven days between `startTime` and `endTime`, refuse a
+`startTime` older than seven days (-4181, `BUG-173`), and
 return at most 1 000 rows; `fetch_span` turns any requested span into
 requests within those limits. Binance keeps Futures order history for 90
 days and trade history for six months, both beyond `MAX_HISTORY_LOOKBACK`.
@@ -77,9 +78,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 
 _ROW_LIMIT = 1000
 _SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
-_RULES = HistoryWindowRules(max_span_ms=_SEVEN_DAYS_MS, limit=_ROW_LIMIT)
+#: `BUG-173`: a `startTime` older than seven days at the exchange is refused
+#: (-4181), so the oldest start asked for keeps five minutes under it.
+_MAX_START_AGE_MS = _SEVEN_DAYS_MS - 5 * 60 * 1000
+_RULES = HistoryWindowRules(
+    max_span_ms=_SEVEN_DAYS_MS, limit=_ROW_LIMIT, max_age_ms=_MAX_START_AGE_MS
+)
 #: `allAlgoOrders` answers at most 100 rows per request.
-_ALGO_RULES = HistoryWindowRules(max_span_ms=_SEVEN_DAYS_MS, limit=100)
+_ALGO_RULES = HistoryWindowRules(
+    max_span_ms=_SEVEN_DAYS_MS, limit=100, max_age_ms=_MAX_START_AGE_MS
+)
 _VENUE = "Futures"
 _GAPS = HistoryGaps(
     order_history=(

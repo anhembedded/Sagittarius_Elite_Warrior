@@ -12,13 +12,14 @@ connection check then accepts:
 - **Futures Testnet** — `GET /fapi/v2/account` (testnet.binancefuture.com, the
   endpoint python-binance's `testnet=True` selects for the Futures venue).
 
-How the exchange's refusal is told: `-2008` (unknown key) and `-2014` (bad key
-format) mean this environment does not know the key; `-2015` (the shared
-`connection_failure.py` table's `KEY_REJECTED`) means it knows the key and refuses
-this request, an IP off the allowlist or a missing permission. The two codes for an
-unknown key are named here because the shared table still files them under the
-catch-all; everything else is the shared classifier's answer, so a maintenance
-page, a clock fault or a dead network is told as it is everywhere else.
+How the exchange's refusal is told: the shared `connection_failure.py` classifier
+files `-2008`, `-2014` and `-2015` under `KEY_REJECTED`; `UNKNOWN_KEY_CODES`, held
+there, says which of them mean this environment does not know the key (`-2008`,
+`-2014`) as against knowing it and refusing this request (`-2015`: an IP off the
+allowlist or a missing permission). Every failure carries `describe_failure`'s
+words, the exchange's code and message then the reason and the fixes, so this page,
+a log line and the Connect step say one thing; a maintenance page, a clock fault or
+a dead network is told as it is everywhere else.
 
 Verification note: the codes are written from Binance's documented errors and the
 owner's logs (`BUG-175`), not re-checked against a live call; egress to
@@ -37,7 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_clie
     new_client,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    UNKNOWN_KEY_CODES,
     classify_connection_failure,
+    describe_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.key_permissions_parser import (
     parse_key_permissions,
@@ -65,9 +68,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 logger = logging.getLogger("App.KeyProbe")
 
-#: Binance codes for "this environment has no such key": `-2008` Invalid Api-Key ID,
-#: `-2014` API-key format invalid.
-_UNKNOWN_KEY_CODES = frozenset({-2008, -2014})
 _ANSWER_FAILURES = (
     BinanceAPIException,
     BinanceRequestException,
@@ -126,8 +126,6 @@ class BinanceKeyEnvironmentProbe(IKeyEnvironmentProbe):
 def _verdict_of_failure(
     environment: KeyEnvironment, exc: Exception
 ) -> EnvironmentVerdict:
-    if isinstance(exc, BinanceAPIException) and exc.code in _UNKNOWN_KEY_CODES:
-        return EnvironmentVerdict(environment, KeyStanding.UNKNOWN)
     if isinstance(exc, KeyError | TypeError | ValueError):
         # An answer that is not what the exchange documents: not an answer about
         # the key, so never read as accepted or refused (`code/errors.md` #7).
@@ -143,5 +141,14 @@ def _verdict_of_failure(
         )
     kind = classify_connection_failure(exc, environment.label)
     if kind is ConnectionFailureKind.KEY_REJECTED:
-        return EnvironmentVerdict(environment, KeyStanding.REFUSED)
-    return EnvironmentVerdict(environment, KeyStanding.UNREACHABLE, failure=kind)
+        # `-2008`/`-2014`: this environment does not know the key; `-2015`: it
+        # knows it and refuses the request (`connection_failure.py` holds the codes).
+        unknown = isinstance(exc, BinanceAPIException) and exc.code in UNKNOWN_KEY_CODES
+        return EnvironmentVerdict(
+            environment,
+            KeyStanding.UNKNOWN if unknown else KeyStanding.REFUSED,
+            reason=describe_failure(exc),
+        )
+    return EnvironmentVerdict(
+        environment, KeyStanding.UNREACHABLE, failure=kind, reason=describe_failure(exc)
+    )

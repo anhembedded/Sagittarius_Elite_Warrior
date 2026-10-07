@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_accou
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -29,9 +32,10 @@ logger = logging.getLogger("App.QueryHandler")
 class GetAccountSummaryQueryHandler(
     IQueryHandler[GetAccountSummaryQuery, AccountSummary | None]
 ):
-    """@return The venue's summary, or `None` when the account could not be
-    read; the venue's `ExchangeConnectionStatus.failure` names why, and
-    `GetExchangeConnectionStatusQuery` is how a caller asks for it."""
+    """@return The venue's summary, or `None` when the check named no failure
+    and still built no summary.
+    @throws AccountSummaryUnavailableError The check failed; the exception
+    carries its `ConnectionFailureKind` (`BUG-174`)."""
 
     def __init__(self, contexts: IVenueContexts) -> None:
         self._contexts = contexts
@@ -39,4 +43,6 @@ class GetAccountSummaryQueryHandler(
     def execute(self, query: GetAccountSummaryQuery) -> AccountSummary | None:
         logger.debug("Handling GetAccountSummaryQuery on %s", query.venue.value)
         status = self._contexts.get(query.venue).account_reader.check_connection()
+        if status.summary is None and status.failure is not None:
+            raise AccountSummaryUnavailableError(status.failure)
         return status.summary

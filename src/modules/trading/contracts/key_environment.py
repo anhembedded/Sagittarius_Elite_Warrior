@@ -67,3 +67,8 @@ class EnvironmentVerdict:
     permissions: KeyPermissions | None = None
     #: Why no answer about the key came, when `standing` is `UNREACHABLE`.
     failure: ConnectionFailureKind | None = None
+    #: The exchange's own code and message, then the reason and the fixes, as
+    #: `describe_failure` words them (one wording for a log line, the Connect step
+    #: and this page). Empty when the exchange gave no code (it was not asked, or
+    #: the answer was not an API reply).
+    reason: str = ""

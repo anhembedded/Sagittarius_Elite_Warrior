@@ -26,11 +26,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
     AccountSummaryStaleEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
     failure_cause,
@@ -61,6 +67,11 @@ logger = logging.getLogger("App.Trading.AccountSummary")
 
 _READ = "read"
 _UNREAD_REASON = "the account could not be read"
+#: An exchange that does not answer fails every read of the desk at once; each
+#: of the others carries the one bar and its Retry.
+_TOLD_ELSEWHERE = frozenset(
+    {ConnectionFailureKind.NETWORK, ConnectionFailureKind.MAINTENANCE}
+)
 
 
 class AccountSummaryPresenter(QObject):
@@ -95,19 +106,26 @@ class AccountSummaryPresenter(QObject):
 
     def _run_read(self, action_id: int) -> None:
         try:
-            self._read.emit((action_id, self._activity.summary(), None))
+            self._read.emit((action_id, self._activity.summary(), None, None))
+        except AccountSummaryUnavailableError as exc:
+            # An outage is told once, by the reads that can retry (`BOT-169`);
+            # the summary adds its own bar only for what concerns the account.
+            detail = None if exc.failure in _TOLD_ELSEWHERE else failure_detail(exc)
+            self._read.emit((action_id, None, detail, exc.reason))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._read.emit((action_id, None, failure_detail(exc)))
+            self._read.emit((action_id, None, failure_detail(exc), None))
 
     def _on_read(self, payload: tuple) -> None:
-        action_id, summary, detail = payload
+        action_id, summary, detail, reason = payload
         if not self._reads.is_current_pending(action_id, _READ):
             self._reads.log_stale_callback("_on_read", action_id, _READ)
             return
         if summary is None:
             self._reads.finish_action(action_id, ActionOutcome.FAILED)
-            logger.warning("Account summary could not be read: %s", detail)
-            self._view.mark_stale(_UNREAD_REASON)
+            logger.warning(
+                "Account summary could not be read: %s", detail or "no answer"
+            )
+            self._view.mark_stale(reason or _UNREAD_REASON)
             if detail is None:
                 # The read answered nothing and raised nothing: the panel's own
                 # stale mark says so, and a bar would add no cause to Details.

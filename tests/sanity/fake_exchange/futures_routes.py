@@ -208,6 +208,7 @@ def _handle_get(
 #: `EPIC-028Q` — Binance's Futures limit on `endTime - startTime` for the
 #: history endpoints, and how long it keeps an unfilled cancelled order.
 _FUTURES_HISTORY_SPAN_MS = 7 * 24 * 60 * 60 * 1000
+_FUTURES_AGED_HISTORY_PATHS = ("/fapi/v1/allOrders", "/fapi/v1/userTrades")
 _FUTURES_UNFILLED_ORDER_KEPT_MS = 3 * 24 * 60 * 60 * 1000
 
 
@@ -222,6 +223,17 @@ def _history(
             "code": -1127,
             "msg": "More than 7 days between startTime and endTime.",
         }
+    if (
+        path in _FUTURES_AGED_HISTORY_PATHS
+        and "startTime" in params
+        and now_ms() - start > _FUTURES_HISTORY_SPAN_MS
+    ):
+        # A start older than seven days at the exchange: the owner's testnet
+        # answered -4181 to `allOrders` and `userTrades` for a `startTime` of
+        # "now minus seven days" computed before the request arrived
+        # (`BUG-173`). Binance's docs do not list this code; the rule is
+        # the observed one.
+        return 400, {"code": -4181, "msg": "Invalid start time."}
     if path == "/fapi/v1/income":
         return 200, state.history.income(start, end, int(params.get("limit", 100)))
     query = HistoryQuery.parse(params)
