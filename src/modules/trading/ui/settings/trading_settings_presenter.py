@@ -78,6 +78,7 @@ _CREDENTIALS_SOURCE_LABELS = EnumLabels(
     {
         CredentialsSource.ENV: "Using key from environment variable",
         CredentialsSource.FILE: "Using key from secrets.local.json",
+        CredentialsSource.KEYRING: "Using key from the operating system's keyring",
         CredentialsSource.NONE: "No API key/secret configured",
     },
 )

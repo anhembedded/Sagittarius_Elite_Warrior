@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialo
 )
 
 type ConfirmDelete = Callable[[BotSnapshot], bool]
+type ShowMainnetAccount = Callable[[], None]
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,8 @@ class BotsDialogs:
     confirm_delete: ConfirmDelete
     #: Bots → Arm strategy… (`EPIC-033K` stage 3).
     ask_arm_strategy: AskArmStrategy
+    #: Bots → Mainnet account (`EPIC-034E`): the owner's real account, read only.
+    show_mainnet_account: ShowMainnetAccount
 
 
 def delete_question(bot: BotSnapshot) -> str:
@@ -49,8 +52,13 @@ def delete_question(bot: BotSnapshot) -> str:
     )
 
 
-def dialogs_for(parent: QWidget, symbols: NewBotSymbols) -> BotsDialogs:
-    """The modal dialogs, parented to `parent`; `symbols` feeds New bot's picker."""
+def dialogs_for(
+    parent: QWidget,
+    symbols: NewBotSymbols,
+    mainnet_account: ShowMainnetAccount,
+) -> BotsDialogs:
+    """The modal dialogs, parented to `parent`; `symbols` feeds New bot's
+    picker; `mainnet_account` opens the read-only mainnet window."""
     return BotsDialogs(
         ask_new_bot=lambda kinds, venues: ask_new_bot_with_dialog(
             parent, kinds, venues, symbols
@@ -58,6 +66,7 @@ def dialogs_for(parent: QWidget, symbols: NewBotSymbols) -> BotsDialogs:
         ask_stop=lambda bot: ask_stop_with_dialog(parent, bot),
         confirm_delete=lambda bot: _ask_delete(parent, bot),
         ask_arm_strategy=lambda venue, form: ask_arm_with_dialog(parent, venue, form),
+        show_mainnet_account=mainnet_account,
     )
 
 

@@ -11,10 +11,13 @@ this app's own vocabulary instead. These contracts are that vocabulary —
   Language must never need editing to add a venue (HLD §2.4, round 3);
 - **`ExchangeCredentials`**: the key/secret pair, with a `__repr__` that cannot
   leak the secret into a traceback;
-- **two ports**: who may mint a signed trading session
-  (`ITradingSessionFactory`, with the structural `ITradingSessionClient` its
-  callers actually use) and who resolves credentials
-  (`IExchangeCredentialsProvider`). `IExchangeSessionFactory` is deliberately
+- **the credentials port** (`IExchangeCredentialsProvider`). The trading
+  session port (`ITradingSessionFactory`, `ITradingSessionClient`) is imported
+  from its own module, not re-exported here: importing any contract of this
+  package runs this file, and the read-only mainnet source
+  (`EPIC-034E`) imports contracts from it and must not load a trading-session
+  port as a side effect (`test_mainnet_has_no_order_path.py`).
+  `IExchangeSessionFactory` is deliberately
   **not** here: its `create_market_data_client()` returns `IExchangeClient`, a
   market-data shape built out of `MarketData` candles, so the port belongs to
   `modules/market_data/contracts` and moves there in PR 0.4 when that port is
@@ -34,10 +37,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionClient,
-    ITradingSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
@@ -49,8 +48,6 @@ __all__ = [
     "CredentialsSource",
     "ExchangeCredentials",
     "IExchangeCredentialsProvider",
-    "ITradingSessionClient",
-    "ITradingSessionFactory",
     "MarketDataVenue",
     "ResolvedCredentials",
     "TradingVenue",

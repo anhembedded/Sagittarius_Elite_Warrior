@@ -18,7 +18,7 @@ watching a bot and editing its plan were never on screen together.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import override
 
 from PySide6.QtCore import QItemSelectionModel, QSize, Qt
@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.identity_strip import (
+    IdentityStrip,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot_precisions import (
     SelectedBotPrecisions,
@@ -116,6 +119,7 @@ class BotsView(BaseView):
         self.status.setWordWrap(True)
         self.status.hide()
         self.plan = BotPlanPanel(self.model)
+        self.identity = IdentityStrip(self.model)
         self.strategies = StrategiesPanel()
         self.orders = BotOrdersPanel(self.model)
         self.fills = BotFillsPanel(self.model)
@@ -133,6 +137,7 @@ class BotsView(BaseView):
         self._place()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self.identity)
         outer.addWidget(self.surface)
         self.set_chart(None)
         self.set_backtest_page(None)
@@ -164,6 +169,14 @@ class BotsView(BaseView):
         replace_in(
             self._chart_slot, chart or empty_page(NO_CHART_TEXT, "lblBotsNoChart")
         )
+
+    def status_widgets(self) -> Sequence[QWidget]:
+        """`IStatusSource`: the selected bot's venue, in the status bar."""
+        return (self.identity.status_label,)
+
+    def lock_chart(self, reason: str) -> None:
+        """The chart's place says why there is no chart yet (`EPIC-034D`)."""
+        replace_in(self._chart_slot, empty_page(reason, "lblBotsChartLocked"))
 
     def set_backtest_page(self, page: QWidget | None) -> None:
         """The kind's backtest page; `None` leaves the instruction."""
@@ -227,7 +240,12 @@ class BotsView(BaseView):
         self.model.bots_changed.connect(self._show_bots)
         self.model.selection_changed.connect(self._sync_selection)
         self.model.statusChanged.connect(self._show_status)
+        self.model.connect_changed.connect(self._lock_plan)
         self.table.selectionModel().selectionChanged.connect(self._on_row_selected)
+
+    def _lock_plan(self) -> None:
+        """The Plan waits for the account (`EPIC-034D`, D1)."""
+        self.plan.setEnabled(not self.model.connect_view.locked)
 
     def _show_bots(self) -> None:
         """A reset drops the selection; it is put back on the same bot,

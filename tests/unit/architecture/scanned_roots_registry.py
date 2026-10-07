@@ -50,7 +50,6 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
-    # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
     # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
     # appear in a container registration anywhere in `src/`.
