@@ -49,3 +49,4 @@
 - First wiring read the move as a creation (`PendingAction.action is None` means "a new bot"): the screen re-selected the bot and dropped unsaved edits. `PendingAction.moves_venue` separates the two.
 - `IVenueContexts.enabled()` is every venue the build assembles (`EPIC-034B`), so "enabled" says nothing about a key; the connection state reads the venue's stored key instead. This is a judgement call: it is the state known without a request; the live state is Connect's.
 - Delivered in the pull request that also carries `BUG-181` and `BOT-170`; not merged.
+- Review of PR #426: the Plan's Venue field can read "API key saved" while the Connect strip for the same venue reads "Not connected: key refused". Both are true (a stored key is not a tested key); the wording is kept and the live state is the strip's. Revisit if it confuses.

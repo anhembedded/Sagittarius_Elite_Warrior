@@ -41,8 +41,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
+    AccountSource,
 )
 
 from .bots_screen_fixtures import (
@@ -259,3 +265,24 @@ def test_a_fills_failure_the_exchange_does_not_name_stays_its_own_bar(
     bars = screen.notifier.failures_of(FailureKind.BACKGROUND)
     assert [bar.cause for bar in bars] == ["bots.read.fills"]
     assert screen.presenter._account.view.state is ReadinessState.DESIGNING
+
+
+def test_a_refusal_of_another_venue_does_not_fail_the_bot_that_is_connected(
+    open_bots_screen,
+) -> None:
+    """A fills answer for the venue a bot has since left must not fail the bot
+    that is connected on the other one (the source guard in `venue_refused`)."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    select(screen, "a00001")
+    screen.settle()
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING
+
+    screen.presenter._account.venue_refused(
+        ConnectFailure(
+            AccountSource.SPOT_MAINNET, ConnectionFailureKind.KEY_REJECTED, "x"
+        )
+    )
+
+    assert screen.presenter._account.view.state is ReadinessState.DESIGNING
+    assert not [n for n in screen.notifier.failures if n.cause.startswith("bots.")]

@@ -29,3 +29,6 @@ On master, `tests/unit/modules/bots/ui/bots_screen/test_one_connect_failure_one_
 
 ## Verification
 The Bots, trading, market-data and architecture suites and the commit tier on the pull request's head; see the pull request for the head commit and the CI run. Positive proof the new mechanism ran: the integration test above reads `-2015` over HTTP from the fake server and gets `BotFills.refused`.
+
+## Accepted price (review of PR #426)
+The fills are read on selection and on the Fills refresh only. After a refused fills read fails a connected step, the 60 s account refresh may bring Connect back to connected while the Fills panel still says "not read: key refused" until the next fills read. This is accepted: the text is short-lived, never the only signal (Connect's own state is right), and re-reading fills on every Connect recovery would add a coupling for a cosmetic gap. A test (`test_a_refusal_of_another_venue_does_not_fail_the_bot_that_is_connected`) locks the source guard of `ConnectStep.venue_refused`, which the review found untested.
