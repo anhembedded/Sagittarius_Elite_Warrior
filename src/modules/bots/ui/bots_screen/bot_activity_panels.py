@@ -10,7 +10,7 @@ column specs (`EPIC-033N`); Refresh fills is a command of the Bots menu
 from __future__ import annotations
 
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QLabel, QPlainTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     BotFillsTableModel,
     BotOrdersTableModel,
@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
     ISymbolPrecisions,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
 NO_ORDERS_TEXT = "The selected bot has no resting orders."
@@ -64,7 +65,7 @@ class BotFillsPanel(QWidget):
         self.setObjectName("panelBotFills")
         self._model = model
         self.fills = BotFillsTableModel(self)
-        self.note = QLabel()
+        self.note = plain_label()
         self.note.setObjectName("lblBotFillsNote")
         self.note.setWordWrap(True)
         self._table = SpecTable(

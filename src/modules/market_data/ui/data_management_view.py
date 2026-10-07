@@ -30,7 +30,6 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QDockWidget,
-    QLabel,
     QProgressBar,
     QVBoxLayout,
     QWidget,
@@ -43,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_readout import status_readout
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import BYTES_KEY
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
@@ -139,7 +139,7 @@ class DataManagementView(OutputSourceView):
             # showing it before the status bar takes it opens no window.
             readout.setParent(self)
             readout.hide()
-        self._task = QLabel()
+        self._task = plain_label()
         self._task.setObjectName("lblDataTask")
         self._progress = QProgressBar()
         self._progress.setObjectName("prgDataTask")

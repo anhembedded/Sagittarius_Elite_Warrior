@@ -23,7 +23,6 @@ from typing import override
 
 from PySide6.QtCore import QItemSelectionModel, QSize, Qt
 from PySide6.QtWidgets import (
-    QLabel,
     QVBoxLayout,
     QWidget,
 )
@@ -66,6 +65,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.i_symbol_precisions import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.minimum_hint_slot import (
     MinimumHintSlot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -111,7 +111,7 @@ class BotsView(BaseView):
         self._bots_table.sort_by(BotsTableModel.column("name"))
         self._proxy = self._bots_table.proxy
         self.table = self._bots_table.view
-        self.status = QLabel()
+        self.status = plain_label()
         self.status.setObjectName("lblBotsStatus")
         self.status.setWordWrap(True)
         self.status.hide()

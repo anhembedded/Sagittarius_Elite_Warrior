@@ -17,7 +17,6 @@ from collections.abc import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
-    QLabel,
     QTabBar,
     QVBoxLayout,
     QWidget,
@@ -39,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_opt
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.two_column_sides import (
     TwoColumnSides,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.verb_confirmation import (
     VerbQuestion,
     ask_with_verbs,
@@ -102,7 +102,7 @@ class OrderEntryPanel(QWidget):  # base-exempt: a container, not a surface
         self._tp_sl.toggled.connect(view_model.options.set_tp_sl_enabled)
         self._options = OrderOptionsBar(view_model)
         self.sides = _SIDE_LAYOUTS[view_model.profile.side_layout](view_model)
-        self._status = QLabel()
+        self._status = plain_label()
         self._status.setObjectName("lblOrderEntryStatus")
         self._status.setWordWrap(True)
 

@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtur
     ChartWorld,
     InlineThreadManager,
 )
+from Sagittarius_Elite_Warrior.tests.unit.support.charting.live_chart.live_chart_fixtures import (
+    ScriptedCandleFeed,
+)
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
@@ -89,7 +92,8 @@ def _host(world: ChartWorld, bus: MemoryEventBus) -> BotChartHost:
                 world.sync, world.history, world.stream, world.market
             ),
             ticks=BotTickFeed(bus, MarketType.SPOT),
-        )
+        ),
+        lambda _text, _failed: None,
     )
 
 
@@ -209,3 +213,29 @@ def test_the_live_stream_command_follows_the_selected_bots_chart(qapp) -> None:
     host.close()
     assert not command.isEnabled()
     owner.deleteLater()
+
+
+def test_the_error_state_carries_the_message_the_status_line_shows(qapp) -> None:
+    """`EPIC-034A` connected the chart's `logged` lines to the status line;
+    the Error state is the same failure, in words on the chip."""
+    feed = ScriptedCandleFeed()
+    feed.stream_message = "exchange said no"
+    said: list[tuple[str, bool]] = []
+    host = BotChartHost(
+        BotChartPorts(
+            thread_manager=InlineThreadManager(),
+            feed=feed,
+            ticks=BotTickFeed(MemoryEventBus(), MarketType.SPOT),
+        ),
+        lambda text, failed: said.append((text, failed)),
+    )
+    host.show(_bot(BotLifecycleState.DRAFT))
+    chart = host._chart
+    assert chart is not None
+
+    chart.run_command(LiveChartCommand.GO_LIVE)
+
+    assert chart.live_state is S.ERROR
+    assert "exchange said no" in chart.live_error
+    assert any(failed and "exchange said no" in text for text, failed in said)
+    host.close()

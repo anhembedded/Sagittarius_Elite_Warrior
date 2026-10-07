@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -24,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     all_options as all_timeframe_options,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
@@ -106,7 +106,7 @@ class MarketDataSettingsView(BaseView):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
-        warning = QLabel(
+        warning = plain_label(
             "Default Symbols/Interval/Sync Days are written to "
             "user_config.json. Data Source requires an app restart to take "
             "effect — it is only read once, on app startup."
@@ -144,7 +144,7 @@ class MarketDataSettingsView(BaseView):
         defaults_form.addRow("Default Sync Days:", self._sync_days_spin)
         layout.addWidget(defaults_box)
 
-        self._status_label = QLabel()
+        self._status_label = plain_label()
         self._status_label.setObjectName("lblMarketDataSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)

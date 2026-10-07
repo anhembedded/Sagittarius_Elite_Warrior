@@ -75,3 +75,21 @@ def test_a_read_asked_after_drop_all_never_reaches_the_pool(qapp) -> None:
 
     assert pool.pending == []
     assert heard == []
+
+
+def test_the_screen_does_not_log_a_failed_read_a_second_time(qapp, caplog) -> None:
+    """`BUG-168`: the engine's dispatcher already logs a failed query at
+    ERROR; the screen logging it again at WARNING wrote one outage twice."""
+    pool = HeldPool()
+    reads, _ = _reads(pool)
+
+    def broken() -> object:
+        raise TimeoutError("the exchange is unavailable (HTTP 502 Bad Gateway)")
+
+    with caplog.at_level("DEBUG", logger="App.Bots.Screen"):
+        reads.read(ReadKind.PLANNER, "a00001", broken)
+        pool.run_all()
+
+    loud = [r for r in caplog.records if r.levelno >= 30]
+    assert loud == []
+    assert "502 Bad Gateway" in caplog.text

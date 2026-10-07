@@ -36,11 +36,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QLabel,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -81,9 +81,9 @@ class KlineInspectorDialog(QDialog):  # base-exempt: ADR D22, a dialog is a QDia
         self.setModal(True)
         self.resize(*_INITIAL_SIZE)
 
-        self._subtitle = QLabel()
+        self._subtitle = plain_label()
         self._subtitle.setObjectName("lblKlineInspectorSubtitle")
-        self._empty = QLabel("No candle data available in the database.")
+        self._empty = plain_label("No candle data available in the database.")
         self._empty.setObjectName("lblKlineInspectorEmpty")
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._table = self._build_table(view_model.kline_inspector_model)

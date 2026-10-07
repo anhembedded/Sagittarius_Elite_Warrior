@@ -119,6 +119,15 @@ def test_create_waits_for_a_picked_symbol_and_names_what_it_does(qtbot) -> None:
     assert command.name == "ETHUSDT grid"
 
 
+def test_the_new_bot_dialog_offers_venue_titles_and_hands_back_the_venue(qtbot) -> None:
+    """`EPIC-034A`: the combo reads "Spot Testnet", the command carries the enum."""
+    dialog = NewBotDialog(["grid"], [VENUE], _symbols("BTCUSDT"))
+    qtbot.addWidget(dialog)
+
+    assert dialog.venue.itemText(0) == VENUE.display_name
+    assert TradingVenue(dialog.venue.itemData(0)) is VENUE
+
+
 def test_new_bot_asks_only_the_minimum_and_saves_no_parameters(qtbot) -> None:
     """`BOT-150` — the user's rule (2026-10-04): creating a bot asks the least;
     its parameters are set afterwards, while it is a draft or stopped."""

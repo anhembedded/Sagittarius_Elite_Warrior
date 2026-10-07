@@ -45,7 +45,7 @@ from collections.abc import Mapping, Sequence
 
 from PySide6.QtCore import QObject
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QPalette, QResizeEvent
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
@@ -85,6 +85,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source import IOutputSource
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     INavigationService,
     IScreenRegistry,
@@ -212,7 +213,7 @@ class MainWindow(OptionsShell):
         if not venue_text:
             return
         self.setWindowTitle(f"{APPLICATION_NAME} — {venue_text}")
-        label = QLabel(venue_text)
+        label = plain_label(venue_text)
         label.setObjectName("workbench::venue")
         self.add_status_widget(label)
 

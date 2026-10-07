@@ -16,11 +16,11 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QDialogButtonBox,
-    QLabel,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -89,7 +89,7 @@ class IndicatorPickerDialog(QDialog):
             )
             self._rows_layout.addWidget(box)
         if model.rowCount() == 0:
-            empty = QLabel(_EMPTY_TEXT)
+            empty = plain_label(_EMPTY_TEXT)
             empty.setObjectName("lblIndicatorsEmpty")
             self._rows_layout.addWidget(empty)
 

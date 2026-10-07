@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -36,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.monte_carlo_rule
     build_spaghetti_chart_series,
     build_summary_readout,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 
 from ._monte_carlo_drawdown_histogram_widget import (
@@ -84,7 +84,7 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
 
     def _build_controls_row(self) -> None:
         row = QHBoxLayout()
-        simulations = QLabel("Simu&lations:")
+        simulations = plain_label("Simu&lations:")
         row.addWidget(simulations)
 
         self._spin_iterations = QSpinBox()
@@ -103,14 +103,14 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self.body_layout.addLayout(row)
 
     def _build_description_label(self) -> None:
-        self._description_label = QLabel()
+        self._description_label = plain_label()
         self._description_label.setObjectName("lblMonteCarloDescription")
         self._description_label.setWordWrap(True)
         self.body_layout.addWidget(self._description_label)
 
     def _build_summary(self) -> None:
         # Why a run is not shown, as a sentence; its figures are a read-out.
-        self._error_label = QLabel()
+        self._error_label = plain_label()
         self._error_label.setObjectName("lblMonteCarloError")
         self._error_label.setWordWrap(True)
         self.body_layout.addWidget(self._error_label)

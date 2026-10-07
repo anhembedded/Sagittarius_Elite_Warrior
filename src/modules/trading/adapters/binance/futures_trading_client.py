@@ -39,6 +39,9 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_error_translator import (
     translate_binance_error,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
     is_algo_routed,
     map_futures_algo_payload_to_order,
@@ -253,4 +256,4 @@ class FuturesTradingClient(ITradingClient):
 
 def _raise_rejection(exc: BinanceAPIException) -> NoReturn:
     reason = translate_binance_error(exc)
-    raise OrderRejectedByExchangeError(reason, str(exc)) from exc
+    raise OrderRejectedByExchangeError(reason, describe_failure(exc)) from exc

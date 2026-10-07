@@ -34,6 +34,10 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
+    is_non_json_answer,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_settings_parser import (
     parse_leverage_brackets,
     parse_symbol_setting,
@@ -89,6 +93,10 @@ def _exchange_answer(what: str, outcome: str) -> Iterator[None]:
     try:
         yield
     except BinanceAPIException as exc:
+        if is_non_json_answer(exc):
+            raise AccountControlUnavailableError(
+                f"{what} got no answer; {outcome}: {describe_failure(exc)}"
+            ) from exc
         raise AccountControlRejectedError(int(exc.code), str(exc.message)) from exc
     except (BinanceRequestException, RequestException) as exc:
         raise AccountControlUnavailableError(

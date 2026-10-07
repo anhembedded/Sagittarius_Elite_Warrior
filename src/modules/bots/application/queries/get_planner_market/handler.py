@@ -78,7 +78,7 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
             venue.market_type is not MarketType.SPOT
             or venue not in self._ports.enabled()
         ):
-            return _unreadable(f"{venue.value} is not an enabled Spot venue")
+            return _unreadable(f"{venue.display_name} is not an enabled Spot venue")
         entry_terms = self._ports.get(venue).order_entry_terms
         try:
             terms = exchange_terms_for(entry_terms, query.symbol, self._caps)
@@ -88,7 +88,7 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
             CommissionRateUnavailableError,
             MarketPriceUnavailableError,
         ) as exc:
-            return _unreadable(f"{query.symbol} on {venue.value}: {exc}")
+            return _unreadable(f"{query.symbol} on {venue.display_name}: {exc}")
         candles = self._klines.load(
             MarketType.SPOT,
             query.symbol,

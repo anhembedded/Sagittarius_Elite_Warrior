@@ -68,7 +68,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         values: tuple[DisplayValue, ...] = (
             row.name,
             KIND_TITLES.get(row.kind, row.kind),
-            row.venue.value,
+            row.venue.display_name,
             row.symbol,
             state_text(row.state),
             row.progress.realised_profit if row.progress else None,

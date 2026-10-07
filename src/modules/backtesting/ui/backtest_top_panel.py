@@ -20,12 +20,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
-    QLabel,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .backtest_stat_row import BacktestStatRow
 from .notice_bar import NoticeBar, NoticeKind
@@ -77,7 +77,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self._stat_cards_row = BacktestStatRow(
             lambda: self._vm.run_result.primaryStatCards
         )
-        self._result_warning_label = QLabel()
+        self._result_warning_label = plain_label()
         self._result_warning_label.setObjectName("lblResultWarning")
         self._result_warning_label.setWordWrap(True)
         self._result_box = self._build_result_box()

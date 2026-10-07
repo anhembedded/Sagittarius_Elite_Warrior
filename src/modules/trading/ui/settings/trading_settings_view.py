@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QGridLayout,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QVBoxLayout,
@@ -16,6 +15,7 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class TradingSettingsView(BaseView):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
 
-        warning = QLabel(
+        warning = plain_label(
             "API Key/Secret are written to secrets.local.json (not tracked "
             "in git). API Key/Secret and the trading venues both require an "
             "app restart to take effect — they are only read once, on app "
@@ -164,14 +164,14 @@ class TradingSettingsView(BaseView):
         layout.addLayout(grid)
 
         row = 0
-        grid.addWidget(QLabel("Binance API Key (Public):"), row, 0)
+        grid.addWidget(plain_label("Binance API Key (Public):"), row, 0)
         self._api_key_field = self._make_field("txtApiKey")
         grid.addWidget(self._api_key_field, row, 1)
         row += 1
 
         row = self._add_secret_row(grid, row)
 
-        self._credentials_source_label = QLabel()
+        self._credentials_source_label = plain_label()
         self._credentials_source_label.setObjectName("lblCredentialsSource")
         self._credentials_source_label.setWordWrap(True)
         grid.addWidget(self._credentials_source_label, row, 0, 1, 2)
@@ -182,7 +182,7 @@ class TradingSettingsView(BaseView):
         grid.addWidget(self._check_connection_button, row, 0, 1, 2)
         row += 1
 
-        self._connection_result_label = QLabel()
+        self._connection_result_label = plain_label()
         self._connection_result_label.setObjectName("lblConnectionResult")
         self._connection_result_label.setWordWrap(True)
         grid.addWidget(self._connection_result_label, row, 0, 1, 2)
@@ -190,7 +190,7 @@ class TradingSettingsView(BaseView):
 
         row = self._add_venue_row(grid, row)
 
-        self._status_label = QLabel()
+        self._status_label = plain_label()
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
@@ -201,7 +201,9 @@ class TradingSettingsView(BaseView):
         return field
 
     def _add_venue_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(QLabel("Trading venues:"), row, 0, Qt.AlignmentFlag.AlignTop)
+        grid.addWidget(
+            plain_label("Trading venues:"), row, 0, Qt.AlignmentFlag.AlignTop
+        )
         toggles_widget = QWidget()
         toggles_layout = QVBoxLayout(toggles_widget)
         toggles_layout.setContentsMargins(0, 0, 0, 0)
@@ -213,14 +215,14 @@ class TradingSettingsView(BaseView):
             toggle.setObjectName(f"chkTradingVenue_{venue.value}")
             toggles_layout.addWidget(toggle)
             self._venue_toggles[venue] = toggle
-        hint = QLabel(_VENUES_HINT_TEXT)
+        hint = plain_label(_VENUES_HINT_TEXT)
         hint.setObjectName("lblTradingVenuesHint")
         hint.setWordWrap(True)
         toggles_layout.addWidget(hint)
         grid.addWidget(toggles_widget, row, 1)
         row += 1
 
-        self._venue_lock_label = QLabel()
+        self._venue_lock_label = plain_label()
         self._venue_lock_label.setObjectName("lblTradingVenueLocked")
         self._venue_lock_label.setWordWrap(True)
         self._venue_lock_label.setVisible(False)
@@ -228,7 +230,7 @@ class TradingSettingsView(BaseView):
         return row + 1
 
     def _add_secret_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(QLabel("Binance API Secret (Private):"), row, 0)
+        grid.addWidget(plain_label("Binance API Secret (Private):"), row, 0)
 
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)

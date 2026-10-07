@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
     IContributionTable,
 )
@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.shell.surfaces import (
     DEVELOPER_SURFACE_ID,
     surfaces_by_id,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (
     fill_surface,
@@ -60,7 +61,7 @@ class DeveloperView(BaseView):
             object_name="tblEventLog",
             empty_text=EMPTY_LOG_TEXT,
         )
-        self._lost = QLabel()
+        self._lost = plain_label()
         self._lost.setObjectName("lblEventLogLost")
         self._lost.setWordWrap(True)
         self._lost.hide()

@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QFormLayout,
-    QLabel,
     QPushButton,
     QWidget,
 )
@@ -33,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.shell.developer_options.restart import restart_now
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 logger = logging.getLogger("App.Shell.DeveloperOptions")
 
@@ -68,7 +68,7 @@ class DeveloperOptionsPage:
         self._switch = QCheckBox(_SWITCH_TEXT)
         self._switch.setObjectName("options::developer::mode")
         self._switch.toggled.connect(self._on_edited)
-        self._notice = QLabel(_RESTART_NOTICE)
+        self._notice = plain_label(_RESTART_NOTICE)
         self._restart = QPushButton(_RESTART_TEXT)
         self._restart.setObjectName("options::developer::restart")
         self._restart.clicked.connect(self._on_restart)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -200,6 +201,24 @@ class TestRejectionTranslation:
 
         assert exc_info.value.reason is OrderRejectionReason.LOT_SIZE
         assert "Quantity less than or equal to zero." in exc_info.value.raw_message
+
+    def test_an_html_answer_to_an_order_carries_no_page(self) -> None:
+        """`BUG-168` (the PR #414 review): a gateway's page is not forwarded as
+        the rejection's text."""
+        page = (
+            "<html><head><title>502 Bad Gateway</title></head><body>nginx</body></html>"
+        )
+        raw_client = Mock()
+        raw_client.create_test_order.side_effect = BinanceAPIException(
+            SimpleNamespace(text=page), 502, page
+        )
+        client = _client(raw_client)
+
+        with pytest.raises(OrderRejectedByExchangeError) as exc_info:
+            client.place_order(_order())
+
+        assert "502 Bad Gateway" in exc_info.value.raw_message
+        assert "<" not in exc_info.value.raw_message
 
 
 class TestCancelOrder:

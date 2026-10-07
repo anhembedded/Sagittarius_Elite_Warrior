@@ -16,10 +16,11 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QLabel, QProgressBar, QWidget
+from PySide6.QtWidgets import QProgressBar, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     CANCELLING_CAPTION,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -47,7 +48,7 @@ class RunProgressStatus(QObject):
 
     def __init__(self, parent: QObject) -> None:
         super().__init__(parent)
-        self.text = QLabel()
+        self.text = plain_label()
         self.text.setObjectName("lblBacktestProgress")
         self.bar = QProgressBar()
         self.bar.setObjectName("prgBacktestProgress")

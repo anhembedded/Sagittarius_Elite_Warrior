@@ -27,13 +27,13 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QTableView,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.font_extent import font_extent
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -158,7 +158,7 @@ class SymbolPickerOverlay(QDialog):
         self._search_field.textChanged.connect(self._on_search_changed)
         row.addWidget(self._search_field, 1)
 
-        self._result_count = QLabel()
+        self._result_count = plain_label()
         self._result_count.setObjectName("lblSymbolResultCount")
         row.addWidget(self._result_count)
         self._body_layout.addLayout(row)
@@ -177,7 +177,7 @@ class SymbolPickerOverlay(QDialog):
         self._body_layout.addLayout(row)
 
     def _build_results_area(self) -> None:
-        self._status_label = QLabel(_LOADING_TEXT)
+        self._status_label = plain_label(_LOADING_TEXT)
         self._status_label.setObjectName("lblSymbolStatus")
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._body_layout.addWidget(self._status_label)
@@ -204,11 +204,11 @@ class SymbolPickerOverlay(QDialog):
 
     def _build_footer_row(self) -> None:
         row = QHBoxLayout()
-        hints = QLabel(_KEY_HINTS)
+        hints = plain_label(_KEY_HINTS)
         hints.setObjectName("lblSymbolKeyHints")
         row.addWidget(hints)
         row.addStretch(1)
-        self._current_label = QLabel()
+        self._current_label = plain_label()
         self._current_label.setObjectName("lblSymbolCurrent")
         row.addWidget(self._current_label)
         self._body_layout.addLayout(row)

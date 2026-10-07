@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDateTimeEdit,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QScrollArea,
     QSplitter,
@@ -48,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 from sagittarius_engine.extensions.pyside_mvc.workbench import ReadoutForm
 
@@ -90,7 +90,7 @@ class GridBacktestView(QWidget):
         self.cancel_button.setObjectName("btnGridBacktestCancel")
         self.sync_button = QPushButton("Sync candles")
         self.sync_button.setObjectName("btnGridBacktestSync")
-        self.status = QLabel()
+        self.status = plain_label()
         self.status.setObjectName("lblGridBacktestStatus")
         self.status.setWordWrap(True)
         self.card = ChartCard("Backtest")
@@ -98,7 +98,7 @@ class GridBacktestView(QWidget):
         self.equity = EquityChart()
         self.summary = ReadoutSlot()
         self.summary.setObjectName("roGridBacktestFigures")
-        self.notes = QLabel()
+        self.notes = plain_label()
         self.notes.setObjectName("lblGridBacktestCaveats")
         self.notes.setWordWrap(True)
         self._build()
@@ -187,7 +187,7 @@ class GridBacktestView(QWidget):
             ("From", self.start),
             ("To", self.end),
         ):
-            period.addWidget(QLabel(label))
+            period.addWidget(plain_label(label))
             period.addWidget(field)
         period.addWidget(self.run_button)
         period.addWidget(self.cancel_button)

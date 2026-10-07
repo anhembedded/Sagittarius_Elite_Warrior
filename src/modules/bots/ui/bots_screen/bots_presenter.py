@@ -147,7 +147,9 @@ class BotsPresenter(CommandPresenter):
         self._now = now
         self._catalog, self._venues = deps.kinds, deps.venues
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
-        self._charts = BotChartHost(BotChartPorts(threads, feed, self._ticks))
+        self._charts = BotChartHost(
+            BotChartPorts(threads, feed, self._ticks), self._model.set_status
+        )
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
         )

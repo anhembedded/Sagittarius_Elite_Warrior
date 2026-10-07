@@ -154,6 +154,10 @@ class LiveCandleChart(QObject):
         return self._symbol
 
     @property
+    def shown_interval(self) -> str:
+        return self._interval
+
+    @property
     def is_live(self) -> bool:
         return self._live
 
