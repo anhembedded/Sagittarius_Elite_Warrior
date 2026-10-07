@@ -3,8 +3,10 @@ venue's own connection check, the seam `GetHoldingsQueryHandler` reads."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary import (
     GetAccountSummaryQuery,
     GetAccountSummaryQueryHandler,
@@ -13,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     AccountSummary,
     FuturesAccountSummary,
     SpotAccountSummary,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -89,8 +94,24 @@ def test_each_venue_answers_with_its_own_readers_summary() -> None:
     assert (futures.checks, spot.checks) == (1, 1)
 
 
-def test_an_unreadable_account_answers_none() -> None:
-    futures = FakeTradingAccountReader(_status(_FUTURES, None))
+def test_an_unreadable_account_raises_with_the_failure_kind() -> None:
+    """`BUG-174` — a rejected key used to answer `None`, and the desk logged
+    "could not be read: None" with no notice."""
+    status = _status(_SPOT, None)
+    status = replace(status, failure=ConnectionFailureKind.KEY_REJECTED)
+    futures = FakeTradingAccountReader(_status(_FUTURES, _FUTURES_SUMMARY))
+    spot = FakeTradingAccountReader(status)
+
+    with pytest.raises(AccountSummaryUnavailableError) as raised:
+        _handler(futures, spot).execute(GetAccountSummaryQuery(venue=_SPOT))
+
+    assert raised.value.failure is ConnectionFailureKind.KEY_REJECTED
+    assert "key_rejected" in str(raised.value)
+
+
+def test_a_check_with_no_failure_and_no_summary_still_answers_none() -> None:
+    status = replace(_status(_FUTURES, None), failure=None)
+    futures = FakeTradingAccountReader(status)
     spot = FakeTradingAccountReader(_status(_SPOT, _SPOT_SUMMARY))
 
     assert (

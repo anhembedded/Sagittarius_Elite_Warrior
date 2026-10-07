@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
 )
@@ -121,6 +124,11 @@ class AccountSummaryRefreshService:
                     GetAccountSummaryQuery, GetAccountSummaryQuery(venue=self._venue)
                 ),
             )
+        except AccountSummaryUnavailableError as exc:
+            self._mark_stale_if_newest(
+                ticket, f"{exc.reason[0].upper()}{exc.reason[1:]}."
+            )
+            return
         except Exception:
             logger.warning("Account summary read failed", exc_info=True)
             self._mark_stale_if_newest(ticket, "The account read failed.")

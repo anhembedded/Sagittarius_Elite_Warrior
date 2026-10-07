@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
     FuturesAccountSummary,
     SpotAccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
 )
@@ -23,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summ
     AccountSummaryStaleEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
     PositionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
@@ -194,6 +198,37 @@ def test_a_failed_summary_read_is_one_background_notice_with_retry(qtbot) -> Non
     assert notice.detail == "502 Bad Gateway <html>"
     assert "502" not in notice.headline
     assert "502" not in panel.stale_text
+
+
+def test_a_rejected_key_is_named_in_the_log_the_stale_mark_and_the_notice(
+    qtbot, caplog
+) -> None:
+    """`BUG-174` — "Account summary could not be read: None" and no notice."""
+
+    class Rejected(FakeAccountActivity):
+        def summary(self):
+            raise AccountSummaryUnavailableError(ConnectionFailureKind.KEY_REJECTED)
+
+    notifier = RecordingNotifier()
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+    presenter = AccountSummaryPresenter(
+        panel,
+        Rejected(),
+        OrderFeed(MemoryEventBus(), _FUTURES, parent=panel),
+        InlineThreadManager(),
+        notifier,
+        _FUTURES,
+    )
+
+    with caplog.at_level("WARNING", logger="App.Trading.AccountSummary"):
+        presenter.refresh()
+
+    assert "key_rejected" in caplog.text
+    assert "key rejected" in panel.stale_text or "key_rejected" in panel.stale_text
+    assert notifier.last.detail is not None
+    assert "key_rejected" in notifier.last.detail
+    assert notifier.last.retry is not None
 
 
 def test_a_summary_that_reads_again_clears_its_notice(qtbot) -> None:

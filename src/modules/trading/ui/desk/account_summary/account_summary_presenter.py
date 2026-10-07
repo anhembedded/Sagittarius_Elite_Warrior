@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary_unavailable_error import (
+    AccountSummaryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
 )
@@ -95,19 +98,23 @@ class AccountSummaryPresenter(QObject):
 
     def _run_read(self, action_id: int) -> None:
         try:
-            self._read.emit((action_id, self._activity.summary(), None))
+            self._read.emit((action_id, self._activity.summary(), None, None))
+        except AccountSummaryUnavailableError as exc:
+            self._read.emit((action_id, None, failure_detail(exc), exc.reason))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._read.emit((action_id, None, failure_detail(exc)))
+            self._read.emit((action_id, None, failure_detail(exc), None))
 
     def _on_read(self, payload: tuple) -> None:
-        action_id, summary, detail = payload
+        action_id, summary, detail, reason = payload
         if not self._reads.is_current_pending(action_id, _READ):
             self._reads.log_stale_callback("_on_read", action_id, _READ)
             return
         if summary is None:
             self._reads.finish_action(action_id, ActionOutcome.FAILED)
-            logger.warning("Account summary could not be read: %s", detail)
-            self._view.mark_stale(_UNREAD_REASON)
+            logger.warning(
+                "Account summary could not be read: %s", detail or "no answer"
+            )
+            self._view.mark_stale(reason or _UNREAD_REASON)
             if detail is None:
                 # The read answered nothing and raised nothing: the panel's own
                 # stale mark says so, and a bar would add no cause to Details.

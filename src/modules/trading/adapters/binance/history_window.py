@@ -6,8 +6,13 @@ limit, and returns at most `limit` rows. `fetch_span` turns one requested
 span into requests the exchange accepts, and never lets the row cap cut a
 window short:
 
-1. the span is cut into consecutive windows no longer than `max_span_ms`;
-2. a window that comes back holding exactly `limit` rows may have had more,
+1. a start older than the endpoint's `max_age_ms` is moved forward to it:
+   Binance refuses a `startTime` more than seven days old with -4181 on
+   Futures `allOrders` and `userTrades`, and a "now minus seven days"
+   computed before the request leaves is that old when it arrives
+   (`BUG-173`);
+2. the span is cut into consecutive windows no longer than `max_span_ms`;
+3. a window that comes back holding exactly `limit` rows may have had more,
    so it is split in two and each half is read again, down to a single
    millisecond. A millisecond that still fills a whole page cannot be split
    further, and `HistoryWindowTooDenseError` says so rather than dropping
@@ -43,6 +48,10 @@ class HistoryWindowRules:
 
     max_span_ms: int
     limit: int
+    #: How far back from `until_ms` a start may be, kept under the exchange's
+    #: own limit by a margin for the request's travel time; `None` when the
+    #: endpoint has no such limit (Spot).
+    max_age_ms: int | None = None
 
 
 def fetch_span[T](
@@ -52,6 +61,8 @@ def fetch_span[T](
     @throws HistoryWindowTooDenseError See the module docstring."""
     rows: list[T] = []
     start = since_ms
+    if rules.max_age_ms is not None:
+        start = max(start, until_ms - rules.max_age_ms)
     while start <= until_ms:
         end = min(start + rules.max_span_ms - 1, until_ms)
         rows.extend(_fetch_window(fetch, start, end, rules.limit))
