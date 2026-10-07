@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 )
 
 from ..strategies.strategy_fakes import STRATEGY_KEY
+from .bots_market_fixtures import MAINNET
 from .bots_screen_fixtures import VENUE, Answers
 
 
@@ -47,7 +48,7 @@ def test_the_screen_lists_each_served_venue_and_waits_for_a_selection(
 ) -> None:
     screen = open_bots_screen()
 
-    assert [row.venue for row in _rows(screen)] == [VENUE]
+    assert [row.venue for row in _rows(screen)] == [VENUE, MAINNET]
     assert not screen.actions.action(ARM_STRATEGY).isEnabled()
     assert not screen.actions.action(DISARM_STRATEGY).isEnabled()
 

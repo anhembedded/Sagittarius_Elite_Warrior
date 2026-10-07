@@ -9,8 +9,7 @@ market the orders fill in (an alignment check, `EPIC-021K`) and to warn of a
 mismatch. Since `BUG-172` the chart a screen shows *is* its venue's own market
 (`TradingVenue.market_data_venue`), so no mismatch can occur on a venue screen and
 none of those states is left. Only the screens that act on no venue (Data mode, a
-plain historical backtest) read the configured `exchange.market_data_venue`, and
-they place no orders.
+plain historical backtest) read the public mainnet, and they place no orders.
 """
 
 from __future__ import annotations

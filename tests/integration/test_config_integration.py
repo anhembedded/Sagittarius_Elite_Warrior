@@ -27,10 +27,12 @@ def test_all_config_files_loaded():
 
     # Kiểm tra đảm bảo các section cốt lõi đều được merge thành công
     # (EPIC-021A: BINANCE_WS_URL/BINANCE_REST_URL bị xoá — config chết,
-    # BUG-081. exchange.market_data_venue là key thật sự được đọc thay thế.)
-    assert "exchange.market_data_venue" in all_cfg, (
+    # BUG-081. exchange.market_data_venue cũng đã bị gỡ: Data Source không còn
+    # là một tuỳ chọn.)
+    assert "exchange.trading_venue" in all_cfg, (
         "Missing basic config from app_config.json"
     )
+    assert "exchange.market_data_venue" not in all_cfg
     # Chỉ là "user_config.json có được merge vào không" — cố ý KHÔNG khẳng
     # định gì về default thị trường. DEFAULT_SYMBOLS/DEFAULT_INTERVAL đã bị
     # gỡ khỏi file ship (EPIC-010H: tầng giữa giờ tuỳ chọn, mỗi màn tự có

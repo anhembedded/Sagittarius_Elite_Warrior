@@ -15,23 +15,15 @@ class ConfigKeys(str, Enum):
     APP_VERSION = "app.version"
     BINANCE_RATE_LIMIT_DELAY_MS = "binance.rate_limit_delay_ms"
     DATABASE_DIR = "database.dir"
-    #: `EPIC-021A` — replaces the dead `BINANCE_REST_URL`/`BINANCE_WS_URL`
-    #: (`BUG-081`: declared, read nowhere, editing them changed nothing).
-    #: Endpoint resolution is a function of this venue, computed by
-    #: `binance_endpoints.py`, not a second config key to keep in sync.
-    #: Values are `MarketDataVenue` members.
-    #:
-    #: `BUG-172` — read for the screens that act on **no** trading venue (Data mode,
-    #: the Market mode, a plain historical backtest) and for nothing else: every
-    #: desk, bot and venue backtest reads its own venue's market
-    #: (`TradingVenue.market_data_venue`), whatever this says.
-    #: `test_a_venue_screen_charts_its_own_venues_market.py` lists its only readers.
-    EXCHANGE_MARKET_DATA_VENUE = "exchange.market_data_venue"
-    #: `EPIC-021F` — separate from `EXCHANGE_MARKET_DATA_VENUE` on purpose
-    #: (ADR §2): where chart data comes from and where an order would be
-    #: sent are independent choices. Defaults to `TradingVenue.DISABLED` —
-    #: trading is opt-in, never on by config omission. Values are
-    #: `TradingVenue` members.
+    # There is no key for the *market data* venue (`EPIC-021A` made endpoint
+    # resolution a function of the venue, `binance_endpoints.py`). A screen that
+    # acts on a trading venue reads that venue's own market (`BUG-172`) and one
+    # that acts on none reads the public mainnet (`DEFAULT_MARKET_DATA_VENUE`);
+    # `exchange.market_data_venue` is retired, and only
+    # `retired_data_source_setting.py` still names it, to label legacy candles.
+    #: `EPIC-021F` — where an order would be sent, independent of where chart
+    #: data comes from (ADR §2). Defaults to `TradingVenue.DISABLED` — trading is
+    #: opt-in, never on by config omission. Values are `TradingVenue` members.
     EXCHANGE_TRADING_VENUE = "exchange.trading_venue"
     #: `EPIC-028A` — the set of venues live at once (ADR D4), a JSON list
     #: of `TradingVenue` values in priority order. Wins over the scalar

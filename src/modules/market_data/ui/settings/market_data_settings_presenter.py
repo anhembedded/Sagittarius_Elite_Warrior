@@ -1,9 +1,8 @@
-"""`market_data`'s own settings section: venue + sync defaults (`EPIC-025E` PR 4.4e).
+"""`market_data`'s own settings section: the symbol, interval and sync defaults (`EPIC-025E` PR 4.4e).
 
 Split off the old monolithic `SettingsPresenter` — this Presenter owns
 exactly the config keys `market_data` reads elsewhere in its own module
-(`DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`, `DEFAULT_SYNC_DAYS`,
-`EXCHANGE_MARKET_DATA_VENUE`), and nothing that belongs to `trading`.
+(`DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`, `DEFAULT_SYNC_DAYS`), and nothing that belongs to `trading`.
 
 **Finding, not a regression:** the old monolith disabled this venue's combo
 too while trading was active, under one shared "venues locked" flag it read
@@ -28,10 +27,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_market_data_venue,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -56,9 +51,7 @@ if TYPE_CHECKING:
 
 _SYMBOL_SEPARATOR = ","
 
-_SAVED_MESSAGE = (
-    "Saved to user_config.json. Data Source requires an app restart to take effect."
-)
+_SAVED_MESSAGE = "Saved to user_config.json."
 _NOT_SAVED_MESSAGE = (
     "Could not write user_config.json, so nothing was changed. Check that the "
     "file is writable, then apply again."
@@ -67,7 +60,6 @@ _EMPTY_SYMBOLS_MESSAGE = "Default Symbols must not be empty."
 _TITLE = "Market Data"
 #: The config keys this page writes, in `_write_in_memory`'s order.
 _WRITTEN_KEYS = (
-    ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value,
     "DEFAULT_SYMBOLS",
     "DEFAULT_INTERVAL",
     "DEFAULT_SYNC_DAYS",
@@ -79,7 +71,7 @@ _WRITTEN_KEYS = (
 _CONFIG_KEYS_THAT_OUTRANK_REMEMBERED_STATE = ("DEFAULT_SYMBOLS", "DEFAULT_INTERVAL")
 
 
-_Fields = tuple[str, str, int, str]
+_Fields = tuple[str, str, int]
 
 
 class MarketDataSettingsPresenter(OptionsSectionPresenter[_Fields]):
@@ -103,7 +95,6 @@ class MarketDataSettingsPresenter(OptionsSectionPresenter[_Fields]):
             ),
             default_interval=default_interval(values, fallback=FALLBACK_INTERVAL),
             default_sync_days=int(values.get("DEFAULT_SYNC_DAYS") or 1),
-            market_data_venue=resolve_market_data_venue(self.config).value,
         )
 
     def _current_fields(self) -> _Fields:
@@ -112,7 +103,6 @@ class MarketDataSettingsPresenter(OptionsSectionPresenter[_Fields]):
             view_model.defaultSymbols,
             view_model.defaultInterval,
             view_model.defaultSyncDays,
-            view_model.marketDataVenue,
         )
 
     # -- IOptionsSection (`EPIC-033E`) --------------------------------------
@@ -128,7 +118,6 @@ class MarketDataSettingsPresenter(OptionsSectionPresenter[_Fields]):
             view_model.defaultSymbolsChanged,
             view_model.defaultIntervalChanged,
             view_model.defaultSyncDaysChanged,
-            view_model.venueChanged,
         )
 
     def _save(self) -> bool:
@@ -165,8 +154,8 @@ class MarketDataSettingsPresenter(OptionsSectionPresenter[_Fields]):
         self._before_write = None
 
     def _write_in_memory(self, fields: _Fields) -> None:
-        symbols, interval, sync_days, venue = fields
-        values = (venue, self._parse_symbols(symbols), interval.strip(), sync_days)
+        symbols, interval, sync_days = fields
+        values = (self._parse_symbols(symbols), interval.strip(), sync_days)
         for key, value in zip(_WRITTEN_KEYS, values, strict=True):
             self.config.set(key, value)
 

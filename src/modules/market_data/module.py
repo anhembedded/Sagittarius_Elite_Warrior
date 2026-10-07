@@ -136,9 +136,8 @@ class MarketDataModule(BoundedContextModule):
         Market mode (`EPIC-033H`), which `trading` contributes.
 
         `EPIC-025E` PR 4.4e: the old monolithic Settings screen knew every
-        module's config keys; this section knows only this module's four
-        (`EXCHANGE_MARKET_DATA_VENUE`, `DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`,
-        `DEFAULT_SYNC_DAYS`). The page is a `Deferred` (`_OPTIONS_PAGE`), so
+        module's config keys; this section knows only this module's three
+        (`DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`, `DEFAULT_SYNC_DAYS`). The page is a `Deferred` (`_OPTIONS_PAGE`), so
         no widget module is imported until the shell builds the dialog's pages.
 
         `EPIC-025F` PR 5.2: `database_screen()` needs no `container` at

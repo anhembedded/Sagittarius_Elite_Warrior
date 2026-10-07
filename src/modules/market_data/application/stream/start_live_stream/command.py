@@ -21,7 +21,7 @@ class StartLiveStreamCommand(BaseModel):
     symbols: list[str]
     interval: TimeFrame
     #: `BUG-172` — whose stream it is. `None` is the screens that act on no
-    #: venue (the CLI, Data mode): `exchange.market_data_venue`.
+    #: venue (the CLI, Data mode): the public mainnet.
     venue: MarketDataVenue | None = None
 
     @field_validator("owner")

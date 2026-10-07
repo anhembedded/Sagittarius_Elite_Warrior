@@ -5,6 +5,11 @@ a widget of its own (`ui-presentation-rule.md` §10): a read that failed is a
 message bar at the top of the Bots mode with Retry, a command that failed or
 was refused is a message box. The headline is a sentence written here, never an
 exception's text; the technical text rides as `detail`.
+
+**One cause is one message** (`BUG-181`): a read of a venue's account that the
+venue refuses (the fills, with the key refused) is the cause the Connect step
+already tells in its own bar, so it raises no bar here; it is handed to the
+Connect step, and the fills panel says only that they were not read.
 """
 
 from __future__ import annotations
@@ -20,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+    state_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
 )
@@ -28,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     ReadKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
 )
 
 #: What the fills panel says in place of the failure, which the message bar carries.
@@ -54,10 +65,22 @@ class BotsFailures:
         notifier: INotifier,
         again: Callable[[ReadKind], None],
         show_fills: Callable[[BotFills], None],
+        venue_refused: Callable[[ConnectFailure], None],
     ) -> None:
         self._notifier = notifier
         self._again = again
         self._show_fills = show_fills
+        self._venue_refused = venue_refused
+
+    def fills_answered(self, fills: BotFills) -> None:
+        """Shows the fills; a read the venue refused is the Connect step's to
+        tell, and the panel says only what it is."""
+        refusal = fills.refused
+        if refusal is None:
+            self._show_fills(fills)
+            return
+        self._venue_refused(refusal)
+        self._show_fills(BotFills(problem=f"not read: {state_words(refusal)}"))
 
     def read_failed(self, kind: ReadKind, _label: str, detail: str) -> None:
         if kind is ReadKind.FILLS:

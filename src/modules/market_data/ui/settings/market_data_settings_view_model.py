@@ -1,8 +1,7 @@
 """`market_data`'s own slice of `SettingsViewModel` (`EPIC-025E` PR 4.4e).
 
-Carries exactly the fields this module owns: which venue its candles come
-from, and the three per-symbol defaults every screen that syncs history
-reads. The Trading venue, credentials and connection check moved to
+Carries exactly the fields this module owns: the three per-symbol defaults
+every screen that syncs history reads. The Trading venue, credentials and connection check moved to
 `modules/trading/ui/settings/` instead — two contributed sections, not one
 screen that knew both.
 """
@@ -21,14 +20,12 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
     defaultSymbolsChanged = Signal()
     defaultIntervalChanged = Signal()
     defaultSyncDaysChanged = Signal()
-    venueChanged = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._default_symbols = ""
         self._default_interval = ""
         self._default_sync_days = 1
-        self._market_data_venue = ""
 
     @property
     def defaultSymbols(self) -> str:
@@ -60,24 +57,12 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
             self._default_sync_days = value
             self.defaultSyncDaysChanged.emit()
 
-    @property
-    def marketDataVenue(self) -> str:
-        return self._market_data_venue
-
-    def requestMarketDataVenue(self, venue: str) -> None:
-        if venue and venue != self._market_data_venue:
-            self._market_data_venue = venue
-            self.venueChanged.emit()
-
     def load_fields(
         self,
         default_symbols: str,
         default_interval: str,
         default_sync_days: int,
-        market_data_venue: str,
     ) -> None:
         self.defaultSymbols = default_symbols
         self.defaultInterval = default_interval
         self.defaultSyncDays = default_sync_days
-        self._market_data_venue = market_data_venue
-        self.venueChanged.emit()

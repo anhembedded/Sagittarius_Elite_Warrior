@@ -35,51 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
-    BotAction,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_actions_coordinator import (
-    BotActionsCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_changes_feed import (
-    BotChangesFeed,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
-    BotChartHost,
-    BotChartPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands import (
-    PendingAction,
-    command_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_log_feed import (
-    BotLogFeed,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
-    BotsDialogs,
-    dialogs_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_failures import (
-    BotsFailures,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
-    BOTS_UI_TRANSITIONS,
-    BotsUiEvent,
-    BotsUiState,
-    selection_event,
-    settled_event,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
-    BotQueries,
-    FencedReads,
-    ReadKind,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
-    KindBacktests,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
-    SelectedBot,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -96,15 +51,33 @@ from sagittarius_engine.extensions.fsm.declarative_state_machine import (
 )
 
 from ..strategies.strategies_wiring import strategies_for
+from .bot_action_rules import BotAction
+from .bot_actions_coordinator import BotActionsCoordinator
+from .bot_changes_feed import BotChangesFeed
+from .bot_chart_host import BotChartHost, BotChartPorts
+from .bot_commands import PendingAction, command_for
+from .bot_log_feed import BotLogFeed
+from .bot_venues import BotVenues
 from .bots_command_binding import bind_bots_commands
 from .bots_dependencies import bots_dependencies_for
+from .bots_dialogs import BotsDialogs, dialogs_for
+from .bots_failures import BotsFailures
+from .bots_ui_fsm_matrix import (
+    BOTS_UI_TRANSITIONS,
+    BotsUiEvent,
+    BotsUiState,
+    selection_event,
+    settled_event,
+)
 from .connect_effects import ConnectEffects
 from .connect_step import ConnectStep
 from .detail_effects import DetailEffects
+from .fenced_reads import BotQueries, FencedReads, ReadKind
+from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
-from .new_bot_dialog import spot_venues_enabled_first
 from .new_bot_symbols import new_bot_symbols
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
+from .selected_bot import SelectedBot
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -141,7 +114,7 @@ class BotsPresenter(CommandPresenter):
             deps.consent,
         )
         self._now = now
-        self._catalog, self._venues = deps.kinds, deps.venues
+        self._catalog = deps.kinds
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
         self._charts = BotChartHost(
             BotChartPorts(threads, deps.feeds, self._ticks, deps.notifier)
@@ -157,14 +130,24 @@ class BotsPresenter(CommandPresenter):
             view.set_backtest_page,
         )
         self._queries = BotQueries(commands, self._reads, lambda: self._model.selected)
+        self._account = ConnectStep(threads, commands, now, deps.notifier, self)
         self._failures = BotsFailures(
-            deps.notifier, self._queries.again, self._model.set_fills
+            deps.notifier,
+            self._queries.again,
+            self._model.set_fills,
+            self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, deps.run_facts)
-        self._account = ConnectStep(threads, commands, now, deps.notifier, self)
+        self._venues = BotVenues(
+            deps.contexts,
+            self._model,
+            self._selected,
+            self._account,
+            self._select,
+        )
         self._detail = DetailEffects(
             self._selected, self._model, self._charts, self._backtests, self._account
         )
@@ -183,6 +166,7 @@ class BotsPresenter(CommandPresenter):
         for event_type, handler in self.strategies.subscriptions:
             self.subscribe(event_type, handler)
         self._connect()
+        self._venues.choices()
         self._clock.start()
         self._queries.bots()
 
@@ -193,6 +177,7 @@ class BotsPresenter(CommandPresenter):
         model.select_requested.connect(self._on_select)
         model.new_bot_requested.connect(self._on_new_bot)
         model.action_requested.connect(self._on_action)
+        model.venue_change_requested.connect(self._on_venue_change)
         model.refresh_fills_requested.connect(
             lambda: self._queries.fills(self._model.selected)
         )
@@ -230,7 +215,7 @@ class BotsPresenter(CommandPresenter):
             self._selected.take_market(answer)
             self._refresh_detail()
         elif kind is ReadKind.FILLS and isinstance(answer, BotFills):
-            self._model.set_fills(answer)
+            self._failures.fills_answered(answer)
 
     def _on_list(self, bots: BotList) -> None:
         self._model.set_bots(bots.bots)
@@ -256,7 +241,10 @@ class BotsPresenter(CommandPresenter):
             self._model.set_selected(fresh)
             self._selected.take_snapshot(fresh)
             self._dispatch(selection_event(fresh))
-            self._account_effects.present_chart(fresh)
+            if self._venues.moved(fresh):
+                self._venues.follow(fresh)
+            else:
+                self._account_effects.present_chart(fresh)
         self._refresh_detail()
 
     # -- selection and detail ---------------------------------------------- #
@@ -307,12 +295,16 @@ class BotsPresenter(CommandPresenter):
     def bind_commands(self, binder: ICommandBinder) -> None:
         bind_bots_commands(binder, self._model, self.strategies, self._charts)
 
+    def _on_venue_change(self, value: str) -> None:
+        move = None if self._busy() else self._venues.move_to(value)
+        if move is not None:
+            self._begin(*move)
+
     def _on_new_bot(self) -> None:
         if self._busy():
             return
         kinds = [kind.kind_id for kind in self._catalog.kinds()]
-        venues = spot_venues_enabled_first(self._venues.enabled())
-        command = self._dialogs.ask_new_bot(kinds, venues)
+        command = self._dialogs.ask_new_bot(kinds, self._venues.choices())
         if command is not None:
             self._begin(PendingAction(f"Create {command.name}"), command)
 
@@ -340,7 +332,7 @@ class BotsPresenter(CommandPresenter):
         )
         if accepted and isinstance(result, BotCommandResult):
             self._model.set_status(f"{label}: done.", False)
-            if pending.action is None and result.bot_id:
+            if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id
             if pending.action in (BotAction.SAVE, BotAction.START):
                 # Save and start saved the edits too (`EPIC-034H`, D8).
@@ -351,6 +343,7 @@ class BotsPresenter(CommandPresenter):
         logger.info("Bots screen: %s %s", label, "accepted" if accepted else "refused")
         self._dispatch(settled_event(self._model.selected))
         self._follow_selection()
+        self._venues.choices()
         self._queries.bots()
 
     def _follow_selection(self) -> None:
@@ -361,6 +354,8 @@ class BotsPresenter(CommandPresenter):
         wanted = self._model.selected
         if (shown.bot_id if shown else None) != (wanted.bot_id if wanted else None):
             self._select(wanted)
+        elif wanted is not None and self._venues.moved(wanted):
+            self._venues.follow(wanted)
         else:
             self._refresh_detail()
 

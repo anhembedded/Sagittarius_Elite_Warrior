@@ -11,10 +11,11 @@ class MarketDataVenue(str, Enum):
     the local candle store, the live stream and every tick are kept apart by —
     testnet candles are never served as mainnet ones.
 
-    `exchange.market_data_venue` (`ConfigKeys.EXCHANGE_MARKET_DATA_VENUE`) is
-    read only for the screens that act on no venue (Data mode, a plain
-    historical backtest). No key is required for any member: kline and
-    `exchangeInfo` reads are public endpoints.
+    A screen that acts on no venue (Data mode, the Market mode, a plain
+    historical backtest, the CLI) reads `DEFAULT_MARKET_DATA_VENUE`, the public
+    mainnet: testnet data has short history and fake liquidity, so it is useless
+    for research. No key is required for any member: kline and `exchangeInfo`
+    reads are public endpoints.
 
     `MAINNET_PUBLIC` serves Spot Mainnet and Futures Mainnet (a market is picked
     per call, `MarketType`); each testnet has its own member because Spot's
@@ -25,3 +26,9 @@ class MarketDataVenue(str, Enum):
     MAINNET_PUBLIC = "mainnet_public"
     FUTURES_TESTNET = "futures_testnet"
     SPOT_TESTNET = "spot_testnet"
+
+
+#: The market of every screen that acts on no trading venue. Not configurable:
+#: the setting that chose it was removed because only the mainnet's history is
+#: worth researching on.
+DEFAULT_MARKET_DATA_VENUE = MarketDataVenue.MAINNET_PUBLIC

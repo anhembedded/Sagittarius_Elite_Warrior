@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class BotFill:
@@ -25,8 +29,12 @@ class BotFill:
 class BotFills:
     """The fills, newest first, or the problem that kept them from being read.
 
-    `truncated` says the history held more pages than one read scans."""
+    `truncated` says the history held more pages than one read scans.
+    `refused` is the venue's refusal of the read (a refused key, a skewed clock)
+    when that is why there are no fills: the cause the Connect step reports, which
+    the screen tells once, there, and never as a failure of the fills (`BUG-181`)."""
 
     fills: tuple[BotFill, ...] = ()
     problem: str = ""
     truncated: bool = False
+    refused: ConnectFailure | None = None

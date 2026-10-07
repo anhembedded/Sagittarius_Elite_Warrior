@@ -100,7 +100,7 @@ class MarketDependencies:
     #: The stored candles a chart reads beyond its first window (`EPIC-033S`).
     history: IHistoricalKlines
     #: The environment the mode reads: the Market mode acts on no venue, so it is
-    #: the default one (`exchange.market_data_venue`), and it hears only that
+    #: the default one (the public mainnet), and it hears only that
     #: stream's ticks (`BUG-172`).
     venue: MarketDataVenue
     thread_manager: IThreadManager

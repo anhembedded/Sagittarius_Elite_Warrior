@@ -32,7 +32,8 @@ sound, I start it, and I watch what it does."*
 1. The trader opens the Bots mode. The Bots panel lists every saved bot: name, kind, venue, symbol,
    state in words (Draft, Running, Paused, Recovering, Halted, Stopped, Error) and grid profit.
 2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Spot Grid), the
-   Spot venue (preselected, and never blocking: Start refuses a venue that is not a Spot venue
+   Spot venue (every Spot venue is listed with its connection state, "API key saved" or "no API key";
+   one is preselected, and none blocks: Start refuses a venue that is not a Spot venue
    this app trades on), the symbol (chosen in the shared symbol picker over the Spot catalog, never taken
    from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
@@ -48,6 +49,16 @@ sound, I start it, and I watch what it does."*
    keeps Start off (the Design step's `KEY_CANNOT_TRADE`). Go live is offered only once the account
    was read, and a lock hides the same bot's chart instead of closing it.
    Reading places nothing and needs trading off.
+   A failed read is told **once**, in the message bar of the mode (what failed, what to do, Retry and
+   Details…); the strip, the chart's place and the Plan's Connect item say only the short state, "Not
+   connected: key refused" (`BUG-181`). A read of the same venue that the exchange refuses for the
+   same reason (the bot's fills, with the key refused) joins that bar and raises none of its own.
+   **Venue.** While the bot is a Draft that never ran, the Plan's Venue field offers every Spot
+   venue, and choosing another moves the bot there at once: Connect reads the new venue's account,
+   the chart switches to that venue's market, and readiness is judged again; parameters not yet
+   saved stay on screen. Moving to Spot Mainnet asks nothing here; the real-money question is asked
+   at Start (`EPIC-034` D11). A bot that has run or runs keeps its venue, and the field says so
+   (`BOT-171`; Futures grid bots are `EPIC-029K`).
    The new bot's design follows: the app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
@@ -138,7 +149,7 @@ available while it runs.
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | No Spot venue is available in this build | New bot says so and Create is disabled | Only a Spot venue can run a Spot Grid |
-| The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | The chart's place and the strip say which, in words, with what to do; the Plan is locked and lists it as the first thing left; Start is disabled with the same words; Bots → Retry venue account (or Fix next item) | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
+| The venue has no key, rejects it, or the exchange answers a maintenance page or cannot be reached | One message bar says what failed and what to do, with Retry and Details…; the chart's place, the strip and the Plan's Connect item say the short state ("Not connected: key refused"); the Plan is locked and lists it as the first thing left; Start is disabled with the same words; Bots → Retry venue account (or Fix next item) | A design judged against an account that was not read is a guess (`EPIC-034D`, D1); a web page where data was expected is named MAINTENANCE, never an unclassified exception |
 | The symbol is unknown, or the venue cannot be read | A Design item: "The plan cannot be judged: …" with the venue's reason; Start is disabled | A plan judged against no numbers cannot start |
 | Another bot is still active (ADR D20) | A Run item "Bot … is still active; stop it before starting another", and Fix next item selects that bot; Start is disabled | The fast track lets one bot hold the exchange; the check and the start are one step under one lock |
 | Another owner (a strategy, a manual order) holds the symbol | A Run item "BTCUSDT is held by another owner"; Start is disabled | Trading's lease keeps two owners off one symbol; the item is read from the session, not claimed |
@@ -178,7 +189,7 @@ available while it runs.
 
 - bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotReadinessQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
-  `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`; `IBotKindCatalog`,
+  `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`, `ChangeBotVenueCommand`; `IBotKindCatalog`,
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`.
 - trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
@@ -204,6 +215,8 @@ available while it runs.
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
+| A draft that never ran moves between the Spot venues from the Plan's Venue field and reads the new venue's account and market; a running or stopped bot keeps its venue; unsaved parameters stay; no confirmation until Start; New bot lists every Spot venue with its connection state | `tests/unit/modules/bots/ui/bots_screen/test_bots_change_venue.py` · `tests/unit/modules/bots/domain/test_bot_venue.py` · `tests/unit/modules/bots/application/test_change_bot_venue.py` · `tests/integration/modules/bots/test_a_draft_bot_and_its_venue_on_the_fake_exchange.py` | unit · integration (fake exchange) |
+| One Connect failure is one advisory paragraph on screen, whatever its kind; a fills read the venue refuses raises no bar of its own | `tests/unit/modules/bots/ui/bots_screen/test_one_connect_failure_one_paragraph.py` · `test_bots_failures.py` · `tests/unit/modules/trading/adapters/binance/test_history_failures_name_their_kind.py` · `tests/integration/modules/bots/test_a_refused_fills_read_on_the_fake_exchange.py` | unit · integration (fake exchange, `-2015`) |
 | Selecting a bot reads its venue's account by itself; chart, Plan and Start wait for it and say why; Retry; a key that cannot trade; one read shared by bots on a venue and symbol; the timer's re-read; a late answer dropped | `tests/unit/modules/bots/ui/bots_screen/test_bots_connect_step.py` · `test_bots_connect_chart.py` · `test_bot_connect_fsm_matrix.py` | unit (real bots graph) |
 | One read returns the snapshot a design needs, or a named failure; an HTML answer is MAINTENANCE | `tests/unit/modules/trading/application/account/test_composed_venue_account_reader.py` · `tests/unit/modules/trading/adapters/binance/test_html_answer_is_maintenance.py` · `tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py` | unit · integration (fake Binance server, with a maintenance switch) |
 | The chart is central; Bots, Plan, Orders, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |

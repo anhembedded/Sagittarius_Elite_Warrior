@@ -214,7 +214,7 @@ def test_the_timer_re_reads_and_a_failed_re_read_locks_the_chart(
     screen.settle()
 
     assert not chart_shown(screen)
-    assert "could not be reached" in locked_note(screen)
+    assert "exchange unreachable" in locked_note(screen)
     assert len(screen.account.symbols_read) == 2
 
 

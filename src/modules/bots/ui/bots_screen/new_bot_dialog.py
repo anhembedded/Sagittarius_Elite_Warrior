@@ -17,7 +17,7 @@ a bot without a modal dialog.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Sequence
 
 from PySide6.QtWidgets import (
     QComboBox,
@@ -29,12 +29,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols import (
     NewBotSymbols,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    VenueChoice,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     KIND_TITLES,
@@ -49,15 +51,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
 
 #: The command, or `None` when the user cancelled.
 type AskNewBot = Callable[
-    [Sequence[str], Sequence[TradingVenue]], CreateBotCommand | None
+    [Sequence[str], Sequence[VenueChoice]], CreateBotCommand | None
 ]
-
-
-def spot_venues_enabled_first(enabled: Collection[TradingVenue]) -> list[TradingVenue]:
-    """Every Spot venue, the enabled ones first, so the preselected one is a
-    venue the bot can start on whenever one is enabled (`BUG-155`)."""
-    spot = [v for v in TradingVenue if v.market_type is MarketType.SPOT]
-    return sorted(spot, key=lambda venue: venue not in enabled)
 
 
 CREATE_BUTTON_TEXT = "Create bot"
@@ -75,7 +70,7 @@ class NewBotDialog(QDialog):
     def __init__(
         self,
         kinds: Sequence[str],
-        venues: Sequence[TradingVenue],
+        venues: Sequence[VenueChoice],
         symbols: NewBotSymbols,
         parent: QWidget | None = None,
     ) -> None:
@@ -90,8 +85,8 @@ class NewBotDialog(QDialog):
             self.kind.addItem(KIND_TITLES.get(kind_id, kind_id), kind_id)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbNewBotVenue")
-        for venue in venues:
-            self.venue.addItem(venue.display_name, venue)
+        for choice in venues:
+            self.venue.addItem(choice.option_text, choice.venue)
         self.symbol = QPushButton(CHOOSE_SYMBOL_TEXT)
         self.symbol.setObjectName("btnNewBotSymbol")
         self.symbol.clicked.connect(self._open_picker)
@@ -188,7 +183,7 @@ class NewBotDialog(QDialog):
 def ask_new_bot_with_dialog(
     parent: QWidget,
     kinds: Sequence[str],
-    venues: Sequence[TradingVenue],
+    venues: Sequence[VenueChoice],
     symbols: NewBotSymbols,
 ) -> CreateBotCommand | None:
     dialog = NewBotDialog(kinds, venues, symbols, parent)

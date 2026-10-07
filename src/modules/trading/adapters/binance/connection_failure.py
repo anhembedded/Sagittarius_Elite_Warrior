@@ -125,6 +125,17 @@ def describe_failure(
     return f"the exchange is unavailable ({status}{' ' + title if title else ''})"
 
 
+def named_failure_kind(exc: BaseException) -> ConnectionFailureKind | None:
+    """The kind an exchange answer names precisely, or `None` for any other
+    failure (an unknown code, a network error): those are not a statement about
+    the account's connection (`BUG-181`)."""
+    if is_non_json_answer(exc):
+        return ConnectionFailureKind.MAINTENANCE
+    if isinstance(exc, BinanceAPIException):
+        return _ERROR_CODE_TO_FAILURE_KIND.get(exc.code)
+    return None
+
+
 def classify_connection_failure(
     exc: Exception, venue_label: str
 ) -> ConnectionFailureKind:
@@ -132,12 +143,7 @@ def classify_connection_failure(
 
     `venue_label` ("Futures Testnet", "Spot Testnet") only words the log line.
     """
-    if is_non_json_answer(exc):
-        kind = ConnectionFailureKind.MAINTENANCE
-    elif not isinstance(exc, BinanceAPIException):
-        kind = ConnectionFailureKind.NETWORK
-    else:
-        kind = _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
+    kind = named_failure_kind(exc) or ConnectionFailureKind.NETWORK
     if kind is ConnectionFailureKind.NETWORK:
         # `BUG-137`: the catch-all bucket must leave the real exception in the
         # run log (`code/errors.md` #1).

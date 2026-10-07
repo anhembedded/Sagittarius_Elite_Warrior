@@ -31,7 +31,6 @@ logger = logging.getLogger("App.ExchangeClient")
 #: agree on is vocabulary, which is what this package holds (HLD §8).
 REQUEST_TIMEOUT_SECONDS = 30.0
 
-_DEFAULT_MARKET_DATA_VENUE = MarketDataVenue.MAINNET_PUBLIC
 #: `python-binance`'s `Client(testnet=...)` is one flag that redirects every
 #: API family's host at once (`base_client.py`'s `_create_api_uri`/
 #: `_create_futures_api_uri` both check it) — there is no per-call override,
@@ -67,27 +66,6 @@ def klines_type_for(market: MarketType) -> HistoricalKlinesType:
     resolve against. Exchange-info/symbol-catalog calls are unaffected —
     `021C`'s concern, not this one's (see `EPIC-021A` §2.2b)."""
     return _KLINES_TYPE[market]
-
-
-def resolve_market_data_venue(config: IConfig) -> MarketDataVenue:
-    """The configured `MarketDataVenue`, or the default if missing/unusable.
-
-    @details Same shape as `view_factory.resolve_backtest_view_key` — warns
-    instead of failing boot on a bad value (`logging-rule.md` §2: a degraded
-    branch must say what it chose and why, not fail silently or crash)."""
-    raw = config.get(
-        ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value, _DEFAULT_MARKET_DATA_VENUE.value
-    )
-    try:
-        return MarketDataVenue(raw)
-    except ValueError:
-        logger.warning(
-            "Market data venue %r is not known; using %r. Known venues: %s.",
-            raw,
-            _DEFAULT_MARKET_DATA_VENUE.value,
-            [venue.value for venue in MarketDataVenue],
-        )
-        return _DEFAULT_MARKET_DATA_VENUE
 
 
 def resolve_trading_venue(config: IConfig) -> TradingVenue:

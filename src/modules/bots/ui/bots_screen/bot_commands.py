@@ -49,8 +49,15 @@ class PendingAction:
     `action`, never the words of `label` (PR #333 review)."""
 
     label: str
-    #: `None` while a new bot is being created.
+    #: `None` while a new bot is being created, or moved to another venue.
     action: BotAction | None = None
+    #: A draft is being moved to another Spot venue (`BOT-171`).
+    moves_venue: bool = False
+
+    @property
+    def creates_bot(self) -> bool:
+        """The command makes a new bot, which the screen then selects."""
+        return self.action is None and not self.moves_venue
 
 
 #: The actions after which orders flow.

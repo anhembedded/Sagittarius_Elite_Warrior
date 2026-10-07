@@ -140,7 +140,7 @@ def test_a_store_with_nothing_in_it_is_marked_so_later_rows_are_not_legacy(
 def test_an_absent_setting_is_the_default_the_app_read_before_the_fix(
     legacy_store: Path, served
 ) -> None:
-    """`resolve_market_data_venue` defaulted a missing key to `mainnet_public`, so
+    """the app defaulted a missing Data Source key to `mainnet_public`, so
     that is what a default install's rows are: they are not quarantined."""
     outcome = label_legacy_store(str(legacy_store), None)
 

@@ -17,6 +17,8 @@ not a list scrolling inside it.
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -76,6 +78,8 @@ class BotPlanPanel(QStackedWidget):
         self.state = plain_label()
         self.state.setObjectName("lblBotState")
         self.state.setWordWrap(True)
+        self.venue = QComboBox()
+        self.venue.setObjectName("cmbBotVenue")
         self.readiness_header = plain_label()
         self.readiness_header.setObjectName("lblBotReadinessHeader")
         self.readiness_steps = plain_label()
@@ -84,6 +88,9 @@ class BotPlanPanel(QStackedWidget):
         self.readiness_items.setObjectName("lblBotReadinessItems")
         self.readiness_items.setWordWrap(True)
         self._kind_panel: QWidget | None = None
+        #: What the Venue field shows now, so a tick that changes nothing does not
+        #: close a drop-down the user has open.
+        self._venue_shown: tuple[object, ...] = ()
         self.facts = ReadoutForm(FACT_SPECS, APP_VALUE_FORMATTER)
         self.facts.setObjectName("roBotFacts")
         self.verdicts = plain_label()
@@ -104,6 +111,9 @@ class BotPlanPanel(QStackedWidget):
         column = QVBoxLayout(plan)
         column.addWidget(self.title)
         column.addWidget(self.state)
+        venue = QFormLayout()
+        venue.addRow("Venue", self.venue)
+        column.addLayout(venue)
         column.addWidget(self.readiness_header)
         column.addWidget(self.readiness_steps)
         column.addWidget(self.readiness_items)
@@ -125,12 +135,56 @@ class BotPlanPanel(QStackedWidget):
         model.facts_changed.connect(self._show_facts)
         model.judgement_changed.connect(self._show_judgement)
         model.readiness_changed.connect(self._show_readiness)
+        model.facts_changed.connect(self._show_venue_if_changed)
+        model.venue_choices_changed.connect(self._show_venue)
+        # `activated` is the user's pick only: showing the bot's own venue never
+        # asks for a change.
+        self.venue.activated.connect(self._on_venue_picked)
 
     def _show_selection(self) -> None:
         bot = self._model.selected
         self.setCurrentIndex(0 if bot is None else 1)
         self.title.setText(bot.name if bot else "")
         self._show_facts()
+        self._show_venue()
+
+    def _show_venue_if_changed(self) -> None:
+        if self._venue_shown != self._venue_key():
+            self._show_venue()
+
+    def _venue_key(self) -> tuple[object, ...]:
+        bot = self._model.selected
+        if bot is None:
+            return ()
+        return (bot.bot_id, bot.venue, bot.venue_locked, self._model.venue_choices)
+
+    def _show_venue(self) -> None:
+        """The bot's venue among the Spot venues, changeable only while the bot
+        is a draft that never ran (`BOT-171`); a locked field says why."""
+        bot = self._model.selected
+        combo = self.venue
+        self._venue_shown = self._venue_key()
+        combo.clear()
+        if bot is None:
+            return
+        for choice in self._model.venue_choices:
+            combo.addItem(choice.option_text, choice.venue)
+        index = combo.findData(bot.venue)
+        if index < 0:
+            combo.addItem(bot.venue.display_name, bot.venue)
+            index = combo.count() - 1
+        combo.setCurrentIndex(index)
+        combo.setEnabled(not bot.venue_locked)
+        combo.setToolTip(
+            bot.venue_locked
+            or "Move this draft to another Spot venue: its account is read again."
+        )
+
+    def _on_venue_picked(self, index: int) -> None:
+        bot = self._model.selected
+        value = self.venue.itemData(index)
+        if bot is not None and value != bot.venue:
+            self._model.venue_change_requested.emit(value)
 
     def _show_facts(self) -> None:
         facts = self._model.facts

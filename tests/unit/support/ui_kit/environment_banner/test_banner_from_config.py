@@ -23,10 +23,12 @@ from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 
 def _config(venues: list[str], data: str = "mainnet_public") -> DictConfig:
+    #: The retired Data Source key, spelled as a configuration of an earlier build
+    #: holds it: the banner never reads it.
     return DictConfig(
         {
             ConfigKeys.EXCHANGE_TRADING_VENUES.value: venues,
-            ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value: data,
+            "exchange.market_data_venue": data,
         }
     )
 

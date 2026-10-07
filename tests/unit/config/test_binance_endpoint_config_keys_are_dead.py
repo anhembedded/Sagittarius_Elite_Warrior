@@ -9,9 +9,8 @@ passed straight through to the engine's config layer rather than via
 `ConfigKeys.X` attribute access (see `app_bootstrapper.py`'s
 `"log.level": verbosity.log_level`). A scanner grepping for attribute
 references alone would flag those as false positives. This test instead
-proves the two specific dead keys are gone, and that their replacement (the
-venue config) is genuinely wired into the composition root — the same
-mistake would not have shipped a second time undetected.
+proves the two specific dead keys are gone, and that the later retired Data
+Source key is gone from the declarations too.
 """
 
 from __future__ import annotations
@@ -23,17 +22,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 
 _SRC_DIR = Path(__file__).resolve().parents[3] / "src"
 _CONFIG_DIR = _SRC_DIR / "config"
-#: `EPIC-025E` PR 4.4f-3 moved this call out of the legacy composition root
-#: (`binance_bot_module.py`) into `market_data`'s own composition, the module
-#: that owns `MarketDataVenue`.
-_MODULE_SOURCE = (
-    _SRC_DIR / "modules" / "market_data" / "composition" / "adapter_bindings.py"
-).read_text(encoding="utf-8")
-#: `EPIC-025` PR 0.3 moved this module out of `infrastructure/binance/` into
-#: the gateway's contracts, where every zone may import it.
-_ENDPOINTS_SOURCE = (
-    _SRC_DIR / "support" / "binance_gateway" / "contracts" / "binance_endpoints.py"
-).read_text(encoding="utf-8")
 
 
 def test_dead_endpoint_keys_removed_from_config_keys_enum() -> None:
@@ -48,14 +36,9 @@ def test_dead_endpoint_keys_removed_from_app_config_json() -> None:
     assert "BINANCE_WS_URL" not in app_config
 
 
-def test_market_data_venue_key_is_actually_read_by_composition_root() -> None:
-    """The replacement must not repeat `BUG-081` — declared but unread.
-
-    Checks the real call chain from the composition root rather than one
-    file's raw text: `modules/market_data/composition/adapter_bindings.py`
-    calls `resolve_market_data_venue` (`EPIC-025E` PR 4.4f-3 moved this call
-    out of the legacy `binance_bot_module.py`), and that function's own
-    source is what actually reads the config key.
-    """
-    assert "resolve_market_data_venue" in _MODULE_SOURCE
-    assert "ConfigKeys.EXCHANGE_MARKET_DATA_VENUE" in _ENDPOINTS_SOURCE
+def test_the_data_source_key_is_gone_from_the_declarations() -> None:
+    """`exchange.market_data_venue` is retired: neither the keys nor the shipped
+    defaults declare it. Only `retired_data_source_setting.py` still names it."""
+    app_config = json.loads((_CONFIG_DIR / "app_config.json").read_text())
+    assert "exchange.market_data_venue" not in app_config
+    assert "EXCHANGE_MARKET_DATA_VENUE" not in {member.name for member in ConfigKeys}

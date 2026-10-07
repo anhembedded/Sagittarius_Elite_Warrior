@@ -45,12 +45,6 @@ EXEMPT: dict[str, str] = {
     "src/modules/trading/ui/desk/order_entry/order_entry_presenter.py": (
         "a programming-error message"
     ),
-    "src/modules/market_data/ui/settings/market_data_settings_presenter.py": (
-        "a `MarketDataVenue`'s settings value"
-    ),
-    "src/modules/market_data/ui/settings/market_data_settings_view.py": (
-        "a `MarketDataVenue`'s item data, a settings key"
-    ),
 }
 
 
