@@ -25,6 +25,9 @@ from enum import Enum
 
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.price_line import (
+    RIGHT_EDGE_TAG_ANCHORS,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     PRICE_LEVEL_LABEL_COLOR,
     PRICE_LEVEL_LABEL_DARK_COLOR,
@@ -124,7 +127,8 @@ class PriceLevelLayer:
             pen=pen,
             label=level.label or None,
             labelOpts={
-                "position": 0.98,
+                "position": 1.0,
+                "anchors": RIGHT_EDGE_TAG_ANCHORS,
                 "color": label_text_color(level.color),
                 "fill": pg.mkBrush(level.color),
                 "movable": False,

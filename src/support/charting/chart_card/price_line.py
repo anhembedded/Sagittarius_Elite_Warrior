@@ -5,6 +5,14 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from . import theme
 
+#: Where a horizontal line's tag holds on its text, for the line's two label
+#: positions (`BUG-176`). pyqtgraph centres the text on the position, so a tag
+#: at the right edge (`position` 1.0) had half of itself outside the plot's view
+#: box, which clips its children: "2,565.43" showed as "2,56". `(1, y)` puts the
+#: tag's right edge on the position, inside the plot at any width. Every tag
+#: that sits at the right edge uses this one pair.
+RIGHT_EDGE_TAG_ANCHORS = [(1.0, 0.0), (1.0, 1.0)]
+
 
 class LastPriceLine:
     """
@@ -22,6 +30,7 @@ class LastPriceLine:
             label="",
             labelOpts={
                 "position": 1.0,
+                "anchors": RIGHT_EDGE_TAG_ANCHORS,
                 "color": theme.PRICE_LEVEL_LABEL_COLOR,
                 "fill": pg.mkBrush(theme.BULL_COLOR),
                 "movable": False,
