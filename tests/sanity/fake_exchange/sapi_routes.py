@@ -22,6 +22,9 @@ class ApiRestrictions:
     enable_reading: bool = True
     enable_spot_and_margin_trading: bool = False
     enable_withdrawals: bool = False
+    enable_margin: bool = False
+    enable_futures: bool = False
+    enable_internal_transfer: bool = False
 
     def payload(self) -> dict[str, object]:
         return {
@@ -29,9 +32,9 @@ class ApiRestrictions:
             "createTime": 1698645219000,
             "enableReading": self.enable_reading,
             "enableWithdrawals": self.enable_withdrawals,
-            "enableInternalTransfer": False,
-            "enableMargin": False,
-            "enableFutures": False,
+            "enableInternalTransfer": self.enable_internal_transfer,
+            "enableMargin": self.enable_margin,
+            "enableFutures": self.enable_futures,
             "permitsUniversalTransfer": False,
             "enableVanillaOptions": False,
             "enableFixApiTrade": False,

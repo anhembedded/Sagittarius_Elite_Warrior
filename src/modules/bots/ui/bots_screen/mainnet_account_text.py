@@ -32,12 +32,16 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 TITLE = AccountSource.SPOT_MAINNET_READONLY.venue_title
 READING = "Reading the account…"
-#: Said whenever the key can trade: the app reads only, so the safest key for
-#: it is one that cannot.
+#: Said whenever the key can do more than read: the app reads only, so the
+#: safest key for it is one that cannot.
 ADVICE_READ_ONLY_KEY = (
-    "This key can trade. The app only reads it and never places an order, but "
-    "create a read-only key (reading only, trading and withdrawals off) and use "
-    "that instead."
+    "This key can do more than read ({}). The app only reads it and never "
+    "places an order, but create a read-only key (reading only, everything else "
+    "off) and use that instead."
+)
+UNKNOWN_BEYOND_READING = (
+    "The exchange did not say whether this key can trade Margin or Futures or "
+    "transfer between accounts. Check its restrictions on Binance."
 )
 
 
@@ -85,14 +89,18 @@ def _key_line(permissions: KeyPermissions | None) -> str:
     return (
         "Key: "
         f"{'can' if permissions.can_read else 'cannot'} read, "
-        f"{'can' if permissions.can_trade_spot else 'cannot'} trade, "
+        f"{'can' if permissions.can_trade_spot else 'cannot'} trade Spot, "
         f"{'can' if permissions.can_withdraw else 'cannot'} withdraw"
     )
 
 
 def _advice(permissions: KeyPermissions | None) -> tuple[str, ...]:
-    if permissions is not None and permissions.can_trade_spot:
-        return (ADVICE_READ_ONLY_KEY,)
+    if permissions is None:
+        return ()
+    if permissions.beyond_reading:
+        return (ADVICE_READ_ONLY_KEY.format(", ".join(permissions.beyond_reading)),)
+    if not permissions.is_read_only:
+        return (UNKNOWN_BEYOND_READING,)
     return ()
 
 

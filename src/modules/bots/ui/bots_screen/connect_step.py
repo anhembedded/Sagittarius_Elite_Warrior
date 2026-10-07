@@ -136,6 +136,7 @@ class ConnectStep(QObject):
             self._snapshots[(answer.source, answer.symbol)] = answer
             self._transition(ConnectEvent.READ_OK, connected_view(answer), answer)
         elif isinstance(answer, ConnectFailure):
+            self._forget(answer.source)
             self._transition(ConnectEvent.READ_FAILED, failed_view(answer), None)
         else:
             raise TypeError(
@@ -146,9 +147,16 @@ class ConnectStep(QObject):
         bot = self._bot
         if bot is not None and self._is_current(label):
             source = AccountSource.for_venue(bot.venue)
+            self._forget(source)
             self._transition(
                 ConnectEvent.READ_FAILED, errored_view(source, error), None
             )
+
+    def _forget(self, source: AccountSource) -> None:
+        """A failed read means the account is not reachable now: no earlier
+        read of its symbols may be shared as if it were (PR #417 review)."""
+        for key in [key for key in self._snapshots if key[0] is source]:
+            del self._snapshots[key]
 
     def _on_timer(self) -> None:
         bot = self._bot

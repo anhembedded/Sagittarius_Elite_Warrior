@@ -52,6 +52,13 @@ _READ_ONLY = {
     "enableSpotAndMarginTrading": False,
     "enableWithdrawals": False,
 }
+_ALL_FLAGS = {
+    **_READ_ONLY,
+    "enableMargin": False,
+    "enableFutures": False,
+    "enableInternalTransfer": False,
+    "permitsUniversalTransfer": False,
+}
 _ACCOUNT = {
     "canTrade": True,
     "commissionRates": {"maker": "0.001", "taker": "0.001"},
@@ -86,7 +93,7 @@ class _Client:
 
     def __init__(self, **answers: Any) -> None:
         self.answers: dict[str, Any] = {
-            "get_account_api_permissions": _READ_ONLY,
+            "get_account_api_permissions": _ALL_FLAGS,
             "get_account": _ACCOUNT,
             "get_open_orders": [],
             "get_exchange_info": _EXCHANGE_INFO,
@@ -333,3 +340,45 @@ def test_a_withdrawal_flag_the_exchange_leaves_out_refuses_the_key() -> None:
     assert isinstance(answer, ConnectFailure)
     assert answer.detail == "the key's permissions"
     assert answer.kind is not ConnectionFailureKind.NOT_CONFIGURED
+
+
+@pytest.mark.parametrize(
+    ("flag", "attribute"),
+    [
+        ("enableMargin", "can_trade_margin"),
+        ("enableFutures", "can_trade_futures"),
+        ("enableInternalTransfer", "can_transfer"),
+        ("permitsUniversalTransfer", "can_transfer"),
+    ],
+)
+def test_a_key_with_another_power_on_is_not_read_only(
+    flag: str, attribute: str
+) -> None:
+    payload = {**_ALL_FLAGS, flag: True}
+
+    answer = _reader(_Client(get_account_api_permissions=payload)).read("BTCUSDT")
+
+    assert isinstance(answer, VenueAccountSnapshot)
+    assert answer.key_permissions is not None
+    assert getattr(answer.key_permissions, attribute) is True
+    assert not answer.key_permissions.is_read_only
+
+
+def test_powers_the_exchange_left_out_are_unknown_not_off() -> None:
+    permissions = parse_key_permissions(_READ_ONLY)
+
+    assert permissions.can_trade_margin is None
+    assert permissions.can_trade_futures is None
+    assert permissions.can_transfer is None
+    assert not permissions.is_read_only
+
+
+def test_a_transfer_flag_reported_off_with_its_twin_missing_stays_unknown() -> None:
+    permissions = parse_key_permissions({**_READ_ONLY, "enableInternalTransfer": False})
+
+    assert permissions.can_transfer is None
+
+
+def test_a_power_flag_that_is_not_a_boolean_is_an_error() -> None:
+    with pytest.raises(TypeError):
+        parse_key_permissions({**_READ_ONLY, "enableMargin": "no"})

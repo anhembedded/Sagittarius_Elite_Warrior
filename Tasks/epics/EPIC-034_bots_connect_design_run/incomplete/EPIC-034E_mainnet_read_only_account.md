@@ -1,6 +1,6 @@
 # EPIC-034E — A mainnet key is read, never traded: balances, fees and key permissions; withdrawal keys refused
 
-**Status:** ✅ Done (2026-10-07; the owner's manual check with their own key is theirs and is not run)
+**Status:** 🟡 In progress (built and proven on the fake Binance server; only the owner's check with their own key remains)
 **Source:** the owner, 2026-10-07 — *"bot không start được tui cũng không biết nó đang thiếu gì"* (the bot does not start and I cannot tell what it lacks); the epic's origin has the rest.
 **Risk:** 🔴 — the first code that talks to the real exchange with the owner's key
 **Complexity:** M — a separate account source, a permission check, a guard
@@ -44,6 +44,12 @@ Unit with the fake server: balances parsed, a withdrawal key refused, red first.
 | Not a `TradingVenue`; no path to an order | `tests/unit/architecture/test_mainnet_has_no_order_path.py`: walks every runtime import of the source transitively and fails on any trading session factory, trading client, order-submission port or `execute_order`; it found a real path while being written (the source imported a constant from the testnet reader's module, which reaches `i_trading_client_factory`), fixed by moving `QUOTE_ASSET` to the snapshot contract. A probe proves the walk finds direct, transitive and `TYPE_CHECKING`-ignored cases; breaking the source by importing `ITradingClient` turns it red (mutation-checked). The read client port lists exactly seven reads |
 | Credentials `BINANCE_MAINNET_READONLY_API_KEY` / `_SECRET` only | `MainnetReadOnlyCredentials`; `test_mainnet_readonly_credentials.py` (no testnet pair is ever read as this one, nor the reverse; half a pair is no key; no file source) |
 | A withdrawal key is refused (D5); a trading key accepted with advice | refused with `ConnectionFailureKind.WITHDRAWAL_ENABLED` *before any account data is read* (`..._refused_before_anything_else_is_read` asserts `/api/v3/account` was never requested; mutation-checked); the window shows the advice for a key that can trade |
+
+**After the review of PR #417.**
+- `KeyPermissions` also reads `enableMargin`, `enableFutures`, `enableInternalTransfer` and `permitsUniversalTransfer` (`None` when the exchange leaves one out, which is not "off"). D5 refuses withdrawals only; a key that can do anything more than read is accepted and the window says what it can do and advises a read-only key, and never calls it "read only" (`beyond_reading`, `is_read_only`).
+- The guard now follows package `__init__` chains and `from pkg import name`, and scans the mainnet package for order call sites and for `binance.client` imports outside the session factory. It found that `support/binance_gateway/contracts/__init__.py` re-exported the trading session port, which loaded it for every import of a gateway contract; the re-export (unused by anything) is removed. Scope: the starts now include the bots query and the window's text; `VenueAccounts` and the window are not starts, and why is in the guard's docstring.
+- "Never holds a withdrawal key" is true of what is **stored** (the save script stores only a key the read accepted). The key is in memory for the one read that refuses it.
+- This file stays in `incomplete/` until the owner's check, as `ONBOARDING.md` §3 asks.
 
 **Decisions.**
 - **Spot only.** The owner's key is a Spot key; a Futures mainnet source is one more `AccountSource` member and reader behind the same port.

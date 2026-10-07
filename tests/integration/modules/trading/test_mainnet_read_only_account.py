@@ -96,6 +96,19 @@ def test_a_key_that_can_trade_is_accepted_and_says_so(exchange: FakeServerUrls) 
     assert not answer.key_permissions.is_read_only
 
 
+def test_a_key_with_futures_on_is_accepted_but_not_called_read_only(
+    exchange: FakeServerUrls,
+) -> None:
+    exchange.api_restrictions.enable_futures = True
+
+    answer = _reader().read("BTCUSDT")
+
+    assert isinstance(answer, VenueAccountSnapshot), answer
+    assert answer.key_permissions is not None
+    assert not answer.key_permissions.is_read_only
+    assert answer.key_permissions.beyond_reading == ("trade Futures",)
+
+
 def test_a_key_that_can_withdraw_is_refused_before_anything_else_is_read(
     exchange: FakeServerUrls,
 ) -> None:

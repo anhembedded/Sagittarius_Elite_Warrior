@@ -333,3 +333,26 @@ def test_a_connection_that_is_lost_takes_go_live_away_again(open_bots_screen) ->
     screen.settle()
 
     assert not _live_stream(screen).isEnabled()
+
+
+def test_a_failed_re_read_is_not_papered_over_by_the_read_before_it(
+    open_bots_screen,
+) -> None:
+    """PR #417 review: bot A connects, a re-read then fails, and selecting bot B
+    on the same symbol must read again, not share the earlier success."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT), stored("b00002", S.DRAFT)])
+    screen.settle()
+    _select(screen, "a00001")
+    screen.settle()
+    screen.account.answer_with(_failure(ConnectionFailureKind.NETWORK))
+    screen.presenter._account._timer.timeout.emit()
+    screen.settle()
+    assert not _chart_shown(screen)
+
+    _select(screen, "b00002")
+
+    assert screen.presenter._account.view.state is ConnectState.CONNECTING
+    assert not _chart_shown(screen)
+    screen.settle()
+    assert screen.presenter._account.view.state is ConnectState.FAILED
+    assert len(screen.account.symbols_read) == 3
