@@ -1,11 +1,9 @@
-import gc
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 import requests
 from binance.enums import HistoricalKlinesType
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
@@ -16,15 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client i
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
 )
-
-
-def _live_market_data_count() -> int:
-    """Counts real, currently-alive `MarketData` instances via the GC heap
-    — deterministic and reproducible across machines/CI, unlike sampling
-    OS-level RSS (which is noisy and affected by allocator behavior, see
-    BUG-025's own report for why an RSS-based test was rejected)."""
-    gc.collect()
-    return sum(1 for obj in gc.get_objects() if type(obj) is MarketData)
+from Sagittarius_Elite_Warrior.tests.market_data_watch import MarketDataWatch
 
 
 def _raw_kline(index: int) -> list:
@@ -258,7 +248,7 @@ def test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_ali
     )
     client = PythonBinanceClient(client=injected_client)
 
-    baseline = _live_market_data_count()
+    watch = MarketDataWatch()
     peak_live_beyond_baseline = 0
 
     for chunk in client.stream_historical_klines(
@@ -267,11 +257,11 @@ def test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_ali
         TimeFrame.ONE_MINUTE,
         datetime(2023, 1, 1, tzinfo=UTC),
     ):
-        live_now = _live_market_data_count() - baseline
+        live_now = watch.new_live_count()
         peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
         del chunk  # mirrors the handler: save_klines(chunk) then move on
 
-    final_live = _live_market_data_count() - baseline
+    final_live = watch.new_live_count()
 
     assert peak_live_beyond_baseline <= _KLINE_STREAM_CHUNK_SIZE
     assert final_live == 0
