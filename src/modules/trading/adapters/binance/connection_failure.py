@@ -7,7 +7,7 @@ Binance `-2015` ("Invalid API-key, IP, or permissions for action") is not an
 expiry: the exchange rejected the key for a reason it does not name — an unknown
 key (a mainnet key sent to the testnet, the app being testnet-only), an IP off
 the key's allowlist, or a key without the needed permission. It maps to
-`KEY_REJECTED`. No Binance code means "expired", so no such kind exists.
+`KEY_REJECTED`, as do `-2008` (unknown key) and `-2014` (bad key format). No Binance code means "expired", so no such kind exists.
 
 A non-JSON answer (a gateway's HTML page: `502 Bad Gateway`, a maintenance
 notice) is the other thing this module names once, `BUG-168`: python-binance
@@ -39,6 +39,27 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -1021: ConnectionFailureKind.CLOCK_SKEW,
     -1022: ConnectionFailureKind.BAD_SIGNATURE,
     -2015: ConnectionFailureKind.KEY_REJECTED,
+    #: `BUG-175`: "Invalid Api-Key ID" (the exchange does not know the key: a
+    #: testnet key pasted for mainnet, or the reverse) and "API-key format
+    #: invalid". Both are about the key, never the network.
+    -2008: ConnectionFailureKind.KEY_REJECTED,
+    -2014: ConnectionFailureKind.KEY_REJECTED,
+}
+
+#: `BUG-175`: what to do about the key codes, in plain words. `describe_failure`
+#: appends it to the exchange's own code and message, so a log line, the
+#: key-enrolment script and the Connect step all say the same thing.
+_KEY_CODE_HINTS: dict[int, str] = {
+    -2015: (
+        "The key's IP whitelist does not include this machine's public IP "
+        "(a LAN address such as 192.168.x.x never matches), Enable Reading is "
+        "off, or the change is not saved yet."
+    ),
+    -2008: (
+        "The exchange does not know this key; a testnet or Demo Trading key "
+        "does not work on mainnet."
+    ),
+    -2014: "The key is malformed: copy it again, with no spaces or missing characters.",
 }
 
 #: The text python-binance starts a non-JSON answer's message with
@@ -81,6 +102,9 @@ def describe_failure(
     own short text, worded by `other` (`str` by default; `repr` for a payload
     that could not be mapped).
     """
+    if isinstance(exc, BinanceAPIException) and exc.code in _KEY_CODE_HINTS:
+        message = str(exc.message).rstrip(".")
+        return f"{exc.code} {message}. {_KEY_CODE_HINTS[exc.code]}"
     if not is_non_json_answer(exc):
         return other(exc)
     page = str(getattr(exc.response, "text", "") or "")

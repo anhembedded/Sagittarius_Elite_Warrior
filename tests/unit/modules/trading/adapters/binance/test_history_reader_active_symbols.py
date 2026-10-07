@@ -51,7 +51,9 @@ def test_futures_active_symbols_include_pairs_traded_since_with_nothing_open() -
 
     assert _why(_futures(client).active_symbols(_SINCE)) == (("ADAUSDT", "TRADED"),)
     call = client.futures_income_history.call_args_list[0].kwargs
-    assert call["startTime"] == int(_SINCE.timestamp() * 1000)
+    # `BUG-173`: a start exactly seven days old is moved five minutes inside
+    # what Binance accepts.
+    assert call["startTime"] == int(_SINCE.timestamp() * 1000) + 5 * 60 * 1000
 
 
 def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -> None:

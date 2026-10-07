@@ -173,6 +173,23 @@ def test_retrying_a_failed_history_reads_it_again(qtbot) -> None:
     assert len(desk.activity.order_requests) == reads + 1
 
 
+def test_retrying_a_failed_history_takes_its_span_from_now_not_from_the_failed_read(
+    qtbot,
+) -> None:
+    """`BUG-173` — a Retry that re-sent the failed `since` sent a start that
+    only got older, and could never succeed."""
+    desk = AccountTabsDesk(qtbot)
+    desk.activity.history_raises(RuntimeError("the venue did not answer"))
+    desk.presenter.show_symbol("BTCUSDT")
+    retry = _notice_for(desk, "trading.futures_testnet.history.orders").retry
+    assert retry is not None
+    desk.now = NOW + timedelta(minutes=1)
+
+    retry()
+
+    assert desk.activity.order_requests[-1].since == desk.now - DESK_HISTORY_SPAN
+
+
 def test_a_successful_load_clears_the_notices_of_what_it_read(qtbot) -> None:
     desk = AccountTabsDesk(qtbot)
 

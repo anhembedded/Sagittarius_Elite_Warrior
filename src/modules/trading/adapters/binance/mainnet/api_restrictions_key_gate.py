@@ -39,6 +39,7 @@ from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
+    describe_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.key_permissions_client import (
     IKeyPermissionsClient,
@@ -84,6 +85,13 @@ type KeyPermissionsClients = Callable[
 #: What the gate asks for the key to check: the venue's configured key, or a
 #: candidate being enrolled. `None` is "no key".
 type CredentialsSource = Callable[[], ExchangeCredentials | None]
+
+
+def _reply(exc: Exception, kind: ConnectionFailureKind) -> str:
+    """What the exchange said about the key, for the kinds that are its answer."""
+    if kind in _NOT_ANSWERING:
+        return ""
+    return describe_failure(exc)
 
 
 class ApiRestrictionsKeyGate(IKeyPermissionGate):
@@ -155,6 +163,7 @@ class ApiRestrictionsKeyGate(IKeyPermissionGate):
                 self._source,
                 kind,
                 _THE_KEY if kind is ConnectionFailureKind.NETWORK else "",
+                _reply(exc, kind),
             )
             return failure, kind in _NOT_ANSWERING
         except _PARSE_FAILURES as exc:

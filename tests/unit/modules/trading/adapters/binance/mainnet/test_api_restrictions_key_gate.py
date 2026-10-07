@@ -143,6 +143,10 @@ def test_no_key_is_not_configured_and_nothing_is_opened(venue: TradingVenue) -> 
     ("code", "kind"),
     [
         (-2015, ConnectionFailureKind.KEY_REJECTED),
+        # `BUG-175`: the exchange does not know the key (a testnet key pasted
+        # for mainnet) or the key is malformed; neither is a network failure.
+        (-2008, ConnectionFailureKind.KEY_REJECTED),
+        (-2014, ConnectionFailureKind.KEY_REJECTED),
         (-1022, ConnectionFailureKind.BAD_SIGNATURE),
         (-1021, ConnectionFailureKind.CLOCK_SKEW),
     ],
@@ -152,7 +156,14 @@ def test_the_exchange_rejecting_the_key_is_named(
 ) -> None:
     gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(code))
 
-    assert gate.check() == ConnectFailure(AccountSource.SPOT_MAINNET, kind, "")
+    refused = gate.check()
+    assert refused is not None
+    assert (refused.source, refused.kind, refused.detail) == (
+        AccountSource.SPOT_MAINNET,
+        kind,
+        "",
+    )
+    assert str(code) in refused.reply
 
 
 def test_a_session_that_cannot_be_opened_is_named_by_its_error() -> None:
