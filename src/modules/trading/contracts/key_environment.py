@@ -69,6 +69,7 @@ class EnvironmentVerdict:
     failure: ConnectionFailureKind | None = None
     #: The exchange's own code and message, then the reason and the fixes, as
     #: `describe_failure` words them (one wording for a log line, the Connect step
-    #: and this page). Empty when the exchange gave no code (it was not asked, or
-    #: the answer was not an API reply).
+    #: and this page). Set only when the exchange answered about the key (`UNKNOWN` or
+    #: `REFUSED`); empty otherwise, because a transport error's text can hold the
+    #: signed URL, and the page words `failure` by its kind instead.
     reason: str = ""

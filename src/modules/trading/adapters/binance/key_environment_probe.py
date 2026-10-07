@@ -16,10 +16,10 @@ How the exchange's refusal is told: the shared `connection_failure.py` classifie
 files `-2008`, `-2014` and `-2015` under `KEY_REJECTED`; `UNKNOWN_KEY_CODES`, held
 there, says which of them mean this environment does not know the key (`-2008`,
 `-2014`) as against knowing it and refusing this request (`-2015`: an IP off the
-allowlist or a missing permission). Every failure carries `describe_failure`'s
-words, the exchange's code and message then the reason and the fixes, so this page,
-a log line and the Connect step say one thing; a maintenance page, a clock fault or
-a dead network is told as it is everywhere else.
+allowlist or a missing permission). A key answer (unknown or refused) carries `describe_failure`'s words, the exchange's
+code and message then the reason and the fixes, so this page, a log line and the
+Connect step say one thing; any other failure carries only its kind (the page words
+it), because its exception text can hold the signed URL.
 
 Verification note: the codes are written from Binance's documented errors and the
 owner's logs (`BUG-175`), not re-checked against a live call; egress to
@@ -149,6 +149,7 @@ def _verdict_of_failure(
             KeyStanding.UNKNOWN if unknown else KeyStanding.REFUSED,
             reason=describe_failure(exc),
         )
-    return EnvironmentVerdict(
-        environment, KeyStanding.UNREACHABLE, failure=kind, reason=describe_failure(exc)
-    )
+    # No `reason` here: for anything but a key answer `describe_failure` is the
+    # exception's own text, and a `requests` error words the whole URL, signed query
+    # string included. The page words this by `failure`'s kind instead.
+    return EnvironmentVerdict(environment, KeyStanding.UNREACHABLE, failure=kind)

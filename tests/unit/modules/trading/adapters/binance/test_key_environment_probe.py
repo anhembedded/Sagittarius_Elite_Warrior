@@ -221,3 +221,19 @@ def test_a_refusal_carries_the_exchanges_code_and_message_then_the_hint() -> Non
 def test_the_codes_that_mean_unknown_are_the_shared_modules_not_a_copy() -> None:
     assert not hasattr(key_environment_probe, "_UNKNOWN_KEY_CODES")
     assert {-2008, -2014} == key_environment_probe.UNKNOWN_KEY_CODES
+
+
+def test_a_network_failure_carries_no_exception_text_in_its_reason() -> None:
+    """The round-4 review of PR #423: a requests `ConnectionError` words the whole
+    URL, which holds the signed query string; the page shows `reason` under Details."""
+    url = "https://api.binance.com/sapi/v1/account/apiRestrictions?timestamp=1&signature=abc123"
+    probe, _, _ = _probe(
+        RequestsConnectionError(f"Max retries exceeded with url: {url}")
+    )
+
+    verdict = probe.probe(KeyEnvironment.MAINNET, _CREDENTIALS)
+
+    assert verdict.standing is KeyStanding.UNREACHABLE
+    assert verdict.failure is ConnectionFailureKind.NETWORK
+    assert verdict.reason == ""
+    assert "signature" not in repr(verdict)
