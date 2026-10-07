@@ -9,7 +9,7 @@
   one `IMarketStream` owner, and each open chart tab streams its own symbol under its own owner,
   live from the user's own open of the mode until the tab or the app closes, except the Watchlist's, which also stops when another mode takes the window and starts again on the return (`BOT-165`); View → Spot market or
   Futures market picks the market every one of them shows (`EPIC-033Q`), and View → Load older
-  candles or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
+  candles (a pan or zoom past the oldest candle asks for the same, `BUG-177`) or Load range… shows the chart in front beyond its first window (`EPIC-033S`), and View →
   Back to live draws its newest window again and follows the stream (`EPIC-033T`) · a desk's
   chart · `stream start` / `stream stop` at the interactive prompt.
 
@@ -119,7 +119,10 @@ consumer-facing port.
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |
 | View → Spot market or Futures market is one exclusive, remembered choice; switching reopens the charts on the new market's candles and moves the Watchlist's stream; a tick of the other market reaches neither | `tests/unit/modules/trading/ui/market/test_market_choice.py` | unit |
-| Load older candles joins the window before the oldest drawn candle with neither a gap nor a duplicate; a range is exactly the candles that open in it (boundary values) | `tests/unit/modules/trading/ui/market/test_chart_history.py` | unit |
+| A range is exactly the candles that open in it (boundary values) | `tests/unit/modules/trading/ui/market/test_chart_history.py` | unit |
+| The window before a chart's oldest candle joins it with neither a gap nor a duplicate: from the store when it holds a full window, else fetched from the chart's own market and stored first (`BUG-177`) | `tests/unit/modules/market_data/contracts/test_market_data_candle_feed_older.py` | unit |
+| Panning or zooming any live chart past its oldest candle draws older candles by itself, one load at a time, with no duplicate, keeping live ticks, dropping a load a new first window or a range replaced, and telling a failure on the message bar | `tests/unit/support/charting/live_chart/test_live_candle_chart_older.py` | unit |
+| The same on a real worker pool and the real candle feed: from the store, from the exchange when the store is empty, with live ticks arriving meanwhile | `tests/integration/modules/market_data/test_chart_backfills_older_candles.py` | integration |
 | Both loads are off while one runs, while a first window loads and with no chart open; a closed tab, a new timeframe or a new first window drops a load asked before it, in either order; a window of a timeframe left behind is not drawn; a drawn range takes no live candle | `tests/unit/modules/trading/ui/market/test_market_chart_history.py` | unit |
 | Back to live, from a drawn range, draws the newest window and takes live candles again, restarting the stream once; it is off with no range, while its window loads and with no chart open | `tests/unit/modules/trading/ui/market/test_market_chart_back_to_live.py` | unit |
 | Load older candles twice reaches the start of a seeded store with one candle per minute; Load range… draws exactly its span | `tests/integration/modules/trading/ui/test_market_mode_chart_history.py` | integration |

@@ -1,7 +1,7 @@
-"""`ChartHistory` (`EPIC-033S`): the window before the oldest drawn candle
-joins it with neither a gap nor a duplicate, and a range is exactly the
-candles that open in it. Boundary values at the window's edge and the
-range's ends, against the verified in-memory store."""
+"""`ChartHistory` (`EPIC-033S`): a range is exactly the candles that open in
+it. Boundary values at the range's ends, against the verified in-memory
+store. (The window before the oldest drawn candle is `ICandleFeed.load_older`'s,
+`test_market_data_candle_feed_older.py`.)"""
 
 from __future__ import annotations
 
@@ -35,58 +35,6 @@ def _store(minutes: range, market: MarketType = _SPOT) -> FakeHistoricalKlines:
 
 def _minutes(candles) -> list[int]:
     return [int((k.open_time - T0).total_seconds() // 60) for k in candles]
-
-
-# -- the window before the oldest drawn candle --------------------------------
-
-
-def test_the_older_window_ends_right_before_the_oldest_drawn_candle():
-    history = ChartHistory(_store(range(1000)), _SPOT, window=500)
-
-    older = history.older_than("BTCUSDT", _MINUTE, candle("BTCUSDT", 500))
-
-    assert _minutes(older) == list(range(500))
-
-
-@pytest.mark.parametrize(
-    ("oldest", "expected"),
-    [
-        (10, [7, 8, 9]),  # more stored than the window: the newest three
-        (3, [0, 1, 2]),  # exactly the window
-        (2, [0, 1]),  # fewer than the window: all there is
-        (0, []),  # the oldest stored candle is drawn: nothing older
-    ],
-)
-def test_the_older_window_at_the_edge_of_what_is_stored(oldest, expected):
-    history = ChartHistory(_store(range(20)), _SPOT, window=3)
-
-    older = history.older_than("BTCUSDT", _MINUTE, candle("BTCUSDT", oldest))
-
-    assert _minutes(older) == expected
-
-
-def test_a_gap_the_store_has_stays_and_no_candle_is_invented():
-    stored = [minute for minute in range(20) if minute != 9]
-    store = FakeHistoricalKlines()
-    store.seed([candle("BTCUSDT", minute) for minute in stored])
-    history = ChartHistory(store, _SPOT, window=3)
-
-    older = history.older_than("BTCUSDT", _MINUTE, candle("BTCUSDT", 10))
-
-    assert _minutes(older) == [6, 7, 8]
-
-
-def test_the_older_window_reads_only_its_own_market():
-    store = _store(range(5, 10))
-    store.seed(
-        [candle("BTCUSDT", minute) for minute in range(10)], MarketType.FUTURES_USD_M
-    )
-    history = ChartHistory(store, _SPOT, window=10)
-
-    older = history.older_than("BTCUSDT", _MINUTE, candle("BTCUSDT", 8))
-
-    assert _minutes(older) == [5, 6, 7]
-    assert {read.market for read in store.reads} == {_SPOT}
 
 
 # -- a chosen range -------------------------------------------------------------

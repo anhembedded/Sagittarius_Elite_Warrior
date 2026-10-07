@@ -22,6 +22,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -33,6 +34,19 @@ class CandleStreamStart:
 
     success: bool
     message: str
+
+
+@dataclass(frozen=True, slots=True)
+class OlderCandlesRequest:
+    """The window to the left of a chart's oldest candle."""
+
+    symbol: str
+    interval: TimeFrame
+    #: The `open_time` of the oldest candle drawn: the window ends right
+    #: before it.
+    before: datetime
+    #: How many candles at most.
+    limit: int
 
 
 class ICandleFeed(ABC):
@@ -53,6 +67,19 @@ class ICandleFeed(ABC):
     ) -> Sequence[MarketData]:
         """@brief The newest `limit` stored candles, **oldest first**: the
         order a chart draws them in."""
+
+    @abstractmethod
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        """@brief Up to `request.limit` candles that open before
+        `request.before`, **oldest first** (`BUG-177`): what a chart draws to
+        the left of its oldest candle.
+        @details The stored candles when the store holds a full window; else
+        the exchange's, fetched into the store first, so a chart never draws
+        what a restart would not read back. Empty when this market has none
+        older. Blocks (it may fetch): a caller runs it off the UI thread.
+        @param cancelled Polled between fetches, as `sync` polls it."""
 
     @abstractmethod
     def start_stream(

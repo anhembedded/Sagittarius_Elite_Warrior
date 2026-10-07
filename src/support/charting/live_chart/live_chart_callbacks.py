@@ -30,4 +30,10 @@ class LiveChartCallbacks:
     #: `(token, headline, detail)`: what failed as a sentence, and the technical
     #: text behind Details… (`BOT-169`); never one string with the exception.
     stream_failed: Callable[[CancellationToken, str, str], None]
+    #: `(the request's token, the older candles' rows oldest first)`: an older
+    #: window loaded (`BUG-177`). Empty when the market has none older.
+    older_ready: Callable[[CancellationToken, list], None]
+    #: `(token, headline, detail)` of an older window that could not be read
+    #: or fetched, told as `stream_failed` is.
+    older_failed: Callable[[CancellationToken, str, str], None]
     log: Callable[[str], None]

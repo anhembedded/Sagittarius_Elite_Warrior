@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
@@ -84,6 +85,12 @@ class ScriptedCandleFeed(ICandleFeed):
         self, symbol: str, interval: TimeFrame, limit: int
     ) -> Sequence[MarketData]:
         self.calls.append("history")
+        return []
+
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        self.calls.append("older")
         return []
 
     def start_stream(

@@ -20,6 +20,18 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
+    MarketDataCandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
@@ -29,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
     ICandleFeed,
+    OlderCandlesRequest,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -77,10 +90,18 @@ class RecordingCandleFeed(ICandleFeed):
     """Serves 60 stored candles per symbol at the timeframe asked for, none
     at the timeframes in `empty`, and records each stream."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        history: IHistoricalKlines,
+        market: MarketType = MarketType.SPOT,
+    ) -> None:
         self.started: list[str] = []
         self.stopped: list[str] = []
         self.empty: set[str] = set()
+        #: The older window is the real feed's, over the test's store.
+        self._older = MarketDataCandleFeed(
+            FakeMarketDataSync(), history, FakeMarketStream(), market
+        )
 
     def sync(
         self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
@@ -96,6 +117,11 @@ class RecordingCandleFeed(ICandleFeed):
             candle(symbol, index, interval=interval.value)
             for index in range(min(limit, 60))
         )
+
+    def load_older(
+        self, request: OlderCandlesRequest, cancelled: Callable[[], bool]
+    ) -> Sequence[MarketData]:
+        return self._older.load_older(request, cancelled)
 
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame

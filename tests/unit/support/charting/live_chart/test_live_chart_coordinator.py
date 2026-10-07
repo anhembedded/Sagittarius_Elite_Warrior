@@ -69,6 +69,8 @@ def _callbacks(history_ready: MagicMock | None = None) -> LiveChartCallbacks:
         load_finished=MagicMock(),
         stream_started=MagicMock(),
         stream_failed=MagicMock(),
+        older_ready=MagicMock(),
+        older_failed=MagicMock(),
         log=MagicMock(),
     )
 
@@ -337,6 +339,9 @@ class _ScriptedFeed(ICandleFeed):
     def load_history(self, symbol, interval, limit):
         if self._read_error is not None:
             raise self._read_error
+        return ()
+
+    def load_older(self, request, cancelled):
         return ()
 
     def start_stream(self, owner_id, symbol, interval) -> CandleStreamStart:
