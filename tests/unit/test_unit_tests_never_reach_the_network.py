@@ -11,9 +11,12 @@ Retire when: `tests/unit/conftest.py`'s network block is retired.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import os
 import socket
 
 import pytest
+from Sagittarius_Elite_Warrior.tests.unit import network_block
 from Sagittarius_Elite_Warrior.tests.unit.network_block import NetworkAccessBlockedError
 
 #: TEST-NET-1 (RFC 5737): documentation-only, never routed. Port 9 is discard.
@@ -137,3 +140,29 @@ def test_a_legacy_name_lookup_is_refused(lookup: str) -> None:
 
 def test_a_legacy_lookup_of_localhost_still_resolves() -> None:
     assert socket.gethostbyname("localhost").startswith("127.")
+
+
+def test_a_refusal_is_recorded_even_when_the_caller_swallows_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`BUG-182` — a worker that catches the error and logs a warning left the
+    integration tier green while binance.com was being asked; the record is
+    what its fixture fails on."""
+    refused = network_block.install(monkeypatch)
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock,
+        # The worker's habit, which is the point.
+        contextlib.suppress(Exception),
+    ):
+        sock.connect(_UNROUTABLE)
+    assert refused == [repr(_UNROUTABLE)]
+
+
+def test_a_loopback_proxy_in_the_environment_cannot_carry_a_request_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:3128")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:3128")
+    network_block.install(monkeypatch)
+    assert "HTTPS_PROXY" not in os.environ
+    assert "http_proxy" not in os.environ

@@ -1,6 +1,6 @@
 {
   "tests/integration/modules/market_data/adapters/persistence/test_sqlalchemy_repository.py": 526,
-  "tests/integration/presentation/ui/conftest.py": 465,
+  "tests/integration/presentation/ui/conftest.py": 442,
   "tests/sanity/test_composition_root.py": 463,
   "tests/unit/modules/backtesting/application/test_run_historical_tick_backtest.py": 613,
   "tests/unit/modules/backtesting/application/test_run_static_backtest.py": 804,
