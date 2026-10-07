@@ -31,11 +31,21 @@ import pytest
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
+    DatabaseConfig,
+    DatabaseManager,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
+    SQLAlchemyMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     MarketDataSyncRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
     MarketDataCandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart_ports import (
     DeskChartPorts,
@@ -268,3 +278,37 @@ def test_a_short_history_on_spot_testnet_is_an_ordinary_sync(
     feed.sync("BTCUSDT", TimeFrame.ONE_MINUTE, lambda: False)
 
     assert len(feed.load_history("BTCUSDT", TimeFrame.ONE_MINUTE, 500)) == 1
+
+
+@pytest.mark.parametrize(
+    ("setting", "labelled", "other"),
+    [
+        ("futures_testnet", TradingVenue.FUTURES_TESTNET, TradingVenue.FUTURES_MAINNET),
+        ("mainnet_public", TradingVenue.FUTURES_MAINNET, TradingVenue.FUTURES_TESTNET),
+    ],
+)
+def test_the_booted_app_gives_legacy_candles_the_venue_the_setting_named(
+    composed: Callable[[str, bool], Exchange],
+    tmp_path: Path,
+    setting: str,
+    labelled: TradingVenue,
+    other: TradingVenue,
+) -> None:
+    """`BUG-172` — wiring: candles stored by an earlier build, in the configured
+    directory, are served to the venue `exchange.market_data_venue` named when the
+    app first boots with the fix, and to no other (never a testnet price as a
+    mainnet one)."""
+    legacy = DatabaseManager(DatabaseConfig(db_dir=str(tmp_path / "database")))
+    SQLAlchemyMarketDataRepository(legacy).save_klines(
+        MarketType.FUTURES_USD_M, [candle(_SYMBOL, 0, close_price=333.0)]
+    )
+    legacy.dispose_all()
+    exchange = composed(setting, True)
+
+    def closes(venue: TradingVenue) -> list[float]:
+        history = exchange.desk_chart(venue).historical_klines
+        rows = history.load(MarketType.FUTURES_USD_M, _SYMBOL, TimeFrame.ONE_MINUTE)
+        return [row.close_price for row in rows]
+
+    assert closes(labelled) == [333.0]
+    assert closes(other) == []

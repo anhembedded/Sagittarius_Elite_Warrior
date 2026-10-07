@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.data
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.json_symbol_catalog_repository import (
     JsonSymbolCatalogRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.legacy_store_label import (
+    label_legacy_store,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
@@ -149,15 +152,22 @@ def _build_exchange_session_factory(container: IContainer) -> IExchangeSessionFa
 
 def _build_database_config(container: IContainer) -> DatabaseConfig:
     """`database_directory.py` owns the precedence of `database.dir`,
-    `SEW_DATA_ROOT` and the working directory."""
-    configured = container.resolve(IConfig).get(ConfigKeys.DATABASE_DIR.value)
-    return DatabaseConfig(
-        db_dir=database_directory(
-            str(configured) if configured else None,
-            data_root_override(),
-            os.getcwd(),
-        )
+    `SEW_DATA_ROOT` and the working directory.
+
+    `BUG-172`: also the one place, before any store is opened, where the candles
+    stored before each venue had a store of its own are given the venue the
+    setting names (`label_legacy_store`) — or quarantined when it names none."""
+    config = container.resolve(IConfig)
+    configured = config.get(ConfigKeys.DATABASE_DIR.value)
+    db_dir = database_directory(
+        str(configured) if configured else None,
+        data_root_override(),
+        os.getcwd(),
     )
+    label_legacy_store(
+        db_dir, config.get(ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value, None)
+    )
+    return DatabaseConfig(db_dir=db_dir)
 
 
 def _build_database_manager(container: IContainer) -> DatabaseManager:
@@ -175,10 +185,9 @@ def _build_database_manager(container: IContainer) -> DatabaseManager:
     manager = DatabaseManager(
         DatabaseConfig(db_dir=venue_directory(base.db_dir, venue))
     )
-    if venue is MarketDataVenue.MAINNET_PUBLIC:
-        # Only the mainnet's shards can be legacy ones: every pre-`EPIC-027A`
-        # shard was downloaded from the mainnet (ADR O3).
-        manager.migrate_legacy_shards()
+    # Shards from before `EPIC-027A` are Spot (ADR O3), and `label_legacy_store`
+    # has already moved them into the venue the setting named.
+    manager.migrate_legacy_shards()
     return manager
 
 

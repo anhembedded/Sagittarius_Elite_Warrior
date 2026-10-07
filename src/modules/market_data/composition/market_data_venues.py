@@ -66,11 +66,9 @@ class _VenueInfrastructure:
         self.manager = DatabaseManager(
             DatabaseConfig(db_dir=venue_directory(base.db_dir, venue))
         )
-        if venue is MarketDataVenue.MAINNET_PUBLIC:
-            # The configured directory is the mainnet's even when the default
-            # venue is a testnet: its legacy shards are tagged Spot all the same
-            # (ADR O3), before anything reads them.
-            self.manager.migrate_legacy_shards()
+        # Shards from before `EPIC-027A` are Spot (ADR O3); `label_legacy_store`
+        # put them in the venue's store before anything reads them.
+        self.manager.migrate_legacy_shards()
         self.repository = SQLAlchemyMarketDataRepository(self.manager)
         self.stream = BinanceWebsocketService(
             container.resolve(IEventBus), container.resolve(ITaskManager), venue
