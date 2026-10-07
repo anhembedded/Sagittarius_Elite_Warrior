@@ -29,7 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.mark_price import (
 
 
 class FuturesMarkPriceReader(IMarkPriceReader):
-    """Reads the Futures Testnet mark price of one symbol."""
+    """Reads one symbol's mark price on its Futures venue."""
 
     def __init__(self, session_factory: FuturesSessionFactory) -> None:
         self._session_factory = session_factory

@@ -1,5 +1,5 @@
 """`EPIC-021F` — `ITradingClient` implementation: the adapter that actually
-sends a signed order request to Binance Futures Testnet.
+sends a signed order request to the Binance Futures exchange of its venue.
 
 @details Constructed with a fixed `OrderSubmissionMode` — see that enum's
 own docstring for why this is a constructor parameter, not a per-call
@@ -95,8 +95,9 @@ _UNKNOWN_ORDER_CODE = -2011
 
 class FuturesTradingClient(ITradingClient):
     """@brief The one instance in this app allowed to sign an order request
-    (ADR §2.1). Always Futures Testnet — `TradingVenue` has no `MAINNET`
-    member (ADR §3), so this is never ambiguous.
+    (ADR §2.1). Its session is its venue's own: Futures Testnet or Futures
+    Mainnet, decided by the `TradingVenue` the session factory was built for
+    (`EPIC-034` D11), never by this class.
     """
 
     def __init__(

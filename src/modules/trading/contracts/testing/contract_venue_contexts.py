@@ -63,7 +63,10 @@ class VenueContextsContract:
     def test_enabled_lists_the_served_venues_in_order(
         self, impl: IVenueContexts
     ) -> None:
-        assert impl.enabled() == (_FUTURES, _SPOT)
+        enabled = impl.enabled()
+
+        assert {_FUTURES, _SPOT} <= set(enabled)
+        assert list(enabled) == sorted(enabled, key=list(TradingVenue).index)
 
     def test_primary_is_the_first_enabled_venue(self, impl: IVenueContexts) -> None:
         assert impl.primary() is impl.get(_FUTURES)

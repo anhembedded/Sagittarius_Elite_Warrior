@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
+    FakeRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     fake_venue_ports,
 )
@@ -51,7 +54,13 @@ FUTURES = TradingVenue.FUTURES_TESTNET
 class AccountTabsDesk:
     """One Futures desk's tabs over fakes, every dialog answered Yes."""
 
-    def __init__(self, qtbot, threads=None) -> None:
+    def __init__(
+        self,
+        qtbot,
+        threads=None,
+        venue: TradingVenue = FUTURES,
+        consent: FakeRealMoneyConsent | None = None,
+    ) -> None:
         self.now = NOW
         self.bus = MemoryEventBus()
         self.activity = FakeAccountActivity()
@@ -59,6 +68,7 @@ class AccountTabsDesk:
         self.submission = FakeOrderSubmission()
         self.threads = threads or InlineThreadManager()
         self.notifier = RecordingNotifier()
+        self.consent = consent or FakeRealMoneyConsent()
         self.panel = AccountTabsPanel(
             HeldTab.POSITIONS,
             AccountTabConfirmations(
@@ -71,14 +81,15 @@ class AccountTabsDesk:
         self.presenter = AccountTabsPresenter(
             self.panel,
             fake_venue_ports(
-                FUTURES,
+                venue,
                 account_activity=self.activity,
                 account_snapshot=self.snapshot,
                 order_submission=self.submission,
             ),
-            OrderFeed(self.bus, FUTURES, parent=self.panel),
+            OrderFeed(self.bus, venue, parent=self.panel),
             self.threads,
             self.notifier,
+            self.consent,
             clock=lambda: self.now,
         )
 

@@ -74,8 +74,6 @@ class BotsViewModel(StatusMessageViewModel):
     #: Do the first fix the readiness offers (`EPIC-034H`): bring the field
     #: forward, read the account again, or select the bot that is still active.
     fix_next_requested = Signal()
-    #: Show the owner's real account, read only (`EPIC-034E`).
-    mainnet_account_requested = Signal()
     #: Scale the chart's price axis to every level of the selected bot.
     fit_levels_requested = Signal()
 

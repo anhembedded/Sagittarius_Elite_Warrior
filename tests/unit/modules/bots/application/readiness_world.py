@@ -96,14 +96,15 @@ def readiness_world(
     cap: Decimal = CAP,
     caps: OwnerBudgetCaps = DEFAULT_OWNER_BUDGET_CAPS,
     available: Decimal = FUNDED,
-    bot_venue: TradingVenue = TradingVenue.SPOT_TESTNET,
+    venue: TradingVenue = TradingVenue.SPOT_TESTNET,
+    bot_venue: TradingVenue | None = None,
     config: dict[str, str] | None = None,
     can_trade: bool | None = True,
 ) -> ReadinessWorld:
     session = FakeTradingSession()
     ports = FakeVenueTradingPorts(
         fake_venue_ports(
-            TradingVenue.SPOT_TESTNET,
+            venue,
             trading_session=session,
             order_entry_terms=FakeOrderEntryTerms(
                 terms_entry(),
@@ -117,14 +118,16 @@ def readiness_world(
         )
     )
     snapshot = replace(
-        a_venue_account_snapshot(symbol=SYMBOL),
+        a_venue_account_snapshot(AccountSource.for_venue(venue), symbol=SYMBOL),
         available=available,
         can_trade=can_trade,
         price=LAST_PRICE,
     )
-    account = FakeVenueAccountReader(AccountSource.SPOT_TESTNET, snapshot)
+    account = FakeVenueAccountReader(AccountSource.for_venue(venue), snapshot)
     store, clock = FakeBotStore(), FakeBotClock()
-    definition = BotDefinition("grid one", "grid", bot_venue, SYMBOL, config or CONFIG)
+    definition = BotDefinition(
+        "grid one", "grid", bot_venue or venue, SYMBOL, config or CONFIG
+    )
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
     reader = BotReadinessReader(store, kinds, FakeVenueAccounts(account), ports, caps)

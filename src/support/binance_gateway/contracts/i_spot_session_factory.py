@@ -80,11 +80,10 @@ class ISpotSessionFactory(ABC):
         self, credentials: ExchangeCredentials
     ) -> ISpotSessionClient:
         """@brief A signed session, authenticated with `credentials`, ready
-        to read balances and prices from Spot Testnet.
-        @details Always Spot Testnet on every implementation this app ships
-        (`TradingVenue` has no Spot mainnet member, ADR D8) — this port does
-        not parameterize venue for the same reason `ITradingSessionFactory`
-        does not.
+        to read balances and prices from the Spot exchange of its venue.
+        @details On the exchange of the venue the implementation was built
+        for (`EPIC-034` D11) — this port does not parameterize venue for the
+        same reason `ITradingSessionFactory` does not.
         """
 
     @abstractmethod

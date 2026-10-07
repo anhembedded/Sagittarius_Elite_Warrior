@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+
 from .bots_screen_fixtures import VENUE, Answers
 
 
@@ -19,4 +23,6 @@ def test_new_bot_offers_the_spot_venue_even_when_none_is_enabled(
     screen.view.model.new_bot_requested.emit()
     screen.settle()
 
-    assert answers.asked == [f"new bot ['grid'] ['{VENUE.value}']"]
+    assert answers.asked == [
+        f"new bot ['grid'] ['{VENUE.value}', '{TradingVenue.SPOT_MAINNET.value}']"
+    ]

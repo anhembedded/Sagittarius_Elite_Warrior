@@ -312,3 +312,45 @@ def test_a_refusal_the_runner_gives_leaves_the_edits_saved() -> None:
 
     assert result.refusal is BotRefusal.VENUE_NOT_READY
     assert world.store.load(BotId(BOT)).bot.definition.config["capital_quote"] == "900"
+
+
+# --- the mainnet venues (`EPIC-034` D11) --------------------------------------
+
+_SPOT_VENUES = (TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET)
+
+
+@pytest.mark.parametrize("venue", _SPOT_VENUES)
+def test_a_ready_spot_bot_starts_on_every_spot_venue_the_same_way(
+    venue: TradingVenue,
+) -> None:
+    """Mainnet is the same readiness as testnet, read from its own account."""
+    world = readiness_world(venue=venue)
+    runner = _CountingRunner()
+
+    assert _query(world).can_start
+    assert _start(world, runner).accepted
+    assert runner.started == [BOT]
+
+
+def test_a_mainnet_key_the_gate_refused_stops_start_and_names_the_venue() -> None:
+    """The key gate (`EPIC-034` D5) answers through the account read, so a key
+    that can withdraw is a Connect item that Start refuses on, before any order."""
+    world = readiness_world(venue=TradingVenue.SPOT_MAINNET)
+    failing(
+        world,
+        ConnectFailure(
+            AccountSource.SPOT_MAINNET,
+            ConnectionFailureKind.WITHDRAWAL_ENABLED,
+            "withdrawals",
+        ),
+    )
+    runner = _CountingRunner()
+
+    reported = _query(world)
+    result = _start(world, runner)
+
+    assert not reported.can_start
+    assert [i.code for i in reported.items] == ["CONNECT_FAILED"]
+    assert "Spot Mainnet" in reported.items[0].reason
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert runner.started == []

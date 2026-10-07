@@ -29,9 +29,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.strategies.arm_strategy_dialo
     AskArmStrategy,
     ask_arm_with_dialog,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 type ConfirmDelete = Callable[[BotSnapshot], bool]
-type ShowMainnetAccount = Callable[[], None]
+#: `(venue, what)` -> may it go on: the one question that names real money, asked
+#: on a mainnet venue's first Start or Arm of the session (`EPIC-034` D3, D11).
+type AllowRealMoney = Callable[[TradingVenue, str], bool]
 
 
 @dataclass(frozen=True)
@@ -41,8 +49,7 @@ class BotsDialogs:
     confirm_delete: ConfirmDelete
     #: Bots → Arm strategy… (`EPIC-033K` stage 3).
     ask_arm_strategy: AskArmStrategy
-    #: Bots → Mainnet account (`EPIC-034E`): the owner's real account, read only.
-    show_mainnet_account: ShowMainnetAccount
+    allow_real_money: AllowRealMoney
 
 
 def delete_question(bot: BotSnapshot) -> str:
@@ -55,18 +62,21 @@ def delete_question(bot: BotSnapshot) -> str:
 def dialogs_for(
     parent: QWidget,
     symbols: NewBotSymbols,
-    mainnet_account: ShowMainnetAccount,
+    consent: IRealMoneyConsent,
 ) -> BotsDialogs:
     """The modal dialogs, parented to `parent`; `symbols` feeds New bot's
-    picker; `mainnet_account` opens the read-only mainnet window."""
+    picker; `consent` is asked before a mainnet venue's first Start or Arm."""
     return BotsDialogs(
         ask_new_bot=lambda kinds, venues: ask_new_bot_with_dialog(
             parent, kinds, venues, symbols
         ),
         ask_stop=lambda bot: ask_stop_with_dialog(parent, bot),
         confirm_delete=lambda bot: _ask_delete(parent, bot),
-        ask_arm_strategy=lambda venue, form: ask_arm_with_dialog(parent, venue, form),
-        show_mainnet_account=mainnet_account,
+        ask_arm_strategy=lambda venue, form: (
+            consent.confirmed(venue, "arm a strategy")
+            and ask_arm_with_dialog(parent, venue, form)
+        ),
+        allow_real_money=consent.confirmed,
     )
 
 

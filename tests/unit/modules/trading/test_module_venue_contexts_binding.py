@@ -15,10 +15,15 @@ its venue.
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
 from unittest.mock import Mock
 
 import pytest
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance import (
+    binance_client_builder,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
     CachedAccountHistoryReader,
 )
@@ -82,6 +87,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -100,6 +108,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
     VenueNotEnabledError,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    FUTURES_ENV_API_KEY,
+    FUTURES_ENV_API_SECRET,
+    FUTURES_MAINNET_ENV_API_KEY,
+    FUTURES_MAINNET_ENV_API_SECRET,
+    SPOT_ENV_API_KEY,
+    SPOT_ENV_API_SECRET,
+    SPOT_MAINNET_ENV_API_KEY,
+    SPOT_MAINNET_ENV_API_SECRET,
+    EnvFirstCredentialsProvider,
+    MainnetCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -138,6 +158,8 @@ def test_both_venues_are_enabled_in_configuration_order() -> None:
     assert contexts.enabled() == (
         TradingVenue.FUTURES_TESTNET,
         TradingVenue.SPOT_TESTNET,
+        TradingVenue.FUTURES_MAINNET,
+        TradingVenue.SPOT_MAINNET,
     )
 
 
@@ -202,6 +224,8 @@ def test_an_empty_configuration_assembles_every_venue() -> None:
     assert contexts.enabled() == (
         TradingVenue.FUTURES_TESTNET,
         TradingVenue.SPOT_TESTNET,
+        TradingVenue.FUTURES_MAINNET,
+        TradingVenue.SPOT_MAINNET,
     )
 
 
@@ -213,7 +237,7 @@ def test_a_configuration_that_names_one_venue_still_loads_and_changes_nothing() 
     ).resolve(IVenueContexts)
 
     assert contexts.get(TradingVenue.SPOT_TESTNET).venue is TradingVenue.SPOT_TESTNET
-    assert len(contexts.enabled()) == 2
+    assert len(contexts.enabled()) == 4
 
 
 def test_disabled_is_not_a_venue_anything_may_address() -> None:
@@ -274,4 +298,101 @@ def test_session_state_and_equity_recorder_are_owned_per_venue() -> None:
     assert scopes.get(TradingVenue.SPOT_TESTNET).session_state is spot.session_state
     assert scopes.get(TradingVenue.SPOT_TESTNET).equity_recorder is (
         spot.equity_recorder
+    )
+
+
+_TWINS = [
+    (TradingVenue.FUTURES_TESTNET, TradingVenue.FUTURES_MAINNET),
+    (TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET),
+]
+
+
+@pytest.mark.parametrize(("testnet", "mainnet"), _TWINS)
+def test_a_mainnet_venue_is_built_from_the_same_classes_as_its_testnet_twin(
+    testnet: TradingVenue, mainnet: TradingVenue
+) -> None:
+    """`EPIC-034` D11 — no mainnet-specific reader, trading client or parser:
+    the same adapters, with the venue and its key passed in."""
+    contexts = _both_venues().resolve(IVenueContexts)
+
+    twin, real = contexts.get(testnet), contexts.get(mainnet)
+
+    assert real.venue is mainnet
+    for part in (
+        "metadata_provider",
+        "client_factory",
+        "account_reader",
+        "user_data_stream",
+        "history_reader",
+        "commission_reader",
+        "account_control",
+        "book_ticker_reader",
+        "mark_price_reader",
+    ):
+        assert type(getattr(real, part)) is type(getattr(twin, part)), part
+
+
+@pytest.mark.parametrize(("testnet", "mainnet"), _TWINS)
+def test_a_mainnet_venues_key_comes_from_the_environment_or_the_keyring_never_a_file(
+    testnet: TradingVenue, mainnet: TradingVenue
+) -> None:
+    contexts = _both_venues().resolve(IVenueContexts)
+
+    assert isinstance(
+        contexts.get(mainnet).credentials_provider, MainnetCredentialsProvider
+    )
+    assert isinstance(
+        contexts.get(testnet).credentials_provider, EnvFirstCredentialsProvider
+    )
+
+
+_KEY_NAMES = {
+    TradingVenue.FUTURES_TESTNET: (FUTURES_ENV_API_KEY, FUTURES_ENV_API_SECRET),
+    TradingVenue.SPOT_TESTNET: (SPOT_ENV_API_KEY, SPOT_ENV_API_SECRET),
+    TradingVenue.FUTURES_MAINNET: (
+        FUTURES_MAINNET_ENV_API_KEY,
+        FUTURES_MAINNET_ENV_API_SECRET,
+    ),
+    TradingVenue.SPOT_MAINNET: (SPOT_MAINNET_ENV_API_KEY, SPOT_MAINNET_ENV_API_SECRET),
+}
+
+
+class _RefusingClient:
+    """python-binance's `Client` as the builder meets it: it records how it was
+    built and then fails like an unreachable exchange, so no request leaves."""
+
+    built: ClassVar[list[dict[str, Any]]] = []
+
+    def __init__(self, **kwargs: Any) -> None:
+        _RefusingClient.built.append(kwargs)
+        raise RequestsConnectionError("no network in a unit test")
+
+
+@pytest.mark.parametrize("venue", list(_KEY_NAMES))
+def test_testnet_false_reaches_the_client_of_a_mainnet_venue_and_true_the_testnets(
+    monkeypatch: pytest.MonkeyPatch, venue: TradingVenue
+) -> None:
+    """`EPIC-034` D11 — through the real assembly, from the venue's own key to the
+    `Client(...)` call: the flag is the venue's and nothing else decides it."""
+    _RefusingClient.built = []
+    monkeypatch.setattr(binance_client_builder, "Client", _RefusingClient)
+    for key_name, secret_name in _KEY_NAMES.values():
+        monkeypatch.delenv(key_name, raising=False)
+        monkeypatch.delenv(secret_name, raising=False)
+    key_name, secret_name = _KEY_NAMES[venue]
+    monkeypatch.setenv(key_name, "key")
+    monkeypatch.setenv(secret_name, "secret")
+    contexts = _both_venues().resolve(IVenueContexts)
+
+    status = contexts.get(venue).account_reader.check_connection()
+
+    assert status.venue is venue
+    assert [kwargs["testnet"] for kwargs in _RefusingClient.built] == [venue.is_testnet]
+    # A mainnet key is used only once the key gate has judged it (`EPIC-034` D5):
+    # the gate's own session is the one built here, it cannot be judged, and so
+    # the account read sees no usable key. A testnet reaches the exchange itself.
+    assert status.failure is (
+        ConnectionFailureKind.NETWORK
+        if venue.is_testnet
+        else ConnectionFailureKind.NOT_CONFIGURED
     )

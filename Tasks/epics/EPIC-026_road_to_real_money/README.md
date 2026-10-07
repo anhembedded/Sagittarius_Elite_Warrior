@@ -35,7 +35,7 @@ None is accepted yet. The ADR proposes nine; the ones that shape the sub-task li
    soak on Testnet · 3 open mainnet · 4 stage capital. A stage starts only when the previous gate is
    recorded as passed in §4 below.
 2. **Stages 1 and 2 run in parallel** (D2); stage 3 waits for both.
-3. **Mainnet is one reviewed enum member plus a factory parameter** (D3) — no flag, no override,
+3. **Mainnet is one reviewed enum member plus a factory parameter** (D3; superseded 2026-10-07 by `EPIC-034` D11, which added both mainnet members) — no flag, no override,
    no second path — with its own credential names (D4), a typed acknowledgement and smaller caps (D5).
 4. **The operational half is soaked on Testnet for 14 unattended days** before mainnet exists in the
    code (D6).
@@ -120,6 +120,8 @@ break-even stops (`BOT-105`); backtest report persistence (`BOT-115`); the chart
 (`BOT-011`). None of them shortens the path to a first real fill.
 
 ## Notes (newest first)
+
+- **2026-10-07** — The owner decided D11 of `EPIC-034`: mainnet trades exactly like testnet, with no order blocked. `TradingVenue` gained `SPOT_MAINNET` and `FUTURES_MAINNET`, so D3's lock is lifted (this epic's stage 3 member, `EPIC-026P`, is delivered by `EPIC-034E`); the soak (D6) was already cancelled. The caps and typed acknowledgement of D5 are not built, by the same decision.
 
 - **2026-10-07** — The owner rejected D6 (the 14-day Testnet soak before mainnet exists in the code). D3 still keeps trading on mainnet behind one reviewed `TradingVenue` member; `EPIC-034E` reads a mainnet account without trading it.
 

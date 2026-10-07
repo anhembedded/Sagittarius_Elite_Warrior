@@ -1,8 +1,7 @@
-"""`EPIC-027H`/`EPIC-027I`/`EPIC-027K` — the one place allowed to construct a
-`binance.client.Client` for Spot Testnet, mirroring `FuturesSessionFactory`'s
-own construction pattern (`testnet=True`, `REQUEST_TIMEOUT_SECONDS`, a
-clock-skew-corrected `timestamp_offset` for the signed session) with Spot's
-own unprefixed session-client methods (`ping`/`get_server_time`/
+"""`EPIC-027H`/`EPIC-027I`/`EPIC-027K` — mints a Spot venue's sessions, mirroring
+`FuturesSessionFactory`, through `new_client` (`EPIC-034` D11: the one function
+that constructs a `binance.client.Client`, with the venue's `testnet` flag), with
+Spot's own unprefixed session-client methods (`ping`/`get_server_time`/
 `get_account`/`get_exchange_info`/`create_order`) in place of Futures'
 `futures_*` ones.
 
@@ -18,12 +17,11 @@ docstring for why that is two methods, not one shared by both.
 
 from __future__ import annotations
 
-import time
 from typing import cast
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    REQUEST_TIMEOUT_SECONDS,
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_client_builder import (
+    new_client,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -32,27 +30,24 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_spot_sess
     ISpotSessionClient,
     ISpotSessionFactory,
 )
-
-
-def _sync_timestamp_offset(client: Client) -> None:
-    """Spot's own version of `FuturesSessionFactory`'s `BUG-111` fix: the
-    same `Client.timestamp_offset` attribute is shared across both API
-    families regardless of which one measures it, so this uses Spot's
-    `get_server_time()` in place of Futures' `futures_time()`."""
-    local_before_ms = int(time.time() * 1000)
-    server_time_ms = int(client.get_server_time()["serverTime"])
-    local_after_ms = int(time.time() * 1000)
-    local_at_measurement_ms = (local_before_ms + local_after_ms) // 2
-    client.timestamp_offset = server_time_ms - local_at_measurement_ms
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 class SpotSessionFactory(ISpotSessionFactory):
-    """Mints this module's Spot Testnet read sessions, signed.
+    """Mints one Spot venue's sessions, signed and unsigned, through `new_client`.
 
-    Always Spot Testnet, never parameterized by venue: `TradingVenue` has
-    no Spot mainnet member (ADR D8), so there is never a second one to
-    choose between.
+    A factory belongs to one venue, `SPOT_TESTNET` or `SPOT_MAINNET`, and every
+    session it opens goes to that venue's exchange (`EPIC-034` D11): the venue
+    is the whole difference between the two, so `VenueAssembly` builds one per
+    venue and no adapter chooses an endpoint itself.
     """
+
+    def __init__(self, venue: TradingVenue = TradingVenue.SPOT_TESTNET) -> None:
+        if venue not in (TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET):
+            raise ValueError(f"{venue.name} is not a Spot venue")
+        self._venue = venue
 
     def create_account_client(
         self, credentials: ExchangeCredentials
@@ -66,47 +61,23 @@ class SpotSessionFactory(ISpotSessionFactory):
         returning it as-is would fail `no-any-return` against this method's
         own declared return type.
         """
-        client = Client(
-            api_key=credentials.api_key,
-            api_secret=credentials.api_secret,
-            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
-            testnet=True,
-        )
-        _sync_timestamp_offset(client)
-        return cast(ISpotSessionClient, client)
+        return cast(ISpotSessionClient, new_client(self._venue, credentials))
 
     def create_trading_client(
         self, credentials: ExchangeCredentials
     ) -> ISpotSessionClient:
         """A signed session, ready to place/cancel orders and read open
         orders (`EPIC-027K`). Same construction as `create_account_client()`
-        — a real Spot Testnet session satisfies both structurally; kept as
-        its own method because `SpotTradingClient` and `SpotAccountReader`
-        call it for different reasons (see `ISpotSessionFactory`'s own
-        docstring)."""
-        client = Client(
-            api_key=credentials.api_key,
-            api_secret=credentials.api_secret,
-            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
-            testnet=True,
-        )
-        _sync_timestamp_offset(client)
-        return cast(ISpotSessionClient, client)
+        — a real signed Spot session satisfies both structurally; kept as its
+        own method because `SpotTradingClient` and `SpotAccountReader` call it
+        for different reasons (see `ISpotSessionFactory`'s own docstring)."""
+        return cast(ISpotSessionClient, new_client(self._venue, credentials))
 
     def create_metadata_client(self) -> Client:
-        """An unsigned Spot Testnet session for the public endpoints:
+        """An unsigned Spot session for the public endpoints:
         `GET /api/v3/exchangeInfo` (`EPIC-027I`) and
         `GET /api/v3/ticker/bookTicker` (`EPIC-028O`). No key: both are
         public. Returns the raw SDK type because the only callers are this
         module's own `SpotMetadataProvider` and `SpotBookTickerReader` — see
-        the module docstring for why that is not a leak.
-
-        Built without the construction-time `GET /api/v3/ping` (PR #303
-        review, finding 1): the book is read per price-button click, and a
-        ping per read doubled its round trips and failed the read on a ping
-        failure, for nothing the read itself does not already prove."""
-        return Client(
-            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
-            testnet=True,
-            ping=False,
-        )
+        the module docstring for why that is not a leak."""
+        return new_client(self._venue)

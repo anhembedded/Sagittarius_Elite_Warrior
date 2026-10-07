@@ -5,6 +5,7 @@ the headless (`exchange_status_cmd.py`) and interactive
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -12,9 +13,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
@@ -92,7 +90,7 @@ _SPOT_ONLY_GUIDANCE: dict[ConnectionFailureKind, str] = {
 
 
 def _guidance_for(status: ExchangeConnectionStatus, kind: ConnectionFailureKind) -> str:
-    if status.venue is TradingVenue.SPOT_TESTNET and kind in _SPOT_ONLY_GUIDANCE:
+    if status.venue.market_type is MarketType.SPOT and kind in _SPOT_ONLY_GUIDANCE:
         return _SPOT_ONLY_GUIDANCE[kind]
     return _FAILURE_GUIDANCE[kind]
 
@@ -135,7 +133,7 @@ def _format_reachable_with_failure(status: ExchangeConnectionStatus) -> str:
 
 
 def _format_success(status: ExchangeConnectionStatus) -> str:
-    if status.venue is TradingVenue.SPOT_TESTNET:
+    if status.venue.market_type is MarketType.SPOT:
         return _format_spot_success(status)
 
     skew = status.server_time_skew_ms

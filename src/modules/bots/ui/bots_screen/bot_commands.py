@@ -53,6 +53,12 @@ class PendingAction:
     action: BotAction | None = None
 
 
+#: The actions after which orders flow.
+_STARTS_TRADING = frozenset(
+    {BotAction.START, BotAction.RESUME, BotAction.CONFIRM_RESUME}
+)
+
+
 def command_for(
     action: BotAction,
     bot: BotSnapshot,
@@ -61,6 +67,10 @@ def command_for(
 ) -> object | None:
     """The command for `action` on `bot`, or `None` when the user cancelled."""
     bot_id = bot.bot_id
+    if action in _STARTS_TRADING and not dialogs.allow_real_money(
+        bot.venue, "start this bot"
+    ):
+        return None
     if action is BotAction.STOP:
         base = dialogs.ask_stop(bot)
         return StopBotCommand(bot_id, base) if base is not None else None

@@ -37,7 +37,6 @@ BOTS_MENU = [
     "Fit levels",
     "Retry venue account",
     "Fix next item",
-    "Mainnet account",
     "Arm strategy…",
     "Disarm strategy",
     "Live stream",

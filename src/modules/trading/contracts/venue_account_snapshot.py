@@ -23,9 +23,6 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_permissions import (
-    KeyPermissions,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -57,11 +54,6 @@ class VenueAccountSnapshot:
     rules: SymbolOrderMetadata
     #: The symbol's price on the book when it was read.
     price: Decimal
-    #: What the key may do, where the source reads it (`EPIC-034E`); `None`
-    #: for the testnet venues, whose keys the exchange does not describe.
-    key_permissions: KeyPermissions | None = None
-    #: Open orders across the account, where the source reads them.
-    open_order_count: int | None = None
 
     def free_of(self, asset: str) -> Decimal:
         """What the account holds free of `asset`; zero when it holds none."""

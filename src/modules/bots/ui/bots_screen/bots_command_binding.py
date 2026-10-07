@@ -27,7 +27,6 @@ from .bots_commands import (
     DISARM_STRATEGY,
     FIT_LEVELS,
     FIX_NEXT,
-    MAINNET_ACCOUNT,
     NEW_BOT,
     REFRESH_FILLS,
     RETRY_CONNECTION,
@@ -109,11 +108,6 @@ def bind_bots_commands(
         lambda _checked: view_model.fix_next_requested.emit(),
         enabled=fix.changed,
         initially_enabled=fix.value,
-    )
-    # `EPIC-034E`: reading the real account needs no bot and no selection.
-    binder.bind(
-        MAINNET_ACCOUNT,
-        lambda _checked: view_model.mainnet_account_requested.emit(),
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)

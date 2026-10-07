@@ -16,12 +16,6 @@ import threading
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
-    FuturesSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
-    SpotSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -33,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly im
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 
 _SECOND_CALLER_WAIT_SECONDS = 0.5
 
@@ -64,10 +59,9 @@ def test_two_threads_asking_first_share_one_metadata_cache(
         TradingVenue.FUTURES_TESTNET,
         SharedVenueInputs(
             container=Mock(),
-            futures_session_factory=FuturesSessionFactory(),
-            spot_session_factory=SpotSessionFactory(),
             secrets_file_path="unused",
             session_states=VenueSessionStates(),
+            secret_store=InMemorySecretStore(),
         ),
     )
     seen: list[object] = []

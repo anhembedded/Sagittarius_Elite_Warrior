@@ -164,12 +164,14 @@ def _container(
 def test_each_enabled_venue_gets_the_refresh_of_its_own_market() -> None:
     container, _ = _container([_FUTURES, _SPOT])
 
-    futures, spot = build_venue_refresh_services(container)
+    services = build_venue_refresh_services(container)
 
-    assert isinstance(futures, PositionRefreshService)
-    assert futures.venue is _FUTURES
-    assert isinstance(spot, HoldingsRefreshService)
-    assert spot.venue is _SPOT
+    assert [(type(s), s.venue) for s in services] == [
+        (PositionRefreshService, _FUTURES),
+        (HoldingsRefreshService, _SPOT),
+        (PositionRefreshService, TradingVenue.FUTURES_MAINNET),
+        (HoldingsRefreshService, TradingVenue.SPOT_MAINNET),
+    ]
 
 
 def test_each_refresh_reads_only_its_own_venues_session() -> None:
@@ -192,6 +194,8 @@ def test_every_venue_is_refreshed_whatever_the_legacy_setting_says() -> None:
     assert [s.venue for s in build_venue_refresh_services(container)] == [
         _FUTURES,
         _SPOT,
+        TradingVenue.FUTURES_MAINNET,
+        TradingVenue.SPOT_MAINNET,
     ]
 
 

@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_commands impor
     HIDE_OTHER_PAIRS,
     NEW_ORDER,
     VENUE_CHOICE,
+    VENUE_MENU,
     emergency_stop_consequence,
     trade_commands,
     venue_choice_id,
@@ -53,8 +54,8 @@ def test_the_trade_menu_reads_as_the_catalogue_lists_it() -> None:
     trade_menu = [c.text for c in commands if c.menu_path[0] == "T&rade"]
 
     assert trade_menu == [
-        "&Futures",
-        "&Spot",
+        "&Futures Testnet",
+        "&Spot Testnet",
         "&New order…",
         "Cancel &order",
         "Cancel a&ll orders",
@@ -156,3 +157,19 @@ def test_the_table_commands_take_their_keys_and_ask_through_their_tables() -> No
         assert command.mode == TRADE_ROUTE
         assert command.confirm is None
         assert not command.needs_input
+
+
+def test_all_four_venues_are_menu_entries_with_one_access_key_each() -> None:
+    """`EPIC-034` D11 — a second venue per market must not share its twin's key."""
+    venues = [v for v in TradingVenue if v.supports_order_submission]
+    commands = trade_commands(TRADE_ROUTE, tuple(venues))
+    entries = [c.text for c in commands if c.menu_path == VENUE_MENU]
+    keys = [text[text.index("&") + 1].lower() for text in entries]
+
+    assert entries == [
+        "&Futures Testnet",
+        "&Spot Testnet",
+        "F&utures Mainnet",
+        "S&pot Mainnet",
+    ]
+    assert len(set(keys)) == len(keys)

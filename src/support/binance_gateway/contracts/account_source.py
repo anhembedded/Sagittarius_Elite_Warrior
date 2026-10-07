@@ -1,15 +1,15 @@
-"""`EPIC-034D` — where an account is read from, which is wider than where an
-order may go.
+"""`EPIC-034D` — where an account is read from: one per trading venue.
 
-@details A `TradingVenue` names a place an order can be sent, and it has no
-mainnet member by design (`EPIC-026` D3). An account can be *read* from more
-places than that: `EPIC-034E` adds a read-only mainnet source here, and only
-here. Keeping the two enums apart is the point: a member of `AccountSource`
-that is not a `TradingVenue` has no order path to reach, so the wrong state
-cannot be written (`code/errors.md` #8).
+@details Since `EPIC-034` D11 an account can be read from exactly the places an
+order can go, so each source is one `TradingVenue` and the two enums move
+together. The source stays its own type because the Connect step reads *an
+account*, never sends an order, and its snapshots and failures name where they
+came from without carrying the venue's trading vocabulary. Before D11 there was
+a fifth, read-only mainnet source with no venue (`EPIC-034E`); the owner removed
+it with the rule it served ("mainnet trades exactly like testnet").
 
-Plausible extensions, each one new member plus its reader's registration: a
-Futures mainnet read-only source; a second testnet account.
+Plausible extensions, each one new member plus its venue: a second testnet
+account; Spot Margin. The venue's own `VenueAssembly` serves it.
 """
 
 from __future__ import annotations
@@ -24,9 +24,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 class AccountSource(str, Enum):
     FUTURES_TESTNET = "futures_testnet"
     SPOT_TESTNET = "spot_testnet"
-    #: `EPIC-034E` — the owner's real Spot account, read and never traded. It
-    #: has no `TradingVenue`: nothing that sends an order can be pointed at it.
-    SPOT_MAINNET_READONLY = "spot_mainnet_readonly"
+    FUTURES_MAINNET = "futures_mainnet"
+    SPOT_MAINNET = "spot_mainnet"
 
     @classmethod
     def for_venue(cls, venue: TradingVenue) -> AccountSource:
@@ -40,25 +39,17 @@ class AccountSource(str, Enum):
     @property
     def venue_title(self) -> str:
         """What the user is told: never the identifier."""
-        return _TITLES[self]
+        return self.trading_venue.display_name
 
     @property
-    def trading_venue(self) -> TradingVenue | None:
-        """The venue orders for this account go to, or `None` for a source
-        that is read and never traded."""
+    def trading_venue(self) -> TradingVenue:
+        """The venue orders for this account go to."""
         return _TRADING_VENUES[self]
 
 
-_TITLES = {
-    AccountSource.FUTURES_TESTNET: "Futures Testnet",
-    AccountSource.SPOT_TESTNET: "Spot Testnet",
-    AccountSource.SPOT_MAINNET_READONLY: "Mainnet · read only",
-}
-
-#: The venue each source's orders go to; a source mapped to `None` is read
-#: and never traded (`EPIC-034E`).
-_TRADING_VENUES: dict[AccountSource, TradingVenue | None] = {
+_TRADING_VENUES: dict[AccountSource, TradingVenue] = {
     AccountSource.FUTURES_TESTNET: TradingVenue.FUTURES_TESTNET,
     AccountSource.SPOT_TESTNET: TradingVenue.SPOT_TESTNET,
-    AccountSource.SPOT_MAINNET_READONLY: None,
+    AccountSource.FUTURES_MAINNET: TradingVenue.FUTURES_MAINNET,
+    AccountSource.SPOT_MAINNET: TradingVenue.SPOT_MAINNET,
 }

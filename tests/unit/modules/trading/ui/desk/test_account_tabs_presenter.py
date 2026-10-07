@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
+    FakeRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     fake_venue_ports,
 )
@@ -275,6 +278,7 @@ def test_a_spot_desk_lists_its_assets_from_the_account(qtbot) -> None:
         OrderFeed(MemoryEventBus(), TradingVenue.SPOT_TESTNET, parent=panel),
         InlineThreadManager(),
         RecordingNotifier(),
+        FakeRealMoneyConsent(),
         clock=lambda: NOW,
     )
 

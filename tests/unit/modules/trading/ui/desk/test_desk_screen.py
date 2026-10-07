@@ -115,7 +115,7 @@ def test_picking_a_symbol_points_the_chart_at_it(qtbot) -> None:
 def test_a_desk_refuses_another_venues_ports(qtbot) -> None:
     """A Futures desk driving Spot's ports would place Spot orders from a
     screen titled Futures."""
-    with pytest.raises(ValueError, match="Futures desk was given spot_testnet"):
+    with pytest.raises(ValueError, match="Futures Testnet desk was given spot_testnet"):
         build_desk(qtbot, FUTURES, ports_venue=SPOT)
 
 
@@ -123,7 +123,7 @@ def test_a_desk_refuses_another_venues_strategy(qtbot) -> None:
     """`BOT-158` — a Futures desk arming Spot's strategy would show Spot's
     armed state on a screen titled Futures."""
     with pytest.raises(
-        ValueError, match="Futures desk was given spot_testnet's strategy"
+        ValueError, match="Futures Testnet desk was given spot_testnet's strategy"
     ):
         build_desk(qtbot, FUTURES, strategy_venue=SPOT)
 

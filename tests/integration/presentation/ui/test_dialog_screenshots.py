@@ -160,6 +160,9 @@ _PICTURED: dict[str, Callable[[], QWidget]] = {
     "banner-mainnet-data-testnet-orders": _banner(
         VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
     ),
+    "banner-testnet-data-mainnet-orders": _banner(
+        VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
+    ),
     "critical-error": lambda: _critical_error(details_shown=False),
     "critical-error-details": lambda: _critical_error(details_shown=True),
     "strategy-params": _strategy_params,

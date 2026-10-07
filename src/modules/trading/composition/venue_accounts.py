@@ -1,11 +1,12 @@
 """`EPIC-034D` — `IVenueAccounts`, one reader per served account source.
 
-@details The testnet sources are the venues `IVenueContexts` enables, each
-read through the same ports its desk uses. Which venues exist is
-`IVenueContexts`'s answer; this registry keeps no second copy, only the
-readers it has built. The read-only mainnet source (`EPIC-034E`) is always
-served, last: it has no venue and no desk, and without a key its reader says so
-(`NOT_CONFIGURED`) instead of the source being absent.
+@details A source is a venue `IVenueContexts` enables, read through the same ports
+its desk uses; which venues exist is `IVenueContexts`'s answer and this registry
+keeps no second copy, only the readers it has built. Every reader is a
+`ComposedVenueAccountReader`; a mainnet venue's has the venue's key gate in
+front (`EPIC-034` D5, D11) to say why a key is refused. The gate also sits under
+every adapter's credentials (`VenueAssembly.order_credentials`), so it is not
+this reader alone that stops a key that can withdraw.
 """
 
 from __future__ import annotations
@@ -31,29 +32,24 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 
 
 class VenueAccounts(IVenueAccounts):
-    def __init__(
-        self, contexts: IVenueContexts, mainnet_read_only: IVenueAccountReader
-    ) -> None:
+    def __init__(self, contexts: IVenueContexts) -> None:
         self._contexts = contexts
-        self._mainnet = mainnet_read_only
         self._readers: dict[AccountSource, IVenueAccountReader] = {}
         self._lock = threading.Lock()
 
     def sources(self) -> tuple[AccountSource, ...]:
-        testnets = tuple(AccountSource.for_venue(v) for v in self._contexts.enabled())
-        return (*testnets, self._mainnet.source)
+        return tuple(AccountSource.for_venue(v) for v in self._contexts.enabled())
 
     def reader(self, source: AccountSource) -> IVenueAccountReader:
         if source not in self.sources():
             raise UnknownAccountSourceError(source)
-        if source is self._mainnet.source:
-            return self._mainnet
         with self._lock:
             reader = self._readers.get(source)
             if reader is None:
-                venue = source.trading_venue
-                if venue is None:
-                    raise UnknownAccountSourceError(source)
-                reader = ComposedVenueAccountReader(source, self._contexts.get(venue))
+                reader = self._build(source)
                 self._readers[source] = reader
             return reader
+
+    def _build(self, source: AccountSource) -> IVenueAccountReader:
+        context = self._contexts.get(source.trading_venue)
+        return ComposedVenueAccountReader(source, context, key_gate=context.key_gate)

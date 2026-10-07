@@ -26,20 +26,12 @@ itself with a lock.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
-    KeyringSecretStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_read_session_factory import (
-    MainnetReadSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_readonly_account_reader import (
-    MainnetReadOnlyAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.mainnet_readonly_credentials import (
-    MainnetReadOnlyCredentials,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.real_money_consent import (
+    RealMoneyConsent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
@@ -59,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
@@ -76,19 +71,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
+#: The dialog is a widget module: `contribute()` runs headless and may not import one
+#: (`test_module_contribution_laziness.py`), so it is imported when first asked.
+_ASK_REAL_MONEY: Deferred[bool] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.trading.ui.real_money_dialog:ask_real_money"
+)
+
 
 def _build_venue_trading_ports(container: IContainer) -> VenueTradingPortsRegistry:
     return VenueTradingPortsRegistry(
         container.resolve(ICommandDispatcher),
         container.resolve(IVenueContexts),
         container.resolve(VenueSessionStates),
-    )
-
-
-def _mainnet_read_only() -> MainnetReadOnlyAccountReader:
-    """`EPIC-034E`: the owner's real account, read and never traded."""
-    return MainnetReadOnlyAccountReader(
-        MainnetReadOnlyCredentials(KeyringSecretStore()), MainnetReadSessionFactory()
     )
 
 
@@ -116,8 +110,11 @@ def bind_published_ports(container: IContainer) -> None:
     # `EPIC-034D`: the Connect step's read-only accounts, one reader per source.
     container.singleton(
         IVenueAccounts,
-        lambda c: VenueAccounts(c.resolve(IVenueContexts), _mainnet_read_only()),
+        lambda c: VenueAccounts(c.resolve(IVenueContexts)),
     )
+    # `EPIC-034` D3/D11: one confirmation per mainnet venue per session, shared by
+    # the order desks and the bots screen.
+    container.singleton(IRealMoneyConsent, lambda _c: RealMoneyConsent(_ASK_REAL_MONEY))
     container.singleton(IOrderSubmission, lambda c: _primary(c).order_submission)
     container.singleton(ITradingSession, lambda c: _primary(c).trading_session)
     container.singleton(IAccountSnapshot, lambda c: _primary(c).account_snapshot)

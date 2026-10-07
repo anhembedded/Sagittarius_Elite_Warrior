@@ -86,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_trade
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
+    FakeRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
 )
@@ -245,6 +248,7 @@ def _desk(qtbot) -> AccountTabsPanel:
         OrderFeed(MemoryEventBus(), _FUTURES, parent=panel),
         _InlineThreadManager(),
         RecordingNotifier(),
+        FakeRealMoneyConsent(),
     )
     presenter.show_symbol("BTCUSDT")
     return panel

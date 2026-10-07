@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_real_money_consent import (
+    IRealMoneyConsent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
@@ -86,6 +89,9 @@ class DeskDependencies:
     thread_manager: IThreadManager
     #: Where the desk tells a failed read or command (`BOT-169`).
     notifier: INotifier
+    #: The one question that names real money, asked before a mainnet venue's
+    #: first manual order of the session (`EPIC-034` D3, D11).
+    consent: IRealMoneyConsent
     #: `None` asks with the real dialog (`confirm_with_message_box`).
     confirm: ConfirmOrder | None = None
     #: The venue's tick and step sizes the account tabs write prices and
@@ -130,6 +136,7 @@ def desk_dependencies_for(
         ),
         thread_manager=threads,
         notifier=notifier,
+        consent=container.resolve(IRealMoneyConsent),
         precisions=FilterPrecisions(
             container.resolve(IVenueContexts).get(venue).metadata_cache
         ),
