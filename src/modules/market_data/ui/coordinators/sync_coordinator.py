@@ -2,7 +2,6 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
@@ -26,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_ki
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_intervals import (
+    SYNC_MARKET,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -40,8 +42,9 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 #: `EPIC-027A` — Data Management's own multi-market selector is a later
 #: phase's job (Phase 1 has no market to choose from yet). Pinned to Spot,
-#: what every sync from this screen actually fetches.
-_MARKET = MarketType.SPOT
+#: what every sync from this screen actually fetches; `sync_intervals.py`
+#: derives the interval list from the same value (`BOT-167`).
+_MARKET = SYNC_MARKET
 
 
 class SyncCoordinator:

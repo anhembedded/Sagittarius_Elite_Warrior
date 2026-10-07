@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
@@ -149,6 +150,9 @@ class PythonBacktestChartHost:
 
     def set_active_timeframe(self, timeframe: str | None) -> None:
         self._chart_card.toolbar.set_active(timeframe)
+
+    def set_market(self, market: MarketType) -> None:
+        self._chart_card.toolbar.set_market(market)
 
     def cleanup(self) -> None:
         self._chart_card.cleanup()

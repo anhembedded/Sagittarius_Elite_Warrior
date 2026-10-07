@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
+    timeframe_or_fallback,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 
 from ..ports.i_backtest_screen_state import IBacktestScreenState
@@ -38,17 +41,37 @@ class MarketSelectionCoordinator:
         refresh_market_rule_verification: Callable[[], None],
         notify_config_changed: Callable[[], None],
         request_chart_preview: Callable[[], None],
+        get_timeframe: Callable[[], str],
+        set_timeframe: Callable[[str], None],
     ) -> None:
         self._state = state
         self._set_symbol_options_market = set_symbol_options_market
         self._refresh_market_rule_verification = refresh_market_rule_verification
         self._notify_config_changed = notify_config_changed
         self._request_chart_preview = request_chart_preview
+        self._get_timeframe = get_timeframe
+        self._set_timeframe = set_timeframe
 
     def on_market_changed(self) -> None:
         market = self._state.market
         logger.info("[backtest-config] market set to %s", market.value)
         self._set_symbol_options_market(market)
+        self._fall_back_timeframe(market)
         self._refresh_market_rule_verification()
         self._notify_config_changed()
         self._request_chart_preview()
+
+    def _fall_back_timeframe(self, market: MarketType) -> None:
+        """`BOT-167`: a selected timeframe the new market cannot load (`1s` on
+        Futures) becomes the nearest one it can, before the config and the
+        preview read it."""
+        selected = self._get_timeframe()
+        fallback = timeframe_or_fallback(market, selected)
+        if fallback != selected:
+            logger.info(
+                "[backtest-config] timeframe %s is not offered on %s; using %s",
+                selected,
+                market.value,
+                fallback,
+            )
+            self._set_timeframe(fallback)

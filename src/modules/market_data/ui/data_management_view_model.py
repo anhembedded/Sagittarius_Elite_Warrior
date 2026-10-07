@@ -18,13 +18,13 @@ from sagittarius_engine.extensions.pyside_mvc import LogListModel
 
 from .database_status_table_model import DatabaseStatusTableModel
 from .kline_inspector_table_model import KLineInspectorTableModel
+from .sync_intervals import SYNC_INTERVALS
 
 #: `EPIC-010H`: the real list now comes from Settings via
 #: `app_defaults.default_symbol_options()`, which the presenter applies
 #: right after constructing this ViewModel. This stays as the bottom-tier
 #: fallback, written down in one place instead of two.
 _DEFAULT_SYMBOLS = list(FALLBACK_SYMBOL_OPTIONS)
-_SUPPORTED_INTERVALS = [tf.value for tf in TimeFrame]
 _EXPORT_FORMATS = [fmt.value for fmt in ExportFileFormat]
 
 
@@ -99,7 +99,7 @@ class DataManagementViewModel(UiModeViewModel):
         self._log_model = LogListModel(self)
 
         self._selected_symbol = _DEFAULT_SYMBOLS[0]
-        self._selected_interval = _SUPPORTED_INTERVALS[0]
+        self._selected_interval = SYNC_INTERVALS[0]
         self._symbol_options: list[str] = list(_DEFAULT_SYMBOLS)
         self._known_shard_count = 0
 
@@ -196,7 +196,7 @@ class DataManagementViewModel(UiModeViewModel):
 
     @property
     def intervals(self) -> list[str]:
-        return list(_SUPPORTED_INTERVALS)
+        return list(SYNC_INTERVALS)
 
     # ------------------------------------------------------------------ #
     # Optional custom time range

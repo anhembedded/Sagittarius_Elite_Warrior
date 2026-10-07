@@ -108,6 +108,7 @@ def _deps(
     state=None,
     params_store=None,
     filters=None,
+    interval="1m",
 ) -> MarketDependencies:
     return MarketDependencies(
         stream=stream or FakeMarketStream(),
@@ -124,7 +125,7 @@ def _deps(
         ),
         account=account or FakeAccountSnapshot(status=CONNECTED),
         symbols=symbols,
-        interval="1m",
+        interval=interval,
         state=state,
         params_store=params_store,
         filters=filters,

@@ -89,3 +89,19 @@ def test_the_script_checklist_needs_both_keys_or_neither(qtbot) -> None:
 
     restore(view_model, {SCRIPTS_ENABLED_KEY: ["ema"], SCRIPTS_TOUCHED_KEY: ["ema"]})
     assert restored == [(["ema"], ["ema"])]
+
+
+def test_a_remembered_spot_one_second_survives_a_futures_default(qtbot) -> None:
+    """`BOT-167`: the timeframe's options follow the market, so the market is
+    restored first; otherwise `1s` is rejected while the default market is
+    Futures and the remembered choice is silently lost."""
+    source = BackTestViewModel()
+    source.broker_sim.market = "spot"
+    source.selectedTimeframe = "1s"
+
+    target = BackTestViewModel()
+    assert target.broker_sim.market == "futures_usd_m"
+    restore(target, capture(source))
+
+    assert target.broker_sim.market == "spot"
+    assert target.selectedTimeframe == "1s"

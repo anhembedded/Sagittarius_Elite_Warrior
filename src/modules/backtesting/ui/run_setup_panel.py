@@ -148,6 +148,7 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         vm.strategy_params.strategyOptionsChanged.connect(self._sync_strategies)
         vm.strategy_params.selectedStrategyKeyChanged.connect(self._sync_strategies)
         vm.selectedTimeframeChanged.connect(self._sync_choices)
+        vm.broker_sim.marketChanged.connect(self._sync_choices)
         vm.time_range.presetChanged.connect(self._sync_choices)
         vm.time_range.customStartTextChanged.connect(self._sync_choices)
         vm.time_range.customEndTextChanged.connect(self._sync_choices)

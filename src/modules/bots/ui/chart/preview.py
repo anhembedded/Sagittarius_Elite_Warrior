@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -82,6 +83,7 @@ def build_preview() -> QWidget:
         feed=SampleCandleFeed(_START, _INTERVAL),
         stream_owner=bot_stream_owner(BotId("a3f9c1")),
         interval=_INTERVAL.value,
+        market=MarketType.SPOT,
     )
     chart = BotChart(card, ports, parent=card)
     chart.show_symbol(_SYMBOL)

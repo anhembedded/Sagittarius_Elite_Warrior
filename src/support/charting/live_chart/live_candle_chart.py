@@ -17,10 +17,14 @@ the Qt thread (`BUG-031`).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
+    timeframe_or_fallback,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
@@ -36,6 +40,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports 
     LiveChartPorts,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
+logger = logging.getLogger("App.LiveCandleChart")
 
 
 class LiveCandleChart(QObject):
@@ -55,7 +61,7 @@ class LiveCandleChart(QObject):
         super().__init__(parent)
         self._chart = chart
         self._symbol = ""
-        self._interval = ports.interval
+        self._interval = self._opening_interval(chart, ports)
         self._live = False
         self._token = CancellationToken()
         #: A first window was asked for and has not settled yet.
@@ -76,6 +82,24 @@ class LiveCandleChart(QObject):
         self._load_settled.connect(self._on_load_settled)
         chart.toolbar.set_active(self._interval)
         chart.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
+
+    @staticmethod
+    def _opening_interval(chart: ChartCard, ports: LiveChartPorts) -> str:
+        """The timeframe to open on: `ports.interval`, or the nearest one the
+        chart's market can load. The toolbar is told the market first, so its
+        bar offers only what the market loads."""
+        if ports.market is None:
+            return ports.interval
+        chart.toolbar.set_market(ports.market)
+        interval = timeframe_or_fallback(ports.market, ports.interval)
+        if interval != ports.interval:
+            logger.info(
+                "[live-chart] opening timeframe %s is not offered on %s; using %s",
+                ports.interval,
+                ports.market.value,
+                interval,
+            )
+        return interval
 
     @property
     def shown_symbol(self) -> str:

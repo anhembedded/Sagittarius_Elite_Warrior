@@ -25,6 +25,7 @@ from .catalogue import (
     describe,
     group_options,
     options_for,
+    options_for_market,
 )
 from .dialog import PinnedTimeframes, TimeframePickerDialog
 from .selection import (
@@ -51,4 +52,5 @@ __all__ = [
     "describe",
     "group_options",
     "options_for",
+    "options_for_market",
 ]

@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
@@ -76,6 +77,7 @@ class ChartSources:
 
     feed: ICandleFeed
     history: ChartHistory
+    market: MarketType
 
 
 @dataclass(frozen=True)
@@ -132,6 +134,7 @@ class MarketChart(LiveCandleChart):
                 feed=sources.feed,
                 stream_owner=stream_owner_for(symbol),
                 interval=dependencies.interval,
+                market=sources.market,
             ),
             parent,
         )

@@ -130,6 +130,8 @@ def test_a_market_switch_repoints_the_catalog_rule_check_config_and_preview():
         refresh_market_rule_verification=lambda: calls.append("rule_check"),
         notify_config_changed=lambda: calls.append("config"),
         request_chart_preview=lambda: calls.append("preview"),
+        get_timeframe=lambda: "1m",
+        set_timeframe=calls.append,
     )
 
     coordinator.on_market_changed()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
@@ -28,7 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.view_models.trade_log_
     TradeLogViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    all_options as all_timeframe_options,
+    options_for_market,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.list_model import (
     IndicatorScriptListModel,
@@ -409,17 +410,14 @@ class BackTestViewModel(UiModeViewModel):
 
     @property
     def timeframeOptions(self) -> list[str]:
-        """Every timeframe the domain declares, shortest first.
+        """The timeframes the screen's market can load, shortest first.
 
-        `EPIC-014`: this used to return `DEFAULT_TIMEFRAMES` — a five-entry
-        tuple that exists to size the *chart toolbar's* pill row. `TimeFrame`
-        has always declared sixteen, and the exchange and database serve all
-        sixteen, so this property was the only thing in the stack that could
-        not reach the other eleven. Derived from the catalogue (and so from
-        `TimeFrame`) rather than re-listed, because a second hand-written
-        list is how the first gap opened.
+        `EPIC-014`: derived from the catalogue (and so from `TimeFrame`), not
+        from the chart toolbar's five-pill `DEFAULT_TIMEFRAMES`. `BOT-167`:
+        only those the market loads; Futures has no `1s`.
         """
-        return [option.code for option in all_timeframe_options()]
+        market = MarketType(self.broker_sim.market)
+        return [option.code for option in options_for_market(market)]
 
     def _set_selected_timeframe(self, value: str) -> None:
         if value != self._selected_timeframe:
