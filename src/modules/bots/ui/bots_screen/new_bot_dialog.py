@@ -142,8 +142,8 @@ class NewBotDialog(QDialog):
     def _symbol(self) -> str:
         return self._chosen
 
-    def _show_catalog_problem(self, message: str) -> None:
-        self.problem.setText(f"Could not load the symbol list: {message}")
+    def _show_catalog_problem(self) -> None:
+        self.problem.setText("Could not load the symbol list. Close and open it again.")
         self.problem.setVisible(True)
 
     def _open_picker(self) -> None:

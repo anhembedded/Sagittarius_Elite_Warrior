@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -49,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.venue_key import (
     always_keyed,
     venue_key_check,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -80,6 +84,8 @@ class DeskDependencies:
     strategy: VenueStrategyControls
     chart: DeskChartPorts
     thread_manager: IThreadManager
+    #: Where the desk tells a failed read or command (`BOT-169`).
+    notifier: INotifier
     #: `None` asks with the real dialog (`confirm_with_message_box`).
     confirm: ConfirmOrder | None = None
     #: The venue's tick and step sizes the account tabs write prices and
@@ -102,6 +108,7 @@ def desk_dependencies_for(
     @raise VenueNotEnabledError `venue` is not served."""
     ports = container.resolve(IVenueTradingPorts).get(venue)
     threads = container.resolve(IThreadManager)
+    notifier = container.resolve(INotifier)
     interval = default_interval(container.resolve(IConfig).get_all(), FALLBACK_INTERVAL)
     market = venue.market_type
     if market is None:
@@ -118,8 +125,11 @@ def desk_dependencies_for(
             market=market,
             stream_owner=stream_owner_for(venue),
             interval=interval,
+            notifier=notifier,
+            scope=TRADE_ROUTE,
         ),
         thread_manager=threads,
+        notifier=notifier,
         precisions=FilterPrecisions(
             container.resolve(IVenueContexts).get(venue).metadata_cache
         ),

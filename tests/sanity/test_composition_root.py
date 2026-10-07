@@ -363,7 +363,7 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
         shown = window.current_mode
         assert shown == route, f"{route!r} asked, {shown!r} shown"
         host = window.hosts[route]
-        assert host.centralWidget() is host.view, f"{route!r}: its view was orphaned"
+        assert host.view.parentWidget() is host.centralWidget(), route
     finally:
         window.shutdown()
         window.deleteLater()

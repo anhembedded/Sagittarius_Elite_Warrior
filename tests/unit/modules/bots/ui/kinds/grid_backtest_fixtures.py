@@ -21,6 +21,9 @@ from PySide6.QtCore import QDateTime, QTimeZone
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -137,6 +140,8 @@ class QueryDispatcher(ICommandDispatcher):
         )
         self.queries: list[RunGridBacktestQuery] = []
         self.honours_cancel = True
+        #: What the query raises instead of running, when a test sets it.
+        self.raises: Exception | None = None
 
     def dispatch(self, handler_class: type, input_dto: object | None = None) -> Any:
         if handler_class is not RunGridBacktestQuery or not isinstance(
@@ -144,6 +149,8 @@ class QueryDispatcher(ICommandDispatcher):
         ):
             raise LookupError(f"no handler for {handler_class.__name__}")
         self.queries.append(input_dto)
+        if self.raises is not None:
+            raise self.raises
         run = input_dto if self.honours_cancel else replace(input_dto, cancelled=_never)
         return self._handler.execute(run)
 
@@ -169,23 +176,30 @@ class BacktestWorld:
     repository: FakeMarketDataRepository
     dispatcher: QueryDispatcher
     sync: FakeMarketDataSync
+    notifier: RecordingNotifier
 
 
-def build_backtest(*, stored: bool = True, storing_sync: bool = False) -> BacktestWorld:
+def build_backtest(
+    *,
+    stored: bool = True,
+    storing_sync: bool = False,
+    sync: FakeMarketDataSync | None = None,
+) -> BacktestWorld:
     repository = FakeMarketDataRepository()
     if stored:
         repository.save_klines(MarketType.SPOT, swinging_candles())
     pool = HeldPool()
     dispatcher = QueryDispatcher(repository)
-    sync = StoringSync(repository) if storing_sync else FakeMarketDataSync()
+    sync = sync or (StoringSync(repository) if storing_sync else FakeMarketDataSync())
+    notifier = RecordingNotifier()
     feed = MarketDataCandleFeed(
         sync, StoredKlinesReader(repository), FakeMarketStream(), MarketType.SPOT
     )
-    backtest = GridBacktest(BacktestPorts(pool, dispatcher, sync, feed))
+    backtest = GridBacktest(BacktestPorts(pool, dispatcher, sync, feed, notifier))
     view = backtest.view
     utc = QTimeZone.utc()
     view.start.setDateTime(
         QDateTime.fromSecsSinceEpoch(int(PERIOD[0].timestamp()), utc)
     )
     view.end.setDateTime(QDateTime.fromSecsSinceEpoch(int(PERIOD[1].timestamp()), utc))
-    return BacktestWorld(backtest, pool, repository, dispatcher, sync)
+    return BacktestWorld(backtest, pool, repository, dispatcher, sync, notifier)

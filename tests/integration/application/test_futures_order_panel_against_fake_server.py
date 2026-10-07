@@ -27,6 +27,9 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -305,7 +308,9 @@ def test_a_market_long_with_tp_sl_is_protected_once_its_fill_is_reported(
         )
         threads = _InlineThreadManager()
         vm = OrderEntryViewModel(desk_profile_for(_FUTURES))
-        presenter = OrderEntryPresenter(vm, ports, threads, lambda _c: True)
+        presenter = OrderEntryPresenter(
+            vm, ports, threads, lambda _c: True, RecordingNotifier()
+        )
         bus = MemoryEventBus()
         reports: list[tuple[str, bool]] = []
         # The test owns the feed, as the desk does (`parent=`); a bus
@@ -316,6 +321,8 @@ def test_a_market_long_with_tp_sl_is_protected_once_its_fill_is_reported(
             feed,
             threads,
             lambda text, failed: reports.append((text, failed)),
+            RecordingNotifier(),
+            _FUTURES,
         )
         presenter.entryPlaced.connect(lambda placed: follower.expect(*placed))
         presenter.show_symbol(_SYMBOL)

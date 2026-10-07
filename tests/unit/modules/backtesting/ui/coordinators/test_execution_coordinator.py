@@ -169,6 +169,18 @@ def test_a_raising_run_reports_failure_and_stops() -> None:
     assert events == [("failed", 3, "boom")]
 
 
+def test_a_failed_run_carries_the_failure_detail_not_the_raw_exception_text() -> None:
+    """`BOT-169` — the UI thread receives `failure_detail(exc)`: whitespace
+    collapsed, and the exception's type when it has no message."""
+    multi_line = _build(RecordingDispatcher(raises=RuntimeError("bad\n  gateway")))
+    multi_line[0].run(run_config())
+    silent = _build(RecordingDispatcher(raises=TimeoutError()))
+    silent[0].run(run_config())
+
+    assert multi_line[2] == [("failed", 3, "bad gateway")]
+    assert silent[2] == [("failed", 3, "TimeoutError")]
+
+
 def test_a_cancelled_result_is_reported_as_cancelled_not_succeeded() -> None:
     cancelled = BacktestCancelled("mid_run", 1, 2)
     coordinator, _d, events = _build(RecordingDispatcher(cancelled))

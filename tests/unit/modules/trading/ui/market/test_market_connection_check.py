@@ -7,12 +7,16 @@ from __future__ import annotations
 import dataclasses
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.connection_words import (
+    CHECK_FAILED,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
     CHECK_CONNECTION,
@@ -100,38 +104,55 @@ def test_a_connected_check_reads_connected_in_the_status_bar(build, threads):
     assert presenter.view.connection in presenter.view.status_widgets()
 
 
-def test_a_failed_check_names_the_fix_where_the_user_looks(build, threads, monkeypatch):
+def test_a_failed_check_names_the_fix_in_a_message_box(build, threads, notifier):
     presenter = build(account=FakeAccountSnapshot(status=_NO_KEY))
-    shown: list[str] = []
-    monkeypatch.setattr(presenter.view, "show_connection_failure", shown.append)
 
     presenter.check_connection()
     threads.run_all()
 
     assert presenter.view.connection.text() == "Exchange: not connected"
-    assert shown == [
-        "FUTURES_TESTNET: no API key. Save one in Tools → Options → Trading."
-    ]
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.market.connection_check"
+    assert (
+        notice.headline
+        == "FUTURES_TESTNET: no API key. Save one in Tools → Options → Trading."
+    )
 
 
-def test_a_check_that_raises_is_reported_not_lost(build, threads, monkeypatch):
+def test_a_check_that_raises_is_reported_not_lost(build, threads, notifier):
     presenter = build(account=RaisingAccount())
-    shown: list[str] = []
-    monkeypatch.setattr(presenter.view, "show_connection_failure", shown.append)
 
     presenter.check_connection()
     threads.run_all()
 
     assert presenter.view.connection.text() == "Exchange: not connected"
-    assert shown == ["The connection check failed: proxy refused the tunnel"]
+    (notice,) = notifier.failures
+    assert notice.kind is FailureKind.COMMAND
+    assert notice.cause == "trading.market.connection_check"
+    assert notice.headline == CHECK_FAILED
+    assert "proxy refused the tunnel" not in notice.headline
+    assert notice.detail == "proxy refused the tunnel"
+    assert notice.retry is None
+    assert notifier.cleared == []
 
 
-def test_a_superseded_checks_answer_is_ignored(build, threads, monkeypatch):
+def test_a_raised_check_writes_no_exception_into_the_log_pane(build, threads):
+    """`BOT-169`: the pane's line is the sentence; the exception is the notice's."""
+    presenter = build(account=RaisingAccount())
+
+    presenter.check_connection()
+    threads.run_all()
+
+    lines = [entry.message for entry in presenter.view.log.entries]
+    assert CHECK_FAILED in lines
+    assert not any("proxy refused" in line for line in lines)
+
+
+def test_a_superseded_checks_answer_is_ignored(build, threads, notifier):
     """`async-ui-action-rule.md` §1: only the newest check may write."""
     account = FakeAccountSnapshot(status=_CONNECTED)
     presenter = build(account=account)
-    shown: list[str] = []
-    monkeypatch.setattr(presenter.view, "show_connection_failure", shown.append)
     presenter.check_connection()
     presenter.check_connection()
 
@@ -140,4 +161,4 @@ def test_a_superseded_checks_answer_is_ignored(build, threads, monkeypatch):
     threads.run_all()  # the first answers late: no key
 
     assert presenter.view.connection.text() == "Exchange: connected (FUTURES_TESTNET)"
-    assert shown == []
+    assert notifier.failures == []

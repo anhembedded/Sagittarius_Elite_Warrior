@@ -57,6 +57,8 @@ _NOT_ENOUGH_TRADES_TEXT = (
     f"{_MIN_TRADES_REQUIRED}."
 )
 _READY_TEXT = "Choose an iteration count and run the simulation."
+#: `BOT-169` — the technical text is the notifier's; the panel only says it failed.
+_FAILED_TEXT = "The last simulation failed. Run it again."
 
 
 class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
@@ -142,7 +144,7 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
         error = self._vm.run_result.monte_carlo_error()
         result = self._vm.run_result.monte_carlo_result()
         if error:
-            self._error_label.setText(f"⚠ {error}")
+            self._error_label.setText(_FAILED_TEXT)
             self._summary.clear()
             self._spaghetti_chart.set_series([])
             self._histogram.set_buckets([])

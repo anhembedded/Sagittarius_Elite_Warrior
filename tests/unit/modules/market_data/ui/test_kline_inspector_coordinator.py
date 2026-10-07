@@ -4,6 +4,10 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
     AuditDatabaseIntegrityQuery,
@@ -28,6 +32,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.ui.failure_notice_asserts import (
+    EXCEPTION_TEXT,
+    assert_log_list_has_no_exception_text,
+    assert_told_once,
+)
 
 
 @pytest.fixture
@@ -43,6 +52,7 @@ def kline_fixture():
 
     signals = {
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_kline_inspector": Mock(),
         "ui_audit_result": Mock(),
         "get_fsm_state": Mock(return_value=UIMode.IDLE),
@@ -54,6 +64,7 @@ def kline_fixture():
         thread_manager=thread_manager,
         tracker=tracker,
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_kline_inspector_signal=signals["ui_kline_inspector"],
         ui_audit_result_signal=signals["ui_audit_result"],
         get_current_fsm_state=signals["get_fsm_state"],
@@ -140,3 +151,38 @@ def test_the_audit_summary_writes_its_counts_through_the_formatter(kline_fixture
     )
     # A moment is a value: the one that shows it is the formatter's.
     assert anomalies[0]["timestamp"] == moment
+
+
+def test_a_failed_kline_inspection_is_a_command_failure(kline_fixture, monkeypatch):
+    coordinator, _dispatcher, tracker, signals, history = kline_fixture
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError(EXCEPTION_TEXT)
+
+    monkeypatch.setattr(history, "load", fail)
+
+    coordinator.run_inspect_klines("BTCUSDT", "1m")
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(
+        signals["notifier"], FailureKind.COMMAND, "market_data.inspect_klines"
+    )
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+
+
+def test_a_failed_audit_says_so_in_words_and_carries_the_detail_to_the_notifier(
+    kline_fixture,
+):
+    coordinator, dispatcher, tracker, signals, _history = kline_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_audit("BTCUSDT", "1m")
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.audit")
+    signals["ui_audit_result"].assert_called_once_with(
+        False, 0, "The audit could not run.", []
+    )
+    assert_log_list_has_no_exception_text(
+        signals["ui_error_log"], signals["ui_audit_result"]
+    )

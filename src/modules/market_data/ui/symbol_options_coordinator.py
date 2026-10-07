@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
@@ -35,7 +36,7 @@ class SymbolOptionsCoordinator:
         symbol_catalog: ISymbolCatalog,
         thread_manager: IThreadManager,
         emit_ready: Callable[[list[str]], None],
-        emit_failed: Callable[[str], None],
+        emit_failed: Callable[[str], None],  # `BOT-169`: carries the `failure_detail`
         market: MarketType,
     ) -> None:
         self._symbol_catalog = symbol_catalog
@@ -89,7 +90,7 @@ class SymbolOptionsCoordinator:
             )
         except Exception as exc:
             logger.exception("Failed to fetch available symbols")
-            self._emit_failed(str(exc))
+            self._emit_failed(failure_detail(exc))
             return
         if market is not self._market:
             logger.debug(

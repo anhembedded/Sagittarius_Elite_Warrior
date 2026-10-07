@@ -18,6 +18,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -32,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
     map_volume,
 )
 
+from ..failure_reporting import BacktestFailureReporter
 from ..logic.backtest_fsm_matrix import BacktestExecutionMode
 from ..logic.pre_backtest_assertions import tick_mode_range_too_wide
 from ..logic.time_range_preset import TimeRangePreset
@@ -62,6 +64,7 @@ class ChartPreviewCoordinator:
         range_coverage: IRangeCoverage,
         thread_manager,
         log_dev_trace: Callable[..., None],
+        failures: BacktestFailureReporter,
         format_coverage_message: Callable[[BacktestRangeCoverage], str],
         get_current_config: Callable[[], Any],
         is_busy: Callable[[], bool],
@@ -76,6 +79,7 @@ class ChartPreviewCoordinator:
         self._range_coverage = range_coverage
         self._thread_manager = thread_manager
         self._log_dev_trace = log_dev_trace
+        self._failures = failures
         self._format_coverage_message = format_coverage_message
         self._get_current_config = get_current_config
         self._is_busy = is_busy
@@ -163,7 +167,11 @@ class ChartPreviewCoordinator:
             )
         except Exception as exc:
             logger.exception("Fetching Backtest chart preview failed")
-            self._log_dev_trace("preview_query_failed", message=str(exc))
+            detail = failure_detail(exc)
+            self._log_dev_trace("preview_query_failed", message=detail)
+            self._failures.chart_preview_failed(detail, self.request_preview)
+        else:
+            self._failures.chart_preview_recovered()
 
     def on_preview_data_ready(
         self,

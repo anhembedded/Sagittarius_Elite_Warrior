@@ -17,6 +17,12 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
@@ -25,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summ
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
     AccountSummaryStaleEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_activity import (
     IAccountActivity,
@@ -36,6 +45,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summa
     summary_readout,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -59,8 +74,13 @@ class AccountSummaryPresenter(QObject):
         activity: IAccountActivity,
         feed: OrderFeed,
         thread_manager: IThreadManager,
+        notifier: INotifier,
+        venue: TradingVenue,
     ) -> None:
         super().__init__(view)
+        self._notifier = notifier
+        self._cause = failure_cause(venue, "account_summary")
+        self._venue_name = venue.display_name
         self._view = view
         self._activity = activity
         self._threads = thread_manager
@@ -77,17 +97,32 @@ class AccountSummaryPresenter(QObject):
         try:
             self._read.emit((action_id, self._activity.summary(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._read.emit((action_id, None, str(exc)))
+            self._read.emit((action_id, None, failure_detail(exc)))
 
     def _on_read(self, payload: tuple) -> None:
-        action_id, summary, error = payload
+        action_id, summary, detail = payload
         if not self._reads.is_current_pending(action_id, _READ):
             self._reads.log_stale_callback("_on_read", action_id, _READ)
             return
         if summary is None:
             self._reads.finish_action(action_id, ActionOutcome.FAILED)
-            logger.warning("Account summary could not be read: %s", error)
-            self._view.mark_stale(error or _UNREAD_REASON)
+            logger.warning("Account summary could not be read: %s", detail)
+            self._view.mark_stale(_UNREAD_REASON)
+            if detail is None:
+                # The read answered nothing and raised nothing: the panel's own
+                # stale mark says so, and a bar would add no cause to Details.
+                return
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.BACKGROUND,
+                    self._cause,
+                    f"The {self._venue_name} account summary could not be read. "
+                    "Check the connection and retry.",
+                    scope=TRADE_ROUTE,
+                    detail=detail,
+                    retry=self.refresh,
+                )
+            )
             return
         self._reads.finish_action(action_id, ActionOutcome.SUCCEEDED)
         self._show(summary)
@@ -104,5 +139,6 @@ class AccountSummaryPresenter(QObject):
         self._view.mark_stale(event.reason)
 
     def _show(self, summary: AccountSummary) -> None:
+        self._notifier.clear_failure(self._cause)
         self._view.show_readout(summary_readout(summary))
         self._view.clear_stale()

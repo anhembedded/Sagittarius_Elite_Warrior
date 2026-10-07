@@ -8,6 +8,10 @@ import dataclasses
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -36,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_depe
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -103,6 +110,23 @@ def test_the_desk_reads_its_own_venues_filters():
 
     assert precisions.tick("BTCUSDT") == Precision(Decimal("0.10"))
     assert precisions.step("BTCUSDT") == Precision(Decimal("0.001"))
+
+
+def test_the_desk_tells_failures_through_the_containers_notifier():
+    notifier = RecordingNotifier()
+    container = fake_container(
+        {
+            IVenueContexts: FakeVenueContexts(fake_venue_context(FUTURES)),
+            IVenueTradingPorts: FakeVenueTradingPorts(fake_venue_ports(FUTURES)),
+            INotifier: notifier,
+        }
+    )
+
+    deps = desk_dependencies_for(container, FUTURES)
+
+    assert deps.notifier is notifier
+    assert deps.chart.notifier is notifier
+    assert deps.chart.scope == TRADE_ROUTE
 
 
 def test_the_desk_hands_its_filters_to_the_account_tabs(qtbot):

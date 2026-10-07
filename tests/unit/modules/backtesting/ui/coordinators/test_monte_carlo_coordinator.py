@@ -75,3 +75,4 @@ def test_a_failing_run_emits_failed_with_the_given_run_id_instead_of_raising():
     run_id, message = failed[0]
     assert run_id == 3
     assert "at least one closed trade" in message
+    assert message == " ".join(message.split())

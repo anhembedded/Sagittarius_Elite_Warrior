@@ -7,6 +7,10 @@ from __future__ import annotations
 from decimal import Decimal
 
 from PySide6.QtWidgets import QLabel
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -34,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_summary.summa
     summary_readout,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
+    TRADE_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -122,16 +129,19 @@ def test_an_unread_account_shows_no_figure(qtbot) -> None:
 # -- the presenter --------------------------------------------------------- #
 
 
-def _summary_desk(qtbot, threads=None):
+def _summary_desk(qtbot, threads=None, notifier=None):
     bus = MemoryEventBus()
     activity = FakeAccountActivity()
     panel = AccountSummaryPanel()
+    notifier = notifier or RecordingNotifier()
     qtbot.addWidget(panel)
     presenter = AccountSummaryPresenter(
         panel,
         activity,
         OrderFeed(bus, _FUTURES, parent=panel),
         threads or InlineThreadManager(),
+        notifier,
+        _FUTURES,
     )
     return bus, activity, panel, presenter
 
@@ -147,11 +157,54 @@ def test_the_desk_reads_its_summary_when_it_opens(qtbot) -> None:
 
 
 def test_an_unreadable_account_is_marked_rather_than_shown_empty(qtbot) -> None:
-    _, _, panel, presenter = _summary_desk(qtbot)
+    notifier = RecordingNotifier()
+    _, _, panel, presenter = _summary_desk(qtbot, notifier=notifier)
 
     presenter.refresh()
 
     assert panel.stale_text == "Out of date: the account could not be read"
+    # Nothing was raised, so the panel's stale mark is the whole message.
+    assert notifier.failures == []
+
+
+def test_a_failed_summary_read_is_one_background_notice_with_retry(qtbot) -> None:
+    class Failing(FakeAccountActivity):
+        def summary(self):
+            raise ConnectionError("502 Bad Gateway <html>")
+
+    notifier = RecordingNotifier()
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+    presenter = AccountSummaryPresenter(
+        panel,
+        Failing(),
+        OrderFeed(MemoryEventBus(), _FUTURES, parent=panel),
+        InlineThreadManager(),
+        notifier,
+        _FUTURES,
+    )
+
+    presenter.refresh()
+
+    notice = notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.scope == TRADE_ROUTE
+    assert notice.cause == "trading.futures_testnet.account_summary"
+    assert notice.retry is not None
+    assert notice.detail == "502 Bad Gateway <html>"
+    assert "502" not in notice.headline
+    assert "502" not in panel.stale_text
+
+
+def test_a_summary_that_reads_again_clears_its_notice(qtbot) -> None:
+    notifier = RecordingNotifier()
+    _, activity, _, presenter = _summary_desk(qtbot, notifier=notifier)
+    presenter.refresh()
+    activity.holding_summary(_futures("100"))
+
+    presenter.refresh()
+
+    assert notifier.cleared == ["trading.futures_testnet.account_summary"]
 
 
 def test_stale_is_marked_with_its_reason_and_cleared_by_the_next_change(

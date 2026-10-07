@@ -3,6 +3,10 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataCommand,
     ClearMarketDataResult,
@@ -16,6 +20,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.ui.failure_notice_asserts import (
+    EXCEPTION_TEXT,
+    assert_log_list_has_no_exception_text,
+    assert_told_once,
+)
 
 
 @pytest.fixture
@@ -28,6 +37,7 @@ def vault_fixture():
     signals = {
         "ui_log": Mock(),
         "ui_error_log": Mock(),
+        "notifier": RecordingNotifier(),
         "ui_remove_symbol": Mock(),
         "ui_clear_table": Mock(),
         "ui_stats_refresh": Mock(),
@@ -44,6 +54,7 @@ def vault_fixture():
         market_data_repo=market_data_repo,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
+        notifier=signals["notifier"],
         ui_remove_symbol_signal=signals["ui_remove_symbol"],
         ui_clear_table_signal=signals["ui_clear_table"],
         ui_stats_refresh_signal=signals["ui_stats_refresh"],
@@ -163,3 +174,39 @@ def test_request_vacuum_does_nothing_once_shutdown(vault_fixture):
     coordinator.request_vacuum()
 
     coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_a_failed_clear_is_a_command_failure_and_unlocks(vault_fixture):
+    coordinator, dispatcher, _repo, tracker, signals = vault_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_clear_data("BTCUSDT", "15m")
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.clear_data")
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_unlock"].assert_called_once()
+
+
+def test_a_failed_purge_is_a_command_failure_and_unlocks(vault_fixture):
+    coordinator, dispatcher, _repo, tracker, signals = vault_fixture
+    dispatcher.dispatch.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_purge_all()
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.purge_all")
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_unlock"].assert_called_once()
+
+
+def test_a_failed_vacuum_is_a_command_failure_and_refreshes_stats(vault_fixture):
+    coordinator, _dispatcher, repo, tracker, signals = vault_fixture
+    repo.vacuum.side_effect = RuntimeError(EXCEPTION_TEXT)
+
+    coordinator.run_vacuum()
+
+    assert tracker.active_outcome == ActionOutcome.FAILED
+    assert_told_once(signals["notifier"], FailureKind.COMMAND, "market_data.vacuum")
+    assert_log_list_has_no_exception_text(signals["ui_error_log"])
+    signals["ui_stats_refresh"].assert_called_once()

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
@@ -67,6 +68,8 @@ class BotsDependencies:
     #: Each served venue's tick and step sizes, which the selected bot's
     #: orders and fills are written in (`EPIC-033N`).
     filters: Mapping[TradingVenue, ISymbolPrecisions]
+    #: How every failure of the screen reaches the user (`BOT-169`).
+    notifier: INotifier
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -80,6 +83,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         candles=candles,
         symbols=container.resolve(ISymbolCatalog),
         filters=venue_filters(container.resolve(IVenueContexts)),
+        notifier=container.resolve(INotifier),
     )
 
 

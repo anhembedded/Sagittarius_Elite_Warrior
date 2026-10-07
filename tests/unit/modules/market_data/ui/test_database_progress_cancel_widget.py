@@ -13,6 +13,10 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtWidgets import QLabel, QProgressBar
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
     STOP,
     data_commands,
@@ -60,6 +64,8 @@ def database_screen(qapp, request):
                 True if key == DEV_MODE_CONFIG_KEY else default
             )
             return mock_config
+        if interface == INotifier:
+            return RecordingNotifier()
         return Mock()
 
     container.resolve.side_effect = resolve_mock

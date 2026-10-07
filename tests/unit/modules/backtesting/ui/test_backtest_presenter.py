@@ -28,6 +28,7 @@ from PySide6.QtWidgets import QLabel, QWidget
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -173,6 +174,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .backtest_actions import backtest_actions
+from .failure_asserts import assert_command_notice, last_notice
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
@@ -546,11 +548,13 @@ def mock_container(
     fake_historical_klines,
     fake_symbol_catalog,
     fake_range_coverage,
+    notifier,
 ):
     container = Mock()
 
     def resolve_mock(interface):
-
+        if interface == INotifier:
+            return notifier
         if interface == IThreadManager:
             return mock_thread_mgr
         if interface == IDispatcher:
@@ -718,7 +722,7 @@ def test_fetch_symbol_options_reads_the_catalog_and_populates_the_view_model(
 
 
 def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
-    presenter, view_model
+    presenter, view_model, notifier
 ):
     def unreachable(*_args, **_kwargs):
         raise RuntimeError("exchange unreachable")
@@ -729,7 +733,8 @@ def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
 
     assert presenter._symbol_options_coordinator._symbol_options_cache is None
     assert view_model.symbolOptions == []
-    assert "exchange unreachable" in view_model.log_model._entries[-1].message
+    assert "exchange unreachable" not in view_model.log_model._entries[-1].message
+    assert notifier.last.detail == "exchange unreachable"
 
 
 def test_selecting_a_symbol_updates_the_presenters_symbol_and_rebuilds_the_chart(
@@ -1625,23 +1630,6 @@ def test_a_new_backtest_run_invalidates_an_in_flight_monte_carlo_run(
     assert view_model.run_result.monte_carlo_result() is None
 
 
-def test_monte_carlo_failed_stores_the_error_message(presenter, view_model):
-    run_id = presenter._claim_monte_carlo_run_id()
-
-    presenter._on_monte_carlo_failed(run_id, "boom")
-
-    assert view_model.run_result.monte_carlo_error() == "boom"
-
-
-def test_a_stale_monte_carlo_failure_is_ignored(presenter, view_model):
-    stale_run_id = presenter._claim_monte_carlo_run_id()
-    presenter._claim_monte_carlo_run_id()
-
-    presenter._on_monte_carlo_failed(stale_run_id, "boom")
-
-    assert view_model.run_result.monte_carlo_error() == ""
-
-
 def test_the_full_dispatch_to_completion_path_reaches_the_view_model(
     presenter, view_model, mock_dispatcher, mock_thread_mgr
 ):
@@ -1755,8 +1743,8 @@ def test_dispatch_exception_reports_error_and_unlocks(
     presenter._run_backtest(config)
 
     assert presenter.fsm.current_state == BacktestUiState.ERROR
-    assert view_model.run_result.resultIsError is True
-    assert "boom" in view_model.run_result.resultText
+    assert view_model.run_result.resultText == presenter._failures.RUN
+    assert_command_notice(presenter, "backtesting.run", "boom")
 
 
 # ---------------------------------------------------------------------------
@@ -2129,7 +2117,7 @@ def test_sync_without_the_required_candle_reports_incomplete_and_keeps_retry_ava
     assert presenter.fsm.current_state is BacktestUiState.ERROR
     assert view_model.run_result.needsDataSync is True
     assert presenter._last_no_data_config == config
-    assert "Sync is not sufficient" in view_model.run_result.resultText
+    assert "Sync is not sufficient" in last_notice(presenter).detail
     mock_thread_mgr.submit.assert_not_called()
 
 
@@ -2200,8 +2188,8 @@ def test_sync_failure_keeps_the_flag_and_returns_to_idle(
     assert presenter.fsm.current_state == BacktestUiState.ERROR
     assert view_model.run_result.needsDataSync is True
     assert presenter._last_no_data_config is config
-    assert view_model.run_result.resultIsError is True
-    assert "sync boom" in view_model.run_result.resultText
+    assert view_model.run_result.resultText == presenter._failures.SYNC
+    assert_command_notice(presenter, "backtesting.sync", "sync boom")
     mock_thread_mgr.submit.assert_not_called()
 
 
@@ -4195,10 +4183,9 @@ def test_report_import_of_a_malformed_file_shows_an_error_and_stays_idle(
     ):
         presenter._on_report_import_requested()
 
-    vm = presenter._view_model
     assert presenter.fsm.current_state == BacktestUiState.IDLE
-    assert vm.run_result.resultIsError is True
-    assert vm.run_result.resultText != ""
+    assert last_notice(presenter).headline == presenter._failures.REPORT_INVALID
+    assert last_notice(presenter).detail != ""
 
 
 def test_report_import_flags_a_strategy_no_longer_registered(presenter, tmp_path):
@@ -4605,8 +4592,7 @@ def test_success_after_failure_for_the_same_action_is_ignored(presenter, view_mo
 
     assert presenter._active_action_outcome is BacktestActionOutcome.FAILED
     assert presenter.fsm.current_state == BacktestUiState.ERROR
-    assert view_model.run_result.resultIsError is True
-    assert "boom" in view_model.run_result.resultText
+    assert_command_notice(presenter, "backtesting.run", "boom")
 
 
 def test_invalidated_action_cannot_apply_a_late_success(presenter, view_model):

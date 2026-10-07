@@ -6,6 +6,9 @@ chip a user sees."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
@@ -68,16 +71,18 @@ def test_go_live_syncs_streams_and_reads_live(qapp) -> None:
 def test_a_failed_stream_is_an_error_with_its_reason_and_a_retry(qapp) -> None:
     feed = ScriptedCandleFeed()
     feed.stream_message = "no route to the exchange"
-    chart, card = build_chart(feed)
+    notifier = RecordingNotifier()
+    chart, card = build_chart(feed, notifier=notifier)
     chart.show_symbol("BTCUSDT")
 
     chart.run_command(C.GO_LIVE)
 
     assert chart.live_state is S.ERROR
-    assert "no route to the exchange" in chart.live_error
+    assert "no route to the exchange" not in chart.live_error
     label = card.findChild(object, "liveStateLabel")
-    assert label.text().startswith("Error: Could not open live stream")
-    assert "no route to the exchange" in label.toolTip()
+    assert label.text().startswith("Error: Could not open the live stream")
+    assert "no route to the exchange" not in label.toolTip()
+    assert notifier.last.detail == "no route to the exchange"
     assert _command_text(card) == "Retry"
 
 
@@ -100,13 +105,15 @@ def test_retry_asks_the_coordinator_again_and_can_succeed(qapp) -> None:
 def test_a_failed_sync_is_an_error_too(qapp) -> None:
     feed = ScriptedCandleFeed()
     feed.sync_error = "interval refused"
-    chart, _card = build_chart(feed)
+    notifier = RecordingNotifier()
+    chart, _card = build_chart(feed, notifier=notifier)
     chart.show_symbol("BTCUSDT")
 
     chart.run_command(C.GO_LIVE)
 
     assert chart.live_state is S.ERROR
-    assert "interval refused" in chart.live_error
+    assert "interval refused" not in chart.live_error
+    assert "interval refused" in notifier.last.detail
     assert "start_stream" not in feed.calls
 
 
@@ -154,7 +161,7 @@ def test_a_report_that_was_on_its_way_when_the_user_cancelled_moves_nothing(
     chart.run_command(C.STOP_LIVE)
 
     chart._stream_opened.emit(chart._token, "Streaming live data for BTCUSDT.")
-    chart._stream_lost.emit(chart._token, "a late failure")
+    chart._stream_lost.emit(chart._token, "a late failure", "")
 
     assert chart.live_state is S.HISTORY
     assert chart.live_error == ""
@@ -251,6 +258,8 @@ def test_a_chart_that_only_draws_a_finished_run_offers_no_live_command(qapp) -> 
         interval="1m",
         market=MarketType.SPOT,
         live_commands=False,
+        notifier=RecordingNotifier(),
+        scope="test",
     )
     chart = LiveCandleChart(card, ports, parent=card)
 
@@ -285,7 +294,7 @@ def test_a_report_of_a_replaced_request_moves_nothing(qapp) -> None:
     assert chart.live_state is S.CONNECTING
 
     chart._stream_opened.emit(old, "old stream")
-    chart._stream_lost.emit(old, "old failure")
+    chart._stream_lost.emit(old, "old failure", "")
 
     assert chart.live_state is S.CONNECTING
     assert chart.live_error == ""
@@ -352,11 +361,31 @@ def test_an_error_reason_that_looks_like_markup_is_shown_as_text(qapp) -> None:
     """`BUG-168`: the reason is an exchange's answer."""
     feed = ScriptedCandleFeed()
     feed.stream_message = "<h1>502 Bad Gateway</h1>"
-    chart, card = build_chart(feed)
+    notifier = RecordingNotifier()
+    chart, card = build_chart(feed, notifier=notifier)
     chart.show_symbol("BTCUSDT")
 
     chart.run_command(C.GO_LIVE)
 
     label = card.findChild(object, "liveStateLabel")
     assert label.textFormat() == Qt.TextFormat.PlainText
-    assert "<h1>502 Bad Gateway</h1>" in label.toolTip()
+    assert "<h1>" not in label.toolTip(), "`BOT-169`: the page is behind Details…"
+    assert notifier.last.detail == "<h1>502 Bad Gateway</h1>"
+
+
+def test_a_failure_bar_goes_when_the_chart_leaves_error_or_closes(qapp) -> None:
+    """A bar whose chart is gone would offer a Retry that targets a closed chart."""
+    feed = ScriptedCandleFeed()
+    feed.stream_message = "no route"
+    notifier = RecordingNotifier()
+    chart, _card = build_chart(feed, notifier=notifier)
+    chart.show_symbol("BTCUSDT")
+    chart.run_command(C.GO_LIVE)
+    cause = notifier.last.cause
+
+    chart.run_command(C.STOP_LIVE)
+    assert cause in notifier.cleared
+
+    notifier.cleared.clear()
+    chart.shutdown()
+    assert cause in notifier.cleared

@@ -12,6 +12,7 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
@@ -280,3 +281,48 @@ def test_a_failed_re_read_is_not_papered_over_by_the_read_before_it(
     screen.settle()
     assert screen.presenter._account.view.state is ConnectState.FAILED
     assert len(screen.account.symbols_read) == 3
+
+
+def test_a_failed_connection_is_a_bar_with_retry_and_goes_when_it_recovers(
+    open_bots_screen,
+) -> None:
+    """`BOT-169`: the strip says who and where; the bar carries Retry."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.account.answer_with(failure(ConnectionFailureKind.MAINTENANCE))
+    screen.settle()
+
+    select(screen, "a00001")
+    screen.settle()
+
+    notice = screen.notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert notice.scope == "bots"
+    assert "under maintenance" in notice.headline
+    assert notice.retry is not None
+    screen.account.answer_with(fresh_snapshot())
+    notice.retry()
+    screen.settle()
+    assert notice.cause in screen.notifier.cleared
+
+
+def test_a_read_that_raised_locks_the_screen_without_its_text_and_tells_the_bar(
+    open_bots_screen,
+) -> None:
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+
+    def unreachable(_symbol: str):
+        raise RuntimeError("timed out")
+
+    screen.account.read = unreachable  # type: ignore[method-assign]
+    screen.settle()
+
+    select(screen, "a00001")
+    screen.settle()
+
+    assert not chart_shown(screen)
+    assert "timed out" not in locked_note(screen)
+    assert "could not be read" in locked_note(screen)
+    notice = screen.notifier.last
+    assert notice.detail == "timed out"
+    assert "timed out" not in notice.headline
+    assert notice.retry is not None

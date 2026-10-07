@@ -27,5 +27,7 @@ class LiveChartCallbacks:
     #: current request, so a report that was on its way when the request was
     #: replaced (a new symbol, a Retry) moves nothing (`EPIC-034G`).
     stream_started: Callable[[CancellationToken, str], None]
-    stream_failed: Callable[[CancellationToken, str], None]
+    #: `(token, headline, detail)`: what failed as a sentence, and the technical
+    #: text behind Details… (`BOT-169`); never one string with the exception.
+    stream_failed: Callable[[CancellationToken, str, str], None]
     log: Callable[[str], None]

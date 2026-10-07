@@ -70,6 +70,9 @@ class RunResultViewModel(QObject):
     #: dialog button click, not a backtest finishing), so it needs its own
     #: notify signal rather than riding `statCardsChanged`.
     monteCarloResultChanged = Signal()
+    #: `BOT-169` — a report file picked in the compare dialog could not be
+    #: loaded; carries the technical text for the notifier, never for a widget.
+    comparisonReportLoadFailed = Signal(str)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)

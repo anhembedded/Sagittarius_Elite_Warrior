@@ -34,6 +34,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal, SignalInstance
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -66,6 +67,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .chart_history import ChartHistory, HistoryRange, RangeCandles
 from .market_dependencies import MarketDependencies
+from .market_screen import MARKET_ROUTE
 
 logger = logging.getLogger("App.Trading.Market")
 
@@ -123,6 +125,7 @@ class MarketChart(LiveCandleChart):
         dependencies: MarketDependencies,
         sources: ChartSources,
         symbol: str,
+        notifier: INotifier,
         parent: QObject | None = None,
     ) -> None:
         """`sources` are of the market the mode shows (`EPIC-033Q`): a chart
@@ -135,6 +138,8 @@ class MarketChart(LiveCandleChart):
                 stream_owner=stream_owner_for(symbol),
                 interval=dependencies.interval,
                 market=sources.market,
+                notifier=notifier,
+                scope=MARKET_ROUTE,
             ),
             parent,
         )
@@ -148,6 +153,8 @@ class MarketChart(LiveCandleChart):
                 chart, key, points
             ),
             on_error=self.logged.emit,
+            notifier=notifier,
+            scope=MARKET_ROUTE,
             get_params=dependencies.script_params,
         )
         self._indicators: tuple[str, ...] = ()

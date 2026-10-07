@@ -145,6 +145,7 @@ def build_coordinators(presenter) -> Coordinators:
         view_model=presenter._view_model,
         thread_manager=presenter._thread_manager,
         log_dev_trace=presenter._log_dev_trace,
+        failures=presenter._failures,
         format_coverage_message=DataSyncCoordinator.format_coverage_message,
         get_current_config=presenter._get_current_config,
         is_busy=presenter._is_busy_for_preview,
@@ -182,6 +183,7 @@ def build_coordinators(presenter) -> Coordinators:
         state=state,
         script_runner=presenter._chart_script_runner,
         log_dev_trace=presenter._log_dev_trace,
+        failures=presenter._failures,
         emit_chart_data_ready=presenter._chartDataReadySignal.emit,
         # Through the presenter's own methods, not bound to the indicator
         # coordinator: tests replace these on the presenter.

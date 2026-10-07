@@ -6,6 +6,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
@@ -92,8 +95,8 @@ def _host(world: ChartWorld, bus: MemoryEventBus) -> BotChartHost:
                 world.sync, world.history, world.stream, world.market
             ),
             ticks=BotTickFeed(bus, MarketType.SPOT),
+            notifier=RecordingNotifier(),
         ),
-        lambda _text, _failed: None,
     )
 
 
@@ -220,14 +223,14 @@ def test_the_error_state_carries_the_message_the_status_line_shows(qapp) -> None
     the Error state is the same failure, in words on the chip."""
     feed = ScriptedCandleFeed()
     feed.stream_message = "exchange said no"
-    said: list[tuple[str, bool]] = []
+    notifier = RecordingNotifier()
     host = BotChartHost(
         BotChartPorts(
             thread_manager=InlineThreadManager(),
             feed=feed,
             ticks=BotTickFeed(MemoryEventBus(), MarketType.SPOT),
+            notifier=notifier,
         ),
-        lambda text, failed: said.append((text, failed)),
     )
     host.show(_bot(BotLifecycleState.DRAFT))
     chart = host._chart
@@ -236,6 +239,6 @@ def test_the_error_state_carries_the_message_the_status_line_shows(qapp) -> None
     chart.run_command(LiveChartCommand.GO_LIVE)
 
     assert chart.live_state is S.ERROR
-    assert "exchange said no" in chart.live_error
-    assert any(failed and "exchange said no" in text for text, failed in said)
+    assert "exchange said no" not in chart.live_error
+    assert notifier.last.detail == "exchange said no"
     host.close()

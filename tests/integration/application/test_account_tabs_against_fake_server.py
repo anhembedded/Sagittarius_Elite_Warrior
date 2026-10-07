@@ -29,6 +29,9 @@ from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -241,6 +244,7 @@ def _desk(qtbot) -> AccountTabsPanel:
         ),
         OrderFeed(MemoryEventBus(), _FUTURES, parent=panel),
         _InlineThreadManager(),
+        RecordingNotifier(),
     )
     presenter.show_symbol("BTCUSDT")
     return panel

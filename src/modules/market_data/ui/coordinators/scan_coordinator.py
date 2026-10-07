@@ -2,6 +2,7 @@ import logging
 from collections.abc import Callable
 from threading import Lock
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
@@ -24,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.failure_reporter import (
+    FailureReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_signal_payloads import (
     StatusRowUpdate,
 )
@@ -45,6 +49,7 @@ logger = logging.getLogger("App.DataManagement")
 #: lands). Pinned to Spot, what every shard on disk actually is after the
 #: legacy-shard migration (ADR O3).
 _MARKET = MarketType.SPOT
+_AUTO_DISCOVER_CAUSE = "market_data.auto_discover"
 
 
 class ScanCoordinator:
@@ -70,6 +75,7 @@ class ScanCoordinator:
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
         is_shutdown_requested: Callable[[], bool],
+        notifier: INotifier,
     ) -> None:
         self._view_model = view_model
         self._dispatcher = dispatcher
@@ -80,6 +86,7 @@ class ScanCoordinator:
 
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
+        self._failures = FailureReporter(notifier, ui_error_log_signal)
         self._ui_status_table_signal = ui_status_table_signal
         self._ui_remove_symbol_signal = ui_remove_symbol_signal
         self._ui_clear_table_signal = ui_clear_table_signal
@@ -149,9 +156,7 @@ class ScanCoordinator:
                     # answers with a tuple so no consumer can edit it.
                     self._ui_symbol_options_signal(list(available_symbols))
             except Exception as err:  # noqa: BLE001
-                logging.getLogger("App.Presenter").debug(
-                    f"Exchange symbols not available at auto-discover: {err}"
-                )
+                logger.debug(f"Exchange symbols not available at auto-discover: {err}")
 
             if not self._tracker.is_current_pending(
                 action.action_id, DataManagementActionKind.AUTO_DISCOVER
@@ -186,9 +191,14 @@ class ScanCoordinator:
                     "trading pair and press Sync to load data."
                 )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
-        except Exception as exc:  # noqa: BLE001 - boundary: log without crashing
-            logger.error(f"[storage-vault] Auto-discovery error: {exc}")
-            self._ui_log_signal(f"Storage Vault auto-discovery complete: {exc}")
+            self._failures.recovered(_AUTO_DISCOVER_CAUSE)
+        except Exception as exc:  # noqa: BLE001 - boundary: report without crashing
+            self._failures.background_failed(
+                _AUTO_DISCOVER_CAUSE,
+                "The Storage Vault could not be read. Retry, or check the log.",
+                exc,
+                retry=lambda: self._thread_manager.submit(self.run_auto_discover),
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._release_cancellation_token(token)
@@ -265,7 +275,11 @@ class ScanCoordinator:
             self._ui_log_signal("Scan complete.")
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Error scanning database: {exc}")
+            self._failures.command_failed(
+                "market_data.scan_status",
+                "The database status check failed. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._ui_unlock_signal()
@@ -341,7 +355,11 @@ class ScanCoordinator:
             )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Error scanning databases: {exc}")
+            self._failures.command_failed(
+                "market_data.scan_all",
+                "The scan of the Storage Vault failed. Try again.",
+                exc,
+            )
             self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
         finally:
             self._release_cancellation_token(token)

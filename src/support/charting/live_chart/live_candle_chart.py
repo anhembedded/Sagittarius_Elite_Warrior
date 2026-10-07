@@ -22,6 +22,10 @@ from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
     timeframe_or_fallback,
@@ -71,7 +75,8 @@ class LiveCandleChart(QObject):
     #: The coordinator's stream reports, from its worker thread.
     #: Each carries the token of the request it reports on.
     _stream_opened = Signal(object, str)
-    _stream_lost = Signal(object, str)
+    #: `(token, headline, detail)` of a failed sync or stream (`BOT-169`).
+    _stream_lost = Signal(object, str, str)
 
     def __init__(
         self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
@@ -81,6 +86,8 @@ class LiveCandleChart(QObject):
         self._symbol = ""
         self._interval = self._opening_interval(chart, ports)
         self._live = False
+        self._notifier, self._scope = ports.notifier, ports.scope
+        self._failure_cause = f"charting.live_stream.{ports.stream_owner}"
         self._clock: Callable[[], float] = ports.clock
         self._state = LiveChartState.HISTORY
         self._syncing_stream_action = False
@@ -216,8 +223,10 @@ class LiveCandleChart(QObject):
             self._restart()
 
     def shutdown(self) -> None:
-        """Cancels the load in flight; the stream is left as it is."""
+        """Cancels the load in flight; the stream is left as it is. A failure
+        bar of this chart goes with it: its Retry would target a closed chart."""
         self._token.cancel()
+        self._notifier.clear_failure(self._failure_cause)
 
     def release_stream(self) -> None:
         """Releases this chart's own stream (`BOT-126`), if it holds one."""
@@ -320,6 +329,8 @@ class LiveCandleChart(QObject):
             event.value,
         )
         self._error = reason if target is LiveChartState.ERROR else ""
+        if target is not LiveChartState.ERROR:
+            self._notifier.clear_failure(self._failure_cause)
         self._state = target
         self._syncing_stream_action = True
         self.live_stream_action.setChecked(self._streaming)
@@ -333,10 +344,26 @@ class LiveCandleChart(QObject):
         # nothing about the one now asked for.
         if token is self._token and self._dispatch(LiveChartEvent.STREAM_STARTED):
             self.logged.emit(text)
+            self._notifier.clear_failure(self._failure_cause)
 
-    def _on_stream_lost(self, token: object, text: str) -> None:
-        if token is self._token and self._dispatch(LiveChartEvent.STREAM_FAILED, text):
-            self.logged.emit(f"[ERROR] {text}")
+    def _on_stream_lost(self, token: object, headline: str, detail: str) -> None:
+        if token is not self._token or not self._dispatch(
+            LiveChartEvent.STREAM_FAILED, headline
+        ):
+            return
+        # The log line and the chip carry the sentence only; the exception is
+        # in the log file and behind the bar's Details… (`BOT-169`).
+        self.logged.emit(f"[ERROR] {headline}")
+        self._notifier.report_failure(
+            FailureNotice(
+                kind=FailureKind.BACKGROUND,
+                cause=self._failure_cause,
+                headline=headline,
+                scope=self._scope,
+                detail=detail,
+                retry=lambda: self.run_command(LiveChartCommand.RETRY),
+            )
+        )
 
     def _on_load_settled(self, token: object) -> None:
         # A settle already on its way when its request was replaced belongs

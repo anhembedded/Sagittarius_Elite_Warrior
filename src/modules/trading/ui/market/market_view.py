@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -224,11 +223,6 @@ class MarketView(OutputSourceView):
             dialog.exec()
         finally:
             dialog.deleteLater()
-
-    def show_connection_failure(self, text: str) -> None:
-        """The check the user asked for failed: said where they are looking,
-        not only in the status bar (`ui-presentation-rule.md` §10)."""
-        QMessageBox.warning(self, "Check Connection", text)
 
     # -- what the user does ---------------------------------------------------
 

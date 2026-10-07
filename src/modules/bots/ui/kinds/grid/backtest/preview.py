@@ -13,6 +13,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fine_klines import (
@@ -30,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_simulator import (
     GridBacktestInputs,
     simulate_grid,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    BOTS_ROUTE,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
     SAMPLE_CANDLES,
@@ -84,6 +90,8 @@ def build_preview() -> QWidget:
             stream_owner="bots.backtest.preview",
             interval=_INTERVAL.value,
             market=MarketType.SPOT,
+            notifier=RecordingNotifier(),
+            scope=BOTS_ROUTE,
             live_commands=False,
         )
     )

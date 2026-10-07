@@ -180,10 +180,11 @@ def test_a_failed_run_shows_the_error_and_clears_the_charts(qapp):
     vm.run_result.set_monte_carlo_result(_simulation_result())
     qapp.processEvents()
 
-    vm.run_result.set_monte_carlo_error("boom")
+    vm.run_result.set_monte_carlo_error("The simulation failed.")
     qapp.processEvents()
 
-    assert "boom" in panel._error_label.text()
+    # `BOT-169` — a constant sentence, whatever the view model carries.
+    assert panel._error_label.text() == "The last simulation failed. Run it again."
     assert panel._summary.keys == ()
     assert panel._spaghetti_chart._curves == []
     panel.deleteLater()

@@ -4,6 +4,9 @@ real fakes of its ports (`market_fixtures.py`)."""
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
@@ -133,14 +136,19 @@ def _deps(
 
 
 @pytest.fixture
-def build(qapp, event_bus, feed, futures_feed, history, threads, scripts):
+def notifier() -> RecordingNotifier:
+    return RecordingNotifier()
+
+
+@pytest.fixture
+def build(qapp, event_bus, feed, futures_feed, history, threads, scripts, notifier):
     made: list[MarketPresenter] = []
 
     def _build(**overrides) -> MarketPresenter:
         view = MarketView()
         presenter = MarketPresenter(
             view,
-            presenter_container(event_bus),
+            presenter_container(event_bus, notifier),
             _deps((feed, futures_feed, history), threads, scripts, **overrides),
         )
         made.append(presenter)

@@ -18,17 +18,29 @@ import logging
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
+    FailureKind,
+    FailureNotice,
+    INotifier,
+    failure_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_result import (
     AccountControlResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
+    failure_cause,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_settings_control import (
     IFuturesSettingsControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -52,6 +64,8 @@ class FuturesSettingsChanger(QObject):
         control: IFuturesSettingsControl,
         thread_manager: IThreadManager,
         reread: Callable[[], None],
+        notifier: INotifier,
+        venue: TradingVenue,
     ) -> None:
         super().__init__(view_model)
         self._vm = view_model
@@ -59,6 +73,8 @@ class FuturesSettingsChanger(QObject):
         self._control = control
         self._threads = thread_manager
         self._reread = reread
+        self._notifier = notifier
+        self._cause = failure_cause(venue, "futures_settings")
         self._changes: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._answered.connect(self._on_answered)
         view_model.options.marginTypeRequested.connect(self._change_margin_type)
@@ -104,18 +120,27 @@ class FuturesSettingsChanger(QObject):
         try:
             self._answered.emit((action_id, symbol, what, send(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._answered.emit((action_id, symbol, what, None, str(exc)))
+            self._answered.emit((action_id, symbol, what, None, failure_detail(exc)))
 
     def _on_answered(self, payload: tuple) -> None:
-        action_id, symbol, what, result, error = payload
+        action_id, symbol, what, result, detail = payload
         if not self._changes.is_current_pending(action_id, _CHANGE):
             self._changes.log_stale_callback("_on_answered", action_id, _CHANGE)
             return
-        text, failed = _outcome(what, result, error)
+        text, failed = _outcome(what, result)
         self._changes.finish_action(
             action_id, ActionOutcome.FAILED if failed else ActionOutcome.SUCCEEDED
         )
-        logger.info("Order panel %s: %s", what, text)
+        logger.info(
+            "Order panel %s: %s%s", what, text, f" ({detail})" if detail else ""
+        )
+        if failed:
+            # Told even when the panel has moved on: the user asked for it.
+            self._notifier.report_failure(
+                FailureNotice(
+                    FailureKind.COMMAND, self._cause, text, detail=detail or ""
+                )
+            )
         if symbol != self._vm.order_symbol:
             logger.info("Order panel left %s before its answer; not shown", symbol)
             return
@@ -123,11 +148,9 @@ class FuturesSettingsChanger(QObject):
         self._reread()
 
 
-def _outcome(
-    what: str, result: AccountControlResult | None, error: str | None
-) -> tuple[str, bool]:
+def _outcome(what: str, result: AccountControlResult | None) -> tuple[str, bool]:
     if result is None:
-        return f"Could not set {what}: {error}", True
+        return f"Could not set {what}. Check the connection and try again.", True
     if result.blocked_by is not None:
         reason = result.detail or result.blocked_by.value.replace("_", " ")
         return f"The exchange did not set {what}: {reason}", True

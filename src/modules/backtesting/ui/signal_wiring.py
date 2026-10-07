@@ -141,6 +141,9 @@ def connect_ui_signals(presenter) -> None:
     )
     presenter._monteCarloCompletedSignal.connect(presenter._on_monte_carlo_completed)
     presenter._monteCarloFailedSignal.connect(presenter._on_monte_carlo_failed)
+    presenter._view_model.run_result.comparisonReportLoadFailed.connect(
+        presenter._failures.comparison_report_failed
+    )
     presenter._view_model.trade_log.queryChanged.connect(
         presenter._on_trade_log_query_changed
     )
