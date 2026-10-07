@@ -83,6 +83,7 @@ class BotChartHost:
             ),
             parent=card,
         )
+        chart.attach_ticks(self._ports.ticks)
         chart.show_symbol(bot.symbol)
         self._card, self._chart, self._bot_id = card, chart, bot.bot_id
         self._follow_if_live(bot)

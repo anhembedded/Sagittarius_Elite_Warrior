@@ -84,6 +84,7 @@ def build_preview() -> QWidget:
             stream_owner="bots.backtest.preview",
             interval=_INTERVAL.value,
             market=MarketType.SPOT,
+            live_commands=False,
         )
     )
     result = sample_result()

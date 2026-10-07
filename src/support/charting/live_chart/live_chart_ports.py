@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
@@ -29,3 +31,10 @@ class LiveChartPorts:
     #: (`BOT-167`). Required: a caller that forgot it would silently offer `1s`
     #: on Futures.
     market: MarketType
+    #: Whether the chart shows the live chip and its command (`EPIC-034G`).
+    #: `False` for a chart that only draws a finished run (a backtest's
+    #: replay): its candles are recorded, and a stream would replace them.
+    live_commands: bool = True
+    #: Seconds on a clock that only moves forward: how old the last live
+    #: update is (`EPIC-034G`). A test passes its own.
+    clock: Callable[[], float] = field(default=time.monotonic)

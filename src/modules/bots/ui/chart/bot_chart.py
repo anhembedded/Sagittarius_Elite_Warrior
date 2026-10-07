@@ -20,6 +20,7 @@ runs; the overlay is drawn by `BotOverlayDrawer`, the one drawer.
 from __future__ import annotations
 
 from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_overlay_drawer import (
@@ -34,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.price_level_layer
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
+    LiveChartState,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
@@ -77,15 +81,28 @@ class BotChart(LiveCandleChart):
         )
         return True
 
-    def follow(self, ticks: BotTickFeed) -> None:
-        """@brief Goes live, once per `shutdown`: syncs, streams under the
-        bot's own owner, and applies the candles `ticks` delivers on the Qt
-        thread. Following again before a `shutdown` changes nothing."""
+    def attach_ticks(self, ticks: BotTickFeed) -> None:
+        """@brief Listens to `ticks`, so a chart that goes live (the user's
+        Go live on a draft, `EPIC-034G` D9, or `follow`) draws what streams.
+        Idempotent until the next `shutdown`."""
         if self._ticks is not None:
             return
         self._ticks = ticks
         ticks.candle.connect(self.apply_candle)
+
+    def follow(self, ticks: BotTickFeed) -> None:
+        """@brief Goes live, once per `shutdown`: syncs, streams under the
+        bot's own owner, and applies the candles `ticks` delivers on the Qt
+        thread. Following again before a `shutdown` changes nothing."""
+        self.attach_ticks(ticks)
         self.go_live()
+
+    def apply_candle(self, candle: MarketData) -> None:
+        """A chart at rest draws no live candle, whoever else streams the
+        symbol: its candles are the stored ones until the user goes live."""
+        if self.live_state is LiveChartState.HISTORY:
+            return
+        super().apply_candle(candle)
 
     def shutdown(self) -> None:
         """@brief Cancels the load in flight, stops applying the Feed's

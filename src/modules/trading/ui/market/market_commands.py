@@ -29,7 +29,7 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
   the three history loads another, so a separator sets the choice of market
   apart from the chart commands.
 - **View → Chart:** the chart toolbar's own actions (More timeframes…, the
-  zooms, Go live) as commands, since a toolbar's buttons take no keyboard
+  zooms, Follow latest) as commands, since a toolbar's buttons take no keyboard
   focus (`BOT-156`, `chart_commands.py`); they act on the chart in front.
 - **Tools → Indicator parameters…:** edits the parameters of the script
   selected in the Indicators panel, in the dialog the Dev Board used for it

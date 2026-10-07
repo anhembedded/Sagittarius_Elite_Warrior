@@ -2,7 +2,7 @@
 
 The commands (`chart_commands.py`) are the shell's actions; the chart's own
 are its toolbar's. A command drives the chart's action, and the chart's
-action says back whether it is enabled (Go live is off while the chart
+action says back whether it is enabled (Follow latest is off while the chart
 follows the live edge) and, for Box zoom, checked. With no chart in front
 every command is off. A mode follows a new chart whenever the one in front
 changes; the previous chart's connections are dropped, so a closed tab's
@@ -21,7 +21,7 @@ from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     BOX_ZOOM,
-    GO_LIVE,
+    FOLLOW_LATEST,
     MORE_TIMEFRAMES,
     RESET_ZOOM,
     ZOOM_IN,
@@ -45,7 +45,7 @@ def chart_command_actions(card: ChartCard) -> dict[str, QAction]:
         ZOOM_OUT_VERTICALLY: zoom.zoom_out_vertically,
         BOX_ZOOM: zoom.box_zoom,
         RESET_ZOOM: zoom.reset_zoom,
-        GO_LIVE: card.viewport.go_live,
+        FOLLOW_LATEST: card.viewport.follow_latest,
     }
 
 

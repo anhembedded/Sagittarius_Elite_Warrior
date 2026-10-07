@@ -128,7 +128,7 @@ class LiveChartCoordinator:
             else:
                 report.log(
                     f"Loading {symbol} data from the local database "
-                    "(not connected live — enable trading to connect)."
+                    "(not live — use Go live to connect)."
                 )
             self._load_history(symbol, interval, report)
             if token.is_cancelled():

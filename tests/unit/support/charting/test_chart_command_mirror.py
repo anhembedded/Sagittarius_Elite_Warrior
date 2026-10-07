@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import 
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     BOX_ZOOM,
-    GO_LIVE,
+    FOLLOW_LATEST,
     MENU_EQUIVALENT,
     ZOOM_IN,
     ZOOM_OUT,
@@ -76,14 +76,14 @@ def test_go_live_is_off_while_the_chart_follows_the_newest_candle(menu):
     mirror, actions, first, _second = menu
     mirror.follow_chart(chart_command_actions(first))
     assert actions[ZOOM_IN].isEnabled()
-    assert not actions[GO_LIVE].isEnabled()
+    assert not actions[FOLLOW_LATEST].isEnabled()
 
-    first.viewport.go_live.setEnabled(True)
-    assert actions[GO_LIVE].isEnabled()
+    first.viewport.follow_latest.setEnabled(True)
+    assert actions[FOLLOW_LATEST].isEnabled()
 
-    actions[GO_LIVE].trigger()
-    assert not first.viewport.go_live.isEnabled()
-    assert not actions[GO_LIVE].isEnabled()
+    actions[FOLLOW_LATEST].trigger()
+    assert not first.viewport.follow_latest.isEnabled()
+    assert not actions[FOLLOW_LATEST].isEnabled()
 
 
 def test_box_zoom_is_checked_in_the_menu_and_on_the_chart_alike(menu):
@@ -105,10 +105,10 @@ def test_a_chart_no_longer_in_front_is_neither_driven_nor_followed(menu):
     first.zoom.zoom_in.triggered.connect(lambda: zoomed.append("in"))
 
     actions[ZOOM_IN].trigger()
-    first.viewport.go_live.setEnabled(True)
+    first.viewport.follow_latest.setEnabled(True)
 
     assert zoomed == []
-    assert not actions[GO_LIVE].isEnabled()
+    assert not actions[FOLLOW_LATEST].isEnabled()
 
 
 def test_with_no_chart_in_front_every_command_is_off(menu):
