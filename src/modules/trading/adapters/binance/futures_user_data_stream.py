@@ -115,11 +115,11 @@ class FuturesUserDataStream(IUserDataStream):
     """@details Resolves its `ITradingClient` from `ITradingClientFactory`
     (`VALIDATE_ONLY` — irrelevant for the read-only `get_positions()` call
     this uses it for), the same reasoning `ExecuteOrderCommandHandler`/
-    `EnableTradingCommandHandler` already use (`EPIC-021G`): depending on
+    `EnsureSessionReadyCommandHandler` already use (`EPIC-021G`): depending on
     the `ITradingClient` singleton directly would only be safely
     constructible when `TradingVenue != DISABLED`, and this class must stay
     constructible (and therefore safely injectable into
-    `EnableTradingCommandHandler`) regardless — `ITradingClientFactory` is
+    `EnsureSessionReadyCommandHandler`) regardless — `ITradingClientFactory` is
     bound unconditionally (`EPIC-027F`).
 
     `credentials_provider` stays its own constructor parameter, separate
@@ -152,8 +152,8 @@ class FuturesUserDataStream(IUserDataStream):
         #: cancel()` only *signals* cooperative cancellation
         #: (`CancellationToken`) — it does not wait for `_run_stream()`'s
         #: own teardown to actually finish, so an immediate `start()`
-        #: right after `stop()` (`DisableTradingCommand` followed by
-        #: `EnableTradingCommand`, or `EmergencyStopCommandHandler`'s own
+        #: right after `stop()` (an Emergency Stop followed by
+        #: `EnsureSessionReadyCommand`, or `EmergencyStopCommandHandler`'s own
         #: step 1 followed by a stray re-enable) can have two `_run_stream()`
         #: coroutines alive at once. Each closure of `_run_stream()`
         #: captures the generation it was spawned with and refuses to
@@ -170,7 +170,7 @@ class FuturesUserDataStream(IUserDataStream):
         #: Summing this running total, not just the current event's
         #: entries, is what makes a multi-position account's equity sample
         #: correct instead of silently missing whichever symbols didn't
-        #: change this time. Reset in `start()` — `EnableTradingCommand`
+        #: change this time. Reset in `start()` — `EnsureSessionReadyCommand`
         #: only ever starts this stream once reconciliation has confirmed
         #: the account is flat, so an empty dict is always the correct
         #: starting point, never a stale carryover from a previous session.
@@ -213,7 +213,7 @@ class FuturesUserDataStream(IUserDataStream):
         return True
 
     async def _run_stream(self, token: CancellationToken, generation: int) -> None:
-        # Resolved here, not cached at construction time: `EnableTradingCommand`
+        # Resolved here, not cached at construction time: `EnsureSessionReadyCommand`
         # already proved credentials resolve (via `ITradingAccountReader.
         # check_connection()`) before this stream is ever started, but a
         # `FuturesUserDataStream` must still be safely *constructible* with no

@@ -78,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_
     RegisterOwnerBudgetCommand,
     RegisterOwnerBudgetCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -190,10 +193,12 @@ class _Venue:
         )
 
     def send(self, side: OrderSide, price: str, quantity: str) -> ExecuteOrderResult:
+        scopes = single_venue_scopes(self.context, self.state)
         handler = ExecuteOrderCommandHandler(
-            single_venue_scopes(self.context, self.state),
+            scopes,
             PreviewOrderQueryHandler(FakeVenueContexts(self.context)),
             TradingLimitPolicy(DEFAULT_TRADING_LIMITS),
+            SessionReadiness(scopes, RecordingPublisher()),
         )
         query = PreviewOrderQuery(
             venue=_SPOT,

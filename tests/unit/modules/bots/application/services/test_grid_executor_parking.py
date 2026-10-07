@@ -71,7 +71,7 @@ def test_a_switch_off_leaves_the_orders_resting_as_designed() -> None:
     world = _running()
     resting = set(world.book.open)
 
-    world.executor.on_switch(False, TradingSwitchCause.DISABLED)
+    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
 
     assert world.state() is S.HALTED
     assert set(world.book.open) == resting

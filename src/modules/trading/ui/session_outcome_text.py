@@ -1,4 +1,4 @@
-"""What a screen says when trading is enabled, refused or stopped.
+"""What a screen says when the order session is refused or stopped.
 
 @details One copy for each desk (`EPIC-028K`; the Dev Board's too, until
 `EPIC-033P`): the table
@@ -16,39 +16,22 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingBlockReason,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
+    SESSION_BLOCK_WORDS,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
-ENABLE_BLOCK_MESSAGES = EnumLabels(
-    EnableTradingBlockReason,
-    {
-        EnableTradingBlockReason.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — set it to Futures Testnet "
-            "or Spot Testnet to enable trading."
-        ),
-        EnableTradingBlockReason.CONNECTION_NOT_READY: (
-            "Connection to the exchange is not ready — check your API key/network connection."
-        ),
-        EnableTradingBlockReason.UNEXPECTED_POSITIONS: (
-            "The account has unexpected open positions — please handle them manually "
-            "on the exchange before enabling trading."
-        ),
-        EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE: (
-            "Another operation (usually EMERGENCY STOP) changed the state while "
-            "reconciliation was in progress — trading was not enabled. Check the "
-            "state and try again if you still want to enable it."
-        ),
-    },
-)
+SESSION_BLOCK_MESSAGES = EnumLabels(SessionBlockReason, dict(SESSION_BLOCK_WORDS))
 
 
 def emergency_stop_log_lines(result: EmergencyStopResult) -> tuple[str, ...]:
     """The log lines for one Emergency Stop: a heading, then each step with
     its mark and detail."""
     steps = (
-        ("Disable trading", result.trading_disabled),
+        ("Close the order session", result.trading_disabled),
         ("Cancel pending orders", result.orders_cancelled),
         ("Close positions", result.positions_closed),
     )

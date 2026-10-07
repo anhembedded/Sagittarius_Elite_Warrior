@@ -299,6 +299,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_order_submission_mode_live_is_restricted.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    ("tests/unit/architecture/test_every_order_is_reconciled.py", (("src", "*.py"),)),
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
     # Guard 3's cross-screen check used to register a second root here

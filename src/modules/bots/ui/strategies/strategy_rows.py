@@ -36,10 +36,7 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 STRATEGIES_DOCK = "Strategies"
 ARMED_TEXT = "Armed"
 NOT_ARMED_TEXT = "Not armed"
-NO_VENUE_TEXT = (
-    "No trading venue is enabled. Turn one on in Tools → Options → Trading, "
-    "then restart the app."
-)
+NO_VENUE_TEXT = "No trading venue is available in this build."
 
 
 @dataclass(frozen=True)

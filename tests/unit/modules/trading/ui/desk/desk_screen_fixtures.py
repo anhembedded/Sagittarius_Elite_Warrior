@@ -40,6 +40,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing.fake_strategy_chart_overlay import (
     FakeStrategyChartOverlay,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
@@ -131,7 +135,7 @@ class Desk:
     activity: FakeAccountActivity
     arming: FakeStrategyArming
     armed: FakeArmedStrategy
-    #: Its Enable live trading and Emergency stop, bound as the window binds them.
+    #: Its New order and Emergency stop, bound as the window binds them.
     actions: DeskActions
 
 
@@ -267,3 +271,14 @@ def market_of(venue: TradingVenue) -> MarketType:
     market = venue.market_type
     assert market is not None
     return market
+
+
+def open_session(world: DeskWorld, desk: Desk, qapp) -> None:
+    """What an action that opens the venue's order session leaves behind
+    (`EPIC-034C`): the session open, and the bus told, as
+    `SessionReadiness` tells it. The desk's chart goes live on that event."""
+    desk.session.set_enabled(enabled=True)
+    world.bus.emit(
+        TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=desk.venue)
+    )
+    qapp.processEvents()

@@ -19,10 +19,12 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 2. Preconditions
 
-1. Spot Testnet is enabled in Tools → Options → Trading (ADR D8 — Spot mainnet is out of scope, `EPIC-026`'s
-   gates own it). This is a boot-time choice, not a per-order one: on the Spot desk
+1. Spot Testnet is assembled — every venue is, whatever the configuration says (`EPIC-034B`; ADR D8 —
+   Spot mainnet is out of scope, `EPIC-026`'s gates own it). This is a fact of the build, not a
+   per-order choice: on the Spot desk
    `MarketType.SPOT` follows from its venue everywhere this use case reads it (`ADR D1`).
-2. Live trading is on (SPEC-004) — for a **live** submission only, same as SPEC-005.
+2. For a **live** submission, placing the order opens Spot's order session itself after the
+   reconciliation (SPEC-004), same as SPEC-005.
 3. Credentials resolve (`BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET`, or the shared
    `secrets.local.json` fallback) and the connection is reachable.
 4. For a SELL: a real, non-dust holding of the target asset — read fresh, at submit time, never

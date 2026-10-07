@@ -218,7 +218,7 @@ def test_an_exit_slice_that_raised_is_reported_as_possibly_unsold() -> None:
 
 def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() -> None:
     world = _running()
-    world.executor.on_switch(False, TradingSwitchCause.DISABLED)
+    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
     world.executor.stop(BaseHandling.KEEP)

@@ -77,6 +77,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_subm
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
+    SessionReadiness,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -109,6 +112,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -204,6 +210,9 @@ def _build_pipeline() -> _Pipeline:
         single_venue_scopes(context, session_state),
         PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
+        SessionReadiness(
+            single_venue_scopes(context, session_state), RecordingPublisher()
+        ),
     )
     dispatcher = _RecordingDispatcher(handler)
     # `EPIC-025` PR 1.3c-2 — the coordinator now holds `IOrderSubmission`, so

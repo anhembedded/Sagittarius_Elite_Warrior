@@ -48,7 +48,7 @@ def _sells(world: GridWorld) -> dict[Decimal, Decimal]:
 
 
 def test_resume_after_a_disable_cancels_the_old_ladder_and_places_nothing() -> None:
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
     old = set(world.book.open)
     world.derive("4.132")
 
@@ -62,7 +62,7 @@ def test_resume_after_a_disable_cancels_the_old_ladder_and_places_nothing() -> N
 
 
 def test_confirming_lays_the_proposed_ladder_with_no_opening_buy() -> None:
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
     world.derive("4.132", cost="499.97")
     world.executor.resume()
 
@@ -117,7 +117,7 @@ def test_after_an_emergency_stop_that_sold_nothing_the_whole_sell_side_returns()
 
 
 def test_confirming_with_nothing_proposed_does_nothing() -> None:
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
 
     world.executor.confirm_resume()
 
@@ -126,7 +126,7 @@ def test_confirming_with_nothing_proposed_does_nothing() -> None:
 
 
 def test_a_switch_off_between_proposal_and_confirmation_discards_the_proposal() -> None:
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
     world.derive("0")
     world.executor.resume()
 
@@ -139,7 +139,7 @@ def test_a_switch_off_between_proposal_and_confirmation_discards_the_proposal() 
 
 
 def test_a_resume_refused_its_budget_proposes_nothing() -> None:
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
     world.executor.resume()
@@ -151,7 +151,7 @@ def test_a_resume_refused_its_budget_proposes_nothing() -> None:
 
 def test_a_proposal_is_awaited_only_between_resume_and_confirmation() -> None:
     """PR #333 review: Confirm resume is refused unless this answers yes."""
-    world = _halted_by(TradingSwitchCause.DISABLED)
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
     world.derive("4.132")
     assert not world.executor.has_resume_proposal()
 

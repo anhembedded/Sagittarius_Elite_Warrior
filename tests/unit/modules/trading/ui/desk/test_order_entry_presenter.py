@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_roun
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
@@ -165,6 +168,8 @@ def test_a_confirmed_buy_is_sent_rounded_as_previewed() -> None:
     assert sent.quantity == Decimal("2.000")
     assert sent.reference_price == 100
     assert sent.reduce_only is False
+    # `EPIC-034C` — the order panel's order is the action that opens the session.
+    assert sent.opens_session is True
     assert panel.submission.submitted_dry == []
     assert "Buy 2.000 BTC at 100.00 USDT" in panel.confirm.asked[0].question
     assert not panel.vm.message_is_error
@@ -290,7 +295,31 @@ def test_a_blocked_order_says_which_gate_refused() -> None:
     panel.vm.intents.request_submit(EntrySide.BUY)
 
     assert panel.vm.message_is_error
-    assert "Trading is OFF" in panel.vm.message
+    assert "No order session is open" in panel.vm.message
+    assert panel.vm.entry(EntrySide.BUY).quantity == 1  # kept, to retry
+
+
+def test_an_order_refused_by_the_reconciliation_says_so_in_the_switchs_words() -> None:
+    """`EPIC-034C` — a foreign position refuses the order that would have
+    opened the session, with the sentence the Enable switch showed."""
+    panel = presented_panel()
+    panel.presenter.show_symbol(SYMBOL)
+    panel.vm.intents.set_price(EntrySide.BUY, "100")
+    panel.vm.intents.set_quantity(EntrySide.BUY, "1")
+    panel.submission.preview_answers(canned_preview(OrderSide.BUY, "1", "100"))
+    panel.submission.submit_answers(
+        ExecuteOrderResult(
+            blocked_by=SessionBlockReason.UNEXPECTED_POSITIONS,
+            preview=None,
+            limit_checks=(),
+            submitted_order=None,
+        )
+    )
+
+    panel.vm.intents.request_submit(EntrySide.BUY)
+
+    assert panel.vm.message_is_error
+    assert "unexpected open positions" in panel.vm.message
     assert panel.vm.entry(EntrySide.BUY).quantity == 1  # kept, to retry
 
 
@@ -335,3 +364,15 @@ def test_a_second_submit_while_one_is_out_is_refused() -> None:
 
     assert len(threads.pending) == 2  # the load, and one preview
     assert panel.vm.message == "An order is already being placed."
+
+
+def test_a_venue_with_no_key_reads_nothing_and_says_so() -> None:
+    """`EPIC-034B` — the panel's reads would raise inside the dispatcher (ERROR
+    logs); a venue with no key is a state the panel states instead."""
+    panel = presented_panel(has_key=lambda: False)
+
+    panel.presenter.show_symbol(SYMBOL)
+
+    assert panel.terms.reads == []
+    assert panel.vm.message_is_error
+    assert "No API key" in panel.vm.message

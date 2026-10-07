@@ -21,8 +21,10 @@ goes."*
 
 ## 2. Preconditions
 
-1. Live trading is on (SPEC-004) — for a **live** submission only. Preview and dry run work with
-   it off, which is the point of having them.
+1. For a **live** submission, nothing has to be switched on first (`EPIC-034C`): placing the order
+   opens the venue's order session itself, after the account is reconciled (SPEC-004), and a
+   position the app did not open refuses the order. Preview and dry run need no session and never
+   open one, which is the point of having them.
 2. Credentials resolve and the venue is Futures Testnet — the mechanics below (normalisation,
    safety gates, session limits, exchange rejections) apply unchanged on Spot Testnet too
    (`EPIC-027K`); what differs there — BUY/SELL relabeling, no leverage, SELL gated on a real
@@ -52,8 +54,9 @@ goes."*
    order in the confirmation that names the order (Cancel is its default, `EPIC-033I`), or
    `trade-once --live`. The
    app then runs, in order and under one guard held across the whole decision:
-   1. **three safety gates** — the venue is enabled, the trading switch is on, the connection is
-      ready;
+   1. **the order session opens** (SPEC-004) when it is closed — the reconciliation; a refusal
+      comes back in the switch's own words and nothing is sent — and then **three safety gates**:
+      the venue can place orders, the order session is open, the connection is ready;
    2. the minimum-notional check from step 3;
    3. **four session limits** — orders per session, notional per order, positions per symbol,
       and the minimum interval between orders. On a venue without positions (Spot) the positions
@@ -84,7 +87,8 @@ goes."*
 
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| Trading is off, or the venue is disabled, or the connection is not ready | Blocked by the named safety gate; nothing was normalised and no limits were evaluated | The gates are cheap and come first, and the empty preview is how the actor knows evaluation stopped there |
+| The venue cannot place orders, or the order session is closed to a caller that did not open it, or the connection is not ready | Blocked by the named safety gate; nothing was normalised and no limits were evaluated | The gates are cheap and come first, and the empty preview is how the actor knows evaluation stopped there |
+| The reconciliation that opens the order session refuses the order: a position the app did not open, the connection not ready, a concurrent Emergency Stop | Refused in the switch's own words (`UNEXPECTED_POSITIONS`, …); nothing is sent and the quantity stays for a retry | The app never adopts or closes a position it did not open (SPEC-004) |
 | A strategy is armed on this symbol | Blocked by `SYMBOL_LEASED`, in the operator's own words: the strategy would lose track of its real position, so disarm it or trade a different symbol | The user's decision of 2026-09-09 (`PRO-003` §4.1.2), and it is *hard*, not a warning — even while the position is flat, because the strategy's next signal assumes it started flat. Enforced on the order path since `EPIC-025` PR 2.1f, so `trade-once` and every future caller inherit it; before that only the Dev Board's own form (deleted in `EPIC-033P`) had it |
 | The order is below the venue's minimum notional | Blocked by `MIN_NOTIONAL`, with the preview that shows the computed notional | `BUG-090`: refusing locally beats a round trip for a rejection the app could already predict |
 | A session limit is reached | Blocked by that limit, with every check and the numbers behind it — e.g. order 21 of a 20-order session | The app's own configured safety policy, distinct from the venue's hard filters |
@@ -124,7 +128,7 @@ published rather than internal because the order panel reads the pair `manual_or
 returns — *Long* against a short position and *Short* against a long one come back
 `reduce_only=True`, and that flag is the difference between closing a position and opening the
 opposite one.
-`ITradingSession` holds the switch and the counters; `IMarketMetadataProvider` supplies the
+`ITradingSession` holds the order session and the counters; `IMarketMetadataProvider` supplies the
 filters step 2 rounds with; `ITradingClient` is the module's own adapter boundary. Cancelling one
 open order is SPEC-006 (planned) and is the same port's `cancel()`.
 
@@ -145,8 +149,8 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
 | An order a desk's panel placed joins that desk's Open orders; a leased symbol is refused in the operator's own words; a Futures entry with TP/SL is protected once it fills | `tests/unit/modules/trading/ui/desk/test_desk_journeys.py`, `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py`, `tests/unit/modules/trading/ui/desk/test_protective_order_follower.py` | unit |
-| A venue that is not enabled is not offered; with none enabled the Trade mode says so and holds nothing that sends | `tests/unit/modules/trading/ui/trade/test_trade_presenter.py`, `tests/unit/modules/trading/ui/trade/test_trade_commands.py` | unit |
-| In the real app with Futures and Spot Testnet on, against a fake Binance server, Spot chosen in the Trade mode: `F9` focuses an entry that read the venue's balance; a Buy while trading is off is refused in words and never sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_trade_mode_against_fake_server.py` | integration |
-| Trade → New order… (`F9`) focuses the chosen venue's first field for the order type, places nothing, and is disabled while that panel cannot take an order or no venue is enabled | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py`, `tests/unit/modules/trading/ui/trade/test_trade_presenter.py` | unit |
+| A venue the build does not serve is not offered; with none the Trade mode says so and holds nothing that sends | `tests/unit/modules/trading/ui/trade/test_trade_presenter.py`, `tests/unit/modules/trading/ui/trade/test_trade_commands.py` | unit |
+| In the real app with Futures and Spot Testnet on, against a fake Binance server, Spot chosen in the Trade mode: `F9` focuses an entry that read the venue's balance; a Buy with no earlier step opens the session and is sent; a resting Limit reaches the exchange and joins Open orders | `tests/integration/presentation/ui/test_trade_mode_against_fake_server.py` | integration |
+| Trade → New order… (`F9`) focuses the chosen venue's first field for the order type, places nothing, and is disabled while that panel cannot take an order or there is no venue | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py`, `tests/unit/modules/trading/ui/trade/test_trade_presenter.py` | unit |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
-| Submitting one order by hand | **the user runs it**: in the Trade mode with Futures chosen, enable trading, submit a small order from its panel (`F9` focuses it), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |
+| Submitting one order by hand | **the user runs it**: in the Trade mode with Futures chosen, with no earlier step, submit a small order from its panel (`F9` focuses it), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |

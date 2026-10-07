@@ -64,7 +64,6 @@ class TradePresenter(CommandPresenter):
         self.commands = TradeCommandBinding(
             self.desks,
             self.choice,
-            dependencies.confirm_enable or view.ask_to_enable,
             self,
         )
         self.choice.changed.connect(self._show)

@@ -26,7 +26,7 @@ def reconcile_position_state(
     lock-guarded `reconcile_position()`: this function runs on
     `FuturesUserDataStream`'s websocket thread, a third, genuinely
     concurrent writer alongside the `ExecuteOrderCommand`/
-    `EnableTradingCommand`/`EmergencyStopCommand` pool workers, so it must
+    `EnsureSessionReadyCommand`/`EmergencyStopCommand` pool workers, so it must
     never touch `known_open_symbols` directly.
     """
     disagreed = session_state.reconcile_position(symbol, has_position=has_position)

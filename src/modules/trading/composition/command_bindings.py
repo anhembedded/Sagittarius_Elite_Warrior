@@ -29,17 +29,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_ord
     SubmitOrderCommand,
     SubmitOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-    DisableTradingCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
     EmergencyStopCommand,
     EmergencyStopCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
-    EnableTradingCommandHandler,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready import (
+    EnsureSessionReadyCommand,
+    EnsureSessionReadyCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
@@ -51,8 +47,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 def bind_commands(container: IContainer) -> None:
     """Route each trading command type to the handler that executes it."""
     container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
-    container.bind(EnableTradingCommand, EnableTradingCommandHandler)
-    container.bind(DisableTradingCommand, DisableTradingCommandHandler)
+    container.bind(EnsureSessionReadyCommand, EnsureSessionReadyCommandHandler)
     container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
     container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
     container.bind(RegisterOwnerBudgetCommand, RegisterOwnerBudgetCommandHandler)

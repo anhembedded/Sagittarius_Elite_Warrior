@@ -2,10 +2,10 @@
 re-exported here: `EPIC-025` PR 1.3b moved it into `contracts/`, and a
 second path to a published type is a second thing to keep in step."""
 
-from .command import EnableTradingCommand
-from .handler import EnableTradingCommandHandler
+from .command import EnsureSessionReadyCommand
+from .handler import EnsureSessionReadyCommandHandler
 
 __all__ = [
-    "EnableTradingCommand",
-    "EnableTradingCommandHandler",
+    "EnsureSessionReadyCommand",
+    "EnsureSessionReadyCommandHandler",
 ]

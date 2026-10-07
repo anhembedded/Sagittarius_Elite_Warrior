@@ -205,18 +205,6 @@ def test_a_rejection_halts_with_the_exchanges_reason() -> None:
     assert "insufficient balance" in runtime.reason_detail
 
 
-def test_a_disable_halts_and_says_the_orders_still_rest() -> None:
-    world = _running()
-
-    world.executor.on_switch(False, TradingSwitchCause.DISABLED)
-
-    assert world.state() is S.HALTED
-    assert world.book.requests == []
-    runtime = _runtime(world)
-    assert runtime.reason is GridReason.SWITCH_OFF
-    assert "still on the exchange" in runtime.reason_detail
-
-
 def test_an_emergency_stop_halts_and_a_later_fill_places_nothing() -> None:
     world = _running()
 

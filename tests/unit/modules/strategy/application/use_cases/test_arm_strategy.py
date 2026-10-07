@@ -7,34 +7,12 @@ on", and the arming side of "no enable without a strategy") actually live.
 
 from __future__ import annotations
 
-from unittest.mock import Mock
-
 import pytest
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
-    VenueStrategySessions,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyBlockReason,
-    ArmStrategyCommand,
-    ArmStrategyCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
-    DisarmStrategyBlockReason,
     DisarmStrategyCommand,
-    DisarmStrategyCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-    LiveStrategyConfig,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
-    EmaTrendPullbackStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     TradingSessionSnapshot,
@@ -42,132 +20,25 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
-    FakeVenueTradingPorts,
-    fake_venue_ports,
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.application.use_cases.arm_strategy_builders import (
+    FUTURES,
+    SHORT_CAPABLE_KEY,
+    SPOT,
+    arm_command,
+    arm_handler,
+    arm_spot_command,
+    config_for,
+    disarm_handler,
+    new_session,
+    spot_state,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
-from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
-    in_memory_config_store,
-)
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
-    RecordingPublisher,
-)
-from sagittarius_engine.infrastructure.config.dict_config import DictConfig
-
-_KEY = "ema_crossover"
-_FUTURES = TradingVenue.FUTURES_TESTNET
-_SPOT = TradingVenue.SPOT_TESTNET
-#: `EPIC-027N` — registered alongside `_KEY` so the SHORT-capable-strategy
-#: refusal (AC2) has a real strategy that actually calls `self.short()` to
-#: test against, not a stand-in that merely claims the capability.
-_SHORT_CAPABLE_KEY = "ema_trend_confirm_pullback"
-
-
-def _session() -> LiveStrategySession:
-    """A real `LiveStrategySession` over a real `StrategyRegistry`, with
-    only the two network-facing collaborators (`ICommandDispatcher`,
-    `ITradingAccountReader`) mocked.
-
-    Deliberately not a `Mock()` session: the parameter-validation path
-    under test *is* `BaseStrategy.__init__` raising, and a mock strategy
-    accepts every parameter name in existence — the test would pass
-    against a handler that validated nothing at all (`ONBOARDING.md` §4,
-    the `BUG-013` trap).
-    """
-    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
-        LiveStrategyFactory,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-        StrategyRegistry,
-    )
-
-    registry = StrategyRegistry()
-    registry.register(_KEY, EmaCrossoverStrategy)
-    registry.register(_SHORT_CAPABLE_KEY, EmaTrendPullbackStrategy)
-    factory = LiveStrategyFactory(
-        registry,
-        Mock(),
-        Mock(),
-        Mock(),
-        Mock(),
-        Mock(),
-        venue=TradingVenue.FUTURES_TESTNET,
-    )
-    return LiveStrategySession(factory)
-
-
-def _spot_state(
-    spot_baseline_holdings: dict | None = None,
-) -> FakeTradingSession:
-    """`EPIC-027N` — a `FakeTradingSession` reporting a Spot venue, trading
-    off (so arming is never blocked by `TRADING_IS_ENABLED` instead of the
-    Spot-specific reason under test)."""
-    state = FakeTradingSession()
-    state.answer_with(
-        TradingSessionSnapshot(
-            enabled=False,
-            orders_sent_this_session=0,
-            known_open_symbols=(),
-            market_type=MarketType.SPOT,
-            spot_baseline_holdings=spot_baseline_holdings,
-        )
-    )
-    return state
-
-
-def _config(**overrides) -> LiveStrategyConfig:
-    values = {"strategy_key": _KEY, "symbol": "BTCUSDT", "interval": "1m"}
-    values.update(overrides)
-    return LiveStrategyConfig(**values)
-
-
-def _ports(state: FakeTradingSession, venue: TradingVenue) -> FakeVenueTradingPorts:
-    """`EPIC-028B` — the one venue a test arms on, with the trading session it
-    arranges."""
-    return FakeVenueTradingPorts(fake_venue_ports(venue, trading_session=state))
-
-
-def _sessions(session: LiveStrategySession) -> VenueStrategySessions:
-    return VenueStrategySessions(lambda _venue: session)
-
-
-def _arm(config: LiveStrategyConfig) -> ArmStrategyCommand:
-    return ArmStrategyCommand(config, venue=_FUTURES)
-
-
-def _arm_spot(config: LiveStrategyConfig) -> ArmStrategyCommand:
-    return ArmStrategyCommand(config, venue=_SPOT)
-
-
-def _disarm_handler(
-    session: LiveStrategySession,
-    state: FakeTradingSession,
-    venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
-) -> DisarmStrategyCommandHandler:
-    parts = (_sessions(session), _ports(state, venue))
-    return DisarmStrategyCommandHandler(*parts, RecordingPublisher())
-
-
-def _arm_handler(
-    session: LiveStrategySession,
-    state: FakeTradingSession,
-    venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
-) -> ArmStrategyCommandHandler:
-    """It persists a successful arming itself (PR 4.3m `O6`): a real store
-    over the engine's in-memory `IConfig`, never a `Mock`."""
-    parts = (_sessions(session), _ports(state, venue))
-    store = in_memory_config_store(DictConfig())
-    return ArmStrategyCommandHandler(*parts, store, RecordingPublisher())
 
 
 def test_arming_a_valid_config_arms_the_session() -> None:
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config()))
+    result = handler.execute(arm_command(config_for()))
 
     assert result.armed is True
     assert result.block_reason is None
@@ -178,38 +49,23 @@ def test_declared_parameters_reach_the_strategy() -> None:
     """`build_engine` has always accepted `params`, and `boot()` never
     passed them — arming has to, or the picker's "Thông số Chiến lược"
     form would be decorative."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config(strategy_params={"fast_period": 5})))
+    result = handler.execute(
+        arm_command(config_for(strategy_params={"fast_period": 5}))
+    )
 
     assert result.armed is True
     assert session.config is not None
     assert session.config.strategy_params["fast_period"] == 5
 
 
-def test_refuses_to_swap_the_strategy_while_trading_is_on() -> None:
-    """`EPIC-022` §4.1 — the incoming strategy knows nothing about a
-    position already on the exchange, and the outgoing strategy's exit
-    signal would never arrive."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
-    handler.execute(_arm(_config()))
-    first_generation = session.generation
-    state.set_enabled(enabled=True)
-
-    result = handler.execute(_arm(_config(strategy_params={"fast_period": 9})))
-
-    assert result.armed is False
-    assert result.block_reason is ArmStrategyBlockReason.TRADING_IS_ENABLED
-    assert session.generation == first_generation
-
-
 def test_an_unknown_strategy_key_is_named_not_crashed_on() -> None:
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config(strategy_key="no_such_strategy")))
+    result = handler.execute(arm_command(config_for(strategy_key="no_such_strategy")))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.STRATEGY_NOT_FOUND
@@ -220,10 +76,12 @@ def test_an_undeclared_parameter_is_reported_with_the_strategys_own_words() -> N
     """The strategy is the validator; the handler only relays. Asserting
     the parameter name appears proves the message was not replaced by a
     generic one the user cannot act on."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config(strategy_params={"not_a_real_param": 1})))
+    result = handler.execute(
+        arm_command(config_for(strategy_params={"not_a_real_param": 1}))
+    )
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
@@ -235,10 +93,10 @@ def test_an_undeclared_parameter_is_reported_with_the_strategys_own_words() -> N
 def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> None:
     """`BUG-085`: a wrong interval is a wrong strategy. Defaulting to
     "any interval" would silently feed one engine two timeframes."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config(**{missing: ""})))
+    result = handler.execute(arm_command(config_for(**{missing: ""})))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.MISSING_SYMBOL_OR_INTERVAL
@@ -246,34 +104,15 @@ def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> 
 
 
 def test_disarming_clears_the_session() -> None:
-    session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(_arm(_config()))
+    session, state = new_session(), FakeTradingSession()
+    arm_handler(session, state).execute(arm_command(config_for()))
 
-    result = _disarm_handler(session, state).execute(
-        DisarmStrategyCommand(venue=_FUTURES)
+    result = disarm_handler(session, state).execute(
+        DisarmStrategyCommand(venue=FUTURES)
     )
 
     assert result.disarmed is True
     assert session.is_armed is False
-
-
-def test_refuses_to_disarm_while_trading_is_on() -> None:
-    """Disarming while trading is on would leave any open position with
-    no strategy planning its exit — `DisarmStrategyCommandHandler` still
-    refuses this direction even though `EnableTradingCommand` itself no
-    longer requires an armed strategy to reach "trading on" at all
-    (`BUG-112`)."""
-    session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(_arm(_config()))
-    state.set_enabled(enabled=True)
-
-    result = _disarm_handler(session, state).execute(
-        DisarmStrategyCommand(venue=_FUTURES)
-    )
-
-    assert result.disarmed is False
-    assert result.block_reason is DisarmStrategyBlockReason.TRADING_IS_ENABLED
-    assert session.is_armed is True
 
 
 # --------------------------------------------------------------------- #
@@ -285,9 +124,9 @@ def test_arming_claims_the_symbols_lease() -> None:
     """The claim is what makes `trading` refuse a manual order on the symbol
     this strategy is now watching — the user's decision of 2026-09-09
     (`PRO-003` §4.1.2), enforced on the order path instead of in one screen."""
-    session, state = _session(), FakeTradingSession()
+    session, state = new_session(), FakeTradingSession()
 
-    _arm_handler(session, state).execute(_arm(_config()))
+    arm_handler(session, state).execute(arm_command(config_for()))
 
     # Somebody else can no longer take it, which is the observable form of
     # "the strategy holds it".
@@ -297,11 +136,11 @@ def test_arming_claims_the_symbols_lease() -> None:
 def test_re_arming_onto_another_symbol_gives_the_first_one_back() -> None:
     """One symbol per owner. Without this, a strategy moved from BTCUSDT to
     ETHUSDT would leave BTCUSDT refused for a strategy nobody is running."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
-    handler.execute(_arm(_config(symbol="BTCUSDT")))
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
+    handler.execute(arm_command(config_for(symbol="BTCUSDT")))
 
-    handler.execute(_arm(_config(symbol="ETHUSDT")))
+    handler.execute(arm_command(config_for(symbol="ETHUSDT")))
 
     assert state.claim_symbol("BTCUSDT", "someone_else") is True
     assert state.claim_symbol("ETHUSDT", "someone_else") is False
@@ -311,10 +150,12 @@ def test_a_refused_arming_does_not_keep_the_lease() -> None:
     """The claim happens before the arming, so an arming that then fails has
     to give it back — otherwise an invalid parameter value would leave the
     user's own manual orders refused on a symbol with no strategy on it."""
-    session, state = _session(), FakeTradingSession()
-    handler = _arm_handler(session, state)
+    session, state = new_session(), FakeTradingSession()
+    handler = arm_handler(session, state)
 
-    result = handler.execute(_arm(_config(strategy_params={"nonexistent_param": 1})))
+    result = handler.execute(
+        arm_command(config_for(strategy_params={"nonexistent_param": 1}))
+    )
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
@@ -325,10 +166,10 @@ def test_a_symbol_another_owner_holds_is_refused_and_nothing_is_armed() -> None:
     """Unreachable with one armed strategy, and named anyway: `claim_symbol`'s
     contract can refuse, and the handler claims *before* arming so that a
     refusal leaves no half-armed session behind."""
-    session, state = _session(), FakeTradingSession()
+    session, state = new_session(), FakeTradingSession()
     state.claim_symbol("BTCUSDT", "someone_else")
 
-    result = _arm_handler(session, state).execute(_arm(_config()))
+    result = arm_handler(session, state).execute(arm_command(config_for()))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.SYMBOL_LEASED
@@ -336,24 +177,29 @@ def test_a_symbol_another_owner_holds_is_refused_and_nothing_is_armed() -> None:
 
 
 def test_disarming_releases_the_lease() -> None:
-    session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(_arm(_config()))
+    session, state = new_session(), FakeTradingSession()
+    arm_handler(session, state).execute(arm_command(config_for()))
 
-    _disarm_handler(session, state).execute(DisarmStrategyCommand(venue=_FUTURES))
+    disarm_handler(session, state).execute(DisarmStrategyCommand(venue=FUTURES))
 
     assert state.claim_symbol("BTCUSDT", "someone_else") is True
 
 
 def test_a_refused_disarm_keeps_the_lease() -> None:
-    """Trading is on, so the disarm is refused — and a lease released anyway
-    would let a manual order onto the symbol of a strategy that is still
-    running, which is the exact hazard the lease exists for."""
-    session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(_arm(_config()))
-    state.set_enabled(enabled=True)
+    """A position is open on the strategy's symbol, so the disarm is refused —
+    and a lease released anyway would let a manual order onto the symbol of a
+    strategy that is still running, which is the exact hazard the lease exists
+    for."""
+    session, state = new_session(), FakeTradingSession()
+    arm_handler(session, state).execute(arm_command(config_for()))
+    state.answer_with(
+        TradingSessionSnapshot(
+            enabled=True, orders_sent_this_session=1, known_open_symbols=("BTCUSDT",)
+        )
+    )
 
-    result = _disarm_handler(session, state).execute(
-        DisarmStrategyCommand(venue=_FUTURES)
+    result = disarm_handler(session, state).execute(
+        DisarmStrategyCommand(venue=FUTURES)
     )
 
     assert result.disarmed is False
@@ -368,10 +214,10 @@ def test_a_refused_disarm_keeps_the_lease() -> None:
 def test_spot_refuses_a_leverage_other_than_1x() -> None:
     """AC1 — Spot has no margin to lever; a saved config naming anything
     else is refused, never silently clamped to 1x."""
-    session, state = _session(), _spot_state()
+    session, state = new_session(), spot_state()
 
-    result = _arm_handler(session, state, _SPOT).execute(
-        _arm_spot(_config(leverage=5.0))
+    result = arm_handler(session, state, SPOT).execute(
+        arm_spot_command(config_for(leverage=5.0))
     )
 
     assert result.armed is False
@@ -382,10 +228,10 @@ def test_spot_refuses_a_leverage_other_than_1x() -> None:
 def test_spot_arms_at_the_default_1x_leverage() -> None:
     """The refusal above must not fire on the one leverage Spot actually
     supports — a strategy could otherwise never be armed on Spot at all."""
-    session, state = _session(), _spot_state()
+    session, state = new_session(), spot_state()
 
-    result = _arm_handler(session, state, _SPOT).execute(
-        _arm_spot(_config(leverage=1.0))
+    result = arm_handler(session, state, SPOT).execute(
+        arm_spot_command(config_for(leverage=1.0))
     )
 
     assert result.armed is True
@@ -396,10 +242,10 @@ def test_spot_refuses_a_strategy_that_can_short() -> None:
     """AC2 (ADR O2) — `EmaTrendPullbackStrategy` really does call
     `self.short()`; arming it on Spot would silently drop that half of what
     it does, so it is refused instead."""
-    session, state = _session(), _spot_state()
+    session, state = new_session(), spot_state()
 
-    result = _arm_handler(session, state, _SPOT).execute(
-        _arm_spot(_config(strategy_key=_SHORT_CAPABLE_KEY, leverage=1.0))
+    result = arm_handler(session, state, SPOT).execute(
+        arm_spot_command(config_for(strategy_key=SHORT_CAPABLE_KEY, leverage=1.0))
     )
 
     assert result.armed is False
@@ -411,10 +257,10 @@ def test_spot_arms_a_long_only_strategy_that_cannot_short() -> None:
     """The refusal above must not fire on a strategy that never declares
     `SHORT` — `EmaCrossoverStrategy` is long-only by `BaseStrategy`'s own
     default."""
-    session, state = _session(), _spot_state()
+    session, state = new_session(), spot_state()
 
-    result = _arm_handler(session, state, _SPOT).execute(
-        _arm_spot(_config(leverage=1.0))
+    result = arm_handler(session, state, SPOT).execute(
+        arm_spot_command(config_for(leverage=1.0))
     )
 
     assert result.armed is True
@@ -424,10 +270,10 @@ def test_spot_arms_a_long_only_strategy_that_cannot_short() -> None:
 def test_spot_refuses_a_non_usdt_quoted_symbol() -> None:
     """AC5 (ADR D9/O4) — Phase 1 Spot trades USDT-quoted pairs only; the
     session limits and sizing are already USDT-denominated."""
-    session, state = _session(), _spot_state()
+    session, state = new_session(), spot_state()
 
-    result = _arm_handler(session, state, _SPOT).execute(
-        _arm_spot(_config(symbol="BTCBUSD", leverage=1.0))
+    result = arm_handler(session, state, SPOT).execute(
+        arm_spot_command(config_for(symbol="BTCBUSD", leverage=1.0))
     )
 
     assert result.armed is False
@@ -440,10 +286,12 @@ def test_futures_arming_is_unaffected_by_any_spot_only_refusal() -> None:
     with no market_type set (the Futures-shaped default) must arm a
     SHORT-capable strategy at high leverage on a non-USDT symbol exactly as
     it always could."""
-    session, state = _session(), FakeTradingSession()
+    session, state = new_session(), FakeTradingSession()
 
-    result = _arm_handler(session, state).execute(
-        _arm(_config(strategy_key=_SHORT_CAPABLE_KEY, symbol="BTCBUSD", leverage=20.0))
+    result = arm_handler(session, state).execute(
+        arm_command(
+            config_for(strategy_key=SHORT_CAPABLE_KEY, symbol="BTCBUSD", leverage=20.0)
+        )
     )
 
     assert result.armed is True

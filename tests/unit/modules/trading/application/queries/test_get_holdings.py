@@ -49,7 +49,7 @@ def _status(holdings: tuple[SpotHolding, ...] | None) -> ExchangeConnectionStatu
 
 def test_execute_reads_holdings_through_the_account_readers_connection_check() -> None:
     """Reuses `ITradingAccountReader.check_connection()` — the exact seam
-    `EnableTradingCommandHandler`/`EmergencyStopCommandHandler` already read
+    `EnsureSessionReadyCommandHandler`/`EmergencyStopCommandHandler` already read
     Spot holdings through (`EPIC-027H`) — rather than a new port method."""
     account_reader = FakeTradingAccountReader(_status((_HOLDING,)))
     handler = GetHoldingsQueryHandler(

@@ -54,7 +54,7 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
             return CancelOrderResult(gate, None)
 
         # `OrderSubmissionMode` only gates `place_order()` — irrelevant to
-        # a cancel, same reasoning `EnableTradingCommandHandler` already
+        # a cancel, same reasoning `EnsureSessionReadyCommandHandler` already
         # gives for its own read-only calls through this same adapter.
         trading_client = scope.ports.client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY

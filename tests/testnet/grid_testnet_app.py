@@ -6,11 +6,13 @@ build the app from the shipped `app_config.json` with only Spot Testnet on,
 so the keys and the caps are the ones a person's run uses.
 
 `composed_on_spot_testnet` boots it and reaches the venue's trading client;
-`enable_trading` then turns trading on through `EnableTradingCommand`, which
-starts the user-data websocket. The composition is the one place the client
+`open_session` then opens the venue's order session through
+`EnsureSessionReadyCommand` (what Start bot does itself, `EPIC-034C`), which
+starts the user-data websocket; the round trip opens it first because the
+stream is probed before a bot starts. The composition is the one place the client
 is reached, so the fake exchange proves it in CI
 (`tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py`)
-before a person's run depends on it. The enabling is not run there: the fake
+before a person's run depends on it. The opening is not run there: the fake
 server does not speak the websocket (the same limit as
 `test_spot_desk_against_fake_server.py`).
 
@@ -62,15 +64,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
-    EnableTradingCommand,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready.command import (
+    EnsureSessionReadyCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
     tag_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -87,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionReadyResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -177,12 +179,12 @@ def composed_on_spot_testnet(config: ConfigManager) -> Iterator[GridTestnetApp]:
         engine.stop()
 
 
-def enable_trading(app: GridTestnetApp) -> None:
-    enabled = app.engine.dispatch(
-        EnableTradingCommand, EnableTradingCommand(venue=SPOT)
+def open_session(app: GridTestnetApp) -> None:
+    opened = app.engine.dispatch(
+        EnsureSessionReadyCommand, EnsureSessionReadyCommand(venue=SPOT)
     )
-    assert isinstance(enabled, EnableTradingResult)
-    assert enabled.enabled, f"trading did not turn on: {enabled.block_reason}"
+    assert isinstance(opened, SessionReadyResult)
+    assert opened.ready, f"the order session did not open: {opened.block_reason}"
 
 
 def write_report(name: str, content: dict[str, Any]) -> None:

@@ -61,6 +61,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRefusal,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+    SessionReadyResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
@@ -117,8 +121,8 @@ def _start_world(
     cap: Decimal = CAP, venue: TradingVenue = TradingVenue.SPOT_TESTNET
 ) -> _Start:
     book = SimulatedBook()
+    # Closed, as a fresh app boots: Start opens the session itself (`EPIC-034C`).
     session = FakeTradingSession()
-    session.set_enabled(enabled=True)
     ports = FakeVenueTradingPorts(
         fake_venue_ports(
             TradingVenue.SPOT_TESTNET,
@@ -193,15 +197,38 @@ def test_a_futures_venue_is_refused() -> None:
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY
 
 
-def test_trading_off_is_refused() -> None:
+def test_start_opens_a_closed_session_before_anything_else() -> None:
+    """`EPIC-034C` — no switch was turned on first: the start reconciles the
+    account and opens the session itself, once."""
     world = _start_world()
-    world.session.set_enabled(enabled=False)
+    assert world.session.snapshot().enabled is False
+
+    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+
+    assert world.session.snapshot().enabled is True
+    assert world.session.ready_requests == 1
+
+
+def test_a_refused_reconciliation_refuses_the_start_with_the_switchs_words() -> None:
+    """A position the app did not open refuses the start before a lease is
+    claimed or a budget registered."""
+    world = _start_world()
+    world.session.ready_answers(
+        SessionReadyResult(
+            ready=False,
+            block_reason=SessionBlockReason.UNEXPECTED_POSITIONS,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
 
     refusal = world.preconditions.check(_bot(world), world.clock.now())
 
     assert refusal is not None
     assert refusal.refusal is BotRefusal.VENUE_NOT_READY
-    assert "trading is off" in refusal.message
+    assert "unexpected open positions" in refusal.message
+    assert world.session.budgets == {}
+    assert world.session.claim_symbol(SYMBOL, "manual")
 
 
 def test_a_refused_verdict_is_refused_naming_it() -> None:
@@ -225,6 +252,7 @@ def test_a_symbol_held_by_another_owner_is_refused() -> None:
     assert refusal is not None
     assert refusal.refusal is BotRefusal.SYMBOL_LEASED
     assert world.session.budgets == {}
+    assert world.session.ready_requests == 0  # a refused start opens nothing
 
 
 def test_a_refused_budget_gives_the_lease_back() -> None:
@@ -270,7 +298,14 @@ def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
 
 def test_a_refused_start_leaves_the_bot_a_draft() -> None:
     world = _start_world()
-    world.session.set_enabled(enabled=False)
+    world.session.ready_answers(
+        SessionReadyResult(
+            ready=False,
+            block_reason=SessionBlockReason.CONNECTION_NOT_READY,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
 
     result = world.runner.start(BOT)
 

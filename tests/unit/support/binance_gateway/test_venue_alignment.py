@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
@@ -13,19 +14,13 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_align
 )
 
 
-def test_trading_disabled_wins_regardless_of_market_data_venue() -> None:
-    assert (
+def test_a_venue_that_places_no_orders_has_no_alignment() -> None:
+    """`EPIC-034C` — the "trading disabled" state is gone: asking for the
+    alignment of a venue that cannot trade is a caller's mistake."""
+    with pytest.raises(ValueError, match="places no orders"):
         compute_venue_alignment(
             MarketDataVenue.MAINNET_PUBLIC, TradingVenue.DISABLED, MarketType.SPOT
         )
-        is VenueAlignment.TRADING_DISABLED
-    )
-    assert (
-        compute_venue_alignment(
-            MarketDataVenue.FUTURES_TESTNET, TradingVenue.DISABLED, MarketType.SPOT
-        )
-        is VenueAlignment.TRADING_DISABLED
-    )
 
 
 def test_testnet_data_with_testnet_trading_and_matching_chart_market_is_aligned() -> (

@@ -3,7 +3,7 @@
 The audit that produced this found twelve hand-maintained
 `dict[SomeEnum, str]` tables in `presentation/`, behaving three different
 ways when a member had no line, and one of them already had a real gap:
-`EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` (the
+`SessionBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` (the
 `BUG-088` race) fell through a `.get(..., generic)` so the refusal a user
 most needs explained read as "Không thể bật giao dịch."
 """

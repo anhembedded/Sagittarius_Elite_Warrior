@@ -16,10 +16,8 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_market_data_venue,
+    resolve_trading_venue,
     resolve_trading_venues,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     compute_venue_alignment,
@@ -34,7 +32,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 def environment_banner_content_for(config: IConfig) -> EnvironmentBannerContent:
     """What every screen's banner says in this run."""
     venues = resolve_trading_venues(config)
-    primary = venues[0] if venues else TradingVenue.DISABLED
+    primary = resolve_trading_venue(config)
     alignment = compute_venue_alignment(
         resolve_market_data_venue(config),
         primary,

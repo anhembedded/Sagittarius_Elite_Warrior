@@ -272,14 +272,15 @@ class LiveTradingCoordinator:
 
     def _is_ignored(self, signal: Signal) -> bool:
         """@return True when `handle()` stops before any read: a signal for
-        another symbol, or one arriving while trading is OFF (`BUG-163`).
+        another symbol, or one arriving while the order session is closed
+        (`BUG-163`, `EPIC-034C`).
 
-        The switch is asked first, as `ExecuteOrderHandler` orders its own
-        gates (free before network). A strategy can only be armed while
-        trading is OFF, so an armed strategy with the switch off is the normal
-        state; without this, every signal there fetched metadata and made an
-        authenticated account read before the switch refused it. The desk is
-        told why nothing was sent."""
+        The session is asked first, as `ExecuteOrderHandler` orders its own
+        gates (free before network). Arming opens the session, so a closed one
+        under an armed strategy means an Emergency Stop closed it: nothing
+        reopens it but the next deliberate action, and without this check every
+        signal there fetched metadata and made an authenticated account read
+        before the gate refused it. The desk is told why nothing was sent."""
         if signal.symbol != self._live_symbol:
             logger.debug(
                 "Ignoring signal for %s — live symbol is %s.",
@@ -290,15 +291,18 @@ class LiveTradingCoordinator:
         if self._trading_session.snapshot().enabled:
             return False
         logger.debug(
-            "[live-signal] %s %s not acted on: trading is OFF; no account or "
-            "market read.",
+            "[live-signal] %s %s not acted on: the order session is closed; no "
+            "account or market read.",
             signal.action.value,
             signal.symbol,
         )
         self._event_publisher.publish(
             LiveOrderBlockedEvent(
                 symbol=signal.symbol,
-                reason="Trading is OFF — the strategy's signal was not sent.",
+                reason=(
+                    "The order session is closed (Emergency stop) — the "
+                    "strategy's signal was not sent."
+                ),
                 venue=self._venue,
             )
         )

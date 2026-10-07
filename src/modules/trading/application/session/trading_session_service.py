@@ -7,10 +7,10 @@ screen can show, and the CLI reaches two of them through the same dispatch. A
 port that skipped them would leave two paths to the same state the day either
 handler grows a rule.
 
-**What it adds.** The translation, and nothing else: four commands in,
+**What it adds.** The translation, and nothing else: three commands in,
 each addressed to this service's own venue, their own results out, and `read_all()`'s tuple mapped to the
 published `TradingSessionSnapshot`. It decides nothing — not whether trading
-may be enabled, not what a generation clash means.
+may open, not what a generation clash means.
 """
 
 from __future__ import annotations
@@ -18,14 +18,11 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading.command import (
-    DisableTradingCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
-    EnableTradingCommand,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready.command import (
+    EnsureSessionReadyCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget.command import (
     RegisterOwnerBudgetCommand,
@@ -36,9 +33,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
     TradingSessionSnapshot,
@@ -46,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistration,
     OwnerBudgetRegistrationResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionReadyResult,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -60,8 +57,8 @@ def _answered(response: object, expected: type) -> object:
 
     `IMarketStream.start()` makes the opposite choice, and deliberately:
     `StreamOutcome` has a `success` field designed to carry exactly this, so
-    reporting it is honest there. `EnableTradingResult` has no such field —
-    inventing `enabled=False` for a broken container would tell the user
+    reporting it is honest there. `SessionReadyResult` has no such field —
+    inventing `ready=False` for a broken container would tell the user
     trading was refused when nothing was even asked.
 
     `TypeError` rather than `RuntimeError` on ruff's `TRY004`, and the rule is
@@ -78,7 +75,7 @@ def _answered(response: object, expected: type) -> object:
 
 
 class TradingSessionService(ITradingSession):
-    """The module's answer to "is trading on, and turn it on or off", for
+    """The module's answer to "is the session open, and open it", for
     one venue (`EPIC-028B`: one instance per venue, over that venue's own
     `TradingSessionState`)."""
 
@@ -102,19 +99,12 @@ class TradingSessionService(ITradingSession):
             spot_baseline_holdings=self._session_state.spot_baseline_holdings(),
         )
 
-    def enable(self) -> EnableTradingResult:
+    def ensure_ready(self) -> SessionReadyResult:
         response = self._dispatcher.dispatch(
-            EnableTradingCommand, EnableTradingCommand(venue=self._trading_venue)
+            EnsureSessionReadyCommand,
+            EnsureSessionReadyCommand(venue=self._trading_venue),
         )
-        return _answered(response, EnableTradingResult)  # type: ignore[return-value]
-
-    def disable(self) -> None:
-        # The one command that cannot refuse, so there is nothing to check:
-        # `DisableTradingCommand`'s own docstring records that there is no
-        # result type by design.
-        self._dispatcher.dispatch(
-            DisableTradingCommand, DisableTradingCommand(venue=self._trading_venue)
-        )
+        return _answered(response, SessionReadyResult)  # type: ignore[return-value]
 
     def claim_symbol(self, symbol: str, owner_id: str) -> bool:
         """Straight to the state, not through a command: a lease claim is a
@@ -131,7 +121,7 @@ class TradingSessionService(ITradingSession):
         self, registration: OwnerBudgetRegistration
     ) -> OwnerBudgetRegistrationResult:
         """Dispatched: the registration reads the venue's history, the same
-        reason `enable()` goes through its handler."""
+        reason `ensure_ready()` goes through its handler."""
         response = self._dispatcher.dispatch(
             RegisterOwnerBudgetCommand,
             RegisterOwnerBudgetCommand(registration, venue=self._trading_venue),
