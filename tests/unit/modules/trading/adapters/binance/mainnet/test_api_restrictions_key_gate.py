@@ -156,7 +156,14 @@ def test_the_exchange_rejecting_the_key_is_named(
 ) -> None:
     gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(code))
 
-    assert gate.check() == ConnectFailure(AccountSource.SPOT_MAINNET, kind, "")
+    refused = gate.check()
+    assert refused is not None
+    assert (refused.source, refused.kind, refused.detail) == (
+        AccountSource.SPOT_MAINNET,
+        kind,
+        "",
+    )
+    assert str(code) in refused.reply
 
 
 def test_a_session_that_cannot_be_opened_is_named_by_its_error() -> None:

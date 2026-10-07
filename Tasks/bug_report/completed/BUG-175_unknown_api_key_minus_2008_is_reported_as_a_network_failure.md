@@ -22,8 +22,10 @@ Nothing stored: NETWORK the key's permissions
 ## Fix
 `-2008` and `-2014` map to `KEY_REJECTED` in the shared table. `connect_failure_words.py` and `connection_words.py` no longer say the app is testnet-only; both say a testnet key does not work on mainnet, nor the reverse. The script adds a plain line for KEY_REJECTED; exit status stays 1 and nothing is stored. The CLI status formatter's testnet-specific texts are unchanged.
 
+Item 5 (same record): a refused key printed only `Nothing stored: KEY_REJECTED`. `describe_failure` now words the key codes `-2015`, `-2008` and `-2014` as the exchange's code and message plus the reason and the usual fixes (a `-2015` IP whitelist that lacks the machine's public IP, Enable Reading off or unsaved; a testnet or Demo Trading key on mainnet; a malformed key). The key gate carries that text on `ConnectFailure.reply`; the script prints it and the Connect step appends it to its sentence.
+
 ## Regression test
-`tests/unit/modules/trading/adapters/binance/test_unknown_key_is_a_rejected_key.py` and the new -2008/-2014 rows of `mainnet/test_api_restrictions_key_gate.py::test_the_exchange_rejecting_the_key_is_named`: red on master with `NETWORK` and the owner's "unclassified exception" log line; green after.
+`tests/unit/modules/trading/adapters/binance/test_unknown_key_is_a_rejected_key.py` (classification and `describe_failure` wording), `tests/unit/scripts/test_save_mainnet_key.py` (exit 1, nothing stored, the exchange's words printed) and the new -2008/-2014 rows of `mainnet/test_api_restrictions_key_gate.py::test_the_exchange_rejecting_the_key_is_named`: red on master with `NETWORK` and the owner's "unclassified exception" log line; green after.
 
 ## Verification
 Touched suites and commit tier: see the PR. Not run against a live exchange.

@@ -64,6 +64,8 @@ THE_ACCOUNT = "the account"
 def failure_cause(failure: ConnectFailure) -> str:
     """What went wrong and what to do about it, without how to read again."""
     sentence = _FAILURES[failure.kind]
+    if failure.reply:
+        sentence = f"{sentence} The exchange said: {failure.reply}"
     if failure.detail and failure.detail != THE_ACCOUNT:
         return f"{sentence} It stopped while reading {failure.detail}."
     return sentence

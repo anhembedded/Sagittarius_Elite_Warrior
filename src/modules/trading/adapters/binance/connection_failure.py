@@ -46,6 +46,22 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -2014: ConnectionFailureKind.KEY_REJECTED,
 }
 
+#: `BUG-175`: what to do about the key codes, in plain words. `describe_failure`
+#: appends it to the exchange's own code and message, so a log line, the
+#: key-enrolment script and the Connect step all say the same thing.
+_KEY_CODE_HINTS: dict[int, str] = {
+    -2015: (
+        "The key's IP whitelist does not include this machine's public IP "
+        "(a LAN address such as 192.168.x.x never matches), Enable Reading is "
+        "off, or the change is not saved yet."
+    ),
+    -2008: (
+        "The exchange does not know this key; a testnet or Demo Trading key "
+        "does not work on mainnet."
+    ),
+    -2014: "The key is malformed: copy it again, with no spaces or missing characters.",
+}
+
 #: The text python-binance starts a non-JSON answer's message with
 #: (`binance.exceptions.BinanceAPIException`).
 _NON_JSON_MESSAGE_PREFIX = "Invalid JSON error message from Binance"
@@ -86,6 +102,9 @@ def describe_failure(
     own short text, worded by `other` (`str` by default; `repr` for a payload
     that could not be mapped).
     """
+    if isinstance(exc, BinanceAPIException) and exc.code in _KEY_CODE_HINTS:
+        message = str(exc.message).rstrip(".")
+        return f"{exc.code} {message}. {_KEY_CODE_HINTS[exc.code]}"
     if not is_non_json_answer(exc):
         return other(exc)
     page = str(getattr(exc.response, "text", "") or "")

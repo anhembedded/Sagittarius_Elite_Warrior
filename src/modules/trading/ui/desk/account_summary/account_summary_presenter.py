@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summ
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
     AccountSummaryStaleEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.failure_cause import (
     failure_cause,
 )
@@ -64,6 +67,11 @@ logger = logging.getLogger("App.Trading.AccountSummary")
 
 _READ = "read"
 _UNREAD_REASON = "the account could not be read"
+#: An exchange that does not answer fails every read of the desk at once; each
+#: of the others carries the one bar and its Retry.
+_TOLD_ELSEWHERE = frozenset(
+    {ConnectionFailureKind.NETWORK, ConnectionFailureKind.MAINTENANCE}
+)
 
 
 class AccountSummaryPresenter(QObject):
@@ -100,7 +108,10 @@ class AccountSummaryPresenter(QObject):
         try:
             self._read.emit((action_id, self._activity.summary(), None, None))
         except AccountSummaryUnavailableError as exc:
-            self._read.emit((action_id, None, failure_detail(exc), exc.reason))
+            # An outage is told once, by the reads that can retry (`BOT-169`);
+            # the summary adds its own bar only for what concerns the account.
+            detail = None if exc.failure in _TOLD_ELSEWHERE else failure_detail(exc)
+            self._read.emit((action_id, None, detail, exc.reason))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self._read.emit((action_id, None, failure_detail(exc), None))
 

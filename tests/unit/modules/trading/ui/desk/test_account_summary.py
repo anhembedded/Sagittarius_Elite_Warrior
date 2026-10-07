@@ -231,6 +231,31 @@ def test_a_rejected_key_is_named_in_the_log_the_stale_mark_and_the_notice(
     assert notifier.last.retry is not None
 
 
+def test_an_outage_marks_the_summary_stale_without_a_bar_of_its_own(qtbot) -> None:
+    """`BOT-169` — one outage is one bar; the reads that can retry carry it."""
+
+    class Down(FakeAccountActivity):
+        def summary(self):
+            raise AccountSummaryUnavailableError(ConnectionFailureKind.MAINTENANCE)
+
+    notifier = RecordingNotifier()
+    panel = AccountSummaryPanel()
+    qtbot.addWidget(panel)
+    presenter = AccountSummaryPresenter(
+        panel,
+        Down(),
+        OrderFeed(MemoryEventBus(), _FUTURES, parent=panel),
+        InlineThreadManager(),
+        notifier,
+        _FUTURES,
+    )
+
+    presenter.refresh()
+
+    assert notifier.failures == []
+    assert "maintenance" in panel.stale_text
+
+
 def test_a_summary_that_reads_again_clears_its_notice(qtbot) -> None:
     notifier = RecordingNotifier()
     _, activity, _, presenter = _summary_desk(qtbot, notifier=notifier)
