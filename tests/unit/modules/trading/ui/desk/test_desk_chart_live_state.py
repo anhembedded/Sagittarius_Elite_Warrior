@@ -66,3 +66,29 @@ def test_stopping_the_live_price_with_trading_off_says_nothing(qtbot) -> None:
     desk.presenter.chart.run_command(LiveChartCommand.STOP_LIVE)
 
     assert statuses == []
+
+
+def test_a_desk_opened_with_trading_on_says_nothing_while_it_connects(qtbot) -> None:
+    statuses: list[str] = []
+    desk = build_desk(qtbot, SPOT, trading_on=True)
+    desk.presenter.desk.set_status = lambda text, _error=False: statuses.append(text)  # type: ignore[method-assign]
+
+    desk.presenter.chart.show_symbol("ETHUSDT")  # a restart: Connecting again
+
+    assert statuses == []
+
+
+def test_the_stale_price_notice_names_retry_in_error_and_clears_when_live(
+    qtbot,
+) -> None:
+    world = DeskWorld()
+    desk = build_desk(qtbot, SPOT, world, trading_on=True)
+    statuses: list[str] = []
+    desk.presenter.desk.set_status = lambda text, _error=False: statuses.append(text)  # type: ignore[method-assign]
+    chart = desk.presenter.chart
+
+    chart.run_command(LiveChartCommand.STOP_LIVE)
+    assert "Use Go live" in statuses[-1]
+
+    chart.run_command(LiveChartCommand.GO_LIVE)
+    assert statuses[-1] == ""

@@ -171,6 +171,7 @@ class DeskPresenter(BasePresenter):
             self.order_entry.entryPlaced.connect(
                 lambda placed: follower.expect(*placed)
             )
+        self._stale_price_notice = False
         self._wire()
         self.desk.set_trading_state(self.session.is_enabled, False)
         if self.session.is_enabled:
@@ -220,12 +221,21 @@ class DeskPresenter(BasePresenter):
 
     def _on_live_state(self, state: LiveChartState) -> None:
         """The order panel is valued at the chart's last price: with trading
-        on, a chart that is no longer live says so (`EPIC-034G`)."""
-        if state is LiveChartState.LIVE or not self.session.is_enabled:
+        on, a chart that stopped being live (History) or failed (Error) says
+        so, and the notice goes once it is Live again (`EPIC-034G`). Connecting
+        says nothing: a desk opened with trading on is connecting, not stale."""
+        if state is LiveChartState.LIVE:
+            if self._stale_price_notice:
+                self._stale_price_notice = False
+                self.desk.set_status("", False)
             return
+        if state is LiveChartState.CONNECTING or not self.session.is_enabled:
+            return
+        command = "Retry" if state is LiveChartState.ERROR else "Go live"
+        self._stale_price_notice = True
         self.desk.set_status(
             "The price feed is not live: orders are valued at the last stored "
-            "close. Use Go live on the chart.",
+            f"close. Use {command} on the chart.",
             False,
         )
 
