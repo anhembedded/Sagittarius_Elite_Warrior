@@ -22,11 +22,31 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.port_bindings imp
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_accounts import (
+    VenueAccounts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
+    ConnectFailure,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
     IVenueAccounts,
+    UnknownAccountSourceError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
+    FakeVenueAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+    fake_venue_context,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
     AccountSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -86,3 +106,24 @@ def test_the_mainnet_reader_is_not_a_venues_reader() -> None:
     mainnet = accounts.reader(AccountSource.SPOT_MAINNET_READONLY)
 
     assert mainnet.source.trading_venue is None
+
+
+def test_a_source_the_configuration_does_not_enable_has_no_reader() -> None:
+    """A testnet venue left out of `IVenueContexts` is no source: asking for it
+    is an error, not a reader that fails on every read."""
+    mainnet = FakeVenueAccountReader(
+        AccountSource.SPOT_MAINNET_READONLY,
+        ConnectFailure(
+            AccountSource.SPOT_MAINNET_READONLY, ConnectionFailureKind.NOT_CONFIGURED
+        ),
+    )
+    accounts = VenueAccounts(
+        FakeVenueContexts(fake_venue_context(TradingVenue.FUTURES_TESTNET)), mainnet
+    )
+
+    assert accounts.sources() == (
+        AccountSource.FUTURES_TESTNET,
+        AccountSource.SPOT_MAINNET_READONLY,
+    )
+    with pytest.raises(UnknownAccountSourceError):
+        accounts.reader(AccountSource.SPOT_TESTNET)
