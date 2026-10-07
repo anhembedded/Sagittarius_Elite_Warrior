@@ -18,6 +18,9 @@ from collections.abc import Callable, Sequence
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    ExchangeRefusedKlinesError,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -30,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
+    CandlesUnavailableError,
     ICandleFeed,
 )
 
@@ -52,14 +56,17 @@ class MarketDataCandleFeed(ICandleFeed):
     def sync(
         self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
     ) -> None:
-        self._sync.sync(
-            MarketDataSyncRequest(
-                symbols=(symbol,),
-                interval=interval,
-                market=self._market,
-                cancellation_requested=cancelled,
+        try:
+            self._sync.sync(
+                MarketDataSyncRequest(
+                    symbols=(symbol,),
+                    interval=interval,
+                    market=self._market,
+                    cancellation_requested=cancelled,
+                )
             )
-        )
+        except ExchangeRefusedKlinesError as exc:
+            raise CandlesUnavailableError(exc.reason) from exc
 
     def load_history(
         self, symbol: str, interval: TimeFrame, limit: int

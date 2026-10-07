@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.m
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
     VenueStrategySessions,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -70,7 +73,11 @@ def test_a_tick_logs_nothing_above_trace(caplog):
     websocket's own, enough to bury a `--dev` log. Per-tick detail is `TRACE`,
     which only `--debug` turns on."""
     handler = MarketTickEventHandler(VenueStrategySessions(lambda _venue: Mock()))
-    event = MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+    event = MarketTickEvent(
+        market_data=_market_data(),
+        market_type=MarketType.SPOT,
+        market_data_venue=MarketDataVenue.SPOT_TESTNET,
+    )
 
     with caplog.at_level(logging.DEBUG, logger="App.TradingStrategy"):
         handler.handle(event)
@@ -94,7 +101,9 @@ def test_every_tick_is_handed_to_the_session_unfiltered():
     sessions.get(TradingVenue.FUTURES_TESTNET)
     handler = MarketTickEventHandler(sessions)
     event = MarketTickEvent(
-        market_data=_market_data("ETHUSDT"), market_type=MarketType.FUTURES_USD_M
+        market_data=_market_data("ETHUSDT"),
+        market_type=MarketType.FUTURES_USD_M,
+        market_data_venue=MarketDataVenue.FUTURES_TESTNET,
     )
 
     handler.handle(event)
@@ -120,7 +129,11 @@ def test_a_spot_candle_never_drives_the_strategy_armed_on_futures():
     both streams publish onto one bus. The Spot candle reaches Spot's session
     and nothing else."""
     sessions, built = _sessions_on_both_venues()
-    event = MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+    event = MarketTickEvent(
+        market_data=_market_data(),
+        market_type=MarketType.SPOT,
+        market_data_venue=MarketDataVenue.SPOT_TESTNET,
+    )
 
     MarketTickEventHandler(sessions).handle(event)
 
@@ -133,7 +146,9 @@ def test_a_spot_candle_never_drives_the_strategy_armed_on_futures():
 def test_a_futures_candle_reaches_only_the_futures_session():
     sessions, built = _sessions_on_both_venues()
     event = MarketTickEvent(
-        market_data=_market_data(), market_type=MarketType.FUTURES_USD_M
+        market_data=_market_data(),
+        market_type=MarketType.FUTURES_USD_M,
+        market_data_venue=MarketDataVenue.FUTURES_TESTNET,
     )
 
     MarketTickEventHandler(sessions).handle(event)
@@ -156,7 +171,59 @@ def test_a_tick_builds_no_session_for_a_venue_never_asked_for():
     sessions.get(TradingVenue.FUTURES_TESTNET)
 
     MarketTickEventHandler(sessions).handle(
-        MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+        MarketTickEvent(
+            market_data=_market_data(),
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
     )
 
     assert set(built) == {TradingVenue.FUTURES_TESTNET}
+
+
+def _sessions_on_every_spot_venue() -> tuple[VenueStrategySessions, dict]:
+    built: dict[TradingVenue, Mock] = {}
+
+    def _build(venue: TradingVenue) -> Mock:
+        built[venue] = Mock()
+        return built[venue]
+
+    sessions = VenueStrategySessions(_build)
+    sessions.get(TradingVenue.SPOT_TESTNET)
+    sessions.get(TradingVenue.SPOT_MAINNET)
+    return sessions, built
+
+
+def test_a_testnet_candle_never_drives_the_strategy_armed_on_mainnet():
+    """`BUG-172` — Spot Testnet's `BTCUSDT@1m` and Spot Mainnet's are two series
+    on one bus. A mainnet strategy fed a testnet candle would send a real order
+    on a price that market never had."""
+    sessions, built = _sessions_on_every_spot_venue()
+    event = MarketTickEvent(
+        market_data=_market_data(),
+        market_type=MarketType.SPOT,
+        market_data_venue=MarketDataVenue.SPOT_TESTNET,
+    )
+
+    MarketTickEventHandler(sessions).handle(event)
+
+    built[TradingVenue.SPOT_TESTNET].dispatch_tick.assert_called_once_with(
+        event.market_data
+    )
+    built[TradingVenue.SPOT_MAINNET].dispatch_tick.assert_not_called()
+
+
+def test_a_mainnet_candle_never_drives_the_strategy_armed_on_the_testnet():
+    sessions, built = _sessions_on_every_spot_venue()
+    event = MarketTickEvent(
+        market_data=_market_data(),
+        market_type=MarketType.SPOT,
+        market_data_venue=MarketDataVenue.MAINNET_PUBLIC,
+    )
+
+    MarketTickEventHandler(sessions).handle(event)
+
+    built[TradingVenue.SPOT_MAINNET].dispatch_tick.assert_called_once_with(
+        event.market_data
+    )
+    built[TradingVenue.SPOT_TESTNET].dispatch_tick.assert_not_called()

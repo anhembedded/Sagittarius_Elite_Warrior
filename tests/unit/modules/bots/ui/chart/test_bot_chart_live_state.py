@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_can
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -70,6 +73,7 @@ def _tick(bus: MemoryEventBus, minute: int = 9) -> None:
         MarketTickEvent(
             market_data=candle("BTCUSDT", minute, interval=TimeFrame.ONE_HOUR),
             market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
         )
     )
 
@@ -91,7 +95,7 @@ def _host(world: ChartWorld, bus: MemoryEventBus) -> BotChartHost:
     return BotChartHost(
         BotChartPorts(
             thread_manager=InlineThreadManager(),
-            feed=MarketDataCandleFeed(
+            feeds=lambda _venue: MarketDataCandleFeed(
                 world.sync, world.history, world.stream, world.market
             ),
             ticks=BotTickFeed(bus, MarketType.SPOT),
@@ -227,7 +231,7 @@ def test_the_error_state_carries_the_message_the_status_line_shows(qapp) -> None
     host = BotChartHost(
         BotChartPorts(
             thread_manager=InlineThreadManager(),
-            feed=feed,
+            feeds=lambda _venue: feed,
             ticks=BotTickFeed(MemoryEventBus(), MarketType.SPOT),
             notifier=notifier,
         ),

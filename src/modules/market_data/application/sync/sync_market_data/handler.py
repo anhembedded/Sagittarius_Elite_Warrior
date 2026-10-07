@@ -13,10 +13,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.sync_eve
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
-    IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_venues import (
+    IMarketDataVenues,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 from .command import SyncMarketDataCommand
@@ -29,53 +34,64 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
 
     def __init__(
         self,
-        exchange_client: IExchangeClient,
-        repo: IMarketDataRepository,
+        venues: IMarketDataVenues,
         event_publisher: IEventPublisher,
         in_flight_guard: InFlightSyncGuard,
     ) -> None:
-        self.exchange_client = exchange_client
-        self.repo = repo
+        self._venues = venues
         self.event_publisher = event_publisher
         self.in_flight_guard = in_flight_guard
         self.logger = logging.getLogger("App.SyncMarketData")
 
     def execute(self, command: SyncMarketDataCommand) -> None:
         """
-        @brief Executes the synchronization.
+        @brief Executes the synchronization against the venue the command names
+        (`BUG-172`): that venue's exchange, written to that venue's store.
         """
+        venue = command.venue or self._venues.default_venue
         self.logger.info(
-            f"Starting sync for symbols: {command.symbols} at interval {command.interval.value}"
+            f"Starting sync for symbols: {command.symbols} at interval "
+            f"{command.interval.value} from {venue.value}"
         )
 
         for symbol in command.symbols:
             if command.cancellation_requested and command.cancellation_requested():
                 self.logger.info("Market data sync cancelled before %s.", symbol)
                 return
-            self._sync_single_symbol(symbol, command)
+            self._sync_single_symbol(symbol, command, venue)
 
-    def _sync_single_symbol(self, symbol: str, command: SyncMarketDataCommand) -> None:
+    def _sync_single_symbol(
+        self,
+        symbol: str,
+        command: SyncMarketDataCommand,
+        venue: MarketDataVenue,
+    ) -> None:
         interval_key = command.interval.value
+        scope = f"{venue.value}/{command.market.value}"
         # BOT-121: the single choke point every screen's sync dispatch passes
         # through (Backtest, Data Management single sync, Data Management
         # bulk sync via BulkSyncMarketDataCommandHandler dispatching per
         # target) — reserving here means two screens can never fetch the
         # same symbol+interval from the exchange concurrently.
-        if not self.in_flight_guard.try_acquire(symbol, interval_key):
+        if not self.in_flight_guard.try_acquire(scope, symbol, interval_key):
             self.logger.info(
                 f"[{symbol}] Sync already in flight for {interval_key} "
                 "elsewhere — skipping this request."
             )
             return
         try:
-            self._sync_single_symbol_locked(symbol, command)
+            self._sync_single_symbol_locked(symbol, command, venue)
         finally:
-            self.in_flight_guard.release(symbol, interval_key)
+            self.in_flight_guard.release(scope, symbol, interval_key)
 
     def _sync_single_symbol_locked(
-        self, symbol: str, command: SyncMarketDataCommand
+        self, symbol: str, command: SyncMarketDataCommand, venue: MarketDataVenue
     ) -> None:
-        start_time = self._determine_start_time(symbol, command)
+        # Resolved here, past the guard: building a venue's client is a network
+        # call (`BUG-045`), and a sync skipped as already in flight needs none.
+        client = self._venues.exchange_client(venue)
+        repo = self._venues.repository(venue)
+        start_time = self._determine_start_time(symbol, command, repo)
         total_klines = self._estimate_total_klines(start_time, command)
 
         def _progress_cb(
@@ -100,7 +116,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         # is now bounded by chunk size, not by how long the sync range is.
         synced_count = 0
         try:
-            for chunk in self.exchange_client.stream_historical_klines(
+            for chunk in client.stream_historical_klines(
                 command.market,
                 symbol,
                 command.interval,
@@ -114,7 +130,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                         "[%s] Market data sync cancelled before save.", symbol
                     )
                     return
-                self.repo.save_klines(command.market, chunk)
+                repo.save_klines(command.market, chunk)
                 synced_count += len(chunk)
                 self.logger.debug(
                     "[%s] Persisted chunk of %d klines (%d total so far) — "
@@ -133,7 +149,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
             self.logger.info(f"[{symbol}] Already up to date.")
 
     def _determine_start_time(
-        self, symbol: str, command: SyncMarketDataCommand
+        self, symbol: str, command: SyncMarketDataCommand, repo: IMarketDataRepository
     ) -> datetime:
         if command.start_time:
             start_time = command.start_time
@@ -141,7 +157,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                 f"[{symbol}] Syncing from explicit start time: {start_time}"
             )
         else:
-            latest_time = self.repo.get_latest_kline_time(
+            latest_time = repo.get_latest_kline_time(
                 command.market, symbol, command.interval
             )
             if latest_time is None:

@@ -41,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
     map_volume,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    CandlesUnavailableError,
     ICandleFeed,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
@@ -121,6 +122,23 @@ class LiveChartCoordinator:
                 report.log(f"Syncing {symbol} data from Binance...")
                 try:
                     self._feed.sync(symbol, interval, token.is_cancelled)
+                except CandlesUnavailableError as refusal:
+                    # `BUG-172`: a refusal for good (a testnet's missing
+                    # timeframe or symbol): its reason is a sentence written for
+                    # the user, said as it is, with no "try again".
+                    reason = refusal.reason
+                    logger.info(
+                        "[live-chart] %s at %s is not served: %s",
+                        symbol,
+                        interval.value,
+                        reason,
+                    )
+                    report.stream_failed(
+                        f"{reason} The chart shows the stored candles.",
+                        failure_detail(refusal),
+                    )
+                    self._load_history(symbol, interval, report)
+                    return
                 except Exception as exc:
                     logger.warning(
                         "[live-chart] sync of %s at %s failed",

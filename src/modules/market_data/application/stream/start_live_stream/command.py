@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from pydantic import BaseModel, field_validator
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 
 class StartLiveStreamCommand(BaseModel):
@@ -17,6 +20,9 @@ class StartLiveStreamCommand(BaseModel):
     market_type: MarketType
     symbols: list[str]
     interval: TimeFrame
+    #: `BUG-172` — whose stream it is. `None` is the screens that act on no
+    #: venue (the CLI, Data mode): `exchange.market_data_venue`.
+    venue: MarketDataVenue | None = None
 
     @field_validator("owner")
     @classmethod

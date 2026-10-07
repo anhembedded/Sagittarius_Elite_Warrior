@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
+    CandlesUnavailableError,
     ICandleFeed,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
@@ -107,3 +108,41 @@ def test_retry_loads_again_and_an_opened_stream_clears_the_notice(qapp) -> None:
     assert feed.syncs == 2
     assert _CAUSE in notifier.cleared
     assert set(notifier.cleared) == {_CAUSE}
+
+
+def test_a_refusal_for_good_is_said_as_it_is_and_never_as_try_again(qapp) -> None:
+    """`BUG-172` — Futures has no `1s` candles and a testnet lists fewer symbols.
+    Asking again cannot change either answer, so the notice carries the reason the
+    exchange gave, in words, and the chart still shows what is stored."""
+    notifier = RecordingNotifier()
+    feed = _Feed()
+    feed.sync_error = CandlesUnavailableError(
+        "This exchange has no 1s candles for its USDⓈ-M Futures market."
+    )
+    chart = _chart(qapp, feed, notifier)
+    logged: list[str] = []
+    chart.logged.connect(logged.append)
+
+    chart.go_live()
+    chart.show_symbol("BTCUSDT")
+
+    notice = notifier.last
+    assert notice.kind is FailureKind.BACKGROUND
+    assert "has no 1s candles" in notice.headline
+    assert "try again" not in notice.headline.lower()
+    assert "stored candles" in notice.headline
+    assert feed.syncs == 1
+
+
+def test_a_short_history_draws_what_exists_and_says_nothing_is_wrong(qapp) -> None:
+    """`BUG-172` — Spot Testnet keeps little history: a sync that stores fewer
+    candles than a mainnet would is an ordinary success, not a failure."""
+    notifier = RecordingNotifier()
+    feed = _Feed()
+    feed.sync_error = None
+    chart = _chart(qapp, feed, notifier)
+
+    chart.go_live()
+    chart.show_symbol("BTCUSDT")
+
+    assert notifier.failures == []

@@ -75,7 +75,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
     ReadKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
-    BacktestPorts,
     KindBacktests,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
@@ -133,7 +132,7 @@ class BotsPresenter(CommandPresenter):
     ) -> None:
         super().__init__(view, container)
         deps = bots_dependencies_for(container)
-        threads, commands, feed = deps.threads, deps.commands, deps.candles
+        threads, commands = deps.threads, deps.commands
         self._model = view.model
         view.use_venue_filters(deps.filters)
         self._dialogs = dialogs or dialogs_for(
@@ -145,7 +144,7 @@ class BotsPresenter(CommandPresenter):
         self._catalog, self._venues = deps.kinds, deps.venues
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
         self._charts = BotChartHost(
-            BotChartPorts(threads, feed, self._ticks, deps.notifier)
+            BotChartPorts(threads, deps.feeds, self._ticks, deps.notifier)
         )
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
@@ -154,7 +153,7 @@ class BotsPresenter(CommandPresenter):
             ActionOwnershipTracker()
         )
         self._backtests = KindBacktests(
-            BacktestPorts(threads, commands, deps.sync, feed, deps.notifier),
+            deps.backtest_ports,
             view.set_backtest_page,
         )
         self._queries = BotQueries(commands, self._reads, lambda: self._model.selected)

@@ -211,6 +211,7 @@ def desk_fakes(
             market_stream=world.stream,
             overlay=StrategyChartOverlayReaderAdapter(FakeStrategyChartOverlay()),
             market=market,
+            market_data_venue=venue.market_data_venue,
             stream_owner=stream_owner_for(venue),
             interval="1m",
             notifier=notifier,

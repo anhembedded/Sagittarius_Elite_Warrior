@@ -223,6 +223,7 @@ class GridBacktestPresenter(QObject):
             self._view.chosen_interval(),
             start,
             end,
+            context.venue,
         )
 
     def _why_not(self) -> str:

@@ -88,6 +88,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_binding
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_venues import (
+    IMarketDataVenues,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
     data_commands,
 )
@@ -217,6 +220,11 @@ class MarketDataModule(BoundedContextModule):
         registry read builds nothing, which is the point.
         """
         context.container.resolve(DatabaseManager).dispose_all()
+        # `BUG-172`: the venues other than the default own their stores, clients
+        # and streams; closed only if the registry was ever built.
+        venues = context.container.registrations().get(IMarketDataVenues)
+        if venues is not None and venues.instantiated:
+            context.container.resolve(IMarketDataVenues).close()
         registration = context.container.registrations().get(IExchangeClient)
         if registration is None or not registration.instantiated:
             return

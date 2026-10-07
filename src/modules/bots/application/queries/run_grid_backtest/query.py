@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _never() -> bool:
@@ -23,6 +26,8 @@ class RunGridBacktestQuery:
 
     `terms` are the planner's (`GetPlannerMarketQuery`): the venue's filters
     and the account's fees, so a replay charges what a live run would.
+    `venue` is the bot's: the candles replayed are the ones stored from the market
+    its orders fill in, never another venue's (`BUG-172`).
     `cancelled` is asked before every candle (`async-ui-action-rule.md`)."""
 
     symbol: str
@@ -31,6 +36,7 @@ class RunGridBacktestQuery:
     interval: TimeFrame
     start: datetime
     end: datetime
+    venue: TradingVenue
     cancelled: Callable[[], bool] = _never
 
     def __post_init__(self) -> None:

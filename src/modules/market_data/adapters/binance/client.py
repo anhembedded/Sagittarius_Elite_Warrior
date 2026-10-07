@@ -5,9 +5,13 @@ from datetime import UTC, datetime
 
 import requests
 from binance.client import Client
+from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.kline_refusal import (
+    reraise_as_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,
@@ -99,21 +103,17 @@ class PythonBinanceClient(IExchangeClient):
         @details A multi-day 1-second-interval sync needs hundreds of
         sequential HTTP calls, and python-binance's own generator has no
         retry of its own — one `ReadTimeout` among hundreds of pages used to
-        abort everything the current attempt had already fetched, including
-        klines already pulled but not yet handed to the caller.
+        abort everything already fetched, including klines pulled but not
+        yet handed to the caller.
 
         Resumes via the last yielded kline's own `close_time + 1ms` (the
-        same inclusive-close_time convention `BUG-022` established
-        elsewhere), never by restarting `start_str` from the original
-        request — a retry must not re-download klines this call already
-        has.
+        inclusive-close_time convention of `BUG-022`), never by restarting
+        `start_str` — a retry must not re-download klines this call has.
 
-        The retry budget resets on every kline actually yielded: a
-        flaky-but-working connection can keep making forward progress
-        indefinitely (the caller's own cancellation is the only bound on
-        that), while a connection that yields nothing between attempts is
-        judged genuinely down and gives up after `_MAX_TRANSIENT_RETRIES`
-        consecutive failures.
+        The retry budget resets on every kline yielded: a flaky-but-working
+        connection can keep going (the caller's cancellation is the only
+        bound), while one that yields nothing between attempts is judged down
+        after `_MAX_TRANSIENT_RETRIES` consecutive failures.
         """
         current_start = start_str
         consecutive_failures = 0
@@ -135,6 +135,9 @@ class PythonBinanceClient(IExchangeClient):
                 return
             except ExchangeRequestCancelledError:
                 raise
+            except BinanceAPIException as exc:
+                # `BUG-172`: a refusal retrying cannot change is raised at once.
+                reraise_as_refusal(exc, market, symbol, interval)
             except requests.exceptions.RequestException as exc:
                 consecutive_failures += 1
                 if consecutive_failures > _MAX_TRANSIENT_RETRIES:

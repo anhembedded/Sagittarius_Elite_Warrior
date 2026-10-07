@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contrac
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 _MINUTE = TimeFrame.ONE_MINUTE
 
@@ -174,7 +177,7 @@ class TestMarketDataSyncService(MarketDataSyncContract):
 
     @pytest.fixture
     def impl(self, dispatcher: _RecordingDispatcher) -> IMarketDataSync:
-        return MarketDataSyncService(dispatcher)
+        return MarketDataSyncService(dispatcher, MarketDataVenue.MAINNET_PUBLIC)
 
     @pytest.fixture
     def observed(self, dispatcher: _RecordingDispatcher) -> ObservedRequests:
@@ -210,10 +213,27 @@ def test_the_service_dispatches_the_modules_own_command() -> None:
     which live in the handler, not here — stay on the only path they know."""
     dispatcher = _RecordingDispatcher()
 
-    MarketDataSyncService(dispatcher).sync(
+    MarketDataSyncService(dispatcher, MarketDataVenue.MAINNET_PUBLIC).sync(
         MarketDataSyncRequest(
             symbols=("BTCUSDT",), interval="1m", market=MarketType.SPOT
         )
     )
 
     assert len(dispatcher.commands) == 1
+
+
+@pytest.mark.parametrize("venue", list(MarketDataVenue))
+def test_the_command_names_the_venue_the_service_is_bound_to(
+    venue: MarketDataVenue,
+) -> None:
+    """`BUG-172` — the request names a market and never a venue, so a sync can
+    only reach the venue its port was handed out for."""
+    dispatcher = _RecordingDispatcher()
+
+    MarketDataSyncService(dispatcher, venue).sync(
+        MarketDataSyncRequest(
+            symbols=("BTCUSDT",), interval="1m", market=MarketType.SPOT
+        )
+    )
+
+    assert [command.venue for command in dispatcher.commands] == [venue]

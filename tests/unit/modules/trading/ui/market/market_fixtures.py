@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     CandleStreamStart,
     ICandleFeed,
@@ -68,9 +71,13 @@ def candle(
 
 
 def tick(
-    market_data: MarketData, market: MarketType = MarketType.SPOT
+    market_data: MarketData,
+    market: MarketType = MarketType.SPOT,
+    source: MarketDataVenue = MarketDataVenue.MAINNET_PUBLIC,
 ) -> MarketTickEvent:
-    return MarketTickEvent(market_data=market_data, market_type=market)
+    return MarketTickEvent(
+        market_data=market_data, market_type=market, market_data_venue=source
+    )
 
 
 class RecordingCandleFeed(ICandleFeed):

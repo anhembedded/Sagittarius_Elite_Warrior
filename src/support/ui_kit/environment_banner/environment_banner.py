@@ -1,5 +1,5 @@
 """`EnvironmentBanner` — the "which venue am I in" banner, filled from a
-`VenueAlignment` (`EPIC-021K`)."""
+`EnvironmentBannerContent` (`EPIC-021K`)."""
 
 from __future__ import annotations
 

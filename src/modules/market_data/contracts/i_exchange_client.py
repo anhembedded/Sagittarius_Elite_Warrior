@@ -16,6 +16,21 @@ class ExchangeRequestCancelledError(RuntimeError):
     """Raised when a cooperative exchange request is cancelled by its owner."""
 
 
+class ExchangeRefusedKlinesError(RuntimeError):
+    """The exchange refuses to serve these candles at all (`BUG-172`).
+
+    A testnet is a smaller exchange than the mainnet: Futures has no `1s` klines
+    (`-1120`) and each testnet lists fewer symbols (`-1121`). Retrying cannot
+    change either answer, so this is not a transient failure: `reason` is a
+    sentence a person can read ("Futures has no 1s candles on this exchange"),
+    and a screen shows it instead of "try again".
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class IExchangeClient(ABC):
     """
     @brief Port for communicating with an external cryptocurrency exchange.

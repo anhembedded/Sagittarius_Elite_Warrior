@@ -131,7 +131,7 @@ class MarketPresenter(CommandPresenter):
         view.set_connection_text(NOT_CHECKED)
         view.set_stream_text("Market data: not live")
         self._ticks = market_tick_feed(
-            self.event_bus, lambda: self.choice.current, self
+            self.event_bus, lambda: self.choice.current, dependencies.venue, self
         )
         self._ticks.marketTick.connect(self._on_tick)
         view.symbol_opened.connect(self._open_chart)

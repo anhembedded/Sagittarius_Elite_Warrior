@@ -125,7 +125,11 @@ def _tick(desk: TradeDesk, *, symbol: str = "ETHUSDT") -> None:
         is_closed=True,
     )
     desk.container.resolve(IEventBus).emit(
-        MarketTickEvent(market_data=candle, market_type=_FUTURES.market_type)
+        MarketTickEvent(
+            market_data=candle,
+            market_type=_FUTURES.market_type,
+            market_data_venue=_FUTURES.market_data_venue,
+        )
     )
 
 

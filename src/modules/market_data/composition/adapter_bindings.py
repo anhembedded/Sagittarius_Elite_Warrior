@@ -43,11 +43,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqla
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.venue_directory import (
+    venue_directory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.database_directory import (
     database_directory,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.composition.market_data_venues import (
+    MarketDataVenues,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -60,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_live_stream_s
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_venues import (
+    IMarketDataVenues,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
@@ -86,6 +95,7 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(IExchangeSessionFactory, _build_exchange_session_factory)
 
     container.singleton(DatabaseConfig, _build_database_config)
+    container.singleton(IMarketDataVenues, _build_market_data_venues)
     container.singleton(DatabaseManager, _build_database_manager)
     container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
     container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
@@ -119,6 +129,16 @@ def _build_market_data_venue(container: IContainer) -> MarketDataVenue:
     return resolve_market_data_venue(container.resolve(IConfig))
 
 
+def _build_market_data_venues(container: IContainer) -> IMarketDataVenues:
+    """`BUG-172`: the registry of each venue's store, client and stream; the
+    default venue is the container's own bindings below."""
+    return MarketDataVenues(
+        container,
+        container.resolve(DatabaseConfig),
+        container.resolve(MarketDataVenue),
+    )
+
+
 def _build_exchange_session_factory(container: IContainer) -> IExchangeSessionFactory:
     """`EPIC-025` PR 1.3c-4 — one factory per bounded context, where there
     used to be one instance answering both. This module's own adapter; the
@@ -144,9 +164,21 @@ def _build_database_manager(container: IContainer) -> DatabaseManager:
     """`EPIC-027A` — migrate once, right after construction and before any
     shard is opened (`DatabaseManager.migrate_legacy_shards()`'s own
     precondition), so a pre-existing install's shards are tagged Spot (ADR
-    O3) before the first read or sync ever asks for a market."""
-    manager = DatabaseManager(container.resolve(DatabaseConfig))
-    manager.migrate_legacy_shards()
+    O3) before the first read or sync ever asks for a market.
+
+    `BUG-172`: the manager of the *default* venue — `exchange.market_data_venue`,
+    for the screens that act on no venue — whose shards sit in that venue's own
+    directory (`venue_directory`). The other venues' managers are built by
+    `MarketDataVenues`."""
+    base = container.resolve(DatabaseConfig)
+    venue = container.resolve(MarketDataVenue)
+    manager = DatabaseManager(
+        DatabaseConfig(db_dir=venue_directory(base.db_dir, venue))
+    )
+    if venue is MarketDataVenue.MAINNET_PUBLIC:
+        # Only the mainnet's shards can be legacy ones: every pre-`EPIC-027A`
+        # shard was downloaded from the mainnet (ADR O3).
+        manager.migrate_legacy_shards()
     return manager
 
 

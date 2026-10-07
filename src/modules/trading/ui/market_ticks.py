@@ -17,12 +17,18 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
     MarketTickFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 def market_tick_feed(
-    event_bus: IEventBus, market: Callable[[], MarketType], parent: QObject
+    event_bus: IEventBus,
+    market: Callable[[], MarketType],
+    venue: MarketDataVenue,
+    parent: QObject,
 ) -> MarketTickFeed:
     """A Feed forwarding, on the Qt thread, the ticks of the market `market`
-    names at each tick (`MarketTickFeed`)."""
-    return MarketTickFeed(event_bus, market, parent=parent)
+    names at each tick, from `venue`'s stream only (`MarketTickFeed`)."""
+    return MarketTickFeed(event_bus, market, venue, parent=parent)
