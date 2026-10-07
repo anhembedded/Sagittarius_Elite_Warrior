@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
     chart_commands,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    live_stream_command,
+)
 
 FILE_MENU = ("&File",)
 TOOLS_MENU = ("&Tools",)
@@ -132,6 +135,7 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             group=CHART_HISTORY,
         ),
         *chart_commands("trading", CHART_PREFIX, route, CHART_MENU),
+        live_stream_command("trading", CHART_PREFIX, route, CHART_MENU),
         CommandContribution(
             contributor_id="trading",
             command_id=INDICATOR_PARAMS,

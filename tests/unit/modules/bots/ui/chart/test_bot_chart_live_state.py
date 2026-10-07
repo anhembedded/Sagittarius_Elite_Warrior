@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
@@ -17,6 +18,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickF
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host import (
     BotChartHost,
     BotChartPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    COMMAND_PREFIX,
+    bots_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -31,11 +36,18 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.chart_commands import (
+    chart_command_id,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
     LiveChartCommand,
     LiveChartEvent,
     LiveChartState,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_command import (
+    LIVE_STREAM,
+)
+from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtures import (
     ChartWorld,
     InlineThreadManager,
@@ -177,3 +189,23 @@ def test_a_chart_that_is_connecting_already_draws_what_streams(
     assert chart.live_state is S.CONNECTING
     assert len(appended) == 1
     host.close()
+
+
+def test_the_live_stream_command_follows_the_selected_bots_chart(qapp) -> None:
+    owner = QObject()
+    world, bus = ChartWorld(), MemoryEventBus()
+    host = _host(world, bus)
+    registry = bound_actions(owner, bots_commands("bots"), host.bind_commands)
+    command = registry.action(chart_command_id(COMMAND_PREFIX, LIVE_STREAM))
+    assert not command.isEnabled()
+
+    host.show(_bot(BotLifecycleState.DRAFT))
+    assert command.isEnabled() and not command.isChecked()
+    command.trigger()
+    assert host._chart is not None and host._chart.live_state is S.LIVE
+    assert command.isChecked()
+    assert world.stream.held_by("bot.a3f9c1") is not None
+
+    host.close()
+    assert not command.isEnabled()
+    owner.deleteLater()

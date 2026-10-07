@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_command_mirror import 
     ChartCommandMirror,
     chart_command_actions,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_stream_mirror import (
+    LiveStreamMirror,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_mirror import ActionMirror
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
@@ -78,6 +81,7 @@ class TradeCommandBinding(QObject):
         self._choice = choice
         self._confirm_enable = confirm_enable
         self._chart = ChartCommandMirror(CHART_PREFIX, self)
+        self._live_stream = LiveStreamMirror(CHART_PREFIX, self)
         self._tables = ActionMirror(
             {
                 CANCEL_ORDER_ACTION: CANCEL_ORDER,
@@ -118,6 +122,7 @@ class TradeCommandBinding(QObject):
             initially_enabled=bool(self._desks),
         )
         self._chart.bind_commands(binder)
+        self._live_stream.bind_commands(binder)
         self._tables.bind_commands(binder)
         # A desk built while its venue's trading is on must show Enable
         # checked; its state was set before this binding existed.
@@ -132,6 +137,7 @@ class TradeCommandBinding(QObject):
         self._chart.follow_chart(
             chart_command_actions(desk.view.chart) if desk is not None else None
         )
+        self._live_stream.follow_chart(desk.chart if desk is not None else None)
         self._tables.follow(desk.table_actions() if desk is not None else None)
         self._announce()
 

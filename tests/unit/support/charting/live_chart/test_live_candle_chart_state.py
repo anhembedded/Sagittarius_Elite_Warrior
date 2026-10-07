@@ -308,3 +308,40 @@ def test_the_age_timer_runs_only_while_live_and_rewrites_the_chip(qapp) -> None:
 
     chart.run_command(C.STOP_LIVE)
     assert not chip._timer.isActive()
+
+
+def test_the_menu_action_is_checked_while_connecting_or_live_and_drives_the_chart(
+    qapp,
+) -> None:
+    feed = ScriptedCandleFeed()
+    threads = HeldThreadManager()
+    chart, _card = build_chart(feed, threads=threads)
+    chart.show_symbol("BTCUSDT")
+    threads.run_all()
+    action = chart.live_stream_action
+    assert not action.isChecked()
+
+    action.setChecked(True)  # what the shell's Live stream command does
+    assert chart.live_state is S.CONNECTING and action.isChecked()
+    threads.run_all()
+    assert chart.live_state is S.LIVE
+
+    action.setChecked(False)
+    assert chart.live_state is S.HISTORY and not action.isChecked()
+
+
+def test_checking_the_menu_action_in_error_retries_and_stays_unchecked_if_it_fails(
+    qapp,
+) -> None:
+    feed = ScriptedCandleFeed()
+    feed.stream_message = "refused"
+    chart, _card = build_chart(feed)
+    chart.show_symbol("BTCUSDT")
+    chart.run_command(C.GO_LIVE)
+    action = chart.live_stream_action
+    assert chart.live_state is S.ERROR and not action.isChecked()
+
+    action.setChecked(True)  # Retry; the feed still refuses
+
+    assert feed.calls.count("start_stream") == 2
+    assert chart.live_state is S.ERROR and not action.isChecked()

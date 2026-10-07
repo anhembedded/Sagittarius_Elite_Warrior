@@ -312,6 +312,7 @@ class BotsPresenter(CommandPresenter):
 
     def bind_commands(self, binder: ICommandBinder) -> None:
         bind_bots_commands(binder, self._model, self.strategies)
+        self._charts.bind_commands(binder)
 
     def _on_new_bot(self) -> None:
         if self._busy():

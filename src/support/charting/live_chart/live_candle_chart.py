@@ -21,6 +21,7 @@ import logging
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
     timeframe_or_fallback,
@@ -38,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordi
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_fsm_matrix import (
     COMMAND_EVENT,
+    STATE_COMMAND,
     LiveChartCommand,
     LiveChartEvent,
     LiveChartState,
@@ -81,6 +83,7 @@ class LiveCandleChart(QObject):
         self._live = False
         self._clock: Callable[[], float] = ports.clock
         self._state = LiveChartState.HISTORY
+        self._syncing_stream_action = False
         self._error = ""
         self._last_update: float | None = None
         self._token = CancellationToken()
@@ -102,6 +105,7 @@ class LiveCandleChart(QObject):
         self._load_settled.connect(self._on_load_settled)
         self._stream_opened.connect(self._on_stream_opened)
         self._stream_lost.connect(self._on_stream_lost)
+        self.live_stream_action = self._stream_action()
         self._chip = LiveStateChip(self.last_update_age)
         self._chip.commandRequested.connect(self.run_command)
         if ports.live_commands:
@@ -109,6 +113,23 @@ class LiveCandleChart(QObject):
             chart.plot_layout.main_plot.vb.menu.addAction(self._chip.command)
         chart.toolbar.set_active(self._interval)
         chart.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
+
+    def _stream_action(self) -> QAction:
+        """The mode's Live stream menu command, checked while the chart
+        connects or is live (`live_stream_command.py`)."""
+        action = QAction("&Live stream", self)
+        action.setCheckable(True)
+        action.toggled.connect(self._on_stream_toggled)
+        return action
+
+    def _on_stream_toggled(self, checked: bool) -> None:
+        if self._syncing_stream_action or checked == self._streaming:
+            return
+        self.run_command(STATE_COMMAND[self._state])
+
+    @property
+    def _streaming(self) -> bool:
+        return self._state in (LiveChartState.CONNECTING, LiveChartState.LIVE)
 
     @staticmethod
     def _opening_interval(chart: ChartCard, ports: LiveChartPorts) -> str:
@@ -296,6 +317,9 @@ class LiveCandleChart(QObject):
         )
         self._error = reason if target is LiveChartState.ERROR else ""
         self._state = target
+        self._syncing_stream_action = True
+        self.live_stream_action.setChecked(self._streaming)
+        self._syncing_stream_action = False
         self._chip.show_state(target, self._error)
         self.liveStateChanged.emit(target)
         return True
