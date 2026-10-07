@@ -9,7 +9,8 @@ the last ones read, because the mark says what they are.
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import (
     Readout,
     ReadoutSlot,
@@ -23,11 +24,11 @@ class AccountSummaryPanel(QWidget):  # base-exempt: a container, not a surface
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._stale = QLabel()
+        self._stale = plain_label()
         self._stale.setObjectName("lblAccountSummaryStale")
         self._stale.setWordWrap(True)
         self._stale.hide()
-        self._unread = QLabel(_UNREAD_TEXT)
+        self._unread = plain_label(_UNREAD_TEXT)
         self._unread.setObjectName("lblAccountSummaryUnread")
         self._unread.setWordWrap(True)
         self._figures = ReadoutSlot()

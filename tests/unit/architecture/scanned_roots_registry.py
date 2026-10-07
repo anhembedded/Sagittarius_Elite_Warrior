@@ -66,6 +66,14 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_display_values_go_through_the_formatter.py",
         (("src", "*.py"),),
     ),
+    (
+        "tests/unit/architecture/test_venues_are_shown_by_title.py",
+        (("src", "*.py"),),
+    ),
+    (
+        "tests/unit/architecture/test_labels_show_plain_text.py",
+        (("src", "*.py"),),
+    ),
     # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
     (
         "tests/unit/architecture/test_god_files_only_shrink.py",

@@ -170,3 +170,27 @@ def test_save_bot_is_the_platform_save(qapp) -> None:
     assert actions.action(lifecycle_id(BotAction.SAVE)).shortcut() == QKeySequence(
         QKeySequence.StandardKey.Save
     )
+
+
+def test_a_disabled_lifecycle_action_says_why_in_its_tip_and_follows_the_reason(
+    qapp,
+) -> None:
+    """`EPIC-034A`: `ActionAvailability.reason` was computed and never shown."""
+    view_model = BotsViewModel()
+    start = _actions(view_model).action(lifecycle_id(BotAction.START))
+    assert "Select a bot first." in start.toolTip()
+
+    view_model.set_availability(
+        {
+            BotAction.START: ActionAvailability(
+                False, "Save the changed parameters first."
+            )
+        }
+    )
+    assert "Save the changed parameters first." in start.toolTip()
+
+    view_model.set_availability(
+        {BotAction.START: ActionAvailability(True, "Place the ladder on the exchange.")}
+    )
+    assert "Place the ladder on the exchange." in start.toolTip()
+    assert "Save the changed" not in start.toolTip()

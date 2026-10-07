@@ -45,7 +45,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QMessageBox,
     QTableView,
@@ -53,6 +52,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
     write_value,
@@ -132,7 +132,7 @@ class DatabaseStatusPanel(QWidget):  # base-exempt: a container, not a surface
         self._actions_enabled = True
         self._confirm_clear = confirm_clear or self._ask_before_clearing
 
-        self._count_label = QLabel()
+        self._count_label = plain_label()
         self._count_label.setObjectName("lblDatabaseStatusCount")
         self._search = QLineEdit()
         self._search.setObjectName("txtDatabaseStatusSearch")

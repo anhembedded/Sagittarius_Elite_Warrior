@@ -53,6 +53,10 @@ class ConnectionFailureKind(str, Enum):
     #: Could not reach the exchange at all — DNS/TCP/TLS failure, timeout,
     #: or any Binance error code not covered by a more specific kind above.
     NETWORK = "network"
+    #: The exchange answered with something that is not an API reply — a
+    #: gateway's HTML page (`502 Bad Gateway`, a maintenance notice). It is
+    #: reachable and refusing, not unreachable (`BUG-168`).
+    MAINTENANCE = "maintenance"
     #: `EPIC-021D` §2.3 — added beyond the plan's original 5-member list.
     #: The account's position mode is Hedge, not One-way; the whole epic's
     #: order model assumes One-way (ADR §6), so this is a distinct, named,

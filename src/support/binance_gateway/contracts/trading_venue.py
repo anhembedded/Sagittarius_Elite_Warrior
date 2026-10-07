@@ -18,6 +18,12 @@ class TradingVenue(str, Enum):
     SPOT_TESTNET = "spot_testnet"
 
     @property
+    def display_name(self) -> str:
+        """@brief The venue as a person reads it ("Spot Testnet"); `value` is
+        an identifier, never display text (`EPIC-034A`)."""
+        return _TITLES[self]
+
+    @property
     def market_type(self) -> MarketType | None:
         """@brief The market this venue trades, or `None` when trading is off."""
         if self is TradingVenue.FUTURES_TESTNET:
@@ -53,3 +59,10 @@ class TradingVenue(str, Enum):
         reads one capability and a future venue sets it in one place.
         """
         return self is TradingVenue.FUTURES_TESTNET
+
+
+_TITLES = {
+    TradingVenue.DISABLED: "Trading off",
+    TradingVenue.FUTURES_TESTNET: "Futures Testnet",
+    TradingVenue.SPOT_TESTNET: "Spot Testnet",
+}

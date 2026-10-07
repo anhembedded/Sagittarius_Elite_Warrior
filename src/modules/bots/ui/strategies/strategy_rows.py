@@ -34,11 +34,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 
 #: The panel's title, which is also its View toggle's text.
 STRATEGIES_DOCK = "Strategies"
-#: A venue as a person reads it; the enum's value is an identifier.
-VENUE_TITLES = {
-    TradingVenue.FUTURES_TESTNET: "Futures Testnet",
-    TradingVenue.SPOT_TESTNET: "Spot Testnet",
-}
 ARMED_TEXT = "Armed"
 NOT_ARMED_TEXT = "Not armed"
 NO_VENUE_TEXT = (
@@ -77,7 +72,7 @@ class StrategyRowsModel(RowTableModel[StrategyRow]):
 
     def _value(self, row: StrategyRow, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
-            VENUE_TITLES.get(row.venue, row.venue.value),
+            row.venue.display_name,
             ARMED_TEXT if row.armed else NOT_ARMED_TEXT,
             row.summary or (f"Saved, not armed: {row.saved}" if row.saved else "—"),
         )

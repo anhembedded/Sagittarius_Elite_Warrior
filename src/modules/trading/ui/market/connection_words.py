@@ -40,6 +40,10 @@ _FAILURES = EnumLabels(
             "the exchange could not be reached. Check the network or proxy and "
             "check again."
         ),
+        ConnectionFailureKind.MAINTENANCE: (
+            "the exchange is unavailable (maintenance or a gateway error). Try "
+            "again later."
+        ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "the account is in Hedge Mode. Switch it to One-way Mode on Binance "
             "and check again."

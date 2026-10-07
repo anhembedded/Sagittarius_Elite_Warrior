@@ -51,6 +51,10 @@ _FAILURE_GUIDANCE = EnumLabels(
         ConnectionFailureKind.NETWORK: (
             "Could not connect to the exchange. Check your network/proxy and try again."
         ),
+        ConnectionFailureKind.MAINTENANCE: (
+            "The exchange is unavailable (maintenance or a gateway error). "
+            "Try again later."
+        ),
         ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
             "The account is in Hedge Mode. This epic assumes One-way Mode — "
             "switch it back under Binance Futures > Settings > Position Mode "

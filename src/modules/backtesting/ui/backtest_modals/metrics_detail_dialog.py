@@ -55,6 +55,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     Tone,
     tone_colour,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from ..metrics_detail_model import detail_rows, metrics_detail_table
 from .backtest_metrics_detail_source import BacktestMetricsDetailSource
@@ -110,15 +111,15 @@ class MetricsDetailDialogWidget(QDialog):
 
     def _build_bar_row(self) -> None:
         row = QHBoxLayout()
-        caption = QLabel("Gross profit vs gross loss")
+        caption = plain_label("Gross profit vs gross loss")
         caption.setObjectName("lblGrossHeading")
         row.addWidget(caption)
         row.addStretch(1)
-        self._profit_label = QLabel()
+        self._profit_label = plain_label()
         self._profit_label.setObjectName("lblGrossProfit")
         self._paint(self._profit_label, Tone.POSITIVE)
         row.addWidget(self._profit_label)
-        self._loss_label = QLabel()
+        self._loss_label = plain_label()
         self._loss_label.setObjectName("lblGrossLoss")
         self._paint(self._loss_label, Tone.NEGATIVE)
         row.addWidget(self._loss_label)
@@ -133,7 +134,7 @@ class MetricsDetailDialogWidget(QDialog):
         self._bar.setTextVisible(False)
         self.body_layout.addWidget(self._bar)
 
-        self._bar_caption = QLabel()
+        self._bar_caption = plain_label()
         self._bar_caption.setObjectName("lblBarCaption")
         self._bar_caption.setWordWrap(True)
         self.body_layout.addWidget(self._bar_caption)
@@ -146,7 +147,7 @@ class MetricsDetailDialogWidget(QDialog):
         self.body_layout.addWidget(self._table.body, 1)
 
     def _build_footer(self) -> None:
-        self._footer = QLabel()
+        self._footer = plain_label()
         self._footer.setObjectName("lblMetricsFooter")
         self._footer.setWordWrap(True)
         self.body_layout.addWidget(self._footer)

@@ -1,3 +1,5 @@
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
+
 """A chart's paint rate, shown in developer sessions only.
 
 @par A header label since `EPIC-033G`
@@ -7,7 +9,7 @@ card places in its header row, and this class only measures and writes it.
 """
 
 from PySide6.QtCore import QElapsedTimer, QEvent, QObject, QTimer
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtWidgets import QWidget
 
 _FPS_SAMPLE_INTERVAL_MS = 500
 
@@ -47,7 +49,7 @@ class ChartFpsMeter(QObject):
         self._clock = QElapsedTimer()
         self._is_enabled = False
 
-        self.label = QLabel("FPS 0.0")
+        self.label = plain_label("FPS 0.0")
         self.label.setObjectName("chartFpsMeter")
         self.label.hide()
 

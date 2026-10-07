@@ -39,9 +39,12 @@ class IMarketMetadataProvider(ABC):
         @return `None` if `symbol` does not exist in the catalog even after
         a fetch — never a default/placeholder metadata standing in for a
         symbol that was never actually found.
+        @throws SymbolRulesUnavailableError The catalog could not be fetched;
+        the message is a short plain reason, never an exchange page.
         """
 
     @abstractmethod
     def refresh(self) -> None:
         """@brief Unconditionally re-fetches the whole symbol catalog from
-        the exchange and repopulates the cache."""
+        the exchange and repopulates the cache.
+        @throws SymbolRulesUnavailableError The catalog could not be fetched."""

@@ -18,10 +18,10 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QLabel,
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .chart_history import HistoryRange
 
@@ -52,7 +52,7 @@ class HistoryRangeDialog(QDialog):
         super().__init__(parent)
         self.setObjectName("dlgLoadRange")
         self.setWindowTitle("Load Range")
-        what = QLabel(f"The stored {symbol} candles that open in this span (UTC):")
+        what = plain_label(f"The stored {symbol} candles that open in this span (UTC):")
         what.setWordWrap(True)
         self.start = _utc_edit(proposed.start)
         self.start.setObjectName("dteRangeFrom")

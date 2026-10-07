@@ -43,13 +43,13 @@ from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QLabel,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.font_extent import font_extent
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
     APP_VALUE_FORMATTER,
 )
@@ -163,15 +163,15 @@ class TimeframePickerDialog(QDialog):
         self._tree.itemChanged.connect(self._on_item_changed)
 
         body = QVBoxLayout(self)
-        body.addWidget(QLabel(_PIN_HINT))
+        body.addWidget(plain_label(_PIN_HINT))
         body.addWidget(self._tree, 1)
 
-        self._warning = QLabel(_WARNING_TEXT)
+        self._warning = plain_label(_WARNING_TEXT)
         self._warning.setObjectName("lblTimeframeWarning")
         self._warning.setWordWrap(True)
         body.addWidget(self._warning)
 
-        self._current = QLabel()
+        self._current = plain_label()
         self._current.setObjectName("lblTimeframeCurrent")
         body.addWidget(self._current)
 

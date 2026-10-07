@@ -12,11 +12,12 @@ from pyqtgraph import (  # type: ignore[import-untyped]
     mkPen,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     TAKE_PROFIT_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 #: Series A ("current result") vs series B (the loaded file) — reusing the
 #: two colour constants `chart_card/theme.py` already exports, the one place
@@ -37,7 +38,7 @@ class ReportComparisonChartWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._empty_label = QLabel("Load a second report to compare equity curves")
+        self._empty_label = plain_label("Load a second report to compare equity curves")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._empty_label)
 

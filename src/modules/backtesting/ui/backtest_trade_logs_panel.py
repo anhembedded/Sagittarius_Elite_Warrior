@@ -23,12 +23,12 @@ from PySide6.QtWidgets import (
     QComboBox,
     QGraphicsOpacityEffect,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.readout_slot import ReadoutSlot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -90,9 +90,9 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
         self._details = ReadoutSlot()
         self._details.setObjectName("backtestTradeDetails")
 
-        show = QLabel("Sh&ow:")
+        show = plain_label("Sh&ow:")
         show.setBuddy(self.filter)
-        find = QLabel("Loo&k up:")
+        find = plain_label("Loo&k up:")
         find.setBuddy(self.search)
         query = QHBoxLayout()
         query.addWidget(show)

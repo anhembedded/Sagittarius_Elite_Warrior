@@ -19,7 +19,6 @@ from PySide6.QtGui import QDoubleValidator, QIntValidator
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QLabel,
     QLineEdit,
     QVBoxLayout,
     QWidget,
@@ -28,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
     ParamField,
     ParamKind,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from .param_stepper import ParamStepper
 
@@ -131,7 +131,7 @@ class BotParamFieldWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         label_text = field.label + (f" ({field.suffix})" if field.suffix else "")
-        label = QLabel(label_text)
+        label = plain_label(label_text)
         layout.addWidget(label)
 
         kind = field.kind

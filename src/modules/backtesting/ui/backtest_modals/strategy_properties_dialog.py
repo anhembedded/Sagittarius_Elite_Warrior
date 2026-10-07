@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFrame,
     QGroupBox,
-    QLabel,
     QPushButton,
     QScrollArea,
     QTabWidget,
@@ -30,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     BotParamFieldWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
 from .broker_properties_tab import BrokerPropertiesTab
@@ -212,7 +212,7 @@ class StrategyPropertiesDialog(QDialog):
         self._field_widgets = []
 
         if not groups:
-            self._inputs_layout.addWidget(QLabel(_NO_INPUTS_TEXT))
+            self._inputs_layout.addWidget(plain_label(_NO_INPUTS_TEXT))
             return
 
         for group in groups:

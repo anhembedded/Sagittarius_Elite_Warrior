@@ -17,6 +17,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
@@ -44,7 +47,9 @@ def market_price_answer(what: str) -> Iterator[None]:
     try:
         yield
     except _READ_FAILURES as exc:
-        raise MarketPriceUnavailableError(f"{what} could not be read: {exc!r}") from exc
+        raise MarketPriceUnavailableError(
+            f"{what} could not be read: {describe_failure(exc, repr)}"
+        ) from exc
 
 
 def parse_book_ticker(answer: dict[str, Any], symbol: str) -> BestBidAsk:

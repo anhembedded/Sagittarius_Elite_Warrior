@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import logging
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.metadata_reads import (
+    catalog_read_failures,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_parser import (
     parse_spot_exchange_info,
 )
@@ -45,8 +48,9 @@ class SpotMetadataProvider(IMarketMetadataProvider):
         return self._cache.get(symbol)
 
     def refresh(self) -> None:
-        client = self._session_factory.create_metadata_client()
-        payload = client.get_exchange_info()
+        with catalog_read_failures("Spot symbol rules"):
+            client = self._session_factory.create_metadata_client()
+            payload = client.get_exchange_info()
         entries = parse_spot_exchange_info(payload)
         for entry in entries:
             self._cache.put(entry)

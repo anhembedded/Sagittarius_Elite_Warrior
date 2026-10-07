@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.metadata_reads import (
+    catalog_read_failures,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -54,8 +57,9 @@ class FuturesMetadataProvider(IMarketMetadataProvider):
         return self._cache.get(symbol)
 
     def refresh(self) -> None:
-        client = self._session_factory.create_futures_metadata_client()
-        payload = client.futures_exchange_info()
+        with catalog_read_failures("Futures symbol rules"):
+            client = self._session_factory.create_futures_metadata_client()
+            payload = client.futures_exchange_info()
         entries = parse_futures_exchange_info(payload)
         for entry in entries:
             self._cache.put(entry)

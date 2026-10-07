@@ -14,6 +14,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QLabel, QStackedWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 
 
 def frame_like_a_view[TLabel: QLabel](label: TLabel) -> TLabel:
@@ -27,7 +28,7 @@ def frame_like_a_view[TLabel: QLabel](label: TLabel) -> TLabel:
 
 def empty_page(text: str, object_name: str) -> QLabel:
     """A centred, wrapping instruction that fills its panel like a view."""
-    label = QLabel(text)
+    label = plain_label(text)
     label.setObjectName(object_name)
     label.setWordWrap(True)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)

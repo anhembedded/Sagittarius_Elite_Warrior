@@ -13,6 +13,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    describe_failure,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
@@ -68,5 +71,5 @@ class FuturesCommissionRateReader(ICommissionRateReader):
             )
         except _READ_FAILURES as exc:
             raise CommissionRateUnavailableError(
-                f"{symbol} Futures commission rate could not be read: {exc!r}"
+                f"{symbol} Futures commission rate could not be read: {describe_failure(exc, repr)}"
             ) from exc
