@@ -1,6 +1,9 @@
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 
 
 class TradingVenue(str, Enum):
@@ -45,6 +48,19 @@ class TradingVenue(str, Enum):
         return None
 
     @property
+    def market_data_venue(self) -> MarketDataVenue:
+        """@brief The environment this venue's chart, stream and backtests read
+        (`BUG-172`): the market its orders fill in, so the price shown is the
+        price that fills. Both mainnet venues read the public mainnet.
+
+        @raise ValueError this venue places no orders (`DISABLED`) and has no market.
+        """
+        try:
+            return _MARKET_DATA_VENUES[self]
+        except KeyError:
+            raise ValueError(f"{self.value} trades no market to read") from None
+
+    @property
     def is_mainnet(self) -> bool:
         """@brief Whether an order here moves real money."""
         return self in (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET)
@@ -83,6 +99,13 @@ class TradingVenue(str, Enum):
 
 _FUTURES = (TradingVenue.FUTURES_TESTNET, TradingVenue.FUTURES_MAINNET)
 _SPOT = (TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET)
+
+_MARKET_DATA_VENUES = {
+    TradingVenue.FUTURES_TESTNET: MarketDataVenue.FUTURES_TESTNET,
+    TradingVenue.SPOT_TESTNET: MarketDataVenue.SPOT_TESTNET,
+    TradingVenue.FUTURES_MAINNET: MarketDataVenue.MAINNET_PUBLIC,
+    TradingVenue.SPOT_MAINNET: MarketDataVenue.MAINNET_PUBLIC,
+}
 
 _TITLES = {
     TradingVenue.DISABLED: "Trading off",

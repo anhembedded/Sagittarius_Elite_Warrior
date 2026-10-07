@@ -72,7 +72,12 @@ def test_the_chart_and_every_panel_follow_the_selection(open_bots_screen) -> Non
 
     assert _shown_chart(screen) not in (None, alpha_chart)
     assert view.plan.title.text() == "beta grid"
-    assert view.log.toPlainText() == "Bot b00002 was judged"
+    # The bot's own line, then what its chart says: the store behind this fake
+    # holds no hourly candles and the exchange none either, which the chart now
+    # reports in words instead of staying empty in silence (`BUG-172`).
+    log = view.log.toPlainText().splitlines()
+    assert log[0] == "Bot b00002 was judged"
+    assert any("no 1h candles of BTCUSDT" in line for line in log[1:])
     assert view.orders.orders.rows == _orders_of(model.selected)
     assert view.fills.note.text() == _FILLS_UNREAD
 

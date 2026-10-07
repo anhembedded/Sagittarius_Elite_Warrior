@@ -17,18 +17,20 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_fligh
     InFlightSyncGuard,
 )
 
+SCOPE = "mainnet_public/spot"
+
 
 def test_try_acquire_reserves_a_free_key():
     guard = InFlightSyncGuard()
 
-    assert guard.try_acquire("BTCUSDT", "1m") is True
+    assert guard.try_acquire(SCOPE, "BTCUSDT", "1m") is True
 
 
 def test_try_acquire_rejects_the_same_key_while_held():
     guard = InFlightSyncGuard()
-    guard.try_acquire("BTCUSDT", "1m")
+    guard.try_acquire(SCOPE, "BTCUSDT", "1m")
 
-    assert guard.try_acquire("BTCUSDT", "1m") is False
+    assert guard.try_acquire(SCOPE, "BTCUSDT", "1m") is False
 
 
 def test_try_acquire_accepts_a_different_symbol_while_another_is_held():
@@ -36,33 +38,33 @@ def test_try_acquire_accepts_a_different_symbol_while_another_is_held():
     bulk sync relies on distinct (symbol, interval) targets running
     concurrently on a thread pool."""
     guard = InFlightSyncGuard()
-    guard.try_acquire("BTCUSDT", "1m")
+    guard.try_acquire(SCOPE, "BTCUSDT", "1m")
 
-    assert guard.try_acquire("ETHUSDT", "1m") is True
+    assert guard.try_acquire(SCOPE, "ETHUSDT", "1m") is True
 
 
 def test_try_acquire_accepts_a_different_interval_of_the_same_symbol_while_held():
     guard = InFlightSyncGuard()
-    guard.try_acquire("BTCUSDT", "1m")
+    guard.try_acquire(SCOPE, "BTCUSDT", "1m")
 
-    assert guard.try_acquire("BTCUSDT", "1h") is True
+    assert guard.try_acquire(SCOPE, "BTCUSDT", "1h") is True
 
 
 def test_release_frees_the_key_for_a_later_acquire():
     guard = InFlightSyncGuard()
-    guard.try_acquire("BTCUSDT", "1m")
+    guard.try_acquire(SCOPE, "BTCUSDT", "1m")
 
-    guard.release("BTCUSDT", "1m")
+    guard.release(SCOPE, "BTCUSDT", "1m")
 
-    assert guard.try_acquire("BTCUSDT", "1m") is True
+    assert guard.try_acquire(SCOPE, "BTCUSDT", "1m") is True
 
 
 def test_release_of_a_key_never_held_is_a_no_op():
     guard = InFlightSyncGuard()
 
-    guard.release("BTCUSDT", "1m")  # must not raise
+    guard.release(SCOPE, "BTCUSDT", "1m")  # must not raise
 
-    assert guard.try_acquire("BTCUSDT", "1m") is True
+    assert guard.try_acquire(SCOPE, "BTCUSDT", "1m") is True
 
 
 def test_many_real_concurrent_acquires_for_the_same_key_only_one_ever_wins():
@@ -77,7 +79,7 @@ def test_many_real_concurrent_acquires_for_the_same_key_only_one_ever_wins():
     def attempt() -> None:
         nonlocal accepted
         ready.wait(timeout=5)
-        if guard.try_acquire("BTCUSDT", "1m"):
+        if guard.try_acquire(SCOPE, "BTCUSDT", "1m"):
             with lock:
                 accepted += 1
 
@@ -98,7 +100,7 @@ def test_concurrent_acquires_for_distinct_keys_all_win():
 
     def attempt(symbol: str) -> None:
         ready.wait(timeout=5)
-        result = guard.try_acquire(symbol, "1m")
+        result = guard.try_acquire(SCOPE, symbol, "1m")
         with lock:
             results.append(result)
 
@@ -108,3 +110,14 @@ def test_concurrent_acquires_for_distinct_keys_all_win():
             future.result(timeout=5)
 
     assert results == [True] * 8
+
+
+def test_the_same_symbol_on_another_venue_or_market_is_another_key():
+    """`BUG-172` — a Spot Testnet and a Spot Mainnet desk open on `BTCUSDT 1m`
+    together fetch two series from two exchanges into two stores."""
+    guard = InFlightSyncGuard()
+    guard.try_acquire("mainnet_public/spot", "BTCUSDT", "1m")
+
+    assert guard.try_acquire("spot_testnet/spot", "BTCUSDT", "1m") is True
+    assert guard.try_acquire("mainnet_public/futures_usd_m", "BTCUSDT", "1m") is True
+    assert guard.try_acquire("mainnet_public/spot", "BTCUSDT", "1m") is False

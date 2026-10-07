@@ -92,6 +92,10 @@ class _FakeExchangeClient:
     def get_available_symbols(self) -> list[str]:
         return list(self.available_symbols)
 
+    def close(self) -> None:
+        """`BUG-172` gave the port a `close()` (default: nothing held)."""
+        return
+
     def get_symbol_metadata(self) -> list:
         """`BUG-127` added this to the port, and
         `test_the_fake_client_still_covers_every_method_the_port_declares`

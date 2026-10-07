@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_view import (
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -91,6 +94,7 @@ def market_mode(history: FakeHistoricalKlines) -> Iterator[MarketMode]:
             for market in MARKETS
         },
         history=history,
+        venue=MarketDataVenue.MAINNET_PUBLIC,
         thread_manager=InlineThreadManager(),
         scripts=IndicatorScriptRegistry(),
         script_params=lambda _key: None,

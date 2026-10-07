@@ -37,8 +37,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.critical_error_dialog import (
     CriticalErrorDialog,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
-    VenueAlignment,
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     PinnedTimeframes,
@@ -49,7 +49,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.environment
     EnvironmentBanner,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.environment_banner_content import (
-    venue_alignment_banner_content,
+    venue_banner_content,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form.strategy_params_dialog import (
     StrategyParamsDialog,
@@ -86,8 +86,8 @@ class _ParamsSink(QWidget):
         return raw_value
 
 
-def _banner(alignment: VenueAlignment) -> Callable[[], QWidget]:
-    return lambda: EnvironmentBanner(venue_alignment_banner_content(alignment))
+def _banner(*venues: TradingVenue) -> Callable[[], QWidget]:
+    return lambda: EnvironmentBanner(venue_banner_content(venues))
 
 
 def _critical_error(details_shown: bool) -> QWidget:
@@ -155,13 +155,12 @@ def _timeframe_picker() -> QWidget:
 _BANNER_WIDTH = 1024
 
 _PICTURED: dict[str, Callable[[], QWidget]] = {
-    "banner-aligned": _banner(VenueAlignment.ALIGNED),
-    "banner-market-mismatch": _banner(VenueAlignment.MARKET_MISMATCH),
-    "banner-mainnet-data-testnet-orders": _banner(
-        VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
-    ),
-    "banner-testnet-data-mainnet-orders": _banner(
-        VenueAlignment.DATA_TESTNET_ORDERS_MAINNET
+    "banner-testnets": _banner(TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET),
+    "banner-testnets-and-mainnets": _banner(
+        TradingVenue.FUTURES_TESTNET,
+        TradingVenue.SPOT_TESTNET,
+        TradingVenue.FUTURES_MAINNET,
+        TradingVenue.SPOT_MAINNET,
     ),
     "critical-error": lambda: _critical_error(details_shown=False),
     "critical-error-details": lambda: _critical_error(details_shown=True),

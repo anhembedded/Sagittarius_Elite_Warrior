@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -44,14 +47,20 @@ class VenueStrategySessions:
                 self._sessions[venue] = session
             return session
 
-    def built_for(self, market: MarketType) -> tuple[LiveStrategySession, ...]:
-        """The sessions built so far whose venue trades `market` (`EPIC-028C`):
-        the ones a candle from that market's stream may feed. A venue never
-        asked for has never had a strategy armed, so it has nothing to
+    def built_for(
+        self, market: MarketType, source: MarketDataVenue
+    ) -> tuple[LiveStrategySession, ...]:
+        """The sessions built so far whose venue trades `market` and reads
+        `source` (`EPIC-028C`, `BUG-172`): the ones a candle from that stream
+        may feed. A testnet candle never drives a mainnet venue's strategy — the
+        order would go to real money on a price that market never had. A venue
+        never asked for has never had a strategy armed, so it has nothing to
         receive a tick."""
         with self._lock:
             return tuple(
                 session
                 for venue, session in self._sessions.items()
-                if venue.market_type is market
+                if venue.supports_order_submission
+                and venue.market_type is market
+                and venue.market_data_venue is source
             )

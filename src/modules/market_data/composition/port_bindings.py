@@ -28,20 +28,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.symbol_metadata_provider import (
     BinanceSymbolMetadataProvider,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
-    RangeCoverageService,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    StoredKlinesReader,
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.market_data_sources import (
+    MarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
     SymbolCatalogService,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.market_stream_service import (
-    MarketStreamService,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
-    MarketDataSyncService,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -49,11 +40,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
-    IMarketDataRepository,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+    MarketDataPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_venues import (
+    IMarketDataVenues,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
@@ -77,7 +72,15 @@ from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def bind_published_ports(container: IContainer) -> None:
-    """Register the ports other bounded contexts are allowed to resolve."""
+    """Register the ports other bounded contexts are allowed to resolve.
+
+    `BUG-172`: `IMarketDataSources` is the port of a screen that acts on a
+    venue — it asks for that venue's four ports. The four bound below are the
+    default venue's (`exchange.market_data_venue`), for the screens that act on
+    none (Data mode, a plain historical backtest, the CLI): the same objects as
+    `ports_for(default)`, so a stream owner and its sync agree wherever each was
+    resolved from."""
+    container.singleton(IMarketDataSources, _build_market_data_sources)
     container.singleton(IMarketDataSync, _build_market_data_sync)
     container.singleton(IHistoricalKlines, _build_historical_klines)
     container.singleton(IMarketStream, _build_market_stream)
@@ -86,44 +89,43 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(ISymbolMetadataProvider, _build_symbol_metadata_provider)
 
 
-def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
+def _build_market_data_sources(container: IContainer) -> IMarketDataSources:
     """A named factory rather than a lambda, matching `adapter_bindings.py`:
     the `resolve()` must happen when something first asks for the port, never
     during `register()` — `shell/registering_container.py` raises if a module
     resolves while registering, and `ICommandDispatcher` is itself bound by
     another part of the boot."""
-    return MarketDataSyncService(container.resolve(ICommandDispatcher))
+    return MarketDataSources(
+        container.resolve(ICommandDispatcher), container.resolve(IMarketDataVenues)
+    )
+
+
+def _default_ports(container: IContainer) -> MarketDataPorts:
+    sources = container.resolve(IMarketDataSources)
+    return sources.ports_for(sources.default_venue)
+
+
+def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
+    """The default venue's sync (`BUG-172`): a sync dispatches the module's own
+    command, so the in-flight guard and the progress events stay on one path."""
+    return _default_ports(container).sync
 
 
 def _build_historical_klines(container: IContainer) -> IHistoricalKlines:
-    """The reader itself, per HLD §3.4: "a port implementation may be the
-    existing handler" — no pass-through object and no extra file, which is
-    the accidental complexity ADR D2 exists to avoid.
-
-    **This is now the only registration of that class.** When PR 1.1a
-    published the port, `query_bindings.py` still bound the same class
-    against `GetHistoricalKlinesQuery` for the module's own dispatches — and
-    once all six consumers had moved onto the port, nothing in `src/`
-    dispatched that query at all. The cleanup after 1.1a's review deleted the
-    query, the binding and the `execute()` they reached, so the lifetime
-    question those two registrations raised is gone with them: one class, one
-    `singleton`, stateless but for the repository it reads.
-    """
-    return StoredKlinesReader(container.resolve(IMarketDataRepository))
+    """The default venue's reader, per HLD §3.4: "a port implementation may be
+    the existing handler" — no pass-through object and no extra file, which is
+    the accidental complexity ADR D2 exists to avoid. One class, one reader per
+    venue (`MarketDataSources`), stateless but for the store it reads."""
+    return _default_ports(container).history
 
 
 def _build_market_stream(container: IContainer) -> IMarketStream:
-    """Dispatches the module's two stream commands, for the reason
-    `market_stream_service.py` records: the module's own CLI dispatches them
-    too, and a port that reached past them to `ILiveStreamService` would give
-    the CLI and the screens two paths to one websocket.
-
-    A named factory rather than a lambda, and late-resolving, for the same
-    reason as `_build_market_data_sync` above: `ICommandDispatcher` is bound
-    by another part of the boot, and resolving during `register()` is what
-    `shell/registering_container.py` refuses.
-    """
-    return MarketStreamService(container.resolve(ICommandDispatcher))
+    """The default venue's stream, which dispatches the module's two stream
+    commands for the reason `market_stream_service.py` records: the module's
+    own CLI dispatches them too, and a port that reached past them to
+    `ILiveStreamService` would give the CLI and the screens two paths to one
+    websocket."""
+    return _default_ports(container).stream
 
 
 def _build_symbol_catalog(container: IContainer) -> ISymbolCatalog:
@@ -144,11 +146,9 @@ def _build_symbol_catalog(container: IContainer) -> ISymbolCatalog:
 
 
 def _build_range_coverage(container: IContainer) -> IRangeCoverage:
-    """The service itself, reading the same repository `IHistoricalKlines`
-    reads — no command in the middle, so nothing to dispatch (the same shape
-    as `_build_symbol_catalog` above, and unlike the sync and the stream).
-    """
-    return RangeCoverageService(container.resolve(IMarketDataRepository))
+    """The default venue's coverage check, reading the same store
+    `IHistoricalKlines` reads."""
+    return _default_ports(container).coverage
 
 
 def _build_symbol_metadata_provider(container: IContainer) -> ISymbolMetadataProvider:

@@ -32,6 +32,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_h
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     CONFIG,
     TERMS,
@@ -73,8 +79,21 @@ def _second(
     return _kline(at, TimeFrame.ONE_SECOND, ohlc)
 
 
+VENUE = TradingVenue.SPOT_TESTNET
+
+
+def _sources(repository: FakeMarketDataRepository) -> FakeMarketDataSources:
+    return FakeMarketDataSources().serving(
+        FakeMarketDataSources.ports(
+            VENUE.market_data_venue,
+            history=StoredKlinesReader(repository),
+            repository=repository,
+        )
+    )
+
+
 def _handler(repository: FakeMarketDataRepository) -> RunGridBacktestQueryHandler:
-    return RunGridBacktestQueryHandler(StoredKlinesReader(repository), repository)
+    return RunGridBacktestQueryHandler(_sources(repository))
 
 
 def _query(**changes: object) -> RunGridBacktestQuery:
@@ -85,6 +104,7 @@ def _query(**changes: object) -> RunGridBacktestQuery:
         "interval": TimeFrame.ONE_MINUTE,
         "start": T0,
         "end": T0 + timedelta(hours=1),
+        "venue": VENUE,
         **changes,
     }
     return RunGridBacktestQuery(**fields)  # type: ignore[arg-type]
@@ -188,3 +208,26 @@ def test_the_stream_drops_what_came_before_and_keeps_what_comes_after() -> None:
     assert [k.open for k in minute_one] == [2, 3]
     assert [k.open for k in minute_two] == [4]
     assert stream.within(T0 + timedelta(minutes=3), T0 + timedelta(minutes=4)) == ()
+
+
+def test_the_replay_reads_the_store_of_the_bots_own_venue() -> None:
+    """`BUG-172` — candles stored from another venue's market are not the bot's:
+    a Spot Mainnet bot replays Spot Mainnet's series and a Spot Testnet bot the
+    testnet's, even for the same symbol, interval and period."""
+    testnet, mainnet = _stored(), FakeMarketDataRepository()
+    sources = _sources(testnet).serving(
+        FakeMarketDataSources.ports(
+            TradingVenue.SPOT_MAINNET.market_data_venue,
+            history=StoredKlinesReader(mainnet),
+            repository=mainnet,
+        )
+    )
+
+    on_testnet = RunGridBacktestQueryHandler(sources).execute(_query())
+    on_mainnet = RunGridBacktestQueryHandler(sources).execute(
+        _query(venue=TradingVenue.SPOT_MAINNET)
+    )
+
+    assert isinstance(on_testnet, GridBacktestResult)
+    assert isinstance(on_mainnet, GridBacktestRefusal)
+    assert on_mainnet.missing_candles

@@ -14,11 +14,38 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
+    FakeMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
@@ -39,9 +66,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
     FakeVenueContexts,
     fake_venue_context,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from sagittarius_engine.interfaces.i_container import IContainer
 
 SYMBOL = "BTCUSDT"
 VENUE = TradingVenue.SPOT_TESTNET
@@ -97,3 +128,27 @@ def daily_candles(days: int = 30) -> FakeHistoricalKlines:
         MarketType.SPOT,
     )
     return klines
+
+
+def register_market_data(container: IContainer, venue: MarketDataVenue) -> None:
+    """The market data of one venue's bots, each port its verified fake: the
+    default ports and the venue's own (`BUG-172`: a bot reads the market of the
+    venue it trades on, through `IMarketDataSources`)."""
+    history, sync = daily_candles(), FakeMarketDataSync()
+    repository, stream = FakeMarketDataRepository(), FakeMarketStream()
+    container.singleton(IHistoricalKlines, history)
+    container.singleton(IMarketDataSync, sync)
+    container.singleton(IMarketDataRepository, repository)
+    container.singleton(IMarketStream, stream)
+    container.singleton(
+        IMarketDataSources,
+        FakeMarketDataSources().serving(
+            FakeMarketDataSources.ports(
+                venue,
+                sync=sync,
+                history=history,
+                stream=stream,
+                repository=repository,
+            )
+        ),
+    )

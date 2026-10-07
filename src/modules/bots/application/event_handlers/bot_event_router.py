@@ -109,6 +109,7 @@ class BotEventRouter:
             if (
                 executor.symbol == candle.symbol
                 and executor.venue.market_type is event.market_type
+                and executor.venue.market_data_venue is event.market_data_venue
             ):
                 executor.on_tick(Decimal(str(candle.close_price)))
 

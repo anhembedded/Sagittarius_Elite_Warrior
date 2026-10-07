@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.ui.chart.bot_chart_fixtures import (
     ChartWorld,
@@ -79,7 +82,14 @@ def test_the_three_surfaces_draw_identical_items_for_one_overlay(qapp) -> None:
     backtest.draw_history([candle("BTCUSDT", minute) for minute in range(5)])
     live, live_card = build_chart()
     live.show_symbol("BTCUSDT")
-    live.follow(BotTickFeed(MemoryEventBus(), MarketType.SPOT, parent=live_card))
+    live.follow(
+        BotTickFeed(
+            MemoryEventBus(),
+            MarketType.SPOT,
+            MarketDataVenue.SPOT_TESTNET,
+            parent=live_card,
+        )
+    )
 
     drawn = [chart.show_overlay(overlay) for chart in (preview, backtest, live)]
 
@@ -130,8 +140,10 @@ def test_the_fills_are_marked_where_and_when_they_traded(qapp, monkeypatch) -> N
 
 
 def test_the_planner_preview_never_goes_on_the_network(qapp) -> None:
-    """`BUG-107`: showing a bot's chart reads stored history only."""
+    """`BUG-107`: showing a bot's chart reads stored history only (when
+    something is stored; an empty store is fetched, `BUG-172`)."""
     world = ChartWorld()
+    world.history.seed([candle("BTCUSDT", 0)])
 
     chart, _card = build_chart(world)
     chart.show_symbol("BTCUSDT")
@@ -150,7 +162,11 @@ def test_a_running_bot_streams_under_its_own_owner(qapp) -> None:
     chart, card = build_chart(world)
     chart.show_symbol("BTCUSDT")
 
-    chart.follow(BotTickFeed(MemoryEventBus(), MarketType.SPOT, parent=card))
+    chart.follow(
+        BotTickFeed(
+            MemoryEventBus(), MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card
+        )
+    )
 
     assert world.sync.was_asked_for("BTCUSDT", TimeFrame.ONE_MINUTE)
     held = world.stream.held_by("bot.a3f9c1")
@@ -167,7 +183,9 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
     bus = MemoryEventBus()
     chart, card = build_chart()
     chart.show_symbol("BTCUSDT")
-    chart.follow(BotTickFeed(bus, MarketType.SPOT, parent=card))
+    chart.follow(
+        BotTickFeed(bus, MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card)
+    )
     appended: list[float] = []
     monkeypatch.setattr(
         card, "append_closed_candle", lambda t, *_ohlc: appended.append(t)
@@ -175,23 +193,36 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
 
     bus.emit(
         MarketTickEvent(
-            market_data=candle("BTCUSDT", 9), market_type=MarketType.FUTURES_USD_M
+            market_data=candle("BTCUSDT", 9),
+            market_type=MarketType.FUTURES_USD_M,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
         )
     )
     bus.emit(
-        MarketTickEvent(market_data=candle("ETHUSDT", 9), market_type=MarketType.SPOT)
+        MarketTickEvent(
+            market_data=candle("ETHUSDT", 9),
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
     )
     bus.emit(
         MarketTickEvent(
             market_data=candle("BTCUSDT", 9, interval=TimeFrame.FIVE_MINUTES),
             market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
         )
     )
     qapp.processEvents()
     assert appended == []
 
     tick = candle("BTCUSDT", 9)
-    bus.emit(MarketTickEvent(market_data=tick, market_type=MarketType.SPOT))
+    bus.emit(
+        MarketTickEvent(
+            market_data=tick,
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
+    )
     qapp.processEvents()
     assert appended == [tick.close_time.timestamp()]
 
@@ -200,12 +231,20 @@ def test_a_candle_still_forming_updates_the_last_bar(qapp, monkeypatch) -> None:
     bus = MemoryEventBus()
     chart, card = build_chart()
     chart.show_symbol("BTCUSDT")
-    chart.follow(BotTickFeed(bus, MarketType.SPOT, parent=card))
+    chart.follow(
+        BotTickFeed(bus, MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card)
+    )
     updated: list[float] = []
     monkeypatch.setattr(card, "update_last_candle", lambda t, *_ohlc: updated.append(t))
 
     forming = replace(candle("BTCUSDT", 9, closed=False), is_closed=False)
-    bus.emit(MarketTickEvent(market_data=forming, market_type=MarketType.SPOT))
+    bus.emit(
+        MarketTickEvent(
+            market_data=forming,
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
+    )
     qapp.processEvents()
 
     assert updated == [forming.close_time.timestamp()]
@@ -215,9 +254,14 @@ def test_after_shutdown_a_shown_symbol_opens_no_stream(qapp) -> None:
     """The PR #321 review: a released chart is quiet again, so a symbol
     shown afterwards reads history only."""
     world = ChartWorld()
+    world.history.seed([candle("BTCUSDT", 0), candle("ETHUSDT", 0)])
     chart, card = build_chart(world)
     chart.show_symbol("BTCUSDT")
-    chart.follow(BotTickFeed(MemoryEventBus(), MarketType.SPOT, parent=card))
+    chart.follow(
+        BotTickFeed(
+            MemoryEventBus(), MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card
+        )
+    )
     chart.shutdown()
     syncs = len(world.sync.requests)
 
@@ -234,7 +278,9 @@ def test_after_shutdown_no_tick_reaches_the_chart(qapp, monkeypatch) -> None:
     bus = MemoryEventBus()
     chart, card = build_chart()
     chart.show_symbol("BTCUSDT")
-    chart.follow(BotTickFeed(bus, MarketType.SPOT, parent=card))
+    chart.follow(
+        BotTickFeed(bus, MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card)
+    )
     chart.shutdown()
     appended: list[float] = []
     monkeypatch.setattr(
@@ -242,7 +288,11 @@ def test_after_shutdown_no_tick_reaches_the_chart(qapp, monkeypatch) -> None:
     )
 
     bus.emit(
-        MarketTickEvent(market_data=candle("BTCUSDT", 9), market_type=MarketType.SPOT)
+        MarketTickEvent(
+            market_data=candle("BTCUSDT", 9),
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
     )
     qapp.processEvents()
 
@@ -256,7 +306,7 @@ def test_following_again_after_shutdown_draws_each_candle_once(
     again draws one bar per closed candle, never a duplicate."""
     bus = MemoryEventBus()
     chart, card = build_chart()
-    ticks = BotTickFeed(bus, MarketType.SPOT, parent=card)
+    ticks = BotTickFeed(bus, MarketType.SPOT, MarketDataVenue.SPOT_TESTNET, parent=card)
     chart.show_symbol("BTCUSDT")
     chart.follow(ticks)
     chart.shutdown()
@@ -267,7 +317,13 @@ def test_following_again_after_shutdown_draws_each_candle_once(
     )
 
     tick = candle("BTCUSDT", 9)
-    bus.emit(MarketTickEvent(market_data=tick, market_type=MarketType.SPOT))
+    bus.emit(
+        MarketTickEvent(
+            market_data=tick,
+            market_type=MarketType.SPOT,
+            market_data_venue=MarketDataVenue.SPOT_TESTNET,
+        )
+    )
     qapp.processEvents()
 
     assert chart.is_live is True

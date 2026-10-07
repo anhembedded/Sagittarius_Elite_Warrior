@@ -15,6 +15,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_mar
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_venues import (
+    FakeMarketDataVenues,
+)
+
+#: The venue and market a sync of these tests writes to, as the guard keys it.
+_SCOPE = "mainnet_public/spot"
 
 
 @pytest.fixture
@@ -38,10 +44,13 @@ def in_flight_guard():
 
 
 @pytest.fixture
-def handler(mock_exchange_client, mock_repo, mock_event_bus, in_flight_guard):
-    return SyncMarketDataCommandHandler(
-        mock_exchange_client, mock_repo, mock_event_bus, in_flight_guard
-    )
+def venues(mock_exchange_client, mock_repo):
+    return FakeMarketDataVenues(mock_exchange_client, mock_repo, Mock())
+
+
+@pytest.fixture
+def handler(venues, mock_event_bus, in_flight_guard):
+    return SyncMarketDataCommandHandler(venues, mock_event_bus, in_flight_guard)
 
 
 def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
@@ -175,7 +184,7 @@ def test_sync_skips_a_symbol_already_in_flight_elsewhere(
     target) — a symbol+interval already reserved elsewhere (simulated here
     by acquiring it directly, standing in for a concurrent dispatch from
     the other screen) must not be fetched from the exchange a second time."""
-    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
+    assert in_flight_guard.try_acquire(_SCOPE, "BTCUSDT", TimeFrame.ONE_MINUTE.value)
 
     command = SyncMarketDataCommand(
         market=MarketType.SPOT, symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
@@ -201,7 +210,7 @@ def test_sync_releases_the_in_flight_key_so_a_later_call_can_acquire_it_again(
     )
     handler.execute(command)
 
-    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
+    assert in_flight_guard.try_acquire(_SCOPE, "BTCUSDT", TimeFrame.ONE_MINUTE.value)
 
 
 def test_sync_releases_the_in_flight_key_even_when_the_exchange_raises(
@@ -216,7 +225,7 @@ def test_sync_releases_the_in_flight_key_even_when_the_exchange_raises(
     with pytest.raises(Exception, match="API Error"):
         handler.execute(command)
 
-    assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
+    assert in_flight_guard.try_acquire(_SCOPE, "BTCUSDT", TimeFrame.ONE_MINUTE.value)
 
 
 def test_sync_multiple_symbols(handler, mock_exchange_client, mock_repo):

@@ -2,7 +2,8 @@
 
 Reads what is stored and never fetches (`BUG-107`): the candles through
 `IHistoricalKlines`, the 1-second klines through the repository's stream (the
-source the historical-tick backtest reads), then replays them with
+source the historical-tick backtest reads), both of the bot's own venue's store
+(`BUG-172`), then replays them with
 `simulate_grid`. A period with no stored candles is refused with
 `missing_candles`, so the screen can offer a sync; a period too long for the
 interval is refused before anything is loaded.
@@ -36,11 +37,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_simulator impor
     GridBacktestInputs,
     simulate_grid,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
-    IMarketDataRepository,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
 )
 
 #: The most candles one replay draws: a month of 3-minute candles, a week of
@@ -52,11 +50,8 @@ MAX_CANDLES = 20_000
 class RunGridBacktestQueryHandler(
     IQueryHandler[RunGridBacktestQuery, GridBacktestAnswer]
 ):
-    def __init__(
-        self, klines: IHistoricalKlines, repository: IMarketDataRepository
-    ) -> None:
-        self._klines = klines
-        self._repository = repository
+    def __init__(self, sources: IMarketDataSources) -> None:
+        self._sources = sources
 
     def execute(self, query: RunGridBacktestQuery) -> GridBacktestAnswer:
         unset = unset_parameters(query.config)
@@ -68,7 +63,10 @@ class RunGridBacktestQueryHandler(
             params = GridParams.from_config(query.config)
         except GridParamsError as exc:
             return GridBacktestRefusal(f"The parameters cannot be read: {exc}")
-        count = self._repository.count_klines(
+        # `BUG-172`: the candles stored from the market the bot's orders fill in.
+        market_data = self._sources.ports_for(query.venue.market_data_venue)
+        repository = market_data.repository
+        count = repository.count_klines(
             MarketType.SPOT, query.symbol, query.interval, query.start, query.end
         )
         if count == 0:
@@ -84,7 +82,7 @@ class RunGridBacktestQueryHandler(
             )
         bars = tuple(
             price_bar(candle)
-            for candle in self._klines.load(
+            for candle in market_data.history.load(
                 MarketType.SPOT,
                 query.symbol,
                 query.interval,
@@ -95,7 +93,7 @@ class RunGridBacktestQueryHandler(
         )
         length = timedelta(seconds=query.interval.to_seconds())
         fine = StreamedFineKlines(
-            self._repository.stream_klines(
+            repository.stream_klines(
                 MarketType.SPOT,
                 query.symbol,
                 TimeFrame.ONE_SECOND,

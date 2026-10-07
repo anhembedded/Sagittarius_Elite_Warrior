@@ -6,7 +6,8 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/ping            Client() construction ping (`BUG-045`)
     GET    /fapi/v1/time            `FuturesAccountReader.check_connection()`
     GET    /fapi/v1/exchangeInfo    `FuturesMetadataProvider` (`EPIC-021C`)
-    GET    /fapi/v1/klines          futures kline fetch (`EPIC-021A`)
+    GET    /fapi/v1/klines          futures kline fetch (`EPIC-021A`); `interval=1s`
+                                    is Binance's -1120, Futures has no 1s klines
     GET    /fapi/v2/account         `futures_account()` — version 2
     GET    /fapi/v1/positionSide/dual  hedge-mode check (`EPIC-021D`)
     POST   /fapi/v1/order/test      `futures_create_test_order()` (`EPIC-021F`)
@@ -167,6 +168,10 @@ def handle(
 def _handle_get(
     path: str, params: dict[str, str], state: OrderBookState
 ) -> tuple[int, object] | None:
+    if path == "/fapi/v1/klines" and params.get("interval") == "1s":
+        # Binance's own answer: USDⓈ-M Futures, testnet and mainnet alike, has no
+        # 1-second klines (`BUG-172`).
+        return 400, {"code": -1120, "msg": "Invalid interval."}
     if path in GET_ROUTES:
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":

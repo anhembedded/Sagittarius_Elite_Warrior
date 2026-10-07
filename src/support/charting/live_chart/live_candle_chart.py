@@ -22,10 +22,6 @@ from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
-from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
-    FailureKind,
-    FailureNotice,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_timeframes import (
     timeframe_or_fallback,
@@ -34,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
     map_volume,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.chart_failure_notice import (
+    ChartFailureChannel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
@@ -77,6 +76,8 @@ class LiveCandleChart(QObject):
     _stream_opened = Signal(object, str)
     #: `(token, headline, detail)` of a failed sync or stream (`BOT-169`).
     _stream_lost = Signal(object, str, str)
+    #: `(token, headline, detail)`: the history could not be loaded, at rest.
+    _load_lost = Signal(object, str, str)
 
     def __init__(
         self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
@@ -86,8 +87,7 @@ class LiveCandleChart(QObject):
         self._symbol = ""
         self._interval = self._opening_interval(chart, ports)
         self._live = False
-        self._notifier, self._scope = ports.notifier, ports.scope
-        self._failure_cause = f"charting.live_stream.{ports.stream_owner}"
+        self._failures = ChartFailureChannel.of(ports, self.logged.emit)
         self._clock: Callable[[], float] = ports.clock
         self._state = LiveChartState.HISTORY
         self._syncing_stream_action = False
@@ -104,6 +104,7 @@ class LiveCandleChart(QObject):
                 load_finished=self._load_settled.emit,
                 stream_started=self._stream_opened.emit,
                 stream_failed=self._stream_lost.emit,
+                load_failed=self._load_lost.emit,
                 log=self.logged.emit,
             ),
             ports.stream_owner,
@@ -112,6 +113,7 @@ class LiveCandleChart(QObject):
         self._load_settled.connect(self._on_load_settled)
         self._stream_opened.connect(self._on_stream_opened)
         self._stream_lost.connect(self._on_stream_lost)
+        self._load_lost.connect(self._on_load_lost)
         self.live_stream_action = self._stream_action()
         self._chip = LiveStateChip(self.last_update_age)
         self._chip.commandRequested.connect(self.run_command)
@@ -226,7 +228,7 @@ class LiveCandleChart(QObject):
         """Cancels the load in flight; the stream is left as it is. A failure
         bar of this chart goes with it: its Retry would target a closed chart."""
         self._token.cancel()
-        self._notifier.clear_failure(self._failure_cause)
+        self._failures.clear()
 
     def release_stream(self) -> None:
         """Releases this chart's own stream (`BOT-126`), if it holds one."""
@@ -292,7 +294,9 @@ class LiveCandleChart(QObject):
 
     def _restart(self) -> None:
         # The load this cancels reports nothing any more (`BUG-150`), so it
-        # settles here, on the Qt thread: once per request still holds.
+        # settles here, on the Qt thread: once per request still holds. A new
+        # request supersedes the notice of the last one (`BUG-172`).
+        self._failures.clear()
         if self._pending:
             self._pending = False
             self._on_first_window_settled()
@@ -330,7 +334,7 @@ class LiveCandleChart(QObject):
         )
         self._error = reason if target is LiveChartState.ERROR else ""
         if target is not LiveChartState.ERROR:
-            self._notifier.clear_failure(self._failure_cause)
+            self._failures.clear()
         self._state = target
         self._syncing_stream_action = True
         self.live_stream_action.setChecked(self._streaming)
@@ -344,26 +348,23 @@ class LiveCandleChart(QObject):
         # nothing about the one now asked for.
         if token is self._token and self._dispatch(LiveChartEvent.STREAM_STARTED):
             self.logged.emit(text)
-            self._notifier.clear_failure(self._failure_cause)
+            self._failures.clear()
 
     def _on_stream_lost(self, token: object, headline: str, detail: str) -> None:
         if token is not self._token or not self._dispatch(
             LiveChartEvent.STREAM_FAILED, headline
         ):
             return
-        # The log line and the chip carry the sentence only; the exception is
-        # in the log file and behind the bar's Details… (`BOT-169`).
-        self.logged.emit(f"[ERROR] {headline}")
-        self._notifier.report_failure(
-            FailureNotice(
-                kind=FailureKind.BACKGROUND,
-                cause=self._failure_cause,
-                headline=headline,
-                scope=self._scope,
-                detail=detail,
-                retry=lambda: self.run_command(LiveChartCommand.RETRY),
-            )
+        self._failures.tell(
+            headline, detail, lambda: self.run_command(LiveChartCommand.RETRY)
         )
+
+    def _on_load_lost(self, token: object, headline: str, detail: str) -> None:
+        """`BUG-172`: the history of a chart at rest could not be fetched or does
+        not exist. Said in words with a Retry that loads it again; the live state is
+        untouched, so the Retry opens no stream."""
+        if token is self._token:
+            self._failures.tell(headline, detail, self._restart)
 
     def _on_load_settled(self, token: object) -> None:
         # A settle already on its way when its request was replaced belongs

@@ -33,6 +33,11 @@ Feed with the market it charts and hears only that market's ticks, so no
 screen draws another market's candle as its own. The market is asked per
 tick, not fixed at construction: the Dev Board's chart changes market with
 its combo box while the Feed lives on.
+
+**One venue per Feed (`BUG-172`).** Every venue streams its own market, so
+Spot Testnet's `BTCUSDT@1m` and Spot Mainnet's are two series on the one bus. A
+screen builds its Feed with the `MarketDataVenue` it acts on and hears no other
+venue's ticks: a testnet price never reaches a mainnet chart.
 """
 
 from __future__ import annotations
@@ -44,6 +49,9 @@ from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
@@ -59,15 +67,20 @@ class MarketTickFeed(BaseFeed):
         self,
         event_bus: IEventBus,
         market: Callable[[], MarketType],
+        venue: MarketDataVenue,
         parent: QObject | None = None,
     ) -> None:
         # Set before `super().__init__`: `BaseFeed.__init__` subscribes.
         self._market = market
+        self._venue = venue
         super().__init__(event_bus, parent)
 
     def _subscribe(self) -> None:
         self._events.on(MarketTickEvent, self._on_market_tick)
 
     def _on_market_tick(self, event: Any) -> None:
-        if event.market_type is self._market():
+        if (
+            event.market_type is self._market()
+            and event.market_data_venue is self._venue
+        ):
             self.marketTick.emit(event)

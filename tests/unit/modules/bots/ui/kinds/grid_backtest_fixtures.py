@@ -50,11 +50,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_can
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     CONFIG,
@@ -68,9 +74,12 @@ T0 = datetime(2026, 9, 1, tzinfo=UTC)
 CANDLES = 96
 PERIOD = (T0, T0 + timedelta(minutes=15 * CANDLES))
 
+#: The bots of these tests trade on Spot Testnet; `BUG-172` reads its market.
+VENUE = TradingVenue.SPOT_TESTNET
+
 
 def context(bot_id: str = "a3f9c1", *, terms: bool = True) -> BacktestContext:
-    return BacktestContext(bot_id, SYMBOL, CONFIG, TERMS if terms else None)
+    return BacktestContext(bot_id, VENUE, SYMBOL, CONFIG, TERMS if terms else None)
 
 
 def swinging_candles() -> list[MarketData]:
@@ -136,7 +145,13 @@ class QueryDispatcher(ICommandDispatcher):
 
     def __init__(self, repository: FakeMarketDataRepository) -> None:
         self._handler = RunGridBacktestQueryHandler(
-            StoredKlinesReader(repository), repository
+            FakeMarketDataSources().serving(
+                FakeMarketDataSources.ports(
+                    VENUE.market_data_venue,
+                    history=StoredKlinesReader(repository),
+                    repository=repository,
+                )
+            )
         )
         self.queries: list[RunGridBacktestQuery] = []
         self.honours_cancel = True

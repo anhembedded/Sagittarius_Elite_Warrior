@@ -207,17 +207,23 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
 
     world.bus.emit(
         MarketTickEvent(
-            market_data=_candle("BTCUSDT", "5m"), market_type=futures_market
+            market_data=_candle("BTCUSDT", "5m"),
+            market_type=futures_market,
+            market_data_venue=FUTURES.market_data_venue,
         )
     )
     world.bus.emit(
         MarketTickEvent(
-            market_data=_candle("ETHUSDT", "1m"), market_type=futures_market
+            market_data=_candle("ETHUSDT", "1m"),
+            market_type=futures_market,
+            market_data_venue=FUTURES.market_data_venue,
         )
     )
     world.bus.emit(
         MarketTickEvent(
-            market_data=_candle("BTCUSDT", "1m"), market_type=MarketType.SPOT
+            market_data=_candle("BTCUSDT", "1m"),
+            market_type=MarketType.SPOT,
+            market_data_venue=FUTURES.market_data_venue,
         )
     )
     qapp.processEvents()
@@ -225,7 +231,40 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
 
     world.bus.emit(
         MarketTickEvent(
-            market_data=_candle("BTCUSDT", "1m"), market_type=futures_market
+            market_data=_candle("BTCUSDT", "1m"),
+            market_type=futures_market,
+            market_data_venue=FUTURES.market_data_venue,
+        )
+    )
+    qapp.processEvents()
+    assert len(appended) == 1
+
+
+def test_a_candle_of_another_venues_stream_never_reaches_the_chart(
+    qtbot, qapp, monkeypatch
+) -> None:
+    """`BUG-172` — every venue streams its own market: Spot Mainnet's `BTCUSDT@1m`
+    and Spot Testnet's are two series on one bus, and a chart draws only its own
+    venue's, so a price from the other environment is never drawn as its own."""
+    world = DeskWorld()
+    desk = build_desk(qtbot, SPOT, world)
+    appended = _record(monkeypatch, desk.view.chart, "append_closed_candle")
+
+    world.bus.emit(
+        MarketTickEvent(
+            market_data=_candle("BTCUSDT", "1m"),
+            market_type=MarketType.SPOT,
+            market_data_venue=TradingVenue.SPOT_MAINNET.market_data_venue,
+        )
+    )
+    qapp.processEvents()
+    assert appended == []
+
+    world.bus.emit(
+        MarketTickEvent(
+            market_data=_candle("BTCUSDT", "1m"),
+            market_type=MarketType.SPOT,
+            market_data_venue=SPOT.market_data_venue,
         )
     )
     qapp.processEvents()

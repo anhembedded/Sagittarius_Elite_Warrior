@@ -273,7 +273,11 @@ class BinanceWebsocketService(ILiveStreamService):
                         market_data.is_closed,
                     )
                 self._event_bus.emit(
-                    MarketTickEvent(market_data=market_data, market_type=market)
+                    MarketTickEvent(
+                        market_data=market_data,
+                        market_type=market,
+                        market_data_venue=self._market_data_venue,
+                    )
                 )
             except (KeyError, ValueError, TypeError) as e:
                 logger.error(f"Error parsing kline message: {e} | Message: {res}")
