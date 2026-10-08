@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -42,7 +45,7 @@ _HOURS = 3 * 3600
 def _running_with_a_tick() -> GridWorld:
     world = grid_world()
     world.executor.start()
-    world.executor.facts.on_tick(_HEARD)
+    world.executor.facts.on_tick(PriceTick.at(_HEARD))
     assert world.state() is S.RUNNING
     return world
 
@@ -140,7 +143,7 @@ def test_a_proposal_is_repriced_from_the_book_even_when_a_tick_is_fresh() -> Non
     last tick, is what the ladder would sit against."""
     world = _halted_with_a_tick()
     world.executor.resume()
-    world.executor.facts.on_tick(_HEARD)
+    world.executor.facts.on_tick(PriceTick.at(_HEARD))
     quote_at(world, Decimal(140))
 
     world.executor.confirm_resume()

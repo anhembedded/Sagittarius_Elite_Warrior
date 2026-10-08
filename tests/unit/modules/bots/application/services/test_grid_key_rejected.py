@@ -16,6 +16,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_probe import (
     KEY_PROBE_EVERY_SECONDS,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -66,7 +69,7 @@ def _running() -> GridWorld:
     world = grid_world()
     world.executor.start()
     assert world.state() is S.RUNNING
-    world.executor.facts.on_tick(Decimal(121))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
     return world
 
 
@@ -76,7 +79,7 @@ def _beats(world: GridWorld, seconds: float, every: float = 30.0) -> None:
     while elapsed < seconds:
         world.monotonic.advance(every)
         elapsed += every
-        world.executor.facts.on_tick(Decimal(121))
+        world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
         world.executor.facts.on_price_age_check()
 
 

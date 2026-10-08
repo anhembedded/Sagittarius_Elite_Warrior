@@ -12,11 +12,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
     BotOrderFill,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
@@ -35,8 +37,9 @@ class IBotFacts(ABC):
         """One of the bot's orders ended without filling whole."""
 
     @abstractmethod
-    def on_tick(self, price: Decimal) -> None:
-        """The bot's symbol traded at `price` (stop loss and take profit, D11)."""
+    def on_tick(self, tick: PriceTick) -> None:
+        """The bot's symbol traded at `tick.last`, within `tick.low`..`tick.high`
+        (stop loss and take profit, D11; the range is `BUG-191`)."""
 
     @abstractmethod
     def on_price_age_check(self) -> None:

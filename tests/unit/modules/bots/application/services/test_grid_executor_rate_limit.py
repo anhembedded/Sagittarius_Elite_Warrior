@@ -22,6 +22,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_retry import (
     STOP_RETRY_DELAYS,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -287,7 +290,7 @@ def test_a_stop_whose_price_read_meets_a_pause_waits_instead_of_failing() -> Non
     """The tick is hours old, so the stop reads the book; the book is rate limited
     (review of PR #439: the pause lost its type on that read and ended in ERROR)."""
     world = _running()
-    world.executor.facts.on_tick(Decimal(121))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
     world.monotonic.advance(3 * 3600)
     world.terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=45))
 

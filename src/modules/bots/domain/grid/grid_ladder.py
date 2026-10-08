@@ -111,9 +111,20 @@ def crossed_exit(
     price: Decimal, stop_loss: Decimal | None, take_profit: Decimal | None
 ) -> GridReason | None:
     """`STOP_LOSS` or `TAKE_PROFIT` when `price` reached one, else `None`."""
-    if stop_loss is not None and price <= stop_loss:
+    return crossed_exit_in_range(price, price, stop_loss, take_profit)
+
+
+def crossed_exit_in_range(
+    low: Decimal,
+    high: Decimal,
+    stop_loss: Decimal | None,
+    take_profit: Decimal | None,
+) -> GridReason | None:
+    """`STOP_LOSS` when `low` reached the stop, else `TAKE_PROFIT` when `high`
+    reached the take profit (`BUG-191`): a range traded, not only a price."""
+    if stop_loss is not None and low <= stop_loss:
         return GridReason.STOP_LOSS
-    if take_profit is not None and price >= take_profit:
+    if take_profit is not None and high >= take_profit:
         return GridReason.TAKE_PROFIT
     return None
 

@@ -21,6 +21,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
 )
@@ -100,7 +103,7 @@ class WakeExitCheck:
         venue, symbol = market
         for executor in self._executors.on_venue(venue):
             if executor.symbol == symbol:
-                executor.facts.on_tick(price)
+                executor.facts.on_tick(PriceTick.at(price))
         logger.info(
             "Fresh price of %s %s is %s; stop loss and take profit checked "
             "[sleep-exit-check]",

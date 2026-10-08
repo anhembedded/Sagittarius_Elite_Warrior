@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -55,7 +58,7 @@ def test_a_stop_that_cannot_read_a_price_is_an_error_and_stop_runs_again() -> No
 
     assert world.state() is S.ERROR
     assert world.runtime().reason is GridReason.TASK_FAILED
-    world.executor.facts.on_tick(Decimal(121))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
     world.executor.stop(BaseHandling.KEEP)
     assert world.state() is S.STOPPED
 

@@ -18,6 +18,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_retry import (
     STOP_RETRY_DELAYS,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -169,7 +172,7 @@ def test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell() -> None:
     )
     world.book.cancel_refusals = [_REFUSED]
 
-    world.executor.facts.on_tick(Decimal(89))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(89)))
     assert world.state() is S.STOPPING
     assert world.runtime().reason is GridReason.STOP_LOSS
 

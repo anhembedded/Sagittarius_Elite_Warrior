@@ -12,6 +12,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -59,7 +62,7 @@ def _in(state: S) -> GridWorld:
 
 def test_no_tick_for_the_limit_halts_the_bot_with_a_named_reason() -> None:
     world = _running()
-    world.executor.facts.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_tick(PriceTick.at(_INSIDE_THE_BAND))
 
     world.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
     world.executor.facts.on_price_age_check()
@@ -74,7 +77,7 @@ def test_no_tick_for_the_limit_halts_the_bot_with_a_named_reason() -> None:
 
 def test_a_tick_inside_the_limit_leaves_the_bot_running() -> None:
     world = _running()
-    world.executor.facts.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_tick(PriceTick.at(_INSIDE_THE_BAND))
 
     world.monotonic.advance(PRICE_STALE_AFTER_SECONDS - 1)
     world.executor.facts.on_price_age_check()
@@ -86,7 +89,7 @@ def test_a_tick_inside_the_limit_leaves_the_bot_running() -> None:
 def test_every_tick_restarts_the_clock() -> None:
     world = _running()
     for _ in range(5):
-        world.executor.facts.on_tick(_INSIDE_THE_BAND)
+        world.executor.facts.on_tick(PriceTick.at(_INSIDE_THE_BAND))
         world.monotonic.advance(PRICE_STALE_AFTER_SECONDS - 1)
         world.executor.facts.on_price_age_check()
 
@@ -116,7 +119,7 @@ def test_a_tick_after_a_stale_halt_does_not_resume() -> None:
     world.executor.facts.on_price_age_check()
     assert world.state() is S.HALTED
 
-    world.executor.facts.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_tick(PriceTick.at(_INSIDE_THE_BAND))
     world.executor.facts.on_price_age_check()
 
     assert world.state() is S.HALTED

@@ -11,6 +11,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
@@ -36,7 +39,7 @@ _ABOVE_TAKE_PROFIT = Decimal(151)
 def test_a_stop_loss_is_watched_in_recovering_and_starting(state: S) -> None:
     world = recovering_world() if state is S.RECOVERING else grid_world(state=state)
 
-    world.executor.facts.on_tick(_BELOW_STOP_LOSS)
+    world.executor.facts.on_tick(PriceTick.at(_BELOW_STOP_LOSS))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.STOP_LOSS
@@ -47,7 +50,7 @@ def test_a_stop_loss_is_watched_in_recovering_and_starting(state: S) -> None:
 def test_a_take_profit_is_watched_in_recovering_and_starting(state: S) -> None:
     world = recovering_world() if state is S.RECOVERING else grid_world(state=state)
 
-    world.executor.facts.on_tick(_ABOVE_TAKE_PROFIT)
+    world.executor.facts.on_tick(PriceTick.at(_ABOVE_TAKE_PROFIT))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.TAKE_PROFIT
@@ -56,7 +59,7 @@ def test_a_take_profit_is_watched_in_recovering_and_starting(state: S) -> None:
 def test_a_price_inside_the_band_leaves_a_recovering_bot_alone() -> None:
     world = recovering_world()
 
-    world.executor.facts.on_tick(Decimal(121))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
 
     assert world.state() is S.RECOVERING
     assert len(world.book.open) == 4
@@ -74,7 +77,7 @@ def test_a_tick_beyond_the_stop_loss_does_not_turn_a_keep_base_stop_into_a_sell(
     assert world.state() is S.STOPPING
     assert world.runtime().sell_base_on_stop is False
 
-    world.executor.facts.on_tick(_BELOW_STOP_LOSS)
+    world.executor.facts.on_tick(PriceTick.at(_BELOW_STOP_LOSS))
 
     assert world.state() is S.STOPPING
     assert world.runtime().sell_base_on_stop is False
