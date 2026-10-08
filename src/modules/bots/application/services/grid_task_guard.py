@@ -14,6 +14,11 @@ Two guarantees, both PR 325 review findings:
     then, and the orders rest by design (D13). What could not be cancelled
     is named beside the reason, never replacing it.
 
+**Parking does not depend on the disk** (`EPIC-035G`): `BotRunState` keeps a
+failed write as `storage_failure` instead of raising it, so the fault handler
+and the park both run. The failure is named beside the reason, never in its
+place, and the next write that succeeds persists it with the true state.
+
 "Parked" is inferred from the fact that orders may rest, never from a state
 change alone (`EPIC-035C`, H4): a confirmed resume begins in HALTED, lays part
 of the ladder and is refused part-way, ending HALTED again, and its placed
@@ -52,6 +57,9 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
     {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
 )
 
+#: How a parked bot says its file is behind; also what keeps the note single.
+_STORAGE_NOTE = "its state could not be saved"
+
 
 class GridTaskGuard:
     """Runs one worker task, then parks the ladder if the task stopped placing."""
@@ -73,6 +81,8 @@ class GridTaskGuard:
         sent = self._context.gateway.submissions > sent_before
         if self._orders_may_rest(before, sent):
             self._park()
+        if self._unsaved_and_parked():
+            self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
 
     def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state
@@ -80,6 +90,15 @@ class GridTaskGuard:
             state.state in _PARKED
             and (before not in _PARKED or sent)
             and state.runtime.reason is not GridReason.SWITCH_OFF
+        )
+
+    def _unsaved_and_parked(self) -> bool:
+        """A parked bot whose file is behind, and which does not say so yet."""
+        state = self._context.state
+        return (
+            state.storage_failure is not None
+            and state.state in _PARKED
+            and _STORAGE_NOTE not in state.runtime.reason_detail
         )
 
     def _park(self) -> None:

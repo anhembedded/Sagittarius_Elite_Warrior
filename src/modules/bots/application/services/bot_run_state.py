@@ -6,6 +6,13 @@ bot or its ladder is saved at once ("persist after acting": the tag makes a
 write after a submit safe, because an order sent but never saved is still found
 by its tag at reconciliation).
 
+**A store that cannot write is a fact, not an exception** (`EPIC-035G`). The
+memory changes first, so a save that raised left memory ahead of the file and
+unwound whatever was acting, `GridTaskGuard`'s park included. `_save` now keeps
+the failure (`storage_failure`) and returns: the bot goes on acting on what it
+holds, and the next write that succeeds carries the whole true state, because
+every write is the whole record.
+
 Each transition logs one line, `Bot <id>: <from> -> <to> on <event>`, with the
 reason the runtime records when there is one (`logging-rule.md`).
 """
@@ -48,6 +55,7 @@ class BotRunState:
         self._runtime = runtime
         self._store = store
         self._clock = clock
+        self._storage_failure: str | None = None
 
     @property
     def bot(self) -> Bot:
@@ -64,6 +72,12 @@ class BotRunState:
     @property
     def bot_id(self) -> str:
         return self._bot.bot_id.value
+
+    @property
+    def storage_failure(self) -> str | None:
+        """Why the last write failed, or `None` when it succeeded: memory is
+        ahead of the file exactly while this is set."""
+        return self._storage_failure
 
     def now(self) -> datetime:
         return self._clock.now()
@@ -102,4 +116,19 @@ class BotRunState:
         )
 
     def _save(self) -> None:
-        self._store.save(StoredBot(self._bot, encode_runtime(self._runtime)))
+        try:
+            self._store.save(StoredBot(self._bot, encode_runtime(self._runtime)))
+        except OSError as error:
+            self._storage_failure = f"{type(error).__name__}: {error.strerror or error}"
+            logger.error(
+                "Bot %s: its state could not be saved, memory is ahead of the file "
+                "until a write succeeds (%s) [bot-store-failed]",
+                self.bot_id,
+                self._storage_failure,
+            )
+            return
+        if self._storage_failure is not None:
+            logger.warning(
+                "Bot %s: its state is saved again [bot-store-recovered]", self.bot_id
+            )
+            self._storage_failure = None

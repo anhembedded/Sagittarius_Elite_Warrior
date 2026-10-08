@@ -1,9 +1,10 @@
 """`EPIC-029B` — the verified in-memory `IBotStore` (HLD §10.3).
 
 Passes `BotStoreContract`, the same suite `JsonBotStore` passes, so a use case
-tested against it is tested against the real store's behaviour. It adds one
-thing the port does not declare, `refuse_file()`, so a consumer can prove it
-surfaces a refused file; `tests/unit/modules/bots/contracts/` verifies it.
+tested against it is tested against the real store's behaviour. It adds what
+the port does not declare: `refuse_file()`, so a consumer can prove it
+surfaces a refused file, and `fail_saves()`, so it can prove it survives a store
+that cannot write; `tests/unit/modules/bots/contracts/` verifies it.
 """
 
 from __future__ import annotations
@@ -25,8 +26,11 @@ class FakeBotStore(IBotStore):
     def __init__(self) -> None:
         self._bots: dict[str, StoredBot] = {}
         self._refused: dict[str, RefusedBotFile] = {}
+        self._save_failure: OSError | None = None
 
     def save(self, stored: StoredBot) -> None:
+        if self._save_failure is not None:
+            raise self._save_failure
         self._bots[stored.bot.bot_id.value] = stored
 
     def load(self, bot_id: BotId) -> StoredBot:
@@ -50,6 +54,13 @@ class FakeBotStore(IBotStore):
 
     def exists(self, bot_id: BotId) -> bool:
         return bot_id.value in self._bots or bot_id.value in self._refused
+
+    def fail_saves(self, error: OSError) -> None:
+        """Make every `save` raise `error` (a full disk, a permission) until `heal()`."""
+        self._save_failure = error
+
+    def heal(self) -> None:
+        self._save_failure = None
 
     def refuse_file(self, bot_id: BotId, reason: str) -> None:
         """Make `bot_id` a file the store holds but cannot read."""

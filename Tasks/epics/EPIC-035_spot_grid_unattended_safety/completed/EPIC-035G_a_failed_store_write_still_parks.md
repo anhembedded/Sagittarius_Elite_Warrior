@@ -1,0 +1,47 @@
+# EPIC-035G — A failed store write still parks the ladder
+
+**Status:** ✅ Done (2026-10-08)
+**Source:** the owner's Spot Grid audit, 2026-10-08, finding M2 (https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz); Phase 2 of [EPIC-035](../README.md).
+**Risk:** 🟡 — memory says ERROR while the disk disagrees and the ladder stays live
+**Complexity:** M
+**Epic:** [EPIC-035](../README.md)
+**SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task if a journey changes
+**Depends on:** EPIC-035C
+
+---
+
+## 1. Context and problem
+**Claim (audit M2), verified ✅ on `be67b47`, with one correction to the citation.** `BotRunState.transition` and `update` change memory first and then call `_save` (`bot_run_state.py`, the whole file is 120 lines: the cited `:200-220` does not exist; the mechanism is `transition`/`update` → `_save`). `GridTaskGuard.run` catches a task's exception and calls `fault_with` inside the `except` block; `fault_with` saves again, the second `OSError` leaves `run`, and the `_park` call below it never runs. Reproduced before the change: with the store failing, a counter-order fault ended with the traceback through `grid_task_guard.py` `run` and the ladder still resting.
+
+This task is specified briefly: it is Phase 2 — Infrastructure resilience. The full acceptance criteria are written, and each audit claim re-verified against the code, when the task is started (`execute-task`). A claim that does not hold is said so here and reported.
+
+## 2. Acceptance criteria
+- [x] A store write failure (disk full, permissions) never skips parking: `BotRunState._save` keeps an `OSError` as `storage_failure` instead of raising it, so the fault handler and the park both run. Evidence: `test_a_failed_save_does_not_skip_parking`, red before, green after.
+- [x] A distinct storage-failure fact is raised and shown; it does not masquerade as the original fault: a parked bot's reason keeps the fault that happened and its detail gains `its state could not be saved (OSError: …)` once; the ERROR log line carries `[bot-store-failed]`. Evidence: `test_a_storage_failure_is_named_beside_the_fault_not_instead_of_it`. Shown where: the bots screen's state line renders `reason_detail`, but it renders what the store holds, so the note reaches the screen with the next successful write; until then it is the log line.
+- [x] On the next successful write the true state is persisted: every write is the whole record. Evidence: `test_the_next_successful_write_persists_the_true_state` (the file said RUNNING while memory said ERROR; the next write made it ERROR).
+
+## 3. Design
+Same family as `EPIC-035C`'s H4: parking is a safety effect and must not depend on persistence succeeding.
+
+Chosen: convert at the one writer, not at each caller (`fix-bug-rule.md` §1). `BotRunState` is the only place a running bot saves, so catching `OSError` there covers the fault handler, the park's per-order updates and every later write. Only `OSError` is converted: a `TypeError` from encoding is a defect and still raises. The rejected alternative, parking *before* recording the fault, fixes the one call site and leaves `cancel_tagged`'s own `state.update` per cancelled order to raise half-way through the park.
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `src/modules/bots/application/services/bot_run_state.py` | as the criteria require |
+| `src/modules/bots/application/services/grid_task_guard.py` | as the criteria require |
+
+## 5. Testing
+Tier per `ci-rule.md` §2; every regression test is shown red before the change. Unit tier, in `tests/unit/modules/bots/application/services/test_grid_storage_failure.py`, against the real executor through the real factory and a store that fails on demand (`FakeBotStore.fail_saves`, verified in `test_bot_store_contract.py`):
+- `test_a_failed_save_does_not_skip_parking` — red before: `OSError` left `GridTaskGuard.run`, the book kept its orders.
+- `test_a_storage_failure_is_named_beside_the_fault_not_instead_of_it` — red before, same cause.
+- `test_the_next_successful_write_persists_the_true_state` — red before, same cause.
+
+Green after: the three, the whole `tests/unit/modules/bots` (1314 tests) and `tests/unit/architecture`; the commit tier PASS.
+
+## Implementation notes
+- `bot_run_state.py`: `_save` converts `OSError` to `storage_failure` (+ `[bot-store-failed]` ERROR, `[bot-store-recovered]` WARNING on the next success); `GridTaskGuard` appends the note once to a parked bot's detail.
+- A bot that is not parked (a RUNNING bot on a full disk) is not told anything beyond the log line: it keeps trading on memory, as it always did between a submit and its save. Whether a persistent storage failure should itself halt a running bot is a policy the audit does not ask for; not done.
+
+## Resume
+Done. Nothing owed.
