@@ -11,6 +11,9 @@ wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -166,6 +169,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         monotonic=container.resolve(IMonotonicClock),
         retries=container.resolve(IBotRetryScheduler),
         prices=container.resolve(IFreshPriceReader),
+        events=container.resolve(IEventPublisher),
     )
     return GridExecutorFactory(deps)
 

@@ -21,6 +21,9 @@ from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
@@ -263,6 +266,7 @@ def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[Boo
             retries=container.resolve(IBotRetryScheduler),
             monotonic=container.resolve(IMonotonicClock),
             prices=container.resolve(IFreshPriceReader),
+            events=container.resolve(IEventPublisher),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

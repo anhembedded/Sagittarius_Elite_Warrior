@@ -79,9 +79,12 @@ sound, I start it, and I watch what it does."*
 5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
    Start**: the capital against the balance the account can spend, the minimum notional, trading's
    per-order cap, the open-order limit, the price band, break-even after fees (every grid loses), the
-   key's permission to trade, and a stop loss or take profit on the wrong side of the range. One that
-   is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how far
-   an exit sits, some grids losing on each cycle. The field the number lives in carries the sentence
+   key's permission to trade, a stop loss or take profit on the wrong side of the range, **the price below
+   the range** (Start would market-buy the whole ladder's base: `PRICE_BELOW_RANGE`, `EPIC-035L`) and
+   levels that round to one price on the venue's tick (`LEVELS_ROUND_TO_ONE_PRICE`, `EPIC-035S`). One
+   that is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how
+   far an exit sits, some grids losing on each cycle, **the price above the range** (the bot starts
+   with nothing bought and waits for a fall: `PRICE_ABOVE_RANGE`). The field the number lives in carries the sentence
    under it, "Blocks Start: The capital is 10,000 USDT, above the 9,999.99 USDT available on Spot
    Testnet; lower it to at most 9,999.99", or "Advice: …"; a constraint about the key, which is no
    field, appears in the verdicts and in Start's reason. While any verdict is Refused, Start is
@@ -187,6 +190,10 @@ available while it runs.
 | The capital is more than the account can spend | "Blocks Start: The capital is … USDT, above the … USDT available on …; lower it to at most …" under Capital; Start disabled | The balance is read once by the Connect step, so the click is no longer the first time it is compared (D7) |
 | The key cannot trade | A Refused verdict "The API key for … cannot trade"; Start's reason says it; the chart stays open | The exchange's own `canTrade` flag; an unknown flag never blocks, its order check decides |
 | A stop loss at or above the lower limit, or a take profit at or below the upper | Refused, under the exit's field: put it below, or above, the range | An exit on the wrong side would fire inside the grid or close it while it earns (D7) |
+| The price is below the range's lower bound at Start | Refused under Lower and Upper price: "The price … is below the range's lower bound …. Starting now would buy about … of the base asset at market, …% of the capital. Lower the range to include the price, or wait for it to return"; Start disabled | Below the range every level is a SELL level, so the plan buys the whole ladder's base at market before laying an order (owner decision D4 (a), `EPIC-035L`) |
+| The price is above the range's upper bound at Start | "Advice: The price … is above the range's upper bound …. The bot starts with nothing bought and places BUY orders only"; Start stays enabled | Above the range every level is a BUY level: nothing is bought, no money is at risk (D4 (a)) |
+| Two or more levels round to one price on the venue's tick | Refused under Grids, Lower and Upper price, naming the colliding levels and their price: use fewer grids or a wider range; Start disabled | Two rungs at one price make a fill or an adopted order ambiguous (`EPIC-035S`, audit L3) |
+| A running bot's price leaves the range, or comes back | Nothing changes for the bot (no automatic exit, D2); one `BotRangeChangedEvent` (BELOW / ABOVE / INSIDE) is published per change, for the alert `EPIC-036B` builds | The fact exists now so the alert is a subscriber, not a new price path (`EPIC-035L`, audit H7) |
 | The ATR, the slippage room, the spacing or an exit's distance is outside advice | "Advice: …" under the field; Start stays enabled | Strategy judgement is the trader's (D7) |
 | Start's reconciliation refuses (it needs the exchange to answer, so it is not in the list before the click): the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
 | A confirmed resume is refused part-way (a cap, a rule, a lost connection) | The bot is Halted, its reason names what was refused, and none of the part already placed is left on the exchange; if a cancel failed the reason says which order may still rest | A bot that no longer manages its ladder must not leave it trading (`EPIC-035C`, H4) |
@@ -264,6 +271,7 @@ available while it runs.
 | From a new bot to a running bot through the three steps on the composed app; Save and start with edits; a capital above the account listed before the click | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | The lease's holder is readable without claiming | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | unit (contract suite, real and fake) |
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
+| Start with the price outside the range (below refused, above advised, the bounds themselves neither); levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |

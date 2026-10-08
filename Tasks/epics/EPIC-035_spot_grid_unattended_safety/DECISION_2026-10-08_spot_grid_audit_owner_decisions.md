@@ -43,8 +43,8 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [035A](completed/EPIC-035A_the_bot_owns_its_price_subscription.md), [035B](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | Partly: 035C delivered (PR #429); 035B delivered in PR #431; 035A delivered in PR #430 | 035C: see its implementation notes; the rest not yet verified |
-| D2 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
+| D2 | [035L](completed/EPIC-035L_range_exit_and_start_outside_the_range.md) | Held: no stop-loss warning and no default added | `test_no_stop_loss_warning_and_no_default_stop_loss` |
 | D3 | [035K](cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md), superseded by [`EPIC-036`](../EPIC-036_alerting_module/README.md) | Moved to `EPIC-036` (2026-10-08): Discord is `EPIC-036C` | Not yet verified |
-| D4 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
+| D4 | [035L](completed/EPIC-035L_range_exit_and_start_outside_the_range.md) | Delivered (PR pending); the alert waits for 036B | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` (red before, green after) |
 | D5 | [035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md), [035X](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | Recorded, deliberately not started (owner) | Not yet verified |
 | D6 | [035G](completed/EPIC-035G_a_failed_store_write_still_parks.md) (amended) | Delivered (PR pending) | `tests/unit/modules/bots/application/services/test_grid_storage_pause.py` (red before, green after) |
