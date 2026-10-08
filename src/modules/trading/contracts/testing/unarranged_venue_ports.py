@@ -130,6 +130,10 @@ class UnarrangedClientFactory(ITradingClientFactory):
 
 
 class UnarrangedUserDataStream(IUserDataStream):
+    @property
+    def is_running(self) -> bool:
+        _not_arranged("IUserDataStream")
+
     def start(self) -> bool:
         _not_arranged("IUserDataStream")
 
