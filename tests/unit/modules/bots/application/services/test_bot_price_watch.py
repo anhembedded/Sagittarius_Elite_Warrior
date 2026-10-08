@@ -200,6 +200,21 @@ def test_a_watch_that_was_closed_starts_nothing_more() -> None:
     assert parts.testnet.calls == calls
 
 
+def test_a_watch_that_was_closed_builds_no_executor() -> None:
+    """Shutdown closes the watch, then the executors: a worker finishing its
+    queue saves its bot, and that event must not build a new executor (and its
+    thread) behind `close_all`."""
+    parts = watched_running()
+    parts.watch.start()
+    parts.watch.close()
+    parts.executors.close_all()
+    assert parts.executors.get(BOT) is None
+
+    parts.watch.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    assert parts.executors.get(BOT) is None
+
+
 def test_the_streams_owner_is_not_the_charts() -> None:
     """The chart's owner is `bot.<id>`; sharing it would let one replace the
     other's subscription (`BOT-126`)."""

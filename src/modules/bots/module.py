@@ -39,6 +39,12 @@ own `BotChangedEvent`, and `shutdown()` releases every stream it opened.
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
 
+@par `boot()` then reads what a restart left (`EPIC-035C`, H6)
+`BotBootRecovery` has every RECOVERING bot report what the exchange holds
+(read-only) and every bot whose start the restart cut short cancel its tagged
+orders, each on the bot's own worker. The order session is closed at boot, so
+the cancel usually waits for the switch-on, which repeats it until it is paid.
+
 @par `boot()` also registers the close objection (ADR O4)
 `RunningBotsObjection` names every bot not at rest when the user closes the
 window, so closing with a ladder on the exchange is a choice, not an accident.
@@ -60,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_boot_recovery import (
+    BotBootRecovery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
@@ -87,6 +96,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
@@ -157,6 +169,11 @@ class BotsModule(BoundedContextModule):
         bus.on(BotChangedEvent, watch.on_bot_changed)
         self._price_watch = watch
         watch.start()
+        # After the subscription: a fill that arrives while a restored bot
+        # reads the exchange finds its executor already built.
+        BotBootRecovery(
+            container.resolve(IBotStore), container.resolve(BotExecutors)
+        ).run()
         container.resolve(ICloseObjections).register(
             RunningBotsObjection(container.resolve(IBotStore))
         )
@@ -172,6 +189,9 @@ class BotsModule(BoundedContextModule):
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so
         the app exits with no bot thread left and nothing half-written."""
+        # The scheduler first: a retry that fired after a worker closed would
+        # be posted to a queue that drops it.
+        context.container.resolve(IBotRetryScheduler).close()
         context.container.resolve(BotPriceWatch).close()
         context.container.resolve(BotExecutors).close_all()
         logger.info("Bot price streams released, workers closed")

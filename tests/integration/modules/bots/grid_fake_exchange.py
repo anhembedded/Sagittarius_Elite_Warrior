@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
     decode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
@@ -254,6 +257,7 @@ def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[Boo
             caps=container.resolve(OwnerBudgetCaps),
             queues=lambda _name: queue,
             pacers=lambda _spacing: pacer,
+            retries=container.resolve(IBotRetryScheduler),
             monotonic=container.resolve(IMonotonicClock),
         )
         return BotExecutors(GridExecutorFactory(deps))

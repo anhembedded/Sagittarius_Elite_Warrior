@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry_scheduler import (
+    FakeBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -151,6 +154,7 @@ class GridWorld:
     pacer: CountingPacer
     snapshot: FakeAccountSnapshot
     factory: GridExecutorFactory
+    retries: FakeBotRetryScheduler
     #: The staleness clock (`EPIC-035A`): it moves only when a test moves it.
     monotonic: FakeMonotonicClock
     owner: str = f"bot.{BOT}"
@@ -270,6 +274,7 @@ def grid_world(
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
     store.save(StoredBot(bot, encode_runtime(runtime) if runtime else {}))
     pacer = CountingPacer()
+    retries = FakeBotRetryScheduler()
     monotonic = FakeMonotonicClock()
     factory = GridExecutorFactory(
         GridExecutorDeps(
@@ -279,6 +284,7 @@ def grid_world(
             caps=DEFAULT_OWNER_BUDGET_CAPS,
             queues=queues or (lambda _name: queue or InlineWorkQueue()),
             pacers=lambda _spacing: pacer,
+            retries=retries,
             monotonic=monotonic,
         )
     )
@@ -293,6 +299,7 @@ def grid_world(
         pacer,
         snapshot,
         factory,
+        retries,
         monotonic,
     )
 

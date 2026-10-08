@@ -148,11 +148,19 @@ class SimulatedActivity(IAccountActivity):
         self.trades: list[TradeRecord] = []
         #: The venue does not answer history reads.
         self.history_unavailable = False
+        #: How many times the open orders were read: a bot that parks or
+        #: reconciles reads them, a bot at rest does not.
+        self.open_order_reads = 0
+        #: The venue's read of open orders raises this (the app is offline).
+        self.open_orders_error: Exception | None = None
 
     def summary(self) -> AccountSummary | None:
         return None
 
     def open_orders(self) -> tuple[Order, ...]:
+        self.open_order_reads += 1
+        if self.open_orders_error is not None:
+            raise self.open_orders_error
         return tuple(self._book.open.values())
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:

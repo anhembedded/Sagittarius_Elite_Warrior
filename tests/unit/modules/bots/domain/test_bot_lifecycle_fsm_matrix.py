@@ -62,6 +62,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.HALTED, E.SWITCH_OFF): S.HALTED,
     (S.HALTED, E.FAULT): S.ERROR,
     (S.HALTED, E.APP_RESTART): S.HALTED,
+    (S.STOPPING, E.STOP): S.STOPPING,
     (S.STOPPING, E.STOP_CONFIRMED): S.STOPPED,
     (S.STOPPING, E.SWITCH_OFF): S.STOPPING,
     (S.STOPPING, E.FAULT): S.ERROR,
@@ -113,6 +114,12 @@ def test_delete_is_declared_only_from_draft_and_stopped(state: S) -> None:
 def test_pause_while_starting_is_not_declared() -> None:
     """ADR §3.1: the UI disables it, and a call raises."""
     assert not is_declared(S.STARTING, E.PAUSE)
+
+
+def test_stop_is_declared_in_stopping() -> None:
+    """`EPIC-035C` (H5): a stop that waits can be asked for again."""
+    assert is_declared(S.STOPPING, E.STOP)
+    assert next_target(S.STOPPING, E.STOP) is S.STOPPING
 
 
 def test_every_state_has_an_app_restart_cell() -> None:

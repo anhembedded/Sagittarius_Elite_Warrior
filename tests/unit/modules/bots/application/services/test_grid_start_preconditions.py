@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import Sto
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry_scheduler import (
+    FakeBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -162,6 +165,7 @@ def _start_world(
                 DEFAULT_OWNER_BUDGET_CAPS,
                 queue,
                 lambda _spacing: CountingPacer(),
+                FakeBotRetryScheduler(),
                 FakeMonotonicClock(),
             )
         )

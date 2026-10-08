@@ -115,7 +115,9 @@ sound, I start it, and I watch what it does."*
 8. **Pause** stops new orders and keeps the resting ones; **Resume** continues. A Halted bot's
    **Resume** cancels its tagged orders and proposes a new ladder, shown in its log; **Confirm
    resume** lays it. With no proposal held (no Resume since the halt, or the app restarted) Confirm
-   resume is refused with "press Resume first" and nothing is placed.
+   resume is refused with "press Resume first" and nothing is placed. A confirmed ladder the exchange
+   refuses part-way ends Halted with nothing resting: whatever part of it was placed is cancelled,
+   and the bot's reason says what was refused and what could not be cancelled (`EPIC-035C`).
 9. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
    edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
@@ -125,7 +127,12 @@ sound, I start it, and I watch what it does."*
    what stopped the replay, the fill rule and what the coarse or missing candles mean. **Cancel**
    drops the run and the last result stays; selecting another bot drops it and clears the result.
 10. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
-   and says its resting orders will be cancelled. **Cancel** leaves the bot running.
+   and says its resting orders will be cancelled. **Cancel** leaves the bot running. A stop the
+   exchange has not finished (a refused cancel, an order not yet gone) keeps the bot Stopping and
+   says why and how many orders still rest. It retries by itself five times (after 10 s, 30 s, 60 s,
+   2 min and 5 min); **Stop** is offered again while it waits and starts a fresh round. After the
+   last retry the bot stays Stopping and says to press Stop. It is never Stopped while an order
+   carrying its tag is open (`EPIC-035C`).
 11. Closing the app while any bot is not at rest asks first, naming the bots and what closing
    leaves behind (O4); **Cancel** keeps the app open.
 
@@ -140,6 +147,17 @@ available while it runs.
   It is reconciled when the venue's order session opens, which only a deliberate action does
   (a Start, an arm or a manual order, SPEC-004, `EPIC-034C`): nothing trades at start-up without a
   person acting, so a restored bot stays Recovering until then.
+- A Recovering bot is not silent meanwhile (`EPIC-035C`): at start-up the app reads, from the
+  exchange, which of its saved orders still rest, which filled while the app was closed, which are
+  missing and which tagged orders the bot never saved, and shows the four counts beside its state
+  ("after the restart: 2 saved order(s) rest, 1 filled while the app was closed, 1 missing, 0 not
+  saved by the bot; nothing is placed until trading is enabled"). The read places and cancels
+  nothing; a read that fails is said in the same place. Counter orders for what filled still wait
+  for the order session.
+- A bot whose start the restart cut short (Starting when the app closed) comes back Halted, and the
+  app cancels the orders carrying its tag as soon as the exchange lets it — when trading is enabled
+  at the latest. Until then the bot says how many tagged orders still rest; a cancel the exchange
+  refuses is said, never reported as a clean halt.
 - A stopped bot has no resting order carrying its tag on the venue, and holds the base or sold
   it, as chosen.
 - **Every bot that is not Draft or Stopped streams its own symbol's price** (`EPIC-035A`), on its
@@ -171,6 +189,10 @@ available while it runs.
 | A stop loss at or above the lower limit, or a take profit at or below the upper | Refused, under the exit's field: put it below, or above, the range | An exit on the wrong side would fire inside the grid or close it while it earns (D7) |
 | The ATR, the slippage room, the spacing or an exit's distance is outside advice | "Advice: …" under the field; Start stays enabled | Strategy judgement is the trader's (D7) |
 | Start's reconciliation refuses (it needs the exchange to answer, so it is not in the list before the click): the connection is not ready, or the account holds a position the app did not open | The use case refuses with the reason in words ("…unexpected open positions — please handle them manually on the exchange before starting a bot…"), before a lease is claimed or anything is sent | trading is the only module that sends orders, and the guard against foreign positions is kept (SPEC-004) |
+| A confirmed resume is refused part-way (a cap, a rule, a lost connection) | The bot is Halted, its reason names what was refused, and none of the part already placed is left on the exchange; if a cancel failed the reason says which order may still rest | A bot that no longer manages its ladder must not leave it trading (`EPIC-035C`, H4) |
+| A stop is waiting on the exchange and nothing seems to move | Stopping, with the reason, the orders still open and "retry n of 5 in …"; after the last retry "the automatic retries are used up; press Stop to try again" and an error line in the log; Stop is offered | The bot is never Stopped early, and a wait is bounded, visible and repeatable (`EPIC-035C`, H5) |
+| The app restarts while a bot runs, and the exchange cannot be read at start-up | The bot stays Recovering and says "after the restart the exchange could not be read: …" | A read that fails is a report, not a fault: an offline start must not mark every bot Error (`EPIC-035C`, H6) |
+| The app restarted during a start and the order session is still closed | Halted, "the app closed while this bot was starting; N tagged order(s) still rest and are cancelled when trading is enabled" | Cancels are refused while the session is closed; the debt is on the bot's own file and paid at the next enable (`EPIC-035C`, H6) |
 | An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
 | The chart is closed, another bot is selected, or the app was just restarted | Nothing changes: the bot's own price stream is open and its stop loss and take profit are watched exactly as with the chart open | A safety rule must not depend on a widget being open (`EPIC-035A`) |
 | The price feed goes quiet: no tick for 60 s while the bot holds orders (or no first tick within 60 s of its stream opening) | The bot moves to Halted with the reason "price_feed_stale" and its detail, "last tick N s ago; the limit is 60 s", beside its state; its ladder is taken off the exchange. A fresh tick does not resume it: Resume, with its confirmation, is the only way back | A quiet feed looks like a flat market, so the stop loss cannot be trusted; a halt that stops placing and takes the ladder off is the safe answer, and the user decides (`EPIC-035A`) |
@@ -243,6 +265,9 @@ available while it runs.
 | Every bot that is not at rest owns its venue's price stream; a stop loss is watched with no chart, in Recovering and Starting; a quiet feed halts with a named reason and a tick does not resume; the stream is released at rest; two bots share a symbol | `tests/unit/modules/bots/application/services/test_bot_price_watch.py` · `test_bot_price_watch_checks.py` · `test_grid_executor_exit_states.py` · `test_grid_executor_price_age.py` · `tests/unit/modules/bots/domain/grid/test_price_is_stale.py` | unit |
 | The price watch is wired at boot, on every bot change and at shutdown; a bot, a restart and a silent feed on the composed app | `tests/integration/modules/bots/test_bots_module_price_watch_wiring.py` · `tests/integration/modules/bots/test_a_bot_owns_its_price_stream_on_the_fake_exchange.py` | integration (fake exchange) |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |
+| A task that placed orders and ends Halted or Error takes them off the exchange, a parked bot is not cancelled again, and a refused confirm-resume leaves nothing resting | `tests/unit/modules/bots/application/services/test_grid_task_guard.py` | unit (real executor over the simulated venue) |
+| Stop is declared in Stopping; a stop that waits retries on the bounded schedule, shows its reason and the orders still open, is never Stopped early, and gives up with a named next action; the retry scheduler is verified in both implementations | `tests/unit/modules/bots/domain/test_bot_lifecycle_fsm_matrix.py` · `tests/unit/modules/bots/application/services/test_grid_executor_stop_retry.py` · `tests/unit/modules/bots/contracts/test_bot_retry_scheduler_contract.py` | unit |
+| A restored bot's boot report (counts, unreadable, no fault), the cleanup a cut-short start owes (paid, waiting for trading, refused), and that `boot()` runs both | `tests/unit/modules/bots/application/services/test_grid_boot_recovery.py` · `tests/unit/modules/bots/ui/test_recovery_report_is_visible.py` · `tests/integration/modules/bots/test_bots_module_wiring.py` | unit · integration (module graph) |
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
 | The fill rule (no fill on touch, kline order, adverse side without them), fees, exits, buy-and-hold, cancellation, the report's four regimes | `tests/unit/modules/bots/domain/grid/test_grid_simulator.py` | unit |
 | The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |

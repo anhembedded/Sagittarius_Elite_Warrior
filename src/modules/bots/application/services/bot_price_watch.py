@@ -156,6 +156,8 @@ class BotPriceWatch:
         release run after another thread's open (the owner id is the bot's, so a
         late stop would close the new stream)."""
         with self._lock:
+            if self._closed:
+                return
             try:
                 bot = self._store.load(BotId(bot_id)).bot
             except (BotNotFoundError, UnreadableBotError):
