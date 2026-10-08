@@ -18,12 +18,11 @@ question asked before a run lays orders, on the bot's worker:
 A stop is not asked: it only cancels, and every status lets an order be
 cancelled, CANCEL_ONLY included.
 
-@par What this does not read
-The status is whatever trading's cached symbol catalog holds, which the venue
-re-reads at most daily until `EPIC-035U` refreshes it. Until then a symbol that
-went BREAK minutes ago reads TRADING here, and the exchange's own refusal of the
-next order is what pauses the bot (`GridLadderPlacer`). `EPIC-035U` makes this
-gate exact without changing it.
+@par What the read is
+`LazyExchangeTerms.refresh` asks the exchange (`IOrderEntryTerms.fresh_terms_for`),
+not trading's day-old symbol catalog (`EPIC-035U`), so a status that changed
+minutes ago is read as it is. A running bot is also given the same read on an
+interval (`GridTermsWatch`), which keeps the filters it holds current.
 """
 
 from __future__ import annotations

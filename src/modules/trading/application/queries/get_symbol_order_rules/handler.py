@@ -37,6 +37,8 @@ class GetSymbolOrderRulesQueryHandler(
             query.venue.value,
         )
         provider = self._contexts.get(query.venue).metadata_provider
+        if query.refresh:
+            provider.refresh()
         rules = provider.get_or_fetch(query.symbol)
         if rules is None:
             raise SymbolRulesUnavailableError(

@@ -88,6 +88,24 @@ def test_both_reads_are_addressed_to_the_services_venue() -> None:
     ]
 
 
+def test_a_fresh_read_asks_for_the_rules_again_and_the_fee_as_usual() -> None:
+    """`EPIC-035U` — the same two queries, the rules one marked `refresh`."""
+    dispatcher = _AnsweringDispatcher(
+        {
+            GetSymbolOrderRulesQuery: TERMS.rules,
+            GetCommissionRateQuery: TERMS.commission,
+        }
+    )
+
+    terms = OrderEntryTermsService(dispatcher, _SPOT).fresh_terms_for("BTCUSDT")
+
+    assert terms == TERMS
+    assert dispatcher.dispatched == [
+        GetSymbolOrderRulesQuery(venue=_SPOT, symbol="BTCUSDT", refresh=True),
+        GetCommissionRateQuery(venue=_SPOT, symbol="BTCUSDT"),
+    ]
+
+
 def test_an_unbound_handler_is_named_rather_than_answered() -> None:
     dispatcher = _AnsweringDispatcher({GetSymbolOrderRulesQuery: TERMS.rules})
 

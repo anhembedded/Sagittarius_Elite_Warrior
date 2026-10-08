@@ -51,10 +51,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 
 class LazyExchangeTerms:
-    """The terms, read once when first asked for."""
+    """The terms, read once when first asked for, and again on `refresh`."""
 
-    def __init__(self, read: Callable[[], ExchangeTerms]) -> None:
+    def __init__(
+        self,
+        read: Callable[[], ExchangeTerms],
+        read_fresh: Callable[[], ExchangeTerms],
+    ) -> None:
+        """@param read The terms as the venue's cached catalog has them.
+        @param read_fresh The terms asked of the exchange again (`EPIC-035U`)."""
         self._read = read
+        self._read_fresh = read_fresh
         self._terms: ExchangeTerms | None = None
 
     def get(self) -> ExchangeTerms:
@@ -63,9 +70,10 @@ class LazyExchangeTerms:
         return self._terms
 
     def refresh(self) -> None:
-        """Read the terms again, replacing the kept ones (`EPIC-035E`: the
-        symbol's status is read at each Start and Resume, not once per run)."""
-        self._terms = self._read()
+        """Ask the exchange for the terms again, replacing the kept ones
+        (`EPIC-035E`: the symbol's status is read at each Start and Resume, not
+        once per run; `EPIC-035U`: not from the venue's day-old catalog)."""
+        self._terms = self._read_fresh()
 
 
 @dataclass(frozen=True, slots=True)

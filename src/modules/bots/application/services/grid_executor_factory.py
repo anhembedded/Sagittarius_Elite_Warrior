@@ -14,6 +14,7 @@ from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
     exchange_terms_for,
+    fresh_exchange_terms_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     BotIdentity,
@@ -122,7 +123,10 @@ class GridExecutorFactory(IBotExecutorFactory):
             session=ports.trading_session,
             params=GridParams.from_config(bot.definition.config),
             terms_source=LazyExchangeTerms(
-                lambda: exchange_terms_for(ports.order_entry_terms, symbol, deps.caps)
+                lambda: exchange_terms_for(ports.order_entry_terms, symbol, deps.caps),
+                lambda: fresh_exchange_terms_for(
+                    ports.order_entry_terms, symbol, deps.caps
+                ),
             ),
             caps=deps.caps,
             price_age=GridPriceAge(deps.monotonic),

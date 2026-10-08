@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
     GridTaskGuard,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_terms_watch import (
+    GridTermsWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
     SymbolStatusGate,
 )
@@ -149,6 +152,7 @@ class GridExecutor(IBotExecutor):
                 self._reconciler,
                 self._interrupted_start,
                 GridKeyProbe(context),
+                GridTermsWatch(context),
             ),
             self._post,
             self._forget_proposal,

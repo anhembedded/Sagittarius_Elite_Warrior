@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
     IOrderEntryTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
+    OrderEntryTerms,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
@@ -26,7 +29,20 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 def exchange_terms_for(
     terms: IOrderEntryTerms, symbol: str, caps: OwnerBudgetCaps
 ) -> ExchangeTerms:
-    entry = terms.terms_for(symbol)
+    return _terms_of(terms, terms.terms_for(symbol), caps)
+
+
+def fresh_exchange_terms_for(
+    terms: IOrderEntryTerms, symbol: str, caps: OwnerBudgetCaps
+) -> ExchangeTerms:
+    """`exchange_terms_for`, the symbol's filters read from the exchange again
+    rather than the venue's cached catalog (`EPIC-035U`)."""
+    return _terms_of(terms, terms.fresh_terms_for(symbol), caps)
+
+
+def _terms_of(
+    terms: IOrderEntryTerms, entry: OrderEntryTerms, caps: OwnerBudgetCaps
+) -> ExchangeTerms:
     return ExchangeTerms(
         tick_size=entry.rules.tick_size,
         step_size=entry.rules.step_size,
