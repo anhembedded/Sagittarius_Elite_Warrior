@@ -54,11 +54,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
+    buys_within_capital,
     resized_for_inventory,
+    unplaced_inventory,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
     plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
+    LadderRules,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -73,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: Introduces the sentence a resume proposal adds to the bot's reason detail.
+_UNPLACED_MARK = "; resume proposal: "
+
 
 @dataclass(frozen=True, slots=True)
 class ResumeProposal:
@@ -80,6 +88,8 @@ class ResumeProposal:
 
     plan: GridPlan
     inventory: OwnerInventory
+    #: The base the plan's SELL levels do not reach (`EPIC-035R`); it stays held.
+    unplaced_inventory: Decimal
 
 
 class GridResumeSequence:
@@ -120,23 +130,49 @@ class GridResumeSequence:
             ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
             return None
-        inventory = registration.inventory
-        proposal = ResumeProposal(
-            resized_for_inventory(
-                plan(self._context.params, self._context.terms, price),
-                inventory.quantity,
-                self._context.terms.min_notional,
-            ),
-            inventory,
-        )
+        proposal = self._proposal_for(price, registration.inventory)
+        self._name_unplaced(proposal.unplaced_inventory)
         logger.info(
             "Bot %s: resume proposes %d orders from %s with %s held; waiting for confirmation",
             state.bot_id,
             len(proposal.plan.order_levels),
             price,
-            inventory.quantity,
+            proposal.inventory.quantity,
         )
         return proposal
+
+    def _proposal_for(
+        self, price: Decimal, inventory: OwnerInventory
+    ) -> ResumeProposal:
+        """The plan at `price` over `inventory` (`EPIC-035R`): SELLs sized to
+        what is held, BUYs sized to the capital it leaves."""
+        terms = self._context.terms
+        rules = LadderRules(terms.step_size, terms.min_notional)
+        sells = resized_for_inventory(
+            plan(self._context.params, terms, price),
+            inventory.quantity,
+            terms.min_notional,
+        )
+        left = self._context.params.capital_quote - inventory.cost
+        sized = buys_within_capital(sells, left, rules)
+        return ResumeProposal(
+            sized, inventory, unplaced_inventory(sized, inventory.quantity)
+        )
+
+    def _name_unplaced(self, unplaced: Decimal) -> None:
+        """Say on the HALTED bot which base no SELL level covers, once: an earlier
+        resume's sentence is replaced, and removed when nothing is left over."""
+        runtime = self._context.state.runtime
+        head = runtime.reason_detail.split(_UNPLACED_MARK)[0]
+        detail = head
+        if unplaced > 0:
+            detail = (
+                f"{head}{_UNPLACED_MARK}{unplaced} {self._context.base_asset} of the "
+                "inventory has no SELL level to go on and stays unplaced"
+            )
+        if detail != runtime.reason_detail:
+            reason = runtime.reason or GridReason.SWITCH_OFF
+            self._context.state.update(runtime.with_reason(reason, detail))
 
     def confirm(self, proposal: ResumeProposal) -> None:
         """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the

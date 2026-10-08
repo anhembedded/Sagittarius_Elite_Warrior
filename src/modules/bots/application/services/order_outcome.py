@@ -17,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result
     CancelOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
@@ -41,6 +43,10 @@ class OrderOutcomeKind(str, Enum):
     RATE_LIMITED = "rate_limited"
     SYMBOL_NOT_TRADING = "symbol_not_trading"
     SYMBOL_NOT_LISTED = "symbol_not_listed"
+    #: The order's own numbers were refused (`EPIC-035T`): a quantity, a price
+    #: band, the minimum notional, a plain `-2010`. About one order, not the bot
+    #: or the venue: a RUNNING ladder leaves that rung EMPTY and goes on.
+    ORDER_INVALID = "order_invalid"
     KEY_REJECTED = "key_rejected"
     FAULT = "fault"
 
@@ -60,9 +66,13 @@ class OrderOutcome:
         return self.kind is OrderOutcomeKind.DONE
 
 
-#: The exchange's refusals that are about the symbol or the key, not about the
-#: order: each is a named outcome, every other rejection stays a fault.
+#: The exchange's refusals that are about the symbol, the key or the order's own
+#: numbers: each is a named outcome, every other rejection stays a fault.
 _NAMED_REFUSALS: dict[OrderRejectionReason, OrderOutcomeKind] = {
+    OrderRejectionReason.LOT_SIZE: OrderOutcomeKind.ORDER_INVALID,
+    OrderRejectionReason.MIN_NOTIONAL: OrderOutcomeKind.ORDER_INVALID,
+    OrderRejectionReason.PRICE_FILTER: OrderOutcomeKind.ORDER_INVALID,
+    OrderRejectionReason.NEW_ORDER_REJECTED: OrderOutcomeKind.ORDER_INVALID,
     OrderRejectionReason.KEY_REJECTED: OrderOutcomeKind.KEY_REJECTED,
     OrderRejectionReason.SYMBOL_NOT_TRADING: OrderOutcomeKind.SYMBOL_NOT_TRADING,
     OrderRejectionReason.SYMBOL_NOT_LISTED: OrderOutcomeKind.SYMBOL_NOT_LISTED,
@@ -70,8 +80,8 @@ _NAMED_REFUSALS: dict[OrderRejectionReason, OrderOutcomeKind] = {
 
 
 def named_rejection(exc: Exception) -> OrderOutcome | None:
-    """The outcome a refusal about the symbol or the key is, or `None` for any other
-    failure, which stays a fault. The exchange's own text is kept: it is a
+    """The outcome a refusal about the symbol, the key or the order's numbers is,
+    or `None` for any other failure, which stays a fault. The exchange's own text is kept: it is a
     short sentence, never a URL (`describe_failure`)."""
     if not isinstance(exc, OrderRejectedByExchangeError):
         return None
@@ -107,6 +117,10 @@ def _refusal(blocked_by: Enum, client_order_id: str) -> OrderOutcome:
         kind = OrderOutcomeKind.SWITCH_OFF
     elif blocked_by is ExecuteOrderSafetyGate.KEY_REJECTED:
         kind = OrderOutcomeKind.KEY_REJECTED
+    elif isinstance(
+        blocked_by, ExecuteOrderNotionalRejection | ExecuteOrderPriceRejection
+    ):
+        kind = OrderOutcomeKind.ORDER_INVALID
     else:
         kind = OrderOutcomeKind.REFUSED
     return OrderOutcome(kind, client_order_id, str(blocked_by.value))

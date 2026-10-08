@@ -49,6 +49,10 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     # `EPIC-035F` — the exchange rejects the API key itself (revoked, another
     # environment's, off its IP list).
     **dict.fromkeys(KEY_REJECTED_CODES, OrderRejectionReason.KEY_REJECTED),
+    # `EPIC-035T` — Spot's "new order rejected" (an insufficient balance, a
+    # post-only that would cross): the exchange read the order and refused its
+    # content. Unverified against a live answer, see the note above.
+    -2010: OrderRejectionReason.NEW_ORDER_REJECTED,
     -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
 }
 
