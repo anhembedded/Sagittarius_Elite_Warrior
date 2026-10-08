@@ -114,10 +114,9 @@ class GridStorageWatch:
             runtime.reason_detail
         ):
             return False
-        if runtime.reason in (None, GridReason.RATE_LIMITED):
-            before = (
-                f" (halted before: {runtime.reason.value})" if runtime.reason else ""
-            )
+        reason = runtime.reason
+        if reason is None or reason is GridReason.RATE_LIMITED:
+            before = f" (halted before: {reason.value})" if reason else ""
             state.update(
                 runtime.with_reason(
                     GridReason.STORAGE_FAILURE, f"not resumed, {note}{before}"
@@ -125,6 +124,6 @@ class GridStorageWatch:
             )
         else:
             state.update(
-                runtime.with_reason(runtime.reason, f"{runtime.reason_detail}; {note}")
+                runtime.with_reason(reason, f"{runtime.reason_detail}; {note}")
             )
         return False
