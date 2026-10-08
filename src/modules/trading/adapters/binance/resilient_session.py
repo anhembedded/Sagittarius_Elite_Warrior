@@ -8,7 +8,7 @@ adapter carries its own loop.
 What a method is called decides how it is sent (`call_mode_of`):
 
   · `RETRIED` — a read (`get_*`, `futures_get_*`, `ping`, the time and account
-    reads) or a cancel (`*cancel*`): safe to repeat;
+    reads) or one of the named cancels: safe to repeat;
   · `ONCE` — everything else: an order's submit, a leverage or margin change, a
     method nobody classified. A name has to be added to the read list on purpose
     to be repeated, so a new method defaults to the safe side.
@@ -48,6 +48,19 @@ _READ_NAMES = frozenset(
         "futures_klines",
     }
 )
+#: Cancels, by exact name: safe to repeat (an exchange answers "unknown order"
+#: when the first one arrived). A substring rule would also repeat a method that
+#: cancels *and* places, which no call here is — until one is added by mistake.
+_CANCEL_NAMES = frozenset(
+    {
+        "cancel_order",
+        "cancel_all_open_orders",
+        "futures_cancel_order",
+        "futures_cancel_all_open_orders",
+        "futures_cancel_algo_order",
+        "futures_cancel_all_algo_open_orders",
+    }
+)
 _READ_PREFIXES = ("get_", "futures_get_")
 
 
@@ -60,9 +73,7 @@ def call_mode_of(method_name: str) -> CallMode:
     """Whether a client method may be sent again after a failure in transit."""
     if method_name.startswith(_READ_PREFIXES) or method_name in _READ_NAMES:
         return CallMode.RETRIED
-    if "cancel" in method_name:
-        return CallMode.RETRIED
-    return CallMode.ONCE
+    return CallMode.RETRIED if method_name in _CANCEL_NAMES else CallMode.ONCE
 
 
 class ResilientSession:

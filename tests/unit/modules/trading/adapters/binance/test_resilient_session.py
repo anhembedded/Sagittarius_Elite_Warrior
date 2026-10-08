@@ -107,6 +107,8 @@ class _Session:
         ("futures_change_margin_type", CallMode.ONCE),
         ("order_market_buy", CallMode.ONCE),
         ("a_method_nobody_classified", CallMode.ONCE),
+        ("cancel_replace_order", CallMode.ONCE),
+        ("futures_cancel_and_place", CallMode.ONCE),
     ],
 )
 def test_what_a_method_is_called_decides_whether_it_may_be_retried(

@@ -42,15 +42,18 @@ class RateLimitedApiException(BinanceAPIException):
         self.banned = banned
 
 
+def contract_error_of(pause: RateLimitedApiException) -> ExchangeRateLimitedError:
+    """The contract error a pause is told to the rest of the app as."""
+    error = ExchangeRateLimitedError(
+        pause.retry_after, banned=pause.banned, raw_message=str(pause.message)
+    )
+    error.__cause__ = pause
+    return error
+
+
 def rate_limited_error_of(exc: BaseException) -> ExchangeRateLimitedError | None:
     """The contract error for `exc` when it is a rate-limit pause, else `None`."""
-    if not isinstance(exc, RateLimitedApiException):
-        return None
-    error = ExchangeRateLimitedError(
-        exc.retry_after, banned=exc.banned, raw_message=str(exc.message)
-    )
-    error.__cause__ = exc
-    return error
+    return contract_error_of(exc) if isinstance(exc, RateLimitedApiException) else None
 
 
 def pause_behind(exc: BaseException) -> ExchangeRateLimitedError | None:

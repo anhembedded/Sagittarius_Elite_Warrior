@@ -35,6 +35,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     raise_rejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    RateLimitedApiException,
+    contract_error_of,
     pause_behind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_order_payload_mapper import (
@@ -164,7 +166,12 @@ class SpotTradingClient(ITradingClient):
             raise ValueError(
                 "No exchange credentials configured — cannot sign a trading request."
             )
-        return self._session_factory.create_trading_client(resolution.credentials)
+        try:
+            return self._session_factory.create_trading_client(resolution.credentials)
+        except RateLimitedApiException as paused:
+            # `EPIC-035D` — the session opens through the call policy: with the
+            # gate closed it opens nothing, and the caller learns it was a pause.
+            raise contract_error_of(paused) from paused
 
     def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
         try:

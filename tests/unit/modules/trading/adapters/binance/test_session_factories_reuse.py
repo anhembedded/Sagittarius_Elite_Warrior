@@ -8,6 +8,8 @@ them. The factories are built over a client builder the test supplies.
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_policy import (
     ExchangeCallPolicy,
@@ -15,17 +17,33 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_cal
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
+    FuturesTradingClient,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limit_gate import (
     RateLimitGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client import (
+    SpotTradingClient,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_sessions import (
     VenueSessions,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
+    OrderSubmissionMode,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -98,3 +116,58 @@ def test_a_factory_refuses_sessions_built_for_another_venue() -> None:
             TradingVenue.SPOT_TESTNET,
             sessions=_sessions(TradingVenue.SPOT_MAINNET, []),
         )
+
+
+# -- a pause met while a trading client obtains its session is still a pause ----
+
+
+def _closed_gate_sessions(venue: TradingVenue) -> VenueSessions:
+    gate = RateLimitGate()
+    gate.block(60.0)
+    return VenueSessions(
+        venue,
+        policy=ExchangeCallPolicy(gate, sleep=lambda _: None),
+        open_session=lambda *_: pytest.fail("a closed gate must open nothing"),
+    )
+
+
+class _Credentials:
+    def resolve(self) -> ResolvedCredentials:
+        return ResolvedCredentials(_KEY, CredentialsSource.FILE)
+
+
+def test_spot_trading_client_tells_a_pause_met_opening_its_session_as_a_pause() -> None:
+    """The session is absent (first call, expired, key changed) while the venue's
+    gate is closed: the open stops at the gate, and the bot must learn it was a
+    pause, not a fault (review of PR #439)."""
+    sessions = _closed_gate_sessions(TradingVenue.SPOT_TESTNET)
+    client = SpotTradingClient(
+        SpotSessionFactory(TradingVenue.SPOT_TESTNET, sessions=sessions),
+        _Credentials(),
+        Mock(),
+        OrderSubmissionMode.LIVE,
+    )
+
+    with pytest.raises(ExchangeRateLimitedError):
+        client.cancel_order("BTCUSDT", "SEW-x")
+    with pytest.raises(ExchangeRateLimitedError):
+        client.get_open_orders("BTCUSDT")
+    with pytest.raises(ExchangeRateLimitedError):
+        client.find_order("BTCUSDT", "SEW-x")
+
+
+def test_futures_trading_client_tells_a_pause_met_opening_its_session_as_a_pause() -> (
+    None
+):
+    sessions = _closed_gate_sessions(TradingVenue.FUTURES_TESTNET)
+    client = FuturesTradingClient(
+        FuturesSessionFactory(TradingVenue.FUTURES_TESTNET, sessions=sessions),
+        _Credentials(),
+        Mock(),
+        OrderSubmissionMode.LIVE,
+    )
+
+    with pytest.raises(ExchangeRateLimitedError):
+        client.cancel_order("BTCUSDT", "SEW-x")
+    with pytest.raises(ExchangeRateLimitedError):
+        client.get_open_orders("BTCUSDT")

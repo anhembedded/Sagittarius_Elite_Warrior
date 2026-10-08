@@ -5,10 +5,10 @@ exchange and reads its clock (two requests, `BUG-111`/`BUG-045`) before the one
 request the caller wanted, and an order crossed three such opens. A venue now
 holds one:
 
-  · opened on first use, and **again** when the key changes (a new session for the
-    new key; the old one is dropped, never handed out again), when its clock
-    reading is `SESSION_MAX_AGE_SECONDS` old (the offset it measured drifts with
-    the machine's clock), or when the open itself failed (a failed open is not kept);
+  · opened on first use for each key (up to `MAX_SIGNED_SESSIONS` kept, so two
+    accounts on one venue do not reopen each other's), and **again** when its
+    clock reading is `SESSION_MAX_AGE_SECONDS` old (the offset it measured drifts
+    with the machine's clock); a failed open is not kept;
   · the open is a read: it retries, and it stops at a closed gate;
   · shared by every caller of the venue, so the call policy and its gate are too.
 
@@ -50,6 +50,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 #: How long a session's clock reading is trusted: ten minutes of drift is far
 #: below the second Binance tolerates, and a long-running bot re-measures.
 SESSION_MAX_AGE_SECONDS = 600.0
+#: Signed sessions a venue keeps: one per key in use, oldest dropped first.
+MAX_SIGNED_SESSIONS = 4
 #: Binance's per-minute request weight for a Futures IP.
 FUTURES_WEIGHT_LIMIT = 2400
 
@@ -72,7 +74,9 @@ class VenueSessions:
         self._open_session = open_session
         self._clock = clock
         self._lock = threading.Lock()
-        self._signed: tuple[ExchangeCredentials, float, ResilientSession] | None = None
+        #: Oldest first; at most `MAX_SIGNED_SESSIONS` keys (two bots on two
+        #: accounts of one venue each keep theirs).
+        self._signed: dict[ExchangeCredentials, tuple[float, ResilientSession]] = {}
         self._public: ResilientSession | None = None
 
     @property
@@ -82,24 +86,32 @@ class VenueSessions:
     def signed(self, credentials: ExchangeCredentials) -> ResilientSession:
         """The venue's signed session for `credentials`.
 
-        @raise ExchangeRateLimitedError The gate is closed, or the open was limited."""
+        The open runs outside the lock (it pings, reads the clock and may wait
+        out a retry): two callers that find no session both open one and the
+        later is kept, which costs a request and blocks nobody.
+
+        @raise RateLimitedApiException The gate is closed, or the open was limited."""
         with self._lock:
-            held = self._signed
-            if (
-                held is not None
-                and held[0] == credentials
-                and self._clock() - held[1] < SESSION_MAX_AGE_SECONDS
-            ):
-                return held[2]
-            session = self._opened(credentials)
-            self._signed = (credentials, self._clock(), session)
-            return session
+            held = self._signed.get(credentials)
+            if held is not None and self._clock() - held[0] < SESSION_MAX_AGE_SECONDS:
+                return held[1]
+        session = self._opened(credentials)
+        with self._lock:
+            self._signed.pop(credentials, None)
+            self._signed[credentials] = (self._clock(), session)
+            while len(self._signed) > MAX_SIGNED_SESSIONS:
+                del self._signed[next(iter(self._signed))]
+        return session
 
     def public(self) -> ResilientSession:
         """The venue's unsigned session, for the public endpoints."""
         with self._lock:
-            if self._public is None:
-                self._public = self._opened(None)
+            held = self._public
+        if held is not None:
+            return held
+        session = self._opened(None)
+        with self._lock:
+            self._public = self._public or session
             return self._public
 
     def _opened(self, credentials: ExchangeCredentials | None) -> ResilientSession:

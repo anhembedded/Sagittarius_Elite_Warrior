@@ -53,6 +53,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     raise_rejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    RateLimitedApiException,
+    contract_error_of,
     pause_behind,
     rate_limited_error_of,
 )
@@ -279,7 +281,12 @@ class FuturesTradingClient(ITradingClient):
         # `Client(...)`'s own constructor pings on construction by default
         # (same trigger as `BUG-045`/`EPIC-021D` §4) — letting that raise
         # straight through here is deliberate, see this module's docstring.
-        return self._session_factory.create_trading_client(resolution.credentials)
+        try:
+            return self._session_factory.create_trading_client(resolution.credentials)
+        except RateLimitedApiException as paused:
+            # `EPIC-035D` — the session opens through the call policy: with the
+            # gate closed it opens nothing, and the caller learns it was a pause.
+            raise contract_error_of(paused) from paused
 
     def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
         try:

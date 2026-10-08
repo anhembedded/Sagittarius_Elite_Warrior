@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited
     RateLimitedApiException,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_sessions import (
+    MAX_SIGNED_SESSIONS,
     SESSION_MAX_AGE_SECONDS,
     VenueSessions,
 )
@@ -87,23 +88,51 @@ def test_the_session_is_the_resilient_one() -> None:
     assert world.sessions.signed(_KEY).get_order() == "client 1"
 
 
-def test_a_changed_key_opens_a_new_session() -> None:
+def test_a_changed_key_opens_a_new_session_and_the_old_one_stays_for_its_key() -> None:
+    """Two accounts on one venue (two bots) do not reopen each other's session."""
     world = _World()
     first = world.sessions.signed(_KEY)
 
     assert world.sessions.signed(_OTHER_KEY) is not first
     assert world.sessions.signed(_SECRET_ROTATED) is not first
+    assert world.sessions.signed(_KEY) is first
     assert len(world.opened) == 3
 
 
-def test_going_back_to_the_first_key_does_not_hand_out_a_stale_session() -> None:
+def test_only_the_newest_sessions_are_kept() -> None:
     world = _World()
-    world.sessions.signed(_KEY)
+    keys = [
+        ExchangeCredentials(f"key-{n}", "secret")
+        for n in range(MAX_SIGNED_SESSIONS + 1)
+    ]
+    for key in keys:
+        world.sessions.signed(key)
+
+    world.sessions.signed(keys[-1])
+    assert len(world.opened) == len(keys), "the newest is still held"
+    world.sessions.signed(keys[0])
+    assert len(world.opened) == len(keys) + 1, "the oldest was dropped"
+
+
+def test_an_open_does_not_hold_the_lock_other_callers_need() -> None:
+    """A caller opening a session (a ping, a clock read, perhaps a retry wait)
+    must not block a caller that already has its own."""
+    world = _World()
     world.sessions.signed(_OTHER_KEY)
+    served: list[object] = []
+    original = world._open
+
+    def open_while_another_caller_is_served(
+        venue: TradingVenue, credentials: ExchangeCredentials | None
+    ) -> _Client:
+        served.append(world.sessions.signed(_OTHER_KEY))  # would deadlock if locked
+        return original(venue, credentials)
+
+    world.sessions._open_session = open_while_another_caller_is_served  # type: ignore[assignment]
 
     world.sessions.signed(_KEY)
 
-    assert world.opened == [_KEY, _OTHER_KEY, _KEY]
+    assert len(served) == 1
 
 
 def test_a_session_is_reopened_when_its_clock_reading_is_old() -> None:
