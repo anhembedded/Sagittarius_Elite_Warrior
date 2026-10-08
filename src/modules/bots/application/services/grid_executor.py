@@ -120,7 +120,10 @@ class GridExecutor(IBotExecutor):
         self._start = GridStartSequence(context)
         self._stop = GridStopper(context, retries, self._post, self._price)
         self._status = SymbolStatusGate(context)
-        self._resume = GridResumeSequence(context, self._start, self._status)
+        self._storage = GridStorageWatch(context)
+        self._resume = GridResumeSequence(
+            context, self._start, self._status, self._storage
+        )
         self._reconciler = GridReconciler(context)
         self._placer = GridLadderPlacer(context)
         self._recovery = GridRecoveryReader(context)
@@ -128,7 +131,6 @@ class GridExecutor(IBotExecutor):
         self._gap = GridStreamGap(
             context, self._reconciler, self._placer.release_held, self._post
         )
-        self._storage = GridStorageWatch(context)
         self._guard = GridTaskGuard(
             context,
             GridHousekeeping(context),

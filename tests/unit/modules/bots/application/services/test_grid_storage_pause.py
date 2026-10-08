@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import errno
 import logging
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -25,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     GridWorld,
@@ -210,3 +214,54 @@ def test_a_bot_the_user_paused_on_a_failing_disk_is_not_resumed_into_it() -> Non
     world.executor.resume()
     assert world.state() is S.RUNNING
     assert Decimal(120) in world.open_ids_by_price()
+
+
+def _halted_by_a_rate_limit() -> GridWorld:
+    world = grid_world()
+    world.book.raise_next = [
+        ExchangeRateLimitedError(
+            timedelta(seconds=60), banned=False, raw_message="slow down"
+        )
+    ]
+    world.executor.start()
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED
+    world.derive("0")
+    return world
+
+
+def test_the_rate_limit_timer_meets_the_storage_gate_on_a_failing_disk(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Both resumes of a HALTED bot (the user's and the rate-limit timer's) propose
+    first, and the proposal is where the store is asked: a ladder is not laid over
+    a file that cannot say so. The bot stays HALTED (a PAUSED bot would skip the
+    re-plan a halt owes), now with the storage reason, and no new timer is set."""
+    world = _halted_by_a_rate_limit()
+    world.store.fail_saves(_DISK_FULL)
+    world.book.requests.clear()
+    caplog.set_level(logging.INFO, logger="App.Bots")
+
+    world.retries.run_next()
+
+    assert world.book.open == {}, "no ladder was laid"
+    assert world.book.requests == [], "nothing was sent to the exchange"
+    assert world.retries.pending == [], "no new automatic resume"
+    assert any(
+        "Check the disk, then press Resume" in line
+        for line in _lines(caplog, logging.ERROR)
+    )
+
+
+def test_the_halted_bot_says_storage_failure_and_the_next_resume_recovers() -> None:
+    world = _halted_by_a_rate_limit()
+    world.store.fail_saves(_DISK_FULL)
+    world.retries.run_next()
+    assert world.state() is S.HALTED
+
+    world.store.heal()
+    world.executor.resume()
+    world.executor.confirm_resume()
+
+    assert world.state() is S.RUNNING
+    assert len(world.book.open) == 2

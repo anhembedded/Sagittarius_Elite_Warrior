@@ -86,3 +86,25 @@ class GridStorageWatch:
         state = self._context.state
         if state.runtime.reason is GridReason.STORAGE_FAILURE:
             state.update(replace(state.runtime, reason=None, reason_detail=""))
+
+    def admits_relaunch(self) -> bool:
+        """Whether a HALTED bot may re-plan and lay a ladder now: the store must take
+        a write. Both ways out of HALTED pass here (`GridResumeSequence.propose` and
+        `.confirm`: the user's, and the rate-limit timer's), so neither lays a ladder
+        over a file that cannot say so. When it cannot, the bot stays HALTED (a PAUSED
+        bot would skip the re-plan a halt owes) with `STORAGE_FAILURE` in place of its
+        reason, which also keeps the rate-limit pause from scheduling another timer;
+        the user's next Resume tries again."""
+        state = self._context.state
+        if state.save_works():
+            return True
+        runtime = state.runtime
+        was = runtime.reason.value if runtime.reason is not None else "no reason"
+        detail = (
+            f"not resumed because its state cannot be saved ({state.storage_failure}); "
+            f"nothing was laid. Check the disk, then press Resume (halted before: "
+            f"{was}: {runtime.reason_detail})"
+        )
+        logger.error("Bot %s: %s [bot-store-failed-resume]", state.bot_id, detail)
+        state.update(runtime.with_reason(GridReason.STORAGE_FAILURE, detail))
+        return False
