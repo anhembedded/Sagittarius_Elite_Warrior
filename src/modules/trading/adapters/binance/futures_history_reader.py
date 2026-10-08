@@ -156,6 +156,9 @@ class FuturesHistoryReader(IAccountHistoryReader):
             )
             return tuple(map_futures_trade(row) for row in rows)
 
+    def discard_remembered(self, symbol: str) -> None:
+        """Nothing is remembered: every read already asks the exchange."""
+
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         start, end = span_ms(since, self._clock())
         with history_read_failures(f"{_VENUE} active symbols could not be read"):

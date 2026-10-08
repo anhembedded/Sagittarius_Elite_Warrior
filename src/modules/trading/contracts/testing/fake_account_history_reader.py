@@ -77,6 +77,9 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         )
         return tuple(sorted(rows, key=lambda record: (record.time, record.trade_id)))
 
+    def discard_remembered(self, symbol: str) -> None:
+        """Nothing is remembered: every read already asks the exchange."""
+
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         """What is open, what is held, and every pair with a fill from
         `since` on — what the Futures reader finds through income

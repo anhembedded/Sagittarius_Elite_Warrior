@@ -121,6 +121,7 @@ class _SymbolHistoryCache[T]:
         self._kind = kind
         self._read = read
         self._row_time = row_time
+        self._lock = lock
         self._entries: dict[str, _Entry[tuple[T, ...]]] = {}
         self._in_flight = _ReadsInFlight[str](kind, lock)
 
@@ -146,6 +147,10 @@ class _SymbolHistoryCache[T]:
             return rows
 
         return self._in_flight.read_once(symbol, cached, read)
+
+    def forget(self, symbol: str) -> None:
+        with self._lock:
+            self._entries.pop(symbol, None)
 
 
 @dataclass(frozen=True)
@@ -195,6 +200,12 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         return self._trades.rows(symbol, since, self._freshness(since))
+
+    def discard_remembered(self, symbol: str) -> None:
+        """`EPIC-035B` — the next read of `symbol` goes to the exchange. A read
+        already in flight still stores its entry when it ends."""
+        self._orders.forget(symbol)
+        self._trades.forget(symbol)
 
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         freshness = self._freshness(since)

@@ -227,3 +227,39 @@ def test_known_gaps_are_the_exchange_readers() -> None:
     inner = _CountingReader(now=CONTRACT_NOW, gaps=gaps)
 
     assert CachedAccountHistoryReader(inner).known_gaps() is gaps
+
+
+def test_a_discarded_symbol_is_read_from_the_exchange_again() -> None:
+    """`EPIC-035B` — a reconciliation must read the account as it is now, not
+    as it was up to `ttl` ago: after `discard_remembered` the next read of the
+    symbol goes to the exchange and is cached again."""
+    reader, inner, _ = _cached()
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+
+    reader.discard_remembered("BTCUSDT")
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+
+    assert (inner.reads["orders"], inner.reads["trades"]) == (2, 2)
+
+
+def test_discarding_one_symbol_keeps_the_others_remembered() -> None:
+    reader, inner, _ = _cached()
+    reader.order_history("BTCUSDT", _START)
+    reader.order_history("ETHUSDT", _START)
+
+    reader.discard_remembered("BTCUSDT")
+    reader.order_history("ETHUSDT", _START)
+
+    assert inner.reads["orders"] == 2
+
+
+def test_discarding_what_was_never_read_is_harmless() -> None:
+    reader, inner, _ = _cached()
+
+    reader.discard_remembered("BTCUSDT")
+
+    assert inner.reads["orders"] == 0

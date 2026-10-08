@@ -326,3 +326,48 @@ def test_a_fill_the_history_already_counted_is_not_counted_twice() -> None:
     result = _register(_handler(state, history, factory))
 
     assert result.inventory == OwnerInventory(Decimal("0.001998"), Decimal(100))
+
+
+class _ReaderThatRemembers(FakeAccountHistoryReader):
+    """A history reader with a memory, like `CachedAccountHistoryReader`: it
+    keeps answering what it first read until told to discard it. The account
+    moves on (`.bought_since`) without the reader hearing of it."""
+
+    def __init__(self) -> None:
+        super().__init__(now=_NOW)
+        self.bought_since: list[tuple[OrderRecord, TradeRecord]] = []
+        self._remembered: (
+            tuple[tuple[OrderRecord, ...], tuple[TradeRecord, ...]] | None
+        ) = None
+
+    def _read(self) -> tuple[tuple[OrderRecord, ...], tuple[TradeRecord, ...]]:
+        if self._remembered is None:
+            self._remembered = (
+                tuple(o for o, _ in self.bought_since),
+                tuple(t for _, t in self.bought_since),
+            )
+        return self._remembered
+
+    def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
+        return self._read()[0]
+
+    def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
+        return self._read()[1]
+
+    def discard_remembered(self, symbol: str) -> None:
+        self._remembered = None
+
+
+def test_a_registration_derives_from_the_history_as_it_is_now() -> None:
+    """`EPIC-035B` — red before: a registration (the first step of a
+    reconciliation after a stream gap) read the venue's history through its
+    15-second memory, so an owner book derived from it missed every fill of
+    the last seconds, and replaced a live book that had counted them."""
+    history = _ReaderThatRemembers()
+    handler = _handler(_enabled(), history)
+    assert _register(handler).inventory == OwnerInventory(Decimal(0), Decimal(0))
+    history.bought_since.append(_bought())  # the account moved; nothing told the reader
+
+    result = _register(handler)
+
+    assert result.inventory == OwnerInventory(Decimal("0.001998"), Decimal(100))

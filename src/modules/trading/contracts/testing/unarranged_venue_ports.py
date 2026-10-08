@@ -142,6 +142,9 @@ class UnarrangedUserDataStream(IUserDataStream):
 
 
 class UnarrangedHistoryReader(IAccountHistoryReader):
+    def discard_remembered(self, symbol: str) -> None:
+        _not_arranged("IAccountHistoryReader")
+
     def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
         _not_arranged("IAccountHistoryReader")
 
