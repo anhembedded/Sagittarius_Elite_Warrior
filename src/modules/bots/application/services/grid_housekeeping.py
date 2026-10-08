@@ -44,6 +44,11 @@ class CancelReport:
 
     failed: OrderOutcome | None = None
     client_order_id: str = ""
+    #: When a cancel failed: the tagged orders not cancelled yet, that one
+    #: included. What the user is told still rests.
+    remaining: int = 0
+    #: Tagged orders cancelled (or found already ended) before the report.
+    cancelled: int = 0
 
     @property
     def done(self) -> bool:
@@ -72,7 +77,8 @@ class GridHousekeeping:
 
     def cancel_tagged(self) -> CancelReport:
         state = self._context.state
-        for order in self._context.gateway.tagged_open_orders():
+        orders = self._context.gateway.tagged_open_orders()
+        for index, order in enumerate(orders):
             outcome = self._context.gateway.cancel(order.client_order_id)
             logger.info(
                 "Bot %s: cancel %s -> %s %s",
@@ -82,10 +88,15 @@ class GridHousekeeping:
                 outcome.detail,
             )
             if not outcome.done and not self._ended_meanwhile(outcome, order):
-                return CancelReport(outcome, order.client_order_id)
+                return CancelReport(
+                    outcome,
+                    order.client_order_id,
+                    remaining=len(orders) - index,
+                    cancelled=index,
+                )
             state.update(drop_order(state.runtime, order.client_order_id))
             self._context.off_ladder.add(order.client_order_id)
-        return CancelReport()
+        return CancelReport(cancelled=len(orders))
 
     def _ended_meanwhile(self, outcome: OrderOutcome, order: Order) -> bool:
         """A cancel that raised for an order no longer open: it filled or

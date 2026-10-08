@@ -324,3 +324,49 @@ def _bot_threads() -> list[str]:
     return [
         t.name for t in threading.enumerate() if t.name == "bot-abc123" and t.is_alive()
     ]
+
+
+def _stored_in(state: BotLifecycleState, tmp_path: Path) -> BotId:
+    sampled = sample_bot().bot
+    bot = replace(
+        sampled,
+        definition=replace(sampled.definition, config=_GRID_CONFIG),
+        lifecycle=BotLifecycle(state, run_started_at=sampled.created_at),
+    )
+    JsonBotStore(tmp_path).save(StoredBot(bot))
+    return bot.bot_id
+
+
+def test_boot_has_a_restored_bot_report_what_the_exchange_holds(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-035C` (H6): delete the `BotBootRecovery` line from `boot()` and
+    this fails. Shutdown runs what each worker has queued, so the report is
+    on the bot's file by the time it returns."""
+    bot_id = _stored_in(BotLifecycleState.RUNNING, tmp_path)
+    module, context = _registered(tmp_path)
+
+    module.boot(context)
+    module.shutdown(context)
+
+    stored = JsonBotStore(tmp_path).load(bot_id)
+    assert stored.bot.state is BotLifecycleState.RECOVERING
+    assert stored.runtime["reason"] == "recovery_read"
+    assert "after the restart" in str(stored.runtime["reason_detail"])
+
+
+def test_boot_has_a_bot_whose_start_was_cut_short_pay_its_cancel(
+    tmp_path: Path,
+) -> None:
+    bot_id = _stored_in(BotLifecycleState.STARTING, tmp_path)
+    module, context = _registered(tmp_path)
+
+    module.boot(context)
+    module.shutdown(context)
+
+    stored = JsonBotStore(tmp_path).load(bot_id)
+    assert stored.bot.state is BotLifecycleState.HALTED
+    assert stored.runtime["reason"] == "start_interrupted_cleared"
+    assert "the app closed while this bot was starting" in str(
+        stored.runtime["reason_detail"]
+    )

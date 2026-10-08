@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry_scheduler import (
+    FakeBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -148,6 +151,7 @@ class GridWorld:
     pacer: CountingPacer
     snapshot: FakeAccountSnapshot
     factory: GridExecutorFactory
+    retries: FakeBotRetryScheduler
     owner: str = f"bot.{BOT}"
     placed_ids: list[str] = field(default_factory=list)
 
@@ -265,6 +269,7 @@ def grid_world(
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
     store.save(StoredBot(bot, encode_runtime(runtime) if runtime else {}))
     pacer = CountingPacer()
+    retries = FakeBotRetryScheduler()
     factory = GridExecutorFactory(
         GridExecutorDeps(
             ports=FakeVenueTradingPorts(ports),
@@ -273,11 +278,21 @@ def grid_world(
             caps=DEFAULT_OWNER_BUDGET_CAPS,
             queues=queues or (lambda _name: queue or InlineWorkQueue()),
             pacers=lambda _spacing: pacer,
+            retries=retries,
         )
     )
     executor = factory.create(bot)
     return GridWorld(
-        executor, book, activity, session, store, clock, pacer, snapshot, factory
+        executor,
+        book,
+        activity,
+        session,
+        store,
+        clock,
+        pacer,
+        snapshot,
+        factory,
+        retries,
     )
 
 

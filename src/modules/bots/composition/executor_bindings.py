@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer i
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_work_queue import (
     ThreadBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.timer_bot_retry_scheduler import (
+    TimerBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
     BotCommandLock,
 )
@@ -41,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
@@ -62,6 +68,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 def bind_executors(container: IContainer) -> None:
     """Lazy factories: `register()` may only bind, never resolve."""
     container.singleton(BotCommandLock, BotCommandLock())
+    container.singleton(IBotRetryScheduler, TimerBotRetryScheduler())
     container.singleton(BotExecutors, _build_executors)
     container.singleton(IBotRunner, _build_runner)
     container.singleton(BotReadinessReader, _build_readiness_reader)
@@ -87,6 +94,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         caps=container.resolve(OwnerBudgetCaps),
         queues=ThreadBotWorkQueue,
         pacers=MonotonicOrderPacer,
+        retries=container.resolve(IBotRetryScheduler),
     )
     return GridExecutorFactory(deps)
 

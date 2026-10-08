@@ -16,7 +16,7 @@
 ## 1. Context
 A static code review of the Spot Grid bot at `master-warrior` `3bbe243` (2026-10-08; published for the owner at https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz) found per-order safety sound (client order ids before submission, lookup of unknown outcomes, adoption by tag after a crash, Stop complete only at zero open tagged orders) and **supervision of a running bot as a whole** weak: stop-loss and take-profit depend on a chart being open, fills during a websocket gap are lost, the user-data stream can end for good, and nothing reaches a user who is away. The audit lists 6 high, 12 medium and 11 low findings in four phases; its §7 asked four questions, answered below.
 
-Phase 1's claims were re-verified against the code on 2026-10-08 by the session that wrote this epic (✅ Established, per task in [`EPIC-035A`](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [`035B`](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [`035C`](incomplete/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md)). One refinement (H5) and one claim not reproducible here (the python-binance 1.0.37 `ValueError`) are recorded in those tasks.
+Phase 1's claims were re-verified against the code on 2026-10-08 by the session that wrote this epic (✅ Established, per task in [`EPIC-035A`](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [`035B`](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [`035C`](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md)). One refinement (H5) and one claim not reproducible here (the python-binance 1.0.37 `ValueError`) are recorded in those tasks.
 
 ## 2. Decisions
 | # | Decision | Status | Decided by | Consequence |
@@ -39,7 +39,7 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [035A](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [035B](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [035C](incomplete/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | Not started | Not yet verified |
+| D1 | [035A](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [035B](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | Not started | Not yet verified |
 | D2 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
 | D3 | [035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Not started | Not yet verified |
 | D4 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
