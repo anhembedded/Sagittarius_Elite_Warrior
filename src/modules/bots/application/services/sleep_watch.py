@@ -113,10 +113,11 @@ class SleepWatch:
         self._deps.retries.after(self._limits.check_every, self._beat)
 
     def _beat(self) -> None:
-        try:
-            self.check()
-        finally:
-            self._deps.retries.after(self._limits.check_every, self._beat)
+        # Armed first: the wake's price reads run on this thread and a venue slow
+        # to come back can take longer than `gap_over`; were the next beat armed
+        # after them, their own duration would read as a second sleep.
+        self._deps.retries.after(self._limits.check_every, self._beat)
+        self.check()
 
     def check(self) -> None:
         """One look at the clocks; a gap is caught up from."""

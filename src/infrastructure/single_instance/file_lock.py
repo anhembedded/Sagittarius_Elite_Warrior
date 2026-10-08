@@ -10,8 +10,30 @@ at the start of the file here. A lock file therefore holds one byte (written by
 
 from __future__ import annotations
 
+import errno
+import logging
 import sys
 from typing import BinaryIO
+
+logger = logging.getLogger("App.Instance")
+
+#: What a lock call raises when another process holds the lock. Anything else
+#: (a filesystem without `flock`, an interrupted call) is refused as well, which
+#: is the safe side, but is not worded as another copy running.
+_TAKEN = frozenset({errno.EAGAIN, errno.EACCES, errno.EDEADLK})
+
+
+def _refuse(error: OSError) -> bool:
+    """`False` always: the lock was not taken. A cause other than 'held' is logged."""
+    if error.errno not in _TAKEN:
+        logger.warning(
+            "The instance lock could not be taken (%s: errno %s); this copy "
+            "will be read-only [instance-lock-error]",
+            errno.errorcode.get(error.errno or 0, "?"),
+            error.errno,
+        )
+    return False
+
 
 if sys.platform == "win32":
     import msvcrt
@@ -21,8 +43,8 @@ if sys.platform == "win32":
         handle.seek(0)
         try:
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        except OSError:
-            return False
+        except OSError as error:
+            return _refuse(error)
         return True
 
     def unlock(handle: BinaryIO) -> None:
@@ -37,8 +59,8 @@ else:
         """Lock `handle`; `False` when another process already holds it."""
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            return False
+        except OSError as error:
+            return _refuse(error)
         return True
 
     def unlock(handle: BinaryIO) -> None:

@@ -234,3 +234,25 @@ def test_a_bot_that_is_not_running_is_left_alone_by_a_wake() -> None:
 def test_a_limit_must_be_positive(seconds: int) -> None:
     with pytest.raises(ValueError, match="gap_over"):
         SleepLimits(gap_over=timedelta(seconds=seconds))
+
+
+def test_the_next_beat_is_armed_before_a_slow_wake_runs() -> None:
+    """Review of PR 438: the wake's price reads run on the heartbeat's thread,
+    and a venue that is slow to come back can make them last past the gap limit.
+    The next beat is therefore armed before the wake, so the wake's own duration
+    is never read as a second sleep."""
+    pending_at_read: list[int] = []
+
+    class _Watching(ScriptedFreshPrice):
+        def read(self, venue, symbol):  # type: ignore[no-untyped-def]
+            pending_at_read.append(len(s.world.retries.pending))
+            return super().read(venue, symbol)
+
+    s = Sleeper(_Watching(_INSIDE_THE_BAND))
+    s.watch.begin()
+    s.world.monotonic.advance(_NIGHT.total_seconds())
+    s.world.clock.advance(_NIGHT)
+
+    s.world.retries.run_next()
+
+    assert pending_at_read == [1], "the next beat was already waiting during the read"

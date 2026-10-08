@@ -9,6 +9,7 @@ named refusal before the start's preconditions touch the venue.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
@@ -18,6 +19,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
     ReadOnlyBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot.command import (
+    PauseBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot.handler import (
+    PauseBotCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot.command import (
+    StopBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot.handler import (
+    StopBotCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
     BotRefusal,
@@ -26,11 +39,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     BaseHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.contract_bot_store import (
     sample_bot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import BotLifecycle
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleState,
 )
 
 _REASON = "Another copy is running; this one is read-only."
@@ -135,3 +153,25 @@ def test_the_store_says_the_instances_own_reason() -> None:
         ReadOnlyBotStore(FakeBotStore(), _REASON).save(sample_bot())
 
     assert str(caught.value) == _REASON
+
+
+def test_a_pause_on_a_read_only_copy_is_a_named_refusal_through_the_handler() -> None:
+    """Review of PR 438: the four lifecycle commands reach the runner through
+    `BotCommandGate`, which turns the runner's refusal into the same value every
+    other refused command is, so the screen words it and nothing escapes raw."""
+    store = FakeBotStore()
+    stored = sample_bot()
+    running = replace(stored.bot, lifecycle=BotLifecycle(BotLifecycleState.RUNNING))
+    store.save(StoredBot(running, stored.runtime))
+    runner = ReadOnlyBotRunner(_Runner(), _REASON)
+    handlers = (
+        PauseBotCommandHandler(store, runner).execute(PauseBotCommand("abc123")),
+        StopBotCommandHandler(store, runner).execute(
+            StopBotCommand("abc123", BaseHandling.KEEP)
+        ),
+    )
+
+    for result in handlers:
+        assert result.accepted is False
+        assert result.refusal is BotRefusal.READ_ONLY_INSTANCE
+        assert result.message == _REASON

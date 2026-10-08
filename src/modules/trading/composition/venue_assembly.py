@@ -97,8 +97,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_us
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_trading_client_factory import (
-    ReadOnlyTradingClientFactory,
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_guard import (
+    guarded_account_control,
+    guarded_client_factory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
@@ -280,10 +281,7 @@ class VenueAssembly:
                 self._futures_sessions, self.order_credentials, self.metadata_provider
             )
         )
-        instance = self._shared.instance
-        if instance.read_only:
-            return ReadOnlyTradingClientFactory(factory, instance.reason)
-        return factory
+        return guarded_client_factory(factory, self._shared.instance)
 
     @_LockedCachedProperty
     def account_reader(self) -> ITradingAccountReader:
@@ -326,7 +324,10 @@ class VenueAssembly:
         handlers refuse it before reaching here."""
         if self._is_spot:
             return None
-        return FuturesAccountControl(self._futures_sessions, self.order_credentials)
+        return guarded_account_control(
+            FuturesAccountControl(self._futures_sessions, self.order_credentials),
+            self._shared.instance,
+        )
 
     @_LockedCachedProperty
     def book_ticker_reader(self) -> IBookTickerReader:

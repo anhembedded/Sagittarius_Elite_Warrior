@@ -59,7 +59,8 @@
 **Deviations, for the owner.**
 1. *"Shown on the bot."* The bot has no field for a wake event, and the only writer of a bot's record is its executor, which this task may not grow. The event is shown as **one notice to the user** (a toast, plus the log line) and is not drawn on the bot itself. The per-bot strip that would show "last woke at …" is `EPIC-035W` (not started, by the owner's wish); its snapshot can read the same facts. This acceptance line is met in letter for the log and in part for the screen.
 2. The bot count in the notice is the number of executors, which includes a Stopped bot whose executor is still held; a wake reads its price and ticks it to no effect. Harmless, slightly generous in the count.
-3. The detector uses the wall clock beside the monotonic one (§1); the task text said monotonic only.
+3. The heartbeat is re-armed *before* the wake runs (review of PR 438, finding 4): the wake's price reads run on that thread and a venue slow to come back can take longer than `gap_over`, which would otherwise read as a second sleep (`test_the_next_beat_is_armed_before_a_slow_wake_runs`).
+4. The detector uses the wall clock beside the monotonic one (§1); the task text said monotonic only.
 
 **Not proven here.** A real suspend/resume on Windows. The behaviour is proven with fake clocks; the owner's Testnet run (Phase 1 exit) is the place to close the lid on a running bot.
 
