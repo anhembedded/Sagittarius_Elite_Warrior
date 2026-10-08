@@ -29,6 +29,9 @@ ADR's order:
 `GridStreamGap` runs for a **RUNNING or PAUSED** bot after a user-data-stream
 gap: no lease claim and no transition, because the bot never left its state.
 
+A fill applied from history is remembered by its trade ids (`AppliedFills`,
+`EPIC-035P`), so the stream delivering it late does not count it twice.
+
 History's order row carries no fee, so a missed fill takes its fees from the
 order's trades, less what the bot already counted: Spot takes a buy's fee from
 the base it bought, and the counter SELL may ask for no more than arrived. The
@@ -82,6 +85,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -202,11 +208,16 @@ class GridReconciler:
         missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
         if missed <= 0 or record is None:
             return runtime
-        fill = self._missed_fill(saved, record, missed, since)
+        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
+        fill = self._missed_fill(saved, record, missed, trades)
         reaction = on_fill(runtime, fill, self._context.terms.step_size, hold=True)
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
             return ReconcileMismatch(halt.reason, halt.detail)
+        # The replay uses the stream's key (`EPIC-035P`): a trade this applied
+        # from history is not counted again when the stream delivers it late.
+        for trade in trades:
+            self._context.applied_fills.record(saved.client_order_id, trade.trade_id)
         logger.info(
             "Bot %s: reconcile %s executed %s since",
             self._context.state.bot_id,
@@ -241,9 +252,12 @@ class GridReconciler:
         return reaction.runtime
 
     def _missed_fill(
-        self, saved: LevelOrder, record: OrderRecord, missed: Decimal, since: datetime
+        self,
+        saved: LevelOrder,
+        record: OrderRecord,
+        missed: Decimal,
+        trades: tuple[TradeRecord, ...],
     ) -> LevelFill:
-        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
         base = self._context.base_asset
         base_fee = sum((t.fee for t in trades if t.fee_asset == base), Decimal(0))
         quote_fee = sum(

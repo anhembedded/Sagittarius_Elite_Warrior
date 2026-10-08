@@ -15,6 +15,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.applied_fills import (
+    AppliedFills,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     BotOrderGateway,
 )
@@ -86,6 +89,8 @@ class GridRunContext:
     monotonic: IMonotonicClock
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
+    #: The fills the run has counted, so a repeat is counted once (`EPIC-035P`).
+    applied_fills: AppliedFills = field(default_factory=AppliedFills)
 
     @property
     def terms(self) -> ExchangeTerms:

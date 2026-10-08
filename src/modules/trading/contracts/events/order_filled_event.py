@@ -50,6 +50,10 @@ class OrderFilledEvent(BaseEvent):
     #: different facts (`code/errors.md` §6, no fabricated fallback).
     fee_amount: Decimal | None = None
     fee_asset: str | None = None
+    #: `EPIC-035P` — the exchange's id of this one fill (Spot's `"t"`), `None`
+    #: where the venue reports none (Futures): what lets a consumer count a
+    #: report the stream delivers twice once.
+    trade_id: int | None = None
     #: `EPIC-028C` — the venue this happened on, so a screen showing one
     #: venue never shows another's. No default: a missing venue is exactly
     #: the fill landing in the wrong desk's table.
