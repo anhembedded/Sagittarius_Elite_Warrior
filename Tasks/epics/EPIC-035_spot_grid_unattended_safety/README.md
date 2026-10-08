@@ -28,7 +28,7 @@
 | Ways a placing task can end HALTED / ERROR with orders still resting | 3 (resume refused part-way, STARTING at restart, a failed park write) | 0 |
 | Bots that stick in STOPPING | yes (retry only on a session closed→open event) | 0; bounded retry with the reason shown |
 | Alerts that reach an absent owner | 0 | HALT, ERROR, stuck, range exit, heartbeat on Discord |
-| Signed URLs in cancel-path tracebacks | present (`BUG-180`) | 0 |
+| Signed URLs in cancel-path tracebacks | 0 (`BUG-180` fixed by 035O, 2026-10-08) | 0 |
 
 ## 3. Sub-tasks, ordered by risk
 Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each child is one PR.
@@ -49,9 +49,9 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 036B (for the range-exit alert) | 🟡 | Planned |
 | [EPIC-035M](incomplete/EPIC-035M_pnl_is_complete.md) | PnL is complete: total, BNB fees, HODL benchmark (L2) | Elite | None | 🟢 | Planned |
 | [EPIC-035N](incomplete/EPIC-035N_invalid_parameters_are_explained_where_they_are.md) | Invalid parameters are explained where they are (L10) | Elite | None | 🟢 | Planned |
-| [EPIC-035O](incomplete/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | Planned |
-| [EPIC-035P](incomplete/EPIC-035P_a_duplicate_partial_fill_counts_once.md) | A duplicate partial fill counts once (L1) | Elite | None | 🟡 | Planned |
-| [EPIC-035Q](incomplete/EPIC-035Q_reconcile_reads_the_executed_quantity.md) | The reconciler reads the executed quantity of an adopted order (M10) | Elite | 035B | 🟡 | Planned |
+| [EPIC-035O](completed/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
+| [EPIC-035P](completed/EPIC-035P_a_duplicate_partial_fill_counts_once.md) | A duplicate partial fill counts once (L1) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
+| [EPIC-035Q](completed/EPIC-035Q_reconcile_reads_the_executed_quantity.md) | The reconciler reads the executed quantity of an adopted order (M10) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035R](incomplete/EPIC-035R_resume_sizes_from_what_is_left.md) | Resume sizes from what is left (M9) | Elite | None | 🟡 | Planned |
 | [EPIC-035S](incomplete/EPIC-035S_levels_that_round_together_are_refused.md) | Levels that round to one price are refused (L3) | Elite | None | 🟢 | Planned |
 | [EPIC-035T](incomplete/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | Planned |
