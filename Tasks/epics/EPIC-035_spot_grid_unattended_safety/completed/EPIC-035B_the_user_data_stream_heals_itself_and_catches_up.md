@@ -1,6 +1,6 @@
 # EPIC-035B — The user-data stream heals itself and catches up
 
-**Status:** 🟡 In review (draft pull request; the `-Full` run and a reviewer's read pending)
+**Status:** ✅ Done (2026-10-08)
 **Source:** the owner's Spot Grid audit, 2026-10-08, findings H2 and H3 (https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz); Phase 1 approved the same day (D1).
 **Risk:** 🔴 — this stream is the only source of fills; without it the ladder freezes with real orders resting
 **Complexity:** L — retry policy and handle lifecycle in an adapter, a health event, a periodic and a post-reconnect reconcile, a HALT rule
@@ -91,4 +91,4 @@ The scripted sockets in `tests/unit/modules/trading/adapters/binance/scripted_so
 **Evidence.** Red-before and green-after for every test named above; mutation-checked: dropping the release of held counters, the halt on a confirmed mismatch, the strict `>` of the down limit, the `>=` of the periodic interval, the backoff cap, the stable-connection reset, the generation guard of the handle, `stop()`'s STOPPED event, the registration's discard, the second-run rule and its reset, and the watch's and heartbeat's wiring each turn a test red. Commit tier (`ci-local.ps1 -SkipTests`): PASS. Unit and integration tiers on this head: see the pull request. `-Full` on GitHub and a reviewer's read: pending. **Not run:** a real Binance Testnet socket drop (the fake server speaks no websocket); the owner's 24 h Testnet run with the chart closed (Phase 1 exit).
 
 ## Resume
-Implemented on `claude/epic-035b-user-stream-heals`. Remaining: the `-Full` run and a reviewer's read on the draft pull request; then move this file to `completed/`, set `✅ Done (date)`, and update the epic README row and `TRACKING.md`.
+Done. Pull request #431 (draft; the user merges). Evidence at close: the reviewer's PASS on `7c3bccfb` and on the merge delta to `359cae2d` (PR comments); the `-Full` run on GitHub is the gate. Not run: a real Binance Testnet socket drop, and the owner's 24 h Testnet run with the chart closed (Phase 1 exit). Open follow-ups: `BUG-187`, `BUG-188`.
