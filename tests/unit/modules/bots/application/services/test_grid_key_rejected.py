@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -132,6 +135,36 @@ def test_a_stop_the_exchange_refuses_for_the_key_halts_by_name_instead_of_waitin
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.KEY_REJECTED
     assert world.retries.pending == [], "retrying a revoked key would only fail again"
+
+
+def test_an_exit_slice_the_exchange_refuses_for_the_key_halts_by_name() -> None:
+    """Stop selling the base: the market sell meets a rejected key."""
+    world = _running()
+    world.derive("4.132", cost="499.97")
+    world.book.cancels.clear()
+    world.book.refuse_next = [_KEY_REJECTED]
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    assert world.state() is S.HALTED
+    runtime = world.runtime()
+    assert runtime.reason is GridReason.KEY_REJECTED
+    assert "may still rest" in runtime.reason_detail
+
+
+def test_a_resume_whose_cancel_meets_a_rejected_key_says_so_and_stays_halted() -> None:
+    world = _running()
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.derive("4.132", cost="499.97")
+    world.book.cancel_refusals = [_KEY_REJECTED]
+
+    world.executor.resume()
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.KEY_REJECTED
+    assert world.executor.proposal is None, (
+        "no ladder is proposed over orders it cannot cancel"
+    )
 
 
 def test_the_key_is_probed_between_orders() -> None:
