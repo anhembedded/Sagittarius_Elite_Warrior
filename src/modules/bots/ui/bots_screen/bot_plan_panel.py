@@ -57,8 +57,10 @@ FACT_SPECS = (
             ("venue", "Venue"),
             ("symbol", "Symbol"),
             ("capital", "Capital"),
-            ("grid_profit", "Grid profit"),
-            ("unrealised", "Unrealised PnL"),
+            ("total_pnl", "Total PnL"),
+            ("grid_profit", "of which grid profit"),
+            ("unrealised", "of which unrealised"),
+            ("hodl", "HODL benchmark"),
             ("inventory", "Held"),
         )
     ),

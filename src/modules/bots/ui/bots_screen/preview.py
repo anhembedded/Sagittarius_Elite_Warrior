@@ -75,7 +75,7 @@ def build_preview() -> QWidget:
     view.model.set_bots(bots)
     draft = bots[0]
     view.model.set_selected(draft)
-    view.model.set_facts(bot_facts(draft, Decimal(65000), _NOW))
+    view.model.set_facts(bot_facts(draft, _NOW))
     view.model.set_judgement(
         (
             "OK: Every grid earns more than its fees (thinnest step 0.0145, fees 0.002)",

@@ -38,6 +38,13 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
         "cost": str(runtime.cost),
         "realised_profit": str(runtime.realised_profit),
         "completed_cycles": runtime.completed_cycles,
+        "realised_total": str(runtime.realised_total),
+        "start_price": _optional(runtime.start_price),
+        "mark_price": _optional(runtime.mark_price),
+        "mark_price_at": (
+            runtime.mark_price_at.isoformat() if runtime.mark_price_at else None
+        ),
+        "unpriced_fees": runtime.unpriced_fees,
         "held": [_encode_held(held) for held in runtime.held],
         "reason": runtime.reason.value if runtime.reason else None,
         "reason_detail": runtime.reason_detail,
@@ -56,6 +63,15 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         cost=_decimal(data, "cost"),
         realised_profit=_decimal(data, "realised_profit"),
         completed_cycles=_int(data, "completed_cycles"),
+        # The earnings fields (`EPIC-035M`) are absent from a file an earlier
+        # build wrote: that is "nothing known yet", not a damaged file.
+        realised_total=_optional_decimal(data, "realised_total") or Decimal(0),
+        start_price=_optional_decimal(data, "start_price"),
+        mark_price=_optional_decimal(data, "mark_price"),
+        mark_price_at=(
+            _moment(data["mark_price_at"]) if data.get("mark_price_at") else None
+        ),
+        unpriced_fees=_int(data, "unpriced_fees") if "unpriced_fees" in data else 0,
         held=tuple(
             _decode_held(_mapping(item, "held")) for item in _list(data, "held")
         ),

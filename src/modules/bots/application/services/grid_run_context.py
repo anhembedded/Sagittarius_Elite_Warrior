@@ -93,6 +93,10 @@ class GridRunContext:
     #: Where the bot announces what the rest of the app may want to hear, such as
     #: its price leaving the range (`EPIC-035L`).
     events: IEventPublisher
+    #: The price of one unit of an asset in the quote asset, for a fee paid in a
+    #: third asset such as BNB (`EPIC-035M`).
+    #: @raise FreshPriceUnavailableError The venue has no such market or no answer.
+    asset_price: Callable[[str], Decimal]
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
     #: The fills the run has counted, so a repeat is counted once (`EPIC-035P`).

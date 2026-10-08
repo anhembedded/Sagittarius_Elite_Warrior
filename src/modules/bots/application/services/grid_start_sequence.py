@@ -90,6 +90,11 @@ class GridStartSequence:
                 cost=inventory.cost,
                 realised_profit=earned.realised_profit,
                 completed_cycles=earned.completed_cycles,
+                realised_total=earned.realised_total,
+                start_price=earned.start_price or fresh.start_price,
+                mark_price=earned.mark_price,
+                mark_price_at=earned.mark_price_at,
+                unpriced_fees=earned.unpriced_fees,
             )
         )
         if self._place_ladder(plan):

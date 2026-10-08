@@ -14,7 +14,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
@@ -61,7 +60,6 @@ class DetailInputs:
     #: `None` when no kind in the catalog has the bot's `kind_id`.
     kind: IBotKind | None
     market: PlannerMarket | None
-    last_price: Decimal | None
     now: datetime
     #: The parameters on screen when they differ from the saved ones.
     edited: Mapping[str, str] | None = None
@@ -111,7 +109,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         blocked_by=readiness.message() if readiness and not readiness.can_start else ""
     )
     return BotDetail(
-        facts=bot_facts(bot, inputs.last_price, inputs.now),
+        facts=bot_facts(bot, inputs.now),
         verdicts=judged.verdicts,
         verdict_lines=tuple(verdict_line(verdict) for verdict in judged.verdicts),
         availability={

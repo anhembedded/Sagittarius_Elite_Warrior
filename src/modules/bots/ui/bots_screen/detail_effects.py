@@ -62,8 +62,3 @@ class DetailEffects:
         if panel is not None:
             panel.show_verdicts(detail.verdicts if detail else ())
         self._backtests.follow(self._selected)
-
-    def show_price(self) -> None:
-        """A live price moved only the figures."""
-        detail = self._selected.detail()
-        self._model.set_facts(detail.facts if detail else None)

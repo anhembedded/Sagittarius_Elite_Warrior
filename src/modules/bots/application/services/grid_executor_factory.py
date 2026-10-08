@@ -77,6 +77,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    BUDGET_QUOTE_ASSET,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,5 +139,8 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             monotonic=deps.monotonic,
             events=deps.events,
+            asset_price=lambda asset: deps.prices.read(
+                bot.definition.venue, f"{asset}{BUDGET_QUOTE_ASSET}"
+            ),
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

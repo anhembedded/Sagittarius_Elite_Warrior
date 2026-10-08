@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
@@ -63,7 +62,6 @@ class SelectedBot:
         self._refused: tuple[str, ...] = ()
         self.bot: BotSnapshot | None = None
         self.market: PlannerMarket | None = None
-        self.last_price: Decimal | None = None
         self.edited: Mapping[str, str] | None = None
         self.panel: BotKindPanel | None = None
         #: What the Connect step answered (`EPIC-034D`); the step sets it, so
@@ -73,7 +71,7 @@ class SelectedBot:
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
-        self.bot, self.market, self.last_price, self.edited = bot, None, None, None
+        self.bot, self.market, self.edited = bot, None, None
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
             self.panel.set_config(bot.config)
@@ -90,16 +88,8 @@ class SelectedBot:
 
     def take_market(self, market: PlannerMarket) -> None:
         self.market = market
-        self.last_price = market.market.last_price if market.market else None
         if self.panel is not None:
             self.panel.set_planner_market(market)
-
-    def take_price(self, symbol: str, price: Decimal) -> bool:
-        """Keeps a live price for the selected symbol; `False` for another."""
-        if self.bot is None or symbol != self.bot.symbol:
-            return False
-        self.last_price = price
-        return True
 
     def edit(self, config: Mapping[str, str]) -> None:
         self.edited = dict(config)
@@ -131,7 +121,6 @@ class SelectedBot:
                 self.bot,
                 kind,
                 self.market,
-                self.last_price,
                 self._now(),
                 self.edited,
                 self.connection,

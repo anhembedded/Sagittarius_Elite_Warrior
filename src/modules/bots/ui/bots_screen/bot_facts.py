@@ -3,9 +3,11 @@
 Each number is written by the application's formatter (`EPIC-033N`), so a
 price here reads as it does in the orders table beside it.
 
-Pure, so each figure is tested without a widget. Unrealised PnL needs a
-price: the latest the screen has (the planner's read, then each live candle);
-without one it says so rather than showing a stale or guessed figure.
+Pure, so each figure is tested without a widget. The earnings come from the run
+itself (`EPIC-035M`): the **total** first, then grid profit as one part of it, the
+unrealised at the price **the bot itself heard** (saved with its state, not a
+chart's), and the HODL benchmark. A figure with no price behind it says so
+rather than showing a stale or guessed one.
 """
 
 from __future__ import annotations
@@ -71,9 +73,13 @@ class BotFacts:
     #: How long the run has gone, written by the formatter as a duration;
     #: `None` while the bot is not running.
     running_time: timedelta | None
+    #: Realised plus unrealised, the first earnings figure (`EPIC-035M`).
+    total_pnl: str = NO_VALUE
+    #: What the same capital would have gained held since the run began.
+    hodl: str = NO_VALUE
 
 
-def bot_facts(bot: BotSnapshot, last_price: Decimal | None, now: datetime) -> BotFacts:
+def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
     progress = bot.progress
     capital_key = KIND_CAPITAL_KEYS.get(bot.kind)
     capital = bot.config.get(capital_key, "") if capital_key else ""
@@ -83,9 +89,11 @@ def bot_facts(bot: BotSnapshot, last_price: Decimal | None, now: datetime) -> Bo
         symbol=bot.symbol,
         capital=capital or NO_VALUE,
         grid_profit=_money(progress.realised_profit if progress else None),
-        unrealised=_unrealised(bot, last_price),
+        unrealised=_unrealised(bot),
         inventory=_inventory(bot),
         running_time=_running_time(bot, now),
+        total_pnl=_total(bot),
+        hodl=_money(progress.pnl.hodl if progress and progress.pnl else None),
     )
 
 
@@ -96,14 +104,31 @@ def _state_line(bot: BotSnapshot) -> str:
     return f"{state_text(bot.state)} — {progress.reason_detail}"
 
 
-def _unrealised(bot: BotSnapshot, last_price: Decimal | None) -> str:
+def _unrealised(bot: BotSnapshot) -> str:
     progress = bot.progress
     if progress is None or progress.inventory <= 0 or progress.average_cost is None:
         return NO_VALUE
-    if last_price is None:
+    pnl = progress.pnl
+    if pnl is None or pnl.unrealised is None or progress.mark_price is None:
         return "no price yet"
-    pnl = progress.inventory * (last_price - progress.average_cost)
-    return f"{_money(pnl)} at {_price(last_price)}"
+    return f"{_money(pnl.unrealised)} at {_price(progress.mark_price)}"
+
+
+def _total(bot: BotSnapshot) -> str:
+    progress = bot.progress
+    if progress is None or progress.pnl is None:
+        return NO_VALUE
+    pnl = progress.pnl
+    if pnl.total is None:
+        return "no price yet"
+    note = (
+        f" ({pnl.unpriced_fees} fees could not be priced)"
+        if pnl.unpriced_fees > 1
+        else " (1 fee could not be priced)"
+        if pnl.unpriced_fees
+        else ""
+    )
+    return f"{_money(pnl.total)}{note}"
 
 
 def _inventory(bot: BotSnapshot) -> str:

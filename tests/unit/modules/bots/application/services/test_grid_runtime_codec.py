@@ -3,6 +3,7 @@ damaged one is refused naming the field, never guessed."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -96,3 +97,39 @@ def test_a_naive_end_time_is_refused() -> None:
 
     with pytest.raises(GridRuntimeCodecError, match="timezone-aware"):
         decode_runtime(encoded)
+
+
+def test_the_earnings_fields_round_trip() -> None:
+    """`EPIC-035M` — total realised, start and mark price, unpriced fees."""
+    runtime = replace(
+        _busy_runtime(),
+        realised_total=Decimal("14.87"),
+        start_price=Decimal(100),
+        mark_price=Decimal("125.5"),
+        mark_price_at=AT,
+        unpriced_fees=2,
+    )
+
+    assert decode_runtime(encode_runtime(runtime)) == runtime
+
+
+def test_a_file_written_before_the_earnings_fields_still_reads() -> None:
+    """A bot stored by an earlier build has none of them: zero, no price, nothing
+    unpriced, and the total is then judged on what is known."""
+    encoded = encode_runtime(_busy_runtime())
+    for field in (
+        "realised_total",
+        "start_price",
+        "mark_price",
+        "mark_price_at",
+        "unpriced_fees",
+    ):
+        encoded.pop(field)
+
+    decoded = decode_runtime(encoded)
+
+    assert decoded.realised_total == 0
+    assert decoded.start_price is None
+    assert decoded.mark_price is None
+    assert decoded.mark_price_at is None
+    assert decoded.unpriced_fees == 0

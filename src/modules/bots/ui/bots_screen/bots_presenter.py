@@ -13,11 +13,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
@@ -187,7 +185,6 @@ class BotsPresenter(CommandPresenter):
         self._commands.finished.connect(self._on_finished)
         self._changes.changed.connect(self._on_bot_changed)
         self._log.line.connect(model.append_log_line)
-        self._ticks.candle.connect(self._on_candle)
         self._clock.timeout.connect(self._refresh_detail)
 
     # -- reads ------------------------------------------------------------- #
@@ -275,10 +272,6 @@ class BotsPresenter(CommandPresenter):
     def _on_config_edited(self, config: Mapping[str, str]) -> None:
         self._selected.edit(config)
         self._rejudge.start()
-
-    def _on_candle(self, candle: MarketData) -> None:
-        if self._selected.take_price(candle.symbol, Decimal(str(candle.close_price))):
-            self._detail.show_price()
 
     # -- actions ----------------------------------------------------------- #
 

@@ -7,6 +7,7 @@ reading lives with the kind's codec. Only Grid keeps one today.
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     GridRuntimeCodecError,
@@ -20,6 +21,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import Sto
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    GridParams,
+    GridParamsError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import pnl_summary
 
 logger = logging.getLogger("App.Bots.Progress")
 
@@ -39,6 +45,8 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
         )
         return None
     return BotProgress(
+        mark_price=runtime.mark_price,
+        pnl=pnl_summary(runtime, _capital(stored)),
         realised_profit=runtime.realised_profit,
         completed_cycles=runtime.completed_cycles,
         open_orders=len(runtime.open_orders),
@@ -59,3 +67,12 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
             if level.order is not None
         ),
     )
+
+
+def _capital(stored: StoredBot) -> Decimal:
+    """The capital the run was given, for the HODL benchmark; zero when the
+    parameters cannot be read, which leaves the benchmark at zero."""
+    try:
+        return GridParams.from_config(stored.bot.definition.config).capital_quote
+    except GridParamsError:
+        return Decimal(0)

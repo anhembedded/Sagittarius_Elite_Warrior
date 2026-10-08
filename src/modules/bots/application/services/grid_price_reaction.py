@@ -23,6 +23,8 @@ the actor routes a tick and an age check here, and both run on the bot's worker.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     halt_with,
@@ -66,6 +68,12 @@ _WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
 )
 
 
+#: How often the price the bot heard is saved with its state (`EPIC-035M`): the
+#: unrealised PnL is judged on it, and a save per tick would write the file every
+#: second.
+MARK_PRICE_SAVE_SECONDS: float = 30.0
+
+
 class GridPriceReaction:
     """Remembers the last price and reacts to a tick and to a quiet feed."""
 
@@ -73,6 +81,7 @@ class GridPriceReaction:
         self._context = context
         self._stopper = stopper
         self._extremes = GridTickExtremes()
+        self._mark_saved_at: float | None = None
         state = context.state
         self._range = GridRangeWatch(
             state.bot_id,
@@ -88,6 +97,7 @@ class GridPriceReaction:
             self._extremes.reset()
             self._range.reset()
             return
+        self._save_mark_price(tick.last)
         self._range.note(tick)
         low, high = self._extremes.observed(tick)
         params = self._context.params
@@ -113,6 +123,19 @@ class GridPriceReaction:
                 threshold,
             )
         self._stopper.run(BaseHandling.SELL_AT_MARKET, reason, detail)
+
+    def _save_mark_price(self, price: Decimal) -> None:
+        now = self._context.monotonic.seconds()
+        if (
+            self._mark_saved_at is not None
+            and now - self._mark_saved_at < MARK_PRICE_SAVE_SECONDS
+        ):
+            return
+        self._mark_saved_at = now
+        state = self._context.state
+        state.update(
+            replace(state.runtime, mark_price=price, mark_price_at=state.now())
+        )
 
     def check_age(self) -> None:
         state = self._context.state

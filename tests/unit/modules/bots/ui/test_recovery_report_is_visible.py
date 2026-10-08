@@ -40,7 +40,7 @@ def test_the_recovery_report_is_in_the_bots_facts() -> None:
     runtime = GridRuntime(()).with_reason(GridReason.RECOVERY_READ, report.words())
     progress = bot_progress(StoredBot(bot, encode_runtime(runtime)))
 
-    facts = bot_facts(BotSnapshot.of(bot, progress), None, NOW)
+    facts = bot_facts(BotSnapshot.of(bot, progress), NOW)
 
     assert facts.state == f"Recovering — {report.words()}"
     assert "3 saved order(s) rest" in facts.state
@@ -54,6 +54,6 @@ def test_a_stopping_bot_shows_why_it_waits_and_what_is_still_open() -> None:
     runtime = GridRuntime(()).with_reason(GridReason.USER_STOP, detail)
     progress = bot_progress(StoredBot(bot, encode_runtime(runtime)))
 
-    facts = bot_facts(BotSnapshot.of(bot, progress), None, NOW)
+    facts = bot_facts(BotSnapshot.of(bot, progress), NOW)
 
     assert facts.state == f"Stopping — {detail}"
