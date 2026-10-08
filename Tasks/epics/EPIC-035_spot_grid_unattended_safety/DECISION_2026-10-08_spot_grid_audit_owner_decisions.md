@@ -2,7 +2,7 @@
 
 **Epic:** [EPIC-035](README.md)
 **Date:** 2026-10-08
-**Status:** Accepted (D1–D4)
+**Status:** Accepted (D1–D5)
 **Decided by:** the owner, 2026-10-08, relayed by the coordinator session; D4 was decided later the same day
 
 | Label | Meaning |
@@ -25,6 +25,7 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 | D2 | Stop-loss stays optional. No default change and no forced warning | Accepted | 🟢 user decision, 2026-10-08 | `EPIC-035L` (H7) carries no "SL is off" Start warning and no SL default; the audit's recommended warning is not built. A bot without SL is still halted by the staleness rule and the range-exit alert, never by a price rule the owner did not set |
 | D3 | The alert channel for an absent user is Discord, through a webhook | Accepted | 🟢 user decision, 2026-10-08 | `EPIC-035K` builds a Discord adapter behind an `INotifier`-style port so another channel is one new adapter. The webhook URL is a secret: keyring only, never a log line, a config file or a traceback |
 | D4 | Start with the price outside the range (H7): option **(a)** — the price **below the lower bound is REFUSED** (Start would market-buy the whole capital), the price **above the upper bound is a WARNING only** and Start is allowed. Option (b), WARNING only, was not chosen | Accepted (2026-10-08) | 🟢 user decision, 2026-10-08 (relayed by the coordinator session) | Two new verdicts in `grid_checks.py` (a refusal and a warning), worded for the user; the range-exit alert while running is unaffected. Specified in `EPIC-035L` |
+| D5 | Two tasks are added to Phase 3 beside 035K: `EPIC-035W` (the bot's health is visible on screen) and `EPIC-035X` (every bot decision is in an audit trail). The owner requested them on 2026-10-08 and asked that they **not be started yet** | Accepted (2026-10-08) | 🟢 user decision, 2026-10-08 (relayed by the coordinator session) | Two documentation-only task files, no code. 035K's Discord heartbeat reuses 035W's health snapshot and quotes 035X's journal, so both are ordered before or with 035K when started. 035W supersedes the status-bar line of 035N. The storage of the journal (JSON lines or SQLite) is decided inside 035X |
 
 ## 3. Alternatives considered
 - **D2, a default stop-loss about 5 % below the lower bound** (the audit's alternative). Lost: the owner keeps the choice with the user; a default would change the money-at-risk of every new bot.
@@ -43,3 +44,4 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 | D2 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
 | D3 | [035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Not started | Not yet verified |
 | D4 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
+| D5 | [035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md), [035X](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | Recorded, deliberately not started (owner) | Not yet verified |

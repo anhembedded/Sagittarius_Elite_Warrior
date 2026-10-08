@@ -4,7 +4,7 @@
 - **Repositories:** Elite. No Engine change is expected; a need for one gets its own confirmation (`ONBOARDING.md` §2).
 - **Origin:** the owner's request for an audit of the Spot Grid bot's exception handling, and its answers of 2026-10-08. The audit (static code review at `master-warrior` `3bbe243`, 2026-10-08, published at https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz) found 6 high, 12 medium and 11 low findings; per-order safety is sound, supervision of a running bot as a whole is not.
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md); each child updates the SPEC journeys it changes.
-- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D4 accepted.
+- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D5 accepted.
 - **Tracking:** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:** Builds on [`EPIC-029`](../EPIC-029_bots_tab_grid_fast_track/README.md) (the Grid bot, its executor, reconciler and stop sequence) and [`EPIC-034`](../EPIC-034_bots_connect_design_run/README.md) (the Connect, Design, Run flow, and mainnet venues). Exchange-side stop-loss stays in [`EPIC-026K`](../EPIC-026_road_to_real_money/README.md): this epic is the app-side supervision that exists until, and beside, it.
 
@@ -57,13 +57,15 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035T](incomplete/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | Planned |
 | [EPIC-035U](incomplete/EPIC-035U_exchange_filters_are_refreshed.md) | Exchange filters are refreshed during a run (L5) | Elite | 035E | 🟡 | Planned |
 | [EPIC-035V](incomplete/EPIC-035V_the_remaining_low_findings.md) | The remaining low findings (L4, L6, L7, L8, L9) | Elite | None | 🟢 | Planned |
+| [EPIC-035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | The bot's health is visible on screen: a per-bot strip and a truthful status bar | Elite | 035A, 035B | 🟡 | Planned (owner: not yet) |
+| [EPIC-035X](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | Every bot decision is in an audit trail: a journal port, a Log tab, CSV export | Elite | 035C | 🟡 | Planned (owner: not yet) |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | 1 — Running-bot supervision | `035A`, `035B`, `035C` merged: SL/TP watched and a staleness HALT in every order-holding state; the user stream recovers from any exception and reconciles after a reconnect; no placing task ends HALTED / ERROR with orders resting; STOPPING retries | Each child's red-before regression tests (named in the task); the `-Full` run green on each head; a reviewer's read per PR; the owner's Testnet run of a 24 h bot with the chart closed. Not run |
 | 2 — Infrastructure resilience | `035D`–`035J` merged: a transient fault no longer ends in ERROR; symbol status, key revocation, store failure, a second instance and sleep are each a named, handled event | Per-child tests; fake-server journeys. Not run |
-| 3 — Alerting and transparency | `035K`–`035O` merged: HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run |
+| 3 — Alerting and transparency | `035K`–`035O`, `035W` and `035X` merged: the screen shows each bot's feed age, stream state and last reconcile, every decision is in an exportable journal, HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run |
 | 4 — Accuracy | `035P`–`035V` merged | Per-child tests. Not run |
 
 ## 5. Out of scope
@@ -75,4 +77,5 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 - A 24-hour Testnet soak of stream latency and the ORDERS rate limit: `EPIC-029H`, waiting on the owner's run.
 
 ## Notes (newest first)
+- **2026-10-08** — The owner requested two more Phase 3 tasks, `035W` (health visible on screen) and `035X` (decision audit trail), and asked that they **not be started yet**; recorded as D5 in the decision file. The epic now has 24 sub-tasks.
 - **2026-10-08** — Epic, decision record and 22 sub-tasks written from the audit and the owner's decisions. Phase 1 claims re-verified against the code at `3bbe243`; see each task's Context for the two refinements.
