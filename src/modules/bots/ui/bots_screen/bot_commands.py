@@ -89,7 +89,12 @@ def command_for(
         # Save and start (`EPIC-034H`, D8): the edits on screen travel with the
         # start, which saves them only when the bot is ready with them.
         unsaved = edited is not None and dict(edited) != dict(bot.config)
-        return StartBotCommand(bot_id, dict(edited) if unsaved and edited else None)
+        # Reaching here, `allow_real_money` answered yes: the use case enforces it.
+        return StartBotCommand(
+            bot_id,
+            dict(edited) if unsaved and edited else None,
+            real_money_confirmed=True,
+        )
     return {
         BotAction.PAUSE: PauseBotCommand,
         BotAction.RESUME: ResumeBotCommand,

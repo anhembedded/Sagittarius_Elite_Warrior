@@ -16,6 +16,10 @@ Then `IBotRunner.start` takes the steps that touch the session and can still be
 refused by a race or by the exchange (`GridStartPreconditions`): the lease, the
 reconciliation, the budget's registration; then STARTING and the queued start.
 
+A mainnet bot starts only with the user's answer to the real-money question
+(`StartBotCommand.real_money_confirmed`); the screen asks, this use case enforces
+(`EPIC-035V`, L6).
+
 With `config` (**Save and Start**, D8) the parameters are judged **as they
 would be saved**; only a bot that is ready with them is saved, then started, so
 a refused start never leaves edits half-applied.
@@ -44,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot.
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
+    BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
@@ -72,6 +77,15 @@ class StartBotCommandHandler(ICommandHandler[StartBotCommand, BotCommandResult])
             found = self._lookup.find(command.bot_id)
             if isinstance(found, BotCommandResult):
                 return found
+            venue = found.bot.definition.venue
+            if venue.is_mainnet and not command.real_money_confirmed:
+                return BotCommandResult.refused(
+                    BotRefusal.REAL_MONEY_NOT_CONFIRMED,
+                    f"Starting a bot on {venue.display_name} uses real money, "
+                    "and the start did not carry the confirmation of that; "
+                    "start it from the Bots screen.",
+                    command.bot_id,
+                )
             readiness = self._readiness.read(found.bot, command.config)
             if not readiness.can_start:
                 first = readiness.items[0]

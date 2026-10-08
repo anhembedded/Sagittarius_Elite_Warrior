@@ -29,7 +29,7 @@ def _bot() -> BotSnapshot:
 def test_start_without_edits_starts_the_saved_parameters() -> None:
     command = command_for(BotAction.START, _bot(), Answers().dialogs(), None)
 
-    assert command == StartBotCommand("a00001", None)
+    assert command == StartBotCommand("a00001", None, real_money_confirmed=True)
 
 
 def test_start_with_edits_equal_to_the_saved_ones_saves_nothing() -> None:
@@ -37,7 +37,7 @@ def test_start_with_edits_equal_to_the_saved_ones_saves_nothing() -> None:
         BotAction.START, _bot(), Answers().dialogs(), dict(GOOD_CONFIG)
     )
 
-    assert command == StartBotCommand("a00001", None)
+    assert command == StartBotCommand("a00001", None, real_money_confirmed=True)
 
 
 def test_start_with_edits_carries_them_to_be_saved_first() -> None:
@@ -45,4 +45,4 @@ def test_start_with_edits_carries_them_to_be_saved_first() -> None:
 
     command = command_for(BotAction.START, _bot(), Answers().dialogs(), edited)
 
-    assert command == StartBotCommand("a00001", edited)
+    assert command == StartBotCommand("a00001", edited, real_money_confirmed=True)

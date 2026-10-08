@@ -90,12 +90,17 @@ class _CountingRunner(IBotRunner):
 
 
 def _start(
-    world: ReadinessWorld, runner: IBotRunner, config: dict[str, str] | None = None
+    world: ReadinessWorld,
+    runner: IBotRunner,
+    config: dict[str, str] | None = None,
+    *,
+    confirmed: bool = True,
 ) -> BotCommandResult:
+    """A Start as the screen sends it: the real-money question answered."""
     handler = StartBotCommandHandler(
         world.store, runner, BotCommandLock(), world.reader, world.clock
     )
-    return handler.execute(StartBotCommand(BOT, config))
+    return handler.execute(StartBotCommand(BOT, config, real_money_confirmed=confirmed))
 
 
 def _query(world: ReadinessWorld, config: dict[str, str] | None = None):
@@ -354,3 +359,33 @@ def test_a_mainnet_key_the_gate_refused_stops_start_and_names_the_venue() -> Non
     assert "Spot Mainnet" in reported.items[0].reason
     assert result.refusal is BotRefusal.VENUE_NOT_READY
     assert runner.started == []
+
+
+def test_a_mainnet_start_nobody_confirmed_is_refused_before_anything_is_read() -> None:
+    """`EPIC-035V` (L6) — the real-money question was asked by the screen alone,
+    so any other caller of the use case started a mainnet bot unasked. The
+    use case itself refuses, before it reads the account."""
+    world = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    runner = _CountingRunner()
+
+    result = _start(world, runner, confirmed=False)
+
+    assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
+    assert "real money" in result.message
+    assert runner.started == []
+    assert world.session.ready_requests == 0
+
+
+def test_a_confirmed_mainnet_start_goes_on_to_the_readiness() -> None:
+    world = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+
+    result = _start(world, _CountingRunner())
+
+    assert result.refusal is not BotRefusal.REAL_MONEY_NOT_CONFIRMED
+
+
+def test_a_testnet_start_needs_no_confirmation() -> None:
+    world = readiness_world()
+    runner = _CountingRunner()
+
+    assert _start(world, runner).accepted
