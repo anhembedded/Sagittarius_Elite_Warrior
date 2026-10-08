@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
@@ -58,6 +59,10 @@ class _Executor(IBotExecutor):
     def on_tick(self, price: Decimal) -> None: ...
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None: ...
+
+    def reconcile_after_gap(self) -> None: ...
+
+    def halt_user_stream_down(self, down_for: timedelta) -> None: ...
 
 
 class _Factory(IBotExecutorFactory):

@@ -19,6 +19,7 @@ Plausible extensions, each one new method here (`architecture-rule.md`
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
@@ -41,6 +42,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+    UserStreamState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
@@ -104,3 +109,13 @@ class VenueEventEmitter:
 
     def position_closed(self, symbol: str) -> None:
         self._event_bus.emit(PositionClosedEvent(symbol=symbol, venue=self._venue))
+
+    def user_stream_health(
+        self, state: UserStreamState, since: datetime, attempt: int = 0
+    ) -> None:
+        """`EPIC-035B` — where this venue's user-data stream is now."""
+        self._event_bus.emit(
+            UserStreamHealthEvent(
+                state=state, since=since, attempt=attempt, venue=self._venue
+            )
+        )

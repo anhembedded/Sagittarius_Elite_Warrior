@@ -147,6 +147,9 @@ class SpotHistoryReader(IAccountHistoryReader):
             )
             return tuple(map_spot_trade(row) for row in rows)
 
+    def discard_remembered(self, symbol: str) -> None:
+        """Nothing is remembered: every read already asks the exchange."""
+
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         # `since` is checked, not used: no Spot endpoint answers "traded
         # since" (see `known_gaps`).

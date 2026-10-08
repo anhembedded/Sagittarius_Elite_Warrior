@@ -55,10 +55,17 @@ def _credentials() -> Mock:
     return provider
 
 
-def _cancelled_token() -> Mock:
-    token = Mock()
-    token.is_cancelled.return_value = True
-    return token
+class _CancelledOnceConnected:
+    """A token that lets the stream start and is cancelled by the time it has
+    created its client: the first question (`EPIC-035B`'s supervisor asks
+    before it connects) is answered "no", every later one "yes"."""
+
+    def __init__(self) -> None:
+        self._asked = 0
+
+    def is_cancelled(self) -> bool:
+        self._asked += 1
+        return self._asked > 1
 
 
 async def _created_with(stream: Any, module: str) -> list[dict[str, object]]:
@@ -75,7 +82,7 @@ async def _created_with(stream: Any, module: str) -> list[dict[str, object]]:
     ):
         client.create = create
         stream._generation = 1
-        await stream._run_stream(_cancelled_token(), generation=1)
+        await stream._run_stream(_CancelledOnceConnected(), generation=1)
     return created
 
 

@@ -18,6 +18,13 @@ from abc import ABC, abstractmethod
 class IUserDataStream(ABC):
     """@brief Port for the exchange's authoritative order/position feed."""
 
+    @property
+    @abstractmethod
+    def is_running(self) -> bool:
+        """@brief A stream task is alive. False once it ended, whether by
+        `stop()` or by itself (`EPIC-035B`: a dead task no longer blocks
+        `start()`)."""
+
     @abstractmethod
     def start(self) -> bool:
         """@brief Starts the stream as a background task.

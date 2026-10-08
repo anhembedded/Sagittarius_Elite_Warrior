@@ -101,6 +101,11 @@ class RegisterOwnerBudgetCommandHandler(
         epoch: int,
         held: OwnerEventBuffer,
     ) -> OwnerBudgetRegistrationResult:
+        # A registration derives from exchange evidence (ADR D6), and the
+        # evidence must be the exchange as it is now: the history reader's
+        # memory of the last few seconds would replace a live owner book with
+        # one that missed their fills (`EPIC-035B`).
+        scope.ports.history_reader.discard_remembered(registration.symbol)
         try:
             derivation = self._deriver.derive(
                 registration, scope.ports.history_reader, datetime.now(UTC)

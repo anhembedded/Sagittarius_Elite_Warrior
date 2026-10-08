@@ -83,6 +83,15 @@ class IAccountHistoryReader(ABC):
         first. Raises as `order_history` does."""
 
     @abstractmethod
+    def discard_remembered(self, symbol: str) -> None:
+        """@brief Forget whatever this reader remembers of `symbol`'s
+        histories, so the next read of it asks the exchange (`EPIC-035B`).
+        A reader that remembers nothing has nothing to forget. A caller that
+        must act on the account as it is now, not as it was a few seconds ago
+        (a reconciliation after a stream gap), calls this first. No network
+        read, and no answer changes: only where the next one comes from."""
+
+    @abstractmethod
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
         """@brief The pairs a history of "every symbol" covers: those the
         account holds or has an open order on, plus every pair the venue can

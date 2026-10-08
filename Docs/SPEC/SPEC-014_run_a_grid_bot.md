@@ -186,6 +186,9 @@ available while it runs.
 | The app restarted during a start and the order session is still closed | Halted, "the app closed while this bot was starting; N tagged order(s) still rest and are cancelled when trading is enabled" | Cancels are refused while the session is closed; the debt is on the bot's own file and paid at the next enable (`EPIC-035C`, H6) |
 | An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
 | The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
+| The exchange stream that reports fills (the user-data stream) drops, as it does at least every 24 h | Nothing changes on screen while it reconnects (seconds). The bot reconciles against the exchange as soon as the stream is back: a fill that happened in the gap is counted and its counter order is placed, once; with nothing missed nothing is placed. A running bot is reconciled the same way every five minutes while the stream is up | Binance does not replay what a dropped stream missed; trading's stream reconnects with a growing, capped delay whatever failed, and says where it is (`UserStreamHealthEvent`) |
+| The stream stays down for more than two minutes | The bot moves to Halted with the reason "the exchange stream that reports fills has been down N s; the ladder was taken off" beside its state, and its resting orders are cancelled. A stream that comes back does not resume it; Resume re-plans from the exchange as for every other halt | A bot that cannot see its own fills must not keep orders on the exchange; resuming a grid is the owner's decision (D13) |
+| After a gap the exchange and the bot's ladder disagree beyond what the missed fills explain (for example a partly filled order the stream never reported) | The same Halted state, reason "inventory mismatch: saved … against … derived from the exchange", after a second reconcile confirmed it; the ladder is taken off | A disagreement the bot cannot explain is not guessed at; the second run lets a fill that arrived while the first read reach the ladder first |
 | A bot file on disk cannot be read | The status line names the file | The store refuses it rather than guessing (`EPIC-029B`) |
 | The action's answer arrives after the trader moved on or left the mode | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |
 | The backtest's period has no stored candles | "No 15m candles of BTCUSDT are stored …" and **Sync candles**; only a click syncs the interval and its 1-second klines ("Stop" leaves what was stored), then the backtest runs again | Opening a panel or running a backtest is never a network request (`BUG-107`) |
@@ -200,6 +203,10 @@ available while it runs.
   through it (never on touch), orders levels inside a candle by its 1-second klines and, without
   them, takes the adverse side first and says so. It models no slippage, no queue position and no
   partial fills, and its fees are the venue's rates read by the planner.
+- Seeing a fill the instant it happens while the stream is down, or counting a partly filled order
+  the stream never reported (`BUG-188`), or re-laying an order cancelled while the stream was down
+  (`BUG-187`): after a gap the bot catches up to the fills it missed, and halts when what remains
+  cannot be explained.
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first.
 - The Fills panel reads the four newest pages of the symbol's order history since the run started;
@@ -212,8 +219,8 @@ available while it runs.
 - bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotReadinessQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
   `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`, `ChangeBotVenueCommand`; `IBotKindCatalog`,
-  `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`.
-- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`.
+  `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`; `UserStreamWatch` (hears `UserStreamHealthEvent`).
+- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`, `UserStreamHealthEvent` (`UserStreamState`), `IAccountHistoryReader.discard_remembered`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
   `IMarketDataRepository` (the 1-second klines, streamed).
 - core: `ICloseObjections`, `ICommandDispatcher`.
@@ -251,6 +258,9 @@ available while it runs.
 | A task that placed orders and ends Halted or Error takes them off the exchange, a parked bot is not cancelled again, and a refused confirm-resume leaves nothing resting | `tests/unit/modules/bots/application/services/test_grid_task_guard.py` | unit (real executor over the simulated venue) |
 | Stop is declared in Stopping; a stop that waits retries on the bounded schedule, shows its reason and the orders still open, is never Stopped early, and gives up with a named next action; the retry scheduler is verified in both implementations | `tests/unit/modules/bots/domain/test_bot_lifecycle_fsm_matrix.py` · `tests/unit/modules/bots/application/services/test_grid_executor_stop_retry.py` · `tests/unit/modules/bots/contracts/test_bot_retry_scheduler_contract.py` | unit |
 | A restored bot's boot report (counts, unreadable, no fault), the cleanup a cut-short start owes (paid, waiting for trading, refused), and that `boot()` runs both | `tests/unit/modules/bots/application/services/test_grid_boot_recovery.py` · `tests/unit/modules/bots/ui/test_recovery_report_is_visible.py` · `tests/integration/modules/bots/test_bots_module_wiring.py` | unit · integration (module graph) |
+| A fill missed in a stream gap places its counter order once after a reconnect or a periodic check; with nothing missed nothing is placed; a disagreement halts only on a second run; a stream down past the limit halts and parks the ladder, and its return resumes nothing | `tests/unit/modules/bots/application/services/test_grid_reconciler_gap.py` · `test_user_stream_watch.py` · `tests/integration/modules/bots/test_a_user_stream_gap_on_the_fake_exchange.py` · `test_bots_module_wiring.py` | unit · integration (fake exchange) |
+| The user-data streams (Spot and Futures) retry any failure with a growing, capped, jittered delay, start again after their task ended, publish connecting, connected, reconnecting and stopped, and never log a signed URL | `tests/unit/modules/trading/adapters/binance/test_user_stream_supervisor.py` · `spot/test_spot_user_data_stream_resilience.py` · `test_futures_user_data_stream_resilience.py` | unit |
+| A registration derives from the history as it is now, not from a 15-second memory | `tests/unit/modules/trading/application/session/test_register_owner_budget.py` · `tests/unit/modules/trading/adapters/binance/test_cached_history_reader.py` | unit |
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
 | The fill rule (no fill on touch, kline order, adverse side without them), fees, exits, buy-and-hold, cancellation, the report's four regimes | `tests/unit/modules/bots/domain/grid/test_grid_simulator.py` | unit |
 | The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |
