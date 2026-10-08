@@ -1,14 +1,17 @@
 # EPIC-035K — Alerts reach a user who is away: a Discord notifier port and adapter
 
-**Status:** 🔵 Planned
+**Status:** ❌ Cancelled (2026-10-08; superseded by [EPIC-036](../../EPIC-036_alerting_module/README.md))
 **Source:** the owner's Spot Grid audit, 2026-10-08, finding M7 (https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz); Phase 3 of [EPIC-035](../README.md).
 **Risk:** 🟡 — a secret webhook URL and a new outbound network dependency
 **Complexity:** L
 **Epic:** [EPIC-035](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task if a journey changes
 **Depends on:** EPIC-035A, EPIC-035B, EPIC-035C
+**Superseded by:** [EPIC-036](../../EPIC-036_alerting_module/README.md) (A core, B sources, C channels, D UI, E heartbeat, F remote control)
 
 ---
+
+> **Cancelled 2026-10-08 — superseded by [EPIC-036](../../EPIC-036_alerting_module/README.md).** The owner approved an alerting module (decisions N1–N8) instead of this task's port-in-`bots` plus one Discord adapter. Reason: an existing seam (`INotificationChannel`, `BOT-018`) is extended into `IAlertChannel` rather than a parallel port being added, and the scope grew past one adapter (routing, an outbox, history, a configuration page, a heartbeat and, later, remote control), which needs its own bounded context. Its criteria moved: alert kinds and sources to [036B](../../EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md), Discord and the webhook secret to [036C](../../EPIC-036_alerting_module/incomplete/EPIC-036C_discord_channel_and_telegram_migration.md), the Options page to [036D](../../EPIC-036_alerting_module/incomplete/EPIC-036D_alerts_ui.md), the heartbeat to [036E](../../EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md). Kept for history; do not execute.
 
 ## 1. Context and problem
 Audit M7 and owner decision D3 (Discord). Today state changes are logged at INFO and the Bots tab refreshes; there is no OS, tray or push signal, so H1–H3 produce none at all. Cited: `src/modules/bots/application/services/bot_run_state.py:221-228`, `src/modules/bots/application/services/notifying_bot_store.py`. Verify.
@@ -44,4 +47,4 @@ Tier per `ci-rule.md` §2; every regression test is shown red before the change.
 Not run yet.
 
 ## Resume
-Not started.
+Not started. Cancelled, superseded by `EPIC-036`.

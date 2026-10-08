@@ -29,7 +29,7 @@ gantt
     035D to 035J                          :p2, after m1, 15d
 
     section Phase 3 - Alerting
-    035K to 035O, 035W, 035X (W, X not yet) :p3, after p2, 10d
+    035L to 035O, 035W, 035X (W, X not yet; alerts are EPIC-036) :p3, after p2, 10d
 
     section Phase 4 - Accuracy
     035P to 035V                          :p4, after p3, 10d
@@ -52,7 +52,8 @@ gantt
 | EPIC-035J | [Reference price has an age](completed/EPIC-035J_the_reference_price_has_an_age.md) | branch `claude/epic-035d-035j-resilience` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035D | [Retry and backoff](completed/EPIC-035D_retry_and_backoff_for_exchange_calls.md) | branch `claude/epic-035d-035j-resilience` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035E–G | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
-| EPIC-035K–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035K | [Superseded by EPIC-036](cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) | — | 🟡 | ❌ Cancelled (2026-10-08) | — |
+| EPIC-035L–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035P–V | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |

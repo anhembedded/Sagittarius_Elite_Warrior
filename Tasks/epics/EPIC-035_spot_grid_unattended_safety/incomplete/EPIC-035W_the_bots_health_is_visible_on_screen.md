@@ -27,7 +27,7 @@ Cited lines are from the request and a `grep` on 2026-10-08; verify each on the 
   - a read-only "Check now" button that runs a reconcile and places nothing.
 - [ ] The status bar reflects the selected bot's venue and streams truthfully (`domain-truth-rule.md`, Truthful UI): no "not checked" or "not live" while that bot is running and connected, and no "live" while its feed is stale.
 - [ ] The data source is the existing events and ports (`UserStreamHealthEvent`, the 035A tick age, the reconcile result); no new polling loop.
-- [ ] [`EPIC-035K`](EPIC-035K_alerts_reach_a_user_who_is_away.md)'s Discord heartbeat reuses the same health snapshot, so the screen and the heartbeat cannot disagree.
+- [ ] [`EPIC-036E`](../../EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md)'s heartbeat (which absorbed the heartbeat of the cancelled [`EPIC-035K`](../cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md)) reuses the same health snapshot, so the screen and the heartbeat cannot disagree.
 - [ ] The thresholds (20 s, 60 s) are named constants in one place, not literals in a widget.
 
 ## 3. Design

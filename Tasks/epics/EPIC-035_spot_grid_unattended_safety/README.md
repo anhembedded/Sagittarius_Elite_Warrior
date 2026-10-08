@@ -45,8 +45,8 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035H](completed/EPIC-035H_one_app_instance_per_data_root.md) | One app instance per data root (M6) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035I](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035J](completed/EPIC-035J_the_reference_price_has_an_age.md) | The reference price has an age (M1) | Elite | 035A | 🟡 | ✅ Done (2026-10-08) |
-| [EPIC-035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Alerts reach a user who is away: a Discord notifier port and adapter (M7) | Elite | 035A, 035B, 035C | 🟡 | Planned |
-| [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 035K (for the range-exit alert) | 🟡 | Planned |
+| [EPIC-035K](cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) | ~~Alerts reach a user who is away: a Discord notifier port and adapter (M7)~~ | Elite | — | 🟡 | ❌ Cancelled (2026-10-08), superseded by [EPIC-036](../EPIC-036_alerting_module/README.md): BOT-018's seam is extended into an alerting module instead of a parallel port in `bots` |
+| [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 036B (for the range-exit alert) | 🟡 | Planned |
 | [EPIC-035M](incomplete/EPIC-035M_pnl_is_complete.md) | PnL is complete: total, BNB fees, HODL benchmark (L2) | Elite | None | 🟢 | Planned |
 | [EPIC-035N](incomplete/EPIC-035N_invalid_parameters_are_explained_where_they_are.md) | Invalid parameters are explained where they are (L10) | Elite | None | 🟢 | Planned |
 | [EPIC-035O](incomplete/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | Planned |
@@ -65,7 +65,7 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | :--- | :--- | :--- |
 | 1 — Running-bot supervision | `035A`, `035B`, `035C` merged: SL/TP watched and a staleness HALT in every order-holding state; the user stream recovers from any exception and reconciles after a reconnect; no placing task ends HALTED / ERROR with orders resting; STOPPING retries | Each child's red-before regression tests (named in the task); the `-Full` run green on each head; a reviewer's read per PR; the owner's Testnet run of a 24 h bot with the chart closed. Not run |
 | 2 — Infrastructure resilience | `035D`–`035J` merged: a transient fault no longer ends in ERROR; symbol status, key revocation, store failure, a second instance and sleep are each a named, handled event | Per-child tests; fake-server journeys. Not run |
-| 3 — Alerting and transparency | `035K`–`035O`, `035W` and `035X` merged: the screen shows each bot's feed age, stream state and last reconcile, every decision is in an exportable journal, HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run |
+| 3 — Alerting and transparency | `035L`–`035O`, `035W` and `035X` merged, with the alerts delivered by [`EPIC-036`](../EPIC-036_alerting_module/README.md): the screen shows each bot's feed age, stream state and last reconcile, every decision is in an exportable journal, HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run |
 | 4 — Accuracy | `035P`–`035V` merged | Per-child tests. Not run |
 
 ## 5. Out of scope
