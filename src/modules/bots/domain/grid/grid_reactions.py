@@ -344,6 +344,12 @@ def _counter(
     return PlaceOrder(target, side, level.price, quantity, *paired)
 
 
+def hold_order(runtime: GridRuntime, action: PlaceOrder) -> Reaction:
+    """The ladder with `action` kept back for a resume instead of placed: what
+    a pause does with an order the exchange would not take (`EPIC-035E`)."""
+    return _emit(runtime, action, hold=True)
+
+
 def _emit(runtime: GridRuntime, action: PlaceOrder | Halt, hold: bool) -> Reaction:
     if isinstance(action, Halt):
         return _halt(runtime, action.reason, action.detail)

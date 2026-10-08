@@ -11,8 +11,15 @@ Two guarantees, both PR 325 review findings:
     that leaves the bot HALTED or ERROR, other than a switch-off, cancels
     every order carrying its tag, so nothing keeps trading while nobody
     places its counters. A switch-off is the exception: cancels are refused
-    then, and the orders rest by design (D13). What could not be cancelled
-    is named beside the reason, never replacing it.
+    then, and the orders rest by design (D13). So is a rejected API key
+    (`EPIC-035F`): the cancel would be rejected too, so the bot says its orders
+    may still rest and this app cannot cancel them, and tries nothing. What
+    could not be cancelled is named beside the reason, never replacing it.
+
+**Parking does not depend on the disk** (`EPIC-035G`): `BotRunState` keeps a
+failed write as `storage_failure` instead of raising it, so the fault handler
+and the park both run. The failure is named beside the reason, never in its
+place, and the next write that succeeds persists it with the true state.
 
 "Parked" is inferred from the fact that orders may rest, never from a state
 change alone (`EPIC-035C`, H4): a confirmed resume begins in HALTED, lays part
@@ -54,10 +61,19 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
 
 #: Halts that come from a closed order session, where a cancel would be refused:
 #: the ladder rests by design (D13), and a start it cut short owes the cancel
-#: instead (`BUG-190`).
+#: instead (`BUG-190`). A rejected API key (`EPIC-035F`) is the other: the cancel
+#: would be rejected too.
 _CANCEL_REFUSED_REASONS: frozenset[GridReason] = frozenset(
-    {GridReason.SWITCH_OFF, GridReason.START_CUT_BY_SWITCH_OFF}
+    {
+        GridReason.SWITCH_OFF,
+        GridReason.START_CUT_BY_SWITCH_OFF,
+        GridReason.KEY_REJECTED,
+    }
 )
+
+
+#: How a parked bot says its file is behind; also what keeps the note single.
+_STORAGE_NOTE = "its state could not be saved"
 
 
 class GridTaskGuard:
@@ -80,6 +96,8 @@ class GridTaskGuard:
         sent = self._context.gateway.submissions > sent_before
         if self._orders_may_rest(before, sent):
             self._park()
+        if self._unsaved_and_parked():
+            self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
 
     def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state
@@ -87,6 +105,15 @@ class GridTaskGuard:
             state.state in _PARKED
             and (before not in _PARKED or sent)
             and state.runtime.reason not in _CANCEL_REFUSED_REASONS
+        )
+
+    def _unsaved_and_parked(self) -> bool:
+        """A parked bot whose file is behind, and which does not say so yet."""
+        state = self._context.state
+        return (
+            state.storage_failure is not None
+            and state.state in _PARKED
+            and _STORAGE_NOTE not in state.runtime.reason_detail
         )
 
     def _park(self) -> None:

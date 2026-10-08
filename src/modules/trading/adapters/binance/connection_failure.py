@@ -43,14 +43,18 @@ logger = logging.getLogger("App.TradingAdapter")
 #: them from here, so the codes exist once.
 UNKNOWN_KEY_CODES = frozenset({-2008, -2014})
 
+#: Every code that says the exchange rejects the API key itself (`EPIC-035F`):
+#: the connection check files them under `KEY_REJECTED`, and the order
+#: translator under `OrderRejectionReason.KEY_REJECTED`; the codes exist once.
+KEY_REJECTED_CODES = frozenset({-2015, *UNKNOWN_KEY_CODES})
+
 _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     -1021: ConnectionFailureKind.CLOCK_SKEW,
     -1022: ConnectionFailureKind.BAD_SIGNATURE,
-    -2015: ConnectionFailureKind.KEY_REJECTED,
-    #: `BUG-175`: "Invalid Api-Key ID" (the exchange does not know the key: a
-    #: testnet key pasted for mainnet, or the reverse) and "API-key format
-    #: invalid". Both are about the key, never the network.
-    **dict.fromkeys(UNKNOWN_KEY_CODES, ConnectionFailureKind.KEY_REJECTED),
+    #: `-2015`, and `BUG-175`: "Invalid Api-Key ID" (the exchange does not know
+    #: the key: a testnet key pasted for mainnet, or the reverse) and "API-key
+    #: format invalid". All are about the key, never the network.
+    **dict.fromkeys(KEY_REJECTED_CODES, ConnectionFailureKind.KEY_REJECTED),
 }
 
 #: `BUG-175`: what to do about the key codes, in plain words. `describe_failure`

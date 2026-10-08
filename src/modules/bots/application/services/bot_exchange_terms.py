@@ -37,6 +37,7 @@ def exchange_terms_for(
         max_open_orders=caps.max_open_orders,
         market_step_size=entry.rules.market_step_size,
         price_band=_price_band(entry.rules.price_band),
+        symbol_status=entry.rules.status,
     )
 
 

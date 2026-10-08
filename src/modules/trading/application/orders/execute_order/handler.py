@@ -13,6 +13,9 @@ import logging
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection_gate import (
+    connection_block,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -316,7 +319,4 @@ class ExecuteOrderCommandHandler(
         holder = scope.session_state.lease_holder(command.order_request.symbol)
         if holder is not None and holder != command.owner_id:
             return ExecuteOrderSafetyGate.SYMBOL_LEASED
-        status = scope.ports.account_reader.check_connection()
-        if not status.reachable or status.failure is not None:
-            return ExecuteOrderSafetyGate.CONNECTION_NOT_READY
-        return None
+        return connection_block(scope.ports.account_reader.check_connection())

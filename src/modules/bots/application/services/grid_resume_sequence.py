@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
+    SymbolStatusGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
@@ -69,9 +72,15 @@ class ResumeProposal:
 class GridResumeSequence:
     """Proposes a fresh ladder for a HALTED Grid, and lays it once confirmed."""
 
-    def __init__(self, context: GridRunContext, start: GridStartSequence) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        start: GridStartSequence,
+        status: SymbolStatusGate,
+    ) -> None:
         self._context = context
         self._start = start
+        self._status = status
         self._housekeeping = GridHousekeeping(context)
 
     def propose(self, price: Decimal) -> ResumeProposal | None:
@@ -87,7 +96,10 @@ class GridResumeSequence:
             return None
         report = self._housekeeping.cancel_tagged()
         if report.failed is not None:
-            if report.failed.kind is OrderOutcomeKind.FAULT:
+            if report.failed.kind in (
+                OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.KEY_REJECTED,
+            ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
             return None
         inventory = registration.inventory
@@ -109,6 +121,9 @@ class GridResumeSequence:
         return proposal
 
     def confirm(self, proposal: ResumeProposal) -> None:
-        """Lay the confirmed ladder: HALTED → STARTING → RUNNING."""
+        """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the
+        symbol does not trade (`SymbolStatusGate`): then it stays HALTED."""
+        if not self._status.admits():
+            return
         self._context.state.transition(BotLifecycleEvent.RESUME)
         self._start.place_ladder(proposal.plan, proposal.inventory)

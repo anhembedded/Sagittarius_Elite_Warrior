@@ -117,5 +117,6 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             caps=deps.caps,
             price_age=GridPriceAge(deps.monotonic),
+            monotonic=deps.monotonic,
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)
