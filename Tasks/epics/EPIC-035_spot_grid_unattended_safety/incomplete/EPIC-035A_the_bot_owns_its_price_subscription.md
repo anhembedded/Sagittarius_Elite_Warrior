@@ -96,6 +96,8 @@ Architecture guards: `PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -
 
 **Merge of master-warrior (2026-10-08, `7793962`, EPIC-035C):** conflicts were additive (the executor deps carry both `retries` and `monotonic`; `boot()` starts the price watch, then 035C's `BotBootRecovery`; `shutdown()` closes the retry scheduler, the watch, then the workers). The merge exposed one defect, red in `test_shutdown_closes_every_bot_worker`: a worker finishing its queue during shutdown saves its bot, and the watch's `BotChangedEvent` handler built a new executor and thread behind `close_all`; a closed watch now does nothing (`test_a_watch_that_was_closed_builds_no_executor`).
 
+**Merge of master-warrior (2026-10-08, `39325e3`, EPIC-035B):** conflicts were additive (`GridReason` carries `PRICE_FEED_STALE` beside `USER_STREAM_DOWN`; `boot()` starts the price watch, then 035B's `UserStreamWatch`, then 035C's `BotBootRecovery`; the executor's imports lost `LevelState` and `crossed_exit` to the collaborators that took those methods). 035B's `test_user_stream_watch_wiring.py` imported a helper this branch had moved to `bots_module_world.py`, and now imports it from there. `GridExecutor` is 353 lines; this task adds nothing to its public surface beyond `on_price_age_check`.
+
 **Not done / out of scope, by name:**
 - `GridExecutor._price()` still prefers the cached last tick, which can be as old as a halt: a resume after a stale HALT plans from it. That is `EPIC-035J` (the reference price has an age).
 - The owner's 24 h Testnet run with the chart closed (phase exit evidence): not run.

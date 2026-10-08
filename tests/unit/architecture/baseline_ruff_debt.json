@@ -54,8 +54,6 @@
       "src/modules/backtesting/ui/logic/backtest_fsm_matrix.py": 1,
       "src/modules/strategy/application/use_cases/arm_strategy/handler.py": 1,
       "src/modules/strategy/cli/trade_once_cmd.py": 1,
-      "src/modules/trading/adapters/binance/futures_user_data_stream.py": 1,
-      "src/modules/trading/adapters/binance/spot/spot_user_data_stream.py": 1,
       "src/modules/trading/application/orders/execute_order/handler.py": 1,
       "src/modules/trading/application/session/emergency_stop/handler.py": 1,
       "src/modules/trading/ui/desk/order_entry/order_entry_rules.py": 1,

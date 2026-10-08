@@ -227,3 +227,25 @@ class AccountHistoryReaderContract:
 
         assert len(reader.order_history("BTCUSDT", oldest)) == 1
         assert len(reader.trade_history("BTCUSDT", oldest)) == 1
+
+    def test_discarding_remembered_history_changes_no_answer(
+        self, given_history: GivenHistory
+    ) -> None:
+        """`EPIC-035B` — `discard_remembered` only costs a reader its memory;
+        what it then answers is what it answered before."""
+        reader = given_history(
+            [contract_order("BTCUSDT", 1), contract_order("ETHUSDT", 2)],
+            [contract_trade("BTCUSDT", 1)],
+        )
+        before = (
+            reader.order_history("BTCUSDT", _START),
+            reader.trade_history("BTCUSDT", _START),
+        )
+
+        reader.discard_remembered("BTCUSDT")
+        reader.discard_remembered("SOLUSDT")
+
+        assert (
+            reader.order_history("BTCUSDT", _START),
+            reader.trade_history("BTCUSDT", _START),
+        ) == before

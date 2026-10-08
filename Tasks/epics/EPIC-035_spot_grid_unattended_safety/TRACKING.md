@@ -42,7 +42,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-035A | [Price subscription](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md) | `epic-035a-bot-owns-price-subscription` | 🔴 | 🟡 In review | — |
-| EPIC-035B | [User-data stream](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-035B | [User-data stream](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | branch `claude/epic-035b-user-stream-heals`, PR #431 | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting merge |
 | EPIC-035C | [Unmanaged orders, stuck states](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | branch `epic-035c-no-unmanaged-orders` | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035D–J | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035K–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |

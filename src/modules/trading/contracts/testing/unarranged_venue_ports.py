@@ -130,6 +130,10 @@ class UnarrangedClientFactory(ITradingClientFactory):
 
 
 class UnarrangedUserDataStream(IUserDataStream):
+    @property
+    def is_running(self) -> bool:
+        _not_arranged("IUserDataStream")
+
     def start(self) -> bool:
         _not_arranged("IUserDataStream")
 
@@ -138,6 +142,9 @@ class UnarrangedUserDataStream(IUserDataStream):
 
 
 class UnarrangedHistoryReader(IAccountHistoryReader):
+    def discard_remembered(self, symbol: str) -> None:
+        _not_arranged("IAccountHistoryReader")
+
     def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
         _not_arranged("IAccountHistoryReader")
 

@@ -9,6 +9,7 @@ fake exchange server counts real requests in
 
 from __future__ import annotations
 
+import threading
 from collections import Counter
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
@@ -227,3 +228,72 @@ def test_known_gaps_are_the_exchange_readers() -> None:
     inner = _CountingReader(now=CONTRACT_NOW, gaps=gaps)
 
     assert CachedAccountHistoryReader(inner).known_gaps() is gaps
+
+
+def test_a_discarded_symbol_is_read_from_the_exchange_again() -> None:
+    """`EPIC-035B` — a reconciliation must read the account as it is now, not
+    as it was up to `ttl` ago: after `discard_remembered` the next read of the
+    symbol goes to the exchange and is cached again."""
+    reader, inner, _ = _cached()
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+
+    reader.discard_remembered("BTCUSDT")
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+    reader.order_history("BTCUSDT", _START)
+    reader.trade_history("BTCUSDT", _START)
+
+    assert (inner.reads["orders"], inner.reads["trades"]) == (2, 2)
+
+
+def test_discarding_one_symbol_keeps_the_others_remembered() -> None:
+    reader, inner, _ = _cached()
+    reader.order_history("BTCUSDT", _START)
+    reader.order_history("ETHUSDT", _START)
+
+    reader.discard_remembered("BTCUSDT")
+    reader.order_history("ETHUSDT", _START)
+
+    assert inner.reads["orders"] == 2
+
+
+def test_discarding_what_was_never_read_is_harmless() -> None:
+    reader, inner, _ = _cached()
+
+    reader.discard_remembered("BTCUSDT")
+
+    assert inner.reads["orders"] == 0
+
+
+def test_a_read_in_flight_when_the_symbol_is_discarded_does_not_serve_the_next_read() -> (
+    None
+):
+    """Review of PR 431, finding 2. A read that began before `discard_remembered`
+    must not become the memory the next caller is served from, whether that
+    caller joins the read or arrives after it: the discard says "the answer I
+    get must be newer than this call". Red before: one exchange read in all."""
+    entered = threading.Event()
+    release = threading.Event()
+
+    class _Gated(_CountingReader):
+        def order_history(self, symbol, since):  # type: ignore[no-untyped-def]
+            rows = super().order_history(symbol, since)
+            if self.reads["orders"] == 1:
+                entered.set()
+                assert release.wait(timeout=10)
+            return rows
+
+    reader, inner, _ = _cached(
+        _Gated(orders=[contract_order("BTCUSDT", 1)], now=CONTRACT_NOW)
+    )
+    slow = threading.Thread(target=reader.order_history, args=("BTCUSDT", _START))
+    slow.start()
+    assert entered.wait(timeout=10)
+
+    reader.discard_remembered("BTCUSDT")
+    release.set()
+    slow.join(timeout=10)
+    reader.order_history("BTCUSDT", _START)
+
+    assert inner.reads["orders"] == 2

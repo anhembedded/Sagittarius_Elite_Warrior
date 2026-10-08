@@ -148,6 +148,9 @@ class SimulatedActivity(IAccountActivity):
         self.trades: list[TradeRecord] = []
         #: The venue does not answer history reads.
         self.history_unavailable = False
+        #: When set, order history answers this instead of `orders`: a reader
+        #: with a memory (`CachedAccountHistoryReader`) serving an older read.
+        self.remembered_orders: tuple[OrderRecord, ...] | None = None
         #: How many times the open orders were read: a bot that parks or
         #: reconciles reads them, a bot at rest does not.
         self.open_order_reads = 0
@@ -166,7 +169,12 @@ class SimulatedActivity(IAccountActivity):
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         if self.history_unavailable:
             raise AccountHistoryUnavailableError("allOrders timed out")
-        return HistoryPage(tuple(self.orders), 0, len(self.orders), (SYMBOL,))
+        rows = (
+            self.remembered_orders
+            if self.remembered_orders is not None
+            else tuple(self.orders)
+        )
+        return HistoryPage(rows, 0, len(rows), (SYMBOL,))
 
     def trade_history(self, request: HistoryRequest) -> HistoryPage[TradeRecord]:
         return HistoryPage(tuple(self.trades), 0, len(self.trades), (SYMBOL,))

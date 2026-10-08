@@ -43,16 +43,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
-from binance.exceptions import ReadLoopClosed
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.algo_update_parser import (
     ALGO_UPDATE,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_updates import (
     FuturesOrderUpdates,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.managed_user_data_stream import (
+    ManagedUserDataStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_event_parser import (
     ACCOUNT_UPDATE,
@@ -61,6 +64,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     account_update_changed_symbols,
     account_update_position_pnls,
     account_update_wallet_balance,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_stream_supervisor import (
+    DEFAULT_RECONNECT_POLICY,
+    ReconnectPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
@@ -83,21 +90,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
     ITradingClientFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
-from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 logger = logging.getLogger("App.UserDataStream")
-
-_RECONNECT_DELAY_SECONDS = 5
 
 #: `BUG-096` — not a Binance wire-protocol event (unlike `ORDER_TRADE_UPDATE`/
 #: `ACCOUNT_UPDATE` in `user_data_event_parser.py`, which owns those): this
@@ -111,7 +116,7 @@ _RECONNECT_DELAY_SECONDS = 5
 _LIBRARY_ERROR_EVENT = "error"
 
 
-class FuturesUserDataStream(IUserDataStream):
+class FuturesUserDataStream(ManagedUserDataStream):
     """@details Resolves its `ITradingClient` from `ITradingClientFactory`
     (`VALIDATE_ONLY` — irrelevant for the read-only `get_positions()` call
     this uses it for), the same reasoning `ExecuteOrderCommandHandler`/
@@ -137,32 +142,18 @@ class FuturesUserDataStream(IUserDataStream):
         trading_client_factory: ITradingClientFactory,
         session_state: TradingSessionState,
         equity_recorder: EquityCurveRecorder,
+        reconnect_policy: ReconnectPolicy = DEFAULT_RECONNECT_POLICY,
     ) -> None:
+        super().__init__(
+            events, task_manager, "FuturesUserDataStream", reconnect_policy
+        )
         #: `EPIC-028C` — this venue's emitter: every event carries the venue.
         self._events = events
-        self._task_manager = task_manager
         self._credentials_provider = credentials_provider
         self._trading_client_factory = trading_client_factory
         self._session_state = session_state
         self._equity_recorder = equity_recorder
         self._trading_client: ITradingClient | None = None
-        self._task_handle: ITaskHandle | None = None
-        self._token: CancellationToken | None = None
-        #: `BUG-094` — bumped on every `start()`/`stop()`. `ITaskHandle.
-        #: cancel()` only *signals* cooperative cancellation
-        #: (`CancellationToken`) — it does not wait for `_run_stream()`'s
-        #: own teardown to actually finish, so an immediate `start()`
-        #: right after `stop()` (an Emergency Stop followed by
-        #: `EnsureSessionReadyCommand`, or `EmergencyStopCommandHandler`'s own
-        #: step 1 followed by a stray re-enable) can have two `_run_stream()`
-        #: coroutines alive at once. Each closure of `_run_stream()`
-        #: captures the generation it was spawned with and refuses to
-        #: touch shared state (`self._trading_client`, `_handle_message`)
-        #: once it no longer matches `self._generation` — the actual
-        #: websocket connection may still take a moment to close in that
-        #: coroutine's own `finally`, but it stops mutating anything this
-        #: class exposes the instant it is superseded.
-        self._generation = 0
         #: `BUG-092` — running per-symbol unrealized PnL, folded in from
         #: every `ACCOUNT_UPDATE`'s own `"a"."P"` (which only ever reports
         #: the positions that changed in *that* event, never a full
@@ -178,39 +169,10 @@ class FuturesUserDataStream(IUserDataStream):
         #: `ORDER_TRADE_UPDATE` and, since `EPIC-028R`, `ALGO_UPDATE`.
         self._order_updates = FuturesOrderUpdates(events)
 
-    def start(self) -> bool:
-        if self._task_handle is not None:
-            logger.warning("User data stream is already running. Stop it first.")
-            return False
-
-        self._token = CancellationToken()
+    def _prepare_start(self) -> None:
+        # `BUG-092`: a stream is only ever started on a flat account, so an
+        # empty dict is the correct starting point.
         self._unrealized_pnl_by_symbol = {}
-        self._generation += 1
-        logger.info("Starting Binance Futures user data stream...")
-        self._task_handle = self._task_manager.spawn(
-            self._run_stream(self._token, self._generation),
-            name="FuturesUserDataStream",
-            token=self._token,
-            critical=True,
-        )
-        return True
-
-    def stop(self) -> bool:
-        if self._task_handle is None:
-            logger.debug("Stop requested but user data stream is not running.")
-            return False
-
-        logger.info("Stopping Binance Futures user data stream...")
-        # `BUG-094` — bumped here too, not just in `start()`: fences a
-        # still-tearing-down `_run_stream()` the instant `stop()` is
-        # called, before any concurrent `start()` even has a chance to run.
-        self._generation += 1
-        if self._token is not None:
-            self._token.cancel()
-        self._task_handle.cancel()
-        self._task_handle = None
-        self._token = None
-        return True
 
     async def _run_stream(self, token: CancellationToken, generation: int) -> None:
         # Resolved here, not cached at construction time: `EnsureSessionReadyCommand`
@@ -219,68 +181,60 @@ class FuturesUserDataStream(IUserDataStream):
         # `FuturesUserDataStream` must still be safely *constructible* with no
         # credentials configured at all (same reasoning as `FuturesTradingClient.
         # _resolve_client()`, EPIC-021F).
-        resolution = self._credentials_provider.resolve()
-        if resolution.credentials is None:
+        credentials = self._credentials_provider.resolve().credentials
+        if credentials is None:
             logger.error(
                 "No exchange credentials configured — cannot open the user data stream."
             )
             return
 
+        def is_current() -> bool:
+            return not token.is_cancelled() and generation == self._generation
+
+        await self._supervisor.run(
+            lambda connected: self._run_session(
+                credentials, connected, is_current, generation
+            ),
+            is_current,
+        )
+
+    async def _run_session(
+        self,
+        credentials: ExchangeCredentials,
+        connected: Callable[[], None],
+        is_current: Callable[[], bool],
+        generation: int,
+    ) -> None:
+        """One connection: a fresh client and socket, read until the stream is
+        no longer current. Any failure propagates to the supervisor, which
+        retries with backoff (`EPIC-035B`).
+
+        @details `BUG-096`: a fresh `bsm.futures_user_socket()` per attempt is
+        what revives the library's own reconnect budget (5 attempts) once
+        `stream.recv()` raised `ReadLoopClosed`; a fresh client also covers an
+        API error while creating it."""
         self._trading_client = self._trading_client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
-
         is_closing = False
         client: AsyncClient | None = None
         try:
             client = await AsyncClient.create(
-                api_key=resolution.credentials.api_key,
-                api_secret=resolution.credentials.api_secret,
+                api_key=credentials.api_key,
+                api_secret=credentials.api_secret,
                 testnet=self._events.venue.is_testnet,
             )
             bsm = BinanceSocketManager(client)
-
-            while not token.is_cancelled() and generation == self._generation:
-                try:
-                    socket = bsm.futures_user_socket()
-                    async with socket as stream:
-                        while (
-                            not token.is_cancelled() and generation == self._generation
-                        ):
-                            res = await stream.recv()
-                            # `BUG-094` — re-checked after `await`, not just
-                            # in the loop condition above: `stop()`/a new
-                            # `start()` can bump `self._generation` while
-                            # this coroutine was suspended waiting on
-                            # `stream.recv()`.
-                            if res and generation == self._generation:
-                                await self._handle_message(res)
-                except asyncio.CancelledError:
-                    logger.info("User data stream task was cancelled.")
-                    break
-                except (OSError, ReadLoopClosed) as exc:
-                    # `BUG-096` — `ReadLoopClosed` (a plain `Exception`,
-                    # not `OSError`) is what `stream.recv()` actually
-                    # raises once the library's own reconnect budget (5
-                    # attempts) is exhausted and its internal read loop
-                    # dies — the `except OSError` alone never caught this,
-                    # the steady-state disconnect case, only a first-
-                    # connect DNS/refused-connection failure. Re-entering
-                    # `bsm.futures_user_socket()`/`async with socket` below
-                    # genuinely revives it: `futures_user_socket()` returns
-                    # the same cached `KeepAliveWebsocket`, and re-entering
-                    # its `async with` calls `connect()` again, which opens
-                    # a fresh websocket and restarts the read loop since
-                    # `_handle_read_loop` was reset to `None` on the way out
-                    # (verified by reading the library's own source).
-                    if not token.is_cancelled():
-                        logger.error(
-                            "User data stream connection error: %s. "
-                            "Reconnecting in %ss...",
-                            exc,
-                            _RECONNECT_DELAY_SECONDS,
-                        )
-                        await asyncio.sleep(_RECONNECT_DELAY_SECONDS)
+            async with bsm.futures_user_socket() as stream:
+                connected()
+                while is_current():
+                    res = await stream.recv()
+                    # `BUG-094` — re-checked after `await`, not just in the
+                    # loop condition above: `stop()`/a new `start()` can bump
+                    # `self._generation` while this coroutine was suspended
+                    # waiting on `stream.recv()`.
+                    if res and generation == self._generation:
+                        await self._handle_message(res)
         except GeneratorExit:
             is_closing = True
             raise

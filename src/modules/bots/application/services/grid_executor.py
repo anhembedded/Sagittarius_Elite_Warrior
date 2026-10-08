@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
@@ -33,9 +34,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interrupted_start import (
     GridInterruptedStart,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
-    fail_with,
-    halt_with,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
+    GridLadderPlacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
     GridPriceReaction,
@@ -55,10 +55,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
-    log_order,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stopper import (
     GridStopper,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
+    GridStreamGap,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
     GridTaskGuard,
@@ -81,24 +83,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
     BotLifecycleState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
-    LevelState,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import plan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
-    GridAction,
-    Halt,
     LadderRules,
     LevelEnd,
     LevelFill,
-    PlaceOrder,
-    accepted,
     book_market_fill,
     drop_order,
     on_end,
     on_fill,
-    placed,
-    release_held,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -141,8 +134,12 @@ class GridExecutor(IBotExecutor):
         self._stop = GridStopper(context, retries, self._post, self._price)
         self._resume = GridResumeSequence(context, self._start)
         self._reconciler = GridReconciler(context)
+        self._placer = GridLadderPlacer(context)
         self._recovery = GridRecoveryReader(context)
         self._interrupted_start = GridInterruptedStart(context)
+        self._gap = GridStreamGap(
+            context, self._reconciler, self._placer.release_held, self._post
+        )
         self._guard = GridTaskGuard(context, GridHousekeeping(context))
         self._prices = GridPriceReaction(context, self._stop)
         self._proposal: ResumeProposal | None = None
@@ -213,6 +210,12 @@ class GridExecutor(IBotExecutor):
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))
 
+    def reconcile_after_gap(self) -> None:
+        self._post("reconcile after a stream gap", self._gap.reconcile)
+
+    def halt_user_stream_down(self, down_for: timedelta) -> None:
+        self._post("halt, stream down", lambda: self._gap.halt(down_for))
+
     # --- every task through the guard ---
 
     def _post(self, what: str, task: Callable[[], None]) -> None:
@@ -240,7 +243,7 @@ class GridExecutor(IBotExecutor):
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return
         state.transition(_E.RESUME)
-        self._release_held()
+        self._placer.release_held()
 
     def _run_confirm(self) -> None:
         proposal, self._proposal = self._proposal, None
@@ -256,12 +259,6 @@ class GridExecutor(IBotExecutor):
     def _recover(self) -> None:
         self._recovery.report()
         self._interrupted_start.run()
-
-    def _release_held(self) -> None:
-        state = self._context.state
-        reaction = release_held(state.runtime)
-        state.update(reaction.runtime)
-        self._act(reaction.actions)
 
     def _apply_fill(self, fill: BotOrderFill) -> None:
         state = self._context.state
@@ -284,7 +281,7 @@ class GridExecutor(IBotExecutor):
             hold=state.state is not _S.RUNNING,
         )
         state.update(reaction.runtime)
-        self._act(reaction.actions)
+        self._placer.act(reaction.actions)
 
     def _apply_end(self, end: BotOrderEnd) -> None:
         state = self._context.state
@@ -300,7 +297,7 @@ class GridExecutor(IBotExecutor):
             hold=state.state is _S.PAUSED,
         )
         state.update(reaction.runtime)
-        self._act(reaction.actions)
+        self._placer.act(reaction.actions)
 
     def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         state = self._context.state
@@ -319,7 +316,7 @@ class GridExecutor(IBotExecutor):
             # Read through the context again: run() moves the state, and a
             # type checker keeps `state.state` narrowed to RECOVERING.
             if self._context.state.state is _S.RUNNING:
-                self._release_held()
+                self._placer.release_held()
         elif state.state is _S.STOPPING:
             self._stop.after_switch_on()
         elif state.state is _S.HALTED:
@@ -331,34 +328,6 @@ class GridExecutor(IBotExecutor):
         symbol = self.symbol
         if not self._context.session.claim_symbol(symbol, bot_owner_id(self.bot_id)):
             logger.info("Bot %s: %s is held by another owner", self.bot_id, symbol)
-
-    def _act(self, actions: tuple[GridAction, ...]) -> None:
-        for action in actions:
-            if isinstance(action, Halt):
-                halt_with(self._context.state, action.reason, action.detail)
-                return
-            if not self._place(action):
-                return
-
-    def _place(self, action: PlaceOrder) -> bool:
-        state = self._context.state
-        if state.runtime.levels[action.level_index].state is not LevelState.EMPTY:
-            halt_with(
-                state,
-                GridReason.DUPLICATE_LEVEL_ORDER,
-                f"L{action.level_index} already holds an order; nothing was sent",
-            )
-            return False
-        outcome = self._context.gateway.place_limit(
-            action.side, action.price, action.quantity
-        )
-        log_order(state.bot_id, action, outcome.client_order_id or outcome.detail)
-        if not outcome.done:
-            fail_with(state, outcome, f"L{action.level_index} {action.side.value}")
-            return False
-        oid = outcome.client_order_id
-        state.update(accepted(placed(state.runtime, action, oid), oid))
-        return True
 
     def _transition_if_declared(self, event: BotLifecycleEvent) -> None:
         state = self._context.state

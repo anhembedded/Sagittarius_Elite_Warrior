@@ -36,6 +36,11 @@ through market_data's `IMarketStream`, so stop loss and take profit are watched
 with no chart open, and halts a bot whose feed goes quiet. It follows the bots'
 own `BotChangedEvent`, and `shutdown()` releases every stream it opened.
 
+@par `boot()` also watches the user-data stream (`EPIC-035B`)
+`UserStreamWatch` hears trading's `UserStreamHealthEvent`: a reconnect catches
+every bot on the venue up, a stream down too long halts them. A daemon thread
+re-arms its `check()` on the retry scheduler, which `shutdown()` closes.
+
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
 
@@ -82,6 +87,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
     RunningBotsObjection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+    UserStreamWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
 )
@@ -97,6 +105,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
 )
@@ -123,6 +132,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_reject
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+)
 
 logger = logging.getLogger("App.BotsModule")
 
@@ -139,6 +151,8 @@ class BotsModule(BoundedContextModule):
 
     #: The bots' one bus listener, held for the life of the module.
     _router: BotEventRouter | None = None
+    #: `EPIC-035B` — the user-stream watch, held for the life of the module.
+    _watch: UserStreamWatch | None = None
 
     #: Gives each bot that is not at rest its own price stream (`EPIC-035A`),
     #: held for the life of the module like the router.
@@ -165,10 +179,19 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
-        watch = container.resolve(BotPriceWatch)
-        bus.on(BotChangedEvent, watch.on_bot_changed)
-        self._price_watch = watch
-        watch.start()
+        price_watch = container.resolve(BotPriceWatch)
+        bus.on(BotChangedEvent, price_watch.on_bot_changed)
+        self._price_watch = price_watch
+        price_watch.start()
+        watch = UserStreamWatch(
+            container.resolve(BotExecutors),
+            container.resolve(IBotClock),
+            container.resolve(IBotRetryScheduler),
+        )
+        bus.on(UserStreamHealthEvent, watch.on_health)
+        watch.begin()
+        self._watch = watch
+        logger.info("Bots watch the user-data stream's health")
         # After the subscription: a fill that arrives while a restored bot
         # reads the exchange finds its executor already built.
         BotBootRecovery(
