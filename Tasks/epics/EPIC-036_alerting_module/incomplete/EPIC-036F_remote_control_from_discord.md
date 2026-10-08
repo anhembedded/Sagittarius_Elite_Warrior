@@ -6,6 +6,7 @@
 **Complexity:** L
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet; a journey "stop a bot from my phone" is added by this task.
+**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §4, §6, §7.
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md), [EPIC-035X](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) (the audit trail, so the first remote command already has a record). **Needs owner approval before starting:** the Discord gateway library, or a hand-written client (`requirements.txt` is a dependency change, `ONBOARDING.md` §7; decision O1).
 
 ---

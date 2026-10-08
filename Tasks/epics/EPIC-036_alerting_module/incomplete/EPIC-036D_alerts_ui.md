@@ -6,6 +6,7 @@
 **Complexity:** L — four surfaces and their previews
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet; a journey "set up an alert channel" is added by this task.
+**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §3, §4, §7.
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md) (settings, outbox history), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md) (channels to configure and test).
 
 ---

@@ -6,6 +6,7 @@
 **Complexity:** M
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet.
+**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §10.
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md); [EPIC-035W](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) for the health snapshot.
 
 ---
