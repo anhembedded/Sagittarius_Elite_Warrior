@@ -63,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+    UserStreamWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
     ConfirmBotResumeCommand,
 )
@@ -135,6 +138,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_reject
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
     IVenueAccounts,
@@ -304,6 +310,25 @@ def test_boot_subscribes_one_router_to_the_five_events_a_bot_hears(
         assert [type(handler.__self__) for handler in handlers] == [BotEventRouter]
 
 
+def test_boot_subscribes_the_user_stream_watch_and_starts_its_heartbeat(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-035B` — the watch is built by `boot()`: delete its `bus.on(...)`
+    and no reconnect catches a bot up; delete the heartbeat and no stream is
+    ever 'down too long'. A watch nobody constructs hears nothing (`CS-002`)."""
+    module, context = _registered(tmp_path)
+    others = _heartbeat_threads()  # other tests boot without shutting down
+    try:
+        module.boot(context)
+
+        [handler] = context.event_bus.subscriptions()[UserStreamHealthEvent.__name__]
+        assert isinstance(handler.__self__, UserStreamWatch)
+        assert len(_heartbeat_threads()) == len(others) + 1
+    finally:
+        module.shutdown(context)
+    assert _heartbeat_threads() == others, "shutdown stops its heartbeat"
+
+
 def test_shutdown_closes_every_bot_worker(tmp_path: Path) -> None:
     """A worker is a thread named after its bot; the module's shutdown closes
     it, so the app exits with no bot thread left running."""
@@ -318,6 +343,14 @@ def test_shutdown_closes_every_bot_worker(tmp_path: Path) -> None:
     module.shutdown(context)
 
     assert _bot_threads() == []
+
+
+def _heartbeat_threads() -> list[threading.Thread]:
+    return [
+        t
+        for t in threading.enumerate()
+        if t.name == "bots-user-stream-watch" and t.is_alive()
+    ]
 
 
 def _bot_threads() -> list[str]:

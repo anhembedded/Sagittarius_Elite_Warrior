@@ -58,6 +58,9 @@ class GridReason(str, Enum):
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
+    #: The user-data stream (the only source of fills) was down too long
+    #: (`EPIC-035B`); the ladder was parked.
+    USER_STREAM_DOWN = "user_stream_down"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

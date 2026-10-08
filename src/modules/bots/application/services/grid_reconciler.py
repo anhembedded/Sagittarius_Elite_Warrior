@@ -25,6 +25,10 @@ ADR's order:
   7. **Persist, then transition**: `reconcile_ok` back to RUNNING or PAUSED,
      or `reconcile_mismatch` to HALTED, naming why.
 
+`EPIC-035B` — the same steps 2–6 are `compare_with_exchange`, which
+`GridStreamGap` runs for a **RUNNING or PAUSED** bot after a user-data-stream
+gap: no lease claim and no transition, because the bot never left its state.
+
 History's order row carries no fee, so a missed fill takes its fees from the
 order's trades, less what the bot already counted: Spot takes a buy's fee from
 the base it bought, and the counter SELL may ask for no more than arrived. The
@@ -89,8 +93,18 @@ class ReconcileMismatch:
     detail: str
 
 
+@dataclass(frozen=True, slots=True)
+class ReconcileWait:
+    """The exchange did not answer a read: nothing was changed. What a
+    RECOVERING bot shows while it waits for the next try."""
+
+    reason: GridReason
+    detail: str
+
+
 class GridReconciler:
-    """Reconciles a RECOVERING Grid; ends in its prior state or HALTED."""
+    """Reconciles a RECOVERING Grid (ends in its prior state or HALTED), or a
+    running one after a stream gap (`EPIC-035B`)."""
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
@@ -102,41 +116,45 @@ class GridReconciler:
         if not self._context.session.claim_symbol(symbol, bot_owner_id(state.bot_id)):
             self._mismatch(GridReason.LEASE_HELD, f"{symbol} is held by another owner")
             return
+        outcome = self.compare_with_exchange()
+        if isinstance(outcome, ReconcileWait):
+            state.update(state.runtime.with_reason(outcome.reason, outcome.detail))
+        elif isinstance(outcome, ReconcileMismatch):
+            self._mismatch(outcome.reason, outcome.detail)
+        else:
+            state.update(outcome)
+            state.transition(BotLifecycleEvent.RECONCILE_OK)
+
+    def compare_with_exchange(self) -> GridRuntime | ReconcileMismatch | ReconcileWait:
+        """Steps 2–6 of the module docstring: the saved ladder brought level
+        with the exchange, or why not. A query: nothing of the bot's record is
+        changed (the budget is registered again, as trading derives it from
+        exchange evidence); the caller applies the answer. `run` does for a
+        RECOVERING bot, `GridStreamGap` for a running one (`EPIC-035B`)."""
+        state = self._context.state
         registration = self._housekeeping.register()
         if not registration.registered or registration.inventory is None:
-            state.update(
-                state.runtime.with_reason(
-                    GridReason.SWITCH_OFF,
-                    f"waiting: the budget was refused: {refusal_text(registration)}",
-                )
+            return ReconcileWait(
+                GridReason.SWITCH_OFF,
+                f"waiting: the budget was refused: {refusal_text(registration)}",
             )
-            return
         open_orders = self._context.gateway.tagged_open_orders()
         try:
             applied = self._apply_missed_fills(state.runtime, open_orders)
         except AccountHistoryUnavailableError as error:
-            state.update(
-                state.runtime.with_reason(
-                    GridReason.HISTORY_UNAVAILABLE,
-                    f"waiting: order history did not answer ({error}); "
-                    "enable trading again to retry",
-                )
-            )
             logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
-            return
+            return ReconcileWait(
+                GridReason.HISTORY_UNAVAILABLE,
+                f"waiting: order history did not answer ({error}); "
+                "enable trading again to retry",
+            )
         if isinstance(applied, ReconcileMismatch):
-            self._mismatch(applied.reason, applied.detail)
-            return
+            return applied
         outcome = self._adopt(applied, open_orders)
         if isinstance(outcome, ReconcileMismatch):
-            self._mismatch(outcome.reason, outcome.detail)
-            return
+            return outcome
         mismatch = self._check_inventory(outcome, registration.inventory.quantity)
-        if mismatch is not None:
-            self._mismatch(mismatch.reason, mismatch.detail)
-            return
-        state.update(outcome)
-        state.transition(BotLifecycleEvent.RECONCILE_OK)
+        return outcome if mismatch is None else mismatch
 
     def _apply_missed_fills(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]

@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
@@ -51,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_sequence import (
     GridStopSequence,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
+    GridStreamGap,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
     GridTaskGuard,
@@ -134,6 +138,9 @@ class GridExecutor(IBotExecutor):
         self._stop = GridStopSequence(context)
         self._resume = GridResumeSequence(context, self._start)
         self._reconciler = GridReconciler(context)
+        self._gap = GridStreamGap(
+            context, self._reconciler, self._release_held, self._post
+        )
         self._guard = GridTaskGuard(context, GridHousekeeping(context))
         self._last_price: Decimal | None = None
         self._proposal: ResumeProposal | None = None
@@ -195,6 +202,12 @@ class GridExecutor(IBotExecutor):
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))
+
+    def reconcile_after_gap(self) -> None:
+        self._post("reconcile after a stream gap", self._gap.reconcile)
+
+    def halt_user_stream_down(self, down_for: timedelta) -> None:
+        self._post("halt, stream down", lambda: self._gap.halt(down_for))
 
     # --- every task through the guard ---
 

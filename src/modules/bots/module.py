@@ -30,6 +30,11 @@ ends and rejections of its orders, its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
+@par `boot()` also watches the user-data stream (`EPIC-035B`)
+`UserStreamWatch` hears trading's `UserStreamHealthEvent`: a reconnect catches
+every bot on the venue up, a stream down too long halts them. A daemon thread
+calls its `check()` every few seconds; `shutdown()` stops it.
+
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
 
@@ -52,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_periodic_timer import (
+    ThreadPeriodicTimer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
@@ -63,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
     RunningBotsObjection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+    UserStreamWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
@@ -76,6 +87,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings impor
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
@@ -99,6 +111,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_reject
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+)
 
 logger = logging.getLogger("App.BotsModule")
 
@@ -115,6 +130,9 @@ class BotsModule(BoundedContextModule):
 
     #: The bots' one bus listener, held for the life of the module.
     _router: BotEventRouter | None = None
+    #: `EPIC-035B` — the user-stream watch and the heartbeat that drives it.
+    _watch: UserStreamWatch | None = None
+    _heartbeat: ThreadPeriodicTimer | None = None
 
     def register(self, context: Any) -> None:
         bind_state(context.container)
@@ -137,6 +155,17 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+        watch = UserStreamWatch(
+            container.resolve(BotExecutors), container.resolve(IBotClock)
+        )
+        bus.on(UserStreamHealthEvent, watch.on_health)
+        heartbeat = ThreadPeriodicTimer(
+            "bots-user-stream-watch", watch.limits.check_every, watch.check
+        )
+        heartbeat.start()
+        self._watch = watch
+        self._heartbeat = heartbeat
+        logger.info("Bots watch the user-data stream's health")
         container.resolve(ICloseObjections).register(
             RunningBotsObjection(container.resolve(IBotStore))
         )
@@ -152,5 +181,7 @@ class BotsModule(BoundedContextModule):
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so
         the app exits with no bot thread left and nothing half-written."""
+        if self._heartbeat is not None:
+            self._heartbeat.stop()
         context.container.resolve(BotExecutors).close_all()
         logger.info("Bot workers closed")

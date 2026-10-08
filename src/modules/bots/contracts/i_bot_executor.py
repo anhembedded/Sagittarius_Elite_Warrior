@@ -15,6 +15,7 @@ copied off the caller's thread and queued (ADR D9).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from decimal import Decimal
 from enum import Enum
 
@@ -77,6 +78,16 @@ class IBotExecutor(ABC):
     @abstractmethod
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         """Trading on the bot's venue was enabled, disabled or Emergency-Stopped."""
+
+    @abstractmethod
+    def reconcile_after_gap(self) -> None:
+        """The venue's user-data stream was down and is back, or a periodic
+        check came due: bring the ladder level with the exchange (`EPIC-035B`)."""
+
+    @abstractmethod
+    def halt_user_stream_down(self, down_for: timedelta) -> None:
+        """The user-data stream has been down for `down_for`: halt and park
+        the ladder, because no fill can be seen (`EPIC-035B`)."""
 
 
 class IBotExecutorFactory(ABC):
