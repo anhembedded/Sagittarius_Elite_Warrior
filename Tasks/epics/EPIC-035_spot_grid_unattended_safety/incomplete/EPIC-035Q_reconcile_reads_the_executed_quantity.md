@@ -34,4 +34,4 @@ Tier per `ci-rule.md` §2; every regression test is shown red before the change.
 Not run yet.
 
 ## Resume
-Not started.
+Not started. `BUG-188` (fixed 2026-10-08) already reads history once per reconcile (`BotOrderGateway.order_records`) and applies a saved order's missed executed quantity, resting or not. What remains here is the *adopted* order: `GridReconciler._adopt` still builds it at `executed = 0`, so the inventory check fails in the same run that adopts a partly filled order. Extend the read to the adopted ids and apply the difference after `adopted(...)`.
