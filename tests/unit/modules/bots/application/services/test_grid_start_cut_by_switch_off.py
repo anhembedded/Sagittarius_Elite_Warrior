@@ -45,7 +45,7 @@ def _start_cut_by_the_switch() -> GridWorld:
 def _resume_cut_by_the_switch() -> GridWorld:
     world = grid_world()
     world.executor.start()
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.derive("4.132", cost="499.97")
     world.executor.resume()
     world.book.cancels.clear()
@@ -71,7 +71,7 @@ def test_enabling_trading_cancels_the_partial_ladder_of_a_cut_start() -> None:
     world = _start_cut_by_the_switch()
     assert world.book.open
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.book.open == {}
     assert world.state() is S.HALTED
@@ -85,11 +85,11 @@ def test_a_cancel_refused_by_the_closed_session_waits_for_the_enable() -> None:
     world = _start_cut_by_the_switch()
     world.book.cancel_refusals = [_OFF]
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.runtime().reason is GridReason.START_CUT_BY_SWITCH_OFF
     assert world.book.open, "still owed"
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
     assert world.book.open == {}
     assert world.runtime().reason is GridReason.START_INTERRUPTED_CLEARED
 
@@ -101,7 +101,7 @@ def test_a_confirmed_resume_cut_by_the_switch_owes_the_cancel_too() -> None:
     assert world.runtime().reason is GridReason.START_CUT_BY_SWITCH_OFF
     assert world.book.open, "the part of the ladder laid before the switch"
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.book.open == {}
     assert world.runtime().reason is GridReason.START_INTERRUPTED_CLEARED
@@ -123,8 +123,8 @@ def test_a_running_bots_whole_ladder_still_rests_after_the_enable() -> None:
     resting = set(world.book.open)
     assert world.state() is S.RUNNING
 
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.SWITCH_OFF

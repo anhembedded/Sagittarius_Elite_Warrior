@@ -206,7 +206,7 @@ class GridWorld:
     ) -> None:
         order = self.book.open[self.open_ids_by_price()[price]]
         self.book.open.pop(order.client_order_id)
-        self.executor.on_fill(
+        self.executor.facts.on_fill(
             BotOrderFill(
                 order.client_order_id,
                 order.side,

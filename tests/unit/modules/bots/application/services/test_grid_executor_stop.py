@@ -218,7 +218,7 @@ def test_an_exit_slice_that_raised_is_reported_as_possibly_unsold() -> None:
 
 def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() -> None:
     world = _running()
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
     world.executor.stop(BaseHandling.KEEP)
@@ -227,7 +227,7 @@ def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() ->
     assert "waiting" in _runtime(world).reason_detail
     assert world.book.cancels == []
     world.session.set_enabled(enabled=True)
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
     assert world.state() is S.STOPPED
     assert world.book.open == {}
     assert "waiting" not in _runtime(world).reason_detail
@@ -241,7 +241,7 @@ def test_a_waiting_stop_keeps_the_users_choice_to_sell() -> None:
 
     world.session.set_enabled(enabled=True)
     _derived(world, "1")
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert [
         r.side for r in world.book.requests if r.order_type is OrderType.MARKET

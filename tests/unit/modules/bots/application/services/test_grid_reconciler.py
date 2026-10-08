@@ -70,7 +70,7 @@ def restored(prior: BotLifecycleState = S.RUNNING) -> GridWorld:
 
 
 def _enable(world: GridWorld) -> None:
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
 
 def filled_while_closed(world: GridWorld, price: Decimal, quantity: str) -> None:
@@ -192,7 +192,7 @@ def test_a_missed_fill_whose_counter_has_nowhere_to_go_halts() -> None:
     world.derive("2.272")
     world.hold("2.272")
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.DUPLICATE_LEVEL_ORDER
@@ -313,7 +313,7 @@ def test_a_stop_interrupted_by_a_restart_finishes_when_trading_is_enabled() -> N
     world = grid_world(state=S.STOPPING, runtime=before.runtime())
     world.book.open = dict(before.book.open)
 
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     assert world.state() is S.STOPPING
     _enable(world)
 
