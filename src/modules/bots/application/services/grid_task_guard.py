@@ -52,6 +52,13 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
     {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
 )
 
+#: Halts that come from a closed order session, where a cancel would be refused:
+#: the ladder rests by design (D13), and a start it cut short owes the cancel
+#: instead (`BUG-190`).
+_CANCEL_REFUSED_REASONS: frozenset[GridReason] = frozenset(
+    {GridReason.SWITCH_OFF, GridReason.START_CUT_BY_SWITCH_OFF}
+)
+
 
 class GridTaskGuard:
     """Runs one worker task, then parks the ladder if the task stopped placing."""
@@ -79,7 +86,7 @@ class GridTaskGuard:
         return (
             state.state in _PARKED
             and (before not in _PARKED or sent)
-            and state.runtime.reason is not GridReason.SWITCH_OFF
+            and state.runtime.reason not in _CANCEL_REFUSED_REASONS
         )
 
     def _park(self) -> None:
