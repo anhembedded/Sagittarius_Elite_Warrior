@@ -55,6 +55,8 @@ class BotsViewModel(StatusMessageViewModel):
     selection_changed = Signal()
     facts_changed = Signal()
     judgement_changed = Signal()
+    #: Why no grid is drawn on the chart (`EPIC-035N`).
+    chart_note_changed = Signal()
     #: What is left before Start changed (`EPIC-034H`).
     readiness_changed = Signal()
     actions_changed = Signal()
@@ -91,6 +93,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.selected: BotSnapshot | None = None
         self.facts: BotFacts | None = None
         self.verdict_lines: tuple[str, ...] = ()
+        self.chart_note = ""
         #: What is left before Start, and where the bot stands among the three
         #: steps; `None` while the bot has a run or none is selected.
         self.readiness: BotReadiness | None = None
@@ -125,6 +128,11 @@ class BotsViewModel(StatusMessageViewModel):
     def set_facts(self, facts: BotFacts | None) -> None:
         self.facts = facts
         self.facts_changed.emit()
+
+    @Slot(str)
+    def set_chart_note(self, text: str) -> None:
+        self.chart_note = text
+        self.chart_note_changed.emit()
 
     @Slot(object)
     def set_judgement(self, verdict_lines: tuple[str, ...]) -> None:

@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QSpinBox,
+    QStyle,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -56,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors 
     STOP_LOSS,
     TAKE_PROFIT,
     UPPER,
+    FieldError,
     field_errors,
     field_of_code,
 )
@@ -146,6 +148,7 @@ class GridPanel(BotKindPanel):
             "actSuggestBollinger", "Suggest from Bollinger"
         )
         self._error_labels: dict[str, QLabel] = {}
+        self._marker_labels: dict[str, QLabel] = {}
         self._build_field_layout()
         self._connect()
         self.set_planner_market(None)
@@ -248,11 +251,19 @@ class GridPanel(BotKindPanel):
         error.setWordWrap(True)
         error.setVisible(False)
         self._error_labels[key] = error
+        marker = plain_label()
+        marker.setObjectName(f"lblGridMarker_{key}")
+        marker.setVisible(False)
+        self._marker_labels[key] = marker
+        said = QHBoxLayout()
+        said.setContentsMargins(0, 0, 0, 0)
+        said.addWidget(marker, 0, Qt.AlignmentFlag.AlignTop)
+        said.addWidget(error, 1)
         row = QWidget()
         column = QVBoxLayout(row)
         column.setContentsMargins(0, 0, 0, 0)
         column.addWidget(editor)
-        column.addWidget(error)
+        column.addLayout(said)
         return row
 
     # -- constraints on the fields (EPIC-034F) ----------------------------- #
@@ -263,7 +274,27 @@ class GridPanel(BotKindPanel):
             error = shown.get(key)
             label.setText(error.text if error else "")
             label.setVisible(error is not None)
+            self._mark(key, error)
             self._editor_of(key).setToolTip(error.text if error else "")
+
+    def _mark(self, key: str, error: FieldError | None) -> None:
+        """A sign beside the sentence, from the platform's own icons: a stop sign
+        for what blocks Start, a warning for advice, and its words for a screen
+        reader. Colour is never the only signal."""
+        marker = self._marker_labels[key]
+        marker.setVisible(error is not None)
+        if error is None:
+            marker.clear()
+            marker.setAccessibleName("")
+            return
+        icon = (
+            QStyle.StandardPixmap.SP_MessageBoxCritical
+            if error.blocks
+            else QStyle.StandardPixmap.SP_MessageBoxWarning
+        )
+        size = marker.fontMetrics().height()
+        marker.setPixmap(self.style().standardIcon(icon).pixmap(size, size))
+        marker.setAccessibleName("Blocks Start" if error.blocks else "Advice")
 
     def focus_field(self, code: str) -> bool:
         key = field_of_code(code)

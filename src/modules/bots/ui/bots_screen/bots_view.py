@@ -126,8 +126,17 @@ class BotsView(BaseView):
         self.log = BotLogPanel(self.model)
         self.chart_area = QWidget()
         self.chart_area.setObjectName("areaBotChart")
-        self._chart_slot = QVBoxLayout(self.chart_area)
+        #: Why no grid is drawn, above the chart (`EPIC-035N`).
+        self.chart_note = plain_label()
+        self.chart_note.setObjectName("lblGridNotDrawn")
+        self.chart_note.setWordWrap(True)
+        self.chart_note.setVisible(False)
+        chart_column = QVBoxLayout(self.chart_area)
+        chart_column.setContentsMargins(0, 0, 0, 0)
+        chart_column.addWidget(self.chart_note)
+        self._chart_slot = QVBoxLayout()
         self._chart_slot.setContentsMargins(0, 0, 0, 0)
+        chart_column.addLayout(self._chart_slot, 1)
         self.backtest = _BacktestSlot()
         self.backtest.setObjectName("panelBotBacktest")
         self._backtest_slot = QVBoxLayout(self.backtest)
@@ -240,8 +249,13 @@ class BotsView(BaseView):
         self.model.bots_changed.connect(self._show_bots)
         self.model.selection_changed.connect(self._sync_selection)
         self.model.statusChanged.connect(self._show_status)
+        self.model.chart_note_changed.connect(self._show_chart_note)
         self.model.connect_changed.connect(self._lock_plan)
         self.table.selectionModel().selectionChanged.connect(self._on_row_selected)
+
+    def _show_chart_note(self) -> None:
+        self.chart_note.setText(self.model.chart_note)
+        self.chart_note.setVisible(bool(self.model.chart_note))
 
     def _lock_plan(self) -> None:
         """The Plan waits for the account (`EPIC-034D`, D1)."""

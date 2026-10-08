@@ -324,7 +324,9 @@ class BotsPresenter(CommandPresenter):
             action_id, ActionOutcome.SUCCEEDED if accepted else ActionOutcome.FAILED
         )
         if accepted and isinstance(result, BotCommandResult):
-            self._model.set_status(f"{label}: done.", False)
+            self._model.set_status(
+                f"{label}: done.{self._still_blocked(pending)}", False
+            )
             if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id
             if pending.action in (BotAction.SAVE, BotAction.START):
@@ -338,6 +340,18 @@ class BotsPresenter(CommandPresenter):
         self._follow_selection()
         self._venues.choices()
         self._queries.bots()
+
+    def _still_blocked(self, pending: PendingAction) -> str:
+        """What a Save leaves undone (`EPIC-035N`): the parameters were stored
+        as they are, and Start still refuses them, for the reason it would give
+        (read before the edits are dropped, so it judges what was saved)."""
+        if pending.action is not BotAction.SAVE:
+            return ""
+        detail = self._selected.detail()
+        readiness = detail.readiness if detail else None
+        if readiness is None or readiness.can_start:
+            return ""
+        return f" Saved as they are. Start is still blocked: {readiness.message()}"
 
     def _follow_selection(self) -> None:
         """A list read that landed during the action may have moved the

@@ -58,6 +58,7 @@ class DetailEffects:
         )
         self._model.set_availability(detail.availability if detail else {})
         self._charts.draw(detail.overlay if detail else None)
+        self._model.set_chart_note(detail.overlay_note if detail else "")
         panel = self._selected.panel
         if panel is not None:
             panel.show_verdicts(detail.verdicts if detail else ())

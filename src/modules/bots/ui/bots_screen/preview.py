@@ -33,6 +33,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
+    Verdict,
+    VerdictSeverity,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
     StartConditions,
@@ -91,10 +95,33 @@ def build_preview() -> QWidget:
     )
     panel = GridPanel()
     panel.set_config(draft.config)
+    panel.show_verdicts(_sample_verdicts())
     view.set_kind_panel(panel)
+    view.model.set_chart_note(
+        "Grid not drawn: the capital is 1000 USDT, above the 800.00 USDT available "
+        "on Spot Testnet; lower it to at most 800.00"
+    )
     view.apply_ui_mode(BotsUiState.EDITING_DRAFT)
     view.resize(1200, 760)
     return view
+
+
+def _sample_verdicts() -> tuple[Verdict, ...]:
+    """The invalid state of `EPIC-035N`: a blocking verdict on Capital, advice on
+    the range, each with its sign beside its sentence on its own field."""
+    return (
+        Verdict(
+            VerdictSeverity.REFUSED,
+            "CAPITAL_ABOVE_BALANCE",
+            "The capital is 1000 USDT, above the 800.00 USDT available on Spot "
+            "Testnet; lower it to at most 800.00",
+        ),
+        Verdict(
+            VerdictSeverity.WARNING,
+            "RANGE_OUTSIDE_ATR_BAND",
+            "The range is narrower than two daily ATRs",
+        ),
+    )
 
 
 def _sample_readiness() -> BotReadiness:
