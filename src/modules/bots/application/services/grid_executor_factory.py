@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_age import (
     GridPriceAge,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reference_price import (
+    GridReferencePrice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
     LazyExchangeTerms,
@@ -117,5 +120,6 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             caps=deps.caps,
             price_age=GridPriceAge(deps.monotonic),
+            reference_price=GridReferencePrice(deps.monotonic, gateway.market_price),
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

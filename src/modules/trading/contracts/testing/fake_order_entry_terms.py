@@ -96,6 +96,9 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         #: A network read on the real adapter; a panel reading it per
         #: keystroke is a defect a test should be able to see.
         self.reads: list[str] = []
+        #: Book reads per symbol: a bot that must not trade on a stale price
+        #: re-reads the book, and a test should be able to see that it did.
+        self.book_reads: list[str] = []
 
     def terms_for(self, symbol: str) -> OrderEntryTerms:
         self.reads.append(symbol)
@@ -122,7 +125,16 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
             raise MarketPriceUnavailableError(f"no mark price seeded for {symbol}")
         return answer
 
+    def quote(self, book: BestBidAsk) -> None:
+        """Move the book `book.symbol` answers from now on."""
+        self._books[book.symbol] = book
+
+    def unquote(self, symbol: str) -> None:
+        """`symbol`'s book is unreadable from now on."""
+        self._books.pop(symbol, None)
+
     def best_bid_ask_for(self, symbol: str) -> BestBidAsk:
+        self.book_reads.append(symbol)
         answer = self._books.get(symbol)
         if answer is None:
             raise MarketPriceUnavailableError(f"no book seeded for {symbol}")

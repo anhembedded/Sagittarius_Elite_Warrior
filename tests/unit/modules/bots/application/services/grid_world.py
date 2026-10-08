@@ -157,6 +157,8 @@ class GridWorld:
     retries: FakeBotRetryScheduler
     #: The staleness clock (`EPIC-035A`): it moves only when a test moves it.
     monotonic: FakeMonotonicClock
+    #: The venue's terms and book: `entry_terms.quote(...)` moves the price.
+    entry_terms: FakeOrderEntryTerms
     owner: str = f"bot.{BOT}"
     placed_ids: list[str] = field(default_factory=list)
 
@@ -246,6 +248,15 @@ def grid_world(
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
+    entry_terms = FakeOrderEntryTerms(
+        terms_entry(market_step=market_step),
+        books={
+            SYMBOL: BestBidAsk(SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1))
+        }
+        if book_readable
+        else {},
+        notional_limit=CAP,
+    )
     session = FakeTradingSession()
     session.set_enabled(enabled=True)
     snapshot = FakeAccountSnapshot()
@@ -254,17 +265,7 @@ def grid_world(
         trading_session=session,
         account_snapshot=snapshot,
         order_submission=SimulatedSubmission(book),
-        order_entry_terms=FakeOrderEntryTerms(
-            terms_entry(market_step=market_step),
-            books={
-                SYMBOL: BestBidAsk(
-                    SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1)
-                )
-            }
-            if book_readable
-            else {},
-            notional_limit=CAP,
-        ),
+        order_entry_terms=entry_terms,
         account_activity=activity,
     )
     store = FakeBotStore()
@@ -301,6 +302,7 @@ def grid_world(
         factory,
         retries,
         monotonic,
+        entry_terms,
     )
 
 
@@ -317,6 +319,11 @@ def recovering_world() -> GridWorld:
     world.derive("0")
     world.hold("0")
     return world
+
+
+def quote_at(world: GridWorld, price: Decimal) -> None:
+    """The venue's best bid and ask both at `price`."""
+    world.entry_terms.quote(BestBidAsk(SYMBOL, price, Decimal(1), price, Decimal(1)))
 
 
 def minutes(count: int) -> timedelta:

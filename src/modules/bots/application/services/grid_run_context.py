@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_sta
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_age import (
     GridPriceAge,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reference_price import (
+    GridReferencePrice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.off_ladder_orders import (
     OffLadderOrders,
 )
@@ -69,6 +72,8 @@ class GridRunContext:
     caps: OwnerBudgetCaps
     #: How long the bot has gone without hearing its price (`EPIC-035A`).
     price_age: GridPriceAge
+    #: The price the bot acts on, with the moment it was heard (`EPIC-035J`).
+    reference_price: GridReferencePrice
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
 

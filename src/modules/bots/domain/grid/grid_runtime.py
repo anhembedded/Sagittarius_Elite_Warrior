@@ -64,6 +64,9 @@ class GridReason(str, Enum):
     #: The user-data stream (the only source of fills) was down too long
     #: (`EPIC-035B`); the ladder was parked.
     USER_STREAM_DOWN = "user_stream_down"
+    #: A resume ladder was confirmed after the market left the price it was
+    #: proposed at (`EPIC-035J`); nothing was laid, resume again.
+    PROPOSAL_PRICE_MOVED = "proposal_price_moved"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

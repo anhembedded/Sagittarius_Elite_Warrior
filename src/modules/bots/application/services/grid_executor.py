@@ -350,4 +350,4 @@ class GridExecutor(IBotExecutor):
         )
 
     def _price(self) -> Decimal:
-        return self._prices.last_price or self._context.gateway.market_price()
+        return self._context.reference_price.current()
