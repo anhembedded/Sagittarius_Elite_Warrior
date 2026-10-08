@@ -154,6 +154,16 @@ class GridFacts(IBotFacts):
 
     def _apply_fill(self, fill: BotOrderFill) -> None:
         state = self._context.state
+        applied = self._context.applied_fills
+        if applied.knows(fill.client_order_id, fill.trade_id):
+            logger.info(
+                "Bot %s: fill %s of %s ignored; it was already counted [duplicate-fill]",
+                state.bot_id,
+                fill.trade_id,
+                fill.client_order_id,
+            )
+            return
+        applied.record(fill.client_order_id, fill.trade_id)
         level_fill = self._level_fill(fill)
         if state.runtime.level_of(fill.client_order_id) is None:
             if fill.client_order_id in self._context.off_ladder:

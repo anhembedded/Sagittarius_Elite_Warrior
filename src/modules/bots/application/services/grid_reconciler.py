@@ -16,7 +16,9 @@ ADR's order:
      the order is over.
   5. **Then adopt.** A tagged order the saved ladder did not know — sent but
      never saved, because the app died between the submit and the write — is
-     adopted at the level of its price, so that level is never placed twice.
+     adopted at the level of its price, so that level is never placed twice,
+     and what history says it already executed is applied as for a saved order
+     (`EPIC-035Q`): the open-order list carries no executed quantity.
      Two orders at one level, or one at no level, halts.
   6. **Check the inventory**: the saved inventory equals the derived one to
      within one step (`INVENTORY_MISMATCH`), and the account holds **at
@@ -28,6 +30,9 @@ ADR's order:
 `EPIC-035B` — the same steps 2–6 are `compare_with_exchange`, which
 `GridStreamGap` runs for a **RUNNING or PAUSED** bot after a user-data-stream
 gap: no lease claim and no transition, because the bot never left its state.
+
+A fill applied from history is remembered by its trade ids (`AppliedFills`,
+`EPIC-035P`), so the stream delivering it late does not count it twice.
 
 History's order row carries no fee, so a missed fill takes its fees from the
 order's trades, less what the bot already counted: Spot takes a buy's fee from
@@ -82,6 +87,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -151,7 +159,11 @@ class GridReconciler:
                 f"waiting: the budget was refused: {refusal_text(registration)}",
             )
         try:
-            applied = self._apply_missed_fills(state.runtime, open_orders)
+            records = self._read_records(state.runtime, open_orders)
+            applied = self._apply_missed_fills(state.runtime, open_orders, records)
+            if isinstance(applied, ReconcileMismatch):
+                return applied
+            outcome = self._adopt(applied, open_orders, records)
         except AccountHistoryUnavailableError as error:
             logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
             return ReconcileWait(
@@ -159,23 +171,35 @@ class GridReconciler:
                 f"waiting: order history did not answer ({error}); "
                 "enable trading again to retry",
             )
-        if isinstance(applied, ReconcileMismatch):
-            return applied
-        outcome = self._adopt(applied, open_orders)
         if isinstance(outcome, ReconcileMismatch):
             return outcome
         mismatch = self._check_inventory(outcome, registration.inventory.quantity)
         return outcome if mismatch is None else mismatch
 
-    def _apply_missed_fills(
+    def _read_records(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]
+    ) -> dict[str, OrderRecord]:
+        """History's row of every order this reconcile may apply fills of: the
+        saved ones and the open ones the ladder does not know (to be adopted,
+        `EPIC-035Q`), read in one pass. Empty before the run has started.
+        @raise AccountHistoryUnavailableError The venue did not answer."""
+        since = self._context.state.bot.lifecycle.run_started_at
+        if since is None:
+            return {}
+        known = frozenset(order.client_order_id for order in runtime.open_orders)
+        unknown = frozenset(order.client_order_id for order in open_orders) - known
+        return self._context.gateway.order_records(known | unknown, since)
+
+    def _apply_missed_fills(
+        self,
+        runtime: GridRuntime,
+        open_orders: tuple[Order, ...],
+        records: dict[str, OrderRecord],
     ) -> GridRuntime | ReconcileMismatch:
         since = self._context.state.bot.lifecycle.run_started_at
         if since is None:
             return runtime
         open_ids = {order.client_order_id for order in open_orders}
-        saved_ids = frozenset(order.client_order_id for order in runtime.open_orders)
-        records = self._context.gateway.order_records(saved_ids, since)
         for saved in runtime.open_orders:
             record = records.get(saved.client_order_id)
             applied = self._catch_up(runtime, saved, record, since)
@@ -202,11 +226,16 @@ class GridReconciler:
         missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
         if missed <= 0 or record is None:
             return runtime
-        fill = self._missed_fill(saved, record, missed, since)
+        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
+        fill = self._missed_fill(saved, record, missed, trades)
         reaction = on_fill(runtime, fill, self._context.terms.step_size, hold=True)
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
             return ReconcileMismatch(halt.reason, halt.detail)
+        # The replay uses the stream's key (`EPIC-035P`): a trade this applied
+        # from history is not counted again when the stream delivers it late.
+        for trade in trades:
+            self._context.applied_fills.record(saved.client_order_id, trade.trade_id)
         logger.info(
             "Bot %s: reconcile %s executed %s since",
             self._context.state.bot_id,
@@ -241,9 +270,12 @@ class GridReconciler:
         return reaction.runtime
 
     def _missed_fill(
-        self, saved: LevelOrder, record: OrderRecord, missed: Decimal, since: datetime
+        self,
+        saved: LevelOrder,
+        record: OrderRecord,
+        missed: Decimal,
+        trades: tuple[TradeRecord, ...],
     ) -> LevelFill:
-        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
         base = self._context.base_asset
         base_fee = sum((t.fee for t in trades if t.fee_asset == base), Decimal(0))
         quote_fee = sum(
@@ -258,8 +290,12 @@ class GridReconciler:
         )
 
     def _adopt(
-        self, runtime: GridRuntime, open_orders: tuple[Order, ...]
+        self,
+        runtime: GridRuntime,
+        open_orders: tuple[Order, ...],
+        records: dict[str, OrderRecord],
     ) -> GridRuntime | ReconcileMismatch:
+        since = self._context.state.bot.lifecycle.run_started_at
         known = {order.client_order_id for order in runtime.open_orders}
         for order in open_orders:
             if order.client_order_id in known:
@@ -275,13 +311,25 @@ class GridReconciler:
                     GridReason.DUPLICATE_LEVEL_ORDER,
                     f"L{level.index} holds two orders carrying the tag",
                 )
-            runtime = adopted(runtime, level.index, _level_order(order))
+            adoptee = _level_order(order)
+            runtime = adopted(runtime, level.index, adoptee)
             logger.info(
                 "Bot %s: adopted %s at L%d",
                 self._context.state.bot_id,
                 order.client_order_id,
                 level.index,
             )
+            if since is None:
+                continue
+            # `EPIC-035Q`: the open-order list says nothing of what the order
+            # already executed; history does. The adopted order starts there,
+            # not at zero, as a saved one is brought level with it.
+            caught_up = self._catch_up(
+                runtime, adoptee, records.get(order.client_order_id), since
+            )
+            if isinstance(caught_up, ReconcileMismatch):
+                return caught_up
+            runtime = caught_up
         return runtime
 
     def _check_inventory(
