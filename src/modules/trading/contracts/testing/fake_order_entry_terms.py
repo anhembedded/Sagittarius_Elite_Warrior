@@ -110,6 +110,15 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
             raise SymbolRulesUnavailableError(f"no terms seeded for {symbol}")
         return terms
 
+    def answer_with(self, entry: OrderEntryTerms) -> None:
+        """From now on `entry.rules.symbol` has these terms (a status that
+        changed, a fee that moved)."""
+        self._terms[entry.rules.symbol] = entry
+
+    def unlist(self, symbol: str) -> None:
+        """From now on the venue does not list `symbol` (a delisting)."""
+        del self._terms[symbol]
+
     def futures_setting_for(self, symbol: str) -> FuturesSymbolSetting | NotApplicable:
         answer = self._futures.settings.get(symbol)
         if answer is None:

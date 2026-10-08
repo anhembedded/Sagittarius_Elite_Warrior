@@ -71,6 +71,15 @@ class GridReason(str, Enum):
     #: A resume ladder was confirmed after the market left the price it was
     #: proposed at (`EPIC-035J`); nothing was laid, resume again.
     PROPOSAL_PRICE_MOVED = "proposal_price_moved"
+    #: The symbol's status is not TRADING (`EPIC-035E`): the exchange refuses
+    #: new orders on it. The bot places nothing until the user resumes it.
+    SYMBOL_NOT_TRADING = "symbol_not_trading"
+    #: The exchange no longer lists the symbol (`EPIC-035E`); the ladder was parked.
+    SYMBOL_DELISTED = "symbol_delisted"
+    #: The exchange rejected the API key mid-run (`EPIC-035F`): revoked, or off
+    #: its IP list. The bot's orders may still rest and this app cannot cancel
+    #: them; it is **not** a switch-off, which cancels nothing by design.
+    KEY_REJECTED = "key_rejected"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

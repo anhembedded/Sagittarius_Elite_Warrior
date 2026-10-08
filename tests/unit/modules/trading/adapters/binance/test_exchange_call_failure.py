@@ -49,7 +49,13 @@ def test_the_exchanges_own_busy_codes_are_transient(code: int) -> None:
     )
 
 
-@pytest.mark.parametrize("code", [-2011, -2013, -1013, -1021, -2010, -1102])
+@pytest.mark.parametrize(
+    "code",
+    # unknown order, no such order, a filter, clock skew, insufficient balance, a
+    # missing parameter, a revoked or unknown key (`EPIC-035F`: -2015, -2008, -2014)
+    # and an unlisted symbol (`EPIC-035E`: -1121): terminal, named elsewhere.
+    [-2011, -2013, -1013, -1021, -2010, -1102, -2015, -2008, -2014, -1121],
+)
 def test_an_answer_the_exchange_gave_is_never_retried(code: int) -> None:
     assert classify_exchange_failure(refusal(code), _NOW_MS) == ExchangeFailure(
         FailureKind.OTHER

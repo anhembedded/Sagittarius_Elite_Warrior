@@ -41,3 +41,18 @@ def test_refuse_file_makes_the_id_taken_unreadable_and_listed() -> None:
     assert [(r.name, r.reason) for r in reading.refused] == [
         ("abc123.json", "unknown schema_version 2")
     ]
+
+
+def test_fail_saves_raises_until_healed_and_keeps_the_last_good_record() -> None:
+    """The fake's own helper, verified (`test_fake_helpers_are_verified.py`)."""
+    store = FakeBotStore()
+    stored = sample_bot()
+    store.save(stored)
+    store.fail_saves(OSError("disk full"))
+
+    with pytest.raises(OSError, match="disk full"):
+        store.save(stored)
+    assert store.load(stored.bot.bot_id) == stored
+
+    store.heal()
+    store.save(stored)

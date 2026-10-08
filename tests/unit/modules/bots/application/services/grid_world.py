@@ -160,8 +160,8 @@ class GridWorld:
     retries: FakeBotRetryScheduler
     #: The staleness clock (`EPIC-035A`): it moves only when a test moves it.
     monotonic: FakeMonotonicClock
-    #: The venue's terms and book: `entry_terms.quote(...)` moves the price.
-    entry_terms: FakeOrderEntryTerms
+    #: What the venue says of the symbol: a test changes its status here.
+    terms: FakeOrderEntryTerms
     owner: str = f"bot.{BOT}"
     placed_ids: list[str] = field(default_factory=list)
 
@@ -193,6 +193,10 @@ class GridWorld:
             )
         )
 
+    def set_status(self, status: str) -> None:
+        """The exchange's status for the symbol from now on."""
+        self.terms.answer_with(terms_entry(status=status))
+
     def derive(self, quantity: str, cost: str = "0") -> None:
         """What trading derives as the bot's inventory at the next registration."""
         self.session.register_owner_budget_answers(
@@ -222,12 +226,14 @@ class GridWorld:
 
 
 def terms_entry(
-    maker: str = "0.001", market_step: Decimal | None = None
+    maker: str = "0.001",
+    market_step: Decimal | None = None,
+    status: str = "TRADING",
 ) -> OrderEntryTerms:
     return OrderEntryTerms(
         rules=SymbolOrderMetadata(
             symbol=SYMBOL,
-            status="TRADING",
+            status=status,
             step_size=STEP,
             tick_size=Decimal("0.01"),
             min_notional=Decimal(5),
@@ -251,7 +257,7 @@ def grid_world(
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
-    entry_terms = FakeOrderEntryTerms(
+    terms = FakeOrderEntryTerms(
         terms_entry(market_step=market_step),
         books={
             SYMBOL: BestBidAsk(SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1))
@@ -268,7 +274,7 @@ def grid_world(
         trading_session=session,
         account_snapshot=snapshot,
         order_submission=SimulatedSubmission(book),
-        order_entry_terms=entry_terms,
+        order_entry_terms=terms,
         account_activity=activity,
     )
     venue_ports = FakeVenueTradingPorts(ports)
@@ -307,7 +313,7 @@ def grid_world(
         factory,
         retries,
         monotonic,
-        entry_terms,
+        terms,
     )
 
 
@@ -328,7 +334,7 @@ def recovering_world() -> GridWorld:
 
 def quote_at(world: GridWorld, price: Decimal) -> None:
     """The venue's best bid and ask both at `price`."""
-    world.entry_terms.quote(BestBidAsk(SYMBOL, price, Decimal(1), price, Decimal(1)))
+    world.terms.quote(BestBidAsk(SYMBOL, price, Decimal(1), price, Decimal(1)))
 
 
 def minutes(count: int) -> timedelta:

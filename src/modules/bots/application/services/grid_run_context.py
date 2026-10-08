@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_refere
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.off_ladder_orders import (
     OffLadderOrders,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
+    IMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
@@ -59,6 +62,11 @@ class LazyExchangeTerms:
             self._terms = self._read()
         return self._terms
 
+    def refresh(self) -> None:
+        """Read the terms again, replacing the kept ones (`EPIC-035E`: the
+        symbol's status is read at each Start and Resume, not once per run)."""
+        self._terms = self._read()
+
 
 @dataclass(frozen=True, slots=True)
 class GridRunContext:
@@ -74,6 +82,8 @@ class GridRunContext:
     price_age: GridPriceAge
     #: The price the bot acts on, with the moment it was heard (`EPIC-035J`).
     reference_price: GridReferencePrice
+    #: The clock a bot's own intervals are measured on (`EPIC-035F`).
+    monotonic: IMonotonicClock
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
 

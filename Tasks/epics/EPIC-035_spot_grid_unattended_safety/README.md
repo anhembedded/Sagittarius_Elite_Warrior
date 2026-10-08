@@ -39,9 +39,9 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035B](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | The user-data stream heals itself and catches up (H2, H3) | Elite | None | 🔴 | ✅ Done (2026-10-08) |
 | [EPIC-035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | No unmanaged orders and no stuck states (H4, H5, H6) | Elite | None | 🔴 | ✅ Done (2026-10-08) |
 | [EPIC-035D](completed/EPIC-035D_retry_and_backoff_for_exchange_calls.md) | Retry, backoff and `Retry-After` for exchange calls (M3) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
-| [EPIC-035E](incomplete/EPIC-035E_symbol_status_gates_placement.md) | Symbol status gates placement (M5) | Elite | None | 🟡 | Planned |
-| [EPIC-035F](incomplete/EPIC-035F_a_revoked_key_is_named_and_alerted.md) | A key revoked mid-run is named, not mistaken for a switch-off (M4) | Elite | 035C | 🟡 | Planned |
-| [EPIC-035G](incomplete/EPIC-035G_a_failed_store_write_still_parks.md) | A failed store write still parks the ladder (M2) | Elite | 035C | 🟡 | Planned |
+| [EPIC-035E](completed/EPIC-035E_symbol_status_gates_placement.md) | Symbol status gates placement (M5) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
+| [EPIC-035F](completed/EPIC-035F_a_revoked_key_is_named_and_alerted.md) | A key revoked mid-run is named, not mistaken for a switch-off (M4) | Elite | 035C | 🟡 | ✅ Done (2026-10-08), alert waits for 035K |
+| [EPIC-035G](completed/EPIC-035G_a_failed_store_write_still_parks.md) | A failed store write still parks the ladder (M2) | Elite | 035C | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035H](completed/EPIC-035H_one_app_instance_per_data_root.md) | One app instance per data root (M6) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035I](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035J](completed/EPIC-035J_the_reference_price_has_an_age.md) | The reference price has an age (M1) | Elite | 035A | 🟡 | ✅ Done (2026-10-08) |

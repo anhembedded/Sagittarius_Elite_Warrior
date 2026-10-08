@@ -57,7 +57,7 @@ def _halted_with_a_tick() -> GridWorld:
 
 
 def _book_reads(world: GridWorld) -> int:
-    return world.entry_terms.book_reads.count(SYMBOL)
+    return world.terms.book_reads.count(SYMBOL)
 
 
 def _proposed_price(world: GridWorld) -> Decimal:
@@ -178,7 +178,7 @@ def test_after_a_refusal_resuming_again_proposes_at_the_new_price() -> None:
 def test_a_book_that_cannot_be_read_at_confirmation_refuses_rather_than_lays() -> None:
     world = _halted_with_a_tick()
     world.executor.resume()
-    world.entry_terms.unquote(SYMBOL)
+    world.terms.unquote(SYMBOL)
 
     world.executor.confirm_resume()
 

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interrupted_start import (
     GridInterruptedStart,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_probe import (
+    GridKeyProbe,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
     GridLadderPlacer,
 )
@@ -102,6 +105,7 @@ class GridFactParts:
     stop: GridStopper
     reconciler: GridReconciler
     interrupted_start: GridInterruptedStart
+    key_probe: GridKeyProbe
 
 
 class GridFacts(IBotFacts):
@@ -129,7 +133,10 @@ class GridFacts(IBotFacts):
         self._post("tick", lambda: self._parts.prices.on_tick(price))
 
     def on_price_age_check(self) -> None:
+        """The price watch's beat: is the feed quiet, and (`EPIC-035F`, on its
+        own interval) does the exchange still accept the key."""
         self._post("price age check", self._parts.prices.check_age)
+        self._post("key probe", self._parts.key_probe.check)
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))

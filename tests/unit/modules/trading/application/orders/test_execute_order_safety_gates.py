@@ -235,6 +235,25 @@ class TestSafetyGates:
         result = handler.execute(ExecuteOrderCommand(order_request=order_request()))
         assert result.blocked_by is ExecuteOrderSafetyGate.CONNECTION_NOT_READY
 
+    def test_a_connection_the_exchange_rejects_the_key_of_is_its_own_gate(
+        self,
+    ) -> None:
+        """`EPIC-035F` — the check reached the exchange and the key was refused
+        (`-2015`/`-2008`/`-2014`): not a connection to wait for."""
+        rejected = ExchangeConnectionStatus(
+            venue=TradingVenue.FUTURES_TESTNET,
+            reachable=False,
+            failure=ConnectionFailureKind.KEY_REJECTED,
+            server_time_skew_ms=None,
+            usdt_balance=None,
+            position_mode=None,
+            margin_type=None,
+            open_position_count=None,
+        )
+        handler, _ = make_handler(status=rejected)
+        result = handler.execute(ExecuteOrderCommand(order_request=order_request()))
+        assert result.blocked_by is ExecuteOrderSafetyGate.KEY_REJECTED
+
     def test_each_gate_blocks_independently_of_the_other_two(self) -> None:
         """`EPIC-021G` §4: each of the three safety gates must block on its
         own — turning off exactly one at a time, the other two passing."""

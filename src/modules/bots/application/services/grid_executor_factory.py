@@ -129,5 +129,6 @@ class GridExecutorFactory(IBotExecutorFactory):
             reference_price=GridReferencePrice(
                 deps.monotonic, lambda: deps.prices.read(bot.definition.venue, symbol)
             ),
+            monotonic=deps.monotonic,
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

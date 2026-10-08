@@ -71,6 +71,13 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 #: The prefix of a reason detail while STOPPING waits; cleared on STOPPED.
 _WAITING = "waiting:"
 
+#: The cancel failures that end a stop at once, as a named fault or halt, instead
+#: of waiting to retry: a request that raised, and an API key the exchange
+#: rejects (`EPIC-035F`), which a retry cannot mend.
+_ENDS_THE_STOP: frozenset[OrderOutcomeKind] = frozenset(
+    {OrderOutcomeKind.FAULT, OrderOutcomeKind.KEY_REJECTED}
+)
+
 
 class StopProgress(str, Enum):
     """Where a run of the stop ended: what, if anything, it still waits for."""
@@ -137,7 +144,7 @@ class GridStopSequence:
         if failed is None:
             return None
         what = f"cancel {report.client_order_id}"
-        if failed.kind is OrderOutcomeKind.FAULT:
+        if failed.kind in _ENDS_THE_STOP:
             fail_with(self._context.state, failed, what)
             return StopProgress.ENDED
         self._wait(
@@ -181,6 +188,9 @@ class GridStopSequence:
             if outcome.kind is OrderOutcomeKind.SWITCH_OFF:
                 self._wait(f"exit slice {index} refused: trading is off")
                 return StopProgress.WAITING_FOR_TRADING
+            if outcome.kind is OrderOutcomeKind.KEY_REJECTED:
+                fail_with(self._context.state, outcome, f"exit slice {index}")
+                return StopProgress.ENDED
             if outcome.kind is OrderOutcomeKind.RATE_LIMITED:
                 # Nothing was sent: the next run derives what is left and sells it.
                 self._wait(f"exit slice {index} not sent: {outcome.detail}")

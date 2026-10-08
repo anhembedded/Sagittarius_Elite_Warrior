@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.command import (
     CancelOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection_gate import (
+    connection_block,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
@@ -76,7 +79,4 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
     ) -> ExecuteOrderSafetyGate | None:
         if not scope.session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
-        status = scope.ports.account_reader.check_connection()
-        if not status.reachable or status.failure is not None:
-            return ExecuteOrderSafetyGate.CONNECTION_NOT_READY
-        return None
+        return connection_block(scope.ports.account_reader.check_connection())

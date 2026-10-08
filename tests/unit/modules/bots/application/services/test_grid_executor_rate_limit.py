@@ -289,7 +289,7 @@ def test_a_stop_whose_price_read_meets_a_pause_waits_instead_of_failing() -> Non
     world = _running()
     world.executor.facts.on_tick(Decimal(121))
     world.monotonic.advance(3 * 3600)
-    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=45))
+    world.terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=45))
 
     world.executor.stop(BaseHandling.SELL_AT_MARKET)
 
@@ -308,7 +308,7 @@ def test_a_confirmation_whose_price_read_meets_a_pause_halts_for_it() -> None:
     world.executor.facts.on_switch(False, _SWITCH)
     world.derive("0")
     world.executor.resume()
-    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
+    world.terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
 
     world.executor.confirm_resume()
 
@@ -322,7 +322,7 @@ def test_a_confirmation_whose_price_read_meets_a_pause_halts_for_it() -> None:
 
 def test_an_automatic_resume_whose_price_read_meets_a_pause_waits_again() -> None:
     world = _halted_by_the_limit()
-    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
+    world.terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
 
     world.retries.run_next()
 

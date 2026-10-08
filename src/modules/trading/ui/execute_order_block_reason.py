@@ -41,6 +41,11 @@ _SAFETY_GATE_MESSAGES = EnumLabels(
         ExecuteOrderSafetyGate.CONNECTION_NOT_READY: (
             "Connection to the exchange is not ready — check your API key/network connection."
         ),
+        ExecuteOrderSafetyGate.KEY_REJECTED: (
+            "The exchange rejected the API key — it may be revoked, for another "
+            "environment, or off its IP list. Orders already on the exchange cannot "
+            "be placed or cancelled from this app until a working key is added."
+        ),
         #: `EPIC-025` PR 2.1f — the same words `DashboardPresenter` used to
         #: print from its own hard block, now that the refusal comes back as a
         #: gate from the order path instead. The text is the user's decision of
