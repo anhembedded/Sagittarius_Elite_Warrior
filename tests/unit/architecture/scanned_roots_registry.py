@@ -51,6 +51,11 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    # `EPIC-035H` — only the two entry points take the data root's instance lock.
+    (
+        "tests/unit/architecture/test_only_the_entry_points_take_the_instance_lock.py",
+        (("src", "*.py"), ("scripts", "*.py")),
+    ),
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
     # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
     # appear in a container registration anywhere in `src/`.

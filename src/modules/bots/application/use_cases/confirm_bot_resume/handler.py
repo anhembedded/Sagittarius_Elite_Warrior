@@ -10,6 +10,7 @@ that lays nothing (PR #333 review).
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_gate import (
     BotCommandGate,
@@ -43,12 +44,18 @@ class ConfirmBotResumeCommandHandler(
         refusal = self._gate.refusal(bot_id, BotLifecycleEvent.RESUME)
         if refusal is not None:
             return refusal
-        if not self._runner.has_resume_proposal(bot_id):
+        try:
+            if not self._runner.has_resume_proposal(bot_id):
+                return BotCommandResult.refused(
+                    BotRefusal.NO_RESUME_PROPOSAL,
+                    "There is no resume proposal to confirm: press Resume first, "
+                    "check the proposed ladder, then confirm.",
+                    bot_id,
+                )
+            self._runner.confirm_resume(bot_id)
+        # A read-only copy refuses by raising (`EPIC-035H`); a refusal is a value.
+        except ReadOnlyInstanceError as exc:
             return BotCommandResult.refused(
-                BotRefusal.NO_RESUME_PROPOSAL,
-                "There is no resume proposal to confirm: press Resume first, "
-                "check the proposed ladder, then confirm.",
-                bot_id,
+                BotRefusal.READ_ONLY_INSTANCE, str(exc), bot_id
             )
-        self._runner.confirm_resume(bot_id)
         return BotCommandResult.done(bot_id)

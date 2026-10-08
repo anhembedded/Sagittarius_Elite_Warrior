@@ -24,6 +24,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_service import (
     HoldingsRefreshService,
 )
@@ -145,6 +151,7 @@ def _container(
 ) -> tuple[StdLibContainer, _RecordingDispatcher]:
     dispatcher = _RecordingDispatcher()
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     container.singleton(
         IConfig,
         DictConfig(

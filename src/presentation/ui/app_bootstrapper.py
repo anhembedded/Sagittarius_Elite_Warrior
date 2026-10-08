@@ -53,18 +53,27 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.notifier import install_notifier
+from Sagittarius_Elite_Warrior.src.presentation.ui.remembered_state_wiring import (
+    register_remembered_state,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.ui_toast_notification_channel import (
     UiToastNotificationChannel,
 )
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
     load_app_config,
+)
+from Sagittarius_Elite_Warrior.src.shell.composition_root import (
+    acquire_instance_access,
 )
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
@@ -74,9 +83,6 @@ from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
 )
 from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_pages
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     environment_banner_factory,
 )
@@ -96,12 +102,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.repo_state_store_locator import (
     RepoStateStoreLocator,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
-    SymbolPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
@@ -148,8 +150,12 @@ class AppRuntime:
     sig_timer: object
 
 
-def build() -> AppRuntime:
+def build(instance: IInstanceAccess | None = None) -> AppRuntime:
     """Boots the Engine, then the UI, up to and NOT including `app.exec()`.
+
+    `instance` says whether this copy of the app may trade (`EPIC-035H`); a
+    caller that holds no data root (a test, a sanity boot) passes nothing and
+    builds a writable app, so it never contends for the lock `main()` takes.
 
     Every step production runs before the event loop starts — real config,
     real DI container, real QApplication, real theme, real MainWindow. The
@@ -175,7 +181,7 @@ def build() -> AppRuntime:
     if banner is not None:
         print(banner)
 
-    app_engine = create_app(config_manager)
+    app_engine = create_app(config_manager, instance)
     app_engine.boot()
 
     # ------------------------------------------------------------------ #
@@ -216,65 +222,7 @@ def build() -> AppRuntime:
     state_coordinator = UiStateCoordinator(
         ConfigManagerStateStore(RepoStateStoreLocator())
     )
-    # Registered so screen presenters can find it: PresenterManager builds
-    # each presenter as `presenter_class(view, container)`, with no seam for
-    # extra constructor arguments, so the container is the only way through.
-    # A presenter must therefore treat it as optional — every test that
-    # builds a presenter against a bare container would otherwise break.
-    app_engine.context.container.singleton(UiStateCoordinator, state_coordinator)
-
-    # EPIC-017A — which screens' remembered fields Settings' DEFAULT_SYMBOLS/
-    # DEFAULT_INTERVAL outrank (EPIC-010H's ui_state > user_config
-    # precedence). Registered here, eagerly, rather than inside each
-    # presenter's own __init__: PresenterManager is a *true* lazy router (see
-    # its own docstring — "zero RAM allocation for screens until navigated
-    # to"), so a binding registered only when a presenter is first
-    # constructed would silently miss a screen the user has never opened yet
-    # — the exact stale-restore bug this registration exists to prevent.
-    # Plain strings on purpose: this is the composition root, the one place
-    # already allowed to know every screen's route (see MainWindow's own
-    # router setup) — importing each screen's heavy presenter module just to
-    # read its scope/field names would defeat the lazy loading above for no
-    # benefit, since nothing here needs the class itself.
-    for scope_key, config_key, state_keys in (
-        ("backtest", "DEFAULT_SYMBOLS", ("symbol",)),
-        ("backtest", "DEFAULT_INTERVAL", ("timeframe",)),
-        ("data_management", "DEFAULT_SYMBOLS", ("symbol",)),
-        ("data_management", "DEFAULT_INTERVAL", ("interval",)),
-    ):
-        state_coordinator.register_config_binding(
-            StateScope(key=scope_key), config_key, state_keys
-        )
-
-    # EPIC-014 — starred and recently used trading pairs, ONE store shared by
-    # every screen that picks a symbol. Registered rather than owned by a
-    # screen because that is what makes it shared: a star set on Backtest is
-    # the same star every other picker shows, which is the whole reason favourites are
-    # worth having across a 1,400-entry list.
-    #
-    # Restored before the first screen is built and marked dirty on every
-    # mutation: the two calls every contributor makes, here as it has no presenter.
-    symbol_preferences = SymbolPreferences()
-    state_coordinator.restore_into(symbol_preferences)
-    symbol_preferences.set_on_changed(
-        lambda: state_coordinator.mark_dirty(symbol_preferences)
-    )
-    app_engine.context.container.singleton(SymbolPreferences, symbol_preferences)
-
-    # Follow-up to `EPIC-015` Phase 4 — pinned timeframes per chart, keyed by
-    # symbol, shared by every `ChartToolbar` in the app the same way
-    # `SymbolPreferences` is shared above: Backtest's single chart and each
-    # other `ChartCard` read the same store, scoped by their own symbol,
-    # so a chart rebuilt for a symbol it has already seen recovers the same
-    # pinned set instead of resetting it.
-    timeframe_pin_preferences = TimeframePinPreferences()
-    state_coordinator.restore_into(timeframe_pin_preferences)
-    timeframe_pin_preferences.set_on_changed(
-        lambda: state_coordinator.mark_dirty(timeframe_pin_preferences)
-    )
-    app_engine.context.container.singleton(
-        TimeframePinPreferences, timeframe_pin_preferences
-    )
+    register_remembered_state(app_engine.context.container, state_coordinator)
 
     # `EPIC-016` — every screen registers itself, once, instead of MainWindow
     # importing each concrete View/Presenter: the shell owns what the app is
@@ -299,6 +247,10 @@ def build() -> AppRuntime:
         close_objections=app_engine.context.container.resolve(ICloseObjections),
     )
     notifier.adopt(window)
+    if instance is not None and instance.read_only:
+        # `EPIC-035H` — said where it cannot be missed: the title, and a notice.
+        window.setWindowTitle(f"{window.windowTitle()} (read-only)")
+        notifier.notify("This copy is read-only", instance.reason)
     # `EPIC-033E` — Tools → Options: each module's page, then Developer.
     for page in build_options_pages(
         contributions,
@@ -366,13 +318,18 @@ def main() -> None:
     of waiting on the window; every other line of the real application still
     runs unchanged.
     """
-    runtime = build()
+    # `EPIC-035H` — the first copy on the data root trades; any other reads.
+    instance = acquire_instance_access()
+    try:
+        runtime = build(instance)
 
-    if _SELF_CHECK_FLAG in sys.argv:
-        QTimer.singleShot(0, runtime.app.quit)
+        if _SELF_CHECK_FLAG in sys.argv:
+            QTimer.singleShot(0, runtime.app.quit)
 
-    exit_code = runtime.app.exec()
-    teardown(runtime)
+        exit_code = runtime.app.exec()
+        teardown(runtime)
+    finally:
+        instance.release()
     sys.exit(exit_code)
 
 

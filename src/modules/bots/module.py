@@ -41,6 +41,17 @@ own `BotChangedEvent`, and `shutdown()` releases every stream it opened.
 every bot on the venue up, a stream down too long halts them. A daemon thread
 re-arms its `check()` on the retry scheduler, which `shutdown()` closes.
 
+@par `boot()` also watches for sleep (`EPIC-035I`)
+`SleepWatch` looks at the monotonic and wall clocks on the same retry scheduler's
+heartbeat. A gap longer than a minute is a suspended machine: every bot is
+reconciled through the entry point the user-stream watch uses, and its stop loss
+and take profit meet a price read fresh from the venue.
+
+@par A second copy of the app boots none of this (`EPIC-035H`)
+When another copy holds the data root (`IInstanceAccess.read_only`), `boot()`
+returns before the restart rule, the router and every watch: the first copy's
+bots stay as it left them. The store and the runner are read-only wrappers.
+
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
 
@@ -69,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
@@ -87,6 +101,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
     RunningBotsObjection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
+    SleepWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
     UserStreamWatch,
 )
@@ -95,6 +112,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
     bind_executors,
+    build_sleep_watch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings import (
     bind_queries,
@@ -153,6 +171,8 @@ class BotsModule(BoundedContextModule):
     _router: BotEventRouter | None = None
     #: `EPIC-035B` — the user-stream watch, held for the life of the module.
     _watch: UserStreamWatch | None = None
+    #: `EPIC-035I` — the sleep watch, held for the life of the module.
+    _sleep: SleepWatch | None = None
 
     #: Gives each bot that is not at rest its own price stream (`EPIC-035A`),
     #: held for the life of the module like the router.
@@ -166,6 +186,12 @@ class BotsModule(BoundedContextModule):
 
     def boot(self, context: Any) -> None:
         container = context.container
+        instance = container.resolve(IInstanceAccess)
+        if instance.read_only:
+            # `EPIC-035H`: the restart rule would rewrite the first copy's running
+            # bots, and a watch would answer their fills. This copy reads only.
+            logger.info("Bots are read-only on this copy: %s", instance.reason)
+            return
         container.resolve(BotRestoreService).restore_all()
         logger.info("Bots restored after start-up")
         router = BotEventRouter(
@@ -192,6 +218,10 @@ class BotsModule(BoundedContextModule):
         watch.begin()
         self._watch = watch
         logger.info("Bots watch the user-data stream's health")
+        sleep = build_sleep_watch(container)
+        sleep.begin()
+        self._sleep = sleep
+        logger.info("Bots watch for the machine's sleep")
         # After the subscription: a fill that arrives while a restored bot
         # reads the exchange finds its executor already built.
         BotBootRecovery(

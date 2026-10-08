@@ -20,3 +20,12 @@ class ContributionError(Exception):
     and a typo that only shows up as a missing panel at runtime is the failure
     mode pluggy's validation exists to prevent (HLD §7.3).
     """
+
+
+class ReadOnlyInstanceError(Exception):
+    """A change was asked of a copy of the app that is read-only (`EPIC-035H`).
+
+    Raised where a change would leave the process: an order sent, an order
+    cancelled, a bot's file written. The message is the instance's own reason,
+    a sentence for the user.
+    """

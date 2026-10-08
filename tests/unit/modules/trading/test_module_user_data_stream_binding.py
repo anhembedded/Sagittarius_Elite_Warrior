@@ -31,6 +31,12 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
@@ -59,6 +65,7 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 def _container_with_venue(venue: TradingVenue | None) -> StdLibContainer:
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     config = (
         DictConfig()
         if venue is None
