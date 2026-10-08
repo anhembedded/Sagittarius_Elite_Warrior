@@ -1,6 +1,6 @@
 # BUG-185 — A Bots integration test fails at teardown when a late market-data sync reaches for the network
 
-- **Reported:** 2026-10-08 (found gating PR #429, `EPIC-035C`, by the author session; confirmed by the reviewer session)
+- **Reported:** 2026-10-08 (found gating PR #429, `EPIC-035C`, by the author session; the reviewer session saw the same red attempt but did not reproduce it)
 - **Severity:** 🟡 P2 — an intermittent red `gate (Rest)` on a pull request that did not touch the code involved; costs a re-run and blurs real failures
 - **Status:** Open
 - **Board:** `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` errors intermittently at teardown: a background `SyncMarketDataCommand` tries to reach `testnet.binance.vision` and the no-network guard fails the test; also seen on the unchanged baseline
