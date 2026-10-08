@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stopper import (
     GridStopper,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_storage_watch import (
+    GridStorageWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
     GridStreamGap,
 )
@@ -117,7 +120,10 @@ class GridExecutor(IBotExecutor):
         self._start = GridStartSequence(context)
         self._stop = GridStopper(context, retries, self._post, self._price)
         self._status = SymbolStatusGate(context)
-        self._resume = GridResumeSequence(context, self._start, self._status)
+        self._storage = GridStorageWatch(context)
+        self._resume = GridResumeSequence(
+            context, self._start, self._status, self._storage
+        )
         self._reconciler = GridReconciler(context)
         self._placer = GridLadderPlacer(context)
         self._recovery = GridRecoveryReader(context)
@@ -129,6 +135,7 @@ class GridExecutor(IBotExecutor):
             context,
             GridHousekeeping(context),
             GridRateLimitPause(context, retries, self._post, self._resume, self._price),
+            self._storage,
         )
         self._prices = GridPriceReaction(context, self._stop)
         self._proposal: ResumeProposal | None = None
@@ -230,9 +237,10 @@ class GridExecutor(IBotExecutor):
         if state.state is not _S.PAUSED:
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return
-        if not self._status.admits():
+        if not self._storage.admits_resume() or not self._status.admits():
             return
         state.transition(_E.RESUME)
+        self._storage.resumed()
         self._placer.release_held()
 
     def _run_confirm(self) -> None:

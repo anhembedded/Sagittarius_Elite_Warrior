@@ -80,6 +80,10 @@ class GridReason(str, Enum):
     #: its IP list. The bot's orders may still rest and this app cannot cancel
     #: them; it is **not** a switch-off, which cancels nothing by design.
     KEY_REJECTED = "key_rejected"
+    #: The bot's state file could not be written three times in a row
+    #: (`EPIC-035G`, D6): the bot is PAUSED, its orders rest, nothing new is
+    #: placed, and Resume works once a write succeeds.
+    STORAGE_FAILURE = "storage_failure"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

@@ -1,0 +1,129 @@
+"""`EPIC-035G`, owner decision D6 — a store that keeps failing pauses the bot.
+
+`BotRunState` keeps a failed write as a fact so a bot can still park its ladder.
+It must not keep *trading* on memory for good: after `FAILED_SAVES_BEFORE_PAUSE`
+writes in a row fail (a success resets the count) a RUNNING bot goes to PAUSED
+with `STORAGE_FAILURE` and the failure on its detail. A pause is what it always
+is: the resting orders stay on the exchange, the counter orders a fill owes are
+held, and nothing new is placed.
+
+Only the user's Resume ends it, and only once the store takes a write: `admits_resume`
+(for this pause, and for any pause while writes are failing) writes the record once and,
+when that fails, leaves the bot PAUSED (the failed write
+is already logged `[bot-store-failed]`). A resume that went on regardless would
+release the held orders into a bot whose file cannot say it is running.
+
+The check runs after each worker task (`GridTaskGuard`), so a task that is already
+under way finishes its own placements; the pause bites from the next one.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import replace
+
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_state import (
+    FAILED_SAVES_BEFORE_PAUSE,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
+    GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleEvent,
+    BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridReason,
+)
+
+logger = logging.getLogger("App.Bots.GridExecutor")
+
+#: What a halt reason's detail says once the file is known to be behind; keeps it single.
+_CANNOT_BE_SAVED = "its state cannot be saved"
+
+
+class GridStorageWatch:
+    """Pauses a bot whose store keeps failing, and gates its way back."""
+
+    def __init__(self, context: GridRunContext) -> None:
+        self._context = context
+
+    def pause_if_failing(self) -> None:
+        """Pause a RUNNING bot once its writes have failed three times in a row."""
+        state = self._context.state
+        if (
+            state.state is not BotLifecycleState.RUNNING
+            or state.failed_saves < FAILED_SAVES_BEFORE_PAUSE
+        ):
+            return
+        detail = (
+            f"paused because its state cannot be saved ({state.failed_saves} saves "
+            f"in a row failed: {state.storage_failure}); its orders rest on the "
+            "exchange and nothing new is placed. Check the disk, then press Resume"
+        )
+        logger.error("Bot %s: %s [bot-store-failed-paused]", state.bot_id, detail)
+        state.transition(BotLifecycleEvent.PAUSE, GridReason.STORAGE_FAILURE, detail)
+
+    def admits_resume(self) -> bool:
+        """Whether a PAUSED bot may resume now. A bot paused for its storage, or one
+        whose writes are failing right now (a user's pause on a failing disk), is
+        let through only if the store takes a write."""
+        state = self._context.state
+        if (
+            state.runtime.reason is not GridReason.STORAGE_FAILURE
+            and state.failed_saves == 0
+        ):
+            return True
+        if state.save_works():
+            return True
+        logger.warning(
+            "Bot %s: resume refused, its state still cannot be saved (%s) "
+            "[bot-store-failed]",
+            state.bot_id,
+            state.storage_failure,
+        )
+        return False
+
+    def resumed(self) -> None:
+        """The resume went through: the storage reason has served its purpose."""
+        state = self._context.state
+        if state.runtime.reason is GridReason.STORAGE_FAILURE:
+            state.update(replace(state.runtime, reason=None, reason_detail=""))
+
+    def admits_relaunch(self) -> bool:
+        """Whether a HALTED bot may re-plan and lay a ladder now: the store must take
+        a write. Both ways out of HALTED pass here (`GridResumeSequence.propose` and
+        `.confirm`: the user's, and the rate-limit timer's), so neither lays a ladder
+        over a file that cannot say so. When it cannot, the bot stays HALTED (a PAUSED
+        bot would skip the re-plan a halt owes) and says so: `STORAGE_FAILURE` replaces
+        a rate limit (which also keeps the rate-limit pause from scheduling another
+        timer), while any other halt reason (a rejected key, a delisting) stays the
+        reason and gains the note, once. The user's next Resume tries again."""
+        state = self._context.state
+        if state.save_works():
+            return True
+        runtime = state.runtime
+        note = (
+            f"its state cannot be saved ({state.storage_failure}); nothing was laid. "
+            "Check the disk, then press Resume"
+        )
+        logger.error(
+            "Bot %s: resume refused, %s [bot-store-failed-resume]", state.bot_id, note
+        )
+        if runtime.reason is GridReason.STORAGE_FAILURE or _CANNOT_BE_SAVED in (
+            runtime.reason_detail
+        ):
+            return False
+        reason = runtime.reason
+        if reason is None or reason is GridReason.RATE_LIMITED:
+            before = f" (halted before: {reason.value})" if reason else ""
+            state.update(
+                runtime.with_reason(
+                    GridReason.STORAGE_FAILURE, f"not resumed, {note}{before}"
+                )
+            )
+        else:
+            state.update(
+                runtime.with_reason(reason, f"{runtime.reason_detail}; {note}")
+            )
+        return False
