@@ -26,6 +26,12 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
@@ -69,6 +75,7 @@ def _container(venue: TradingVenue | None) -> StdLibContainer:
     """`venue` through the legacy scalar key, the shape an existing install
     boots with; `None` is a fresh install with no value at all."""
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     values = (
         {} if venue is None else {ConfigKeys.EXCHANGE_TRADING_VENUE.value: venue.value}
     )

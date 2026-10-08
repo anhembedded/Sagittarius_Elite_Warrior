@@ -29,6 +29,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
@@ -120,6 +123,7 @@ def bind_adapters(container: IContainer) -> None:
                 secrets_file_path=secrets_file_path,
                 session_states=c.resolve(VenueSessionStates),
                 secret_store=KeyringSecretStore(),
+                instance=c.resolve(IInstanceAccess),
             ),
         ),
     )

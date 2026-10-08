@@ -26,6 +26,9 @@ a `RegisteringContainer` (`Docs/SDD/04_boot_and_configuration.md` §4).
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
+
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
@@ -42,7 +45,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfig
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
 )
@@ -60,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notification_channel import (
     TelegramNotificationChannel,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
@@ -140,7 +150,39 @@ def _register_indicator_scripts(container: IContainer) -> None:
     container.singleton(IndicatorScriptRegistry, script_registry)
 
 
-def create_app(config_manager: ConfigManager) -> App:
+_logger = logging.getLogger("App.Instance")
+
+
+def instance_lock_file() -> Path:
+    """The lock file of the current data root (`EPIC-035H`)."""
+    return data_root() / "state" / "instance.lock"
+
+
+def acquire_instance_access() -> InstanceAccess:
+    """Writable if this is the first copy of the app on the data root, else
+    read-only (`EPIC-035H`). The two entry points call it once, before the
+    object graph is built, and release the result at a clean exit; `create_app`
+    and the UI's `build` take the answer as a parameter, so a test that builds
+    the app in-process never contends for the lock, and the file lives under
+    `data_root()` so two different roots (every test run has its own,
+    `EPIC-030M`) never meet."""
+    return InstanceAccess.acquire(instance_lock_file())
+
+
+def _log_instance(instance: IInstanceAccess | None) -> None:
+    if instance is not None and instance.read_only:
+        _logger.info("[instance] read-only: %s", instance.reason)
+    else:
+        _logger.info("[instance] writable: no other copy holds the data root")
+
+
+def create_app(
+    config_manager: ConfigManager, instance: IInstanceAccess | None = None
+) -> App:
+    """Builds the object graph. `instance` says whether this copy of the app
+    may trade (`EPIC-035H`): the entry points pass what `single_instance`
+    decided; a run that is not the app's own (a test, a script) passes nothing
+    and is writable, since it holds no data root against anyone."""
     container = StdLibContainer()
 
     # EPIC-008G §4 — bus nhận logger tường minh, không để `None`.
@@ -157,12 +199,19 @@ def create_app(config_manager: ConfigManager) -> App:
     # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
     # handler theo cùng config.
     app_logger = StdLogger(config_manager)
+    # `EPIC-035H` — said here because the run log exists only from this point,
+    # and a read-only copy is the one fact a reader of the log needs first.
+    _log_instance(instance)
     event_bus = MemoryEventBus(app_logger)
 
     # Register core ports
     container.singleton(IContainer, container)
     container.singleton(IEventBus, event_bus)
     container.singleton(IConfig, config_manager)
+    container.singleton(
+        IInstanceAccess,
+        instance if instance is not None else InstanceAccess.unguarded(),
+    )
     # `EPIC-025` PR 1.5b — the ability to *write* configuration, as a port.
     # `IConfig` has `set()` but not `save()`, which is why
     # `settings_presenter.py` downcasts to `ConfigManager` today; the Welcome

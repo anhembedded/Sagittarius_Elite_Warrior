@@ -47,6 +47,8 @@ gantt
 | EPIC-035E | [Symbol status gates placement](completed/EPIC-035E_symbol_status_gates_placement.md) | branch `claude/epic-035efg-status-key-store`, PR #436 | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035F | [A revoked key is named](completed/EPIC-035F_a_revoked_key_is_named_and_alerted.md) | PR #436 | 🟡 | ✅ Done (2026-10-08); alert waits for 035K | pull request open, awaiting review |
 | EPIC-035G | [A failed store write still parks](completed/EPIC-035G_a_failed_store_write_still_parks.md) | PR #436 | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035H | [One instance per data root](completed/EPIC-035H_one_app_instance_per_data_root.md) | branch `claude/epic-035h-035i` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035I | [OS sleep](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | branch `claude/epic-035h-035i` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035D–J | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035K–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |

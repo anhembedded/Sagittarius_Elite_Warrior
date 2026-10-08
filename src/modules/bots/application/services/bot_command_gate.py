@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
     BotLookup,
 )
@@ -38,7 +39,15 @@ class BotCommandGate:
         refusal = self.refusal(bot_id, event)
         if refusal is not None:
             return refusal
-        send(bot_id)
+        try:
+            send(bot_id)
+        # Converted at the seam: a copy of the app that is read-only refuses by
+        # raising (`EPIC-035H`); every other refused command is a value the screen
+        # words, so this one is too.
+        except ReadOnlyInstanceError as exc:
+            return BotCommandResult.refused(
+                BotRefusal.READ_ONLY_INSTANCE, str(exc), bot_id
+            )
         return BotCommandResult.done(bot_id)
 
     def refusal(self, bot_id: str, event: BotLifecycleEvent) -> BotCommandResult | None:

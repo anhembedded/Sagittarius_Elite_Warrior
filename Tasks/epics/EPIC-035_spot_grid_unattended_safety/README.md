@@ -42,8 +42,8 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035E](completed/EPIC-035E_symbol_status_gates_placement.md) | Symbol status gates placement (M5) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035F](completed/EPIC-035F_a_revoked_key_is_named_and_alerted.md) | A key revoked mid-run is named, not mistaken for a switch-off (M4) | Elite | 035C | 🟡 | ✅ Done (2026-10-08), alert waits for 035K |
 | [EPIC-035G](completed/EPIC-035G_a_failed_store_write_still_parks.md) | A failed store write still parks the ladder (M2) | Elite | 035C | 🟡 | ✅ Done (2026-10-08) |
-| [EPIC-035H](incomplete/EPIC-035H_one_app_instance_per_data_root.md) | One app instance per data root (M6) | Elite | None | 🟡 | Planned |
-| [EPIC-035I](incomplete/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | Planned |
+| [EPIC-035H](completed/EPIC-035H_one_app_instance_per_data_root.md) | One app instance per data root (M6) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
+| [EPIC-035I](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035J](incomplete/EPIC-035J_the_reference_price_has_an_age.md) | The reference price has an age (M1) | Elite | 035A | 🟡 | Planned |
 | [EPIC-035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Alerts reach a user who is away: a Discord notifier port and adapter (M7) | Elite | 035A, 035B, 035C | 🟡 | Planned |
 | [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 035K (for the range-exit alert) | 🟡 | Planned |

@@ -21,6 +21,9 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Self, overload
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -93,6 +96,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_us
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_guard import (
+    guarded_account_control,
+    guarded_client_factory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
@@ -172,6 +179,8 @@ class SharedVenueInputs:
     session_states: VenueSessionStates
     #: Where a mainnet venue's key is kept (`EPIC-034` D10).
     secret_store: ISecretStore
+    #: A copy of the app that may not trade gets read-only clients (`EPIC-035H`).
+    instance: IInstanceAccess
 
 
 class _LockedCachedProperty[T](cached_property[T]):
@@ -263,17 +272,16 @@ class VenueAssembly:
 
     @_LockedCachedProperty
     def client_factory(self) -> ITradingClientFactory:
-        if self._is_spot:
-            return SpotTradingClientFactory(
-                self._spot_sessions,
-                self.order_credentials,
-                self.metadata_provider,
+        factory: ITradingClientFactory = (
+            SpotTradingClientFactory(
+                self._spot_sessions, self.order_credentials, self.metadata_provider
             )
-        return FuturesTradingClientFactory(
-            self._futures_sessions,
-            self.order_credentials,
-            self.metadata_provider,
+            if self._is_spot
+            else FuturesTradingClientFactory(
+                self._futures_sessions, self.order_credentials, self.metadata_provider
+            )
         )
+        return guarded_client_factory(factory, self._shared.instance)
 
     @_LockedCachedProperty
     def account_reader(self) -> ITradingAccountReader:
@@ -316,7 +324,10 @@ class VenueAssembly:
         handlers refuse it before reaching here."""
         if self._is_spot:
             return None
-        return FuturesAccountControl(self._futures_sessions, self.order_credentials)
+        return guarded_account_control(
+            FuturesAccountControl(self._futures_sessions, self.order_credentials),
+            self._shared.instance,
+        )
 
     @_LockedCachedProperty
     def book_ticker_reader(self) -> IBookTickerReader:

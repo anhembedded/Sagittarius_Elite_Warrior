@@ -13,6 +13,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
@@ -34,6 +40,7 @@ from sagittarius_engine.infrastructure.container.std_container import StdLibCont
 
 def _shut_down(futures: Mock, spot: Mock) -> None:
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     container.singleton(
         IVenueContexts,
         FakeVenueContexts(

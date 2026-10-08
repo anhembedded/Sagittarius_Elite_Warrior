@@ -25,7 +25,10 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
     load_app_config,
 )
-from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.shell.composition_root import (
+    acquire_instance_access,
+    create_app,
+)
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -89,12 +92,17 @@ def main() -> None:
         parser = build_parser(config_manager)
         args = parser.parse_args()
 
-    app = create_app(config_manager)
+    # `EPIC-035H` — the first copy on the data root trades; any other reads.
+    instance = acquire_instance_access()
+    try:
+        app = create_app(config_manager, instance)
 
-    if interactive_mode:
-        _run_interactive_mode(app)
-    else:
-        _run_headless_mode(app, args)
+        if interactive_mode:
+            _run_interactive_mode(app)
+        else:
+            _run_headless_mode(app, args)
+    finally:
+        instance.release()
 
 
 if __name__ == "__main__":
