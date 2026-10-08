@@ -88,3 +88,50 @@ def filled_in_the_gap(world: GridWorld, price: Decimal, quantity: str) -> None:
             exchange_order_id=7,
         )
     )
+
+
+def cancelled_in_the_gap(world: GridWorld, price: Decimal) -> None:
+    """The order at `price` was cancelled on the exchange's website while the
+    stream was down: it left the open orders and history shows it executed
+    nothing."""
+    order = world.book.open.pop(world.open_ids_by_price()[price])
+    world.activity.orders.append(
+        OrderRecord(
+            order=Order(
+                order.client_order_id,
+                SYMBOL,
+                order.side,
+                OrderType.LIMIT,
+                order.quantity,
+                status=OrderStatus.CANCELED,
+                price=price,
+            ),
+            executed_quantity=Decimal(0),
+            average_price=None,
+            created_at=_AT,
+            exchange_order_id=8,
+        )
+    )
+
+
+def partly_filled_in_the_gap(world: GridWorld, price: Decimal, quantity: str) -> None:
+    """`quantity` of the order at `price` filled while the stream was down and
+    the order stays open: history reports it PARTIALLY_FILLED."""
+    order = world.book.open[world.open_ids_by_price()[price]]
+    world.activity.orders.append(
+        OrderRecord(
+            order=Order(
+                order.client_order_id,
+                SYMBOL,
+                order.side,
+                OrderType.LIMIT,
+                order.quantity,
+                status=OrderStatus.PARTIALLY_FILLED,
+                price=price,
+            ),
+            executed_quantity=Decimal(quantity),
+            average_price=price,
+            created_at=_AT,
+            exchange_order_id=9,
+        )
+    )

@@ -58,12 +58,16 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
     {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
 )
 
-
-#: Reasons whose halt leaves the ladder where it is: cancels are refused while
-#: trading is off (D13) and inside a rate-limit pause (`EPIC-035D`, whose resume
-#: cancels every tagged order first).
+#: Halts after which the ladder stays where it is because a cancel would be
+#: refused: a closed order session (D13; a start it cut short owes the cancel
+#: instead, `BUG-190`) and a rate-limit pause (`EPIC-035D`, whose resume cancels
+#: every tagged order first).
 _NOT_PARKED: frozenset[GridReason] = frozenset(
-    {GridReason.SWITCH_OFF, GridReason.RATE_LIMITED}
+    {
+        GridReason.SWITCH_OFF,
+        GridReason.START_CUT_BY_SWITCH_OFF,
+        GridReason.RATE_LIMITED,
+    }
 )
 
 

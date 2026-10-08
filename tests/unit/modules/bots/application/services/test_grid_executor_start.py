@@ -135,7 +135,8 @@ def test_trading_switched_off_mid_start_halts_never_errors() -> None:
 
     assert world.state() is S.HALTED
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
-    assert runtime.reason is GridReason.SWITCH_OFF
+    # `BUG-190`: a start cut by the switch owes the cancel of its partial ladder.
+    assert runtime.reason is GridReason.START_CUT_BY_SWITCH_OFF
 
 
 def test_a_connection_not_ready_is_also_switch_off() -> None:
@@ -146,7 +147,8 @@ def test_a_connection_not_ready_is_also_switch_off() -> None:
 
     assert world.state() is S.HALTED
     runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
-    assert runtime.reason is GridReason.SWITCH_OFF
+    # `BUG-190`: a start cut by the switch owes the cancel of its partial ladder.
+    assert runtime.reason is GridReason.START_CUT_BY_SWITCH_OFF
 
 
 def test_a_submit_that_raises_is_a_fault() -> None:

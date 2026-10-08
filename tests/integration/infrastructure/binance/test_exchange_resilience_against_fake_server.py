@@ -20,7 +20,7 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
@@ -30,11 +30,20 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache as _Cache,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_policy import (
     ExchangeCallPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
+    ListedSymbols,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limit_gate import (
     RateLimitGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
+    SpotHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_provider import (
     SpotMetadataProvider,
@@ -47,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_tr
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_sessions import (
     VenueSessions,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
+    AccountHistoryUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
@@ -63,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -101,6 +116,7 @@ class _FakeCredentialsProvider:
 @dataclass
 class _Venue:
     client: SpotTradingClient
+    history: SpotHistoryReader
     urls: FakeServerUrls
     clock: list[float]
     sleeps: list[float]
@@ -144,7 +160,10 @@ def _venue() -> Iterator[_Venue]:
         client = SpotTradingClient(
             factory, _FakeCredentialsProvider(), metadata, OrderSubmissionMode.LIVE
         )
-        yield _Venue(client, urls, clock, sleeps)
+        history = SpotHistoryReader(
+            factory, _FakeCredentialsProvider(), ListedSymbols(metadata, _Cache())
+        )
+        yield _Venue(client, history, urls, clock, sleeps)
 
 
 def test_a_timeout_on_a_cancel_retries_and_succeeds() -> None:
@@ -278,3 +297,37 @@ def test_a_418_closes_the_venue_for_the_ban_window_and_says_it_is_a_ban() -> Non
         assert raised.value.banned is True
         assert raised.value.retry_after == timedelta(seconds=600)
         assert venue.client.get_open_orders("BTCUSDT") == []
+
+
+def test_the_paged_history_read_a_bot_reconciles_with_retries_and_honours_the_gate() -> (
+    None
+):
+    """`BotOrderGateway.order_records` pages through `order_history`; each page is
+    an ordinary `get_all_orders`, so it is covered like every other read."""
+    since = datetime.now(UTC) - timedelta(days=1)
+    with _venue() as venue:
+        venue.urls.faults.queued.append(FaultAnswer("/v3/allOrders", drop=True))
+        assert venue.history.order_history("BTCUSDT", since) == ()
+        with_a_drop = venue.sent("GET", "allOrders")
+        assert venue.history.order_history("BTCUSDT", since) == ()
+        clean_read = venue.sent("GET", "allOrders") - with_a_drop
+        assert with_a_drop == clean_read + 1, "the lost request was sent again"
+        before_the_pause = venue.sent("GET", "allOrders")
+
+        venue.urls.faults.queued.append(
+            FaultAnswer(
+                "/v3/allOrders",
+                status=429,
+                body=_RATE_LIMIT_BODY,
+                headers={"Retry-After": "30"},
+            )
+        )
+        # The reader words the pause its own way, as it worded a 429 before.
+        readers_words = (AccountHistoryUnavailableError, SymbolRulesUnavailableError)
+        with pytest.raises(readers_words):
+            venue.history.order_history("BTCUSDT", since)
+        with pytest.raises(readers_words):
+            venue.history.order_history("BTCUSDT", since)
+        assert venue.sent("GET", "allOrders") == before_the_pause + 1, (
+            "only the rate-limited request was sent; none during the pause"
+        )

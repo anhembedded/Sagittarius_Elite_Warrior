@@ -51,3 +51,18 @@ def rate_limited_error_of(exc: BaseException) -> ExchangeRateLimitedError | None
     )
     error.__cause__ = exc
     return error
+
+
+def pause_behind(exc: BaseException) -> ExchangeRateLimitedError | None:
+    """The contract error for a rate-limit pause anywhere in `exc`'s cause chain.
+
+    A reader words a pause its own way (`SymbolRulesUnavailableError` for a filter
+    read); an order about to be sent must still learn it was a pause, or a bot
+    would take a wait for a fault."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        limited = rate_limited_error_of(seen)
+        if limited is not None:
+            return limited
+        seen = seen.__cause__
+    return None

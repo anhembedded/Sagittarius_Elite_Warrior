@@ -63,12 +63,13 @@ class ExchangeCallPolicy:
         self,
         gate: RateLimitGate,
         *,
-        sleep: Callable[[float], None] = time.sleep,
+        sleep: Callable[[float], None] | None = None,
         wall_seconds: Callable[[], float] = time.time,
         weight_limit: int = SPOT_WEIGHT_LIMIT,
     ) -> None:
         self._gate = gate
-        self._sleep = sleep
+        # Resolved at the call, so a test can replace `time.sleep` itself.
+        self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
         self._weight_limit = weight_limit
 

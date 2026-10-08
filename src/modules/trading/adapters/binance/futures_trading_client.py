@@ -53,6 +53,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     raise_rejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    pause_behind,
     rate_limited_error_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
@@ -73,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -278,7 +282,13 @@ class FuturesTradingClient(ITradingClient):
         return self._session_factory.create_trading_client(resolution.credentials)
 
     def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
-        metadata = self._metadata_provider.get_or_fetch(symbol)
+        try:
+            metadata = self._metadata_provider.get_or_fetch(symbol)
+        except SymbolRulesUnavailableError as unavailable:
+            limited = pause_behind(unavailable)
+            if limited is not None:
+                raise limited from unavailable
+            raise
         if metadata is None:
             raise ValueError(f"Unknown futures symbol: {symbol}")
         return metadata

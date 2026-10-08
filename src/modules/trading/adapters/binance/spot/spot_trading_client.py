@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     raise_for_failed_send,
     raise_rejection,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    pause_behind,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_order_payload_mapper import (
     map_order_to_spot_params,
     map_spot_order_payload_to_order,
@@ -53,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -161,7 +167,13 @@ class SpotTradingClient(ITradingClient):
         return self._session_factory.create_trading_client(resolution.credentials)
 
     def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
-        metadata = self._metadata_provider.get_or_fetch(symbol)
+        try:
+            metadata = self._metadata_provider.get_or_fetch(symbol)
+        except SymbolRulesUnavailableError as unavailable:
+            limited = pause_behind(unavailable)
+            if limited is not None:
+                raise limited from unavailable
+            raise
         if metadata is None:
             raise ValueError(f"Unknown Spot symbol: {symbol}")
         return metadata

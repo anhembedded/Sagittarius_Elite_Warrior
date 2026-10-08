@@ -81,6 +81,10 @@ class GridReason(str, Enum):
     #: cancel (`EPIC-035C`). Cleared into `START_INTERRUPTED_CLEARED` once paid.
     START_INTERRUPTED = "start_interrupted"
     START_INTERRUPTED_CLEARED = "start_interrupted_cleared"
+    #: A start or a confirmed resume was refused because trading went off, with
+    #: part of its ladder laid; cancels are refused then, so the same debt is
+    #: owed and paid when trading is enabled (`BUG-190`).
+    START_CUT_BY_SWITCH_OFF = "start_cut_by_switch_off"
 
 
 @dataclass(frozen=True, slots=True)

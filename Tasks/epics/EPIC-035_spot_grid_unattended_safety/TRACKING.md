@@ -41,7 +41,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-035A | [Price subscription](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md) | `epic-035a-bot-owns-price-subscription` | 🔴 | 🟡 In review | — |
+| EPIC-035A | [Price subscription](completed/EPIC-035A_the_bot_owns_its_price_subscription.md) | `epic-035a-bot-owns-price-subscription`, PR #430 | 🔴 | ✅ Done (2026-10-08) | merged |
 | EPIC-035B | [User-data stream](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | branch `claude/epic-035b-user-stream-heals`, PR #431 | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting merge |
 | EPIC-035C | [Unmanaged orders, stuck states](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | branch `epic-035c-no-unmanaged-orders` | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035J | [Reference price has an age](completed/EPIC-035J_the_reference_price_has_an_age.md) | branch `claude/epic-035d-035j-resilience` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
@@ -60,7 +60,8 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-08 | Spec | Epic scaffolded from the audit; owner decisions D1–D4 recorded (D4: option (a)). |
 | 2026-10-08 | 035W, 035X | Added to Phase 3 at the owner's request; the owner asked that they not be started yet (D5). |
-| 2026-10-08 | 035A | Implemented on a branch; PR in review (the `-Full` run and a reviewer pending). |
+| 2026-10-08 | 035A | Implemented; PR #430 merged. |
+| 2026-10-08 | 035Q | `BUG-188` delivered the reconciler's executed-quantity read for *saved* orders; adopted orders still start at zero, so 035Q stays open. |
 
 ---
 
