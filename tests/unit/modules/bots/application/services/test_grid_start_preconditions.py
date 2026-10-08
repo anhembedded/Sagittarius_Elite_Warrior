@@ -94,6 +94,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
     SYMBOL,
     CountingPacer,
     InlineWorkQueue,
+    RecordingPublisher,
     SimulatedActivity,
     SimulatedBook,
     SimulatedSubmission,
@@ -171,6 +172,7 @@ def _start_world(
                 FakeBotRetryScheduler(),
                 FakeMonotonicClock(),
                 VenueFreshPriceReader(ports),
+                RecordingPublisher(),
             )
         )
     )

@@ -15,6 +15,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     BotOrderGateway,
 )
@@ -84,6 +87,9 @@ class GridRunContext:
     reference_price: GridReferencePrice
     #: The clock a bot's own intervals are measured on (`EPIC-035F`).
     monotonic: IMonotonicClock
+    #: Where the bot announces what the rest of the app may want to hear, such as
+    #: its price leaving the range (`EPIC-035L`).
+    events: IEventPublisher
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
 

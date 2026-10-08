@@ -200,6 +200,7 @@ def test_the_refusals_are_the_exchange_and_money_rules_only() -> None:
         "TOO_MANY_LEVELS",
         "STOP_LOSS_INSIDE_RANGE",
         "TAKE_PROFIT_INSIDE_RANGE",
+        "PRICE_BELOW_RANGE",  # `EPIC-035L`, D4 (a): the 50 000 case is below 60 000
     }
 
 
