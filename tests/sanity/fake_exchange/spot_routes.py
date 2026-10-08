@@ -12,6 +12,7 @@ future `EPIC-027K` order path) call, verified by reading `python-binance`'s
     GET    /api/v3/myTrades         `get_my_trades()` (`EPIC-028E`)
     GET    /api/v3/ticker/bookTicker  `get_orderbook_ticker()` (`EPIC-028O`)
     GET    /api/v3/ticker/price     `get_symbol_ticker()` — Spot equity
+    GET    /api/v3/order            `get_order()` — the lookup of an unknown outcome
     POST   /api/v3/order/test       `create_test_order()`
     POST   /api/v3/order            `create_order()` (`EPIC-027K`)
     DELETE /api/v3/order            `cancel_order()`
@@ -185,6 +186,13 @@ def _handle_get(
         }
     if path == "/api/v3/openOrders":
         return 200, state.open_orders(params.get("symbol"))
+    if path == "/api/v3/order":
+        found = state.history.find(
+            params.get("symbol", ""), params.get("origClientOrderId", "")
+        )
+        if found is None:
+            return 400, {"code": -2013, "msg": "Order does not exist."}
+        return 200, found
     if path in {"/api/v3/allOrders", "/api/v3/myTrades"}:
         return _history(path, HistoryQuery.parse(params), state)
     if path in {"/api/v3/ticker/bookTicker", "/api/v3/ticker/price"}:

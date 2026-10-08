@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -52,3 +53,24 @@ def test_a_venue_that_cannot_answer_is_one_named_fault() -> None:
 def test_a_venue_that_is_not_served_is_one_named_fault() -> None:
     with pytest.raises(FreshPriceUnavailableError):
         _reader({}).read(TradingVenue.FUTURES_TESTNET, "BTCUSDT")
+
+
+def test_a_rate_limited_venue_is_a_named_fault_that_keeps_the_pause() -> None:
+    """`EPIC-035D` — a caller that can wait (a bot) needs how long; one that only
+    retries is unchanged."""
+    terms = FakeOrderEntryTerms(terms_entry())
+    terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=40))
+    reader = VenueFreshPriceReader(
+        FakeVenueTradingPorts(fake_venue_ports(_VENUE, order_entry_terms=terms))
+    )
+
+    with pytest.raises(FreshPriceUnavailableError) as raised:
+        reader.read(_VENUE, "BTCUSDT")
+
+    assert raised.value.retry_after == timedelta(seconds=40)
+
+
+def test_an_ordinary_failure_carries_no_pause() -> None:
+    with pytest.raises(FreshPriceUnavailableError) as raised:
+        _reader({}).read(_VENUE, "BTCUSDT")
+    assert raised.value.retry_after is None

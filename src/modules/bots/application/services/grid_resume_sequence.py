@@ -12,7 +12,9 @@
 
 Nothing is placed. The bot stays HALTED with the proposal until the user
 confirms it (`confirm`): only then does `resume` move it to STARTING and the
-ladder go out. A proposal lives in memory; after a restart the user resumes
+ladder go out — after the price is read from the book again (`EPIC-035J`): a
+market that moved past `RESUME_PRICE_TOLERANCE` since the proposal refuses the
+ladder, with `PROPOSAL_PRICE_MOVED`, and the user resumes again. A proposal lives in memory; after a restart the user resumes
 again, which proposes afresh from the exchange as it then is.
 """
 
@@ -31,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
+    halt_with,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
@@ -40,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
     SymbolStatusGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    FreshPriceUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
@@ -53,6 +59,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
+    RESUME_PRICE_TOLERANCE,
+    moved_beyond,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
@@ -98,6 +108,7 @@ class GridResumeSequence:
         if report.failed is not None:
             if report.failed.kind in (
                 OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.RATE_LIMITED,
                 OrderOutcomeKind.KEY_REJECTED,
             ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
@@ -122,8 +133,38 @@ class GridResumeSequence:
 
     def confirm(self, proposal: ResumeProposal) -> None:
         """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the
-        symbol does not trade (`SymbolStatusGate`): then it stays HALTED."""
-        if not self._status.admits():
+        symbol does not trade (`SymbolStatusGate`) or the market has left the price
+        it was proposed at (`PROPOSAL_PRICE_MOVED`): then it stays HALTED."""
+        if not self._status.admits() or self._moved_since(proposal):
             return
         self._context.state.transition(BotLifecycleEvent.RESUME)
         self._start.place_ladder(proposal.plan, proposal.inventory)
+
+    def _moved_since(self, proposal: ResumeProposal) -> bool:
+        state = self._context.state
+        proposed = proposal.plan.last_price
+        try:
+            now = self._context.reference_price.fresh()
+        except FreshPriceUnavailableError:
+            logger.warning(
+                "Bot %s: the book could not be read to re-price the resume",
+                state.bot_id,
+                exc_info=True,
+            )
+            halt_with(
+                state,
+                GridReason.PROPOSAL_PRICE_MOVED,
+                f"the price could not be read to confirm the ladder proposed at "
+                f"{proposed}; nothing was laid, resume again",
+            )
+            return True
+        if not moved_beyond(proposed, now, RESUME_PRICE_TOLERANCE):
+            return False
+        halt_with(
+            state,
+            GridReason.PROPOSAL_PRICE_MOVED,
+            f"the price moved from {proposed} to {now}, more than "
+            f"{RESUME_PRICE_TOLERANCE:.1%}, since the ladder was proposed; "
+            "nothing was laid, resume again",
+        )
+        return True

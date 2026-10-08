@@ -20,10 +20,14 @@ from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    rate_limited_error_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
+    MarketPriceRateLimitedError,
     MarketPriceUnavailableError,
 )
 
@@ -47,6 +51,12 @@ def market_price_answer(what: str) -> Iterator[None]:
     try:
         yield
     except _READ_FAILURES as exc:
+        limited = rate_limited_error_of(exc)
+        if limited is not None:
+            raise MarketPriceRateLimitedError(
+                f"{what} could not be read: the exchange asked for a pause",
+                limited.retry_after,
+            ) from exc
         raise MarketPriceUnavailableError(
             f"{what} could not be read: {describe_failure(exc, repr)}"
         ) from exc

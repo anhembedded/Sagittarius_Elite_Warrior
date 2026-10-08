@@ -52,8 +52,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    whole_seconds,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     base_slices,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
@@ -113,6 +119,15 @@ class GridStopSequence:
             if ended is not None:
                 return ended
         return self._confirm()
+
+    def wait_for_rate_limit(self, limited: ExchangeRateLimitedError) -> StopProgress:
+        """A read of the stop met a rate limit: STOPPING waits out the pause."""
+        self._context.gateway.note_rate_limit(limited.retry_after)
+        self._wait(
+            f"rate limited: the exchange asked for a pause of "
+            f"{whole_seconds(limited.retry_after)} s"
+        )
+        return StopProgress.WAITING_ON_EXCHANGE
 
     def _budget_refused(
         self, registration: OwnerBudgetRegistrationResult
@@ -176,6 +191,10 @@ class GridStopSequence:
             if outcome.kind is OrderOutcomeKind.KEY_REJECTED:
                 fail_with(self._context.state, outcome, f"exit slice {index}")
                 return StopProgress.ENDED
+            if outcome.kind is OrderOutcomeKind.RATE_LIMITED:
+                # Nothing was sent: the next run derives what is left and sells it.
+                self._wait(f"exit slice {index} not sent: {outcome.detail}")
+                return StopProgress.WAITING_ON_EXCHANGE
             if not outcome.done:
                 # A slice that raised may still have executed: say so rather
                 # than count it unsold; the next stop or resume derives again.

@@ -44,6 +44,38 @@ class MaintenanceSwitch:
         self.on = False
 
 
+@dataclass
+class FaultAnswer:
+    """One request the fake exchange answers wrongly: the first request whose
+    path contains `path_part` gets `status`, `headers` and `body`. With `drop`
+    it gets no answer at all: the connection is closed, as a reset does."""
+
+    path_part: str
+    status: int = 200
+    body: object = ""
+    headers: dict[str, str] = field(default_factory=dict)
+    drop: bool = False
+
+
+class FaultPlan:
+    """`EPIC-035D` — the faults a test queues for the next matching requests.
+
+    Each `FaultAnswer` is used once, in the order queued, by the first request it
+    matches; a request nothing matches is served normally. The server also records
+    when it was asked (`requests`), so a test can say how many requests a fault
+    cost.
+    """
+
+    def __init__(self) -> None:
+        self.queued: list[FaultAnswer] = []
+
+    def take(self, path: str) -> FaultAnswer | None:
+        for index, fault in enumerate(self.queued):
+            if fault.path_part in path:
+                return self.queued.pop(index)
+        return None
+
+
 class KeyPolicy:
     """Which API keys this fake environment knows (`BUG-176`).
 
@@ -85,6 +117,9 @@ class _Handler(BaseHTTPRequestHandler):
     maintenance: MaintenanceSwitch
     api_restrictions: ApiRestrictions
     keys: KeyPolicy
+    faults: FaultPlan
+    #: The fault this request was given, if any (one handler instance per request).
+    _fault: FaultAnswer | None = None
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -113,6 +148,9 @@ class _Handler(BaseHTTPRequestHandler):
         self, method: str, path: str, params: dict[str, str]
     ) -> tuple[int, object] | None:
         self.requests.append((method, path))
+        self._fault = self.faults.take(path)
+        if self._fault is not None:
+            return self._fault.status, self._fault.body
         if self.maintenance.on:
             return 503, MAINTENANCE_PAGE
         if "signature" in params:
@@ -135,6 +173,9 @@ class _Handler(BaseHTTPRequestHandler):
         return dict(parse_qsl(raw.decode()))
 
     def _respond_or_404(self, path: str, result: tuple[int, object] | None) -> None:
+        if self._fault is not None and self._fault.drop:
+            self.close_connection = True
+            return  # no answer: the connection ends, as a reset does
         if result is None:
             self.send_response(404)
             self.end_headers()
@@ -149,6 +190,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html" if is_page else "application/json")
         self.send_header("Content-Length", str(len(payload)))
+        for name, value in (self._fault.headers if self._fault else {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(payload)
 
@@ -179,6 +222,9 @@ class FakeServerUrls:
     api_restrictions: ApiRestrictions = field(default_factory=ApiRestrictions)
     #: `BUG-176` — which keys this environment knows; every key until a test narrows it.
     keys: KeyPolicy = field(default_factory=KeyPolicy)
+    #: `EPIC-035D` — queue wrong answers (a 429 with `Retry-After`, a dropped
+    #: connection) for the next requests that match.
+    faults: FaultPlan = field(default_factory=FaultPlan)
 
 
 @contextmanager
@@ -195,6 +241,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     handler.maintenance = MaintenanceSwitch()
     handler.api_restrictions = ApiRestrictions()
     handler.keys = KeyPolicy()
+    handler.faults = FaultPlan()
     server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -210,6 +257,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             maintenance=handler.maintenance,
             api_restrictions=handler.api_restrictions,
             keys=handler.keys,
+            faults=handler.faults,
         )
     finally:
         server.shutdown()

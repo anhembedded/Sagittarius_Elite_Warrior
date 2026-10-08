@@ -3,9 +3,9 @@
 Split out of `GridExecutor` (the 400-line ceiling, `architecture-rule.md` §5.4):
 the actor routes a tick and an age check here, and both run on the bot's worker.
 
-  · **A tick** remembers the price, resets the bot's price age, and at or beyond
-    the stop loss or the take profit runs Stop with *sell base* forced, recording
-    why (ADR D11). It is watched while the bot may still hold a position it must
+  · **A tick** remembers the price with its moment (`EPIC-035J`), resets the
+    bot's price age, and at or beyond the stop loss or the take profit runs Stop
+    with *sell base* forced, recording why (ADR D11). It is watched while the bot may still hold a position it must
     exit: HALTED and ERROR, and since `EPIC-035A` STARTING and RECOVERING too;
     not STOPPING, whose Stop may keep the base.
   · **An age check** (`GridPriceAge`) halts a bot that holds orders and heard no
@@ -53,15 +53,9 @@ class GridPriceReaction:
     def __init__(self, context: GridRunContext, stopper: GridStopper) -> None:
         self._context = context
         self._stopper = stopper
-        self._last_price: Decimal | None = None
-
-    @property
-    def last_price(self) -> Decimal | None:
-        """The last tick's price, or `None` before the first."""
-        return self._last_price
 
     def on_tick(self, price: Decimal) -> None:
-        self._last_price = price
+        self._context.reference_price.note_tick(price)
         self._context.price_age.note_tick()
         if self._context.state.state not in _WATCHES_EXITS:
             return

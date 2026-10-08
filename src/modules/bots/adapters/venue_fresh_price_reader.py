@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
+    MarketPriceRateLimitedError,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -25,6 +28,11 @@ class VenueFreshPriceReader(IFreshPriceReader):
     def read(self, venue: TradingVenue, symbol: str) -> Decimal:
         try:
             book = self._ports.get(venue).order_entry_terms.best_bid_ask_for(symbol)
+        except MarketPriceRateLimitedError as limited:
+            raise FreshPriceUnavailableError(
+                f"{venue.value} {symbol}: the exchange asked for a pause",
+                limited.retry_after,
+            ) from limited
         # Converted at the seam: every way the venue can fail to answer (the
         # network, the gateway's page, an unlisted symbol) is one named fault
         # for the caller, which retries and never inspects the cause.

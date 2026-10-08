@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
+    VenueFreshPriceReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
     GridExecutor,
 )
@@ -254,9 +257,6 @@ def grid_world(
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
-    session = FakeTradingSession()
-    session.set_enabled(enabled=True)
-    snapshot = FakeAccountSnapshot()
     terms = FakeOrderEntryTerms(
         terms_entry(market_step=market_step),
         books={
@@ -266,6 +266,9 @@ def grid_world(
         else {},
         notional_limit=CAP,
     )
+    session = FakeTradingSession()
+    session.set_enabled(enabled=True)
+    snapshot = FakeAccountSnapshot()
     ports = fake_venue_ports(
         VENUE,
         trading_session=session,
@@ -274,6 +277,7 @@ def grid_world(
         order_entry_terms=terms,
         account_activity=activity,
     )
+    venue_ports = FakeVenueTradingPorts(ports)
     store = FakeBotStore()
     clock = FakeBotClock()
     definition = BotDefinition("grid one", "grid", VENUE, SYMBOL, CONFIG)
@@ -285,7 +289,7 @@ def grid_world(
     monotonic = FakeMonotonicClock()
     factory = GridExecutorFactory(
         GridExecutorDeps(
-            ports=FakeVenueTradingPorts(ports),
+            ports=venue_ports,
             store=store,
             clock=clock,
             caps=DEFAULT_OWNER_BUDGET_CAPS,
@@ -293,6 +297,7 @@ def grid_world(
             pacers=lambda _spacing: pacer,
             retries=retries,
             monotonic=monotonic,
+            prices=VenueFreshPriceReader(venue_ports),
         )
     )
     executor = factory.create(bot)
@@ -325,6 +330,11 @@ def recovering_world() -> GridWorld:
     world.derive("0")
     world.hold("0")
     return world
+
+
+def quote_at(world: GridWorld, price: Decimal) -> None:
+    """The venue's best bid and ask both at `price`."""
+    world.terms.quote(BestBidAsk(SYMBOL, price, Decimal(1), price, Decimal(1)))
 
 
 def minutes(count: int) -> timedelta:

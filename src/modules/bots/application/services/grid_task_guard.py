@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fault_with,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_rate_limit_pause import (
+    GridRateLimitPause,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -49,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -63,11 +69,12 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
 #: the ladder rests by design (D13), and a start it cut short owes the cancel
 #: instead (`BUG-190`). A rejected API key (`EPIC-035F`) is the other: the cancel
 #: would be rejected too.
-_CANCEL_REFUSED_REASONS: frozenset[GridReason] = frozenset(
+_NOT_PARKED: frozenset[GridReason] = frozenset(
     {
         GridReason.SWITCH_OFF,
         GridReason.START_CUT_BY_SWITCH_OFF,
         GridReason.KEY_REJECTED,
+        GridReason.RATE_LIMITED,
     }
 )
 
@@ -79,17 +86,27 @@ _STORAGE_NOTE = "its state could not be saved"
 class GridTaskGuard:
     """Runs one worker task, then parks the ladder if the task stopped placing."""
 
-    def __init__(self, context: GridRunContext, housekeeping: GridHousekeeping) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        housekeeping: GridHousekeeping,
+        pause: GridRateLimitPause,
+    ) -> None:
         self._context = context
         self._housekeeping = housekeeping
+        self._pause = pause
 
     def run(self, what: str, task: Callable[[], None]) -> None:
         """Run `task`, named `what` in any fault it becomes."""
         state = self._context.state
         before = state.state
         sent_before = self._context.gateway.submissions
+        self._context.gateway.take_rate_limit()  # a pause from an earlier task is spent
         try:
             task()
+        except ExchangeRateLimitedError as limited:
+            # `EPIC-035D` — a pause the exchange named, not a failure of the step.
+            self._pause.halt(limited, what)
         except Exception as error:
             logger.exception("Bot %s: %s failed", state.bot_id, what)
             fault_with(state, what, error)
@@ -98,13 +115,14 @@ class GridTaskGuard:
             self._park()
         if self._unsaved_and_parked():
             self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
+        self._pause.after_task()
 
     def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state
         return (
             state.state in _PARKED
             and (before not in _PARKED or sent)
-            and state.runtime.reason not in _CANCEL_REFUSED_REASONS
+            and state.runtime.reason not in _NOT_PARKED
         )
 
     def _unsaved_and_parked(self) -> bool:

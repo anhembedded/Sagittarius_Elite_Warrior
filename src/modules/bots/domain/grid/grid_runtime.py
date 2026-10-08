@@ -58,12 +58,19 @@ class GridReason(str, Enum):
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
+    #: The exchange asked the app to slow down (HTTP 429, `-1003`, `-1015`) or
+    #: banned its IP (HTTP 418) (`EPIC-035D`): the bot halts for the stated pause
+    #: and resumes by itself.
+    RATE_LIMITED = "rate_limited"
     #: No price tick for longer than the bot may go without one (`EPIC-035A`):
     #: it cannot watch its stop loss, so it stops placing and takes its ladder off.
     PRICE_FEED_STALE = "price_feed_stale"
     #: The user-data stream (the only source of fills) was down too long
     #: (`EPIC-035B`); the ladder was parked.
     USER_STREAM_DOWN = "user_stream_down"
+    #: A resume ladder was confirmed after the market left the price it was
+    #: proposed at (`EPIC-035J`); nothing was laid, resume again.
+    PROPOSAL_PRICE_MOVED = "proposal_price_moved"
     #: The symbol's status is not TRADING (`EPIC-035E`): the exchange refuses
     #: new orders on it. The bot places nothing until the user resumes it.
     SYMBOL_NOT_TRADING = "symbol_not_trading"

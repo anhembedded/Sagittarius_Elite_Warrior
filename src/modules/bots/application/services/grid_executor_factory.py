@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_age import (
     GridPriceAge,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reference_price import (
+    GridReferencePrice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
     LazyExchangeTerms,
@@ -48,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    IFreshPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
@@ -87,6 +93,9 @@ class GridExecutorDeps:
     retries: IBotRetryScheduler
     #: What a bot's price age is measured on (`EPIC-035A`).
     monotonic: IMonotonicClock
+    #: Where a price too old to use is read from (`EPIC-035J`): the one read of a
+    #: symbol's price from its venue (`EPIC-035I`), not a second one.
+    prices: IFreshPriceReader
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -117,6 +126,9 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             caps=deps.caps,
             price_age=GridPriceAge(deps.monotonic),
+            reference_price=GridReferencePrice(
+                deps.monotonic, lambda: deps.prices.read(bot.definition.venue, symbol)
+            ),
             monotonic=deps.monotonic,
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

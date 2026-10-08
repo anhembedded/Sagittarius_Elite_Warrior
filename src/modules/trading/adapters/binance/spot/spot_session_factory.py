@@ -20,8 +20,8 @@ from __future__ import annotations
 from typing import cast
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_client_builder import (
-    new_client,
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_sessions import (
+    VenueSessions,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -44,10 +44,23 @@ class SpotSessionFactory(ISpotSessionFactory):
     venue and no adapter chooses an endpoint itself.
     """
 
-    def __init__(self, venue: TradingVenue = TradingVenue.SPOT_TESTNET) -> None:
+    def __init__(
+        self,
+        venue: TradingVenue = TradingVenue.SPOT_TESTNET,
+        *,
+        sessions: VenueSessions | None = None,
+    ) -> None:
         if venue not in (TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET):
             raise ValueError(f"{venue.name} is not a Spot venue")
         self._venue = venue
+        # `EPIC-035D` — one session per key, behind the venue's retry policy and
+        # rate-limit gate, shared by the account, trading and metadata callers.
+        self._sessions = sessions or VenueSessions(venue)
+        if self._sessions.venue is not venue:
+            raise ValueError(
+                f"the sessions are for the venue {self._sessions.venue.name}, "
+                f"not this factory's venue {venue.name}"
+            )
 
     def create_account_client(
         self, credentials: ExchangeCredentials
@@ -61,7 +74,7 @@ class SpotSessionFactory(ISpotSessionFactory):
         returning it as-is would fail `no-any-return` against this method's
         own declared return type.
         """
-        return cast(ISpotSessionClient, new_client(self._venue, credentials))
+        return cast(ISpotSessionClient, self._sessions.signed(credentials))
 
     def create_trading_client(
         self, credentials: ExchangeCredentials
@@ -71,7 +84,7 @@ class SpotSessionFactory(ISpotSessionFactory):
         — a real signed Spot session satisfies both structurally; kept as its
         own method because `SpotTradingClient` and `SpotAccountReader` call it
         for different reasons (see `ISpotSessionFactory`'s own docstring)."""
-        return cast(ISpotSessionClient, new_client(self._venue, credentials))
+        return cast(ISpotSessionClient, self._sessions.signed(credentials))
 
     def create_metadata_client(self) -> Client:
         """An unsigned Spot session for the public endpoints:
@@ -80,4 +93,4 @@ class SpotSessionFactory(ISpotSessionFactory):
         public. Returns the raw SDK type because the only callers are this
         module's own `SpotMetadataProvider` and `SpotBookTickerReader` — see
         the module docstring for why that is not a leak."""
-        return new_client(self._venue)
+        return cast(Client, self._sessions.public())

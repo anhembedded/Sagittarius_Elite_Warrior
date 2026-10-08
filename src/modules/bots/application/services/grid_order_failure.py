@@ -4,6 +4,8 @@
     STARTING it writes `START_CUT_BY_SWITCH_OFF`: the partial ladder cannot be
     cancelled with the session closed, so the cancel is owed and paid when
     trading is enabled (`BUG-190`, as `EPIC-035C` does for a restart).
+  · `RATE_LIMITED` → `halt` naming the pause (`EPIC-035D`); the bot resumes by
+    itself when it ends (`GridRateLimitPause`).
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
@@ -67,6 +69,8 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
             )
         else:
             _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
+    elif outcome.kind is OrderOutcomeKind.RATE_LIMITED:
+        _apply(state, BotLifecycleEvent.HALT, GridReason.RATE_LIMITED, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
     else:

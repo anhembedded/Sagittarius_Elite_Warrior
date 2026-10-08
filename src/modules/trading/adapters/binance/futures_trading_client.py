@@ -34,15 +34,8 @@ anywhere, Binance's own UI included.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import NoReturn
 
 from binance.exceptions import BinanceAPIException
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_error_translator import (
-    translate_binance_error,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
-    describe_failure,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
     is_algo_routed,
     map_futures_algo_payload_to_order,
@@ -57,6 +50,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     SEND_FAILURES,
     raise_for_failed_read,
     raise_for_failed_send,
+    raise_rejection,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    RateLimitedApiException,
+    contract_error_of,
+    pause_behind,
+    rate_limited_error_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -71,14 +71,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
-    OrderRejectedByExchangeError,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
+    SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -175,7 +175,7 @@ class FuturesTradingClient(ITradingClient):
             )
         except BinanceAPIException as exc:
             if exc.code != _UNKNOWN_ORDER_CODE:
-                _raise_rejection(exc)
+                raise_rejection(exc)
             return self._cancel_algo_order(client, symbol, client_order_id, exc)
         return map_futures_order_payload_to_order(payload)
 
@@ -191,7 +191,7 @@ class FuturesTradingClient(ITradingClient):
             client.futures_cancel_all_open_orders(symbol=symbol)
             client.futures_cancel_all_algo_open_orders(symbol=symbol)
         except BinanceAPIException as exc:
-            _raise_rejection(exc)
+            raise_rejection(exc)
         return orders
 
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
@@ -203,7 +203,7 @@ class FuturesTradingClient(ITradingClient):
             payloads = client.futures_get_open_orders(**request_kwargs)
             algo_payloads = client.futures_get_open_algo_orders(**request_kwargs)
         except BinanceAPIException as exc:
-            _raise_rejection(exc)
+            raise_rejection(exc)
         return [map_futures_order_payload_to_order(p) for p in payloads] + [
             map_futures_algo_payload_to_order(p) for p in algo_payloads
         ]
@@ -214,7 +214,7 @@ class FuturesTradingClient(ITradingClient):
         try:
             payloads = client.futures_position_information(**request_kwargs)
         except BinanceAPIException as exc:
-            _raise_rejection(exc)
+            raise_rejection(exc)
         return [
             map_futures_position_payload_to_live_position(payload)
             for payload in payloads
@@ -254,15 +254,17 @@ class FuturesTradingClient(ITradingClient):
             client.futures_cancel_algo_order(
                 symbol=symbol, clientAlgoId=client_order_id
             )
-        except BinanceAPIException:
+        except BinanceAPIException as algo_refusal:
+            if rate_limited_error_of(algo_refusal) is not None:
+                raise_rejection(algo_refusal)
             # Neither kind holds this id: the regular refusal is the answer.
-            _raise_rejection(regular_refusal)
+            raise_rejection(regular_refusal)
         try:
             payload = client.futures_get_algo_order(
                 symbol=symbol, clientAlgoId=client_order_id
             )
         except BinanceAPIException as exc:
-            _raise_rejection(exc)
+            raise_rejection(exc)
         return map_futures_algo_payload_to_order(payload)
 
     @property
@@ -279,15 +281,21 @@ class FuturesTradingClient(ITradingClient):
         # `Client(...)`'s own constructor pings on construction by default
         # (same trigger as `BUG-045`/`EPIC-021D` §4) — letting that raise
         # straight through here is deliberate, see this module's docstring.
-        return self._session_factory.create_trading_client(resolution.credentials)
+        try:
+            return self._session_factory.create_trading_client(resolution.credentials)
+        except RateLimitedApiException as paused:
+            # `EPIC-035D` — the session opens through the call policy: with the
+            # gate closed it opens nothing, and the caller learns it was a pause.
+            raise contract_error_of(paused) from paused
 
     def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
-        metadata = self._metadata_provider.get_or_fetch(symbol)
+        try:
+            metadata = self._metadata_provider.get_or_fetch(symbol)
+        except SymbolRulesUnavailableError as unavailable:
+            limited = pause_behind(unavailable)
+            if limited is not None:
+                raise limited from unavailable
+            raise
         if metadata is None:
             raise ValueError(f"Unknown futures symbol: {symbol}")
         return metadata
-
-
-def _raise_rejection(exc: BinanceAPIException) -> NoReturn:
-    reason = translate_binance_error(exc)
-    raise OrderRejectedByExchangeError(reason, describe_failure(exc)) from exc
