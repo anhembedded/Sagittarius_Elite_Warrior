@@ -141,7 +141,6 @@ GET_ROUTES: dict[str, object] = {
     "/fapi/v1/ping": {},
     "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
     "/fapi/v1/klines": [_FUTURES_KLINE_ROW],
-    "/fapi/v1/time": {"serverTime": 0},
     "/fapi/v1/positionSide/dual": {"dualSidePosition": False},
 }
 
@@ -168,6 +167,8 @@ def handle(
 def _handle_get(
     path: str, params: dict[str, str], state: OrderBookState
 ) -> tuple[int, object] | None:
+    if path == "/fapi/v1/time":
+        return 200, {"serverTime": now_ms()}
     if path == "/fapi/v1/klines" and params.get("interval") == "1s":
         # Binance's own answer: USDⓈ-M Futures, testnet and mainnet alike, has no
         # 1-second klines (`BUG-172`).
