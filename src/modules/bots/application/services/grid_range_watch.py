@@ -11,6 +11,8 @@ otherwise be two alerts a second.
     reported by its first tick (D4 (a) lets a Start above the range through);
   · one event per change of place: staying outside is silent, the return is an
     event, and leaving again is a new one (re-armed);
+  · the range is the run's `params`, fixed at construction like the stop loss's
+    (`context.params`); a feature that edits a running bot must rebuild both;
   · only while the bot may hold orders (the states that watch exits); in any
     other state the place resets, like the tick extremes.
 """
