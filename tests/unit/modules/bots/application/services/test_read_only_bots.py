@@ -19,6 +19,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
     ReadOnlyBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume.command import (
+    ConfirmBotResumeCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume.handler import (
+    ConfirmBotResumeCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot.command import (
     PauseBotCommand,
 )
@@ -142,12 +148,6 @@ def test_a_read_only_runner_passes_no_command_to_a_bot(
     assert inner.calls == []
 
 
-def test_a_read_only_runner_still_answers_the_question_it_is_asked() -> None:
-    inner = _Runner()
-
-    assert ReadOnlyBotRunner(inner, _REASON).has_resume_proposal("abc123") is True
-
-
 def test_the_store_says_the_instances_own_reason() -> None:
     with pytest.raises(ReadOnlyInstanceError) as caught:
         ReadOnlyBotStore(FakeBotStore(), _REASON).save(sample_bot())
@@ -175,3 +175,17 @@ def test_a_pause_on_a_read_only_copy_is_a_named_refusal_through_the_handler() ->
         assert result.accepted is False
         assert result.refusal is BotRefusal.READ_ONLY_INSTANCE
         assert result.message == _REASON
+
+
+def test_a_confirm_resume_on_a_read_only_copy_is_a_named_refusal() -> None:
+    store = FakeBotStore()
+    stored = sample_bot()
+    halted = replace(stored.bot, lifecycle=BotLifecycle(BotLifecycleState.HALTED))
+    store.save(StoredBot(halted, stored.runtime))
+
+    result = ConfirmBotResumeCommandHandler(
+        store, ReadOnlyBotRunner(_Runner(), _REASON)
+    ).execute(ConfirmBotResumeCommand("abc123"))
+
+    assert result.refusal is BotRefusal.READ_ONLY_INSTANCE
+    assert result.message == _REASON

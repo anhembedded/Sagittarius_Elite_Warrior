@@ -44,4 +44,4 @@ class ReadOnlyBotRunner(IBotRunner):
         raise ReadOnlyInstanceError(self._reason)
 
     def has_resume_proposal(self, bot_id: str) -> bool:
-        return self._inner.has_resume_proposal(bot_id)
+        raise ReadOnlyInstanceError(self._reason)
