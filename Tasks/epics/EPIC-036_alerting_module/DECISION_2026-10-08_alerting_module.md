@@ -3,7 +3,7 @@
 **Epic:** [EPIC-036](README.md)
 **Date:** 2026-10-08
 **Status:** Accepted (N1–N8)
-**Decided by:** the owner, 2026-10-08, who approved the design page (https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1) and its eight decision points; relayed by the coordinator session. The numbering N1–N8 is the design page's own.
+**Decided by:** the owner, 2026-10-08, who approved the design page (transcribed in [`DESIGN_2026-10-08_alerting_module.md`](DESIGN_2026-10-08_alerting_module.md); private artifact https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1) and its eight decision points; relayed by the coordinator session. The numbering N1–N8 is the design page's own.
 
 | Label | Meaning |
 | :--- | :--- |
