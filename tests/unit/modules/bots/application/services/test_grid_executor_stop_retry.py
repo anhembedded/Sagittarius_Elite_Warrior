@@ -169,7 +169,7 @@ def test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell() -> None:
     )
     world.book.cancel_refusals = [_REFUSED]
 
-    world.executor.on_tick(Decimal(89))
+    world.executor.facts.on_tick(Decimal(89))
     assert world.state() is S.STOPPING
     assert world.runtime().reason is GridReason.STOP_LOSS
 
@@ -195,7 +195,7 @@ def test_a_stop_asked_again_can_add_a_sell_the_first_did_not_ask_for() -> None:
 def test_no_retry_is_scheduled_while_trading_is_off() -> None:
     """A switch-off wait ends with the switch-on event, not with a timer."""
     world = _running()
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
     world.executor.stop(BaseHandling.KEEP)

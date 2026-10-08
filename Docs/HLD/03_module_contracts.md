@@ -230,7 +230,7 @@ second automated caller (another bot, copy-trading) uses the same mechanism with
 | Contract | Kind | Consumers | Note |
 | :--- | :--- | :--- | :--- |
 | `IBotKind` | port | the module itself; the Bots tab (`EPIC-029F`) | **built, `EPIC-029B`.** The seam every kind plugs into (ADR D2): `kind_id`, `validate(inputs) -> tuple[Verdict, ...]`, `overlay(inputs) -> BotOverlay`, `executor_factory()`. Only Grid implements it (`EPIC-029C`). Not bound yet: Grid needs its executor factory, which is `EPIC-029E` |
-| `IBotExecutor`, `IBotExecutorFactory` | port | the use cases, from `EPIC-029E` | **seam only, `EPIC-029B`.** Each method asks the per-bot actor to begin; the outcome arrives as a lifecycle event, never a return value (ADR D9) |
+| `IBotExecutor`, `IBotFacts`, `IBotExecutorFactory` | port | the use cases (`IBotExecutor`, the commands); the event router and the price and stream watches (`IBotFacts`, reached through `executor.facts`, `BOT-172`) | **built, `EPIC-029E`.** Each method asks the per-bot actor to begin; the outcome arrives as a lifecycle event, never a return value (ADR D9) |
 | `IBotStore` | port | the use cases, the restore service | **built, `EPIC-029B`.** `JsonBotStore` writes `state/bots/<id>.json` atomically; `load_all()` names every refused file instead of dropping it. Verified fake + contract suite per §10.3, run over the real store in the integration tier |
 | `IBotClock` | port | the use cases | **built, `EPIC-029B`.** UTC-aware; verified fake + contract suite |
 | `BotSnapshot`, `BotCommandResult`, `BotRefusal` | DTO | the Bots tab (`EPIC-029F`) | **built, `EPIC-029B`.** A refusal is a value, like every other refusal in this application |

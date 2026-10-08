@@ -263,7 +263,7 @@ def test_a_recovering_bot_with_trading_off_still_halts_on_a_quiet_feed() -> None
     world.session.set_enabled(enabled=False)
 
     world.monotonic.advance(PRICE_START_GRACE_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.PRICE_FEED_STALE

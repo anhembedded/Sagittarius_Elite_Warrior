@@ -262,4 +262,4 @@ class BotPriceWatch:
         self._reconcile(bot_id)
         executor = self._executors.get(bot_id)
         if executor is not None:
-            executor.on_price_age_check()
+            executor.facts.on_price_age_check()
