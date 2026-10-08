@@ -2,7 +2,8 @@
 
 Singletons. There is one executor per bot (`BotExecutors`), every start shares
 one lock (`BotCommandLock`, ADR D20), and the runner is the one door from the
-use cases to the executors (ADR D9). Each bot's queue is its own thread
+use cases to the executors (ADR D9). The price watch (`EPIC-035A`) gives every
+bot that is not at rest its own price stream. Each bot's queue is its own thread
 (`ThreadBotWorkQueue`) and its pacer the monotonic clock at the budget's
 spacing (`MonotonicOrderPacer`).
 """
@@ -11,6 +12,9 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer import (
     MonotonicOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_ticker import (
+    ThreadBotTicker,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_work_queue import (
     ThreadBotWorkQueue,
@@ -23,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
     BotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
+    BotPriceWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readiness_reader import (
     BotReadinessReader,
@@ -43,9 +50,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
+    IBotTicker,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
+    IMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
     IVenueAccounts,
@@ -66,10 +82,26 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(IBotRunner, _build_runner)
     container.singleton(BotReadinessReader, _build_readiness_reader)
     container.singleton(IBotKindCatalog, _build_kind_catalog)
+    container.singleton(IBotTicker, _build_ticker)
+    container.singleton(BotPriceWatch, _build_price_watch)
 
 
 def _build_executors(container: IContainer) -> BotExecutors:
     return BotExecutors(_grid_executor_factory(container))
+
+
+def _build_ticker(_container: IContainer) -> IBotTicker:
+    return ThreadBotTicker("bots-ticker")
+
+
+def _build_price_watch(container: IContainer) -> BotPriceWatch:
+    """Every bot that is not at rest owns its price stream (`EPIC-035A`)."""
+    return BotPriceWatch(
+        container.resolve(IBotStore),
+        container.resolve(IMarketDataSources),
+        container.resolve(BotExecutors),
+        container.resolve(IBotTicker),
+    )
 
 
 def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
@@ -87,6 +119,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         caps=container.resolve(OwnerBudgetCaps),
         queues=ThreadBotWorkQueue,
         pacers=MonotonicOrderPacer,
+        monotonic=container.resolve(IMonotonicClock),
     )
     return GridExecutorFactory(deps)
 

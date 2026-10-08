@@ -30,6 +30,12 @@ ends and rejections of its orders, its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
+@par `boot()` also starts the price watch (`EPIC-035A`)
+`BotPriceWatch` gives every bot that is not DRAFT or STOPPED its own price stream
+through market_data's `IMarketStream`, so stop loss and take profit are watched
+with no chart open, and halts a bot whose feed goes quiet. It follows the bots'
+own `BotChangedEvent`, and `shutdown()` releases every stream it opened.
+
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
 
@@ -58,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_e
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
+    BotPriceWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
 )
@@ -75,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings import (
     bind_state,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
+    BotChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
@@ -116,6 +128,10 @@ class BotsModule(BoundedContextModule):
     #: The bots' one bus listener, held for the life of the module.
     _router: BotEventRouter | None = None
 
+    #: Gives each bot that is not at rest its own price stream (`EPIC-035A`),
+    #: held for the life of the module like the router.
+    _price_watch: BotPriceWatch | None = None
+
     def register(self, context: Any) -> None:
         bind_state(context.container)
         bind_executors(context.container)
@@ -137,6 +153,10 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+        watch = container.resolve(BotPriceWatch)
+        bus.on(BotChangedEvent, watch.on_bot_changed)
+        self._price_watch = watch
+        watch.start()
         container.resolve(ICloseObjections).register(
             RunningBotsObjection(container.resolve(IBotStore))
         )
@@ -152,5 +172,6 @@ class BotsModule(BoundedContextModule):
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so
         the app exits with no bot thread left and nothing half-written."""
+        context.container.resolve(BotPriceWatch).close()
         context.container.resolve(BotExecutors).close_all()
-        logger.info("Bot workers closed")
+        logger.info("Bot price streams released, workers closed")

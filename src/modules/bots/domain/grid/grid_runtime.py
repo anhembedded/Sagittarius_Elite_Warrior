@@ -58,6 +58,9 @@ class GridReason(str, Enum):
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
+    #: No price tick for longer than the bot may go without one (`EPIC-035A`):
+    #: it cannot watch its stop loss, so it stops placing and takes its ladder off.
+    PRICE_FEED_STALE = "price_feed_stale"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

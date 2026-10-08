@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
+    FakeMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -148,6 +151,8 @@ class GridWorld:
     pacer: CountingPacer
     snapshot: FakeAccountSnapshot
     factory: GridExecutorFactory
+    #: The staleness clock (`EPIC-035A`): it moves only when a test moves it.
+    monotonic: FakeMonotonicClock
     owner: str = f"bot.{BOT}"
     placed_ids: list[str] = field(default_factory=list)
 
@@ -265,6 +270,7 @@ def grid_world(
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
     store.save(StoredBot(bot, encode_runtime(runtime) if runtime else {}))
     pacer = CountingPacer()
+    monotonic = FakeMonotonicClock()
     factory = GridExecutorFactory(
         GridExecutorDeps(
             ports=FakeVenueTradingPorts(ports),
@@ -273,12 +279,37 @@ def grid_world(
             caps=DEFAULT_OWNER_BUDGET_CAPS,
             queues=queues or (lambda _name: queue or InlineWorkQueue()),
             pacers=lambda _spacing: pacer,
+            monotonic=monotonic,
         )
     )
     executor = factory.create(bot)
     return GridWorld(
-        executor, book, activity, session, store, clock, pacer, snapshot, factory
+        executor,
+        book,
+        activity,
+        session,
+        store,
+        clock,
+        pacer,
+        snapshot,
+        factory,
+        monotonic,
     )
+
+
+def recovering_world() -> GridWorld:
+    """A bot saved while RUNNING and restored: RECOVERING, its ladder resting."""
+    before = grid_world()
+    before.executor.start()
+    world = grid_world(
+        state=BotLifecycleState.RECOVERING,
+        runtime=before.runtime(),
+        recovering_from=BotLifecycleState.RUNNING,
+    )
+    world.book.open = dict(before.book.open)
+    world.derive("0")
+    world.hold("0")
+    return world
 
 
 def minutes(count: int) -> timedelta:

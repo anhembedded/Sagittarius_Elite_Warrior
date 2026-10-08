@@ -67,6 +67,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
     IBotWorkQueue,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    PRICE_STALENESS_HALTS,
     BotLifecycleEvent,
     BotLifecycleState,
 )
@@ -110,10 +111,11 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 _S = BotLifecycleState
 _E = BotLifecycleEvent
 
-#: A stop loss or take profit is watched while the bot holds a position it
-#: may still have to exit (ADR D11): HALTED and ERROR included.
+#: A stop loss or take profit is watched while the bot holds a position it may
+#: still have to exit (ADR D11): HALTED, ERROR and (`EPIC-035A`) STARTING and
+#: RECOVERING included; not STOPPING, whose Stop may keep the base.
 _WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
-    {_S.RUNNING, _S.PAUSED, _S.HALTED, _S.ERROR}
+    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.RECOVERING, _S.HALTED, _S.ERROR}
 )
 
 _SWITCH_OFF_DETAIL = {
@@ -192,6 +194,9 @@ class GridExecutor(IBotExecutor):
 
     def on_tick(self, price: Decimal) -> None:
         self._post("tick", lambda: self._apply_tick(price))
+
+    def on_price_age_check(self) -> None:
+        self._post("price age check", self._apply_price_age_check)
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))
@@ -296,12 +301,22 @@ class GridExecutor(IBotExecutor):
 
     def _apply_tick(self, price: Decimal) -> None:
         self._last_price = price
+        self._context.price_age.note_tick()
         if self._context.state.state not in _WATCHES_EXITS:
             return
         params = self._context.params
         reason = crossed_exit(price, params.stop_loss_price, params.take_profit_price)
         if reason is not None:
             self._run_stop(BaseHandling.SELL_AT_MARKET, reason, f"price {price}")
+
+    def _apply_price_age_check(self) -> None:
+        state = self._context.state
+        age = self._context.price_age
+        if state.state not in PRICE_STALENESS_HALTS:
+            age.arm()
+        elif (detail := age.stale_detail()) is not None:
+            age.arm()
+            halt_with(state, GridReason.PRICE_FEED_STALE, detail)
 
     def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         state = self._context.state

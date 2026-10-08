@@ -75,6 +75,11 @@ class IBotExecutor(ABC):
         """The bot's symbol traded at `price` (stop loss and take profit, D11)."""
 
     @abstractmethod
+    def on_price_age_check(self) -> None:
+        """Time passed: halt if the bot holds orders and its price feed went
+        quiet (`EPIC-035A`)."""
+
+    @abstractmethod
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         """Trading on the bot's venue was enabled, disabled or Emergency-Stopped."""
 

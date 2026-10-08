@@ -1,4 +1,4 @@
-"""bots' own state: the store, the clock and the id generator (`EPIC-029B`).
+"""bots' own state: the store, the clocks and the id generator (`EPIC-029B`).
 
 Singletons, because the store holds the per-bot write locks: two instances
 would each lock their own copy of a bot and serialise nothing.
@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_st
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import (
     SystemBotClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_monotonic_clock import (
+    SystemMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
 )
@@ -36,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_b
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
+    IMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotIdGenerator
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -53,6 +59,7 @@ def bind_state(container: IContainer) -> None:
     (`registering_container.py`), and the store needs `IConfig`."""
     container.singleton(IBotStore, _build_store)
     container.singleton(IBotClock, SystemBotClock())
+    container.singleton(IMonotonicClock, SystemMonotonicClock())
     container.singleton(BotIdGenerator, BotIdGenerator())
     container.singleton(BotRestoreService, _build_restore_service)
 

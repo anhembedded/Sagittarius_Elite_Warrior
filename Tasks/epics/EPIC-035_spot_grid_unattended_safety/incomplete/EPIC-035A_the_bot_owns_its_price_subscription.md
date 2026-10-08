@@ -1,6 +1,6 @@
 # EPIC-035A — The bot owns its price subscription, with a staleness rule
 
-**Status:** 🔵 Planned
+**Status:** 🟡 In progress — implemented; awaiting the `-Full` run on the PR head and the reviewer
 **Source:** the owner's Spot Grid audit, 2026-10-08, finding H1 (https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz); Phase 1 approved by the owner the same day (D1).
 **Risk:** 🔴 — stop-loss and take-profit are the only price-driven exit; a change to who owns the stream touches every running bot
 **Complexity:** L — a new owner of a market_data stream inside the bots module, a staleness clock, a named HALT reason, SPEC and guard changes
@@ -20,15 +20,15 @@
 Result: with the chart closed, on another bot, or in RECOVERING after a restart, a crossed stop-loss goes unnoticed. Exchange-side stops (`EPIC-026K`) are the structural fix for a closed app and stay there; this task closes the window while the app runs.
 
 ## 2. Acceptance criteria
-- [ ] Every bot that is not stopped (STARTING, RUNNING, PAUSED, RECOVERING, HALTED, ERROR, STOPPING) owns a price stream for its symbol and venue market, started when the bot enters such a state and released when it reaches STOPPED or DRAFT. The stream is requested through market_data's contract (`IMarketStream`) with a bots-owned `owner_id`, never by reaching into the Binance adapter.
-- [ ] The stream does not depend on any chart: closing the chart, selecting another bot or switching modes leaves SL/TP watched.
-- [ ] The stream is the bot's own venue and market: a Testnet tick never reaches a Mainnet bot and a Spot tick never reaches a Futures bot (`BUG-172` stays closed).
-- [ ] A bot in RECOVERING and in STARTING evaluates stop-loss / take-profit on the ticks it receives (the exit then runs the existing `_run_stop` path, taking the ladder off).
-- [ ] **Staleness rule:** while a bot is in a state that holds orders, no tick for N seconds moves it to HALTED with a named `GridReason` (for example `PRICE_FEED_STALE`) whose detail names the last tick's age. N is a named constant with a default derived from the stream's own cadence (the audit suggests tens of seconds; the value is chosen in the PR and recorded here).
-- [ ] The staleness check uses a monotonic clock and an injected clock port, not `time.sleep`; it does not fire for a bot that has not yet received its first tick within the start grace, which is a separate, named, bounded wait.
-- [ ] A fresh tick after a staleness HALT does not resume the bot by itself; the user's confirm-resume path stays the only way back.
-- [ ] Two bots on the same symbol and venue share the market stream (one subscription per symbol and market, released when its last owner leaves), as `IMarketStream`'s owner model already allows.
-- [ ] Stopping the app releases every bot-owned stream; the sanity tier shows a clean shutdown with no `ResourceWarning`.
+- [x] Every bot that is not stopped (STARTING, RUNNING, PAUSED, RECOVERING, HALTED, ERROR, STOPPING) owns a price stream for its symbol and venue market, started when the bot enters such a state and released when it reaches STOPPED or DRAFT. The stream is requested through market_data's contract (`IMarketStream`) with a bots-owned `owner_id`, never by reaching into the Binance adapter.
+- [x] The stream does not depend on any chart: closing the chart, selecting another bot or switching modes leaves SL/TP watched.
+- [x] The stream is the bot's own venue and market: a Testnet tick never reaches a Mainnet bot and a Spot tick never reaches a Futures bot (`BUG-172` stays closed).
+- [x] A bot in RECOVERING and in STARTING evaluates stop-loss / take-profit on the ticks it receives (the exit then runs the existing `_run_stop` path, taking the ladder off).
+- [x] **Staleness rule:** while a bot is in a state that holds orders, no tick for N seconds moves it to HALTED with a named `GridReason` (for example `PRICE_FEED_STALE`) whose detail names the last tick's age. N is a named constant with a default derived from the stream's own cadence (the audit suggests tens of seconds; the value is chosen in the PR and recorded here). **Chosen: 60 s after the last tick, 60 s for the first one; checked every 5 s** (`price_freshness.py`, `bot_price_watch.py`).
+- [x] The staleness check uses a monotonic clock and an injected clock port, not `time.sleep`; it does not fire for a bot that has not yet received its first tick within the start grace, which is a separate, named, bounded wait.
+- [x] A fresh tick after a staleness HALT does not resume the bot by itself; the user's confirm-resume path stays the only way back.
+- [x] Two bots on the same symbol and venue share the market stream (one subscription per symbol and market, released when its last owner leaves), as `IMarketStream`'s owner model already allows.
+- [x] Stopping the app releases every bot-owned stream; the sanity tier shows a clean shutdown with no `ResourceWarning`.
 
 ## 3. Design
 - **Pattern:** the owner-keyed stream of `IMarketStream` (`start(symbol, timeframe, owner_id)` / `stop(owner_id)`, "started and released together") is the vetted mechanism; the bots module becomes one more owner instead of borrowing the chart's. This is `CONSTITUTION.md` P5 (apply the existing mechanism): no new stream machinery.
@@ -67,7 +67,35 @@ Tier names per `ci-rule.md` §2. Every "red before" test must be run and shown r
 | Clean shutdown | the sanity tier boot-and-shutdown | Sanity | No `ResourceWarning` |
 | Real journey | an integration test: a bot RUNNING, chart never created, fake stream pushes a price below SL | Integration | Stopped |
 
-Architecture guards: `PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/unit/architecture -q`. Not run yet. Verification of delivery follows `ci-rule.md` §1 (feature: `-Full` run on the PR head, then a reviewer session).
+Architecture guards: `PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/unit/architecture -q`. Verification of delivery follows `ci-rule.md` §1 (feature: `-Full` run on the PR head, then a reviewer session).
+
+## Implementation notes (written when done)
+
+**Delivered:** `BotPriceWatch` (`application/services/bot_price_watch.py`) gives every bot that is not DRAFT or STOPPED its own price stream through `IMarketDataSources.ports_for(venue.market_data_venue).stream` (`IMarketStream`), keyed `bot-price.<id>`. It follows the bot's state through `BotChangedEvent` (the store publishes one per write), reads the bot back from the store, makes sure a watched bot has an executor, and ticks every 5 s to (a) retry a stream that refused to open and (b) post `on_price_age_check` to each executor. The HALT itself is the executor's, on its own queue, through the existing `GridTaskGuard` (which parks the ladder).
+
+**Decisions (CONSTITUTION P5/P6/P7, recorded here instead of asked):**
+- **Owner per bot, not per symbol.** The criterion "share one subscription" is the live-stream service's reference count per `(market, symbol, interval)` (`BinanceWebsocketService.subscribe`); a second ref-count in the bots module would duplicate it. `test_two_bots_on_one_symbol_share_the_stream_until_the_last_leaves` asserts the owner-level behaviour; the sharing itself is the service's contract.
+- **Limits:** `PRICE_STALE_AFTER_SECONDS = 60`, `PRICE_START_GRACE_SECONDS = 60`, check every 5 s. Binance pushes a kline update about every 2 s while a pair trades, so 60 s is about thirty missed pushes.
+- **Two FSM cells added, contrary to §3's "no new edge".** `halt` was declared only for RUNNING, PAUSED and STOPPING; STARTING and RECOVERING had `start_refused` / `reconcile_mismatch` only. Reusing those events for a quiet feed would misname the cause, so `(STARTING, halt)` and `(RECOVERING, halt)` were declared (`PRICE_STALENESS_HALTS`). STOPPING has the cell but is deliberately **not** halted by a quiet feed: a stop sells and cancels without a price, and a halt would turn the user's Stop into a resume that re-plans a ladder. HALTED and ERROR already place nothing.
+- **`_WATCHES_EXITS` gains STARTING and RECOVERING, not STOPPING.** A tick during STOPPING would re-enter `_run_stop` and could turn a Stop that keeps the base into one that sells it.
+- **"Armed", not "began".** A first design restarted the grace at the halt; the unit test for a resume hours later was red, because nothing re-armed it. The age is now armed when built, at every check while the bot is in a state a quiet feed does not halt, and at the halt, so a resume after any wait gets a fresh bounded wait for its first tick (`GridPriceAge`).
+- **A restored bot is watched at boot.** `BotPriceWatch.start()` builds the executor of every stored bot not at rest (the router only built one on a fill or the switch). A bot on a venue whose trading is not enabled yet (`VenueNotEnabledError`) keeps its stream and gets its executor on a later check; a bot the factory cannot read is said once, with its traceback, and does not stop the others.
+- **Ports:** `IMonotonicClock` (a staleness clock a wall-clock step cannot move) and `IBotTicker` (a periodic trigger, a fake that fires on demand), each with a verified fake, a real adapter and a contract test; both sized for 035B/035K to reuse.
+- **`GridExecutor` now has 16 public members** (one over `architecture-rule.md` §5.4's 15): `on_price_age_check` is the executor port's new method, and the class sat at 15 and at 400 lines. Splitting the executor is a refactor of its own and out of this task; the file stays at 400 lines.
+
+**Red before (2026-10-08, `546b8a3`):** `test_grid_executor_exit_states.py` failed by assertion for STARTING and RECOVERING (the bot stayed in the state after a tick below its stop loss and above its take profit); every other new test failed at collection because the mechanism did not exist (`price_freshness`, `bot_price_watch`, the fakes). Logs: the session's scratchpad `red_exit_states.log`, `red_all.log`.
+
+**Verification (head of this branch):**
+- Commit tier `ci-local.ps1 -SkipTests`: `RESULT: PASS`.
+- `tests/unit tests/integration tests/sanity`: 10,180 passed, 3 skipped, 1 failed. The one failure, `test_workbench_conformance[True-1024x700]` (`backtest@1024x700/fits_the_window`), fails identically on the unchanged base `546b8a3` in this container (verified with the change stashed); it concerns the Backtest mode's window size, not bots. Whether the GitHub run shows it too is recorded on the PR.
+- Mutation checks (flip the boundary; drop a mode from `_WATCHES_EXITS`; drop `note_tick`; drop each `arm`; drop `bus.on(BotChangedEvent …)`, `watch.start()` and the shutdown `close()`; invert the state filter; point the stream at another venue; drop the `(RECOVERING, halt)` cell): each turns at least one test red.
+- Integration journeys on the fake Binance server (`test_a_bot_owns_its_price_stream_on_the_fake_exchange.py`): no Bots screen is built; a crossed stop loss stops the bot and takes the ladder off, also for a bot restored RECOVERING; a silent feed halts it and a later tick does not resume it. The stream is the verified `FakeMarketStream` behind `FakeStreamSources`, so nothing reached a real exchange.
+- Integration harness: `booted()` waits on the app thread pool's own count before `engine.stop()`; a post-fill account read left running by a journey that ends on a fill reached `testnet.binance.vision` in about half of the runs (the integration tier's network block caught it). 8 of 8 runs are clean after.
+
+**Not done / out of scope, by name:**
+- `GridExecutor._price()` still prefers the cached last tick, which can be as old as a halt: a resume after a stale HALT plans from it. That is `EPIC-035J` (the reference price has an age).
+- The owner's 24 h Testnet run with the chart closed (phase exit evidence): not run.
+- Exchange-side stops: `EPIC-026K`.
 
 ## Resume
-Not started. First action: write `test_a_stop_loss_is_watched_with_no_chart_open` and run it red.
+Implemented and committed on `epic-035a-bot-owns-price-subscription`. Remaining: the PR's `ci-local.ps1 -Full` run (read both `gate (Unit)` and `gate (Rest)` job logs), the reviewer session's read, then move this file to `completed/` and mark the epic README and TRACKING rows.

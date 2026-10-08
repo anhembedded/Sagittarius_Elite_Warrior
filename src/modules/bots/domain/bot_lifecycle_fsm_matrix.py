@@ -24,6 +24,11 @@ table had no column for: a level that keeps ending, an order the exchange
 rejected, a counter order with nowhere to go (RUNNING or PAUSED), and an exit
 slice that failed (STOPPING, naming the unsold remainder, §3.4). Each leads to
 HALTED, whose exit is a resume that re-plans (D13) or a stop.
+
+`halt` also answers a quiet price feed (`EPIC-035A`, `PRICE_FEED_STALE`), which
+can be heard in any state that holds or lays orders: STARTING and RECOVERING
+gained the cell for it, RUNNING and PAUSED already had it. STOPPING has one but
+is deliberately not halted by it (`PRICE_STALENESS_HALTS`).
 """
 
 from __future__ import annotations
@@ -99,6 +104,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     # --- STARTING ---
     (_S.STARTING, _E.LADDER_READY): _S.RUNNING,
     (_S.STARTING, _E.START_REFUSED): _S.HALTED,
+    (_S.STARTING, _E.HALT): _S.HALTED,
     (_S.STARTING, _E.STOP): _S.STOPPING,
     (_S.STARTING, _E.SWITCH_OFF): _S.HALTED,
     (_S.STARTING, _E.FAULT): _S.ERROR,
@@ -122,6 +128,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.RECOVERING, _E.SWITCH_OFF): _S.RECOVERING,
     (_S.RECOVERING, _E.RECONCILE_OK): _T.PRIOR,
     (_S.RECOVERING, _E.RECONCILE_MISMATCH): _S.HALTED,
+    (_S.RECOVERING, _E.HALT): _S.HALTED,
     (_S.RECOVERING, _E.FAULT): _S.ERROR,
     (_S.RECOVERING, _E.APP_RESTART): _S.RECOVERING,
     # --- HALTED --- (resume re-plans and asks again, D13)
@@ -150,6 +157,22 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
 #: The states a new run starts from: `start` here stamps a new `run_started_at`
 #: (ADR D6, review round 2). Resuming from HALTED is the same run.
 RUN_STARTING_STATES: frozenset[BotLifecycleState] = frozenset({_S.DRAFT, _S.STOPPED})
+
+#: The states in which a bot owns a price stream (`EPIC-035A`): every state but
+#: the two a bot rests in. A stop loss is watched while the bot may still hold
+#: orders or a position, whether or not any chart is open.
+PRICE_STREAM_STATES: frozenset[BotLifecycleState] = frozenset(_S) - {
+    _S.DRAFT,
+    _S.STOPPED,
+}
+
+#: The states a quiet feed halts (`EPIC-035A`): those that hold orders or are
+#: laying them, and can still be told to stop placing. Not STOPPING (a stop
+#: needs no price, and a halt would turn the user's Stop into a resume that
+#: re-plans a ladder), and not HALTED or ERROR (they already place nothing).
+PRICE_STALENESS_HALTS: frozenset[BotLifecycleState] = frozenset(
+    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.RECOVERING}
+)
 
 #: The states `reconcile_ok` may return to; `Bot` records one on entering RECOVERING.
 RECOVERABLE_STATES: frozenset[BotLifecycleState] = frozenset({_S.RUNNING, _S.PAUSED})
