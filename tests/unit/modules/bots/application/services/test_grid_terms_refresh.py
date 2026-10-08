@@ -152,4 +152,8 @@ def test_a_start_whose_terms_read_failed_in_transit_is_not_called_a_delisting() 
 
     world.executor.start()
 
-    assert world.runtime().reason is not GridReason.SYMBOL_DELISTED
+    # The terms held (first read, from the catalog) still say TRADING, so the start
+    # goes on instead of refusing for a bad moment; the exchange's own refusal of
+    # an order remains the guard.
+    assert world.state() is S.RUNNING
+    assert world.runtime().reason is None

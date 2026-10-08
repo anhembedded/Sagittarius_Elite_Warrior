@@ -45,6 +45,7 @@ One refresh path feeds `EPIC-035E` and this task: `LazyExchangeTerms.refresh()` 
 Unit tier, the real executor on the simulated venue. `tests/unit/modules/bots/application/services/test_grid_terms_refresh.py` (seven tests), `test_get_symbol_order_rules.py` and `test_order_entry_terms_service.py` (one each), `test_order_entry_terms_fake.py` (two). Shown red before the change: with `src/` stashed the bot stays `RUNNING` on a changed tick size (`assert RUNNING is HALTED`) and the two trading tests fail on the missing `refresh`; green after. Not run: a real exchange (never done here).
 
 ## Implementation notes
+- **Behaviour change of `035E`'s gate, from the review of PR #448:** `refresh()` now reads the network, so an unreachable catalog is a new case. `SymbolCatalogUnreachableError` (subclass of `SymbolRulesUnavailableError`, raised by `catalog_read_failures`) is told apart from a symbol the venue does not list: the watch and the Start/Resume gate treat only the latter as a delisting; on the former the gate goes on with the terms it holds and the watch asks again. Locked by `test_a_start_whose_terms_read_failed_in_transit_is_not_called_a_delisting` (asserts RUNNING).
 - The interval is the price watch's beat, so the resolution is the beat's; the 15 minutes is a floor, not a schedule.
 - `exchangeInfo` for the whole venue is fetched (`IMarketMetadataProvider.refresh()` has no per-symbol form), one call per bot per 15 minutes and one per Start or Resume.
 
