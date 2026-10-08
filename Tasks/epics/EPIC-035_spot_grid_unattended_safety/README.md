@@ -4,7 +4,7 @@
 - **Repositories:** Elite. No Engine change is expected; a need for one gets its own confirmation (`ONBOARDING.md` §2).
 - **Origin:** the owner's request for an audit of the Spot Grid bot's exception handling, and its answers of 2026-10-08. The audit (static code review at `master-warrior` `3bbe243`, 2026-10-08, published at https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz) found 6 high, 12 medium and 11 low findings; per-order safety is sound, supervision of a running bot as a whole is not.
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md); each child updates the SPEC journeys it changes.
-- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D3 accepted, D4 open.
+- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D4 accepted.
 - **Tracking:** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:** Builds on [`EPIC-029`](../EPIC-029_bots_tab_grid_fast_track/README.md) (the Grid bot, its executor, reconciler and stop sequence) and [`EPIC-034`](../EPIC-034_bots_connect_design_run/README.md) (the Connect, Design, Run flow, and mainnet venues). Exchange-side stop-loss stays in [`EPIC-026K`](../EPIC-026_road_to_real_money/README.md): this epic is the app-side supervision that exists until, and beside, it.
 
@@ -14,7 +14,7 @@
 1. Phase 1 is approved and runs under the normal process: feature PRs, the `-Full` gate, a reviewer per PR (D1, owner).
 2. Stop-loss stays optional: no default change and no forced warning (D2, owner).
 3. The alert channel is Discord, a webhook whose URL lives in the keyring only, behind a notifier port (D3, owner).
-4. Start with the price outside the range is **open**: (a) REFUSED below the lower bound and WARNING above, or (b) WARNING only (D4, awaiting the owner).
+4. Start with the price outside the range: **(a)** REFUSED below the lower bound (it would market-buy the whole capital), WARNING only above the upper bound (D4, owner, 2026-10-08).
 
 **Interim operating guidance (the audit's, until Phase 1 ships):** do not run a mainnet bot unattended; keep the bot's chart open and Live whenever a stop-loss is set; after an app restart, open the trading session so the bot reconciles.
 
@@ -46,7 +46,7 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035I](incomplete/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | Planned |
 | [EPIC-035J](incomplete/EPIC-035J_the_reference_price_has_an_age.md) | The reference price has an age (M1) | Elite | 035A | 🟡 | Planned |
 | [EPIC-035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Alerts reach a user who is away: a Discord notifier port and adapter (M7) | Elite | 035A, 035B, 035C | 🟡 | Planned |
-| [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 035K; D4 for the Start rule | 🟡 | Planned (D4 open) |
+| [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 035K (for the range-exit alert) | 🟡 | Planned |
 | [EPIC-035M](incomplete/EPIC-035M_pnl_is_complete.md) | PnL is complete: total, BNB fees, HODL benchmark (L2) | Elite | None | 🟢 | Planned |
 | [EPIC-035N](incomplete/EPIC-035N_invalid_parameters_are_explained_where_they_are.md) | Invalid parameters are explained where they are (L10) | Elite | None | 🟢 | Planned |
 | [EPIC-035O](incomplete/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | Planned |
@@ -63,7 +63,7 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | :--- | :--- | :--- |
 | 1 — Running-bot supervision | `035A`, `035B`, `035C` merged: SL/TP watched and a staleness HALT in every order-holding state; the user stream recovers from any exception and reconciles after a reconnect; no placing task ends HALTED / ERROR with orders resting; STOPPING retries | Each child's red-before regression tests (named in the task); the `-Full` run green on each head; a reviewer's read per PR; the owner's Testnet run of a 24 h bot with the chart closed. Not run |
 | 2 — Infrastructure resilience | `035D`–`035J` merged: a transient fault no longer ends in ERROR; symbol status, key revocation, store failure, a second instance and sleep are each a named, handled event | Per-child tests; fake-server journeys. Not run |
-| 3 — Alerting and transparency | `035K`–`035O` merged: HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run; `035L` waits on D4 |
+| 3 — Alerting and transparency | `035K`–`035O` merged: HALT, ERROR, stuck, range exit and a heartbeat reach Discord; PnL shows the total; the reason for invalid parameters is on the field; no signed URL in a log | A Discord webhook run on the owner's channel; a screenshot of the parameter feedback; the log scan. Not run |
 | 4 — Accuracy | `035P`–`035V` merged | Per-child tests. Not run |
 
 ## 5. Out of scope

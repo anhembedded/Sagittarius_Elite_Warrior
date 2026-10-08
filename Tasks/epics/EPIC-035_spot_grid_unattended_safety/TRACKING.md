@@ -54,7 +54,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
-| 2026-10-08 | Spec | Epic scaffolded from the audit; owner decisions D1–D3 recorded; D4 open. |
+| 2026-10-08 | Spec | Epic scaffolded from the audit; owner decisions D1–D4 recorded (D4: option (a)). |
 
 ---
 
@@ -62,4 +62,4 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| D4: Start with the price outside the range | EPIC-035L | The owner answers; the coordinator records it in the decision file | 🟡 Open |
+| D4: Start with the price outside the range | EPIC-035L | Decided 2026-10-08, option (a); recorded in the decision file | ✅ Resolved |
