@@ -68,7 +68,7 @@ def test_a_fill_in_three_events_places_exactly_one_counter_order() -> None:
     world = _running()
     oid = world.open_ids_by_price()[Decimal(110)]
     for piece in ("1", "1", "0.272"):
-        world.executor.on_fill(_fill(oid, OrderSide.BUY, Decimal(110), piece))
+        world.executor.facts.on_fill(_fill(oid, OrderSide.BUY, Decimal(110), piece))
 
     assert len(world.book.requests) == 1
 
@@ -144,7 +144,7 @@ def test_a_late_duplicate_fill_of_a_settled_level_changes_nothing() -> None:
     world.fill(Decimal(110), "2.272")
     held = _runtime(world).inventory
 
-    world.executor.on_fill(
+    world.executor.facts.on_fill(
         BotOrderFill(oid, OrderSide.BUY, Decimal(110), Decimal("2.272"), None, None)
     )
 
@@ -156,7 +156,7 @@ def test_an_opening_market_slice_still_moves_the_inventory() -> None:
     world.executor.start()
     slice_id = world.book.submitted[0]
 
-    world.executor.on_fill(
+    world.executor.facts.on_fill(
         BotOrderFill(
             slice_id, OrderSide.BUY, Decimal(121), Decimal("2.066"), None, None
         )
@@ -170,7 +170,7 @@ def test_an_order_cancelled_from_outside_is_placed_again_once() -> None:
     oid = world.open_ids_by_price()[Decimal(100)]
     world.book.open.pop(oid)
 
-    world.executor.on_end(BotOrderEnd(oid))
+    world.executor.facts.on_end(BotOrderEnd(oid))
 
     assert [(r.side, r.reference_price) for r in world.book.requests] == [
         (OrderSide.BUY, Decimal(100))
@@ -182,12 +182,12 @@ def test_a_second_end_at_one_level_within_a_minute_halts() -> None:
     world = _running()
     first = world.open_ids_by_price()[Decimal(100)]
     world.book.open.pop(first)
-    world.executor.on_end(BotOrderEnd(first))
+    world.executor.facts.on_end(BotOrderEnd(first))
     world.clock.advance(minutes(1) / 2)
     second = world.open_ids_by_price()[Decimal(100)]
     world.book.open.pop(second)
 
-    world.executor.on_end(BotOrderEnd(second))
+    world.executor.facts.on_end(BotOrderEnd(second))
 
     assert world.state() is S.HALTED
     assert _runtime(world).reason is GridReason.LEVEL_KEEPS_ENDING
@@ -197,7 +197,7 @@ def test_a_rejection_halts_with_the_exchanges_reason() -> None:
     world = _running()
     oid = world.open_ids_by_price()[Decimal(140)]
 
-    world.executor.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
+    world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
 
     assert world.state() is S.HALTED
     runtime = _runtime(world)
@@ -208,7 +208,7 @@ def test_a_rejection_halts_with_the_exchanges_reason() -> None:
 def test_an_emergency_stop_halts_and_a_later_fill_places_nothing() -> None:
     world = _running()
 
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.fill(Decimal(110), "2.272")
 
     assert world.state() is S.HALTED
@@ -219,7 +219,7 @@ def test_an_emergency_stop_halts_and_a_later_fill_places_nothing() -> None:
 def test_a_tick_through_the_stop_loss_runs_stop_selling_the_base() -> None:
     world = _running()
 
-    world.executor.on_tick(Decimal(89))
+    world.executor.facts.on_tick(Decimal(89))
 
     assert world.state() is S.STOPPED
     assert world.book.open == {}
@@ -231,7 +231,7 @@ def test_a_tick_through_the_stop_loss_runs_stop_selling_the_base() -> None:
 def test_a_tick_inside_the_exits_changes_nothing() -> None:
     world = _running()
 
-    world.executor.on_tick(Decimal(125))
+    world.executor.facts.on_tick(Decimal(125))
 
     assert world.state() is S.RUNNING
     assert world.book.requests == []

@@ -31,7 +31,7 @@ S = BotLifecycleState
 def _halted_by(cause: TradingSwitchCause) -> GridWorld:
     world = grid_world()
     world.executor.start()
-    world.executor.on_switch(False, cause)
+    world.executor.facts.on_switch(False, cause)
     assert world.state() is S.HALTED
     world.book.requests.clear()
     return world
@@ -130,7 +130,7 @@ def test_a_switch_off_between_proposal_and_confirmation_discards_the_proposal() 
     world.derive("0")
     world.executor.resume()
 
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.executor.confirm_resume()
 
     assert world.executor.proposal is None

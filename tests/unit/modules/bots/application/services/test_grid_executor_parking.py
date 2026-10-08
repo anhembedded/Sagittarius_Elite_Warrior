@@ -48,7 +48,7 @@ def test_a_rejection_halts_and_takes_the_ladder_off_the_exchange() -> None:
     oid = world.open_ids_by_price()[Decimal(140)]
     world.book.open.pop(oid)
 
-    world.executor.on_end(BotOrderEnd(oid, rejection="PERCENT_PRICE_BY_SIDE"))
+    world.executor.facts.on_end(BotOrderEnd(oid, rejection="PERCENT_PRICE_BY_SIDE"))
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.ORDER_REJECTED
@@ -71,7 +71,7 @@ def test_a_switch_off_leaves_the_orders_resting_as_designed() -> None:
     world = _running()
     resting = set(world.book.open)
 
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
 
     assert world.state() is S.HALTED
     assert set(world.book.open) == resting
@@ -84,7 +84,7 @@ def test_a_cancel_the_halt_could_not_make_is_named_beside_the_reason() -> None:
     world.book.open.pop(oid)
     world.book.cancel_raises = [ConnectionError("read timed out")]
 
-    world.executor.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
+    world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
 
     runtime = world.runtime()
     assert world.state() is S.HALTED
@@ -97,10 +97,10 @@ def test_a_halted_bot_still_runs_its_stop_loss() -> None:
     world = _running()
     oid = world.open_ids_by_price()[Decimal(140)]
     world.book.open.pop(oid)
-    world.executor.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
+    world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
     world.derive("4.126")
 
-    world.executor.on_tick(Decimal(89))
+    world.executor.facts.on_tick(Decimal(89))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.STOP_LOSS
@@ -114,7 +114,7 @@ def test_a_faulted_bot_still_runs_its_take_profit() -> None:
     world.fill(Decimal(110), "2.272")
     assert world.state() is S.ERROR
 
-    world.executor.on_tick(Decimal(150))
+    world.executor.facts.on_tick(Decimal(150))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.TAKE_PROFIT

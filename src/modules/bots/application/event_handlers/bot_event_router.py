@@ -75,7 +75,7 @@ class BotEventRouter:
     def on_fill(self, event: OrderFilledEvent) -> None:
         executor = self._executor_for(event.order.client_order_id, event.venue)
         if executor is not None:
-            executor.on_fill(
+            executor.facts.on_fill(
                 BotOrderFill(
                     event.order.client_order_id,
                     event.order.side,
@@ -91,7 +91,7 @@ class BotEventRouter:
         if executor is None:
             return
         rejected = event.order.status is OrderStatus.REJECTED
-        executor.on_end(
+        executor.facts.on_end(
             BotOrderEnd(
                 event.order.client_order_id,
                 "the exchange rejected the order" if rejected else None,
@@ -101,7 +101,9 @@ class BotEventRouter:
     def on_rejected(self, event: OrderRejectedEvent) -> None:
         executor = self._executor_for(event.order.client_order_id, event.venue)
         if executor is not None:
-            executor.on_end(BotOrderEnd(event.order.client_order_id, event.reason))
+            executor.facts.on_end(
+                BotOrderEnd(event.order.client_order_id, event.reason)
+            )
 
     def on_tick(self, event: MarketTickEvent) -> None:
         candle = event.market_data
@@ -111,12 +113,12 @@ class BotEventRouter:
                 and executor.venue.market_type is event.market_type
                 and executor.venue.market_data_venue is event.market_data_venue
             ):
-                executor.on_tick(Decimal(str(candle.close_price)))
+                executor.facts.on_tick(Decimal(str(candle.close_price)))
 
     def on_switch(self, event: TradingSwitchChangedEvent) -> None:
         if not event.enabled:
             for executor in self._executors.on_venue(event.venue):
-                executor.on_switch(False, event.cause)
+                executor.facts.on_switch(False, event.cause)
             return
         for stored in self._store.load_all().bots:
             bot = stored.bot
@@ -124,7 +126,7 @@ class BotEventRouter:
                 bot.definition.venue is event.venue
                 and bot.state not in RUN_STARTING_STATES
             ):
-                self._executors.for_bot(bot).on_switch(True, event.cause)
+                self._executors.for_bot(bot).facts.on_switch(True, event.cause)
 
     def _executor_for(
         self, client_order_id: str, venue: TradingVenue

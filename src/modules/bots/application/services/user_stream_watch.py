@@ -147,7 +147,7 @@ class UserStreamWatch:
 
     def _reconcile(self, venue: TradingVenue) -> None:
         for executor in self._executors.on_venue(venue):
-            executor.reconcile_after_gap()
+            executor.facts.reconcile_after_gap()
 
     def _halt(self, venue: TradingVenue, down_for: timedelta) -> None:
         logger.warning(
@@ -156,4 +156,4 @@ class UserStreamWatch:
             int(down_for.total_seconds()),
         )
         for executor in self._executors.on_venue(venue):
-            executor.halt_user_stream_down(down_for)
+            executor.facts.halt_user_stream_down(down_for)
