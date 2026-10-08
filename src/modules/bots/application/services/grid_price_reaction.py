@@ -12,6 +12,9 @@ the actor routes a tick and an age check here, and both run on the bot's worker.
     exit: HALTED and ERROR, and since `EPIC-035A` STARTING and RECOVERING too
     (a start or a recovery may hold the base, and `GridTickExtremes` already
     keeps the pre-start wick out); not STOPPING, whose Stop may keep the base.
+  · **The range** (`EPIC-035L`): the same tick also goes to `GridRangeWatch`, which
+    publishes a `BotRangeChangedEvent` when the price leaves the range or returns.
+    It changes nothing the bot does (D2).
   · **An age check** (`GridPriceAge`) halts a bot that holds orders and heard no
     tick for too long, with `PRICE_FEED_STALE`; in a state a quiet feed does not
     halt it only arms the wait again.
@@ -23,6 +26,9 @@ import logging
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     halt_with,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_range_watch import (
+    GridRangeWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
@@ -67,13 +73,22 @@ class GridPriceReaction:
         self._context = context
         self._stopper = stopper
         self._extremes = GridTickExtremes()
+        state = context.state
+        self._range = GridRangeWatch(
+            state.bot_id,
+            state.bot.definition.symbol,
+            context.params,
+            context.events,
+        )
 
     def on_tick(self, tick: PriceTick) -> None:
         self._context.reference_price.note_tick(tick.last)
         self._context.price_age.note_tick()
         if self._context.state.state not in _WATCHES_EXITS:
             self._extremes.reset()
+            self._range.reset()
             return
+        self._range.note(tick)
         low, high = self._extremes.observed(tick)
         params = self._context.params
         stop, take = params.stop_loss_price, params.take_profit_price
