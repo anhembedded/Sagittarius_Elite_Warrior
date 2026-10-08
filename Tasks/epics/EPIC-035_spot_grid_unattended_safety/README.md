@@ -35,7 +35,7 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-035A](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md) | The bot owns its price subscription, with a staleness rule (H1) | Elite | None | 🔴 | 🟡 In review |
+| [EPIC-035A](completed/EPIC-035A_the_bot_owns_its_price_subscription.md) | The bot owns its price subscription, with a staleness rule (H1) | Elite | None | 🔴 | ✅ Done (2026-10-08) |
 | [EPIC-035B](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | The user-data stream heals itself and catches up (H2, H3) | Elite | None | 🔴 | ✅ Done (2026-10-08) |
 | [EPIC-035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | No unmanaged orders and no stuck states (H4, H5, H6) | Elite | None | 🔴 | ✅ Done (2026-10-08) |
 | [EPIC-035D](incomplete/EPIC-035D_retry_and_backoff_for_exchange_calls.md) | Retry, backoff and `Retry-After` for exchange calls (M3) | Elite | None | 🟡 | Planned |

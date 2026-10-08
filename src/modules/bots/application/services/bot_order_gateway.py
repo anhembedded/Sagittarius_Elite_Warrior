@@ -191,6 +191,25 @@ class BotOrderGateway:
                 return None
             request = request.at_page(request.page + 1)
 
+    def order_records(
+        self, client_order_ids: frozenset[str], since: datetime
+    ) -> dict[str, OrderRecord]:
+        """The venue's history of each of the named orders that `since` holds,
+        read in one pass over the history (a ladder is many orders: one read
+        per order would multiply the rate-limit weight by the ladder's size).
+        @raise AccountHistoryUnavailableError The venue did not answer."""
+        activity = self._ports.account_activity
+        request = HistoryRequest(self._identity.symbol, since)
+        found: dict[str, OrderRecord] = {}
+        while True:
+            page = activity.order_history(request)
+            for record in page.rows:
+                if record.order.client_order_id in client_order_ids:
+                    found[record.order.client_order_id] = record
+            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
+                return found
+            request = request.at_page(request.page + 1)
+
     def order_trades(
         self, exchange_order_id: int, since: datetime
     ) -> tuple[TradeRecord, ...]:
