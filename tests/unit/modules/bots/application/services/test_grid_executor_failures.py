@@ -55,7 +55,7 @@ def test_a_stop_that_cannot_read_a_price_is_an_error_and_stop_runs_again() -> No
 
     assert world.state() is S.ERROR
     assert world.runtime().reason is GridReason.TASK_FAILED
-    world.executor.on_tick(Decimal(121))
+    world.executor.facts.on_tick(Decimal(121))
     world.executor.stop(BaseHandling.KEEP)
     assert world.state() is S.STOPPED
 
@@ -67,7 +67,7 @@ def test_history_unavailable_while_reconciling_waits_in_recovering() -> None:
     world.hold("2.272")
     world.activity.history_unavailable = True
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.state() is S.RECOVERING
     assert world.runtime().reason is GridReason.HISTORY_UNAVAILABLE
@@ -75,6 +75,6 @@ def test_history_unavailable_while_reconciling_waits_in_recovering() -> None:
     assert world.book.requests == []
 
     world.activity.history_unavailable = False
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.state() is S.RUNNING
