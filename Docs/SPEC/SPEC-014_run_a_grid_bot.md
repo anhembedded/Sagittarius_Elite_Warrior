@@ -224,6 +224,7 @@ available while it runs.
   the fills it missed (a partial fill of a still-open order included, `BUG-188`), lays again once
   an order cancelled while the stream was down (`BUG-187`), and halts when what remains cannot be
   explained. A duplicate partial-fill event is still counted twice until `EPIC-035P`.
+- Telling the user on screen that the bot's file cannot be written while it keeps running: the screen reads the file, which is what failed. A parked bot says so once the disk accepts a write; a running bot's only trace until then is the `[bot-store-failed]` error line, and it goes on trading on what it holds (a restart reconciles by tag and history). Pausing after N failed saves is a policy the owner may add (`EPIC-035G`).
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first. An exchange-side stop is `EPIC-026K`.
 - Halting a bot that is Stopping when the feed goes quiet: a stop sells and cancels without a price,

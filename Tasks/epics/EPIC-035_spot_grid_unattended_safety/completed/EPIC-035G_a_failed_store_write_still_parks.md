@@ -41,7 +41,7 @@ Green after: the three, the whole `tests/unit/modules/bots` (1314 tests) and `te
 
 ## Implementation notes
 - `bot_run_state.py`: `_save` converts `OSError` to `storage_failure` (+ `[bot-store-failed]` ERROR, `[bot-store-recovered]` WARNING on the next success); `GridTaskGuard` appends the note once to a parked bot's detail.
-- A bot that is not parked (a RUNNING bot on a full disk) is not told anything beyond the log line: it keeps trading on memory, as it always did between a submit and its save. Whether a persistent storage failure should itself halt a running bot is a policy the audit does not ask for; not done.
+- A bot that is not parked (a RUNNING bot on a full disk) is not told anything beyond the log line: it keeps trading on memory, as it always did between a submit and its save. Whether a persistent storage failure should itself halt a running bot is a policy the audit does not ask for; not done. Reviewer asked for a decision (PR 436, item 2): recorded as **accepted, a price knowingly paid**, locked by `test_a_running_bot_on_a_failing_disk_goes_on_and_the_next_write_catches_up` and named in SPEC-014 §6. Surfacing it on screen is not possible while the disk fails (the screen reads the file), so the only real alternative is to pause after N failed saves; that is the owner's call and is raised in the hand-off.
 
 ## Resume
 Done. Nothing owed.
