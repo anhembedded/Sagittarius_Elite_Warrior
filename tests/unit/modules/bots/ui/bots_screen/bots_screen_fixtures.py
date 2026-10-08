@@ -28,10 +28,16 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.testing import recording_notifier
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
@@ -300,6 +306,7 @@ def open_screen(
     market_sources = register_market_data(container, VENUE.market_data_venue)
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     strategy = VenueArming(VENUE)
     container.singleton(
         IVenueStrategyControls,

@@ -44,9 +44,11 @@ gantt
 | EPIC-035A | [Price subscription](completed/EPIC-035A_the_bot_owns_its_price_subscription.md) | `epic-035a-bot-owns-price-subscription`, PR #430 | 🔴 | ✅ Done (2026-10-08) | merged |
 | EPIC-035B | [User-data stream](completed/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md) | branch `claude/epic-035b-user-stream-heals`, PR #431 | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting merge |
 | EPIC-035C | [Unmanaged orders, stuck states](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | branch `epic-035c-no-unmanaged-orders` | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035H | [One instance per data root](completed/EPIC-035H_one_app_instance_per_data_root.md) | branch `claude/epic-035h-035i` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035I | [OS sleep](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | branch `claude/epic-035h-035i` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035J | [Reference price has an age](completed/EPIC-035J_the_reference_price_has_an_age.md) | branch `claude/epic-035d-035j-resilience` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035D | [Retry and backoff](completed/EPIC-035D_retry_and_backoff_for_exchange_calls.md) | branch `claude/epic-035d-035j-resilience` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
-| EPIC-035E–I | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035E–G | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035K–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |

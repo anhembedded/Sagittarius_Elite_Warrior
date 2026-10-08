@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 
+from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account_control.account_control_gate import (
     AccountControlRefused,
@@ -61,6 +62,12 @@ class ChangeLeverageCommandHandler(
             return AccountControlResult(cleared.blocked_by, None, cleared.detail)
         try:
             applied = cleared.control.change_leverage(command.symbol, command.leverage)
+        # A read-only copy refuses by raising (`EPIC-035H`); an answer, like the
+        # exchange's own refusal.
+        except ReadOnlyInstanceError as refusal:
+            return AccountControlResult(
+                AccountControlRefusal.READ_ONLY_INSTANCE, None, str(refusal)
+            )
         except AccountControlRejectedError as refusal:
             logger.info(
                 "[account-control] exchange refused leverage %dx on %s %s: %s",

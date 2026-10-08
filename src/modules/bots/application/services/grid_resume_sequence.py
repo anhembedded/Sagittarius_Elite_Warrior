@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    FreshPriceUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
@@ -57,9 +60,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
     RESUME_PRICE_TOLERANCE,
     moved_beyond,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
-    MarketPriceUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
@@ -135,7 +135,7 @@ class GridResumeSequence:
         proposed = proposal.plan.last_price
         try:
             now = self._context.reference_price.fresh()
-        except MarketPriceUnavailableError:
+        except FreshPriceUnavailableError:
             logger.warning(
                 "Bot %s: the book could not be read to re-price the resume",
                 state.bot_id,

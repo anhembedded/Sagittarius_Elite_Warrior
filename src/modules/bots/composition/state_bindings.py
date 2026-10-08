@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
@@ -36,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
     NotifyingBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+    ReadOnlyBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
@@ -65,11 +71,14 @@ def bind_state(container: IContainer) -> None:
 
 
 def _build_store(container: IContainer) -> IBotStore:
-    """The JSON store, announcing every write (`EPIC-029F`, `BotChangedEvent`)."""
-    return NotifyingBotStore(
+    """The JSON store, announcing every write (`EPIC-029F`, `BotChangedEvent`);
+    read-only when another copy of the app holds the data root (`EPIC-035H`)."""
+    store = NotifyingBotStore(
         JsonBotStore(bots_directory(container.resolve(IConfig))),
         container.resolve(IEventPublisher),
     )
+    instance = container.resolve(IInstanceAccess)
+    return ReadOnlyBotStore(store, instance.reason) if instance.read_only else store
 
 
 def _build_restore_service(container: IContainer) -> BotRestoreService:

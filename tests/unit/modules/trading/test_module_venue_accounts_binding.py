@@ -13,6 +13,12 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account.composed_venue_account_reader import (
     ComposedVenueAccountReader,
 )
@@ -54,6 +60,7 @@ def _accounts() -> IVenueAccounts:
     """The production wiring; every venue is assembled whatever the config says
     (`EPIC-034B`), so there is nothing to enable."""
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     container.singleton(IConfig, DictConfig({}))
     container.singleton(IEventBus, MemoryEventBus())
     container.singleton(ITaskManager, Mock())

@@ -5,11 +5,16 @@ one lock (`BotCommandLock`, ADR D20), and the runner is the one door from the
 use cases to the executors (ADR D9). The price watch (`EPIC-035A`) gives every
 bot that is not at rest its own price stream. Each bot's queue is its own thread
 (`ThreadBotWorkQueue`) and its pacer the monotonic clock at the budget's
-spacing (`MonotonicOrderPacer`).
+spacing (`MonotonicOrderPacer`). A price read from the venue itself, for the
+wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 """
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer import (
     MonotonicOrderPacer,
 )
@@ -21,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_work_queue i
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.timer_bot_retry_scheduler import (
     TimerBotRetryScheduler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
+    VenueFreshPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
     BotCommandLock,
@@ -47,6 +55,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
     GridStartPreconditions,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
+    ReadOnlyBotRunner,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
+    SleepWatch,
+    SleepWatchDeps,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -58,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IB
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    IFreshPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
@@ -91,6 +109,25 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(IBotKindCatalog, _build_kind_catalog)
     container.singleton(IBotTicker, _build_ticker)
     container.singleton(BotPriceWatch, _build_price_watch)
+    container.singleton(
+        IFreshPriceReader,
+        lambda c: VenueFreshPriceReader(c.resolve(IVenueTradingPorts)),
+    )
+
+
+def build_sleep_watch(container: IContainer) -> SleepWatch:
+    """The watch over the machine's sleep (`EPIC-035I`); built at `boot()`,
+    when the notifier and every port it reads are bound."""
+    return SleepWatch(
+        container.resolve(BotExecutors),
+        SleepWatchDeps(
+            monotonic=container.resolve(IMonotonicClock),
+            wall=container.resolve(IBotClock),
+            retries=container.resolve(IBotRetryScheduler),
+            prices=container.resolve(IFreshPriceReader),
+            notifier=container.resolve(INotifier),
+        ),
+    )
 
 
 def _build_executors(container: IContainer) -> BotExecutors:
@@ -128,6 +165,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         pacers=MonotonicOrderPacer,
         monotonic=container.resolve(IMonotonicClock),
         retries=container.resolve(IBotRetryScheduler),
+        prices=container.resolve(IFreshPriceReader),
     )
     return GridExecutorFactory(deps)
 
@@ -144,6 +182,12 @@ def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
 
 
 def _build_runner(container: IContainer) -> IBotRunner:
+    runner = _build_executing_runner(container)
+    instance = container.resolve(IInstanceAccess)
+    return ReadOnlyBotRunner(runner, instance.reason) if instance.read_only else runner
+
+
+def _build_executing_runner(container: IContainer) -> IBotRunner:
     return BotRunner(
         container.resolve(IBotStore),
         container.resolve(IBotClock),

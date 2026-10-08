@@ -15,6 +15,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
+    VenueFreshPriceReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
@@ -167,6 +170,7 @@ def _start_world(
                 lambda _spacing: CountingPacer(),
                 FakeBotRetryScheduler(),
                 FakeMonotonicClock(),
+                VenueFreshPriceReader(ports),
             )
         )
     )

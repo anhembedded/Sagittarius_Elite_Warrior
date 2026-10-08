@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
+    VenueFreshPriceReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
     GridExecutor,
 )
@@ -268,6 +271,7 @@ def grid_world(
         order_entry_terms=entry_terms,
         account_activity=activity,
     )
+    venue_ports = FakeVenueTradingPorts(ports)
     store = FakeBotStore()
     clock = FakeBotClock()
     definition = BotDefinition("grid one", "grid", VENUE, SYMBOL, CONFIG)
@@ -279,7 +283,7 @@ def grid_world(
     monotonic = FakeMonotonicClock()
     factory = GridExecutorFactory(
         GridExecutorDeps(
-            ports=FakeVenueTradingPorts(ports),
+            ports=venue_ports,
             store=store,
             clock=clock,
             caps=DEFAULT_OWNER_BUDGET_CAPS,
@@ -287,6 +291,7 @@ def grid_world(
             pacers=lambda _spacing: pacer,
             retries=retries,
             monotonic=monotonic,
+            prices=VenueFreshPriceReader(venue_ports),
         )
     )
     executor = factory.create(bot)

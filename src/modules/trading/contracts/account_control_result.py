@@ -22,6 +22,9 @@ class AccountControlRefusal(str, Enum):
     #: The exchange answered and refused; `detail` carries its code and
     #: message.
     EXCHANGE_REJECTED = "exchange_rejected"
+    #: Another copy of the app holds the data root; this one changes nothing
+    #: (`EPIC-035H`). `detail` is the instance's own reason.
+    READ_ONLY_INSTANCE = "read_only_instance"
 
 
 @dataclass(frozen=True)

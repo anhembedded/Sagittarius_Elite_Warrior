@@ -46,6 +46,7 @@ Red at `be67b47`'s behaviour, then green (6 of 8 new executor tests failed first
 
 ## Implementation notes
 - **Dust check and stop slicing** are covered by the one change to `_price()`; they take no separate edit.
+- **One read of a symbol's price.** The book read behind a refreshed price is `IFreshPriceReader` (`EPIC-035I`), given to the executors in `GridExecutorDeps.prices`; the task adds no second fresh-price read. An unreadable venue is `FreshPriceUnavailableError`, which a confirmation turns into the same refusal.
 - **Not changed:** the price an order's own limit is built from (the ladder's levels), which the plan fixes; the price the opening *market buy* quotes (`plan.last_price`) is the plan's, which is now at most 10 s old or the book's.
 - **Residual:** the 10 s limit is a constant, not a setting; a thin pair with a quiet stream reads the book once per use after 10 s, which is a handful of reads per hour at most.
 

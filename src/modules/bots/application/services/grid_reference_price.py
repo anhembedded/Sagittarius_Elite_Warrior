@@ -43,7 +43,7 @@ class GridReferencePrice:
     def current(self) -> Decimal:
         """The held price while it is young enough, else the book's.
 
-        @raise MarketPriceUnavailableError The book could not be read."""
+        @raise FreshPriceUnavailableError The venue did not answer."""
         if self._price is None or price_is_too_old(
             self._heard_at, self._clock.seconds(), REFERENCE_PRICE_MAX_AGE_SECONDS
         ):
@@ -53,7 +53,7 @@ class GridReferencePrice:
     def fresh(self) -> Decimal:
         """The book's price now, held from here on.
 
-        @raise MarketPriceUnavailableError The book could not be read."""
+        @raise FreshPriceUnavailableError The venue did not answer."""
         price = self._read_book_price()
         self._remember(price)
         return price
