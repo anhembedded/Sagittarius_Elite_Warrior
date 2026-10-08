@@ -13,6 +13,14 @@ Two guarantees, both PR 325 review findings:
     places its counters. A switch-off is the exception: cancels are refused
     then, and the orders rest by design (D13). What could not be cancelled
     is named beside the reason, never replacing it.
+
+"Parked" is inferred from the fact that orders may rest, never from a state
+change alone (`EPIC-035C`, H4): a confirmed resume begins in HALTED, lays part
+of the ladder and is refused part-way, ending HALTED again, and its placed
+orders must not keep trading. So the guard parks when the bot **fell into**
+HALTED or ERROR during the task, or when the task **sent orders** and ended
+there. A bot already parked whose task sent nothing is left alone, so a parked
+bot does not read the book again on every tick.
 """
 
 from __future__ import annotations
@@ -56,19 +64,21 @@ class GridTaskGuard:
         """Run `task`, named `what` in any fault it becomes."""
         state = self._context.state
         before = state.state
+        sent_before = self._context.gateway.submissions
         try:
             task()
         except Exception as error:
             logger.exception("Bot %s: %s failed", state.bot_id, what)
             fault_with(state, what, error)
-        if self._stopped_placing_since(before):
+        sent = self._context.gateway.submissions > sent_before
+        if self._orders_may_rest(before, sent):
             self._park()
 
-    def _stopped_placing_since(self, before: BotLifecycleState) -> bool:
+    def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state
         return (
             state.state in _PARKED
-            and before not in _PARKED
+            and (before not in _PARKED or sent)
             and state.runtime.reason is not GridReason.SWITCH_OFF
         )
 

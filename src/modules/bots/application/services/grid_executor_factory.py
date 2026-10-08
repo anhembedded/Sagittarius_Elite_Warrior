@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
@@ -73,6 +76,9 @@ class GridExecutorDeps:
     queues: Callable[[str], IBotWorkQueue]
     #: A fresh pacer at one spacing.
     pacers: Callable[[timedelta], IOrderPacer]
+    #: Where a stop that waits on the exchange schedules its retries; shared by
+    #: every bot (`EPIC-035C`).
+    retries: IBotRetryScheduler
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -103,4 +109,4 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             caps=deps.caps,
         )
-        return GridExecutor(context, deps.queues(f"bot-{bot_id}"))
+        return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

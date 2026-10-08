@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     OrderOutcomeKind,
@@ -55,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     base_slices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
     OwnerBudgetRegistrationResult,
 )
 
@@ -64,6 +66,21 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 _WAITING = "waiting:"
 
 
+class StopProgress(str, Enum):
+    """Where a run of the stop ended: what, if anything, it still waits for."""
+
+    #: STOPPED: zero tagged orders were open.
+    STOPPED = "stopped"
+    #: STOPPING, on the exchange: a refused cancel, an order not yet gone, a
+    #: budget or history read that did not answer. A later run can finish it.
+    WAITING_ON_EXCHANGE = "waiting_on_exchange"
+    #: STOPPING, on the order session: trading is off, so the switch-on event
+    #: runs it again — a timer would only be refused.
+    WAITING_FOR_TRADING = "waiting_for_trading"
+    #: The bot left STOPPING (a fault, or a halted exit); a stop is asked anew.
+    ENDED = "ended"
+
+
 class GridStopSequence:
     """Cancels, keeps or sells, and confirms — or says why it waits."""
 
@@ -71,39 +88,54 @@ class GridStopSequence:
         self._context = context
         self._housekeeping = GridHousekeeping(context)
 
-    def run(self, base: BaseHandling, price: Decimal) -> None:
+    def run(self, base: BaseHandling, price: Decimal) -> StopProgress:
         """Run the stop; the bot is STOPPING. `price` references the exits."""
         registration = self._housekeeping.register()
         if not registration.registered:
-            self._wait(f"the budget was refused: {refusal_text(registration)}")
-            return
-        if not self._cancel_tagged():
-            return
+            return self._budget_refused(registration)
+        ended = self._cancel_tagged()
+        if ended is not None:
+            return ended
         if base is BaseHandling.SELL_AT_MARKET:
             # A fill that landed while cancelling changed what the bot holds:
             # derive the inventory again before selling it (ADR D6).
             registration = self._housekeeping.register()
             if not registration.registered:
-                self._wait(f"the budget was refused: {refusal_text(registration)}")
-                return
-            if not self._sell(registration, price):
-                return
-        self._confirm()
+                return self._budget_refused(registration)
+            ended = self._sell(registration, price)
+            if ended is not None:
+                return ended
+        return self._confirm()
 
-    def _cancel_tagged(self) -> bool:
+    def _budget_refused(
+        self, registration: OwnerBudgetRegistrationResult
+    ) -> StopProgress:
+        self._wait(f"the budget was refused: {refusal_text(registration)}")
+        if registration.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF:
+            return StopProgress.WAITING_FOR_TRADING
+        return StopProgress.WAITING_ON_EXCHANGE
+
+    def _cancel_tagged(self) -> StopProgress | None:
+        """`None` when every cancel was done; otherwise how the stop ended."""
         report = self._housekeeping.cancel_tagged()
-        if report.failed is None:
-            return True
+        failed = report.failed
+        if failed is None:
+            return None
         what = f"cancel {report.client_order_id}"
-        if report.failed.kind is OrderOutcomeKind.FAULT:
-            fail_with(self._context.state, report.failed, what)
-        else:
-            self._wait(f"{what} refused: {report.failed.detail}")
-        return False
+        if failed.kind is OrderOutcomeKind.FAULT:
+            fail_with(self._context.state, failed, what)
+            return StopProgress.ENDED
+        self._wait(
+            f"{what} refused: {failed.detail}; {report.remaining} order(s) still open"
+        )
+        if failed.kind is OrderOutcomeKind.SWITCH_OFF:
+            return StopProgress.WAITING_FOR_TRADING
+        return StopProgress.WAITING_ON_EXCHANGE
 
     def _sell(
         self, registration: OwnerBudgetRegistrationResult, price: Decimal
-    ) -> bool:
+    ) -> StopProgress | None:
+        """`None` when the base is sold or kept as dust; otherwise how the stop ended."""
         inventory = (
             registration.inventory.quantity if registration.inventory else Decimal(0)
         )
@@ -115,7 +147,7 @@ class GridStopSequence:
                 self._context.base_asset,
                 self._context.terms.min_notional,
             )
-            return True
+            return None
         slices = base_slices(
             inventory, price, self._context.cap, self._context.terms.market_step
         )
@@ -133,7 +165,7 @@ class GridStopSequence:
             )
             if outcome.kind is OrderOutcomeKind.SWITCH_OFF:
                 self._wait(f"exit slice {index} refused: trading is off")
-                return False
+                return StopProgress.WAITING_FOR_TRADING
             if not outcome.done:
                 # A slice that raised may still have executed: say so rather
                 # than count it unsold; the next stop or resume derives again.
@@ -147,16 +179,16 @@ class GridStopSequence:
                     GridReason.EXIT_SLICE_FAILED,
                     f"{remaining} {unsold} after slice {index}: {outcome.detail}",
                 )
-                return False
+                return StopProgress.ENDED
             remaining -= piece
-        return True
+        return None
 
-    def _confirm(self) -> None:
+    def _confirm(self) -> StopProgress:
         state = self._context.state
         left = self._context.gateway.tagged_open_orders()
         if left:
             self._wait(f"{len(left)} order(s) carrying the tag are still open")
-            return
+            return StopProgress.WAITING_ON_EXCHANGE
         runtime = state.runtime
         if runtime.reason_detail.startswith(_WAITING):
             # The wait is over: STOPPED shows why the bot stopped, not what
@@ -167,6 +199,7 @@ class GridStopSequence:
         owner = bot_owner_id(state.bot_id)
         self._context.session.clear_owner_budget(owner)
         self._context.session.release_symbol(state.bot.definition.symbol, owner)
+        return StopProgress.STOPPED
 
     def _wait(self, detail: str) -> None:
         state = self._context.state

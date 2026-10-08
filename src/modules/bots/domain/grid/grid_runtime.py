@@ -61,6 +61,13 @@ class GridReason(str, Enum):
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"
+    #: A restored bot's read-only boot report (`EPIC-035C`); the full
+    #: reconcile replaces it when the order session opens.
+    RECOVERY_READ = "recovery_read"
+    #: The app closed while the bot was starting; its tagged orders are owed a
+    #: cancel (`EPIC-035C`). Cleared into `START_INTERRUPTED_CLEARED` once paid.
+    START_INTERRUPTED = "start_interrupted"
+    START_INTERRUPTED_CLEARED = "start_interrupted_cleared"
 
 
 @dataclass(frozen=True, slots=True)
