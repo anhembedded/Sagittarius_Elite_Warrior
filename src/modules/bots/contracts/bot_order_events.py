@@ -23,6 +23,10 @@ class BotOrderFill:
     quantity: Decimal
     fee_amount: Decimal | None = None
     fee_asset: str | None = None
+    #: `EPIC-035P` — the exchange's id of this fill, `None` where the venue
+    #: reports none. With the order id it names the fill, so a report delivered
+    #: twice is counted once.
+    trade_id: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
