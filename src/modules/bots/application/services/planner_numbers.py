@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    tag_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate_unavailable_error import (
     CommissionRateUnavailableError,
 )
@@ -73,13 +76,17 @@ def read_planner_numbers(
 
 
 def _open_orders_on(activity: IAccountActivity, symbol: str) -> int | None:
-    """`EPIC-035V` (L7): the orders already open on `symbol`, whoever placed
-    them. A bot that has not started has placed none, so each is foreign to it.
-    `None` when the read failed: advice must not turn a plan unjudgeable, and an
+    """`EPIC-035V` (L7): the orders open on `symbol` that no bot placed (an
+    order carrying a bot's tag is some bot's, this one's own ladder included,
+    and is managed by it). `None` when the read failed: advice must not turn a plan unjudgeable, and an
     unread count is not a zero."""
     try:
         orders = activity.open_orders()
     except Exception as exc:  # noqa: BLE001 - converted at the seam: the count is advice, and any failed read (network, rate limit) leaves it unread
         logger.debug("Open orders on %s not read: %s", symbol, exc)
         return None
-    return sum(1 for order in orders if order.symbol == symbol)
+    return sum(
+        1
+        for order in orders
+        if order.symbol == symbol and tag_of(order.client_order_id) is None
+    )

@@ -99,3 +99,19 @@ def test_a_symbol_with_no_open_order_counts_zero() -> None:
 
 def test_a_read_that_fails_leaves_the_count_unread_and_the_plan_judgeable() -> None:
     assert _foreign(_OfflineActivity()) is None
+
+
+def test_orders_a_bot_placed_are_not_foreign_to_it() -> None:
+    """The Design checks run for a bot with a run too, and its own ladder (and
+    a stopped bot's leftovers) carry a bot tag: only an untagged order, placed
+    by hand or by another app, is foreign (the reviewer's question)."""
+    activity = FakeAccountActivity()
+    activity.holding_open_orders(
+        [
+            _order(SYMBOL, "SEW-a3f9c1-0000000001"),
+            _order(SYMBOL, "SEW-a3f9c1-0000000002"),
+            _order(SYMBOL, "web_manual_order"),
+        ]
+    )
+
+    assert _foreign(activity) == 1

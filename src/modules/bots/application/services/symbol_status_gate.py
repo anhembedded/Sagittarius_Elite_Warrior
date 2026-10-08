@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_catalog_unreachable_error import (
+    SymbolCatalogUnreachableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
@@ -57,6 +60,14 @@ class SymbolStatusGate:
         state = self._context.state
         try:
             self._context.terms_source.refresh()
+        except SymbolCatalogUnreachableError:
+            # A bad moment is no delisting: judge by the terms already held (the
+            # exchange's own refusal of an order is still the guard).
+            logger.warning(
+                "Bot %s: the symbol's status could not be read from the exchange; "
+                "going on with the last terms [symbol-status]",
+                state.bot_id,
+            )
         except SymbolRulesUnavailableError:
             self._delisted(
                 f"the exchange no longer lists {state.bot.definition.symbol}"

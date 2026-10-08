@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_catalog_unreachable_error import (
+    SymbolCatalogUnreachableError,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     SYMBOL,
     GridWorld,
@@ -125,3 +128,28 @@ def test_a_failed_read_halts_nothing_and_is_asked_again_at_the_next_interval() -
     world.terms.answer_with(terms_entry(tick="0.001"))
     _beats(world, TERMS_REFRESH_EVERY_SECONDS)
     assert world.runtime().reason is GridReason.EXCHANGE_TERMS_CHANGED
+
+
+def test_a_catalog_that_could_not_be_read_is_not_a_delisting() -> None:
+    """The catalog fetch raises `SymbolRulesUnavailableError` for a timeout too;
+    a healthy bot must not halt for one bad moment (the reviewer's finding)."""
+    world = _running()
+    world.terms.fail_fresh_reads_with(SymbolCatalogUnreachableError("timed out"))
+
+    _beats(world, TERMS_REFRESH_EVERY_SECONDS)
+
+    assert world.state() is S.RUNNING
+    assert world.book.open, "the ladder is where it was"
+    world.terms.fail_fresh_reads_with(None)
+    world.terms.answer_with(terms_entry(tick="0.001"))
+    _beats(world, TERMS_REFRESH_EVERY_SECONDS)
+    assert world.runtime().reason is GridReason.EXCHANGE_TERMS_CHANGED
+
+
+def test_a_start_whose_terms_read_failed_in_transit_is_not_called_a_delisting() -> None:
+    world = grid_world()
+    world.terms.fail_fresh_reads_with(SymbolCatalogUnreachableError("timed out"))
+
+    world.executor.start()
+
+    assert world.runtime().reason is not GridReason.SYMBOL_DELISTED

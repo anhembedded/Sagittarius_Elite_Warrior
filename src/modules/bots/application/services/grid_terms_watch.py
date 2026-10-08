@@ -12,7 +12,9 @@ fresh as the filters).
   · A changed tick size, step size, market step or minimum notional halts the
     bot with `EXCHANGE_TERMS_CHANGED`, naming each old and new value; the guard
     takes the ladder off, and a resume plans it again on the new numbers.
-  · A symbol the exchange no longer lists halts it with `SYMBOL_DELISTED`.
+  · A symbol the exchange no longer lists halts it with `SYMBOL_DELISTED`; a
+    catalog that could not be reached (`SymbolCatalogUnreachableError`, also a
+    `SymbolRulesUnavailableError`) is not a delisting.
   · A read that fails says nothing about the terms: it is logged and asked again
     at the next interval.
   · A changed fee only replaces the kept terms; it moves no level.
@@ -39,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_catalog_unreachable_error import (
+    SymbolCatalogUnreachableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
@@ -87,6 +92,15 @@ class GridTermsWatch:
         before = self._context.terms
         try:
             self._context.terms_source.refresh()
+        except SymbolCatalogUnreachableError:
+            # The fetch failed in transit: whether the symbol is still listed is
+            # unknown, and a bad moment is no delisting. Asked again next interval.
+            logger.warning(
+                "Bot %s: the terms refresh could not reach the exchange; asking "
+                "again [exchange-terms]",
+                state.bot_id,
+            )
+            return
         except SymbolRulesUnavailableError:
             detail = f"the exchange no longer lists {state.bot.definition.symbol}"
             logger.warning(
