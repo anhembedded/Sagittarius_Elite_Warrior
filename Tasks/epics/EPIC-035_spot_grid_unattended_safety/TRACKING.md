@@ -29,7 +29,7 @@ gantt
     035D to 035J                          :p2, after m1, 15d
 
     section Phase 3 - Alerting
-    035K to 035O                          :p3, after p2, 10d
+    035K to 035O, 035W, 035X (W, X not yet) :p3, after p2, 10d
 
     section Phase 4 - Accuracy
     035P to 035V                          :p4, after p3, 10d
@@ -46,6 +46,8 @@ gantt
 | EPIC-035C | [Unmanaged orders, stuck states](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | branch `epic-035c-no-unmanaged-orders` | 🔴 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035D–J | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035K–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
+| EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035P–V | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 
 ---
@@ -55,6 +57,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-08 | Spec | Epic scaffolded from the audit; owner decisions D1–D4 recorded (D4: option (a)). |
+| 2026-10-08 | 035W, 035X | Added to Phase 3 at the owner's request; the owner asked that they not be started yet (D5). |
 | 2026-10-08 | 035A | Implemented on a branch; PR in review (the `-Full` run and a reviewer pending). |
 
 ---
