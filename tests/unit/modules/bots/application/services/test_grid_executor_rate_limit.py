@@ -238,8 +238,8 @@ def test_a_limit_reached_by_a_second_task_does_not_schedule_a_second_resume() ->
     world = _halted_by_the_limit()
     assert len(world.retries.pending) == 1
 
-    world.executor.on_price_age_check()
-    world.executor.on_switch(True, _SWITCH)
+    world.executor.facts.on_price_age_check()
+    world.executor.facts.on_switch(True, _SWITCH)
 
     assert len(world.retries.pending) == 1
 

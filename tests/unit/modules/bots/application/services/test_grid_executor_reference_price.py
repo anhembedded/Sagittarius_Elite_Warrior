@@ -42,14 +42,14 @@ _HOURS = 3 * 3600
 def _running_with_a_tick() -> GridWorld:
     world = grid_world()
     world.executor.start()
-    world.executor.on_tick(_HEARD)
+    world.executor.facts.on_tick(_HEARD)
     assert world.state() is S.RUNNING
     return world
 
 
 def _halted_with_a_tick() -> GridWorld:
     world = _running_with_a_tick()
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     assert world.state() is S.HALTED
     world.derive("0")
     world.book.requests.clear()
@@ -140,7 +140,7 @@ def test_a_proposal_is_repriced_from_the_book_even_when_a_tick_is_fresh() -> Non
     last tick, is what the ladder would sit against."""
     world = _halted_with_a_tick()
     world.executor.resume()
-    world.executor.on_tick(_HEARD)
+    world.executor.facts.on_tick(_HEARD)
     quote_at(world, Decimal(140))
 
     world.executor.confirm_resume()
