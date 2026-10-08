@@ -62,6 +62,12 @@ def _exception(code: int, message: str) -> BinanceAPIException:
             "The counterparty's best price does not meet the PERCENT_PRICE filter limit.",
             OrderRejectionReason.PRICE_FILTER,
         ),
+        # `EPIC-035E` — the symbol's status and a delisting. The texts are
+        # from Binance's documentation, not re-verified against a live call
+        # (egress to the exchange is blocked in this sandbox).
+        (-1013, "Market is closed.", OrderRejectionReason.SYMBOL_NOT_TRADING),
+        (-1013, "Symbol is not trading.", OrderRejectionReason.SYMBOL_NOT_TRADING),
+        (-1121, "Invalid symbol.", OrderRejectionReason.SYMBOL_NOT_LISTED),
     ],
 )
 def test_real_binance_codes_map_to_the_expected_reason(

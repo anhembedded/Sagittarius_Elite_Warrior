@@ -40,6 +40,9 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     -1111: OrderRejectionReason.LOT_SIZE,  # "Precision is over the maximum defined for this asset."
     -4003: OrderRejectionReason.LOT_SIZE,  # "Quantity less than or equal to zero."
     -2027: OrderRejectionReason.INSUFFICIENT_MARGIN,  # "Exceeded the maximum allowable position at current leverage."
+    # `EPIC-035E` — "Invalid symbol.": the exchange does not know the symbol
+    # any more (a delisting). Unverified against a live answer, see the note above.
+    -1121: OrderRejectionReason.SYMBOL_NOT_LISTED,
     -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
 }
 
@@ -50,6 +53,10 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
 #: dict. Checked in this order because a `MIN_NOTIONAL` message can itself
 #: mention "quantity" incidentally; the more specific substrings go first.
 _DASH_1013_MESSAGE_SUBSTRING_TO_REASON: tuple[tuple[str, OrderRejectionReason], ...] = (
+    # `EPIC-035E` — the symbol's status, not a filter: the order is refused
+    # because the symbol is not in TRADING. First, as its text names no filter.
+    ("market is closed", OrderRejectionReason.SYMBOL_NOT_TRADING),
+    ("not trading", OrderRejectionReason.SYMBOL_NOT_TRADING),
     ("notional", OrderRejectionReason.MIN_NOTIONAL),
     ("price", OrderRejectionReason.PRICE_FILTER),
     ("quantity", OrderRejectionReason.LOT_SIZE),

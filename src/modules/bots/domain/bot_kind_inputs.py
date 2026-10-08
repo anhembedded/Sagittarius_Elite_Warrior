@@ -47,6 +47,12 @@ class PriceBand:
             raise ValueError("a price band's multipliers must be positive, down <= up")
 
 
+#: The one status in which a symbol accepts new orders (Binance Spot's
+#: `TRADING`); every other status, `BREAK`, `HALT` and `CANCEL_ONLY` among them,
+#: still lets an order be cancelled.
+TRADING_STATUS = "TRADING"
+
+
 @dataclass(frozen=True, slots=True)
 class ExchangeTerms:
     """The numbers the exchange and trading will hold an order to."""
@@ -68,6 +74,14 @@ class ExchangeTerms:
     #: The venue's price band (`BUG-147`); `None` when it publishes none, and
     #: the band check says it did not run.
     price_band: PriceBand | None = None
+    #: The venue's status for the symbol, as it says it (`EPIC-035E`): only
+    #: `TRADING_STATUS` accepts new orders.
+    symbol_status: str = TRADING_STATUS
+
+    @property
+    def trades(self) -> bool:
+        """Whether the exchange accepts new orders on the symbol."""
+        return self.symbol_status == TRADING_STATUS
 
     @property
     def market_step(self) -> Decimal:

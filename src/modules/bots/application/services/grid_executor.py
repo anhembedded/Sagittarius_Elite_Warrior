@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
     GridTaskGuard,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
+    SymbolStatusGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
     BotOrderFill,
@@ -132,7 +135,8 @@ class GridExecutor(IBotExecutor):
         self._queue = queue
         self._start = GridStartSequence(context)
         self._stop = GridStopper(context, retries, self._post, self._price)
-        self._resume = GridResumeSequence(context, self._start)
+        self._status = SymbolStatusGate(context)
+        self._resume = GridResumeSequence(context, self._start, self._status)
         self._reconciler = GridReconciler(context)
         self._placer = GridLadderPlacer(context)
         self._recovery = GridRecoveryReader(context)
@@ -228,6 +232,8 @@ class GridExecutor(IBotExecutor):
         if state.state is not _S.STARTING:
             logger.info("Bot %s: start ignored in %s", self.bot_id, state.state.value)
             return
+        if not self._status.admits():
+            return
         price = self._price()
         self._start.run(plan(self._context.params, self._context.terms, price))
 
@@ -241,6 +247,8 @@ class GridExecutor(IBotExecutor):
             return
         if state.state is not _S.PAUSED:
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
+            return
+        if not self._status.admits():
             return
         state.transition(_E.RESUME)
         self._placer.release_held()

@@ -34,6 +34,11 @@ class OrderRejectionReason(Enum):
     PRICE_FILTER = "price_filter"
     REDUCE_ONLY_REJECTED = "reduce_only_rejected"
     RATE_LIMIT = "rate_limit"
+    #: `EPIC-035E` — the symbol's status is not TRADING (a break, a halt,
+    #: cancel-only): the exchange refuses new orders on it.
+    SYMBOL_NOT_TRADING = "symbol_not_trading"
+    #: `EPIC-035E` — the exchange no longer knows the symbol (a delisting).
+    SYMBOL_NOT_LISTED = "symbol_not_listed"
     UNKNOWN = "unknown"
 
 

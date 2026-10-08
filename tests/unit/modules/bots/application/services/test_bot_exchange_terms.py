@@ -3,6 +3,7 @@ Grid's band check sees what trading's rules publish."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -70,3 +71,18 @@ def test_the_venues_band_reaches_the_bots_terms() -> None:
 
 def test_no_band_published_means_none() -> None:
     assert exchange_terms_for(_terms(None), "BTCUSDT", _CAPS).price_band is None
+
+
+def test_the_symbols_status_is_carried_to_the_terms() -> None:
+    """`EPIC-035E` — the status the parser read reaches the bots module."""
+    venue = _terms(None)
+    assert exchange_terms_for(venue, "BTCUSDT", _CAPS).trades
+
+    entry = venue.terms_for("BTCUSDT")
+    venue.answer_with(
+        OrderEntryTerms(replace(entry.rules, status="BREAK"), entry.commission)
+    )
+
+    terms = exchange_terms_for(venue, "BTCUSDT", _CAPS)
+    assert terms.symbol_status == "BREAK"
+    assert not terms.trades

@@ -4,6 +4,10 @@
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
+  · `SYMBOL_NOT_TRADING` / `SYMBOL_NOT_LISTED` → a refusal that names the
+    symbol's status (`EPIC-035E`): `start_refused` while STARTING, `halt`
+    otherwise. A RUNNING ladder pauses instead, in `GridLadderPlacer`, because
+    only there are the orders not yet placed in hand to be held.
 
 `halt_with` is the same for a halt the ladder itself decided (`Halt`).
 `fault_with` is `fault` for a step that raised outside any order: a price,
@@ -28,6 +32,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
 )
 
+#: The reason a refusal that names its cause records, whatever state it met.
+_REFUSAL_REASONS: dict[OrderOutcomeKind, GridReason] = {
+    OrderOutcomeKind.SYMBOL_NOT_TRADING: GridReason.SYMBOL_NOT_TRADING,
+    OrderOutcomeKind.SYMBOL_NOT_LISTED: GridReason.SYMBOL_DELISTED,
+}
+
 
 def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
     """Move the bot for `outcome` (not done); `what` names the order."""
@@ -36,10 +46,16 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
         _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
-    elif state.state is BotLifecycleState.STARTING:
-        _apply(state, BotLifecycleEvent.START_REFUSED, GridReason.START_REFUSED, detail)
     else:
-        _apply(state, BotLifecycleEvent.HALT, GridReason.ORDER_REFUSED, detail)
+        _refuse(state, outcome.kind, detail)
+
+
+def _refuse(state: BotRunState, kind: OrderOutcomeKind, detail: str) -> None:
+    """HALTED for a refusal: STARTING says `start_refused`, any other state `halt`."""
+    starting = state.state is BotLifecycleState.STARTING
+    default = GridReason.START_REFUSED if starting else GridReason.ORDER_REFUSED
+    event = BotLifecycleEvent.START_REFUSED if starting else BotLifecycleEvent.HALT
+    _apply(state, event, _REFUSAL_REASONS.get(kind, default), detail)
 
 
 def fault_with(state: BotRunState, what: str, error: Exception) -> None:

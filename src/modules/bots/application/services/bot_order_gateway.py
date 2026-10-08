@@ -13,6 +13,9 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
     fault: an Emergency Stop racing a submit must lead to HALTED, not ERROR.
   · `REFUSED` — any other gate or limit, or the exchange's minimum notional;
     the bot halts naming it.
+  · `SYMBOL_NOT_TRADING` / `SYMBOL_NOT_LISTED` — the exchange refused the order
+    because of the symbol's status, or no longer knows the symbol (`EPIC-035E`).
+    Not faults: the bot pauses or halts naming it.
   · `FAULT` — the request raised (the venue rejected what it received, or the
     request never arrived). The one place an exception from trading is caught,
     because here it becomes a named fault for the lifecycle (`code/errors.md`:
@@ -54,6 +57,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
@@ -84,6 +91,8 @@ class OrderOutcomeKind(str, Enum):
     DONE = "done"
     SWITCH_OFF = "switch_off"
     REFUSED = "refused"
+    SYMBOL_NOT_TRADING = "symbol_not_trading"
+    SYMBOL_NOT_LISTED = "symbol_not_listed"
     FAULT = "fault"
 
 
@@ -271,7 +280,17 @@ class BotOrderGateway:
                 refused.reason,
             )
             return OrderOutcome(OrderOutcomeKind.FAULT, detail=str(refused))
-        except Exception as exc:  # converted to a named fault at this seam
+        except Exception as exc:  # converted to a named outcome at this seam
+            named = _named_rejection(exc)
+            if named is not None:
+                logger.warning(
+                    "Bot %s: %s %s was refused for the symbol: %s [symbol-status]",
+                    self._identity.tag,
+                    request.order_type.value,
+                    request.side.value,
+                    named.kind.value,
+                )
+                return named
             logger.exception(
                 "Bot %s: %s %s %s raised",
                 self._identity.tag,
@@ -281,6 +300,25 @@ class BotOrderGateway:
             )
             return OrderOutcome(OrderOutcomeKind.FAULT, detail=_fault_text(exc))
         return _classify_submit(result)
+
+
+#: The exchange's refusals that are about the symbol, not about the order.
+_SYMBOL_REFUSALS: dict[OrderRejectionReason, OrderOutcomeKind] = {
+    OrderRejectionReason.SYMBOL_NOT_TRADING: OrderOutcomeKind.SYMBOL_NOT_TRADING,
+    OrderRejectionReason.SYMBOL_NOT_LISTED: OrderOutcomeKind.SYMBOL_NOT_LISTED,
+}
+
+
+def _named_rejection(exc: Exception) -> OrderOutcome | None:
+    """The outcome a refusal about the symbol is, or `None` for any other
+    failure, which stays a fault. The exchange's own text is kept: it is a
+    short sentence, never a URL (`describe_failure`)."""
+    if not isinstance(exc, OrderRejectedByExchangeError):
+        return None
+    kind = _SYMBOL_REFUSALS.get(exc.reason)
+    if kind is None:
+        return None
+    return OrderOutcome(kind, detail=exc.raw_message)
 
 
 def _fault_text(exc: Exception) -> str:

@@ -64,6 +64,11 @@ class GridReason(str, Enum):
     #: The user-data stream (the only source of fills) was down too long
     #: (`EPIC-035B`); the ladder was parked.
     USER_STREAM_DOWN = "user_stream_down"
+    #: The symbol's status is not TRADING (`EPIC-035E`): the exchange refuses
+    #: new orders on it. The bot places nothing until the user resumes it.
+    SYMBOL_NOT_TRADING = "symbol_not_trading"
+    #: The exchange no longer lists the symbol (`EPIC-035E`); the ladder was parked.
+    SYMBOL_DELISTED = "symbol_delisted"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

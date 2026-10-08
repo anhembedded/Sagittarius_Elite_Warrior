@@ -56,6 +56,11 @@ class LazyExchangeTerms:
             self._terms = self._read()
         return self._terms
 
+    def refresh(self) -> None:
+        """Read the terms again, replacing the kept ones (`EPIC-035E`: the
+        symbol's status is read at each Start and Resume, not once per run)."""
+        self._terms = self._read()
+
 
 @dataclass(frozen=True, slots=True)
 class GridRunContext:
