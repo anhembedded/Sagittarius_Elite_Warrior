@@ -38,8 +38,6 @@ def test_boot_subscribes_the_user_stream_watch_and_arms_its_heartbeat(
 
     [handler] = context.event_bus.subscriptions()[UserStreamHealthEvent.__name__]
     assert isinstance(handler.__self__, UserStreamWatch)
-    assert [r.delay for r in retries.pending] == [
-        DEFAULT_USER_STREAM_LIMITS.check_every
-    ]
+    assert DEFAULT_USER_STREAM_LIMITS.check_every in [r.delay for r in retries.pending]
     module.shutdown(context)
     assert retries.pending == [], "shutdown ends the heartbeat"

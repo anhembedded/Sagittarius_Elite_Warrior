@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
+    RecordingNotifier,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -113,6 +117,7 @@ def registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
     event_bus = MemoryEventBus()
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
     container.singleton(ICloseObjections, CloseObjections())
+    container.singleton(INotifier, RecordingNotifier())
     context = SimpleNamespace(
         container=container, event_bus=event_bus, streams=streams, ticker=ticker
     )
