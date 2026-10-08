@@ -130,7 +130,9 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.HALTED, _E.SWITCH_OFF): _S.HALTED,
     (_S.HALTED, _E.FAULT): _S.ERROR,
     (_S.HALTED, _E.APP_RESTART): _S.HALTED,
-    # --- STOPPING --- (waits while the switch is off; never STOPPED early)
+    # --- STOPPING --- (waits while the switch is off; never STOPPED early;
+    # `stop` again is a retry, `EPIC-035C`)
+    (_S.STOPPING, _E.STOP): _S.STOPPING,
     (_S.STOPPING, _E.STOP_CONFIRMED): _S.STOPPED,
     (_S.STOPPING, _E.SWITCH_OFF): _S.STOPPING,
     (_S.STOPPING, _E.FAULT): _S.ERROR,

@@ -33,10 +33,16 @@ its tick handler), and it only copies and queues: the bots' own workers act.
 @par `boot()` also watches the user-data stream (`EPIC-035B`)
 `UserStreamWatch` hears trading's `UserStreamHealthEvent`: a reconnect catches
 every bot on the venue up, a stream down too long halts them. A daemon thread
-calls its `check()` every few seconds; `shutdown()` stops it.
+re-arms its `check()` on the retry scheduler, which `shutdown()` closes.
 
 @par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
 The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
+
+@par `boot()` then reads what a restart left (`EPIC-035C`, H6)
+`BotBootRecovery` has every RECOVERING bot report what the exchange holds
+(read-only) and every bot whose start the restart cut short cancel its tagged
+orders, each on the bot's own worker. The order session is closed at boot, so
+the cancel usually waits for the switch-on, which repeats it until it is paid.
 
 @par `boot()` also registers the close objection (ADR O4)
 `RunningBotsObjection` names every bot not at rest when the user closes the
@@ -57,11 +63,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_periodic_timer import (
-    ThreadPeriodicTimer,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_boot_recovery import (
+    BotBootRecovery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
@@ -88,6 +94,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings impor
     bind_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
     bots_commands,
@@ -130,9 +139,8 @@ class BotsModule(BoundedContextModule):
 
     #: The bots' one bus listener, held for the life of the module.
     _router: BotEventRouter | None = None
-    #: `EPIC-035B` — the user-stream watch and the heartbeat that drives it.
+    #: `EPIC-035B` — the user-stream watch, held for the life of the module.
     _watch: UserStreamWatch | None = None
-    _heartbeat: ThreadPeriodicTimer | None = None
 
     def register(self, context: Any) -> None:
         bind_state(context.container)
@@ -156,16 +164,19 @@ class BotsModule(BoundedContextModule):
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
         watch = UserStreamWatch(
-            container.resolve(BotExecutors), container.resolve(IBotClock)
+            container.resolve(BotExecutors),
+            container.resolve(IBotClock),
+            container.resolve(IBotRetryScheduler),
         )
         bus.on(UserStreamHealthEvent, watch.on_health)
-        heartbeat = ThreadPeriodicTimer(
-            "bots-user-stream-watch", watch.limits.check_every, watch.check
-        )
-        heartbeat.start()
+        watch.begin()
         self._watch = watch
-        self._heartbeat = heartbeat
         logger.info("Bots watch the user-data stream's health")
+        # After the subscription: a fill that arrives while a restored bot
+        # reads the exchange finds its executor already built.
+        BotBootRecovery(
+            container.resolve(IBotStore), container.resolve(BotExecutors)
+        ).run()
         container.resolve(ICloseObjections).register(
             RunningBotsObjection(container.resolve(IBotStore))
         )
@@ -181,7 +192,8 @@ class BotsModule(BoundedContextModule):
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so
         the app exits with no bot thread left and nothing half-written."""
-        if self._heartbeat is not None:
-            self._heartbeat.stop()
+        # The scheduler first: a retry that fired after a worker closed would
+        # be posted to a queue that drops it.
+        context.container.resolve(IBotRetryScheduler).close()
         context.container.resolve(BotExecutors).close_all()
         logger.info("Bot workers closed")

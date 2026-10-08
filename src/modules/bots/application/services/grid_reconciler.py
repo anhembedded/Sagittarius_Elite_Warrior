@@ -39,7 +39,7 @@ bot's inventory is still the exchange's.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -122,6 +122,9 @@ class GridReconciler:
         elif isinstance(outcome, ReconcileMismatch):
             self._mismatch(outcome.reason, outcome.detail)
         else:
+            if outcome.reason is GridReason.RECOVERY_READ:
+                # The boot report was a read; this reconcile is the answer.
+                outcome = replace(outcome, reason=None, reason_detail="")
             state.update(outcome)
             state.transition(BotLifecycleEvent.RECONCILE_OK)
 

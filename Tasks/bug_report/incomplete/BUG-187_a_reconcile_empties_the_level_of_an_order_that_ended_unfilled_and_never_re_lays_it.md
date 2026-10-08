@@ -1,4 +1,4 @@
-# BUG-185 — A reconcile empties the level of an order that ended without filling and never re-lays it
+# BUG-187 — A reconcile empties the level of an order that ended without filling and never re-lays it
 
 - **Reported:** 2026-10-08 (found by the `EPIC-035B` session while writing the gap reconcile; not reported by a user)
 - **Severity:** 🟡 P2 — a hole in a running grid: one level stays empty until the bot is stopped and started again, so the grid earns nothing there. No money is at risk and no order is wrongly placed.

@@ -18,8 +18,10 @@ every bot on the venue, without importing the adapter:
 A stream that returns does not resume a halted bot: `CONNECTED` only asks
 executors to reconcile, and a halted one ignores it (`GridStreamGap`).
 
-Time is the bot clock (`IBotClock`), moved by tests; the heartbeat that calls
-`check()` is `ThreadPeriodicTimer`. Nothing here sleeps.
+Time is the bot clock (`IBotClock`), moved by tests. The heartbeat that calls
+`check()` is a task that re-arms itself on `IBotRetryScheduler` (`EPIC-035C`'s
+seam, verified in both implementations), so a test advances it by hand and the
+scheduler's `close()` at shutdown ends it. Nothing here sleeps.
 
 @par Extension cases (`architecture-rule.md` §7.2.1)
   · alerting an absent owner (`EPIC-035K`) subscribes one more handler to the
@@ -40,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
     BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
     UserStreamHealthEvent,
     UserStreamState,
@@ -78,10 +83,12 @@ class UserStreamWatch:
         self,
         executors: BotExecutors,
         clock: IBotClock,
+        retries: IBotRetryScheduler,
         limits: UserStreamLimits = DEFAULT_USER_STREAM_LIMITS,
     ) -> None:
         self._executors = executors
         self._clock = clock
+        self._retries = retries
         self._limits = limits
         self._lock = threading.Lock()
         #: Venue -> when its current outage began.
@@ -89,9 +96,16 @@ class UserStreamWatch:
         #: Venue -> when its connected stream was last reconciled.
         self._reconciled_at: dict[TradingVenue, datetime] = {}
 
-    @property
-    def limits(self) -> UserStreamLimits:
-        return self._limits
+    def begin(self) -> None:
+        """Start the heartbeat: `check()` every `check_every` until the
+        scheduler is closed."""
+        self._retries.after(self._limits.check_every, self._beat)
+
+    def _beat(self) -> None:
+        try:
+            self.check()
+        finally:
+            self._retries.after(self._limits.check_every, self._beat)
 
     def on_health(self, event: UserStreamHealthEvent) -> None:
         """Runs on the stream's thread: records, posts to the executors, returns."""

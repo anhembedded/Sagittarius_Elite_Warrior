@@ -1,4 +1,4 @@
-# BUG-186 — A partial fill of a still-open order, missed in a stream gap, halts the bot instead of being counted
+# BUG-188 — A partial fill of a still-open order, missed in a stream gap, halts the bot instead of being counted
 
 - **Reported:** 2026-10-08 (found by the `EPIC-035B` session designing the gap reconcile; not reported by a user)
 - **Severity:** 🟡 P2 — safe but noisy: the bot halts with `INVENTORY_MISMATCH` and takes its ladder off, so the owner must resume. No wrong order is placed.

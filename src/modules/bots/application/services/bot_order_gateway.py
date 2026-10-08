@@ -118,6 +118,15 @@ class BotOrderGateway:
         self._ports = ports
         self._identity = identity
         self._pacer = pacer
+        self._submissions = 0
+
+    @property
+    def submissions(self) -> int:
+        """Orders this gateway has sent to trading, whatever came back: a
+        request that raised may still have reached the exchange, so it counts.
+        A task that moved this number may have left orders resting
+        (`GridTaskGuard`)."""
+        return self._submissions
 
     def place_limit(
         self, side: OrderSide, price: Decimal, quantity: Decimal
@@ -238,6 +247,7 @@ class BotOrderGateway:
 
     def _submit(self, request: OrderRequest) -> OrderOutcome:
         self._pacer.wait_turn()
+        self._submissions += 1
         try:
             result = self._ports.order_submission.submit(request, live=True)
         except OrderOutcomeUnknownError as unknown:

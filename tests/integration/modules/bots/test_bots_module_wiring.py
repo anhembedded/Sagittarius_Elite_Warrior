@@ -63,9 +63,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
-    UserStreamWatch,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
     ConfirmBotResumeCommand,
 )
@@ -138,9 +135,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_reject
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
-    UserStreamHealthEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_accounts import (
     IVenueAccounts,
@@ -310,25 +304,6 @@ def test_boot_subscribes_one_router_to_the_five_events_a_bot_hears(
         assert [type(handler.__self__) for handler in handlers] == [BotEventRouter]
 
 
-def test_boot_subscribes_the_user_stream_watch_and_starts_its_heartbeat(
-    tmp_path: Path,
-) -> None:
-    """`EPIC-035B` — the watch is built by `boot()`: delete its `bus.on(...)`
-    and no reconnect catches a bot up; delete the heartbeat and no stream is
-    ever 'down too long'. A watch nobody constructs hears nothing (`CS-002`)."""
-    module, context = _registered(tmp_path)
-    others = _heartbeat_threads()  # other tests boot without shutting down
-    try:
-        module.boot(context)
-
-        [handler] = context.event_bus.subscriptions()[UserStreamHealthEvent.__name__]
-        assert isinstance(handler.__self__, UserStreamWatch)
-        assert len(_heartbeat_threads()) == len(others) + 1
-    finally:
-        module.shutdown(context)
-    assert _heartbeat_threads() == others, "shutdown stops its heartbeat"
-
-
 def test_shutdown_closes_every_bot_worker(tmp_path: Path) -> None:
     """A worker is a thread named after its bot; the module's shutdown closes
     it, so the app exits with no bot thread left running."""
@@ -345,15 +320,53 @@ def test_shutdown_closes_every_bot_worker(tmp_path: Path) -> None:
     assert _bot_threads() == []
 
 
-def _heartbeat_threads() -> list[threading.Thread]:
-    return [
-        t
-        for t in threading.enumerate()
-        if t.name == "bots-user-stream-watch" and t.is_alive()
-    ]
-
-
 def _bot_threads() -> list[str]:
     return [
         t.name for t in threading.enumerate() if t.name == "bot-abc123" and t.is_alive()
     ]
+
+
+def _stored_in(state: BotLifecycleState, tmp_path: Path) -> BotId:
+    sampled = sample_bot().bot
+    bot = replace(
+        sampled,
+        definition=replace(sampled.definition, config=_GRID_CONFIG),
+        lifecycle=BotLifecycle(state, run_started_at=sampled.created_at),
+    )
+    JsonBotStore(tmp_path).save(StoredBot(bot))
+    return bot.bot_id
+
+
+def test_boot_has_a_restored_bot_report_what_the_exchange_holds(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-035C` (H6): delete the `BotBootRecovery` line from `boot()` and
+    this fails. Shutdown runs what each worker has queued, so the report is
+    on the bot's file by the time it returns."""
+    bot_id = _stored_in(BotLifecycleState.RUNNING, tmp_path)
+    module, context = _registered(tmp_path)
+
+    module.boot(context)
+    module.shutdown(context)
+
+    stored = JsonBotStore(tmp_path).load(bot_id)
+    assert stored.bot.state is BotLifecycleState.RECOVERING
+    assert stored.runtime["reason"] == "recovery_read"
+    assert "after the restart" in str(stored.runtime["reason_detail"])
+
+
+def test_boot_has_a_bot_whose_start_was_cut_short_pay_its_cancel(
+    tmp_path: Path,
+) -> None:
+    bot_id = _stored_in(BotLifecycleState.STARTING, tmp_path)
+    module, context = _registered(tmp_path)
+
+    module.boot(context)
+    module.shutdown(context)
+
+    stored = JsonBotStore(tmp_path).load(bot_id)
+    assert stored.bot.state is BotLifecycleState.HALTED
+    assert stored.runtime["reason"] == "start_interrupted_cleared"
+    assert "the app closed while this bot was starting" in str(
+        stored.runtime["reason_detail"]
+    )

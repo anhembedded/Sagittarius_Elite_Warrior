@@ -11,12 +11,16 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
     DEFAULT_USER_STREAM_LIMITS,
     UserStreamWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry_scheduler import (
+    FakeBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -55,7 +59,8 @@ class _Watched:
         self.executors = BotExecutors(self.world.factory)
         bot = self.world.store.load(BotId(BOT)).bot
         self.executors.for_bot(bot)
-        self.watch = UserStreamWatch(self.executors, self.world.clock)
+        self.retries = FakeBotRetryScheduler()
+        self.watch = UserStreamWatch(self.executors, self.world.clock, self.retries)
 
     def tell(
         self,
@@ -257,3 +262,29 @@ def test_no_periodic_reconcile_runs_while_the_stream_is_reconnecting() -> None:
     w.pass_time(_LIMITS.reconcile_every + timedelta(seconds=1))
 
     assert len(w.world.book.requests) == requests
+
+
+def test_the_heartbeat_checks_and_re_arms_itself_until_the_scheduler_closes() -> None:
+    w = _Watched()
+    w.tell(UserStreamState.RECONNECTING)
+    w.world.clock.advance(_LIMITS.down_limit + timedelta(seconds=1))
+
+    w.watch.begin()
+    assert [r.delay for r in w.retries.pending] == [_LIMITS.check_every]
+    w.retries.run_next()  # one beat: the outage is overdue, so the bot halts
+
+    assert w.world.state() is S.HALTED
+    assert [r.delay for r in w.retries.pending] == [_LIMITS.check_every], "re-armed"
+    w.retries.close()
+    assert w.retries.pending == []
+
+
+def test_a_beat_that_raises_still_re_arms() -> None:
+    w = _Watched()
+    w.watch.check = lambda: (_ for _ in ()).throw(RuntimeError("one bad pass"))  # type: ignore[method-assign]
+    w.watch.begin()
+
+    with pytest.raises(RuntimeError):
+        w.retries.run_next()
+
+    assert len(w.retries.pending) == 1

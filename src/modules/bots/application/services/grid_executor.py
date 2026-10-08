@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
@@ -32,12 +31,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
     GridHousekeeping,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
-    fail_with,
-    halt_with,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interrupted_start import (
+    GridInterruptedStart,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
+    GridLadderPlacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
     GridReconciler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_recovery_reader import (
+    GridRecoveryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_resume_sequence import (
     GridResumeSequence,
@@ -48,10 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
-    log_order,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_sequence import (
-    GridStopSequence,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stopper import (
+    GridStopper,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
     GridStreamGap,
@@ -67,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     BaseHandling,
     IBotExecutor,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
@@ -77,24 +83,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     crossed_exit,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
-    LevelState,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import plan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
-    GridAction,
-    Halt,
     LadderRules,
     LevelEnd,
     LevelFill,
-    PlaceOrder,
-    accepted,
     book_market_fill,
     drop_order,
     on_end,
     on_fill,
-    placed,
-    release_held,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -131,15 +128,23 @@ _SWITCH_OFF_DETAIL = {
 class GridExecutor(IBotExecutor):
     """One Grid bot's actor: every call is queued and run in order."""
 
-    def __init__(self, context: GridRunContext, queue: IBotWorkQueue) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        queue: IBotWorkQueue,
+        retries: IBotRetryScheduler,
+    ) -> None:
         self._context = context
         self._queue = queue
         self._start = GridStartSequence(context)
-        self._stop = GridStopSequence(context)
+        self._stop = GridStopper(context, retries, self._post, self._price)
         self._resume = GridResumeSequence(context, self._start)
         self._reconciler = GridReconciler(context)
+        self._placer = GridLadderPlacer(context)
+        self._recovery = GridRecoveryReader(context)
+        self._interrupted_start = GridInterruptedStart(context)
         self._gap = GridStreamGap(
-            context, self._reconciler, self._release_held, self._post
+            context, self._reconciler, self._placer.release_held, self._post
         )
         self._guard = GridTaskGuard(context, GridHousekeeping(context))
         self._last_price: Decimal | None = None
@@ -178,10 +183,15 @@ class GridExecutor(IBotExecutor):
         self._post("resume", self._run_resume)
 
     def stop(self, base: BaseHandling) -> None:
-        self._post("stop", lambda: self._run_stop(base, GridReason.USER_STOP))
+        self._post("stop", lambda: self._stop.run(base, GridReason.USER_STOP))
 
     def confirm_resume(self) -> None:
         self._post("confirm resume", self._run_confirm)
+
+    def recover_after_restart(self) -> None:
+        """Boot: report what the exchange holds for a restored bot, and cancel
+        what a cut-short start left; each step acts only if the bot is owed it."""
+        self._post("restart recovery", self._recover)
 
     def has_resume_proposal(self) -> bool:
         """Read off the worker's thread: one reference, set and cleared by
@@ -236,7 +246,7 @@ class GridExecutor(IBotExecutor):
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return
         state.transition(_E.RESUME)
-        self._release_held()
+        self._placer.release_held()
 
     def _run_confirm(self) -> None:
         proposal, self._proposal = self._proposal, None
@@ -249,24 +259,9 @@ class GridExecutor(IBotExecutor):
             return
         self._resume.confirm(proposal)
 
-    def _release_held(self) -> None:
-        state = self._context.state
-        reaction = release_held(state.runtime)
-        state.update(reaction.runtime)
-        self._act(reaction.actions)
-
-    def _run_stop(
-        self, base: BaseHandling, reason: GridReason, detail: str = ""
-    ) -> None:
-        state = self._context.state
-        sell = base is BaseHandling.SELL_AT_MARKET
-        if state.can(_E.STOP):
-            state.transition(_E.STOP, reason, detail or reason.value)
-        elif state.state is not _S.STOPPING:
-            logger.info("Bot %s: stop ignored in %s", self.bot_id, state.state.value)
-            return
-        state.update(replace(state.runtime, sell_base_on_stop=sell))
-        self._stop.run(base, self._price())
+    def _recover(self) -> None:
+        self._recovery.report()
+        self._interrupted_start.run()
 
     def _apply_fill(self, fill: BotOrderFill) -> None:
         state = self._context.state
@@ -289,7 +284,7 @@ class GridExecutor(IBotExecutor):
             hold=state.state is not _S.RUNNING,
         )
         state.update(reaction.runtime)
-        self._act(reaction.actions)
+        self._placer.act(reaction.actions)
 
     def _apply_end(self, end: BotOrderEnd) -> None:
         state = self._context.state
@@ -305,7 +300,7 @@ class GridExecutor(IBotExecutor):
             hold=state.state is _S.PAUSED,
         )
         state.update(reaction.runtime)
-        self._act(reaction.actions)
+        self._placer.act(reaction.actions)
 
     def _apply_tick(self, price: Decimal) -> None:
         self._last_price = price
@@ -314,7 +309,7 @@ class GridExecutor(IBotExecutor):
         params = self._context.params
         reason = crossed_exit(price, params.stop_loss_price, params.take_profit_price)
         if reason is not None:
-            self._run_stop(BaseHandling.SELL_AT_MARKET, reason, f"price {price}")
+            self._stop.run(BaseHandling.SELL_AT_MARKET, reason, f"price {price}")
 
     def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         state = self._context.state
@@ -333,11 +328,11 @@ class GridExecutor(IBotExecutor):
             # Read through the context again: run() moves the state, and a
             # type checker keeps `state.state` narrowed to RECOVERING.
             if self._context.state.state is _S.RUNNING:
-                self._release_held()
+                self._placer.release_held()
         elif state.state is _S.STOPPING:
-            sell = state.runtime.sell_base_on_stop
-            base = BaseHandling.SELL_AT_MARKET if sell else BaseHandling.KEEP
-            self._stop.run(base, self._price())
+            self._stop.after_switch_on()
+        elif state.state is _S.HALTED:
+            self._interrupted_start.run()
 
     def _reclaim_lease(self) -> None:
         """Leases live in memory: a restored bot takes its symbol back when
@@ -345,34 +340,6 @@ class GridExecutor(IBotExecutor):
         symbol = self.symbol
         if not self._context.session.claim_symbol(symbol, bot_owner_id(self.bot_id)):
             logger.info("Bot %s: %s is held by another owner", self.bot_id, symbol)
-
-    def _act(self, actions: tuple[GridAction, ...]) -> None:
-        for action in actions:
-            if isinstance(action, Halt):
-                halt_with(self._context.state, action.reason, action.detail)
-                return
-            if not self._place(action):
-                return
-
-    def _place(self, action: PlaceOrder) -> bool:
-        state = self._context.state
-        if state.runtime.levels[action.level_index].state is not LevelState.EMPTY:
-            halt_with(
-                state,
-                GridReason.DUPLICATE_LEVEL_ORDER,
-                f"L{action.level_index} already holds an order; nothing was sent",
-            )
-            return False
-        outcome = self._context.gateway.place_limit(
-            action.side, action.price, action.quantity
-        )
-        log_order(state.bot_id, action, outcome.client_order_id or outcome.detail)
-        if not outcome.done:
-            fail_with(state, outcome, f"L{action.level_index} {action.side.value}")
-            return False
-        oid = outcome.client_order_id
-        state.update(accepted(placed(state.runtime, action, oid), oid))
-        return True
 
     def _transition_if_declared(self, event: BotLifecycleEvent) -> None:
         state = self._context.state
