@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-035](README.md)
 **Date:** 2026-10-08
-**Status:** Accepted (D1–D5)
-**Decided by:** the owner, 2026-10-08, relayed by the coordinator session; D4 was decided later the same day
+**Status:** Accepted (D1–D6)
+**Decided by:** the owner, 2026-10-08, relayed by the coordinator session; D4 and D6 were decided later the same day
 
 | Label | Meaning |
 | :--- | :--- |
@@ -26,10 +26,12 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 | D3 | The alert channel for an absent user is Discord, through a webhook | Accepted | 🟢 user decision, 2026-10-08 | `EPIC-035K` builds a Discord adapter behind an `INotifier`-style port so another channel is one new adapter. The webhook URL is a secret: keyring only, never a log line, a config file or a traceback |
 | D4 | Start with the price outside the range (H7): option **(a)** — the price **below the lower bound is REFUSED** (Start would market-buy the whole capital), the price **above the upper bound is a WARNING only** and Start is allowed. Option (b), WARNING only, was not chosen | Accepted (2026-10-08) | 🟢 user decision, 2026-10-08 (relayed by the coordinator session) | Two new verdicts in `grid_checks.py` (a refusal and a warning), worded for the user; the range-exit alert while running is unaffected. Specified in `EPIC-035L` |
 | D5 | Two tasks are added to Phase 3 beside 035K: `EPIC-035W` (the bot's health is visible on screen) and `EPIC-035X` (every bot decision is in an audit trail). The owner requested them on 2026-10-08 and asked that they **not be started yet** | Accepted (2026-10-08) | 🟢 user decision, 2026-10-08 (relayed by the coordinator session) | Two documentation-only task files, no code. 035K's Discord heartbeat reuses 035W's health snapshot and quotes 035X's journal, so both are ordered before or with 035K when started. 035W supersedes the status-bar line of 035N. The storage of the journal (JSON lines or SQLite) is decided inside 035X |
+| D6 | **Overrides what `EPIC-035G` shipped in PR #436** ("a running bot goes on trading on memory when its state file cannot be written"). After **3 consecutive failed saves** a running bot goes to **PAUSED** with the reason `STORAGE_FAILURE`. Its resting orders stay on the exchange and nothing new is placed (counter orders are held, as a pause already does). The user's Resume ends it once a save succeeds; while the store still fails, Resume is refused and the bot stays PAUSED. A successful save resets the count | Accepted (2026-10-08) | 🟢 user decision, 2026-10-08 (relayed by the coordinator session) | A deliberate behaviour change, not a weakened test: `test_a_running_bot_on_a_failing_disk_goes_on_and_the_next_write_catches_up` is replaced by `test_grid_storage_pause.py`. `GridReason.STORAGE_FAILURE`, `BotRunState.failed_saves` and `GridStorageWatch` (a collaborator of `GridTaskGuard`, so `GridExecutor` gains no public member). The count is read when a worker task ends |
 
 ## 3. Alternatives considered
 - **D2, a default stop-loss about 5 % below the lower bound** (the audit's alternative). Lost: the owner keeps the choice with the user; a default would change the money-at-risk of every new bot.
 - **D3, OS notifications and a tray icon first, then Telegram or email** (the audit's recommendation). Lost to the owner's choice of Discord, which reaches a phone with no extra app code. An OS or tray adapter stays one more adapter on the same port.
+- **D6, keep trading on memory** (035G's first answer, a price knowingly paid). Lost to the owner's choice: a bot that cannot save cannot be reconciled from its own file and the screen cannot say so, so it must stop placing. Pausing, not halting, because a halt takes the ladder off the exchange and the disk is the thing that failed; a pause costs nothing the user cannot undo with one Resume.
 - **D4 (b), WARNING only.** Lost: it lets the user lay a full-capital opening buy below the range after a one-line warning. Option (a), chosen, costs a refusal the user cannot override while the price is below the range; the range can be edited, so the refusal is never a dead end.
 
 ## 4. Open questions
@@ -45,3 +47,4 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 | D3 | [035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Not started | Not yet verified |
 | D4 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
 | D5 | [035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md), [035X](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | Recorded, deliberately not started (owner) | Not yet verified |
+| D6 | [035G](completed/EPIC-035G_a_failed_store_write_still_parks.md) (amended) | Delivered (PR pending) | `tests/unit/modules/bots/application/services/test_grid_storage_pause.py` (red before, green after) |

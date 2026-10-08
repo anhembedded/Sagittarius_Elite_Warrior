@@ -21,6 +21,9 @@ failed write as `storage_failure` instead of raising it, so the fault handler
 and the park both run. The failure is named beside the reason, never in its
 place, and the next write that succeeds persists it with the true state.
 
+**A store that keeps failing pauses a running bot** (`EPIC-035G`, D6): after each
+task `GridStorageWatch` pauses a RUNNING bot whose last three writes failed.
+
 "Parked" is inferred from the fact that orders may rest, never from a state
 change alone (`EPIC-035C`, H4): a confirmed resume begins in HALTED, lays part
 of the ladder and is refused part-way, ending HALTED again, and its placed
@@ -43,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_storage_watch import (
+    GridStorageWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -79,9 +85,15 @@ _STORAGE_NOTE = "its state could not be saved"
 class GridTaskGuard:
     """Runs one worker task, then parks the ladder if the task stopped placing."""
 
-    def __init__(self, context: GridRunContext, housekeeping: GridHousekeeping) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        housekeeping: GridHousekeeping,
+        storage: GridStorageWatch,
+    ) -> None:
         self._context = context
         self._housekeeping = housekeeping
+        self._storage = storage
 
     def run(self, what: str, task: Callable[[], None]) -> None:
         """Run `task`, named `what` in any fault it becomes."""
@@ -98,6 +110,7 @@ class GridTaskGuard:
             self._park()
         if self._unsaved_and_parked():
             self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
+        self._storage.pause_if_failing()
 
     def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state

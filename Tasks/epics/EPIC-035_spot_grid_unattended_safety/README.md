@@ -4,7 +4,7 @@
 - **Repositories:** Elite. No Engine change is expected; a need for one gets its own confirmation (`ONBOARDING.md` §2).
 - **Origin:** the owner's request for an audit of the Spot Grid bot's exception handling, and its answers of 2026-10-08. The audit (static code review at `master-warrior` `3bbe243`, 2026-10-08, published at https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz) found 6 high, 12 medium and 11 low findings; per-order safety is sound, supervision of a running bot as a whole is not.
 - **North star:** [`Docs/SPEC/SPEC-014_run_a_grid_bot.md`](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md); each child updates the SPEC journeys it changes.
-- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D5 accepted.
+- **Decisions:** [`DECISION_2026-10-08_spot_grid_audit_owner_decisions.md`](DECISION_2026-10-08_spot_grid_audit_owner_decisions.md) — D1–D6 accepted.
 - **Tracking:** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:** Builds on [`EPIC-029`](../EPIC-029_bots_tab_grid_fast_track/README.md) (the Grid bot, its executor, reconciler and stop sequence) and [`EPIC-034`](../EPIC-034_bots_connect_design_run/README.md) (the Connect, Design, Run flow, and mainnet venues). Exchange-side stop-loss stays in [`EPIC-026K`](../EPIC-026_road_to_real_money/README.md): this epic is the app-side supervision that exists until, and beside, it.
 

@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stopper import (
     GridStopper,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_storage_watch import (
+    GridStorageWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
     GridStreamGap,
 )
@@ -122,7 +125,8 @@ class GridExecutor(IBotExecutor):
         self._gap = GridStreamGap(
             context, self._reconciler, self._placer.release_held, self._post
         )
-        self._guard = GridTaskGuard(context, GridHousekeeping(context))
+        self._storage = GridStorageWatch(context)
+        self._guard = GridTaskGuard(context, GridHousekeeping(context), self._storage)
         self._prices = GridPriceReaction(context, self._stop)
         self._proposal: ResumeProposal | None = None
         self._facts = GridFacts(
@@ -223,7 +227,7 @@ class GridExecutor(IBotExecutor):
         if state.state is not _S.PAUSED:
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return
-        if not self._status.admits():
+        if not self._storage.admits_resume() or not self._status.admits():
             return
         state.transition(_E.RESUME)
         self._placer.release_held()

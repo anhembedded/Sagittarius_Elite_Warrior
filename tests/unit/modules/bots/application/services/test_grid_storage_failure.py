@@ -4,6 +4,10 @@ In-memory state used to change before it was saved; when the save failed, the
 fault handler saved again, failed again, and the error left `GridTaskGuard`
 before it parked. The bot was ERROR in memory, the file said RUNNING, and the
 ladder kept trading. Parking is a safety effect: it does not depend on the disk.
+
+What a bot that is *not* parked does on a failing disk is `test_grid_storage_pause.py`
+(owner decision D6: three failed saves pause it); the first answer here, that it goes
+on trading on memory, was replaced there.
 """
 
 from __future__ import annotations
@@ -80,32 +84,6 @@ def test_the_next_successful_write_persists_the_true_state() -> None:
 
     assert world.state() is S.ERROR
     assert world.runtime().open_orders == ()
-
-
-def test_a_running_bot_on_a_failing_disk_goes_on_and_the_next_write_catches_up() -> (
-    None
-):
-    """Lock — a price knowingly paid (`EPIC-035G`): a bot that is not parked keeps
-    trading on what it holds when the file cannot be written, and tells no one
-    on screen (the screen reads the file, which is the thing that failed). The
-    ERROR line `[bot-store-failed]` is its only trace until a write succeeds,
-    when the file is made whole. A restart in between reconciles by tag and
-    history, so the ladder is re-derived, not lost."""
-    world = grid_world()
-    world.executor.start()
-    world.store.fail_saves(_DISK_FULL)
-
-    world.fill(Decimal(110), "2.272")
-
-    assert Decimal(120) in world.open_ids_by_price(), "the counter order was placed"
-    assert world.state() is S.RUNNING, "the file still says what it said before"
-    world.store.heal()
-    world.fill(Decimal(100), "2.5")
-
-    assert world.state() is S.RUNNING
-    assert Decimal(120) in {o.price for o in world.runtime().open_orders}, (
-        "the write that succeeded carried the counter order the failed ones held"
-    )
 
 
 def test_a_read_only_copys_refused_write_is_not_mistaken_for_a_full_disk() -> None:

@@ -9,9 +9,10 @@ by its tag at reconciliation).
 **A store that cannot write is a fact, not an exception** (`EPIC-035G`). The
 memory changes first, so a save that raised left memory ahead of the file and
 unwound whatever was acting, `GridTaskGuard`'s park included. `_save` now keeps
-the failure (`storage_failure`) and returns: the bot goes on acting on what it
-holds, and the next write that succeeds carries the whole true state, because
-every write is the whole record.
+the failure (`storage_failure`) and returns, and the next write that succeeds
+carries the whole true state, because every write is the whole record. It also
+counts the failures in a row (`failed_saves`): `GridStorageWatch` pauses the bot
+at three (owner decision D6), so it does not trade on memory indefinitely.
 
 Each transition logs one line, `Bot <id>: <from> -> <to> on <event>`, with the
 reason the runtime records when there is one (`logging-rule.md`).
@@ -56,6 +57,7 @@ class BotRunState:
         self._store = store
         self._clock = clock
         self._storage_failure: str | None = None
+        self._failed_saves = 0
 
     @property
     def bot(self) -> Bot:
@@ -78,6 +80,11 @@ class BotRunState:
         """Why the last write failed, or `None` when it succeeded: memory is
         ahead of the file exactly while this is set."""
         return self._storage_failure
+
+    @property
+    def failed_saves(self) -> int:
+        """How many writes in a row failed; a write that succeeds resets it."""
+        return self._failed_saves
 
     def now(self) -> datetime:
         return self._clock.now()
@@ -115,10 +122,16 @@ class BotRunState:
             f" ({reason.value}: {detail})" if reason is not None else "",
         )
 
+    def save_works(self) -> bool:
+        """Write the record once more and say whether the store took it."""
+        self._save()
+        return self._storage_failure is None
+
     def _save(self) -> None:
         try:
             self._store.save(StoredBot(self._bot, encode_runtime(self._runtime)))
         except OSError as error:
+            self._failed_saves += 1
             self._storage_failure = f"{type(error).__name__}: {error.strerror or error}"
             logger.error(
                 "Bot %s: its state could not be saved, memory is ahead of the file "
@@ -127,6 +140,7 @@ class BotRunState:
                 self._storage_failure,
             )
             return
+        self._failed_saves = 0
         if self._storage_failure is not None:
             logger.warning(
                 "Bot %s: its state is saved again [bot-store-recovered]", self.bot_id
