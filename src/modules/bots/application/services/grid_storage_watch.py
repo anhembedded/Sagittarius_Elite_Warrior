@@ -21,6 +21,9 @@ from __future__ import annotations
 import logging
 from dataclasses import replace
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_state import (
+    FAILED_SAVES_BEFORE_PAUSE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -33,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
-
-#: Consecutive failed writes that pause a running bot (owner decision D6).
-FAILED_SAVES_BEFORE_PAUSE = 3
 
 
 class GridStorageWatch:
@@ -53,9 +53,9 @@ class GridStorageWatch:
         ):
             return
         detail = (
-            f"{state.failed_saves} saves in a row failed ({state.storage_failure}); "
-            "its orders rest on the exchange and nothing new is placed. "
-            "Resume once the disk accepts a write"
+            f"paused because its state cannot be saved ({state.failed_saves} saves "
+            f"in a row failed: {state.storage_failure}); its orders rest on the "
+            "exchange and nothing new is placed. Check the disk, then press Resume"
         )
         logger.error("Bot %s: %s [bot-store-failed-paused]", state.bot_id, detail)
         state.transition(BotLifecycleEvent.PAUSE, GridReason.STORAGE_FAILURE, detail)

@@ -45,6 +45,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: Consecutive failed writes that pause a running bot (owner decision D6);
+#: `GridStorageWatch` pauses at it, and every failure below it is logged as
+#: "n/limit" with a retry to follow.
+FAILED_SAVES_BEFORE_PAUSE = 3
+
 
 class BotRunState:
     """The bot and its ladder, saved after every change."""
@@ -133,16 +138,34 @@ class BotRunState:
         except OSError as error:
             self._failed_saves += 1
             self._storage_failure = f"{type(error).__name__}: {error.strerror or error}"
-            logger.error(
-                "Bot %s: its state could not be saved, memory is ahead of the file "
-                "until a write succeeds (%s) [bot-store-failed]",
+            self._log_failed_save()
+            return
+        if self._failed_saves:
+            logger.info(
+                "Bot %s: state save recovered after %d failure(s) [bot-store-recovered]",
                 self.bot_id,
+                self._failed_saves,
+            )
+        self._failed_saves = 0
+        self._storage_failure = None
+
+    def _log_failed_save(self) -> None:
+        """Every failed save is a log line the bot's log tab shows (`App.Bots`)."""
+        if self._failed_saves < FAILED_SAVES_BEFORE_PAUSE:
+            logger.warning(
+                "Bot %s: state save failed (%d/%d): %s; retrying with the next write "
+                "[bot-store-failed]",
+                self.bot_id,
+                self._failed_saves,
+                FAILED_SAVES_BEFORE_PAUSE,
                 self._storage_failure,
             )
             return
-        self._failed_saves = 0
-        if self._storage_failure is not None:
-            logger.warning(
-                "Bot %s: its state is saved again [bot-store-recovered]", self.bot_id
-            )
-            self._storage_failure = None
+        logger.error(
+            "Bot %s: state save failed (%d in a row, the limit of %d is reached): %s; "
+            "memory is ahead of the file until a write succeeds [bot-store-failed]",
+            self.bot_id,
+            self._failed_saves,
+            FAILED_SAVES_BEFORE_PAUSE,
+            self._storage_failure,
+        )

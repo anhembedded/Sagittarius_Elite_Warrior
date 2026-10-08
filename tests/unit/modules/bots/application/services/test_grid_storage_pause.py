@@ -16,8 +16,10 @@ saves in a row, up to the end of a task, failed.
 from __future__ import annotations
 
 import errno
+import logging
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -129,3 +131,66 @@ def test_resume_while_the_store_still_fails_is_refused_cleanly() -> None:
     world.executor.resume()
     assert world.state() is S.RUNNING, "the refusal left the pause resumable"
     assert Decimal(100) in world.open_ids_by_price()
+
+
+def _lines(caplog: pytest.LogCaptureFixture, level: int) -> list[str]:
+    """The messages of one level, each from an `App.Bots.*` logger: the tree the
+    bot's log tab and the Output pane show (`BotLogFeed`)."""
+    records = [r for r in caplog.records if r.levelno == level]
+    assert all(r.name.startswith("App.Bots") for r in records)
+    return [r.getMessage() for r in records]
+
+
+def test_each_failed_save_is_a_line_the_user_can_read(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Nothing fails silently: 1/3 and 2/3 warn that a retry follows, the third
+    is an ERROR, the pause is an ERROR that says what to do, and the save that
+    succeeds says how many failures it recovered from."""
+    world = _running_world()
+    world.store.fail_saves(_DISK_FULL, times=4)
+    caplog.set_level(logging.INFO, logger="App.Bots")
+
+    world.fill(Decimal(110), "2.272")
+    warnings = _lines(caplog, logging.WARNING)
+    assert len(warnings) == 2
+    assert (
+        "state save failed (1/3): OSError: No space left on device; retrying"
+        in (warnings[0])
+    )
+    assert "state save failed (2/3)" in warnings[1]
+    assert all(line.startswith("Bot a3f9c1: ") for line in warnings)
+
+    world.fill(Decimal(100), "2.5")
+    errors = _lines(caplog, logging.ERROR)
+    assert "state save failed (3 in a row, the limit of 3 is reached)" in errors[0]
+    assert "paused because its state cannot be saved" in errors[-1]
+    assert "Check the disk, then press Resume" in errors[-1]
+    assert any(
+        "state save recovered after 4 failure(s)" in line
+        for line in _lines(caplog, logging.INFO)
+    )
+
+
+def test_the_pause_notice_is_the_bots_reason_on_screen() -> None:
+    world = _running_world()
+    world.store.fail_saves(_DISK_FULL, times=4)
+
+    world.fill(Decimal(110), "2.272")
+    world.fill(Decimal(100), "2.5")
+
+    detail = world.runtime().reason_detail
+    assert "paused because its state cannot be saved" in detail
+    assert "Check the disk, then press Resume" in detail
+
+
+def test_a_refused_resume_is_a_line_too(caplog: pytest.LogCaptureFixture) -> None:
+    world = _paused_on_a_disk_that_keeps_failing()
+    caplog.set_level(logging.INFO, logger="App.Bots")
+
+    world.executor.resume()
+
+    assert any(
+        "resume refused, its state still cannot be saved" in line
+        for line in _lines(caplog, logging.WARNING)
+    )
