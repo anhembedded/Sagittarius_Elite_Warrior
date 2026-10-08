@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     PRICE_STREAM_STATES,
+    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
     IMarketDataSources,
@@ -124,7 +125,7 @@ class BotPriceWatch:
     def start(self) -> None:
         """Watch every stored bot that is not at rest, then tick."""
         for stored in self._store.load_all().bots:
-            self._follow(stored.bot)
+            self._reconcile(stored.bot.bot_id.value)
         self._ticker.every(CHECK_EVERY_SECONDS, self._check)
         logger.info("Bot price watch started: %d bot(s)", len(self._watched))
 
@@ -132,13 +133,8 @@ class BotPriceWatch:
         """A bot was saved or deleted: look at it again."""
         if event.removed:
             self._release(event.bot_id)
-            return
-        try:
-            bot = self._store.load(BotId(event.bot_id)).bot
-        except (BotNotFoundError, UnreadableBotError):
-            self._release(event.bot_id)
-            return
-        self._follow(bot)
+        else:
+            self._reconcile(event.bot_id)
 
     def close(self) -> None:
         """Release every stream and stop ticking. Safe to call twice."""
@@ -151,26 +147,41 @@ class BotPriceWatch:
 
     # --- which bots are watched ---
 
-    def _follow(self, bot: Bot) -> None:
-        bot_id = bot.bot_id.value
-        if bot.state not in PRICE_STREAM_STATES:
-            self._release(bot_id)
-            return
+    def _reconcile(self, bot_id: str) -> None:
+        """Make the bot's stream match its stored state.
+
+        The read of the store and the change of the stream are one step under the
+        lock: handlers run on whichever thread saved the bot, and a snapshot read
+        before another thread's release must not reopen a stream after it, nor a
+        release run after another thread's open (the owner id is the bot's, so a
+        late stop would close the new stream)."""
         with self._lock:
-            if self._closed:
+            try:
+                bot = self._store.load(BotId(bot_id)).bot
+            except (BotNotFoundError, UnreadableBotError):
+                self._release(bot_id)
                 return
-            held = self._watched.get(bot_id)
-            if held is None or not held.open:
-                market = bot.definition.venue.market_type
-                if market is None:
-                    logger.warning(
-                        "Bot %s: its venue %s trades no market; no price stream",
-                        bot_id,
-                        bot.definition.venue.value,
-                    )
-                    return
-                self._watched[bot_id] = self._open(bot, market)
+            if bot.state not in PRICE_STREAM_STATES:
+                self._release(bot_id)
+                return
+            self._hold(bot)
         self._ensure_executor(bot)
+
+    def _hold(self, bot: Bot) -> None:
+        """Open the bot's stream unless it is open. The caller holds the lock."""
+        bot_id = bot.bot_id.value
+        held = self._watched.get(bot_id)
+        if self._closed or (held is not None and held.open):
+            return
+        market = bot.definition.venue.market_type
+        if market is None:
+            logger.warning(
+                "Bot %s: its venue %s trades no market; no price stream",
+                bot_id,
+                bot.definition.venue.value,
+            )
+            return
+        self._watched[bot_id] = self._open(bot, market)
 
     def _open(self, bot: Bot, market: MarketType) -> _Watched:
         definition = bot.definition
@@ -197,18 +208,26 @@ class BotPriceWatch:
         return _Watched(venue, definition.symbol, stream, outcome.success)
 
     def _release(self, bot_id: str) -> None:
+        """Stop the bot's stream, under the lock: see `_reconcile`."""
         with self._lock:
             held = self._watched.pop(bot_id, None)
-        if held is None:
-            return
-        held.stream.stop(bot_price_owner(BotId(bot_id)))
+            if held is None:
+                return
+            held.stream.stop(bot_price_owner(BotId(bot_id)))
         logger.info("Bot %s: released its %s price stream", bot_id, held.symbol)
 
     def _ensure_executor(self, bot: Bot) -> None:
         """A bot with no executor hears no tick. The factory needs the venue's
         trading ports, which exist once trading on that venue is enabled; until
-        then there is nothing to build and the next check tries again."""
+        then there is nothing to build and the next check tries again.
+
+        Never for a STARTING bot: a bot is STARTING with no executor only while
+        `BotRunner.start` is between saving it and building its executor
+        (`fresh`), and a second executor built here would be a second writer for
+        the bot. A restored STARTING bot is HALTED by the restart rule."""
         bot_id = bot.bot_id.value
+        if bot.state is BotLifecycleState.STARTING:
+            return
         if self._executors.get(bot_id) is not None:
             return
         try:
@@ -238,12 +257,7 @@ class BotPriceWatch:
             self._check_one(bot_id)
 
     def _check_one(self, bot_id: str) -> None:
-        try:
-            bot = self._store.load(BotId(bot_id)).bot
-        except (BotNotFoundError, UnreadableBotError):
-            self._release(bot_id)
-            return
-        self._follow(bot)
+        self._reconcile(bot_id)
         executor = self._executors.get(bot_id)
         if executor is not None:
             executor.on_price_age_check()
