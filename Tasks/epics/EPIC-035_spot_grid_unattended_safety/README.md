@@ -46,14 +46,14 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035I](completed/EPIC-035I_os_sleep_is_detected_and_reconciled.md) | OS sleep is detected and reconciled (M8) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035J](completed/EPIC-035J_the_reference_price_has_an_age.md) | The reference price has an age (M1) | Elite | 035A | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035K](cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) | ~~Alerts reach a user who is away: a Discord notifier port and adapter (M7)~~ | Elite | — | 🟡 | ❌ Cancelled (2026-10-08), superseded by [EPIC-036](../EPIC-036_alerting_module/README.md): BOT-018's seam is extended into an alerting module instead of a parallel port in `bots` |
-| [EPIC-035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 036B (for the range-exit alert) | 🟡 | Planned |
+| [EPIC-035L](completed/EPIC-035L_range_exit_and_start_outside_the_range.md) | Range exit, and Start with the price outside the range (H7) | Elite | 036B (for the range-exit alert) | 🟡 | ✅ Done (2026-10-08), alert waits for 036B |
 | [EPIC-035M](incomplete/EPIC-035M_pnl_is_complete.md) | PnL is complete: total, BNB fees, HODL benchmark (L2) | Elite | None | 🟢 | Planned |
 | [EPIC-035N](incomplete/EPIC-035N_invalid_parameters_are_explained_where_they_are.md) | Invalid parameters are explained where they are (L10) | Elite | None | 🟢 | Planned |
 | [EPIC-035O](completed/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035P](completed/EPIC-035P_a_duplicate_partial_fill_counts_once.md) | A duplicate partial fill counts once (L1) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035Q](completed/EPIC-035Q_reconcile_reads_the_executed_quantity.md) | The reconciler reads the executed quantity of an adopted order (M10) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035R](incomplete/EPIC-035R_resume_sizes_from_what_is_left.md) | Resume sizes from what is left (M9) | Elite | None | 🟡 | Planned |
-| [EPIC-035S](incomplete/EPIC-035S_levels_that_round_together_are_refused.md) | Levels that round to one price are refused (L3) | Elite | None | 🟢 | Planned |
+| [EPIC-035S](completed/EPIC-035S_levels_that_round_together_are_refused.md) | Levels that round to one price are refused (L3) | Elite | None | 🟢 | ✅ Done (2026-10-08) |
 | [EPIC-035T](incomplete/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | Planned |
 | [EPIC-035U](incomplete/EPIC-035U_exchange_filters_are_refreshed.md) | Exchange filters are refreshed during a run (L5) | Elite | 035E | 🟡 | Planned |
 | [EPIC-035V](incomplete/EPIC-035V_the_remaining_low_findings.md) | The remaining low findings (L4, L6, L7, L8, L9) | Elite | None | 🟢 | Planned |
