@@ -19,6 +19,10 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
   · `SYMBOL_NOT_TRADING` / `SYMBOL_NOT_LISTED` — the exchange refused the order
     because of the symbol's status, or no longer knows the symbol (`EPIC-035E`).
     Not faults: the bot pauses or halts naming it.
+  · `ORDER_INVALID` — the order's own numbers were refused, by trading before it
+    sent (the percent-price band, the minimum notional) or by the exchange
+    (`LOT_SIZE`, `PRICE_FILTER`, `MIN_NOTIONAL`, `-2010`) (`EPIC-035T`). A fault
+    of one order, not of the bot: a RUNNING ladder leaves that rung EMPTY.
   · `RATE_LIMITED` — the exchange (or the venue's gate, closed by another call)
     asked for a pause (`EPIC-035D`). Nothing was sent or placed, so it is no fault:
     the bot halts for the stated pause, or its stop waits it out.

@@ -108,3 +108,13 @@ def test_dash_1013_with_unrecognized_text_falls_through_to_unknown() -> None:
         translate_binance_error(_exception(-1013, "Something unexpected happened."))
         is OrderRejectionReason.UNKNOWN
     )
+
+
+def test_minus_2010_has_a_named_reason() -> None:
+    """`EPIC-035T` — Spot's "new order rejected": the exchange read the order and
+    refused it for its own content, which a bot survives rung by rung."""
+    reason = translate_binance_error(
+        _exception(-2010, "Account has insufficient balance for requested action.")
+    )
+
+    assert reason is OrderRejectionReason.NEW_ORDER_REJECTED

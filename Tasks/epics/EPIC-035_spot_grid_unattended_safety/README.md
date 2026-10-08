@@ -52,9 +52,9 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035O](completed/EPIC-035O_no_signed_url_in_a_cancel_path_traceback.md) | No signed URL in a cancel-path traceback (M12 / `BUG-180`) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035P](completed/EPIC-035P_a_duplicate_partial_fill_counts_once.md) | A duplicate partial fill counts once (L1) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035Q](completed/EPIC-035Q_reconcile_reads_the_executed_quantity.md) | The reconciler reads the executed quantity of an adopted order (M10) | Elite | 035B | 🟡 | ✅ Done (2026-10-08) |
-| [EPIC-035R](incomplete/EPIC-035R_resume_sizes_from_what_is_left.md) | Resume sizes from what is left (M9) | Elite | None | 🟡 | Planned |
+| [EPIC-035R](completed/EPIC-035R_resume_sizes_from_what_is_left.md) | Resume sizes from what is left (M9) | Elite | None | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035S](completed/EPIC-035S_levels_that_round_together_are_refused.md) | Levels that round to one price are refused (L3) | Elite | None | 🟢 | ✅ Done (2026-10-08) |
-| [EPIC-035T](incomplete/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | Planned |
+| [EPIC-035T](completed/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | ✅ Done (2026-10-08) |
 | [EPIC-035U](incomplete/EPIC-035U_exchange_filters_are_refreshed.md) | Exchange filters are refreshed during a run (L5) | Elite | 035E | 🟡 | Planned |
 | [EPIC-035V](incomplete/EPIC-035V_the_remaining_low_findings.md) | The remaining low findings (L4, L6, L7, L8, L9) | Elite | None | 🟢 | Planned |
 | [EPIC-035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | The bot's health is visible on screen: a per-bot strip and a truthful status bar | Elite | 035A, 035B | 🟡 | Planned (owner: not yet) |
