@@ -77,5 +77,6 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 - A 24-hour Testnet soak of stream latency and the ORDERS rate limit: `EPIC-029H`, waiting on the owner's run.
 
 ## Notes (newest first)
+- **2026-10-08** — `035O`, `035P` and `035Q` were delivered in one pull request (#447), an exception to "each child is one PR" (§3) made at the coordinator's request so that three small, independent mechanisms share one review and one gate run. They stay three atomic commits (`fix:` for `BUG-180`, one `feat:` each for `035P` and `035Q`), each verified on its own tests.
 - **2026-10-08** — The owner requested two more Phase 3 tasks, `035W` (health visible on screen) and `035X` (decision audit trail), and asked that they **not be started yet**; recorded as D5 in the decision file. The epic now has 24 sub-tasks.
 - **2026-10-08** — Epic, decision record and 22 sub-tasks written from the audit and the owner's decisions. Phase 1 claims re-verified against the code at `3bbe243`; see each task's Context for the two refinements.

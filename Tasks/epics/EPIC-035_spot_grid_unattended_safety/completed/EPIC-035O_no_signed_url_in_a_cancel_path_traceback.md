@@ -45,6 +45,8 @@ Unit tier, `tests/unit/modules/trading/adapters/binance/test_no_signed_url_in_a_
 ## Implementation notes
 - **Not covered, deliberately:** the market-data session factory builds its own unsigned `Client` for public endpoints (no `signature` in its URLs), and the user-data streams use python-binance's `AsyncClient` over aiohttp, whose failures are already worded through `redact_secrets` (`EPIC-035B`). Neither is a trading `Client`.
 - What a log keeps: the exception's type, the host, the path, and the unsecret query values (`symbol`, `timestamp`). The secret values read `<redacted>`.
+- `RequestException.request` (and `.response`) keep their objects, with the URL and a signed form body redacted and the `X-MBX-APIKEY` header replaced (review of PR 447, finding 2): `test_the_request_a_failure_carries_holds_no_signature_or_key`.
+- **urllib3's own DEBUG log** writes request paths with their query on the `urllib3` logger. The engine configures only the `App` logger (`StdLogger`, `propagate = False`), so `--dev` and `--debug` do not write urllib3's lines to the run log; established by reading `std_logger.py`, not by a run. A root logger set to DEBUG by hand would.
 - The construction-time ping runs inside `Client.__init__`, before the adapter is mounted; it is unsigned and carries no query.
 
 ## Resume

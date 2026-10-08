@@ -234,7 +234,9 @@ available while it runs.
 - Seeing a fill the instant it happens while the stream is down: after a gap the bot catches up to
   the fills it missed (a partial fill of a still-open order included, `BUG-188`), lays again once
   an order cancelled while the stream was down (`BUG-187`), and halts when what remains cannot be
-  explained. A fill the stream delivers twice, or that the catch-up already applied from history, is counted once, by the exchange's trade id (`EPIC-035P`); an order the bot sent but never saved is adopted with what it had already executed (`EPIC-035Q`).
+  explained. A fill the stream delivers twice, or that the catch-up already applied from history,
+  is counted once, by the exchange's trade id (`EPIC-035P`); an order the bot sent but never saved
+  is adopted with what it had already executed (`EPIC-035Q`).
 - Telling the user on screen that the bot's file cannot be written: the screen used to read the file, which is what failed; it now reads the bot's newest state even when its write failed (`NotifyingBotStore`). A running bot no longer trades on in the meantime: three failed saves in a row pause it (owner decision D6, `EPIC-035G`).
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first. An exchange-side stop is `EPIC-026K`.
