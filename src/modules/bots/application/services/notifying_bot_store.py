@@ -17,6 +17,7 @@ all there is, and reconciliation by tag and history re-derives the rest.
 
 from __future__ import annotations
 
+import logging
 import threading
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
@@ -32,8 +33,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 
+logger = logging.getLogger("App.Bots.Store")
+
 
 class NotifyingBotStore(IBotStore):
+    """One lock serialises every write with the overlay it leaves, and every read
+    with them, so a reader never sees an older record over a newer file. The overlay
+    only ever *replaces a record the file already holds*: a bot whose first save
+    failed was never stored, so `load`, `load_all` and `exists` all say so."""
+
     def __init__(self, inner: IBotStore, publisher: IEventPublisher) -> None:
         self._inner = inner
         self._publisher = publisher
@@ -43,24 +51,27 @@ class NotifyingBotStore(IBotStore):
     def save(self, stored: StoredBot) -> None:
         bot_id = stored.bot.bot_id.value
         try:
-            self._inner.save(stored)
-        except OSError:
             with self._lock:
-                self._unsaved[bot_id] = stored
-            self._publisher.publish(BotChangedEvent(bot_id=bot_id))
+                try:
+                    self._inner.save(stored)
+                except OSError:
+                    if self._inner.exists(stored.bot.bot_id):
+                        self._unsaved[bot_id] = stored
+                    raise
+                self._unsaved.pop(bot_id, None)
+        except OSError:
+            self._announce(bot_id)
             raise
-        with self._lock:
-            self._unsaved.pop(bot_id, None)
-        self._publisher.publish(BotChangedEvent(bot_id=bot_id))
+        self._announce(bot_id)
 
     def load(self, bot_id: BotId) -> StoredBot:
         with self._lock:
             unsaved = self._unsaved.get(bot_id.value)
-        return unsaved if unsaved is not None else self._inner.load(bot_id)
+            return unsaved if unsaved is not None else self._inner.load(bot_id)
 
     def load_all(self) -> BotStoreReading:
-        reading = self._inner.load_all()
         with self._lock:
+            reading = self._inner.load_all()
             unsaved = dict(self._unsaved)
         if not unsaved:
             return reading
@@ -72,10 +83,19 @@ class NotifyingBotStore(IBotStore):
         )
 
     def delete(self, bot_id: BotId) -> None:
-        self._inner.delete(bot_id)
         with self._lock:
+            self._inner.delete(bot_id)
             self._unsaved.pop(bot_id.value, None)
-        self._publisher.publish(BotChangedEvent(bot_id=bot_id.value, removed=True))
+        self._announce(bot_id.value, removed=True)
 
     def exists(self, bot_id: BotId) -> bool:
-        return self._inner.exists(bot_id)
+        with self._lock:
+            return self._inner.exists(bot_id)
+
+    def _announce(self, bot_id: str, removed: bool = False) -> None:
+        """Tell the screens. A publisher that raises must not replace the writer's
+        own error (`BotRunState` counts the `OSError`), so it is logged instead."""
+        try:
+            self._publisher.publish(BotChangedEvent(bot_id=bot_id, removed=removed))
+        except Exception:
+            logger.exception("Bot %s: announcing the change failed", bot_id)

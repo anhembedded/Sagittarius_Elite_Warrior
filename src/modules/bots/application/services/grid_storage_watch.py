@@ -8,7 +8,8 @@ is: the resting orders stay on the exchange, the counter orders a fill owes are
 held, and nothing new is placed.
 
 Only the user's Resume ends it, and only once the store takes a write: `admits_resume`
-writes the record once and, when that fails, leaves the bot PAUSED (the failed write
+(for this pause, and for any pause while writes are failing) writes the record once and,
+when that fails, leaves the bot PAUSED (the failed write
 is already logged `[bot-store-failed]`). A resume that went on regardless would
 release the held orders into a bot whose file cannot say it is running.
 
@@ -61,18 +62,27 @@ class GridStorageWatch:
         state.transition(BotLifecycleEvent.PAUSE, GridReason.STORAGE_FAILURE, detail)
 
     def admits_resume(self) -> bool:
-        """Whether a PAUSED bot may resume now: unless it is paused for its
-        storage, always; if so, only when the store takes a write."""
+        """Whether a PAUSED bot may resume now. A bot paused for its storage, or one
+        whose writes are failing right now (a user's pause on a failing disk), is
+        let through only if the store takes a write."""
         state = self._context.state
-        if state.runtime.reason is not GridReason.STORAGE_FAILURE:
+        if (
+            state.runtime.reason is not GridReason.STORAGE_FAILURE
+            and state.failed_saves == 0
+        ):
             return True
-        if not state.save_works():
-            logger.warning(
-                "Bot %s: resume refused, its state still cannot be saved (%s) "
-                "[bot-store-failed]",
-                state.bot_id,
-                state.storage_failure,
-            )
-            return False
-        state.update(replace(state.runtime, reason=None, reason_detail=""))
-        return True
+        if state.save_works():
+            return True
+        logger.warning(
+            "Bot %s: resume refused, its state still cannot be saved (%s) "
+            "[bot-store-failed]",
+            state.bot_id,
+            state.storage_failure,
+        )
+        return False
+
+    def resumed(self) -> None:
+        """The resume went through: the storage reason has served its purpose."""
+        state = self._context.state
+        if state.runtime.reason is GridReason.STORAGE_FAILURE:
+            state.update(replace(state.runtime, reason=None, reason_detail=""))

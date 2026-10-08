@@ -238,6 +238,7 @@ class GridExecutor(IBotExecutor):
         if not self._storage.admits_resume() or not self._status.admits():
             return
         state.transition(_E.RESUME)
+        self._storage.resumed()
         self._placer.release_held()
 
     def _run_confirm(self) -> None:

@@ -194,3 +194,19 @@ def test_a_refused_resume_is_a_line_too(caplog: pytest.LogCaptureFixture) -> Non
         "resume refused, its state still cannot be saved" in line
         for line in _lines(caplog, logging.WARNING)
     )
+
+
+def test_a_bot_the_user_paused_on_a_failing_disk_is_not_resumed_into_it() -> None:
+    world = _running_world()
+    world.executor.pause()
+    world.store.fail_saves(_DISK_FULL)
+    world.fill(Decimal(110), "2.272")
+    assert world.runtime().reason is None, "the user's pause names no storage reason"
+
+    world.executor.resume()
+
+    assert Decimal(120) not in world.open_ids_by_price(), "nothing was released"
+    world.store.heal()
+    world.executor.resume()
+    assert world.state() is S.RUNNING
+    assert Decimal(120) in world.open_ids_by_price()
