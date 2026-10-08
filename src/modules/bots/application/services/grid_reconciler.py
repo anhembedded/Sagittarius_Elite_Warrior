@@ -61,9 +61,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     Halt,
+    LadderRules,
+    LevelEnd,
     LevelFill,
     adopted,
-    drop_order,
+    on_end,
     on_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -168,33 +170,75 @@ class GridReconciler:
     def _apply_missed_fills(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]
     ) -> GridRuntime | ReconcileMismatch:
-        gateway = self._context.gateway
-        open_ids = {order.client_order_id for order in open_orders}
         since = self._context.state.bot.lifecycle.run_started_at
+        if since is None:
+            return runtime
+        open_ids = {order.client_order_id for order in open_orders}
+        saved_ids = frozenset(order.client_order_id for order in runtime.open_orders)
+        records = self._context.gateway.order_records(saved_ids, since)
         for saved in runtime.open_orders:
-            if saved.client_order_id in open_ids or since is None:
-                continue
-            record = gateway.order_record(saved.client_order_id, since)
-            missed = (
-                (record.executed_quantity - saved.executed) if record else Decimal(0)
-            )
-            if missed > 0 and record is not None:
-                fill = self._missed_fill(saved, record, missed, since)
-                reaction = on_fill(
-                    runtime, fill, self._context.terms.step_size, hold=True
-                )
-                halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
-                if halt is not None:
-                    return ReconcileMismatch(halt.reason, halt.detail)
-                runtime = reaction.runtime
-            runtime = drop_order(runtime, saved.client_order_id)
-            logger.info(
-                "Bot %s: reconcile %s missing from the exchange, %s executed since",
-                self._context.state.bot_id,
-                saved.client_order_id,
-                missed,
-            )
+            record = records.get(saved.client_order_id)
+            applied = self._catch_up(runtime, saved, record, since)
+            if isinstance(applied, ReconcileMismatch):
+                return applied
+            runtime = applied
+            if saved.client_order_id not in open_ids:
+                ended = self._end_missing(runtime, saved)
+                if isinstance(ended, ReconcileMismatch):
+                    return ended
+                runtime = ended
         return runtime
+
+    def _catch_up(
+        self,
+        runtime: GridRuntime,
+        saved: LevelOrder,
+        record: OrderRecord | None,
+        since: datetime,
+    ) -> GridRuntime | ReconcileMismatch:
+        """What the order executed beyond what the bot counted, applied as a
+        fill, whether the order is gone from the exchange or still resting
+        (`BUG-188`: a partial fill of an open order missed in a gap)."""
+        missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
+        if missed <= 0 or record is None:
+            return runtime
+        fill = self._missed_fill(saved, record, missed, since)
+        reaction = on_fill(runtime, fill, self._context.terms.step_size, hold=True)
+        halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
+        if halt is not None:
+            return ReconcileMismatch(halt.reason, halt.detail)
+        logger.info(
+            "Bot %s: reconcile %s executed %s since",
+            self._context.state.bot_id,
+            saved.client_order_id,
+            missed,
+        )
+        return reaction.runtime
+
+    def _end_missing(
+        self, runtime: GridRuntime, saved: LevelOrder
+    ) -> GridRuntime | ReconcileMismatch:
+        """An order missing from the exchange that is not whole ended without
+        filling: the level is laid again once, as the stream's end event does
+        (`BUG-187`); a fully filled one was settled by `_catch_up`."""
+        if runtime.level_of(saved.client_order_id) is None:
+            return runtime
+        terms = self._context.terms
+        reaction = on_end(
+            runtime,
+            LevelEnd(saved.client_order_id, self._context.state.now()),
+            LadderRules(terms.step_size, terms.min_notional),
+            hold=True,
+        )
+        halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
+        if halt is not None:
+            return ReconcileMismatch(halt.reason, halt.detail)
+        logger.info(
+            "Bot %s: reconcile %s missing from the exchange, ended without filling",
+            self._context.state.bot_id,
+            saved.client_order_id,
+        )
+        return reaction.runtime
 
     def _missed_fill(
         self, saved: LevelOrder, record: OrderRecord, missed: Decimal, since: datetime
