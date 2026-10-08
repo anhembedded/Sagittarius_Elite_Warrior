@@ -12,6 +12,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
     exchange_terms_for,
     fresh_exchange_terms_for,
@@ -97,6 +100,8 @@ class GridExecutorDeps:
     #: Where a price too old to use is read from (`EPIC-035J`): the one read of a
     #: symbol's price from its venue (`EPIC-035I`), not a second one.
     prices: IFreshPriceReader
+    #: Where a bot announces its price leaving its range (`EPIC-035L`).
+    events: IEventPublisher
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -134,5 +139,6 @@ class GridExecutorFactory(IBotExecutorFactory):
                 deps.monotonic, lambda: deps.prices.read(bot.definition.venue, symbol)
             ),
             monotonic=deps.monotonic,
+            events=deps.events,
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)

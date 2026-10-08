@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 import pytest
+import requests
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance import (
     binance_client_builder,
 )
@@ -16,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_clie
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.redacting_http_adapter import (
+    RedactingHttpAdapter,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
@@ -46,6 +50,7 @@ class _Client:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
         self.timestamp_offset = 0
+        self.session = requests.Session()
         _Client.built.append(kwargs)
 
     def get_server_time(self) -> dict[str, Any]:
@@ -126,6 +131,22 @@ def test_an_unsigned_session_has_no_key_no_ping_and_no_clock_measurement(
     assert kwargs["ping"] is False
     assert _Client.time_calls == []
     assert client.timestamp_offset == 0  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("venue", _TRADING)
+@pytest.mark.parametrize("keys", [_KEYS, None], ids=["signed", "unsigned"])
+def test_every_session_sends_through_the_redacting_adapter(
+    venue: TradingVenue, keys: ExchangeCredentials | None
+) -> None:
+    """`BUG-180`: a transport failure of any session, signed or not, carries
+    no query string (`test_no_signed_url_in_a_transport_failure.py`)."""
+    client = new_client(venue, keys)
+
+    session = client.session  # type: ignore[attr-defined]
+    assert isinstance(
+        session.get_adapter("https://api.binance.com"), RedactingHttpAdapter
+    )
+    assert isinstance(session.get_adapter("http://localhost"), RedactingHttpAdapter)
 
 
 def test_a_disabled_venue_has_no_session_to_open() -> None:

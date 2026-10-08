@@ -88,6 +88,10 @@ class GridReason(str, Enum):
     #: (`EPIC-035G`, D6): the bot is PAUSED, its orders rest, nothing new is
     #: placed, and Resume works once a write succeeds.
     STORAGE_FAILURE = "storage_failure"
+    #: A counter order was refused for its own numbers (`EPIC-035T`): its rung
+    #: stays EMPTY and the rest of the ladder goes on. The same rung refused
+    #: again within a minute halts as `LEVEL_KEEPS_ENDING`.
+    COUNTER_ORDER_REJECTED = "counter_order_rejected"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

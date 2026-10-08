@@ -14,11 +14,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation impo
     evaluate_grid,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
+    buys_within_capital,
     crossed_exit,
     ladder_orders,
     resized_for_inventory,
     runtime_from_plan,
     sells_net_of_opening_fee,
+    unplaced_inventory,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelState,
@@ -26,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
     LevelSide,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
+    LadderRules,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -161,3 +166,59 @@ def test_the_sell_side_is_sized_to_what_the_opening_receives_net_of_its_fee() ->
         )
     assert netted.buy_levels == plan.buy_levels
     assert netted.opening_buy_quantity == plan.opening_buy_quantity
+
+
+def test_the_buy_side_shares_only_the_capital_the_inventory_leaves() -> None:
+    plan = _report_plan()
+    buys = plan.buy_levels
+    left = plan.capital_per_level * len(buys) / 2
+
+    shrunk = buys_within_capital(
+        plan, left, LadderRules(TERMS.step_size, TERMS.min_notional)
+    )
+
+    assert sum((lv.price * lv.quantity for lv in shrunk.buy_levels), Decimal(0)) <= left
+    assert len(shrunk.buy_levels) == len(buys)
+    assert shrunk.sell_levels == plan.sell_levels
+
+
+def test_a_buy_side_with_more_left_than_planned_keeps_its_planned_size() -> None:
+    plan = _report_plan()
+
+    kept = buys_within_capital(
+        plan,
+        plan.capital_per_level * 100,
+        LadderRules(TERMS.step_size, TERMS.min_notional),
+    )
+
+    assert kept.buy_levels == plan.buy_levels
+
+
+def test_a_buy_level_whose_share_is_under_the_minimum_stays_empty() -> None:
+    plan = _report_plan()
+
+    shrunk = buys_within_capital(
+        plan, TERMS.min_notional, LadderRules(TERMS.step_size, TERMS.min_notional)
+    )
+
+    assert shrunk.buy_levels == ()
+    assert len(shrunk.levels) == len(plan.levels)
+
+
+def test_nothing_left_leaves_no_buy_level() -> None:
+    plan = _report_plan()
+
+    shrunk = buys_within_capital(
+        plan, Decimal(-5), LadderRules(TERMS.step_size, TERMS.min_notional)
+    )
+
+    assert shrunk.buy_levels == ()
+
+
+def test_the_inventory_the_sell_levels_do_not_reach_is_counted() -> None:
+    plan = _report_plan()
+    sold = sum((lv.quantity for lv in plan.sell_levels), Decimal(0))
+
+    assert unplaced_inventory(plan, sold + Decimal("0.5")) == Decimal("0.5")
+    assert unplaced_inventory(plan, sold) == 0
+    assert unplaced_inventory(plan, sold / 2) == 0

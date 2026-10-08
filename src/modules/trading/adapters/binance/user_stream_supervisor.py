@@ -30,12 +30,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.transport_failure_redaction import (
+    redact_secrets,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
 )
@@ -79,22 +81,6 @@ class ReconnectPolicy:
 
 
 DEFAULT_RECONNECT_POLICY = ReconnectPolicy()
-
-#: Query values and headers that sign or identify a request. An exception text
-#: from the transport can carry the whole request URL.
-_SECRET_PATTERNS = (
-    re.compile(r"(signature=)[^&\s\"']+", re.IGNORECASE),
-    re.compile(r"(listenKey=)[^&\s\"']+", re.IGNORECASE),
-    re.compile(r"(api[_-]?key=)[^&\s\"']+", re.IGNORECASE),
-    re.compile(r"(X-MBX-APIKEY['\"]?\s*[:=]\s*['\"]?)[^\s,'\"}]+", re.IGNORECASE),
-)
-
-
-def redact_secrets(text: str) -> str:
-    """`text` with every signature, listen key and API key value replaced."""
-    for pattern in _SECRET_PATTERNS:
-        text = pattern.sub(r"\1<redacted>", text)
-    return text
 
 
 def _utc_now() -> datetime:

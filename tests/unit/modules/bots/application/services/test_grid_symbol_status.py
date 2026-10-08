@@ -161,8 +161,11 @@ def test_a_refusal_for_the_status_while_starting_halts_by_name() -> None:
 
 
 def test_any_other_refusal_that_raised_is_still_a_fault() -> None:
+    """A refusal no one has named is a fault. A filter's refusal of the order's own
+    numbers used to be one here; `EPIC-035T` names it, and its tests are in
+    `test_grid_counter_order_rejection.py`."""
     world = _running()
-    world.book.raise_next = [_refused_for(OrderRejectionReason.PRICE_FILTER)]
+    world.book.raise_next = [_refused_for(OrderRejectionReason.UNKNOWN)]
 
     world.fill(Decimal(110), "2.272")
 

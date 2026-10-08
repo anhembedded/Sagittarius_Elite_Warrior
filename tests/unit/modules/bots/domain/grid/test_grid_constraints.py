@@ -101,6 +101,18 @@ _PROVOKING: dict[str, dict[str, object]] = {
         "upper": "90000",
         "terms": replace(TERMS, max_notional_per_order=Decimal(10**6)),
     },
+    "PRICE_BELOW_RANGE": {"last_price": Decimal(59000)},
+    "PRICE_ABOVE_RANGE": {"last_price": Decimal(71000)},
+    "LEVELS_ROUND_TO_ONE_PRICE": {
+        "terms": replace(TERMS, tick_size=Decimal("0.05")),
+        "last_price": Decimal("100.02"),
+        "lower": "100",
+        "upper": "100.05",
+        "grid_count": "5",
+        "capital_quote": "1000",
+        "stop_loss": "off",
+        "take_profit": "off",
+    },
 }
 
 
@@ -151,6 +163,8 @@ def test_the_rules_of_the_exchange_and_money_block() -> None:
         "KEY_CANNOT_TRADE",
         "STOP_LOSS_INSIDE_RANGE",
         "TAKE_PROFIT_INSIDE_RANGE",
+        "PRICE_BELOW_RANGE",
+        "LEVELS_ROUND_TO_ONE_PRICE",
     }
 
 
@@ -164,6 +178,7 @@ def test_advice_never_blocks() -> None:
         "TAKE_PROFIT_DISTANCE",
         "ARITHMETIC_ON_WIDE_RANGE",
         "FOREIGN_OPEN_ORDERS",
+        "PRICE_ABOVE_RANGE",
     }
 
 

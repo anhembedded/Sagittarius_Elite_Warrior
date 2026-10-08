@@ -9,9 +9,15 @@ A RUNNING ladder whose order the exchange refuses for the symbol's status
 (`EPIC-035E`) pauses instead of halting: the order it could not place and every
 order still owed after it are **held** (as a pause holds them), so the resume
 places them and no counter order is lost. Its ladder keeps resting.
+
+A RUNNING ladder whose order the exchange refuses for its own numbers
+(`OrderOutcomeKind.ORDER_INVALID`, `EPIC-035T`) leaves that rung EMPTY, names it
+and goes on; a rung refused twice within a minute halts (`rejected_counter`).
 """
 
 from __future__ import annotations
+
+import logging
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     OrderOutcome,
@@ -34,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_rejection import (
+    rejected_counter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     GridAction,
     Halt,
@@ -46,6 +55,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+
+logger = logging.getLogger("App.Bots.GridExecutor")
 
 
 class GridLadderPlacer:
@@ -89,11 +100,34 @@ class GridLadderPlacer:
         ):
             self._pause_for_status(outcome, what, (action, *later))
             return False
+        if (
+            outcome.kind is OrderOutcomeKind.ORDER_INVALID
+            and state.state is BotLifecycleState.RUNNING
+        ):
+            return self._leave_rung_empty(action, f"{what}: {outcome.detail}")
         if not outcome.done:
             fail_with(state, outcome, what)
             return False
         oid = outcome.client_order_id
         state.update(accepted(placed(state.runtime, action, oid), oid))
+        return True
+
+    def _leave_rung_empty(self, action: PlaceOrder, detail: str) -> bool:
+        """Keep the ladder running without `action`'s rung; `False` when the rung
+        was refused twice within a minute and the bot halted instead."""
+        state = self._context.state
+        reaction = rejected_counter(state.runtime, action, state.now(), detail)
+        state.update(reaction.runtime)
+        logger.warning(
+            "Bot %s: %s was refused for its own numbers; L%d stays empty [counter-rejected]",
+            state.bot_id,
+            detail,
+            action.level_index,
+        )
+        for halt in reaction.actions:
+            if isinstance(halt, Halt):
+                halt_with(state, halt.reason, halt.detail)
+                return False
         return True
 
     def _pause_for_status(

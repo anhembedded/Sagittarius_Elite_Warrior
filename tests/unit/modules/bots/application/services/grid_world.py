@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
 )
@@ -109,6 +112,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.simu
     SimulatedBook,
     SimulatedSubmission,
 )
+from sagittarius_engine.domain.i_domain_event import IDomainEvent
 
 BOT = "a3f9c1"
 VENUE = TradingVenue.SPOT_TESTNET
@@ -147,6 +151,16 @@ class CountingPacer(IOrderPacer):
         self.turns += 1
 
 
+class RecordingPublisher(IEventPublisher):
+    """The bus, as far as a bot is concerned: it keeps what it was handed."""
+
+    def __init__(self) -> None:
+        self.events: list[IDomainEvent] = []
+
+    def publish(self, event: IDomainEvent) -> None:
+        self.events.append(event)
+
+
 @dataclass
 class GridWorld:
     """The executor and everything a test asserts against."""
@@ -165,6 +179,8 @@ class GridWorld:
     monotonic: FakeMonotonicClock
     #: What the venue says of the symbol: a test changes its status here.
     terms: FakeOrderEntryTerms
+    #: Every event the bot published (`EPIC-035L`).
+    events: RecordingPublisher
     owner: str = f"bot.{BOT}"
     placed_ids: list[str] = field(default_factory=list)
 
@@ -293,6 +309,7 @@ def grid_world(
     pacer = CountingPacer()
     retries = FakeBotRetryScheduler()
     monotonic = FakeMonotonicClock()
+    events = RecordingPublisher()
     factory = GridExecutorFactory(
         GridExecutorDeps(
             ports=venue_ports,
@@ -304,6 +321,7 @@ def grid_world(
             retries=retries,
             monotonic=monotonic,
             prices=VenueFreshPriceReader(venue_ports),
+            events=events,
         )
     )
     executor = factory.create(bot)
@@ -320,6 +338,7 @@ def grid_world(
         retries,
         monotonic,
         terms,
+        events,
     )
 
 

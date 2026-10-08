@@ -81,7 +81,7 @@ class VenueEventEmitter:
         """`fill` is `(price, quantity)` of this one fill; `fee` is
         `(amount, asset)` where the venue reports one (Spot), else `None`;
         `trade_id` is the exchange's id of this fill where the venue reports
-        one (Spot), which the owner books use to count a fill once."""
+        one (Spot), which the owner books and the bots use to count a fill once (`EPIC-035P`)."""
         fill_price, fill_quantity = fill
         self._owner_books.apply_fill(order, fill, fee, trade_id)
         self._event_bus.emit(
@@ -91,6 +91,7 @@ class VenueEventEmitter:
                 fill_quantity=fill_quantity,
                 fee_amount=fee[0] if fee is not None else None,
                 fee_asset=fee[1] if fee is not None else None,
+                trade_id=trade_id,
                 venue=self._venue,
             )
         )

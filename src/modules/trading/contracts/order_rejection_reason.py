@@ -42,6 +42,9 @@ class OrderRejectionReason(Enum):
     #: `EPIC-035F` — the exchange rejected the API key itself (`-2015`,
     #: `-2008`, `-2014`): revoked, of another environment, or off its IP list.
     KEY_REJECTED = "key_rejected"
+    #: `EPIC-035T` — Spot's `-2010` "new order rejected": the exchange read the
+    #: order and refused it for its own content (balance, a post-only cross).
+    NEW_ORDER_REJECTED = "new_order_rejected"
     UNKNOWN = "unknown"
 
 

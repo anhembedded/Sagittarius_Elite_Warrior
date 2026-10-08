@@ -86,6 +86,7 @@ class BotEventRouter:
                     event.fill_quantity,
                     event.fee_amount,
                     event.fee_asset,
+                    event.trade_id,
                 )
             )
 

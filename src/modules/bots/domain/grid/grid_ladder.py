@@ -11,6 +11,13 @@
   SELL side sized to the inventory the bot actually holds, nearest first,
   and **no opening buy**. A SELL level the inventory does not reach, or
   reaches with less than the exchange's NOTIONAL minimum, is left EMPTY. The user confirms this plan before anything is placed (O2).
+· `buys_within_capital` — a resume's BUY side shares only the capital the
+  inventory leaves (`EPIC-035R`): trading refuses open BUYs plus the inventory
+  at cost beyond `capital_quote`, so a BUY side sized from the whole capital
+  again, after the bot bought down the ladder, asks for what the budget refuses.
+  A share under the exchange's NOTIONAL minimum leaves its level EMPTY.
+· `unplaced_inventory` — the inventory the SELL levels do not reach, which a
+  resume names to the user instead of keeping in silence.
 · `sells_net_of_opening_fee` — the plan a start lays after its opening buy:
   on Spot a buy's fee is taken from the base it buys, so the opening receives
   `quantity × (1 − taker)` and each SELL level is shrunk by the fee, rounded
@@ -31,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     LevelSide,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
+    LadderRules,
     PlaceOrder,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -88,6 +96,29 @@ def resized_for_inventory(
         resized[level.index] = replace(level, side=side, quantity=quantity)
     levels = tuple(resized.get(level.index, level) for level in plan.levels)
     return replace(plan, levels=levels, opening_buy_quantity=_ZERO)
+
+
+def buys_within_capital(plan: GridPlan, left: Decimal, rules: LadderRules) -> GridPlan:
+    """`plan` with its BUY levels sharing `left` of the quote, never more than
+    their planned share each; a level whose share would be worth less than the
+    NOTIONAL minimum stays EMPTY. A `left` at or below zero leaves no BUY."""
+    buys = plan.buy_levels
+    if not buys:
+        return plan
+    share = min(plan.capital_per_level, max(left, _ZERO) / len(buys))
+    resized: dict[int, GridLevel] = {}
+    for level in buys:
+        quantity = _ROUNDING.round_quantity_down(share / level.price, rules.step_size)
+        if quantity * level.price < rules.min_notional:
+            quantity = _ZERO
+        side = LevelSide.BUY if quantity > 0 else LevelSide.EMPTY
+        resized[level.index] = replace(level, side=side, quantity=quantity)
+    return replace(plan, levels=tuple(resized.get(lv.index, lv) for lv in plan.levels))
+
+
+def unplaced_inventory(plan: GridPlan, inventory: Decimal) -> Decimal:
+    """The base the plan's SELL levels leave unsold: `inventory` beyond them."""
+    return max(inventory - sum((lv.quantity for lv in plan.sell_levels), _ZERO), _ZERO)
 
 
 def sells_net_of_opening_fee(

@@ -8,7 +8,9 @@ is the one list the screen, `GridKind.validate` and the readiness query
 **Blocking or advisory (decision D7).** A constraint *blocks* Start when it
 states the exchange's rules or money: the balance, the minimum notional, the
 per-order cap, the open-order limit, the price band, break-even after fees, the
-key's permission, an exit on the wrong side of the range. It *advises* for
+key's permission, an exit on the wrong side of the range, a price below the range
+(`EPIC-035L`: the plan would market-buy the whole capital), levels that round to
+one price (`EPIC-035S`). It *advises* for
 strategy judgement: the ATR, the slippage room, the spacing, how far an exit is.
 Each constraint lists the violation codes it can answer and, per code, whether
 that violation blocks; a violation blocks exactly when its verdict is
@@ -45,6 +47,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
     check_spacing_for_range,
     check_stop_loss,
     check_take_profit,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_checks import (
+    check_distinct_levels,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_range_checks import (
+    check_price_against_range,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
@@ -93,6 +101,16 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
     ),
     GridConstraint(
         "levels_inside_price_band", check_price_band, {"LEVEL_OUTSIDE_PRICE_BAND": True}
+    ),
+    GridConstraint(
+        "price_suits_the_range",
+        check_price_against_range,
+        {"PRICE_BELOW_RANGE": True, "PRICE_ABOVE_RANGE": False},
+    ),
+    GridConstraint(
+        "every_level_has_its_own_price",
+        check_distinct_levels,
+        {"LEVELS_ROUND_TO_ONE_PRICE": True},
     ),
     GridConstraint(
         "capital_within_balance",

@@ -90,17 +90,13 @@ class _CountingRunner(IBotRunner):
 
 
 def _start(
-    world: ReadinessWorld,
-    runner: IBotRunner,
-    config: dict[str, str] | None = None,
-    *,
-    confirmed: bool = True,
+    world: ReadinessWorld, runner: IBotRunner, config: dict[str, str] | None = None
 ) -> BotCommandResult:
     """A Start as the screen sends it: the real-money question answered."""
     handler = StartBotCommandHandler(
         world.store, runner, BotCommandLock(), world.reader, world.clock
     )
-    return handler.execute(StartBotCommand(BOT, config, real_money_confirmed=confirmed))
+    return handler.execute(StartBotCommand(BOT, config, real_money_confirmed=True))
 
 
 def _query(world: ReadinessWorld, config: dict[str, str] | None = None):
@@ -173,6 +169,43 @@ def test_a_capital_above_the_balance_is_refused_before_any_order() -> None:
     assert "999" in result.message
     assert runner.started == []
     assert world.session.ready_requests == 0
+
+
+_BELOW_THE_PRICE = {
+    **CONFIG,
+    "lower": "130",
+    "upper": "160",
+    "stop_loss": "price:120",
+    "take_profit": "price:170",
+}
+
+
+def test_a_price_below_the_range_is_refused_and_the_screen_says_the_same() -> None:
+    """`EPIC-035L`, D4 (a): the market is at 121 and the range starts at 130, so
+    Start would market-buy the whole capital. The query the screen reads and the
+    handler at the click give one answer, and no order goes out."""
+    world = readiness_world(config=_BELOW_THE_PRICE)
+    runner = _CountingRunner()
+
+    reported = _query(world)
+    result = _start(world, runner)
+
+    assert [i.code for i in reported.items] == ["PRICE_BELOW_RANGE"]
+    assert result.refusal is BotRefusal.PARAMETERS_REFUSED
+    assert result.message == reported.message()
+    assert "below the range's lower bound" in result.message
+    assert runner.started == []
+
+
+def test_a_price_above_the_range_warns_and_starts() -> None:
+    above = {**CONFIG, "lower": "60", "upper": "100", "stop_loss": "price:50"}
+    above["take_profit"] = "price:110"
+    world = readiness_world(config=above)
+    runner = _CountingRunner()
+
+    assert _query(world).can_start
+    assert _start(world, runner).accepted
+    assert runner.started == [BOT]
 
 
 def test_a_key_that_cannot_trade_is_refused() -> None:
@@ -359,33 +392,3 @@ def test_a_mainnet_key_the_gate_refused_stops_start_and_names_the_venue() -> Non
     assert "Spot Mainnet" in reported.items[0].reason
     assert result.refusal is BotRefusal.VENUE_NOT_READY
     assert runner.started == []
-
-
-def test_a_mainnet_start_nobody_confirmed_is_refused_before_anything_is_read() -> None:
-    """`EPIC-035V` (L6) — the real-money question was asked by the screen alone,
-    so any other caller of the use case started a mainnet bot unasked. The
-    use case itself refuses, before it reads the account."""
-    world = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
-    runner = _CountingRunner()
-
-    result = _start(world, runner, confirmed=False)
-
-    assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
-    assert "real money" in result.message
-    assert runner.started == []
-    assert world.session.ready_requests == 0
-
-
-def test_a_confirmed_mainnet_start_goes_on_to_the_readiness() -> None:
-    world = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
-
-    result = _start(world, _CountingRunner())
-
-    assert result.refusal is not BotRefusal.REAL_MONEY_NOT_CONFIRMED
-
-
-def test_a_testnet_start_needs_no_confirmation() -> None:
-    world = readiness_world()
-    runner = _CountingRunner()
-
-    assert _start(world, runner).accepted

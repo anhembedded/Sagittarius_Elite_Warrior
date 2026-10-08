@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
@@ -69,7 +70,7 @@ class SimulatedBook:
         #: Every order the venue accepted, market slices included, in order.
         self.submitted: list[str] = []
         self.threads: list[str] = []
-        self.refuse_next: list[ExecuteOrderSafetyGate | None] = []
+        self.refuse_next: list[Enum | None] = []
         self.raise_next: list[Exception] = []
         self.cancel_refusals: list[ExecuteOrderSafetyGate] = []
         #: Cancels that report done but leave the order open (a cancel the

@@ -23,6 +23,9 @@ both the `testnet` flag and which API family measures the server's clock.
   the book is read per price-button click, and a ping per read doubled its round
   trips for nothing the read itself does not prove (PR #303 review, finding 1).
 
+- **Failures carry no query string** (`BUG-180`): the session sends through
+  `RedactingHttpAdapter`, so a transport error never holds a signed URL.
+
 It returns the raw `Client`, which has order methods; the factories that call it
 type what their callers may reach. `architecture-rule.md` §2: no other file of
 `trading` constructs one (`test_only_the_session_factory_constructs_binance_client.py`).
@@ -35,6 +38,9 @@ import time
 
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.redacting_http_adapter import (
+    RedactingHttpAdapter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     REQUEST_TIMEOUT_SECONDS,
 )
@@ -63,9 +69,19 @@ def new_client(
         testnet=venue.is_testnet,
         ping=credentials is not None and not futures,
     )
+    # Before the clock is measured: the first request already goes through it.
+    _mount_redaction(client)
     if credentials is not None:
         _sync_timestamp_offset(client, futures)
     return client
+
+
+def _mount_redaction(client: Client) -> None:
+    """`BUG-180`: every request of this client fails without its query string
+    (`RedactingHttpAdapter`), whoever logs the failure."""
+    adapter = RedactingHttpAdapter()
+    client.session.mount("https://", adapter)
+    client.session.mount("http://", adapter)
 
 
 def _sync_timestamp_offset(client: Client, futures: bool) -> None:
