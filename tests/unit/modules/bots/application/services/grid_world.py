@@ -28,7 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderFill,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
+    IBotStore,
+    StoredBot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
@@ -254,6 +257,7 @@ def grid_world(
     book_readable: bool = True,
     queues: Callable[[str], IBotWorkQueue] | None = None,
     market_step: Decimal | None = None,
+    store_view: Callable[[FakeBotStore], IBotStore] | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -290,7 +294,7 @@ def grid_world(
     factory = GridExecutorFactory(
         GridExecutorDeps(
             ports=venue_ports,
-            store=store,
+            store=store_view(store) if store_view else store,
             clock=clock,
             caps=DEFAULT_OWNER_BUDGET_CAPS,
             queues=queues or (lambda _name: queue or InlineWorkQueue()),
