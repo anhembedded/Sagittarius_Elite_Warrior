@@ -14,7 +14,7 @@ Nothing is placed. The bot stays HALTED with the proposal until the user
 confirms it (`confirm`): only then does `resume` move it to STARTING and the
 ladder go out — after the price is read from the book again (`EPIC-035J`): a
 market that moved past `RESUME_PRICE_TOLERANCE` since the proposal refuses the
-ladder, with `PROPOSAL_PRICE_MOVED`, and the user resumes again. A proposal lives in memory; after a restart the user resumes
+ladder, with `PROPOSAL_PRICE_MOVED`, and the user resumes again. **Both steps ask the store first** (`EPIC-035G`, D6, `GridStorageWatch.admits_relaunch`): a ladder is not laid over a file that cannot say so, whoever asks, the user or the rate-limit timer. A proposal lives in memory; after a restart the user resumes
 again, which proposes afresh from the exchange as it then is.
 """
 
@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_storage_watch import (
+    GridStorageWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
     SymbolStatusGate,
@@ -87,15 +90,19 @@ class GridResumeSequence:
         context: GridRunContext,
         start: GridStartSequence,
         status: SymbolStatusGate,
+        storage: GridStorageWatch,
     ) -> None:
         self._context = context
         self._start = start
         self._status = status
+        self._storage = storage
         self._housekeeping = GridHousekeeping(context)
 
     def propose(self, price: Decimal) -> ResumeProposal | None:
         """Steps 1–3; `None` when a step could not finish (the reason says why)."""
         state = self._context.state
+        if not self._storage.admits_relaunch():
+            return None
         registration = self._housekeeping.register()
         if not registration.registered or registration.inventory is None:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
@@ -135,6 +142,8 @@ class GridResumeSequence:
         """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the
         symbol does not trade (`SymbolStatusGate`) or the market has left the price
         it was proposed at (`PROPOSAL_PRICE_MOVED`): then it stays HALTED."""
+        if not self._storage.admits_relaunch():
+            return
         if not self._status.admits() or self._moved_since(proposal):
             return
         self._context.state.transition(BotLifecycleEvent.RESUME)

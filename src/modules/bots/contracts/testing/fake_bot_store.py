@@ -27,10 +27,18 @@ class FakeBotStore(IBotStore):
         self._bots: dict[str, StoredBot] = {}
         self._refused: dict[str, RefusedBotFile] = {}
         self._save_failure: OSError | None = None
+        self._saves_to_fail: int | None = None
+        self.failed_saves = 0
 
     def save(self, stored: StoredBot) -> None:
-        if self._save_failure is not None:
-            raise self._save_failure
+        failure = self._save_failure
+        if failure is not None:
+            self.failed_saves += 1
+            if self._saves_to_fail is not None:
+                self._saves_to_fail -= 1
+                if self._saves_to_fail == 0:
+                    self.heal()
+            raise failure
         self._bots[stored.bot.bot_id.value] = stored
 
     def load(self, bot_id: BotId) -> StoredBot:
@@ -55,12 +63,15 @@ class FakeBotStore(IBotStore):
     def exists(self, bot_id: BotId) -> bool:
         return bot_id.value in self._bots or bot_id.value in self._refused
 
-    def fail_saves(self, error: OSError) -> None:
-        """Make every `save` raise `error` (a full disk, a permission) until `heal()`."""
+    def fail_saves(self, error: OSError, times: int | None = None) -> None:
+        """Make `save` raise `error` (a full disk, a permission) until `heal()`, or,
+        given `times`, for that many saves and then heal by itself."""
         self._save_failure = error
+        self._saves_to_fail = times
 
     def heal(self) -> None:
         self._save_failure = None
+        self._saves_to_fail = None
 
     def refuse_file(self, bot_id: BotId, reason: str) -> None:
         """Make `bot_id` a file the store holds but cannot read."""

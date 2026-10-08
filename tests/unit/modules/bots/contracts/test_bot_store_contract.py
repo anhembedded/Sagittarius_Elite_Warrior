@@ -56,3 +56,18 @@ def test_fail_saves_raises_until_healed_and_keeps_the_last_good_record() -> None
 
     store.heal()
     store.save(stored)
+
+
+def test_fail_saves_for_a_count_heals_itself_and_counts_the_refusals() -> None:
+    """`times` is the fake's own helper too: a store that fails N writes, then recovers."""
+    store = FakeBotStore()
+    stored = sample_bot()
+    store.fail_saves(OSError("disk full"), times=2)
+
+    for _ in range(2):
+        with pytest.raises(OSError, match="disk full"):
+            store.save(stored)
+    store.save(stored)
+
+    assert store.failed_saves == 2
+    assert store.load(stored.bot.bot_id) == stored

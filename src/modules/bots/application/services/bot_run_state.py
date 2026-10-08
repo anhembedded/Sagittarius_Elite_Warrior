@@ -9,9 +9,10 @@ by its tag at reconciliation).
 **A store that cannot write is a fact, not an exception** (`EPIC-035G`). The
 memory changes first, so a save that raised left memory ahead of the file and
 unwound whatever was acting, `GridTaskGuard`'s park included. `_save` now keeps
-the failure (`storage_failure`) and returns: the bot goes on acting on what it
-holds, and the next write that succeeds carries the whole true state, because
-every write is the whole record.
+the failure (`storage_failure`) and returns, and the next write that succeeds
+carries the whole true state, because every write is the whole record. It also
+counts the failures in a row (`failed_saves`): `GridStorageWatch` pauses the bot
+at three (owner decision D6), so it does not trade on memory indefinitely.
 
 Each transition logs one line, `Bot <id>: <from> -> <to> on <event>`, with the
 reason the runtime records when there is one (`logging-rule.md`).
@@ -44,6 +45,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: Consecutive failed writes that pause a running bot (owner decision D6);
+#: `GridStorageWatch` pauses at it, and every failure below it is logged as
+#: "n/limit" with a retry to follow.
+FAILED_SAVES_BEFORE_PAUSE = 3
+
 
 class BotRunState:
     """The bot and its ladder, saved after every change."""
@@ -56,6 +62,7 @@ class BotRunState:
         self._store = store
         self._clock = clock
         self._storage_failure: str | None = None
+        self._failed_saves = 0
 
     @property
     def bot(self) -> Bot:
@@ -78,6 +85,11 @@ class BotRunState:
         """Why the last write failed, or `None` when it succeeded: memory is
         ahead of the file exactly while this is set."""
         return self._storage_failure
+
+    @property
+    def failed_saves(self) -> int:
+        """How many writes in a row failed; a write that succeeds resets it."""
+        return self._failed_saves
 
     def now(self) -> datetime:
         return self._clock.now()
@@ -115,20 +127,45 @@ class BotRunState:
             f" ({reason.value}: {detail})" if reason is not None else "",
         )
 
+    def save_works(self) -> bool:
+        """Write the record once more and say whether the store took it."""
+        self._save()
+        return self._storage_failure is None
+
     def _save(self) -> None:
         try:
             self._store.save(StoredBot(self._bot, encode_runtime(self._runtime)))
         except OSError as error:
+            self._failed_saves += 1
             self._storage_failure = f"{type(error).__name__}: {error.strerror or error}"
-            logger.error(
-                "Bot %s: its state could not be saved, memory is ahead of the file "
-                "until a write succeeds (%s) [bot-store-failed]",
+            self._log_failed_save()
+            return
+        if self._failed_saves:
+            logger.info(
+                "Bot %s: state save recovered after %d failure(s) [bot-store-recovered]",
                 self.bot_id,
+                self._failed_saves,
+            )
+        self._failed_saves = 0
+        self._storage_failure = None
+
+    def _log_failed_save(self) -> None:
+        """Every failed save is a log line the bot's log tab shows (`App.Bots`)."""
+        if self._failed_saves < FAILED_SAVES_BEFORE_PAUSE:
+            logger.warning(
+                "Bot %s: state save failed (%d/%d): %s; retrying with the next write "
+                "[bot-store-failed]",
+                self.bot_id,
+                self._failed_saves,
+                FAILED_SAVES_BEFORE_PAUSE,
                 self._storage_failure,
             )
             return
-        if self._storage_failure is not None:
-            logger.warning(
-                "Bot %s: its state is saved again [bot-store-recovered]", self.bot_id
-            )
-            self._storage_failure = None
+        logger.error(
+            "Bot %s: state save failed (%d in a row, the limit of %d is reached): %s; "
+            "memory is ahead of the file until a write succeeds [bot-store-failed]",
+            self.bot_id,
+            self._failed_saves,
+            FAILED_SAVES_BEFORE_PAUSE,
+            self._storage_failure,
+        )
