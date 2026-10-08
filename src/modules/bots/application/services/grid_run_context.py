@@ -11,6 +11,7 @@ start-up for every restored bot, where D12 allows no network and no order.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -94,6 +95,11 @@ class GridRunContext:
     monotonic: IMonotonicClock
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
+    #: Set by `GridExecutor.stop` from the caller's thread the moment a Stop is
+    #: asked, read between a start's orders (`EPIC-035V`): a Stop queued behind a
+    #: Start need not wait for every order the Start would still lay. Cleared when
+    #: the queued Stop runs.
+    stop_requested: threading.Event = field(default_factory=threading.Event)
 
     @property
     def terms(self) -> ExchangeTerms:

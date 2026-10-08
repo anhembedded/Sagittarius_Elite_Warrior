@@ -98,6 +98,8 @@ class GridStartSequence:
     def _buy_opening(self, plan: GridPlan) -> bool:
         quote = plan.opening_buy_quantity * plan.last_price
         for index, piece in enumerate(quote_slices(quote, self._context.cap), start=1):
+            if self._stop_asked():
+                return False
             outcome = self._context.gateway.market_buy(piece, plan.last_price)
             self._context.off_ladder.add(outcome.client_order_id)
             logger.info(
@@ -116,7 +118,21 @@ class GridStartSequence:
     def _place_ladder(self, plan: GridPlan) -> bool:
         return all(self._place(action) for action in ladder_orders(plan))
 
+    def _stop_asked(self) -> bool:
+        """The user pressed Stop while this start ran: it lays nothing more and
+        leaves the bot STARTING for the Stop queued behind it to end
+        (`EPIC-035V`, L9)."""
+        if not self._context.stop_requested.is_set():
+            return False
+        logger.info(
+            "Bot %s: Stop asked; the start lays no more orders",
+            self._context.state.bot_id,
+        )
+        return True
+
     def _place(self, action: PlaceOrder) -> bool:
+        if self._stop_asked():
+            return False
         state = self._context.state
         outcome = self._context.gateway.place_limit(
             action.side, action.price, action.quantity
