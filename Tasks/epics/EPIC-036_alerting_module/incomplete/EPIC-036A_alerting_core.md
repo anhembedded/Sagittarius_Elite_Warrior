@@ -6,6 +6,7 @@
 **Complexity:** L — one module with five parts and a move of a contract; no UI and no real channel
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet; the journeys are added when 036B/036D land.
+**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §2, §3, §9 (and §1, §2 for the per-channel queue).
 **Depends on:** None. Decision record: [`DECISION_2026-10-08_alerting_module.md`](../DECISION_2026-10-08_alerting_module.md).
 
 ---

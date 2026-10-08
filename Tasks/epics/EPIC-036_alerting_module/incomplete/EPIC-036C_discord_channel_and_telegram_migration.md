@@ -6,6 +6,7 @@
 **Complexity:** L
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet.
+**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §1, §2, §5, §7.
 **Depends on:** [EPIC-036A](EPIC-036A_alerting_core.md) (`IAlertChannel`, the worker, `ISecretStore` in core).
 
 ---

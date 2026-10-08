@@ -3,7 +3,7 @@
 **Epic:** [EPIC-036](README.md)
 **Date:** 2026-10-08
 **Status:** Accepted (N1–N8)
-**Decided by:** the owner, 2026-10-08, who approved the design page (https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1) and its eight decision points; relayed by the coordinator session. The numbering N1–N8 is the design page's own.
+**Decided by:** the owner, 2026-10-08, who approved the design page (transcribed in [`DESIGN_2026-10-08_alerting_module.md`](DESIGN_2026-10-08_alerting_module.md); private artifact https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1) and its eight decision points; relayed by the coordinator session. The numbering N1–N8 is the design page's own.
 
 | Label | Meaning |
 | :--- | :--- |
@@ -44,7 +44,9 @@
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
 | O1 | Which Discord gateway library, or a hand-written client, for `EPIC-036F` (a new dependency) | `EPIC-036F` | 2026-10-08 |
-| O2 | Where `KeyringSecretStore` lives once `ISecretStore` is in `core/contracts` (it is under `modules/trading/adapters/binance/mainnet/` today): `alerting` must not import `trading`'s adapter | `EPIC-036A` | 2026-10-08 |
+| O2 | Where `KeyringSecretStore` lives once `ISecretStore` is in `core/contracts` (it is under `modules/trading/adapters/binance/mainnet/` today): `alerting` must not import `trading`'s adapter | `EPIC-036A` (recommendation below) | 2026-10-08 |
+
+**Recommendation for O2 (coordinator, 2026-10-08; not yet decided by the owner, `EPIC-036A` settles it):** `KeyringSecretStore` moves to `src/infrastructure/secrets/`; the composition root binds it once; `trading` and `alerting` both receive `ISecretStore` from `core/contracts`, and neither imports the other's adapter.
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
