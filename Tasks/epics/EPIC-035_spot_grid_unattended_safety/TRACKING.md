@@ -56,7 +56,9 @@ gantt
 | EPIC-035L–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
-| EPIC-035P–V | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035U | [Exchange filters are refreshed](completed/EPIC-035U_exchange_filters_are_refreshed.md) | branch `claude/epic-035-uv` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035V | [The remaining low findings](completed/EPIC-035V_the_remaining_low_findings.md) | branch `claude/epic-035-uv` | 🟢 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035P–T | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 
 ---
 

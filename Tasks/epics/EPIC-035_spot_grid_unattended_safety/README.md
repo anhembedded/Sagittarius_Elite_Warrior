@@ -55,8 +55,8 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 | [EPIC-035R](incomplete/EPIC-035R_resume_sizes_from_what_is_left.md) | Resume sizes from what is left (M9) | Elite | None | 🟡 | Planned |
 | [EPIC-035S](incomplete/EPIC-035S_levels_that_round_together_are_refused.md) | Levels that round to one price are refused (L3) | Elite | None | 🟢 | Planned |
 | [EPIC-035T](incomplete/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | A rejected counter order does not kill the grid (M11) | Elite | 035C | 🟡 | Planned |
-| [EPIC-035U](incomplete/EPIC-035U_exchange_filters_are_refreshed.md) | Exchange filters are refreshed during a run (L5) | Elite | 035E | 🟡 | Planned |
-| [EPIC-035V](incomplete/EPIC-035V_the_remaining_low_findings.md) | The remaining low findings (L4, L6, L7, L8, L9) | Elite | None | 🟢 | Planned |
+| [EPIC-035U](completed/EPIC-035U_exchange_filters_are_refreshed.md) | Exchange filters are refreshed during a run (L5) | Elite | 035E | 🟡 | ✅ Done (2026-10-08) |
+| [EPIC-035V](completed/EPIC-035V_the_remaining_low_findings.md) | The remaining low findings (L4, L6, L7, L8, L9) | Elite | None | 🟢 | ✅ Done (2026-10-08) |
 | [EPIC-035W](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | The bot's health is visible on screen: a per-bot strip and a truthful status bar | Elite | 035A, 035B | 🟡 | Planned (owner: not yet) |
 | [EPIC-035X](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | Every bot decision is in an audit trail: a journal port, a Log tab, CSV export | Elite | 035C | 🟡 | Planned (owner: not yet) |
 
