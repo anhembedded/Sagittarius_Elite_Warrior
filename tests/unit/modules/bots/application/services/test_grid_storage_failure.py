@@ -11,9 +11,18 @@ from __future__ import annotations
 import errno
 from decimal import Decimal
 
+import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_state import (
+    BotRunState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+    ReadOnlyBotStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -21,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
+    BOT,
     GridWorld,
     grid_world,
 )
@@ -96,3 +106,19 @@ def test_a_running_bot_on_a_failing_disk_goes_on_and_the_next_write_catches_up()
     assert Decimal(120) in {o.price for o in world.runtime().open_orders}, (
         "the write that succeeded carried the counter order the failed ones held"
     )
+
+
+def test_a_read_only_copys_refused_write_is_not_mistaken_for_a_full_disk() -> None:
+    """`EPIC-035H` composes with this task: `ReadOnlyBotStore` refuses a save with
+    `ReadOnlyInstanceError`, which is not an `OSError`, so `BotRunState` lets it
+    through instead of keeping it as a storage failure."""
+    world = grid_world()
+    world.executor.start()
+    stored = world.store.load(BotId(BOT))
+    guarded = ReadOnlyBotStore(world.store, "another copy of the app holds this data")
+    read_only = BotRunState(stored.bot, world.runtime(), guarded, world.clock)
+
+    with pytest.raises(ReadOnlyInstanceError):
+        read_only.update(world.runtime())
+
+    assert read_only.storage_failure is None
