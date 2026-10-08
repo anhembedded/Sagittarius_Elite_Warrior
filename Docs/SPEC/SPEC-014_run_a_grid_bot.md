@@ -217,10 +217,10 @@ available while it runs.
   through it (never on touch), orders levels inside a candle by its 1-second klines and, without
   them, takes the adverse side first and says so. It models no slippage, no queue position and no
   partial fills, and its fees are the venue's rates read by the planner.
-- Seeing a fill the instant it happens while the stream is down, or counting a partly filled order
-  the stream never reported (`BUG-188`), or re-laying an order cancelled while the stream was down
-  (`BUG-187`): after a gap the bot catches up to the fills it missed, and halts when what remains
-  cannot be explained.
+- Seeing a fill the instant it happens while the stream is down: after a gap the bot catches up to
+  the fills it missed (a partial fill of a still-open order included, `BUG-188`), lays again once
+  an order cancelled while the stream was down (`BUG-187`), and halts when what remains cannot be
+  explained. A duplicate partial-fill event is still counted twice until `EPIC-035P`.
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first. An exchange-side stop is `EPIC-026K`.
 - Halting a bot that is Stopping when the feed goes quiet: a stop sells and cancels without a price,

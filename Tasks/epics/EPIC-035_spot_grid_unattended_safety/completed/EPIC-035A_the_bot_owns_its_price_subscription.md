@@ -1,6 +1,6 @@
 # EPIC-035A — The bot owns its price subscription, with a staleness rule
 
-**Status:** 🟡 In progress — implemented; awaiting the `-Full` run on the PR head and the reviewer
+**Status:** ✅ Done (2026-10-08)
 **Source:** the owner's Spot Grid audit, 2026-10-08, finding H1 (https://claude.ai/artifact/QaMbN6KkH47h4eTrUpNGDz); Phase 1 approved by the owner the same day (D1).
 **Risk:** 🔴 — stop-loss and take-profit are the only price-driven exit; a change to who owns the stream touches every running bot
 **Complexity:** L — a new owner of a market_data stream inside the bots module, a staleness clock, a named HALT reason, SPEC and guard changes
@@ -104,4 +104,4 @@ Architecture guards: `PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -
 - Exchange-side stops: `EPIC-026K`.
 
 ## Resume
-Implemented and committed on `epic-035a-bot-owns-price-subscription`. Remaining: the PR's `ci-local.ps1 -Full` run (read both `gate (Unit)` and `gate (Rest)` job logs), the reviewer session's read, then move this file to `completed/` and mark the epic README and TRACKING rows.
+Done. Pull request #430 merged into `master-warrior` after the reviewer's read (round 1 fixed) and a green `-Full` run. Open follow-ups, by name: `EPIC-035J` (the reference price has an age), the owner's 24 h Testnet run with the chart closed (Phase 1 exit), and the `GridExecutor` public surface, which is the port split recorded in the owner's 2026-10-08 list.
