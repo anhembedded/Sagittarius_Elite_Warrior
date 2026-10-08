@@ -11,6 +11,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    BaseHandling,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -57,3 +60,22 @@ def test_a_price_inside_the_band_leaves_a_recovering_bot_alone() -> None:
 
     assert world.state() is S.RECOVERING
     assert len(world.book.open) == 4
+
+
+def test_a_tick_beyond_the_stop_loss_does_not_turn_a_keep_base_stop_into_a_sell() -> (
+    None
+):
+    """STOPPING is deliberately outside the states that watch exits: the Stop
+    already under way keeps the base, and a tick must not decide otherwise."""
+    world = grid_world()
+    world.executor.start()
+    world.session.set_enabled(enabled=False)  # the stop waits in STOPPING
+    world.executor.stop(BaseHandling.KEEP)
+    assert world.state() is S.STOPPING
+    assert world.runtime().sell_base_on_stop is False
+
+    world.executor.on_tick(_BELOW_STOP_LOSS)
+
+    assert world.state() is S.STOPPING
+    assert world.runtime().sell_base_on_stop is False
+    assert world.runtime().reason is GridReason.USER_STOP
