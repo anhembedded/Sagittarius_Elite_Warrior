@@ -19,12 +19,18 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+    InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
@@ -92,8 +98,16 @@ GRID_CONFIG = {
 }
 
 
-def registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
+def registered(
+    state_dir: Path, instance: IInstanceAccess | None = None
+) -> tuple[BotsModule, SimpleNamespace]:
+    """The module on a real container; `instance` is this copy's access
+    (`EPIC-035H`), writable when not given."""
     container = StdLibContainer()
+    container.singleton(
+        IInstanceAccess,
+        instance if instance is not None else InstanceAccess.unguarded(),
+    )
     container.singleton(IConfig, DictConfig({"bots.state_dir": str(state_dir)}))
     container.singleton(
         IVenueTradingPorts,

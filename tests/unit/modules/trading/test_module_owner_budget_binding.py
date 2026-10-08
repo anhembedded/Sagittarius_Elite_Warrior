@@ -16,7 +16,13 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
+from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+    InstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommandHandler,
 )
@@ -48,6 +54,7 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 def _container(config: dict[str, object]) -> StdLibContainer:
     container = StdLibContainer()
+    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
     container.singleton(IConfig, DictConfig(config))
     container.singleton(IEventBus, MemoryEventBus())
     container.singleton(ITaskManager, Mock())

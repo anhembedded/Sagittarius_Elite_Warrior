@@ -11,6 +11,9 @@ wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer import (
     MonotonicOrderPacer,
@@ -51,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
     GridStartPreconditions,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
+    ReadOnlyBotRunner,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
     SleepWatch,
@@ -175,6 +181,12 @@ def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
 
 
 def _build_runner(container: IContainer) -> IBotRunner:
+    runner = _build_executing_runner(container)
+    instance = container.resolve(IInstanceAccess)
+    return ReadOnlyBotRunner(runner, instance.reason) if instance.read_only else runner
+
+
+def _build_executing_runner(container: IContainer) -> IBotRunner:
     return BotRunner(
         container.resolve(IBotStore),
         container.resolve(IBotClock),

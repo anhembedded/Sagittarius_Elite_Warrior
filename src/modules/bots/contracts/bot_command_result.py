@@ -31,6 +31,9 @@ class BotRefusal(str, Enum):
     #: A HALTED bot's executor holds no resume proposal to confirm (none
     #: asked for since the halt, or the app restarted): Resume first.
     NO_RESUME_PROPOSAL = "NO_RESUME_PROPOSAL"
+    #: `EPIC-035H` — another copy of the app holds the data root; this one
+    #: reads bots and starts none.
+    READ_ONLY_INSTANCE = "READ_ONLY_INSTANCE"
 
 
 @dataclass(frozen=True, slots=True)

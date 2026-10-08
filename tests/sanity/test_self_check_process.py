@@ -46,10 +46,14 @@ them.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
+from Sagittarius_Elite_Warrior.tests.instance_holder import start_holder, stop_holder
 
 #: Real boot + real Engine/Qt teardown, observed at ~4.4s locally. Generous on
 #: purpose — this budget asserts "the process terminates", not "it terminates
@@ -69,7 +73,9 @@ _ALLOWED_STDERR_SUBSTRINGS = (
 )
 
 
-def _run_self_check() -> subprocess.CompletedProcess[str]:
+def _run_self_check(data_root: Path) -> subprocess.CompletedProcess[str]:
+    """The real entry point on its own data root, so it never meets another
+    process's instance lock (`EPIC-035H`) unless the test puts it there."""
     return subprocess.run(
         [
             sys.executable,
@@ -82,10 +88,11 @@ def _run_self_check() -> subprocess.CompletedProcess[str]:
         text=True,
         timeout=_PROCESS_BUDGET_SECONDS,
         check=False,
+        env={**os.environ, DATA_ROOT_ENV: str(data_root)},
     )
 
 
-def test_the_real_process_starts_and_stops_cleanly() -> None:
+def test_the_real_process_starts_and_stops_cleanly(tmp_path: Path) -> None:
     """Modes 7, 9, 10 — the one thing no in-process test can prove.
 
     A hang here surfaces as `subprocess.TimeoutExpired`, a real pytest
@@ -95,7 +102,7 @@ def test_the_real_process_starts_and_stops_cleanly() -> None:
     real window fail to close).
     """
     started = time.monotonic()
-    result = _run_self_check()
+    result = _run_self_check(tmp_path)
     elapsed = time.monotonic() - started
 
     assert result.returncode == 0, (
@@ -111,11 +118,13 @@ def test_the_real_process_starts_and_stops_cleanly() -> None:
     )
 
 
-def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence() -> None:
+def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence(
+    tmp_path: Path,
+) -> None:
     """The log itself is evidence, not just the exit code — an exit code of 0
     from a process that silently swallowed an exception during shutdown would
     still look like success by the test above alone."""
-    result = _run_self_check()
+    result = _run_self_check(tmp_path)
     combined = result.stdout + result.stderr
 
     assert "App booted successfully" in combined, (
@@ -138,13 +147,13 @@ def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence() -> None:
         )
 
 
-def test_the_real_process_stderr_is_clean() -> None:
+def test_the_real_process_stderr_is_clean(tmp_path: Path) -> None:
     """Mode 8/10's process-boundary form — the diagnostic channels
     `conftest.py`'s `diagnostic_guard` observes in-process (Qt messages,
     Python logging, warnings) do not exist as such once the app is a separate
     process; stderr is what is left to inspect, and it must stay just as
     narrow an allowlist as the in-process guard's."""
-    result = _run_self_check()
+    result = _run_self_check(tmp_path)
 
     unexpected = [
         line
@@ -157,3 +166,41 @@ def test_the_real_process_stderr_is_clean() -> None:
         f"--self-check wrote {len(unexpected)} unexpected stderr line(s):\n  "
         + "\n  ".join(unexpected)
     )
+
+
+def test_a_second_real_process_on_the_same_data_root_boots_read_only(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-035H` — the process boundary: another copy holds the data root's
+    lock, and the real entry point still starts, says it is read-only and stops
+    cleanly (it must not hang on the lock, and must not refuse silently)."""
+    holder = start_holder(tmp_path / "state" / "instance.lock")
+    try:
+        result = _run_self_check(tmp_path)
+    finally:
+        stop_holder(holder)
+    combined = result.stdout + result.stderr
+
+    assert result.returncode == 0, combined
+    assert (
+        "[instance] read-only: Another copy of Sagittarius is already running"
+        in combined
+    ), combined
+    assert "Bots are read-only on this copy" in combined, combined
+    assert "Notice: This copy is read-only" in combined, "the user was not told"
+    assert "App stopped." in combined, combined
+    unexpected = [
+        line
+        for line in result.stderr.splitlines()
+        if line.strip()
+        and not any(allowed in line for allowed in _ALLOWED_STDERR_SUBSTRINGS)
+    ]
+    assert unexpected == [], "\n".join(unexpected)
+
+
+def test_the_first_real_process_on_a_data_root_is_writable(tmp_path: Path) -> None:
+    result = _run_self_check(tmp_path)
+    combined = result.stdout + result.stderr
+
+    assert "[instance] writable" in combined, combined
+    assert "[instance] read-only" not in combined, combined
