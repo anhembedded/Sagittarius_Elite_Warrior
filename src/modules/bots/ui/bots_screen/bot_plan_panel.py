@@ -168,20 +168,21 @@ class BotPlanPanel(QStackedWidget):
             return
         self._parameters_first = parameters_first
         column = self._column
-        for widget in (self.readiness_steps, self.readiness_items, self.facts):
+        movable: tuple[QWidget, ...] = (
+            self.readiness_steps,
+            self.readiness_items,
+            self.facts,
+        )
+        for widget in movable:
             column.removeWidget(widget)
         column.removeItem(self._panel_slot)
         at = column.indexOf(self.readiness_header) + 1
         if parameters_first:
             column.insertLayout(at, self._panel_slot)
-            for offset, widget in enumerate(
-                (self.readiness_steps, self.readiness_items, self.facts), start=1
-            ):
+            for offset, widget in enumerate(movable, start=1):
                 column.insertWidget(at + offset, widget)
         else:
-            for offset, widget in enumerate(
-                (self.readiness_steps, self.readiness_items, self.facts)
-            ):
+            for offset, widget in enumerate(movable):
                 column.insertWidget(at + offset, widget)
             column.insertLayout(at + 3, self._panel_slot)
 
