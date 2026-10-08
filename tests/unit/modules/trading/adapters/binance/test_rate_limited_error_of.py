@@ -14,6 +14,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.market_price_reads import (
+    market_price_answer,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_failure import (
     raise_for_failed_read,
     raise_for_failed_send,
@@ -28,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
+    MarketPriceRateLimitedError,
+    MarketPriceUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
@@ -103,3 +110,21 @@ def test_an_ordinary_refusal_is_the_rejection_it_always_was() -> None:
 def test_an_unreadable_send_is_still_an_unknown_outcome() -> None:
     with pytest.raises(OrderOutcomeUnknownError):
         raise_for_failed_send(_order(), timeout(), live=True)
+
+
+def test_a_book_read_that_meets_a_pause_keeps_the_pause_for_a_caller_that_can_wait() -> (
+    None
+):
+    with (
+        pytest.raises(MarketPriceRateLimitedError) as limited,
+        market_price_answer("the book"),
+    ):
+        raise _pause()
+    with (
+        pytest.raises(MarketPriceUnavailableError) as other,
+        market_price_answer("the book"),
+    ):
+        raise refusal(-1121, "Invalid symbol.")
+
+    assert limited.value.retry_after == _PAUSE
+    assert not isinstance(other.value, MarketPriceRateLimitedError)

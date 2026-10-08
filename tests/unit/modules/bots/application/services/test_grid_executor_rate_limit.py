@@ -46,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     GridWorld,
     grid_world,
+    quote_at,
 )
 
 S = BotLifecycleState
@@ -277,3 +278,59 @@ def test_a_stop_selling_the_base_waits_when_a_slice_is_rate_limited() -> None:
 def test_the_reason_names_the_pause_in_seconds(pause: timedelta) -> None:
     world = _halted_by_the_limit(pause)
     assert f"{int(pause.total_seconds())} s" in world.runtime().reason_detail
+
+
+# -- a pause met reading the price (a tick too old to use) is still a pause ------
+
+
+def test_a_stop_whose_price_read_meets_a_pause_waits_instead_of_failing() -> None:
+    """The tick is hours old, so the stop reads the book; the book is rate limited
+    (review of PR #439: the pause lost its type on that read and ended in ERROR)."""
+    world = _running()
+    world.executor.facts.on_tick(Decimal(121))
+    world.monotonic.advance(3 * 3600)
+    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=45))
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    assert world.state() is S.STOPPING
+    assert [r.delay for r in world.retries.pending] == [
+        max(STOP_RETRY_DELAYS[0], timedelta(seconds=45) + AUTO_RESUME_MARGIN)
+    ]
+    quote_at(world, Decimal(121))
+    world.retries.run_next()
+    assert world.state() is S.STOPPED
+
+
+def test_a_confirmation_whose_price_read_meets_a_pause_halts_for_it() -> None:
+    world = grid_world()
+    world.executor.start()
+    world.executor.facts.on_switch(False, _SWITCH)
+    world.derive("0")
+    world.executor.resume()
+    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
+
+    world.executor.confirm_resume()
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED
+    assert len(world.retries.pending) == 1, "the automatic resume is kept"
+    quote_at(world, Decimal(121))
+    world.retries.run_next()
+    assert world.state() is S.RUNNING
+
+
+def test_an_automatic_resume_whose_price_read_meets_a_pause_waits_again() -> None:
+    world = _halted_by_the_limit()
+    world.entry_terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=30))
+
+    world.retries.run_next()
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED
+    assert [r.delay for r in world.retries.pending] == [
+        timedelta(seconds=30) + AUTO_RESUME_MARGIN
+    ]
+    quote_at(world, Decimal(121))
+    world.retries.run_next()
+    assert world.state() is S.RUNNING

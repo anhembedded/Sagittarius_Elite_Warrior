@@ -17,12 +17,18 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    FreshPriceUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
     REFERENCE_PRICE_MAX_AGE_SECONDS,
     price_is_too_old,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 
 
@@ -53,8 +59,17 @@ class GridReferencePrice:
     def fresh(self) -> Decimal:
         """The book's price now, held from here on.
 
+        @raise ExchangeRateLimitedError The exchange asked for a pause: the bot
+        halts for it or waits it out, as for any other call it made.
         @raise FreshPriceUnavailableError The venue did not answer."""
-        price = self._read_book_price()
+        try:
+            price = self._read_book_price()
+        except FreshPriceUnavailableError as unavailable:
+            if unavailable.retry_after is None:
+                raise
+            raise ExchangeRateLimitedError(
+                unavailable.retry_after, banned=False, raw_message=str(unavailable)
+            ) from unavailable
         self._remember(price)
         return price
 

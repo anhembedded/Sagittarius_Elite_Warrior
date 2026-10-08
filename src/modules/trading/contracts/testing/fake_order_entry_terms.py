@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_unavailable_error import (
@@ -36,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.mark_price import (
     MarkPrice,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
+    MarketPriceRateLimitedError,
     MarketPriceUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable import (
@@ -92,6 +94,7 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         self._terms = {entry.rules.symbol: entry for entry in terms}
         self._futures = futures or FuturesReads()
         self._books = dict(books or {})
+        self._pauses: dict[str, timedelta] = {}
         self._notional_limit = notional_limit
         #: A network read on the real adapter; a panel reading it per
         #: keystroke is a defect a test should be able to see.
@@ -128,6 +131,12 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
     def quote(self, book: BestBidAsk) -> None:
         """Move the book `book.symbol` answers from now on."""
         self._books[book.symbol] = book
+        self._pauses.pop(book.symbol, None)
+
+    def ask_for_a_pause(self, symbol: str, retry_after: timedelta) -> None:
+        """`symbol`'s book answers a rate limit of `retry_after` until `quote`d."""
+        self._books.pop(symbol, None)
+        self._pauses[symbol] = retry_after
 
     def unquote(self, symbol: str) -> None:
         """`symbol`'s book is unreadable from now on."""
@@ -135,6 +144,11 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
 
     def best_bid_ask_for(self, symbol: str) -> BestBidAsk:
         self.book_reads.append(symbol)
+        if symbol in self._pauses:
+            raise MarketPriceRateLimitedError(
+                f"no book for {symbol}: the exchange asked for a pause",
+                self._pauses[symbol],
+            )
         answer = self._books.get(symbol)
         if answer is None:
             raise MarketPriceUnavailableError(f"no book seeded for {symbol}")
