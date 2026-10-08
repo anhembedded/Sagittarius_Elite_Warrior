@@ -16,7 +16,7 @@ import threading
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (

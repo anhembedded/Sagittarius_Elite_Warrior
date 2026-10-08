@@ -23,7 +23,7 @@
 
 ## 3. Design
 - **Port** `IInstanceAccess` (`core/contracts`): `read_only` and `reason`. A module asks it and never learns how the answer was reached (seam now; a takeover or a viewer mode is one more implementation).
-- **Lock** `infrastructure/instance/`: `InstanceAccess.acquire(lock_file)` takes an exclusive, non-blocking OS lock on `<data root>/state/instance.lock` (`fcntl.flock` on POSIX, `msvcrt.locking` on Windows, one byte), keeps the handle, and is read-only when the lock is taken. No network, no pid file, no stale-file cleanup: the OS owns the lock, so a crash leaves nothing behind.
+- **Lock** `infrastructure/single_instance/`: `InstanceAccess.acquire(lock_file)` takes an exclusive, non-blocking OS lock on `<data root>/state/instance.lock` (`fcntl.flock` on POSIX, `msvcrt.locking` on Windows, one byte), keeps the handle, and is read-only when the lock is taken. No network, no pid file, no stale-file cleanup: the OS owns the lock, so a crash leaves nothing behind.
 - **Who takes it — only the two entry points** (`main.py`'s and `app_bootstrapper.py`'s `main()`), once, before the graph is built, through `acquire_instance_access()` in the composition root. `create_app(config, instance=None)` and `build(instance=None)` take the answer as a **parameter** and default to writable, so a test or a sanity boot that builds the app in-process never contends for the lock; a guard (`test_only_the_entry_points_take_the_instance_lock.py`) keeps it that way. The lock file is under `data_root()`, so each pytest session's own `SEW_DATA_ROOT` (`EPIC-030M`) is its own lock; the self-check sanity test also gives its subprocess a root of its own.
 - **Read-only, at the narrowest doors:** `ReadOnlyTradingClientFactory` over each venue's factory (every order of a bot, a person or the Emergency Stop is made by a client from it; a `VALIDATE_ONLY` test order, which places nothing, still passes); `ReadOnlyBotStore` over the store (every writer saves through it); `ReadOnlyBotRunner` over the runner (a Start is a named refusal, `BotRefusal.READ_ONLY_INSTANCE`, before its preconditions touch the venue); and `BotsModule.boot()` returns before the restart rule, the router and every watch.
 - `IInstanceAccess` is bound by `create_app()` and **required** by the trading and bots bindings: an unbound port is the CS-003 defect, so there is no fallback to writable.
@@ -32,7 +32,7 @@
 | File | Change |
 | :--- | :--- |
 | `src/core/contracts/i_instance_access.py`, `errors.py` | New port; `ReadOnlyInstanceError` |
-| `src/infrastructure/instance/file_lock.py`, `instance_access.py` | New: the cross-platform lock and the access it backs |
+| `src/infrastructure/single_instance/file_lock.py`, `instance_access.py` | New: the cross-platform lock and the access it backs |
 | `src/shell/composition_root.py` | `acquire_instance_access()`, `instance_lock_file()`; `create_app(config, instance=None)` binds the port and logs the role |
 | `src/main.py`, `src/presentation/ui/app_bootstrapper.py` | Acquire before the build, release in `finally`; the window says "(read-only)" and a notice tells why. `build()`'s remembered-state registrations moved to `remembered_state_wiring.py` (the file may only shrink: 513 → 470) |
 | `src/modules/trading/adapters/read_only_trading_client_factory.py`, `composition/venue_assembly.py`, `adapter_bindings.py` | The read-only client factory; `SharedVenueInputs.instance` |
@@ -43,7 +43,7 @@
 ## 5. Testing
 | Criterion | Test | Tier |
 | :--- | :--- | :--- |
-| Second instance read-only | `test_a_second_instance_is_read_only`, `…does_not_take_the_lock_from_the_first`, `test_two_data_roots_never_collide`, `test_each_data_root_gets_its_own_first_instance` (`tests/unit/infrastructure/instance/`) | Unit |
+| Second instance read-only | `test_a_second_instance_is_read_only`, `…does_not_take_the_lock_from_the_first`, `test_two_data_roots_never_collide`, `test_each_data_root_gets_its_own_first_instance` (`tests/unit/infrastructure/single_instance/`) | Unit |
 | Lock dies with the process | `test_the_lock_dies_with_the_process` (a real second process, `kill()`ed), `test_a_clean_exit_of_the_holder_frees_the_lock_too` | Integration |
 | Places and cancels nothing | `test_read_only_trading_client.py`, `test_venue_assembly_read_only.py` | Unit |
 | Bots untouched | `test_read_only_bots.py`; `test_boot_leaves_a_running_bot_of_the_first_instance_as_it_is`, `test_a_second_instance_saves_no_bot`, `test_a_second_instance_starts_no_bot` | Unit · integration (real container) |

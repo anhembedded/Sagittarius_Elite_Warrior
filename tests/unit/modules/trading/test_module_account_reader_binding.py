@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (

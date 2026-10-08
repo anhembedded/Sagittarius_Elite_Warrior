@@ -17,7 +17,7 @@ _REPO_PARENT = Path(__file__).resolve().parents[2]
 _HOLDER = """
 import sys
 from pathlib import Path
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import InstanceAccess
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import InstanceAccess
 
 access = InstanceAccess.acquire(Path(sys.argv[1]))
 print("read-only" if access.read_only else "holding", flush=True)

@@ -65,11 +65,11 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health_extension import (
     OrderedHealthExtension,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
-    InstanceAccess,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notification_channel import (
     TelegramNotificationChannel,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections

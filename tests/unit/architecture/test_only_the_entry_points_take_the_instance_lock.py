@@ -29,7 +29,7 @@ _ALLOWED = (
     "src/main.py",
     "src/presentation/ui/app_bootstrapper.py",
     "src/shell/composition_root.py",
-    "src/infrastructure/instance/instance_access.py",
+    "src/infrastructure/single_instance/instance_access.py",
 )
 
 

@@ -36,7 +36,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing import recording_notif
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (

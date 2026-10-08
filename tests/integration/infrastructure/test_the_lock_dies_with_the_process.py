@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.infrastructure.instance.instance_access import (
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.tests.instance_holder import start_holder, stop_holder
