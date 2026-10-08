@@ -78,9 +78,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
-#: Introduces the sentence a resume proposal adds to the bot's reason detail.
-_UNPLACED_MARK = "; resume proposal: "
-
 
 @dataclass(frozen=True, slots=True)
 class ResumeProposal:
@@ -107,6 +104,8 @@ class GridResumeSequence:
         self._status = status
         self._storage = storage
         self._housekeeping = GridHousekeeping(context)
+        #: The detail before the resume's unplaced-base sentence, and with it.
+        self._noted: tuple[str, str] | None = None
 
     def propose(self, price: Decimal) -> ResumeProposal | None:
         """Steps 1–3; `None` when a step could not finish (the reason says why)."""
@@ -160,19 +159,25 @@ class GridResumeSequence:
         )
 
     def _name_unplaced(self, unplaced: Decimal) -> None:
-        """Say on the HALTED bot which base no SELL level covers, once: an earlier
-        resume's sentence is replaced, and removed when nothing is left over."""
+        """Say on the HALTED bot which base no SELL level covers: once, and
+        replacing the sentence an earlier resume added (kept as the detail it
+        was added to, never parsed back out of the text)."""
         runtime = self._context.state.runtime
-        head = runtime.reason_detail.split(_UNPLACED_MARK)[0]
-        detail = head
+        if runtime.reason is None:
+            return
+        base = runtime.reason_detail
+        if self._noted is not None and base == self._noted[1]:
+            base = self._noted[0]
+        detail = base
+        self._noted = None
         if unplaced > 0:
             detail = (
-                f"{head}{_UNPLACED_MARK}{unplaced} {self._context.base_asset} of the "
-                "inventory has no SELL level to go on and stays unplaced"
+                f"{base}; resume proposal: {unplaced} {self._context.base_asset} of "
+                "the inventory has no SELL level to go on and stays unplaced"
             )
+            self._noted = (base, detail)
         if detail != runtime.reason_detail:
-            reason = runtime.reason or GridReason.SWITCH_OFF
-            self._context.state.update(runtime.with_reason(reason, detail))
+            self._context.state.update(runtime.with_reason(runtime.reason, detail))
 
     def confirm(self, proposal: ResumeProposal) -> None:
         """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the

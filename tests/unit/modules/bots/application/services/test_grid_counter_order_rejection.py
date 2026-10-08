@@ -162,6 +162,21 @@ def test_the_same_rung_refused_twice_within_a_minute_halts() -> None:
     assert f"L{COUNTER_LEVEL}" in world.runtime().reason_detail
 
 
+def test_two_different_rungs_refused_within_a_minute_halt_the_bot() -> None:
+    """`-2010` is also "insufficient balance": every rung is refused once, so a
+    per-rung count never trips and the ladder would bleed to all-EMPTY."""
+    world = _running()
+    world.book.raise_next.append(_rejected(OrderRejectionReason.NEW_ORDER_REJECTED))
+    _fill_l1(world)
+    assert world.state() is S.RUNNING
+    world.book.raise_next.append(_rejected(OrderRejectionReason.NEW_ORDER_REJECTED))
+
+    world.fill(Decimal(100), "2.5")  # its counter SELL is owed to L1, not L2
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.LEVEL_KEEPS_ENDING
+
+
 def test_the_same_rung_refused_again_after_a_minute_keeps_the_bot_running() -> None:
     world = _running()
     world.book.raise_next.append(_rejected(OrderRejectionReason.LOT_SIZE))

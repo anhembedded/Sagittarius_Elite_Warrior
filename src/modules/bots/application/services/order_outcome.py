@@ -81,8 +81,8 @@ _NAMED_REFUSALS: dict[OrderRejectionReason, OrderOutcomeKind] = {
 
 def named_rejection(exc: Exception) -> OrderOutcome | None:
     """The outcome a refusal about the symbol, the key or the order's numbers is,
-    or `None` for any other failure, which stays a fault. The exchange's own text is kept: it is a
-    short sentence, never a URL (`describe_failure`)."""
+    or `None` for any other failure, which stays a fault. The exchange's own text
+    is kept: it is a short sentence, never a URL (`describe_failure`)."""
     if not isinstance(exc, OrderRejectedByExchangeError):
         return None
     kind = _NAMED_REFUSALS.get(exc.reason)

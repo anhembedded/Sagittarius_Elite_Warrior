@@ -148,3 +148,15 @@ def test_an_inventory_the_sell_levels_cover_is_not_reported() -> None:
     assert proposal is not None
     assert proposal.unplaced_inventory == 0
     assert "no SELL level" not in world.runtime().reason_detail
+
+
+def test_a_resume_that_no_longer_leaves_base_over_removes_the_sentence() -> None:
+    world = _halted_holding("6", cost="500")
+    world.executor.resume()
+    assert "no SELL level" in world.runtime().reason_detail
+
+    world.derive("4.132", cost="499.97")
+    world.executor.resume()
+
+    assert "no SELL level" not in world.runtime().reason_detail
+    assert world.runtime().reason_detail.startswith("Emergency Stop")
