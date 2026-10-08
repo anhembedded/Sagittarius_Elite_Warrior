@@ -34,16 +34,21 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_outcome import (
+    SWITCH_OFF_GATES,
+    OrderOutcome,
+    OrderOutcomeKind,
+    classify_cancel,
+    classify_submit,
+    fault_text,
+    named_rejection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
     whole_seconds,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
-    CancelOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -53,10 +58,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-    ExecuteOrderResult,
-    ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
     HISTORY_PAGE_SIZE,
@@ -71,10 +72,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
-    OrderRejectedByExchangeError,
-    OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
@@ -91,41 +88,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports
     VenueTradingPorts,
 )
 
+__all__ = [
+    "SWITCH_OFF_GATES",
+    "BotIdentity",
+    "BotOrderGateway",
+    "OrderOutcome",
+    "OrderOutcomeKind",
+]
+
 logger = logging.getLogger("App.Bots.GridExecutor")
-
-#: The refusals that mean "trading is off", not "this order is wrong" (D9).
-SWITCH_OFF_GATES: frozenset[ExecuteOrderSafetyGate] = frozenset(
-    {
-        ExecuteOrderSafetyGate.TRADING_SWITCH_OFF,
-        ExecuteOrderSafetyGate.CONNECTION_NOT_READY,
-    }
-)
-
-
-class OrderOutcomeKind(str, Enum):
-    DONE = "done"
-    SWITCH_OFF = "switch_off"
-    REFUSED = "refused"
-    RATE_LIMITED = "rate_limited"
-    SYMBOL_NOT_TRADING = "symbol_not_trading"
-    SYMBOL_NOT_LISTED = "symbol_not_listed"
-    KEY_REJECTED = "key_rejected"
-    FAULT = "fault"
-
-
-@dataclass(frozen=True, slots=True)
-class OrderOutcome:
-    """What trading answered: done (with the order's id) or why not."""
-
-    kind: OrderOutcomeKind
-    client_order_id: str = ""
-    detail: str = ""
-    #: For `RATE_LIMITED`: how long the exchange asked for.
-    retry_after: timedelta | None = None
-
-    @property
-    def done(self) -> bool:
-        return self.kind is OrderOutcomeKind.DONE
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +174,7 @@ class BotOrderGateway:
         except ExchangeRateLimitedError as limited:
             return self._rate_limited(limited, client_order_id)
         except Exception as exc:  # converted to a named outcome at this seam
-            named = _named_rejection(exc)
+            named = named_rejection(exc)
             if named is not None and named.kind is OrderOutcomeKind.KEY_REJECTED:
                 logger.warning(
                     "Bot %s: cancel %s was refused by name: %s [named-refusal]",
@@ -216,9 +187,9 @@ class BotOrderGateway:
                 "Bot %s: cancel %s raised", self._identity.tag, client_order_id
             )
             return OrderOutcome(
-                OrderOutcomeKind.FAULT, client_order_id, _fault_text(exc)
+                OrderOutcomeKind.FAULT, client_order_id, fault_text(exc)
             )
-        return _classify_cancel(result, client_order_id)
+        return classify_cancel(result, client_order_id)
 
     def market_price(self) -> Decimal:
         """The middle of the symbol's best bid and ask, for a market order's
@@ -352,7 +323,7 @@ class BotOrderGateway:
             )
             return OrderOutcome(OrderOutcomeKind.FAULT, detail=str(refused))
         except Exception as exc:  # converted to a named outcome at this seam
-            named = _named_rejection(exc)
+            named = named_rejection(exc)
             if named is not None:
                 logger.warning(
                     "Bot %s: %s %s was refused by name: %s [named-refusal]",
@@ -369,8 +340,8 @@ class BotOrderGateway:
                 request.side.value,
                 request.quantity,
             )
-            return OrderOutcome(OrderOutcomeKind.FAULT, detail=_fault_text(exc))
-        return _classify_submit(result)
+            return OrderOutcome(OrderOutcomeKind.FAULT, detail=fault_text(exc))
+        return classify_submit(result)
 
     def _rate_limited(
         self, limited: ExchangeRateLimitedError, client_order_id: str
@@ -389,55 +360,3 @@ class BotOrderGateway:
             f"{whole_seconds(limited.retry_after)} s",
             limited.retry_after,
         )
-
-
-#: The exchange's refusals that are about the symbol or the key, not about the
-#: order: each is a named outcome, every other rejection stays a fault.
-_NAMED_REFUSALS: dict[OrderRejectionReason, OrderOutcomeKind] = {
-    OrderRejectionReason.KEY_REJECTED: OrderOutcomeKind.KEY_REJECTED,
-    OrderRejectionReason.SYMBOL_NOT_TRADING: OrderOutcomeKind.SYMBOL_NOT_TRADING,
-    OrderRejectionReason.SYMBOL_NOT_LISTED: OrderOutcomeKind.SYMBOL_NOT_LISTED,
-}
-
-
-def _named_rejection(exc: Exception) -> OrderOutcome | None:
-    """The outcome a refusal about the symbol or the key is, or `None` for any other
-    failure, which stays a fault. The exchange's own text is kept: it is a
-    short sentence, never a URL (`describe_failure`)."""
-    if not isinstance(exc, OrderRejectedByExchangeError):
-        return None
-    kind = _NAMED_REFUSALS.get(exc.reason)
-    if kind is None:
-        return None
-    return OrderOutcome(kind, detail=exc.raw_message)
-
-
-def _fault_text(exc: Exception) -> str:
-    """What the bot's state line says of a request that raised: its kind, never
-    its text, which is an exchange's or a library's (`BOT-169`); the exception
-    is in the log (`logger.exception` at each caller)."""
-    return f"the request failed ({type(exc).__name__}); see the log"
-
-
-def _classify_submit(result: ExecuteOrderResult) -> OrderOutcome:
-    if result.blocked_by is not None:
-        return _refusal(result.blocked_by, "")
-    if result.submitted_order is None:
-        return OrderOutcome(OrderOutcomeKind.FAULT, detail="trading returned no order")
-    return OrderOutcome(OrderOutcomeKind.DONE, result.submitted_order.client_order_id)
-
-
-def _classify_cancel(result: CancelOrderResult, client_order_id: str) -> OrderOutcome:
-    if result.blocked_by is not None:
-        return _refusal(result.blocked_by, client_order_id)
-    return OrderOutcome(OrderOutcomeKind.DONE, client_order_id)
-
-
-def _refusal(blocked_by: Enum, client_order_id: str) -> OrderOutcome:
-    if blocked_by in SWITCH_OFF_GATES:
-        kind = OrderOutcomeKind.SWITCH_OFF
-    elif blocked_by is ExecuteOrderSafetyGate.KEY_REJECTED:
-        kind = OrderOutcomeKind.KEY_REJECTED
-    else:
-        kind = OrderOutcomeKind.REFUSED
-    return OrderOutcome(kind, client_order_id, str(blocked_by.value))
