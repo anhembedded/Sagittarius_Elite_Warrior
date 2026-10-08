@@ -4,6 +4,9 @@
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
+  · `KEY_REJECTED` → the exchange rejected the API key (`EPIC-035F`): HALTED
+    naming it, like the two below, and **never parked** (`GridTaskGuard`): the
+    cancel would be rejected too. The detail says the orders may still rest.
   · `SYMBOL_NOT_TRADING` / `SYMBOL_NOT_LISTED` → a refusal that names the
     symbol's status (`EPIC-035E`): `start_refused` while STARTING, `halt`
     otherwise. A RUNNING ladder pauses instead, in `GridLadderPlacer`, because
@@ -36,18 +39,37 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 _REFUSAL_REASONS: dict[OrderOutcomeKind, GridReason] = {
     OrderOutcomeKind.SYMBOL_NOT_TRADING: GridReason.SYMBOL_NOT_TRADING,
     OrderOutcomeKind.SYMBOL_NOT_LISTED: GridReason.SYMBOL_DELISTED,
+    OrderOutcomeKind.KEY_REJECTED: GridReason.KEY_REJECTED,
 }
 
 
 def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
     """Move the bot for `outcome` (not done); `what` names the order."""
     detail = f"{what}: {outcome.detail}"
+    if outcome.kind is OrderOutcomeKind.KEY_REJECTED:
+        detail = key_rejected_detail(what, outcome.detail)
     if outcome.kind is OrderOutcomeKind.SWITCH_OFF:
         _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
     else:
         _refuse(state, outcome.kind, detail)
+
+
+def key_rejected_detail(what: str, exchange_said: str) -> str:
+    """What a bot says when the exchange rejects its key: plainly, that its orders
+    may still rest and this app cannot cancel them. `exchange_said` is the
+    exchange's own words when it gave any (a gate's bare name is not words)."""
+    said = (
+        f" ({exchange_said})"
+        if exchange_said and exchange_said != GridReason.KEY_REJECTED.value
+        else ""
+    )
+    return (
+        f"{what}: the exchange rejected the API key{said}; orders of this bot "
+        "may still rest on the exchange, and this app cannot cancel them until "
+        "a working key is added"
+    )
 
 
 def _refuse(state: BotRunState, kind: OrderOutcomeKind, detail: str) -> None:

@@ -68,6 +68,15 @@ def _exception(code: int, message: str) -> BinanceAPIException:
         (-1013, "Market is closed.", OrderRejectionReason.SYMBOL_NOT_TRADING),
         (-1013, "Symbol is not trading.", OrderRejectionReason.SYMBOL_NOT_TRADING),
         (-1121, "Invalid symbol.", OrderRejectionReason.SYMBOL_NOT_LISTED),
+        # `EPIC-035F` — the three codes `connection_failure` files under
+        # `KEY_REJECTED` for the connection check are the same refusal on an order.
+        (
+            -2015,
+            "Invalid API-key, IP, or permissions for action.",
+            OrderRejectionReason.KEY_REJECTED,
+        ),
+        (-2008, "Invalid Api-Key ID.", OrderRejectionReason.KEY_REJECTED),
+        (-2014, "API-key format invalid.", OrderRejectionReason.KEY_REJECTED),
     ],
 )
 def test_real_binance_codes_map_to_the_expected_reason(

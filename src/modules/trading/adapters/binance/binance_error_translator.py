@@ -12,6 +12,9 @@ is policy-blocked in this sandbox.
 from __future__ import annotations
 
 from binance.exceptions import BinanceAPIException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
+    KEY_REJECTED_CODES,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectionReason,
 )
@@ -43,6 +46,9 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     # `EPIC-035E` — "Invalid symbol.": the exchange does not know the symbol
     # any more (a delisting). Unverified against a live answer, see the note above.
     -1121: OrderRejectionReason.SYMBOL_NOT_LISTED,
+    # `EPIC-035F` — the exchange rejects the API key itself (revoked, another
+    # environment's, off its IP list).
+    **dict.fromkeys(KEY_REJECTED_CODES, OrderRejectionReason.KEY_REJECTED),
     -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
 }
 

@@ -39,6 +39,11 @@ class ExecuteOrderSafetyGate(str, Enum):
     #: removed; renaming the member waits for the end of `EPIC-034`.
     TRADING_SWITCH_OFF = "trading_switch_off"
     CONNECTION_NOT_READY = "connection_not_ready"
+    #: `EPIC-035F` — the connection check reached the exchange and it rejected
+    #: the API key (`ConnectionFailureKind.KEY_REJECTED`: `-2015`, `-2008`,
+    #: `-2014`). Apart from `CONNECTION_NOT_READY` because it is not a pause
+    #: to wait out: a revoked key cannot cancel what rests on the exchange.
+    KEY_REJECTED = "key_rejected"
     #: Somebody else has declared they are managing this symbol —
     #: `ITradingSession.claim_symbol()`, which `strategy` calls on arm. The
     #: refusal used to live in `DashboardPresenter._run_manual_order()`, where

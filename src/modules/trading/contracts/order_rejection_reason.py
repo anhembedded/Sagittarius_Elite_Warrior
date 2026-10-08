@@ -39,6 +39,9 @@ class OrderRejectionReason(Enum):
     SYMBOL_NOT_TRADING = "symbol_not_trading"
     #: `EPIC-035E` — the exchange no longer knows the symbol (a delisting).
     SYMBOL_NOT_LISTED = "symbol_not_listed"
+    #: `EPIC-035F` — the exchange rejected the API key itself (`-2015`,
+    #: `-2008`, `-2014`): revoked, of another environment, or off its IP list.
+    KEY_REJECTED = "key_rejected"
     UNKNOWN = "unknown"
 
 

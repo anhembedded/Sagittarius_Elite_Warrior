@@ -96,7 +96,10 @@ class GridResumeSequence:
             return None
         report = self._housekeeping.cancel_tagged()
         if report.failed is not None:
-            if report.failed.kind is OrderOutcomeKind.FAULT:
+            if report.failed.kind in (
+                OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.KEY_REJECTED,
+            ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
             return None
         inventory = registration.inventory

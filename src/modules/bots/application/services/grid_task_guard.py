@@ -11,8 +11,10 @@ Two guarantees, both PR 325 review findings:
     that leaves the bot HALTED or ERROR, other than a switch-off, cancels
     every order carrying its tag, so nothing keeps trading while nobody
     places its counters. A switch-off is the exception: cancels are refused
-    then, and the orders rest by design (D13). What could not be cancelled
-    is named beside the reason, never replacing it.
+    then, and the orders rest by design (D13). So is a rejected API key
+    (`EPIC-035F`): the cancel would be rejected too, so the bot says its orders
+    may still rest and this app cannot cancel them, and tries nothing. What
+    could not be cancelled is named beside the reason, never replacing it.
 
 **Parking does not depend on the disk** (`EPIC-035G`): `BotRunState` keeps a
 failed write as `storage_failure` instead of raising it, so the fault handler
@@ -57,6 +59,12 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
     {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
 )
 
+#: The reasons whose halt leaves the ladder where it is: the exchange refuses
+#: every cancel (trading is off by design; the API key is rejected).
+_CANNOT_CANCEL: frozenset[GridReason] = frozenset(
+    {GridReason.SWITCH_OFF, GridReason.KEY_REJECTED}
+)
+
 #: How a parked bot says its file is behind; also what keeps the note single.
 _STORAGE_NOTE = "its state could not be saved"
 
@@ -89,7 +97,7 @@ class GridTaskGuard:
         return (
             state.state in _PARKED
             and (before not in _PARKED or sent)
-            and state.runtime.reason is not GridReason.SWITCH_OFF
+            and state.runtime.reason not in _CANNOT_CANCEL
         )
 
     def _unsaved_and_parked(self) -> bool:

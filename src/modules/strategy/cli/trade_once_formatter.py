@@ -32,6 +32,9 @@ _SAFETY_GATE_TEXT: dict[ExecuteOrderSafetyGate, str] = {
         "Exchange connection not ready (unreachable, or Hedge Mode) — run "
         "`exchange-status` for details."
     ),
+    ExecuteOrderSafetyGate.KEY_REJECTED: (
+        "The exchange rejected the API key — run `exchange-status` for details."
+    ),
     ExecuteOrderSafetyGate.SYMBOL_LEASED: (
         "An armed strategy is managing this symbol — disarm it first, or run "
         "`trade-once` on a different symbol."

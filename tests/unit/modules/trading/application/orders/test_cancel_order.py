@@ -144,6 +144,22 @@ class TestSafetyGates:
         result = handler.execute(_cancel())
         assert result.blocked_by is ExecuteOrderSafetyGate.CONNECTION_NOT_READY
 
+    def test_a_rejected_key_is_its_own_gate(self) -> None:
+        """`EPIC-035F` — a cancel the exchange would refuse for the key says so."""
+        rejected = ExchangeConnectionStatus(
+            venue=TradingVenue.FUTURES_TESTNET,
+            reachable=False,
+            failure=ConnectionFailureKind.KEY_REJECTED,
+            server_time_skew_ms=None,
+            usdt_balance=None,
+            position_mode=None,
+            margin_type=None,
+            open_position_count=None,
+        )
+        handler = _handler(status=rejected)
+        result = handler.execute(_cancel())
+        assert result.blocked_by is ExecuteOrderSafetyGate.KEY_REJECTED
+
 
 class TestCancellation:
     def test_cancels_exactly_the_requested_order(self) -> None:
