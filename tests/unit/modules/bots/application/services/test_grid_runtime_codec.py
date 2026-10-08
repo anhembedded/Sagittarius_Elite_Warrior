@@ -116,7 +116,7 @@ def test_the_earnings_fields_round_trip() -> None:
 def test_a_file_written_before_the_earnings_fields_still_reads() -> None:
     """A bot stored by an earlier build has none of them: zero, no price, nothing
     unpriced, and the total is then judged on what is known."""
-    encoded = encode_runtime(_busy_runtime())
+    encoded = encode_runtime(replace(_busy_runtime(), realised_profit=Decimal("9.5")))
     for field in (
         "realised_total",
         "start_price",
@@ -128,7 +128,9 @@ def test_a_file_written_before_the_earnings_fields_still_reads() -> None:
 
     decoded = decode_runtime(encoded)
 
-    assert decoded.realised_total == 0
+    assert decoded.realised_total == decoded.realised_profit > 0, (
+        "the grid profit already earned is a floor for the total, never above it"
+    )
     assert decoded.start_price is None
     assert decoded.mark_price is None
     assert decoded.mark_price_at is None

@@ -126,3 +126,11 @@ def test_unpriced_fees_are_carried_so_the_screen_can_say_the_total_is_incomplete
     runtime = GridRuntime(started_ladder().levels, unpriced_fees=2)
 
     assert pnl_summary(runtime, capital=Decimal(1000)).unpriced_fees == 2
+
+
+def test_without_a_known_capital_the_hodl_benchmark_is_unknown_not_zero() -> None:
+    runtime = GridRuntime(
+        started_ladder().levels, start_price=Decimal(100), mark_price=Decimal(125)
+    )
+
+    assert pnl_summary(runtime, capital=None).hodl is None

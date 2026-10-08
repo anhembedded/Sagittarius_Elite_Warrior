@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
@@ -293,7 +293,11 @@ class GridPanel(BotKindPanel):
             else QStyle.StandardPixmap.SP_MessageBoxWarning
         )
         size = marker.fontMetrics().height()
-        marker.setPixmap(self.style().standardIcon(icon).pixmap(size, size))
+        marker.setPixmap(
+            self.style()
+            .standardIcon(icon)
+            .pixmap(QSize(size, size), marker.devicePixelRatioF())
+        )
         marker.setAccessibleName("Blocks Start" if error.blocks else "Advice")
 
     def focus_field(self, code: str) -> bool:

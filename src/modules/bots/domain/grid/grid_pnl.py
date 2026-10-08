@@ -40,7 +40,7 @@ class PnlSummary:
     unpriced_fees: int
 
 
-def pnl_summary(runtime: GridRuntime, capital: Decimal) -> PnlSummary:
+def pnl_summary(runtime: GridRuntime, capital: Decimal | None) -> PnlSummary:
     unrealised = _unrealised(runtime)
     return PnlSummary(
         total=None if unrealised is None else runtime.realised_total + unrealised,
@@ -61,8 +61,8 @@ def _unrealised(runtime: GridRuntime) -> Decimal | None:
     return runtime.inventory * (runtime.mark_price - average)
 
 
-def _hodl(runtime: GridRuntime, capital: Decimal) -> Decimal | None:
+def _hodl(runtime: GridRuntime, capital: Decimal | None) -> Decimal | None:
     start, mark = runtime.start_price, runtime.mark_price
-    if start is None or mark is None or start <= 0:
+    if capital is None or start is None or mark is None or start <= 0:
         return None
     return capital / start * mark - capital

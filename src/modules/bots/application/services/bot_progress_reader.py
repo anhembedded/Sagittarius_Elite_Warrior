@@ -69,10 +69,10 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
     )
 
 
-def _capital(stored: StoredBot) -> Decimal:
-    """The capital the run was given, for the HODL benchmark; zero when the
-    parameters cannot be read, which leaves the benchmark at zero."""
+def _capital(stored: StoredBot) -> Decimal | None:
+    """The capital the run was given, for the HODL benchmark; `None` when the
+    parameters cannot be read, which leaves the benchmark unknown, not zero."""
     try:
         return GridParams.from_config(stored.bot.definition.config).capital_quote
     except GridParamsError:
-        return Decimal(0)
+        return None

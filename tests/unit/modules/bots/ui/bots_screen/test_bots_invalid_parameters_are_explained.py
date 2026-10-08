@@ -64,6 +64,7 @@ def test_a_field_with_a_verdict_carries_a_sign_beside_its_sentence(
     assert not marker.isHidden()
     assert not marker.pixmap().isNull(), "a sign, not colour alone"
     assert marker.accessibleName() == "Blocks Start"
+    assert marker.pixmap().devicePixelRatio() == marker.devicePixelRatioF()
     assert _marker(screen, "grid_count").isHidden()
 
 

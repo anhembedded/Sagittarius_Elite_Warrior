@@ -65,7 +65,7 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         completed_cycles=_int(data, "completed_cycles"),
         # The earnings fields (`EPIC-035M`) are absent from a file an earlier
         # build wrote: that is "nothing known yet", not a damaged file.
-        realised_total=_optional_decimal(data, "realised_total") or Decimal(0),
+        realised_total=_realised_total(data),
         start_price=_optional_decimal(data, "start_price"),
         mark_price=_optional_decimal(data, "mark_price"),
         mark_price_at=(
@@ -158,6 +158,13 @@ def _decode_held(data: Mapping[str, JsonValue]) -> HeldOrder:
         carried_executed=_decimal(data, "carried_executed"),
         carried_base_fee=_decimal(data, "carried_base_fee"),
     )
+
+
+def _realised_total(data: Mapping[str, JsonValue]) -> Decimal:
+    """The total earned; for a file written before it existed, the grid profit
+    already booked, a floor that keeps the total from reading below its own part."""
+    stored = _optional_decimal(data, "realised_total")
+    return stored if stored is not None else _decimal(data, "realised_profit")
 
 
 def _optional(value: Decimal | None) -> str | None:
