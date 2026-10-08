@@ -15,6 +15,7 @@ down. Nothing here is a real key, signature or exchange.
 from __future__ import annotations
 
 import logging
+import re
 import traceback
 from collections.abc import Callable
 from typing import Any
@@ -249,3 +250,22 @@ def test_a_listen_key_and_an_api_key_in_a_failure_are_removed_with_the_signature
     assert "LISTENKEYVALUE" not in written
     assert "APIKEYVALUE" not in written
     assert "/api/v3/userDataStream" in written, "the path stays"
+
+
+def test_the_request_a_failure_carries_holds_no_signature_or_key(
+    transport: _FakeTransport,
+) -> None:
+    """Review of PR 447, finding 2: `RequestException.request` is the prepared
+    request, whose URL holds the signature and whose header holds the API key.
+    Nothing logs the attribute today; a caller that printed it would."""
+    failure = _failure_of(
+        lambda: _signed_client().cancel_order(symbol="BTCUSDT", origClientOrderId="x")
+    )
+
+    request = failure.request  # type: ignore[attr-defined]
+    assert request is not None, "the request stays: only its secrets go"
+    body = request.body.decode() if isinstance(request.body, bytes) else request.body
+    assert "signature=" in (request.url + (body or "")), "the signed form is checked"
+    for text in (request.url, body or ""):
+        assert re.search(r"signature=(?!<redacted>)", text) is None
+    assert request.headers["X-MBX-APIKEY"] == "<redacted>"

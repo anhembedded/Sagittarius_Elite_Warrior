@@ -22,6 +22,9 @@ from __future__ import annotations
 
 import re
 
+from requests import PreparedRequest, Response
+from requests.exceptions import RequestException
+
 #: Query values and headers that sign or identify a request. An exception text
 #: from the transport can carry the whole request URL.
 _SECRET_PATTERNS = (
@@ -32,17 +35,21 @@ _SECRET_PATTERNS = (
 )
 
 
+#: What replaces a secret value.
+REDACTED = "<redacted>"
+
+
 def redact_secrets(text: str) -> str:
     """`text` with every signature, listen key and API key value replaced."""
     for pattern in _SECRET_PATTERNS:
-        text = pattern.sub(r"\1<redacted>", text)
+        text = pattern.sub(rf"\1{REDACTED}", text)
     return text
 
 
 def redact_transport_failure(failure: BaseException) -> None:
     """Redact `failure`'s text and that of every exception it carries: its
-    arguments, its cause and its context. In place: the same object goes on
-    to be raised."""
+    arguments, its cause and its context, and the request and response a
+    `requests` error holds. In place: the same object goes on to be raised."""
     pending: list[BaseException] = [failure]
     seen: set[int] = set()
     while pending:
@@ -55,6 +62,8 @@ def redact_transport_failure(failure: BaseException) -> None:
         )
         if isinstance(current, OSError):
             pending.extend(_redact_os_error_fields(current))
+        if isinstance(current, RequestException):
+            _redact_request_and_response(current)
         pending.extend(arg for arg in current.args if isinstance(arg, BaseException))
         pending.extend(
             link
@@ -75,3 +84,27 @@ def _redact_os_error_fields(failure: OSError) -> list[BaseException]:
         elif isinstance(value, BaseException):
             carried.append(value)
     return carried
+
+
+_API_KEY_HEADER = "x-mbx-apikey"
+
+
+def _redact_request_and_response(failure: RequestException) -> None:
+    """A `requests` error keeps the prepared request (its URL and a signed
+    form body hold the signature, its header the API key) and any response
+    (its URL). The objects stay, for whoever reads their method or status; only
+    their secrets go."""
+    if isinstance(failure.request, PreparedRequest):
+        request = failure.request
+        request.url = redact_secrets(request.url) if request.url else request.url
+        if isinstance(request.body, str):
+            request.body = redact_secrets(request.body)
+        elif isinstance(request.body, bytes):
+            request.body = redact_secrets(
+                request.body.decode(errors="replace")
+            ).encode()
+        for name in list(request.headers):
+            if name.lower() == _API_KEY_HEADER:
+                request.headers[name] = REDACTED
+    if isinstance(failure.response, Response) and failure.response.url:
+        failure.response.url = redact_secrets(failure.response.url)
