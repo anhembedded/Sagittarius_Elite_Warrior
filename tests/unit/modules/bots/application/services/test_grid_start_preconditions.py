@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_retry
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
+    FakeMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -163,6 +166,7 @@ def _start_world(
                 queue,
                 lambda _spacing: CountingPacer(),
                 FakeBotRetryScheduler(),
+                FakeMonotonicClock(),
             )
         )
     )

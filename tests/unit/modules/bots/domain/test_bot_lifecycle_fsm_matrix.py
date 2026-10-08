@@ -12,6 +12,8 @@ import itertools
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BOT_LIFECYCLE_TRANSITIONS,
+    PRICE_STALENESS_HALTS,
+    PRICE_STREAM_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
     BotLifecycleTarget,
@@ -31,6 +33,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.DRAFT, E.APP_RESTART): S.DRAFT,
     (S.STARTING, E.LADDER_READY): S.RUNNING,
     (S.STARTING, E.START_REFUSED): S.HALTED,
+    (S.STARTING, E.HALT): S.HALTED,
     (S.STARTING, E.STOP): S.STOPPING,
     (S.STARTING, E.SWITCH_OFF): S.HALTED,
     (S.STARTING, E.FAULT): S.ERROR,
@@ -51,6 +54,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.RECOVERING, E.SWITCH_OFF): S.RECOVERING,
     (S.RECOVERING, E.RECONCILE_OK): T.PRIOR,
     (S.RECOVERING, E.RECONCILE_MISMATCH): S.HALTED,
+    (S.RECOVERING, E.HALT): S.HALTED,
     (S.RECOVERING, E.FAULT): S.ERROR,
     (S.RECOVERING, E.APP_RESTART): S.RECOVERING,
     (S.HALTED, E.RESUME): S.STARTING,
@@ -121,3 +125,23 @@ def test_stop_is_declared_in_stopping() -> None:
 def test_every_state_has_an_app_restart_cell() -> None:
     """ADR D12: a restart must have an answer for every saved state."""
     assert all(is_declared(state, E.APP_RESTART) for state in S)
+
+
+@pytest.mark.parametrize("state", sorted(PRICE_STALENESS_HALTS))
+def test_a_stale_price_feed_can_halt_every_state_that_holds_or_lays_orders(
+    state: S,
+) -> None:
+    """`EPIC-035A` — `PRICE_FEED_STALE` is a `halt`, and each state that watches
+    the price for staleness declares one."""
+    assert next_target(state, E.HALT) is S.HALTED
+
+
+def test_the_states_that_own_a_price_stream_are_exactly_the_ones_not_at_rest() -> None:
+    assert frozenset(S) - {S.DRAFT, S.STOPPED} == PRICE_STREAM_STATES
+
+
+def test_a_stopping_bot_is_not_halted_by_a_quiet_feed() -> None:
+    """A stop sells at market and cancels; neither needs a tick, and halting it
+    would turn the user's Stop into a resume that re-plans a ladder."""
+    assert S.STOPPING in PRICE_STREAM_STATES
+    assert S.STOPPING not in PRICE_STALENESS_HALTS

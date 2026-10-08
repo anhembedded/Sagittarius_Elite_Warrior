@@ -24,13 +24,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
     UserStreamHealthEvent,
 )
 
-from .test_bots_module_wiring import _registered
+from .bots_module_world import registered
 
 
 def test_boot_subscribes_the_user_stream_watch_and_arms_its_heartbeat(
     tmp_path: Path,
 ) -> None:
-    module, context = _registered(tmp_path)
+    module, context = registered(tmp_path)
     retries = FakeBotRetryScheduler()
     context.container.singleton(IBotRetryScheduler, retries)
 

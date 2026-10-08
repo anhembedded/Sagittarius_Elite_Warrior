@@ -12,10 +12,12 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import threading
+import time
 from collections import deque
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -34,16 +36,35 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler 
     IBotRetryScheduler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
+    IBotTicker,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
+    IMonotonicClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_ticker import (
+    FakeBotTicker,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
+    FakeMonotonicClock,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
+    IMarketDataSources,
+    MarketDataPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
     SpotUserDataStream,
@@ -59,11 +80,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
     OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_container import IContainer
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.kernel.app import App
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "sanity"))
@@ -94,6 +119,32 @@ GET_LOOP_BINDINGS = (
     "binance.ws.threaded_stream.get_loop",
     "binance.ws.depthcache.get_loop",
 )
+
+
+class FakeStreamSources(IMarketDataSources):
+    """The app's market data, but every venue's live stream is one verified fake.
+
+    Klines, sync and coverage stay the real ports over the fake Binance server;
+    only the websocket is replaced, because the fake server has none and a real
+    one would reach a real exchange (`EPIC-035A`: the bots' price watch opens a
+    stream for every bot that is not at rest).
+    """
+
+    def __init__(self, inner: IMarketDataSources, stream: FakeMarketStream) -> None:
+        self._inner = inner
+        self._stream = stream
+        self._ports: dict[MarketDataVenue, MarketDataPorts] = {}
+
+    @property
+    def default_venue(self) -> MarketDataVenue:
+        return self._inner.default_venue
+
+    def ports_for(self, venue: MarketDataVenue) -> MarketDataPorts:
+        if venue not in self._ports:
+            self._ports[venue] = replace(
+                self._inner.ports_for(venue), stream=self._stream
+            )
+        return self._ports[venue]
 
 
 class SerialQueue(IBotWorkQueue):
@@ -138,6 +189,13 @@ class BootedApp:
     store: IBotStore
     scope: VenueTradingScope
     stream: SpotUserDataStream
+    #: The Spot Testnet market data the bots' price watch streams through: the
+    #: verified fake keeps the subscription bookkeeping and opens no socket, so
+    #: no journey reaches a real exchange's market-data websocket.
+    market: FakeMarketStream
+    #: What the price watch ticks on and the clock it measures a quiet feed by.
+    ticker: FakeBotTicker
+    monotonic: FakeMonotonicClock
 
     def deliver(self) -> None:
         for event in self.urls.spot_account.drain_user_data_events():
@@ -200,22 +258,60 @@ def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[Boo
             queues=lambda _name: queue,
             pacers=lambda _spacing: pacer,
             retries=container.resolve(IBotRetryScheduler),
+            monotonic=container.resolve(IMonotonicClock),
         )
         return BotExecutors(GridExecutorFactory(deps))
 
+    market = FakeMarketStream()
+    ticker = FakeBotTicker()
+    monotonic = FakeMonotonicClock()
     container.singleton(BotExecutors, executors)
+    container.singleton(
+        IMarketDataSources,
+        FakeStreamSources(container.resolve(IMarketDataSources), market),
+    )
+    container.singleton(IBotTicker, ticker)
+    container.singleton(IMonotonicClock, monotonic)
     engine.boot()
     scope = container.resolve(VenueTradingScopes).get(SPOT)
     stream = scope.ports.user_data_stream
     assert isinstance(stream, SpotUserDataStream)
-    app = BootedApp(engine, exchange.urls, container.resolve(IBotStore), scope, stream)
+    app = BootedApp(
+        engine,
+        exchange.urls,
+        container.resolve(IBotStore),
+        scope,
+        stream,
+        market,
+        ticker,
+        monotonic,
+    )
     holder.append(app)
     if open_session:
         scope.session_state.enable(set(), spot_baseline_holdings=dict(BASELINE))
     try:
         yield app
     finally:
+        _let_background_work_finish(container)
         engine.stop()
+
+
+_DRAIN_SECONDS = 10.0
+
+
+def _let_background_work_finish(container: IContainer) -> None:
+    """Waits, on the pool's own count, for work a journey started and did not wait
+    for. A fill asks for an account-summary read on the app's thread pool
+    (`AccountSummaryRefreshService`); `engine.stop()` does not wait for it, so a
+    read still running when the fixture removes the fake server's URL reaches a
+    real host (the integration tier's network block fails the test on it)."""
+    pool = container.resolve(IThreadManager)
+    deadline = time.monotonic() + _DRAIN_SECONDS
+    while time.monotonic() < deadline:
+        stats = pool.stats()
+        if stats is None or stats.in_flight == 0:
+            return
+        threading.Event().wait(0.005)
 
 
 def resting(urls: FakeServerUrls) -> dict[str, tuple[str, Decimal]]:

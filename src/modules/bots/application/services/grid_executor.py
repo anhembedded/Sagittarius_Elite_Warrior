@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interr
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
     GridLadderPlacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
+    GridPriceReaction,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
     GridReconciler,
 )
@@ -80,9 +83,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
     BotLifecycleState,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
-    crossed_exit,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import plan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     LadderRules,
@@ -110,12 +110,6 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 
 _S = BotLifecycleState
 _E = BotLifecycleEvent
-
-#: A stop loss or take profit is watched while the bot holds a position it
-#: may still have to exit (ADR D11): HALTED and ERROR included.
-_WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
-    {_S.RUNNING, _S.PAUSED, _S.HALTED, _S.ERROR}
-)
 
 _SWITCH_OFF_DETAIL = {
     TradingSwitchCause.EMERGENCY_STOP: (
@@ -147,7 +141,7 @@ class GridExecutor(IBotExecutor):
             context, self._reconciler, self._placer.release_held, self._post
         )
         self._guard = GridTaskGuard(context, GridHousekeeping(context))
-        self._last_price: Decimal | None = None
+        self._prices = GridPriceReaction(context, self._stop)
         self._proposal: ResumeProposal | None = None
 
     @property
@@ -208,7 +202,10 @@ class GridExecutor(IBotExecutor):
         self._post(f"end of {end.client_order_id}", lambda: self._apply_end(end))
 
     def on_tick(self, price: Decimal) -> None:
-        self._post("tick", lambda: self._apply_tick(price))
+        self._post("tick", lambda: self._prices.on_tick(price))
+
+    def on_price_age_check(self) -> None:
+        self._post("price age check", self._prices.check_age)
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))
@@ -302,15 +299,6 @@ class GridExecutor(IBotExecutor):
         state.update(reaction.runtime)
         self._placer.act(reaction.actions)
 
-    def _apply_tick(self, price: Decimal) -> None:
-        self._last_price = price
-        if self._context.state.state not in _WATCHES_EXITS:
-            return
-        params = self._context.params
-        reason = crossed_exit(price, params.stop_loss_price, params.take_profit_price)
-        if reason is not None:
-            self._stop.run(BaseHandling.SELL_AT_MARKET, reason, f"price {price}")
-
     def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         state = self._context.state
         if not enabled:
@@ -362,4 +350,4 @@ class GridExecutor(IBotExecutor):
         )
 
     def _price(self) -> Decimal:
-        return self._last_price or self._context.gateway.market_price()
+        return self._prices.last_price or self._context.gateway.market_price()

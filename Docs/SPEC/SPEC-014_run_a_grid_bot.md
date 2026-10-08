@@ -160,6 +160,15 @@ available while it runs.
   refuses is said, never reported as a clean halt.
 - A stopped bot has no resting order carrying its tag on the venue, and holds the base or sold
   it, as chosen.
+- **Every bot that is not Draft or Stopped streams its own symbol's price** (`EPIC-035A`), on its
+  own venue's market and under its own stream owner, whether or not any chart is open or any other
+  bot is selected; the stream is released when the bot reaches Stopped or Draft or is deleted.
+  Two bots on one symbol share the venue's one subscription. A Testnet price never reaches a
+  Mainnet bot, and a Spot price never a Futures bot (`BUG-172`).
+- **A stop loss or take profit is watched in every state that holds or lays orders**: Starting,
+  Running, Paused, Recovering, Halted and Error. A price at or beyond it stops the bot as it always
+  did (the ladder off, the base sold), including a bot restored Recovering that has not yet
+  reconciled. A bot already Stopping is not re-decided by a tick.
 - Grid profit counts only completed buy-then-sell cycles, net of both fees.
 
 ## 5. When it goes wrong
@@ -185,6 +194,8 @@ available while it runs.
 | The app restarts while a bot runs, and the exchange cannot be read at start-up | The bot stays Recovering and says "after the restart the exchange could not be read: …" | A read that fails is a report, not a fault: an offline start must not mark every bot Error (`EPIC-035C`, H6) |
 | The app restarted during a start and the order session is still closed | Halted, "the app closed while this bot was starting; N tagged order(s) still rest and are cancelled when trading is enabled" | Cancels are refused while the session is closed; the debt is on the bot's own file and paid at the next enable (`EPIC-035C`, H6) |
 | An Emergency stop closes the order session while the bot runs | The bot moves to Halted with the reason beside its state; it resumes only through a deliberate action (a Start, an arm or an order reopens the session) | trading is the only module that sends orders, and a stop wins |
+| The chart is closed, another bot is selected, or the app was just restarted | Nothing changes: the bot's own price stream is open and its stop loss and take profit are watched exactly as with the chart open | A safety rule must not depend on a widget being open (`EPIC-035A`) |
+| The price feed goes quiet: no tick for 60 s while the bot holds orders (or no first tick within 60 s of its stream opening) | The bot moves to Halted with the reason "price_feed_stale" and its detail, "last tick N s ago; the limit is 60 s", beside its state; its ladder is taken off the exchange. A fresh tick does not resume it: Resume, with its confirmation, is the only way back | A quiet feed looks like a flat market, so the stop loss cannot be trusted; a halt that stops placing and takes the ladder off is the safe answer, and the user decides (`EPIC-035A`) |
 | The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
 | The exchange stream that reports fills (the user-data stream) drops, as it does at least every 24 h | Nothing changes on screen while it reconnects (seconds). The bot reconciles against the exchange as soon as the stream is back: a fill that happened in the gap is counted and its counter order is placed, once; with nothing missed nothing is placed. A running bot is reconciled the same way every five minutes while the stream is up | Binance does not replay what a dropped stream missed; trading's stream reconnects with a growing, capped delay whatever failed, and says where it is (`UserStreamHealthEvent`) |
 | The stream stays down for more than two minutes | The bot moves to Halted with the reason "the exchange stream that reports fills has been down N s; the ladder was taken off" beside its state, and its resting orders are cancelled. A stream that comes back does not resume it; Resume re-plans from the exchange as for every other halt | A bot that cannot see its own fills must not keep orders on the exchange; resuming a grid is the owner's decision (D13) |
@@ -208,7 +219,10 @@ available while it runs.
   (`BUG-187`): after a gap the bot catches up to the fills it missed, and halts when what remains
   cannot be explained.
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
-  closing asks first.
+  closing asks first. An exchange-side stop is `EPIC-026K`.
+- Halting a bot that is Stopping when the feed goes quiet: a stop sells and cancels without a price,
+  and a halt would turn the user's Stop into a resume that re-plans a ladder.
+- A price the venue pushes but that is wrong: the watch measures the feed's age, not its truth.
 - The Fills panel reads the four newest pages of the symbol's order history since the run started;
   it says so when there is more.
 - The chart's overlay for a running bot is its plan's levels; level states and fills are in the
@@ -222,7 +236,8 @@ available while it runs.
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`; `UserStreamWatch` (hears `UserStreamHealthEvent`).
 - trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`, `UserStreamHealthEvent` (`UserStreamState`), `IAccountHistoryReader.discard_remembered`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
-  `IMarketDataRepository` (the 1-second klines, streamed).
+  `IMarketDataRepository` (the 1-second klines, streamed); `IMarketDataSources` and `IMarketStream`
+  for each bot's own price stream (`BotPriceWatch`, `EPIC-035A`).
 - core: `ICloseObjections`, `ICommandDispatcher`.
 
 ## 8. Proven by
@@ -254,6 +269,8 @@ available while it runs.
 | The Bots menu and the mode's toolbar hold exactly HLD §11.2.3's Bots commands | `tests/integration/presentation/ui/test_bots_mode_catalogue.py` | integration (booted app) |
 | Orders and fills are written in the bot's symbol filters; every column aligns, and its digits sit, by its kind | `tests/unit/modules/bots/ui/bots_screen/test_bot_tables_precision.py` · `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | unit · integration (fake exchange) |
 | Closing asks while a bot is active; Cancel keeps the window | `tests/unit/presentation/ui/test_main_window_close_guard.py` | unit |
+| Every bot that is not at rest owns its venue's price stream; a stop loss is watched with no chart, in Recovering and Starting; a quiet feed halts with a named reason and a tick does not resume; the stream is released at rest; two bots share a symbol | `tests/unit/modules/bots/application/services/test_bot_price_watch.py` · `test_bot_price_watch_checks.py` · `test_grid_executor_exit_states.py` · `test_grid_executor_price_age.py` · `tests/unit/modules/bots/domain/grid/test_price_is_stale.py` | unit |
+| The price watch is wired at boot, on every bot change and at shutdown; a bot, a restart and a silent feed on the composed app | `tests/integration/modules/bots/test_bots_module_price_watch_wiring.py` · `tests/integration/modules/bots/test_a_bot_owns_its_price_stream_on_the_fake_exchange.py` | integration (fake exchange) |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |
 | A task that placed orders and ends Halted or Error takes them off the exchange, a parked bot is not cancelled again, and a refused confirm-resume leaves nothing resting | `tests/unit/modules/bots/application/services/test_grid_task_guard.py` | unit (real executor over the simulated venue) |
 | Stop is declared in Stopping; a stop that waits retries on the bounded schedule, shows its reason and the orders still open, is never Stopped early, and gives up with a named next action; the retry scheduler is verified in both implementations | `tests/unit/modules/bots/domain/test_bot_lifecycle_fsm_matrix.py` · `tests/unit/modules/bots/application/services/test_grid_executor_stop_retry.py` · `tests/unit/modules/bots/contracts/test_bot_retry_scheduler_contract.py` | unit |
