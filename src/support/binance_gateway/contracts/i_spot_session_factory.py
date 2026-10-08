@@ -41,6 +41,11 @@ class ISpotSessionClient(Protocol):
     `SpotHistoryReader` actually make — not a stand-in for the whole
     `python-binance` `Client` surface."""
 
+    #: The exchange's clock less this machine's, in milliseconds, measured when
+    #: the session was opened (`BUG-111`); a history read translates by it
+    #: (`BUG-189`).
+    timestamp_offset: int
+
     def ping(self) -> dict[str, Any]: ...
 
     def get_server_time(self) -> dict[str, Any]: ...

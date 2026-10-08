@@ -34,6 +34,14 @@ finding 2; `EPIC-028J` carries it as an acceptance criterion). What one
 every-symbol read may cost is the venue's to say, because the cost per pair
 is: `every_symbol_scan_limit()` (`BUG-145`).
 
+**One clock** (`BUG-189`). `since`, `now` and every time a record carries
+(`OrderRecord.created_at`, `TradeRecord.time`) are on the machine's clock,
+which is not the exchange's: a machine a minute fast opened every window after
+the bot's own first orders, and halted a healthy Grid. An implementation
+translates by the offset between the two clocks that its session measured when
+it opened, in both directions, so a caller compares a `run_started_at` it
+stamped with a fill the exchange reported without knowing there are two.
+
 **Gaps are stated, not hidden** (`EPIC-028Q`). What the exchange does not
 return at all (Futures' 3-day purge of unfilled cancelled orders, Spot's lack
 of a traded-pairs index) is `known_gaps()`, which the history queries put on

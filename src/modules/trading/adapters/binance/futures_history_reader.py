@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_lookback import (
+    require_within_lookback,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
@@ -119,9 +122,12 @@ class FuturesHistoryReader(IAccountHistoryReader):
         self._clock = clock
 
     def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
-        start, end = span_ms(since, self._clock())
+        now = self._clock()
+        require_within_lookback(since, now)
         with history_read_failures(f"{_VENUE} order history could not be read"):
             client = self._client()
+            offset = client.timestamp_offset
+            start, end = span_ms(since, now, offset)
             rows = fetch_span(
                 lambda s, e: client.futures_get_all_orders(
                     symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
@@ -138,14 +144,17 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _ALGO_RULES,
             )
-            return tuple(map_futures_history_order(row) for row in rows) + tuple(
-                map_futures_algo_history_order(row) for row in algo_rows
-            )
+            return tuple(
+                map_futures_history_order(row, offset) for row in rows
+            ) + tuple(map_futures_algo_history_order(row, offset) for row in algo_rows)
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
-        start, end = span_ms(since, self._clock())
+        now = self._clock()
+        require_within_lookback(since, now)
         with history_read_failures(f"{_VENUE} trade history could not be read"):
             client = self._client()
+            offset = client.timestamp_offset
+            start, end = span_ms(since, now, offset)
             rows = fetch_span(
                 lambda s, e: client.futures_account_trades(
                     symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
@@ -154,15 +163,17 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-            return tuple(map_futures_trade(row) for row in rows)
+            return tuple(map_futures_trade(row, offset) for row in rows)
 
     def discard_remembered(self, symbol: str) -> None:
         """Nothing is remembered: every read already asks the exchange."""
 
     def active_symbols(self, since: datetime) -> tuple[ActiveSymbol, ...]:
-        start, end = span_ms(since, self._clock())
+        now = self._clock()
+        require_within_lookback(since, now)
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
             client = self._client()
+            start, end = span_ms(since, now, client.timestamp_offset)
             positions: list[dict[str, Any]] = client.futures_position_information()
             open_orders: list[dict[str, Any]] = client.futures_get_open_orders()
             open_algo_orders: list[dict[str, Any]] = (

@@ -25,10 +25,13 @@ Plausible extensions, each one entry in a table here:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_reads import (
+    order_on_machine_clock,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_parsing import (
     order_type_or_unknown,
     time_in_force_or_none,
@@ -192,19 +195,25 @@ def map_futures_algo_payload_to_order(payload: dict[str, Any]) -> Order:
     )
 
 
-def map_futures_algo_history_order(payload: dict[str, Any]) -> OrderRecord:
+def map_futures_algo_history_order(
+    payload: dict[str, Any], clock_offset_ms: int = 0
+) -> OrderRecord:
     """@brief One `allAlgoOrders` row. Its executed quantity is zero by
     construction: the fill belongs to the regular order a triggered algo
     order placed, which `allOrders` lists, so nothing is counted twice.
+    @param clock_offset_ms The exchange's clock less the machine's: the
+    record's time is on the machine's (`BUG-189`).
     @raise KeyError A required field is missing."""
     created = _time_or_none(payload["createTime"])
     if created is None:
         raise KeyError("createTime")
     return OrderRecord(
-        order=map_futures_algo_payload_to_order(payload),
+        order=order_on_machine_clock(
+            map_futures_algo_payload_to_order(payload), clock_offset_ms
+        ),
         executed_quantity=Decimal(0),
         average_price=None,
-        created_at=created,
+        created_at=created - timedelta(milliseconds=clock_offset_ms),
         exchange_order_id=int(payload["algoId"]),
     )
 

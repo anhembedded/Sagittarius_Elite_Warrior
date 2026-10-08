@@ -15,6 +15,8 @@ longer than the endpoint accepts is refused with Binance's own error shape
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,8 +25,28 @@ _DEFAULT_LIMIT = 500
 _MAX_LIMIT = 1000
 
 
+#: How far the exchange's clock is from this machine's, in milliseconds
+#: (`BUG-189`): negative when the machine runs fast. Binance's clock is its
+#: own; every timestamp the fake stamps and every `/time` it answers is on it.
+_clock_skew_ms = 0
+
+
 def now_ms() -> int:
-    return int(time.time() * 1000)
+    """The exchange's clock, which is the machine's unless a test skews it."""
+    return int(time.time() * 1000) + _clock_skew_ms
+
+
+@contextmanager
+def exchange_clock_skewed_by(skew_ms: int) -> Iterator[None]:
+    """The exchange's clock reads `skew_ms` away from this machine's inside
+    the block: `-90_000` is a machine whose clock runs 90 s fast."""
+    global _clock_skew_ms
+    before = _clock_skew_ms
+    _clock_skew_ms = skew_ms
+    try:
+        yield
+    finally:
+        _clock_skew_ms = before
 
 
 @dataclass(frozen=True)

@@ -30,6 +30,7 @@ type what their callers may reach. `architecture-rule.md` §2: no other file of
 
 from __future__ import annotations
 
+import logging
 import time
 
 from binance.client import Client
@@ -43,6 +44,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+logger = logging.getLogger("App.TradingAdapter")
 
 
 def new_client(
@@ -73,3 +76,10 @@ def _sync_timestamp_offset(client: Client, futures: bool) -> None:
     # at the moment the server actually read its own clock".
     local_at_measurement_ms = (local_before_ms + local_after_ms) // 2
     client.timestamp_offset = int(server_time["serverTime"]) - local_at_measurement_ms
+    # History reads translate by this offset (`BUG-189`), so a machine whose
+    # clock is off is visible in a log that was asked for with `--dev`.
+    logger.debug(
+        "[clock-offset] %s exchange clock is %d ms from this machine's",
+        "futures" if futures else "spot",
+        client.timestamp_offset,
+    )

@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
@@ -29,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_lookback import (
     require_within_lookback,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -48,16 +50,33 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def from_ms(raw_ms: Any) -> datetime:
-    """A Binance millisecond timestamp as an aware UTC `datetime`."""
-    return datetime.fromtimestamp(int(raw_ms) / 1000, tz=UTC)
+def from_ms(raw_ms: Any, clock_offset_ms: int = 0) -> datetime:
+    """A Binance millisecond timestamp as an aware UTC `datetime` on the
+    machine's clock: the exchange's clock less `clock_offset_ms`."""
+    return datetime.fromtimestamp((int(raw_ms) - clock_offset_ms) / 1000, tz=UTC)
 
 
-def span_ms(since: datetime, now: datetime) -> tuple[int, int]:
-    """@return `(since, now)` in milliseconds.
+def order_on_machine_clock[T: Order](order: T, clock_offset_ms: int) -> T:
+    """`order` with its `order_time`, which the exchange stamped, moved onto the
+    machine's clock like the record around it (`BUG-189`)."""
+    if order.order_time is None:
+        return order
+    return replace(
+        order, order_time=order.order_time - timedelta(milliseconds=clock_offset_ms)
+    )
+
+
+def span_ms(
+    since: datetime, now: datetime, clock_offset_ms: int = 0
+) -> tuple[int, int]:
+    """@return `(since, now)` in milliseconds on the exchange's clock, which is
+    the machine's plus `clock_offset_ms`.
     @throws ValueError `since` is further back than `MAX_HISTORY_LOOKBACK`."""
     require_within_lookback(since, now)
-    return int(since.timestamp() * 1000), int(now.timestamp() * 1000)
+    return (
+        int(since.timestamp() * 1000) + clock_offset_ms,
+        int(now.timestamp() * 1000) + clock_offset_ms,
+    )
 
 
 @contextmanager

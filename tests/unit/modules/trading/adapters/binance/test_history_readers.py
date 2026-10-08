@@ -127,7 +127,10 @@ def _api_error() -> BinanceAPIException:
     return exc
 
 
-def _futures(client: Any, configured: bool = True) -> FuturesHistoryReader:
+def _futures(
+    client: Any, configured: bool = True, offset_ms: int = 0
+) -> FuturesHistoryReader:
+    client.timestamp_offset = offset_ms
     return FuturesHistoryReader(
         _FuturesSessions(client), _Credentials(configured), lambda: _NOW
     )
@@ -157,7 +160,10 @@ class _Catalog(IMarketMetadataProvider):
             self.cache.put(_listed(symbol))
 
 
-def _spot(client: Any, catalog: _Catalog | None = None) -> SpotHistoryReader:
+def _spot(
+    client: Any, catalog: _Catalog | None = None, offset_ms: int = 0
+) -> SpotHistoryReader:
+    client.timestamp_offset = offset_ms
     catalog = catalog or _Catalog()
     return SpotHistoryReader(
         _SpotSessions(client),

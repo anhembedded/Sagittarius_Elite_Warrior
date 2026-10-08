@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .history_log import HistoryQuery
+from .history_log import HistoryQuery, now_ms
 from .spot_account_state import SpotAccountState
 
 #: `EPIC-027J` — real Spot-shaped `exchangeInfo`: `baseAsset`/`quoteAsset`
@@ -135,7 +135,6 @@ GET_ROUTES: dict[str, object] = {
     "/api/v3/ping": {},
     "/api/v3/exchangeInfo": _SPOT_EXCHANGE_INFO,
     "/api/v3/klines": [_SPOT_KLINE_ROW],
-    "/api/v3/time": {"serverTime": 0},
 }
 
 
@@ -163,6 +162,8 @@ def _handle_get(
 ) -> tuple[int, object] | None:
     if path in GET_ROUTES:
         return 200, GET_ROUTES[path]
+    if path == "/api/v3/time":
+        return 200, {"serverTime": now_ms()}
     if path == "/api/v3/account":
         return 200, {
             "makerCommission": 10,

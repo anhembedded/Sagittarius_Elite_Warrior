@@ -81,6 +81,7 @@ def _api_error(code: int) -> BinanceAPIException:
 
 def _raw() -> Mock:
     raw = Mock(spec=Client)
+    raw.timestamp_offset = 0
     raw.futures_get_open_orders.return_value = []
     raw.futures_get_open_algo_orders.return_value = []
     return raw

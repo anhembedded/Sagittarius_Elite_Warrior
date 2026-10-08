@@ -45,6 +45,11 @@ class ITradingSessionClient(Protocol):
     stand-in for the whole
     `python-binance` `Client` surface."""
 
+    #: The exchange's clock less this machine's, in milliseconds, measured when
+    #: the session was opened (`BUG-111`); a history read translates by it
+    #: (`BUG-189`).
+    timestamp_offset: int
+
     def futures_create_test_order(self, **params: Any) -> dict[str, Any]: ...
 
     def futures_create_order(self, **params: Any) -> dict[str, Any]: ...
