@@ -262,3 +262,94 @@ def test_a_disagreement_that_cleared_is_forgotten_by_the_next_one() -> None:
     world.derive(str(inventory))
     queue.run_all()
     assert world.state() is S.RUNNING
+
+
+def _one_disagreement_pending(world: GridWorld, queue: ManualWorkQueue) -> None:
+    """Strike one has happened and its confirming run is queued."""
+    world.derive("99")
+    world.hold("99")
+    world.executor.reconcile_after_gap()
+    queue.run_next()
+    assert world.state() is S.RUNNING
+
+
+def test_a_confirming_run_that_could_not_read_clears_the_strike() -> None:
+    """Review of PR 431, finding 1. Strike one, then the confirming run waits
+    (history did not answer), then a lone disagreement five minutes later: that
+    is a first sighting again, not a second. Red before: it halted."""
+    queue = ManualWorkQueue()
+    world = grid_world(queue=queue)
+    world.executor.start()
+    queue.run_all()
+    _one_disagreement_pending(world, queue)
+
+    world.session.register_owner_budget_answers(
+        OwnerBudgetRegistrationResult(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
+    )
+    queue.run_next()  # the confirming run cannot read: no verdict
+    world.derive("99")
+    world.executor.reconcile_after_gap()  # the periodic run, a lone sighting
+    queue.run_next()
+
+    assert world.state() is S.RUNNING
+
+
+def test_a_confirming_run_that_raised_clears_the_strike() -> None:
+    queue = ManualWorkQueue()
+    world = grid_world(queue=queue)
+    world.executor.start()
+    queue.run_all()
+    _one_disagreement_pending(world, queue)
+
+    real_open_orders = world.activity.open_orders
+
+    def timing_out() -> tuple[Order, ...]:
+        raise TimeoutError("openOrders timed out")
+
+    world.activity.open_orders = timing_out  # type: ignore[method-assign]
+    queue.run_next()
+    world.activity.open_orders = real_open_orders  # type: ignore[method-assign]
+    world.executor.reconcile_after_gap()
+    queue.run_next()
+
+    assert world.state() is S.RUNNING
+
+
+def test_a_fill_between_the_history_read_and_the_open_orders_read_is_not_lost() -> None:
+    """Review of PR 431, finding 3. A registration reads history fresh, then
+    the open orders are read, then the order's record comes from the history
+    just read (a cache serves it). A saved order that fills in between is gone
+    from the open orders while that history shows nothing executed: it was
+    dropped with no fill and no counter order. Open orders are read first, so
+    an order that fills later is still open in them and waits for the next run.
+    Red before: the BUY at 110 was dropped and its SELL never placed."""
+    world = running()
+    quantity = Decimal("2.272")
+    bought = world.runtime().inventory + quantity
+    world.hold(str(bought))
+    registrations = 0
+    registered = world.session.register_owner_budget
+
+    def registering(registration):
+        nonlocal registrations
+        registrations += 1
+        result = registered(registration)
+        # What the history reader remembers is what it read just now ...
+        world.activity.remembered_orders = tuple(world.activity.orders)
+        if registrations == 1:
+            # ... and only then does the order fill.
+            filled_in_the_gap(world, Decimal(110), str(quantity))
+            world.derive(str(bought))
+        else:
+            world.activity.remembered_orders = tuple(world.activity.orders)
+        return result
+
+    world.session.register_owner_budget = registering  # type: ignore[method-assign]
+    world.derive(str(world.runtime().inventory))
+
+    world.executor.reconcile_after_gap()  # the fill lands during this run
+    world.executor.reconcile_after_gap()  # the next run finds it
+
+    assert world.state() is S.RUNNING
+    assert Decimal(120) in world.open_ids_by_price(), "the counter order was placed"
+    assert world.runtime().inventory == bought

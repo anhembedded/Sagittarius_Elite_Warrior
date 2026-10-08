@@ -15,6 +15,12 @@ posted onto its queue like every other fact (`GridExecutor`):
     off the exchange. A stream that comes back does not resume it; the owner
     does, as for every other HALT.
 
+The rule's strength is exactly that: it defeats *our own queue* (an event
+behind the run), not the exchange's read lag, because the second run follows at
+once. A run that reaches no verdict (the venue did not answer, a read raised)
+clears the pending strike: two disagreements five minutes apart with a flaky
+venue between them are two first sightings.
+
 Only RUNNING and PAUSED bots act on either: a bot in any other state holds no
 ladder this stream feeds (HALTED and ERROR were parked, STOPPING finishes its
 own stop, RECOVERING reconciles on the trading switch).
@@ -81,11 +87,13 @@ class GridStreamGap:
         # not answer) must not fault a bot whose ladder is fine. The traceback
         # is logged; the next interval retries.
         except Exception:
+            self._unconfirmed = None
             logger.exception(
                 "Bot %s: gap reconcile failed; retrying later", state.bot_id
             )
             return
         if isinstance(outcome, ReconcileWait):
+            self._unconfirmed = None
             logger.info("Bot %s: gap reconcile waits: %s", state.bot_id, outcome.detail)
         elif isinstance(outcome, ReconcileMismatch):
             self._disagree(outcome)

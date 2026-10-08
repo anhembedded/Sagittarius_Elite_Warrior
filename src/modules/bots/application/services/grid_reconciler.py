@@ -132,13 +132,19 @@ class GridReconciler:
         exchange evidence); the caller applies the answer. `run` does for a
         RECOVERING bot, `GridStreamGap` for a running one (`EPIC-035B`)."""
         state = self._context.state
+        # Open orders **before** the registration reads history fresh: an order
+        # that fills in between is still listed open here and waits for the
+        # next run, whereas read after it, the order would be gone from the
+        # open orders while the history just read still shows it unexecuted,
+        # and `_apply_missed_fills` would drop it with no fill and no counter
+        # order (the review of PR 431, finding 3).
+        open_orders = self._context.gateway.tagged_open_orders()
         registration = self._housekeeping.register()
         if not registration.registered or registration.inventory is None:
             return ReconcileWait(
                 GridReason.SWITCH_OFF,
                 f"waiting: the budget was refused: {refusal_text(registration)}",
             )
-        open_orders = self._context.gateway.tagged_open_orders()
         try:
             applied = self._apply_missed_fills(state.runtime, open_orders)
         except AccountHistoryUnavailableError as error:
