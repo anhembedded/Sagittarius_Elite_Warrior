@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -83,7 +86,10 @@ class GridStopper:
         self._rerun()
 
     def _attempt(self, base: BaseHandling) -> None:
-        progress = self._sequence.run(base, self._price())
+        try:
+            progress = self._sequence.run(base, self._price())
+        except ExchangeRateLimitedError as limited:
+            progress = self._sequence.wait_for_rate_limit(limited)
         self._retry.settle(progress, self._rerun)
 
     def _rerun(self) -> None:

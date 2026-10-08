@@ -58,6 +58,10 @@ class GridReason(str, Enum):
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
+    #: The exchange asked the app to slow down (HTTP 429, `-1003`, `-1015`) or
+    #: banned its IP (HTTP 418) (`EPIC-035D`): the bot halts for the stated pause
+    #: and resumes by itself.
+    RATE_LIMITED = "rate_limited"
     #: No price tick for longer than the bot may go without one (`EPIC-035A`):
     #: it cannot watch its stop loss, so it stops placing and takes its ladder off.
     PRICE_FEED_STALE = "price_feed_stale"

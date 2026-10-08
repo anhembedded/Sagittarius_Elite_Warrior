@@ -13,6 +13,9 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
     fault: an Emergency Stop racing a submit must lead to HALTED, not ERROR.
   · `REFUSED` — any other gate or limit, or the exchange's minimum notional;
     the bot halts naming it.
+  · `RATE_LIMITED` — the exchange (or the venue's gate, closed by another call)
+    asked for a pause (`EPIC-035D`). Nothing was sent or placed, so it is no fault:
+    the bot halts for the stated pause, or its stop waits it out.
   · `FAULT` — the request raised (the venue rejected what it received, or the
     request never arrived). The one place an exception from trading is caught,
     because here it becomes a named fault for the lifecycle (`code/errors.md`:
@@ -23,18 +26,24 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    whole_seconds,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
@@ -84,6 +93,7 @@ class OrderOutcomeKind(str, Enum):
     DONE = "done"
     SWITCH_OFF = "switch_off"
     REFUSED = "refused"
+    RATE_LIMITED = "rate_limited"
     FAULT = "fault"
 
 
@@ -94,6 +104,8 @@ class OrderOutcome:
     kind: OrderOutcomeKind
     client_order_id: str = ""
     detail: str = ""
+    #: For `RATE_LIMITED`: how long the exchange asked for.
+    retry_after: timedelta | None = None
 
     @property
     def done(self) -> bool:
@@ -119,6 +131,7 @@ class BotOrderGateway:
         self._identity = identity
         self._pacer = pacer
         self._submissions = 0
+        self._rate_limit: timedelta | None = None
 
     @property
     def submissions(self) -> int:
@@ -127,6 +140,16 @@ class BotOrderGateway:
         A task that moved this number may have left orders resting
         (`GridTaskGuard`)."""
         return self._submissions
+
+    def note_rate_limit(self, retry_after: timedelta) -> None:
+        """Remember the pause the exchange last asked of this bot."""
+        self._rate_limit = retry_after
+
+    def take_rate_limit(self) -> timedelta | None:
+        """The pause the exchange last asked of this bot since it was last
+        taken, or `None`: a halt for a rate limit schedules its resume by it."""
+        taken, self._rate_limit = self._rate_limit, None
+        return taken
 
     def place_limit(
         self, side: OrderSide, price: Decimal, quantity: Decimal
@@ -161,6 +184,8 @@ class BotOrderGateway:
             result = self._ports.order_submission.cancel(
                 self._identity.symbol, client_order_id
             )
+        except ExchangeRateLimitedError as limited:
+            return self._rate_limited(limited, client_order_id)
         except Exception as exc:  # converted to a named fault at this seam
             logger.exception(
                 "Bot %s: cancel %s raised", self._identity.tag, client_order_id
@@ -250,6 +275,10 @@ class BotOrderGateway:
         self._submissions += 1
         try:
             result = self._ports.order_submission.submit(request, live=True)
+        except ExchangeRateLimitedError as limited:
+            # Nothing reached the exchange's order book: it answered the limit
+            # before reading the order, or the venue's gate stopped it.
+            return self._rate_limited(limited, "")
         except OrderOutcomeUnknownError as unknown:
             # `BUG-170` — the order may be live. The id is carried so the stop
             # sequence marks it off the ladder and a later fill is booked as
@@ -281,6 +310,24 @@ class BotOrderGateway:
             )
             return OrderOutcome(OrderOutcomeKind.FAULT, detail=_fault_text(exc))
         return _classify_submit(result)
+
+    def _rate_limited(
+        self, limited: ExchangeRateLimitedError, client_order_id: str
+    ) -> OrderOutcome:
+        self.note_rate_limit(limited.retry_after)
+        logger.warning(
+            "Bot %s: rate limited, the exchange asked for %d s%s [bot-rate-limited]",
+            self._identity.tag,
+            whole_seconds(limited.retry_after),
+            " (a ban)" if limited.banned else "",
+        )
+        return OrderOutcome(
+            OrderOutcomeKind.RATE_LIMITED,
+            client_order_id,
+            f"rate limited: the exchange asked for a pause of "
+            f"{whole_seconds(limited.retry_after)} s",
+            limited.retry_after,
+        )
 
 
 def _fault_text(exc: Exception) -> str:

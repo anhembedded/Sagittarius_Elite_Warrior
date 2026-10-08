@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fault_with,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_rate_limit_pause import (
+    GridRateLimitPause,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -42,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -53,33 +59,52 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
 )
 
 
+#: Reasons whose halt leaves the ladder where it is: cancels are refused while
+#: trading is off (D13) and inside a rate-limit pause (`EPIC-035D`, whose resume
+#: cancels every tagged order first).
+_NOT_PARKED: frozenset[GridReason] = frozenset(
+    {GridReason.SWITCH_OFF, GridReason.RATE_LIMITED}
+)
+
+
 class GridTaskGuard:
     """Runs one worker task, then parks the ladder if the task stopped placing."""
 
-    def __init__(self, context: GridRunContext, housekeeping: GridHousekeeping) -> None:
+    def __init__(
+        self,
+        context: GridRunContext,
+        housekeeping: GridHousekeeping,
+        pause: GridRateLimitPause,
+    ) -> None:
         self._context = context
         self._housekeeping = housekeeping
+        self._pause = pause
 
     def run(self, what: str, task: Callable[[], None]) -> None:
         """Run `task`, named `what` in any fault it becomes."""
         state = self._context.state
         before = state.state
         sent_before = self._context.gateway.submissions
+        self._context.gateway.take_rate_limit()  # a pause from an earlier task is spent
         try:
             task()
+        except ExchangeRateLimitedError as limited:
+            # `EPIC-035D` — a pause the exchange named, not a failure of the step.
+            self._pause.halt(limited, what)
         except Exception as error:
             logger.exception("Bot %s: %s failed", state.bot_id, what)
             fault_with(state, what, error)
         sent = self._context.gateway.submissions > sent_before
         if self._orders_may_rest(before, sent):
             self._park()
+        self._pause.after_task()
 
     def _orders_may_rest(self, before: BotLifecycleState, sent: bool) -> bool:
         state = self._context.state
         return (
             state.state in _PARKED
             and (before not in _PARKED or sent)
-            and state.runtime.reason is not GridReason.SWITCH_OFF
+            and state.runtime.reason not in _NOT_PARKED
         )
 
     def _park(self) -> None:

@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
+    AUTO_RESUME_MARGIN,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -86,6 +89,10 @@ class GridStopRetry:
             self._exhausted()
             return
         delay = STOP_RETRY_DELAYS[self._retries_run]
+        pause = self._context.gateway.take_rate_limit()
+        if pause is not None:
+            # `EPIC-035D` — a retry inside the exchange's pause would only be refused.
+            delay = max(delay, pause + AUTO_RESUME_MARGIN)
         number = self._retries_run + 1
         self._append(f"retry {number} of {len(STOP_RETRY_DELAYS)} in {_seconds(delay)}")
         round_ = self._round

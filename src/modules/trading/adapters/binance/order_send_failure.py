@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
     describe_failure,
     is_non_json_answer,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
+    rate_limited_error_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
     OrderOutcomeUnknownError,
@@ -62,11 +65,30 @@ def is_unreadable_answer(exc: BaseException) -> bool:
     )
 
 
+def raise_rejection(exc: BinanceAPIException) -> NoReturn:
+    """The exchange answered a cancel or a read with a refusal: name it.
+
+    @raise ExchangeRateLimitedError `exc` is a rate-limit pause (`EPIC-035D`):
+    nothing was done, and the error says for how long to wait.
+    @raise OrderRejectedByExchangeError Any other answer."""
+    limited = rate_limited_error_of(exc)
+    if limited is not None:
+        raise limited from exc
+    raise OrderRejectedByExchangeError(
+        translate_binance_error(exc), describe_failure(exc)
+    ) from exc
+
+
 def raise_for_failed_send(order: Order, exc: Exception, *, live: bool) -> NoReturn:
-    """@raise OrderOutcomeUnknownError A live send with no readable answer.
+    """@raise ExchangeRateLimitedError The exchange asked for a pause; the order
+    was not sent (or not read) — it is not an unknown outcome.
+    @raise OrderOutcomeUnknownError A live send with no readable answer.
     @raise OrderRejectedByExchangeError An answer the exchange gave.
     @raise Exception `exc` itself, a transport failure of a `VALIDATE_ONLY` send.
     """
+    limited = rate_limited_error_of(exc)
+    if limited is not None:
+        raise limited from exc
     if live and is_unreadable_answer(exc):
         reason = describe_failure(exc, other=_transport_words)
         logger.error(
@@ -91,6 +113,9 @@ def raise_for_failed_read(symbol: str, client_order_id: str, exc: Exception) -> 
 
     @raise OrderRejectedByExchangeError The exchange refused the read itself.
     """
+    limited = rate_limited_error_of(exc)
+    if limited is not None:
+        raise limited from exc
     if isinstance(exc, BinanceAPIException) and exc.code == ORDER_DOES_NOT_EXIST_CODE:
         return
     if is_unreadable_answer(exc):

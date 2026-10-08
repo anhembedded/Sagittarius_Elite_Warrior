@@ -105,6 +105,12 @@ class HistoryLog:
     def remember_trade(self, trade: dict[str, Any]) -> None:
         self._trades.append(trade)
 
+    def find(self, symbol: str, client_order_id: str) -> dict[str, Any] | None:
+        """`EPIC-035D` — `GET /api/v3/order`: one remembered order by its client
+        order id, whatever became of it; `None` for an id never seen."""
+        order = self._orders.get(client_order_id)
+        return order if order is not None and order["symbol"] == symbol else None
+
     def orders(
         self, query: HistoryQuery, *, purge_unfilled_after_ms: int | None = None
     ) -> list[dict[str, Any]]:

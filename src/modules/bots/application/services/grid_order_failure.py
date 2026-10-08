@@ -1,6 +1,8 @@
 """`EPIC-029E` — what a refused or failed order does to a running Grid (ADR D9, §3.1).
 
   · `SWITCH_OFF` → `switch_off`: trading is off; HALTED (STOPPING waits).
+  · `RATE_LIMITED` → `halt` naming the pause (`EPIC-035D`); the bot resumes by
+    itself when it ends (`GridRateLimitPause`).
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
@@ -34,6 +36,8 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
     detail = f"{what}: {outcome.detail}"
     if outcome.kind is OrderOutcomeKind.SWITCH_OFF:
         _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
+    elif outcome.kind is OrderOutcomeKind.RATE_LIMITED:
+        _apply(state, BotLifecycleEvent.HALT, GridReason.RATE_LIMITED, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
     elif state.state is BotLifecycleState.STARTING:
