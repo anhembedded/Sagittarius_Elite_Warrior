@@ -94,7 +94,7 @@ def test_the_exit_check_reads_the_price_afresh_not_the_last_tick() -> None:
     """The last tick the bot heard before sleeping was inside the band; the
     stop loss is only crossed in the fresh read."""
     s = Sleeper(ScriptedFreshPrice(_BELOW_STOP_LOSS))
-    s.world.executor.on_tick(_INSIDE_THE_BAND)
+    s.world.executor.facts.on_tick(_INSIDE_THE_BAND)
 
     s.sleep(_NIGHT)
 

@@ -5,7 +5,7 @@ stream with it, and every fill and price move of the night goes unseen. When the
 heartbeat finds it has been away (`ClockGapDetector`), this service does for
 every bot what a stream that came back does, and one thing more:
 
-  1. **Catch up.** Each executor's `reconcile_after_gap()` — the entry point
+  1. **Catch up.** Each executor's `facts.reconcile_after_gap()` — the entry point
      `EPIC-035B`'s `UserStreamWatch` uses, not a second reconcile — brings the
      ladder level with the exchange's open orders and trade history.
   2. **Check the exits.** `WakeExitCheck` reads a fresh price and gives it to
@@ -135,7 +135,7 @@ class SleepWatch:
         if not executors:
             return
         for executor in executors:
-            executor.reconcile_after_gap()
+            executor.facts.reconcile_after_gap()
         self._exits.begin()
         count = len(executors)
         self._deps.notifier.notify(

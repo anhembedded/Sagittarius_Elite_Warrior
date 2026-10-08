@@ -100,7 +100,7 @@ class WakeExitCheck:
         venue, symbol = market
         for executor in self._executors.on_venue(venue):
             if executor.symbol == symbol:
-                executor.on_tick(price)
+                executor.facts.on_tick(price)
         logger.info(
             "Fresh price of %s %s is %s; stop loss and take profit checked "
             "[sleep-exit-check]",
