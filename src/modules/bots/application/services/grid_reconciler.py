@@ -16,7 +16,9 @@ ADR's order:
      the order is over.
   5. **Then adopt.** A tagged order the saved ladder did not know — sent but
      never saved, because the app died between the submit and the write — is
-     adopted at the level of its price, so that level is never placed twice.
+     adopted at the level of its price, so that level is never placed twice,
+     and what history says it already executed is applied as for a saved order
+     (`EPIC-035Q`): the open-order list carries no executed quantity.
      Two orders at one level, or one at no level, halts.
   6. **Check the inventory**: the saved inventory equals the derived one to
      within one step (`INVENTORY_MISMATCH`), and the account holds **at
@@ -157,7 +159,11 @@ class GridReconciler:
                 f"waiting: the budget was refused: {refusal_text(registration)}",
             )
         try:
-            applied = self._apply_missed_fills(state.runtime, open_orders)
+            records = self._read_records(state.runtime, open_orders)
+            applied = self._apply_missed_fills(state.runtime, open_orders, records)
+            if isinstance(applied, ReconcileMismatch):
+                return applied
+            outcome = self._adopt(applied, open_orders, records)
         except AccountHistoryUnavailableError as error:
             logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
             return ReconcileWait(
@@ -165,23 +171,35 @@ class GridReconciler:
                 f"waiting: order history did not answer ({error}); "
                 "enable trading again to retry",
             )
-        if isinstance(applied, ReconcileMismatch):
-            return applied
-        outcome = self._adopt(applied, open_orders)
         if isinstance(outcome, ReconcileMismatch):
             return outcome
         mismatch = self._check_inventory(outcome, registration.inventory.quantity)
         return outcome if mismatch is None else mismatch
 
-    def _apply_missed_fills(
+    def _read_records(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]
+    ) -> dict[str, OrderRecord]:
+        """History's row of every order this reconcile may apply fills of: the
+        saved ones and the open ones the ladder does not know (to be adopted,
+        `EPIC-035Q`), read in one pass. Empty before the run has started.
+        @raise AccountHistoryUnavailableError The venue did not answer."""
+        since = self._context.state.bot.lifecycle.run_started_at
+        if since is None:
+            return {}
+        known = frozenset(order.client_order_id for order in runtime.open_orders)
+        unknown = frozenset(order.client_order_id for order in open_orders) - known
+        return self._context.gateway.order_records(known | unknown, since)
+
+    def _apply_missed_fills(
+        self,
+        runtime: GridRuntime,
+        open_orders: tuple[Order, ...],
+        records: dict[str, OrderRecord],
     ) -> GridRuntime | ReconcileMismatch:
         since = self._context.state.bot.lifecycle.run_started_at
         if since is None:
             return runtime
         open_ids = {order.client_order_id for order in open_orders}
-        saved_ids = frozenset(order.client_order_id for order in runtime.open_orders)
-        records = self._context.gateway.order_records(saved_ids, since)
         for saved in runtime.open_orders:
             record = records.get(saved.client_order_id)
             applied = self._catch_up(runtime, saved, record, since)
@@ -272,8 +290,12 @@ class GridReconciler:
         )
 
     def _adopt(
-        self, runtime: GridRuntime, open_orders: tuple[Order, ...]
+        self,
+        runtime: GridRuntime,
+        open_orders: tuple[Order, ...],
+        records: dict[str, OrderRecord],
     ) -> GridRuntime | ReconcileMismatch:
+        since = self._context.state.bot.lifecycle.run_started_at
         known = {order.client_order_id for order in runtime.open_orders}
         for order in open_orders:
             if order.client_order_id in known:
@@ -289,13 +311,25 @@ class GridReconciler:
                     GridReason.DUPLICATE_LEVEL_ORDER,
                     f"L{level.index} holds two orders carrying the tag",
                 )
-            runtime = adopted(runtime, level.index, _level_order(order))
+            adoptee = _level_order(order)
+            runtime = adopted(runtime, level.index, adoptee)
             logger.info(
                 "Bot %s: adopted %s at L%d",
                 self._context.state.bot_id,
                 order.client_order_id,
                 level.index,
             )
+            if since is None:
+                continue
+            # `EPIC-035Q`: the open-order list says nothing of what the order
+            # already executed; history does. The adopted order starts there,
+            # not at zero, as a saved one is brought level with it.
+            caught_up = self._catch_up(
+                runtime, adoptee, records.get(order.client_order_id), since
+            )
+            if isinstance(caught_up, ReconcileMismatch):
+                return caught_up
+            runtime = caught_up
         return runtime
 
     def _check_inventory(
