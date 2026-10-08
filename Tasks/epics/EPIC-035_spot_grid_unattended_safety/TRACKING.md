@@ -54,7 +54,9 @@ gantt
 | EPIC-035E–G | Phase 2 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035K | [Superseded by EPIC-036](cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) | — | 🟡 | ❌ Cancelled (2026-10-08) | — |
 | EPIC-035L | [Range exit, Start outside the range](completed/EPIC-035L_range_exit_and_start_outside_the_range.md) | branch `claude/epic-035l-035s-range-and-levels` | 🟡 | ✅ Done (2026-10-08); alert waits for 036B | pull request open, awaiting review |
-| EPIC-035M–O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035M | [PnL is complete](completed/EPIC-035M_pnl_is_complete.md) | branch `claude/epic-035-mn` | 🟢 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035N | [Invalid parameters explained](completed/EPIC-035N_invalid_parameters_are_explained_where_they_are.md) | branch `claude/epic-035-mn` | 🟢 | ✅ Done (2026-10-08); status bar → 035W | pull request open, awaiting review |
+| EPIC-035O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035S | [Levels that round together are refused](completed/EPIC-035S_levels_that_round_together_are_refused.md) | branch `claude/epic-035l-035s-range-and-levels` | 🟢 | ✅ Done (2026-10-08) | pull request open, awaiting review |
