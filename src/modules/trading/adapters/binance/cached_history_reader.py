@@ -67,6 +67,9 @@ class _Entry[T]:
     since: datetime
     read_at: datetime
     value: T
+    #: The symbol's discard count when the read that stored this began; an
+    #: entry from before the latest `forget` is never served (`EPIC-035B`).
+    epoch: int = 0
 
 
 class _ReadsInFlight[K]:
@@ -123,6 +126,7 @@ class _SymbolHistoryCache[T]:
         self._row_time = row_time
         self._lock = lock
         self._entries: dict[str, _Entry[tuple[T, ...]]] = {}
+        self._epochs: dict[str, int] = {}
         self._in_flight = _ReadsInFlight[str](kind, lock)
 
     def rows(
@@ -130,7 +134,12 @@ class _SymbolHistoryCache[T]:
     ) -> tuple[T, ...]:
         def cached() -> tuple[T, ...] | None:
             entry = self._entries.get(symbol)
-            if entry is None or entry.since > since or not freshness.fresh(entry):
+            if (
+                entry is None
+                or entry.since > since
+                or entry.epoch != self._epochs.get(symbol, 0)
+                or not freshness.fresh(entry)
+            ):
                 return None
             logger.debug(
                 "[history-cache] %s %s since %s: cached", self._kind, symbol, since
@@ -141,9 +150,11 @@ class _SymbolHistoryCache[T]:
             logger.debug(
                 "[history-cache] %s %s since %s: read", self._kind, symbol, since
             )
+            with freshness.lock:
+                epoch = self._epochs.get(symbol, 0)
             rows = self._read(symbol, since)
             with freshness.lock:
-                self._entries[symbol] = _Entry(since, freshness.now, rows)
+                self._entries[symbol] = _Entry(since, freshness.now, rows, epoch)
             return rows
 
         return self._in_flight.read_once(symbol, cached, read)
@@ -151,6 +162,9 @@ class _SymbolHistoryCache[T]:
     def forget(self, symbol: str) -> None:
         with self._lock:
             self._entries.pop(symbol, None)
+            # A read already in flight stores its entry under the old epoch,
+            # which nobody is then served, joined or not.
+            self._epochs[symbol] = self._epochs.get(symbol, 0) + 1
 
 
 @dataclass(frozen=True)
@@ -202,8 +216,8 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
         return self._trades.rows(symbol, since, self._freshness(since))
 
     def discard_remembered(self, symbol: str) -> None:
-        """`EPIC-035B` — the next read of `symbol` goes to the exchange. A read
-        already in flight still stores its entry when it ends."""
+        """`EPIC-035B` — the next read of `symbol` goes to the exchange, even
+        when a read began before this call: its entry is never served."""
         self._orders.forget(symbol)
         self._trades.forget(symbol)
 
