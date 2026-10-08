@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progres
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
     GridExecutor,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interrupted_start import (
+    OWING_REASONS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
@@ -36,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
-    GridReason,
 )
 
 logger = logging.getLogger("App.Bots.Restore")
@@ -82,6 +82,6 @@ class BotBootRecovery:
 
 def _owes_a_cancel(stored: StoredBot) -> bool:
     progress = bot_progress(stored)
-    return (
-        progress is not None and progress.reason == GridReason.START_INTERRUPTED.value
-    )
+    return progress is not None and progress.reason in {
+        reason.value for reason in OWING_REASONS
+    }

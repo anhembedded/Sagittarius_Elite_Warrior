@@ -1,4 +1,4 @@
-"""`EPIC-035C` (H6) — the cancel a restart owes a bot whose start it cut short.
+"""`EPIC-035C` (H6), `BUG-190` — the cancel a cut-short start owes.
 
 A bot saved while STARTING may have laid part of its ladder (and bought part of
 its opening) before the app closed. The restart rule makes it HALTED
@@ -15,6 +15,11 @@ trading is enabled, until paid:
     that they are cancelled when trading is enabled.
   · **A cancel refused or failed** → stays owed, saying so and that orders may
     still rest. Never reported as a clean halt.
+
+A start (or a confirmed resume) refused because trading went off owes the same
+cancel (`START_CUT_BY_SWITCH_OFF`): the session is closed, so its partial
+ladder cannot be taken off then, and unlike a finished ladder it belongs to a
+plan that never completed. Only the lead of the sentence differs.
 
 Resuming or stopping the bot cancels its tagged orders too (`GridResumeSequence`,
 `GridStopSequence`), so the user is never forced to wait for this.
@@ -48,7 +53,13 @@ START_INTERRUPTED_DETAIL = (
     "the app closed while this bot was starting; its tagged orders may still "
     "rest and are cancelled when trading is enabled"
 )
-_BASE = "the app closed while this bot was starting"
+#: What cut the start short, per reason that owes the cancel; the lead of every
+#: sentence this class says. Also the set of reasons that owe it.
+_LEAD: dict[GridReason, str] = {
+    GridReason.START_INTERRUPTED: "the app closed while this bot was starting",
+    GridReason.START_CUT_BY_SWITCH_OFF: "trading went off while this bot was starting",
+}
+OWING_REASONS: frozenset[GridReason] = frozenset(_LEAD)
 
 
 class GridInterruptedStart:
@@ -62,7 +73,7 @@ class GridInterruptedStart:
         state = self._context.state
         return (
             state.state is BotLifecycleState.HALTED
-            and state.runtime.reason is GridReason.START_INTERRUPTED
+            and state.runtime.reason in OWING_REASONS
         )
 
     def run(self) -> None:
@@ -78,8 +89,8 @@ class GridInterruptedStart:
                 exc_info=True,
             )
             self._say(
-                GridReason.START_INTERRUPTED,
-                f"{_BASE}; the exchange could not be read ({type(error).__name__}); "
+                self._reason(),
+                f"{self._lead()}; the exchange could not be read ({type(error).__name__}); "
                 "its tagged orders are cancelled when trading is enabled",
             )
 
@@ -104,7 +115,7 @@ class GridInterruptedStart:
         )
         self._say(
             GridReason.START_INTERRUPTED_CLEARED,
-            f"{_BASE}; {what}. Resume to lay a fresh ladder, or Stop",
+            f"{self._lead()}; {what}. Resume to lay a fresh ladder, or Stop",
         )
         logger.info("Bot %s: interrupted start — %s", self._context.state.bot_id, what)
 
@@ -113,8 +124,8 @@ class GridInterruptedStart:
             self._cleared(0)
             return
         self._say(
-            GridReason.START_INTERRUPTED,
-            f"{_BASE}; {resting} tagged order(s) still rest and are cancelled "
+            self._reason(),
+            f"{self._lead()}; {resting} tagged order(s) still rest and are cancelled "
             "when trading is enabled",
         )
 
@@ -125,10 +136,20 @@ class GridInterruptedStart:
         )
         detail = failed.detail if failed else ""
         self._say(
-            GridReason.START_INTERRUPTED,
-            f"{_BASE}; cancel {report.client_order_id} {verb}: {detail}; "
+            self._reason(),
+            f"{self._lead()}; cancel {report.client_order_id} {verb}: {detail}; "
             f"{report.remaining} tagged order(s) may still rest",
         )
+
+    def _reason(self) -> GridReason:
+        """The reason that owes the cancel, kept while it is owed."""
+        reason = self._context.state.runtime.reason
+        if reason not in OWING_REASONS:
+            raise ValueError(f"no cancel is owed under {reason}")
+        return reason
+
+    def _lead(self) -> str:
+        return _LEAD[self._reason()]
 
     def _say(self, reason: GridReason, detail: str) -> None:
         state = self._context.state
