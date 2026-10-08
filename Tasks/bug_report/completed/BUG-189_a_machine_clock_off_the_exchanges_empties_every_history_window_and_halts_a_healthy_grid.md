@@ -3,7 +3,7 @@
 - **Reported:** 2026-10-08 (the owner, Spot Mainnet `ETHUSDT`, bot `g3n092`, master at `7451d3c`; via the coordinator session)
 - **Severity:** 🔴 P1 — every Start on an affected machine ends in a HALT and a cancelled ladder about five minutes in, once `EPIC-035B` runs the gap reconcile. Funds are safe (the base stays in the account).
 - **Status:** ✅ Fixed (2026-10-08)
-- **Board:** The gap reconcile derived 0 inventory for a bot that held its opening buy and halted it. Cause: the history readers sent the machine's `run_started_at`, `now` and checkpoint `read_from` to Binance as they were and read back Binance's own stamps; the owner's clock is not Binance's (`BUG-111`), so every window opened after the bot's own first orders. Fix: the readers translate both ways by the offset the signed session measured ([CS-008](../../Docs/CASE_STUDIES/CS-008_the_clock_the_fake_never_had.md)).
+- **Board:** The gap reconcile derived 0 inventory for a bot that held its opening buy and halted it. Cause: the history readers sent the machine's `run_started_at`, `now` and checkpoint `read_from` to Binance as they were and read back Binance's own stamps; the owner's clock is not Binance's (`BUG-111`), so every window opened after the bot's own first orders. Fix: the readers translate both ways by the offset the signed session measured ([CS-008](../Docs/CASE_STUDIES/CS-008_the_clock_the_fake_never_had.md)).
 - **Context:** [SPEC-014](../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) → trading (`src/modules/trading/`) → `adapters/binance/` (the history readers), seen through `application/owner_inventory_deriver.py`
 - **Environment:** Windows, Spot Mainnet; master `7451d3c`. Reproduced on Linux against the fake exchange with its clock set 90 s and 20 s away from the machine's.
 
