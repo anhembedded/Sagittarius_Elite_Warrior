@@ -158,7 +158,9 @@ def test_a_spot_factory_opens_every_session_on_its_own_venue(
     factory.create_trading_client(_KEYS)
     factory.create_metadata_client()
 
-    assert [b["testnet"] for b in _Client.built] == [venue.is_testnet] * 3
+    # `EPIC-035D` — the account and trading callers share the venue's one signed
+    # session, so two are opened (signed, public), each on the factory's venue.
+    assert [b["testnet"] for b in _Client.built] == [venue.is_testnet] * 2
 
 
 @pytest.mark.parametrize("venue", _SPOT)

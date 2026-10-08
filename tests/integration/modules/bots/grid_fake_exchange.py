@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    IFreshPriceReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -259,6 +262,7 @@ def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[Boo
             pacers=lambda _spacing: pacer,
             retries=container.resolve(IBotRetryScheduler),
             monotonic=container.resolve(IMonotonicClock),
+            prices=container.resolve(IFreshPriceReader),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

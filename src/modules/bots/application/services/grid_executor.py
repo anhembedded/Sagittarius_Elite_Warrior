@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
     GridPriceReaction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_rate_limit_pause import (
+    GridRateLimitPause,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
     GridReconciler,
 )
@@ -126,7 +129,12 @@ class GridExecutor(IBotExecutor):
             context, self._reconciler, self._placer.release_held, self._post
         )
         self._storage = GridStorageWatch(context)
-        self._guard = GridTaskGuard(context, GridHousekeeping(context), self._storage)
+        self._guard = GridTaskGuard(
+            context,
+            GridHousekeeping(context),
+            GridRateLimitPause(context, retries, self._post, self._resume, self._price),
+            self._storage,
+        )
         self._prices = GridPriceReaction(context, self._stop)
         self._proposal: ResumeProposal | None = None
         self._facts = GridFacts(
@@ -260,4 +268,4 @@ class GridExecutor(IBotExecutor):
             )
 
     def _price(self) -> Decimal:
-        return self._prices.last_price or self._context.gateway.market_price()
+        return self._context.reference_price.current()

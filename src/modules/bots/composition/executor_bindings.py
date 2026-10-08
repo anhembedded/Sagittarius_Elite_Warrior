@@ -165,6 +165,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         pacers=MonotonicOrderPacer,
         monotonic=container.resolve(IMonotonicClock),
         retries=container.resolve(IBotRetryScheduler),
+        prices=container.resolve(IFreshPriceReader),
     )
     return GridExecutorFactory(deps)
 

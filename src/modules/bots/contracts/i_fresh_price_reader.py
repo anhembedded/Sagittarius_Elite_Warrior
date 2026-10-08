@@ -11,6 +11,7 @@ best bid and ask.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -19,7 +20,15 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 class FreshPriceUnavailableError(Exception):
-    """The venue could not give a price now (no network, no answer, no book)."""
+    """The venue could not give a price now (no network, no answer, no book).
+
+    `retry_after` is set when the cause was a rate limit the exchange named
+    (`EPIC-035D`): a caller that can wait waits that long, the others retry as
+    they always did."""
+
+    def __init__(self, message: str, retry_after: timedelta | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class IFreshPriceReader(ABC):
