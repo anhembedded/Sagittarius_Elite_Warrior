@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: What a halt reason's detail says once the file is known to be behind; keeps it single.
+_CANNOT_BE_SAVED = "its state cannot be saved"
+
 
 class GridStorageWatch:
     """Pauses a bot whose store keeps failing, and gates its way back."""
@@ -92,19 +95,36 @@ class GridStorageWatch:
         a write. Both ways out of HALTED pass here (`GridResumeSequence.propose` and
         `.confirm`: the user's, and the rate-limit timer's), so neither lays a ladder
         over a file that cannot say so. When it cannot, the bot stays HALTED (a PAUSED
-        bot would skip the re-plan a halt owes) with `STORAGE_FAILURE` in place of its
-        reason, which also keeps the rate-limit pause from scheduling another timer;
-        the user's next Resume tries again."""
+        bot would skip the re-plan a halt owes) and says so: `STORAGE_FAILURE` replaces
+        a rate limit (which also keeps the rate-limit pause from scheduling another
+        timer), while any other halt reason (a rejected key, a delisting) stays the
+        reason and gains the note, once. The user's next Resume tries again."""
         state = self._context.state
         if state.save_works():
             return True
         runtime = state.runtime
-        was = runtime.reason.value if runtime.reason is not None else "no reason"
-        detail = (
-            f"not resumed because its state cannot be saved ({state.storage_failure}); "
-            f"nothing was laid. Check the disk, then press Resume (halted before: "
-            f"{was}: {runtime.reason_detail})"
+        note = (
+            f"its state cannot be saved ({state.storage_failure}); nothing was laid. "
+            "Check the disk, then press Resume"
         )
-        logger.error("Bot %s: %s [bot-store-failed-resume]", state.bot_id, detail)
-        state.update(runtime.with_reason(GridReason.STORAGE_FAILURE, detail))
+        logger.error(
+            "Bot %s: resume refused, %s [bot-store-failed-resume]", state.bot_id, note
+        )
+        if runtime.reason is GridReason.STORAGE_FAILURE or _CANNOT_BE_SAVED in (
+            runtime.reason_detail
+        ):
+            return False
+        if runtime.reason in (None, GridReason.RATE_LIMITED):
+            before = (
+                f" (halted before: {runtime.reason.value})" if runtime.reason else ""
+            )
+            state.update(
+                runtime.with_reason(
+                    GridReason.STORAGE_FAILURE, f"not resumed, {note}{before}"
+                )
+            )
+        else:
+            state.update(
+                runtime.with_reason(runtime.reason, f"{runtime.reason_detail}; {note}")
+            )
         return False

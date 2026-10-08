@@ -21,16 +21,34 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+    decode_runtime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+    NotifyingBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
+    FakeBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+    GridRuntime,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderSafetyGate,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
+    BOT,
     GridWorld,
     grid_world,
 )
@@ -216,8 +234,30 @@ def test_a_bot_the_user_paused_on_a_failing_disk_is_not_resumed_into_it() -> Non
     assert Decimal(120) in world.open_ids_by_price()
 
 
-def _halted_by_a_rate_limit() -> GridWorld:
-    world = grid_world()
+class _Screen:
+    """What the Bots screen reads: the store seam that keeps a failed write in
+    front of the file (`NotifyingBotStore`), so a bot's state shows while the disk
+    still fails."""
+
+    def __init__(self) -> None:
+        self.store: NotifyingBotStore | None = None
+
+    def through(self, raw: FakeBotStore) -> NotifyingBotStore:
+        self.store = NotifyingBotStore(raw, _Quiet())
+        return self.store
+
+    def runtime(self) -> GridRuntime:
+        assert self.store is not None
+        return decode_runtime(self.store.load(BotId(BOT)).runtime)
+
+
+class _Quiet(IEventPublisher):
+    def publish(self, event: object) -> None:
+        return None
+
+
+def _halted_by_a_rate_limit(screen: _Screen | None = None) -> GridWorld:
+    world = grid_world(store_view=screen.through if screen else None)
     world.book.raise_next = [
         ExchangeRateLimitedError(
             timedelta(seconds=60), banned=False, raw_message="slow down"
@@ -265,3 +305,52 @@ def test_the_halted_bot_says_storage_failure_and_the_next_resume_recovers() -> N
 
     assert world.state() is S.RUNNING
     assert len(world.book.open) == 2
+
+
+def test_confirming_a_proposal_on_a_disk_that_has_since_failed_lays_nothing() -> None:
+    """`propose` found the disk fine; by the time the user confirms it no longer is."""
+    screen = _Screen()
+    world = _halted_by_a_rate_limit(screen)
+    world.executor.resume()
+    assert world.executor.has_resume_proposal()
+    world.book.requests.clear()
+    world.store.fail_saves(_DISK_FULL)
+
+    world.executor.confirm_resume()
+
+    assert world.book.open == {}
+    assert world.book.requests == []
+    assert screen.runtime().reason is GridReason.STORAGE_FAILURE
+
+
+def test_repeated_resumes_on_a_failing_disk_do_not_grow_the_reason_text() -> None:
+    screen = _Screen()
+    world = _halted_by_a_rate_limit(screen)
+    world.store.fail_saves(_DISK_FULL)
+    world.retries.run_next()
+    first = screen.runtime().reason_detail
+
+    world.executor.resume()
+    world.executor.resume()
+
+    assert screen.runtime().reason_detail == first
+    assert "halted before: rate_limited" in first
+
+
+def test_a_halt_that_is_not_a_rate_limit_keeps_its_reason_and_gains_the_note_once() -> (
+    None
+):
+    screen = _Screen()
+    world = grid_world(store_view=screen.through)
+    world.executor.start()
+    world.book.refuse_next = [ExecuteOrderSafetyGate.KEY_REJECTED]
+    world.fill(Decimal(110), "2.272")
+    assert world.runtime().reason is GridReason.KEY_REJECTED
+    world.store.fail_saves(_DISK_FULL)
+
+    world.executor.resume()
+    world.executor.resume()
+
+    runtime = screen.runtime()
+    assert runtime.reason is GridReason.KEY_REJECTED, "the rejected key is still said"
+    assert runtime.reason_detail.count("its state cannot be saved") == 1
