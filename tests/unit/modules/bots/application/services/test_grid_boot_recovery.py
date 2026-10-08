@@ -52,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistrationResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
 )
@@ -227,6 +231,20 @@ def test_the_cancel_waits_for_the_order_session_and_the_switch_on_pays_it() -> N
 
     assert world.book.open == {}
     assert world.runtime().reason is GridReason.START_INTERRUPTED_CLEARED
+
+
+def test_a_budget_refusal_does_not_block_the_cancel_the_start_owes() -> None:
+    """A cancel needs no owner budget, so a cap or a held tag cannot stop it."""
+    world = _restored_from_starting()
+    world.session.register_owner_budget_answers(
+        OwnerBudgetRegistrationResult(OwnerBudgetRefusal.ABOVE_GLOBAL_CAP, None)
+    )
+
+    BotBootRecovery(world.store, BotExecutors(world.factory)).run()
+
+    assert world.book.open == {}
+    assert world.runtime().reason is GridReason.START_INTERRUPTED_CLEARED
+    assert world.owner not in world.session.budgets
 
 
 def test_a_cancel_the_exchange_refused_is_said_not_hidden() -> None:

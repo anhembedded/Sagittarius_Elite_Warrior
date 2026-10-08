@@ -191,13 +191,10 @@ class GridExecutor(IBotExecutor):
     def confirm_resume(self) -> None:
         self._post("confirm resume", self._run_confirm)
 
-    def report_recovery(self) -> None:
-        """Boot: put what the exchange holds on a restored bot, read-only."""
-        self._post("recovery report", self._recovery.report)
-
-    def clean_interrupted_start(self) -> None:
-        """Boot: cancel the tagged orders a cut-short start left, if owed."""
-        self._post("interrupted start cleanup", self._interrupted_start.run)
+    def recover_after_restart(self) -> None:
+        """Boot: report what the exchange holds for a restored bot, and cancel
+        what a cut-short start left; each step acts only if the bot is owed it."""
+        self._post("restart recovery", self._recover)
 
     def has_resume_proposal(self) -> bool:
         """Read off the worker's thread: one reference, set and cleared by
@@ -258,6 +255,10 @@ class GridExecutor(IBotExecutor):
             )
             return
         self._resume.confirm(proposal)
+
+    def _recover(self) -> None:
+        self._recovery.report()
+        self._interrupted_start.run()
 
     def _release_held(self) -> None:
         state = self._context.state

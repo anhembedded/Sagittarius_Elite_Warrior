@@ -70,10 +70,12 @@ class GridStopper:
                 )
                 return
             state.transition(BotLifecycleEvent.STOP, reason, detail or reason.value)
-        sell = base is BaseHandling.SELL_AT_MARKET
+        # A sell already chosen (a stop loss or take profit forces it) is not
+        # undone by pressing Stop again with "keep"; a user may add a sell.
+        sell = base is BaseHandling.SELL_AT_MARKET or state.runtime.sell_base_on_stop
         state.update(replace(state.runtime, sell_base_on_stop=sell))
         self._retry.begin_round()
-        self._attempt(base)
+        self._rerun()
 
     def after_switch_on(self) -> None:
         """Trading came back while STOPPING: run the stop the user chose."""

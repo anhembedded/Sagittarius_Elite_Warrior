@@ -56,9 +56,9 @@ class BotBootRecovery:
         for stored in self._store.load_all().bots:
             bot = stored.bot
             if bot.state is BotLifecycleState.RECOVERING:
-                reported += self._start(bot, lambda e: e.report_recovery())
+                reported += self._start(bot, lambda e: e.recover_after_restart())
             elif bot.state is BotLifecycleState.HALTED and _owes_a_cancel(stored):
-                cleaned += self._start(bot, lambda e: e.clean_interrupted_start())
+                cleaned += self._start(bot, lambda e: e.recover_after_restart())
         logger.info(
             "[boot-recovery] %d recovering bot(s) read, %d interrupted start(s) cleaned",
             reported,

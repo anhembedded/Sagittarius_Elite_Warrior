@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
@@ -157,7 +158,9 @@ def test_a_stale_retry_does_nothing_once_the_user_asked_again() -> None:
     assert len(world.book.cancels) == cancels, "the first round's retry is stale"
 
 
-def test_a_stop_asked_again_keeps_the_reason_the_stop_began_with() -> None:
+def test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell() -> None:
+    """A stop loss forces selling the base; pressing Stop again with "keep"
+    (the dialog's default) must not turn the exit into a keep."""
     world = _running()
     world.session.register_owner_budget_answers(
         OwnerBudgetRegistrationResult(
@@ -174,6 +177,19 @@ def test_a_stop_asked_again_keeps_the_reason_the_stop_began_with() -> None:
 
     assert world.runtime().reason is GridReason.STOP_LOSS
     assert world.state() is S.STOPPED
+    sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
+    assert sum(r.quantity for r in sells) == Decimal("4.126")
+
+
+def test_a_stop_asked_again_can_add_a_sell_the_first_did_not_ask_for() -> None:
+    world = _running()
+    world.book.cancel_refusals = [_REFUSED]
+    world.executor.stop(BaseHandling.KEEP)
+    assert not world.runtime().sell_base_on_stop
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    assert world.runtime().sell_base_on_stop
 
 
 def test_no_retry_is_scheduled_while_trading_is_off() -> None:

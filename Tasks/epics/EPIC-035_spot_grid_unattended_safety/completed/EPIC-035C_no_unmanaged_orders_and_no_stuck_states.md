@@ -89,4 +89,10 @@ Each "red before" test was shown red at `3bbe243`'s behaviour first; see the imp
 3. *`RecoveryReport` is a domain value*, not a contracts type, because the UI reads only its sentence through the existing progress seam.
 4. A malformed bot config (found by the module wiring test) could have stopped boot when its executor was built; `BotBootRecovery` isolates each bot and logs.
 
+**Review round 1 (PR #429).** Fixed: the interrupted-start cancel no longer registers an owner budget (a cancel needs none; a budget refusal had been reported as "waiting for trading"); a request that raised from HALTED is pinned by `test_a_request_that_raised_from_halted_still_parks_the_ladder` (mutation measured: counting after the call fails it); a stop asked again keeps a forced sell (`test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell`, mutation measured); the boot step is one executor method, `recover_after_restart`. The intermittent `gate (Rest)` failure of attempt 1 is `BUG-185`, reproduced on the baseline.
+
+**Known residuals, not fixed here.**
+1. A start refused because trading went off part-way ends HALTED with reason `SWITCH_OFF` and the placed part of the ladder resting, by design (D13: cancels are refused while the session is closed). No `START_INTERRUPTED` marker is written for it, so only Resume or Stop cancels it. A follow-up would write the same marker on that path; no EPIC-035 task covers it yet.
+2. `GridExecutor` has 16 public members against the review rubric's 15 and sits at 395 of 400 lines. `035A` and `035B` both add handlers to it: the next of them to land should split its price/tick and stream handling out first.
+
 **Verification.** Commit tier (`ci-local.ps1 -SkipTests`) PASS; `tests/unit/architecture` green; `tests/unit/modules/bots` and `tests/integration/modules/bots` green. The `-Full` gate is GitHub Actions' (see the pull request).

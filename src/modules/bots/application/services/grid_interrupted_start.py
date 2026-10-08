@@ -84,10 +84,9 @@ class GridInterruptedStart:
             )
 
     def _pay(self) -> None:
-        registration = self._housekeeping.register()
-        if not registration.registered:
-            self._waiting_for_trading(len(self._context.gateway.tagged_open_orders()))
-            return
+        # A cancel needs no owner budget (only an order does), so none is
+        # registered: the debt is not blocked by a budget refusal, and a HALTED
+        # bot is not left holding one.
         report = self._housekeeping.cancel_tagged()
         failed = report.failed
         if failed is None:

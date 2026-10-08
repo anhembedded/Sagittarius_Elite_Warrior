@@ -39,7 +39,7 @@ Phase 1's claims were re-verified against the code on 2026-10-08 by the session 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [035A](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [035B](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | Not started | Not yet verified |
+| D1 | [035A](incomplete/EPIC-035A_the_bot_owns_its_price_subscription.md), [035B](incomplete/EPIC-035B_the_user_data_stream_heals_itself_and_catches_up.md), [035C](completed/EPIC-035C_no_unmanaged_orders_and_no_stuck_states.md) | Partly: 035C delivered (PR #429); 035A and 035B pending | 035C: see its implementation notes; the rest not yet verified |
 | D2 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |
 | D3 | [035K](incomplete/EPIC-035K_alerts_reach_a_user_who_is_away.md) | Not started | Not yet verified |
 | D4 | [035L](incomplete/EPIC-035L_range_exit_and_start_outside_the_range.md) | Not started | Not yet verified |

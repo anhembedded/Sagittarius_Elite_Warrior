@@ -130,3 +130,17 @@ def test_a_parked_bot_is_not_cancelled_again_by_every_task() -> None:
     assert world.activity.open_order_reads == reads_after_park, (
         "a parked bot's tasks must not read the book to park again"
     )
+
+
+def test_a_request_that_raised_from_halted_still_parks_the_ladder() -> None:
+    """HALTED → STARTING → ERROR: before and after are both parked states, so
+    only "the task sent an order" says the raised request may be resting. The
+    gateway counts a request that raised for exactly this."""
+    world = _halted_with_a_proposal()
+    reads_before = world.activity.open_order_reads
+    world.book.raise_next = [ConnectionError("read timed out")]
+
+    world.executor.confirm_resume()
+
+    assert world.state() is S.ERROR
+    assert world.activity.open_order_reads > reads_before, "the ladder was parked"
