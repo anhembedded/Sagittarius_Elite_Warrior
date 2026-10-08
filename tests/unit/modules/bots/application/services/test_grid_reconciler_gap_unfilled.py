@@ -50,7 +50,7 @@ def test_an_order_cancelled_in_the_gap_is_laid_again() -> None:
     cancelled_in_the_gap(world, Decimal(110))
     requests = len(world.book.requests)
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert [(r.side, r.reference_price) for r in world.book.requests[requests:]] == [
@@ -63,9 +63,9 @@ def test_a_cancel_found_by_two_reconciles_is_laid_once() -> None:
     world = running()
     cancelled_in_the_gap(world, Decimal(110))
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     placed = len(world.book.requests)
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert len(world.book.requests) == placed
 
@@ -76,7 +76,7 @@ def test_a_paused_bot_holds_the_laying_again_of_a_cancelled_order() -> None:
     requests = len(world.book.requests)
     cancelled_in_the_gap(world, Decimal(110))
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.PAUSED
     assert len(world.book.requests) == requests, "nothing placed while paused"
@@ -89,12 +89,12 @@ def test_an_order_cancelled_twice_within_a_minute_halts_the_bot() -> None:
     fault, not a hole."""
     world = running()
     cancelled_in_the_gap(world, Decimal(110))
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     assert world.state() is S.RUNNING
     cancelled_in_the_gap(world, Decimal(110))
 
-    world.executor.reconcile_after_gap()
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.LEVEL_KEEPS_ENDING
@@ -113,8 +113,8 @@ def test_a_partial_fill_missed_in_the_gap_is_counted_and_the_order_stays_resting
     partly_filled_in_the_gap(world, Decimal(110), "0.003")
     _bought_in_the_gap(world, "0.003")
 
-    world.executor.reconcile_after_gap()
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert world.runtime().inventory == before + Decimal("0.003")
@@ -130,9 +130,9 @@ def test_a_partial_fill_is_applied_once_however_often_the_reconcile_runs() -> No
     partly_filled_in_the_gap(world, Decimal(110), "0.003")
     _bought_in_the_gap(world, "0.003")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     after_one = world.runtime()
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.runtime() == after_one
 
@@ -157,8 +157,8 @@ def test_the_fee_a_missed_partial_fill_paid_is_counted_once() -> None:
     )
     _bought_in_the_gap(world, "0.002997")
 
-    world.executor.reconcile_after_gap()
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert world.runtime().inventory == before + Decimal("0.002997")
