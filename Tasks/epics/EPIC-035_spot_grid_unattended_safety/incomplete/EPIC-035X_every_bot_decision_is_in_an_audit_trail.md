@@ -6,7 +6,7 @@
 **Complexity:** L
 **Epic:** [EPIC-035](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task if a journey changes
-**Depends on:** EPIC-035C (state transitions and halts carry a reason); [`EPIC-035K`](EPIC-035K_alerts_reach_a_user_who_is_away.md) quotes this journal, so 035X lands before it or with it
+**Depends on:** EPIC-035C (state transitions and halts carry a reason); the alerting module ([`EPIC-036`](../../EPIC-036_alerting_module/README.md), which superseded the cancelled [`EPIC-035K`](../cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md)) quotes this journal, and [`EPIC-036F`](../../EPIC-036_alerting_module/incomplete/EPIC-036F_remote_control_from_discord.md) needs it, so 035X lands before it
 
 ---
 
@@ -26,7 +26,7 @@ This task is specified briefly: it is Phase 3 — Alerting and transparency. The
 - [ ] The journal is shown in the Bots screen's Log tab and is filterable (severity, kind, reason code, time).
 - [ ] It survives a restart and is exportable as CSV.
 - [ ] No secrets and no signed URLs are ever written (a signature, an API key, a webhook URL); entries are sanitised at the port, not at the call sites.
-- [ ] It is the source the [`EPIC-035K`](EPIC-035K_alerts_reach_a_user_who_is_away.md) alerts quote: an alert carries the journal entry's reason code and text, never a second wording.
+- [ ] It is the source the [`EPIC-036`](../../EPIC-036_alerting_module/README.md) alerts quote: an alert carries the journal entry's reason code and text, never a second wording.
 - [ ] Built behind a port, so the storage (JSON lines versus SQLite) is an adapter decision, recorded in this task's Design before the adapter is written.
 
 ## 3. Design

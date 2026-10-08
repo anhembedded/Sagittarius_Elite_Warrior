@@ -6,7 +6,7 @@
 **Complexity:** M — two verdicts, their wording in the Plan panel, one alert, SPEC
 **Epic:** [EPIC-035](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task
-**Depends on:** [EPIC-035K](EPIC-035K_alerts_reach_a_user_who_is_away.md) for the range-exit alert only; the two Start verdicts depend on nothing and may land first as their own PR
+**Depends on:** [EPIC-036B](../../EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) (which superseded the cancelled [EPIC-035K](../cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md)) for the range-exit alert only; the two Start verdicts depend on nothing and may land first as their own PR
 
 ---
 
@@ -23,7 +23,7 @@ Geometry to confirm in the first test: when `last_price` is below `lower`, every
   - Warning: "The price {price} is above the range's upper bound {upper}. The bot starts with nothing bought and places BUY orders only; it trades once the price falls into the range."
 - [ ] The two verdicts reach the user before the click: in the Plan panel next to the price and range fields, visible without scrolling (the lesson of `EPIC-035N`), and in the Start button's disabled reason for the refusal (`EPIC-034H`'s single readiness query).
 - [ ] **D2 holds:** no "stop-loss is off" warning is added and no stop-loss default changes. A test fails if either appears.
-- [ ] **Range exit while running:** once `EPIC-035K` exists, a price leaving the range (above or below) sends one alert, re-armed when the price returns; the bot's behaviour does not change (no automatic exit; D2).
+- [ ] **Range exit while running:** once `EPIC-036B` exists, a price leaving the range (above or below) sends one alert, re-armed when the price returns; the bot's behaviour does not change (no automatic exit; D2).
 - [ ] `check_opening_buy`'s `OPENING_BUY` text stays accurate for a price inside the range.
 - [ ] `Docs/SPEC/SPEC-014_run_a_grid_bot.md` lists the two verdicts in its journeys.
 
