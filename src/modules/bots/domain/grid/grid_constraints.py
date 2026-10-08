@@ -35,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs im
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
     check_break_even,
+    check_foreign_orders,
     check_max_notional,
     check_min_notional,
     check_min_step,
@@ -84,6 +85,11 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
     ),
     GridConstraint(
         "orders_within_open_limit", check_open_orders, {"TOO_MANY_LEVELS": True}
+    ),
+    GridConstraint(
+        "symbol_has_no_foreign_orders",
+        check_foreign_orders,
+        {"FOREIGN_OPEN_ORDERS": False},
     ),
     GridConstraint(
         "levels_inside_price_band", check_price_band, {"LEVEL_OUTSIDE_PRICE_BAND": True}

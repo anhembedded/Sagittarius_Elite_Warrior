@@ -145,6 +145,41 @@ def check_open_orders(inputs: GridCheckInputs) -> Verdict:
     return Verdict(OK, "OPEN_ORDERS", "The plan fits the open-order limit", numbers)
 
 
+def check_foreign_orders(inputs: GridCheckInputs) -> Verdict:
+    """Orders already open on the symbol share the exchange's open-order limit
+    with the plan's, and the bot neither placed nor will manage them
+    (`EPIC-035V`, L7). Advice: the exchange, not this check, is the limit."""
+    foreign = inputs.market.foreign_open_orders
+    if foreign is None:
+        return Verdict(
+            OK,
+            "FOREIGN_ORDERS_NOT_READ",
+            "The orders already open on the symbol were not read, so they were "
+            "not counted against the open-order limit",
+        )
+    orders = len(inputs.plan.order_levels)
+    allowed = inputs.terms.max_open_orders
+    numbers = {
+        "orders": Decimal(orders),
+        "foreign": Decimal(foreign),
+        "total": Decimal(orders + foreign),
+        "max_open_orders": Decimal(allowed),
+    }
+    if foreign > 0:
+        return Verdict(
+            WARNING,
+            "FOREIGN_OPEN_ORDERS",
+            f"{foreign} other order{'s are' if foreign != 1 else ' is'} already "
+            f"open on this symbol; with the plan's {orders} that is "
+            f"{orders + foreign} against a limit of {allowed}, and this bot "
+            "will not manage them",
+            numbers,
+        )
+    return Verdict(
+        OK, "NO_FOREIGN_ORDERS", "No other order is open on the symbol", numbers
+    )
+
+
 def check_price_band(inputs: GridCheckInputs) -> Verdict:
     band = inputs.terms.price_band
     if band is None:

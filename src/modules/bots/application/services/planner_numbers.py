@@ -8,6 +8,7 @@ why, never a partial set.
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -20,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate_unavailable_error import (
     CommissionRateUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_activity import (
+    IAccountActivity,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -36,6 +40,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavai
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+logger = logging.getLogger("App.Bots.Readiness")
 
 type PlannerNumbers = tuple[ExchangeTerms, MarketView]
 
@@ -60,4 +66,20 @@ def read_planner_numbers(
     ) as exc:
         return f"{symbol} on {venue.display_name}: {exc}"
     price: Decimal = (book.bid_price + book.ask_price) / 2
-    return terms, MarketView(price)
+    return terms, MarketView(
+        price,
+        foreign_open_orders=_open_orders_on(ports.get(venue).account_activity, symbol),
+    )
+
+
+def _open_orders_on(activity: IAccountActivity, symbol: str) -> int | None:
+    """`EPIC-035V` (L7): the orders already open on `symbol`, whoever placed
+    them. A bot that has not started has placed none, so each is foreign to it.
+    `None` when the read failed: advice must not turn a plan unjudgeable, and an
+    unread count is not a zero."""
+    try:
+        orders = activity.open_orders()
+    except Exception as exc:  # noqa: BLE001 - converted at the seam: the count is advice, and any failed read (network, rate limit) leaves it unread
+        logger.debug("Open orders on %s not read: %s", symbol, exc)
+        return None
+    return sum(1 for order in orders if order.symbol == symbol)

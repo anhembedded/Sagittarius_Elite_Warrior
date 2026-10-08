@@ -92,6 +92,7 @@ _PROVOKING: dict[str, dict[str, object]] = {
     "KEY_CANNOT_TRADE": {"account": AccountView(Decimal(10000), "USDT", False, "x")},
     "STEP_BELOW_MINIMUM": {"grid_count": "100", "capital_quote": "10000"},
     "RANGE_OUTSIDE_ATR_BAND": {"daily_atr": Decimal(1)},
+    "FOREIGN_OPEN_ORDERS": {"foreign_open_orders": 3},
     "STOP_LOSS_INSIDE_RANGE": {"stop_loss": "price:60000"},
     "STOP_LOSS_DISTANCE": {"stop_loss": "percent:10"},
     "TAKE_PROFIT_INSIDE_RANGE": {"take_profit": "price:70000"},
@@ -162,6 +163,7 @@ def test_advice_never_blocks() -> None:
         "STOP_LOSS_DISTANCE",
         "TAKE_PROFIT_DISTANCE",
         "ARITHMETIC_ON_WIDE_RANGE",
+        "FOREIGN_OPEN_ORDERS",
     }
 
 
