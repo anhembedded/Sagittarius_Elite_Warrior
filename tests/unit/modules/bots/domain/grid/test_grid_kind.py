@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
     BotOrderEnd,
     BotOrderFill,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
     IBotExecutor,
@@ -63,7 +66,7 @@ class _Facts(IBotFacts):
 
     def on_end(self, end: BotOrderEnd) -> None: ...
 
-    def on_tick(self, price: Decimal) -> None: ...
+    def on_tick(self, tick: PriceTick) -> None: ...
 
     def on_price_age_check(self) -> None: ...
 

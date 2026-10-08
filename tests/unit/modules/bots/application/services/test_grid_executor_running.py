@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
     BotOrderEnd,
     BotOrderFill,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -219,7 +222,7 @@ def test_an_emergency_stop_halts_and_a_later_fill_places_nothing() -> None:
 def test_a_tick_through_the_stop_loss_runs_stop_selling_the_base() -> None:
     world = _running()
 
-    world.executor.facts.on_tick(Decimal(89))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(89)))
 
     assert world.state() is S.STOPPED
     assert world.book.open == {}
@@ -231,7 +234,7 @@ def test_a_tick_through_the_stop_loss_runs_stop_selling_the_base() -> None:
 def test_a_tick_inside_the_exits_changes_nothing() -> None:
     world = _running()
 
-    world.executor.facts.on_tick(Decimal(125))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(125)))
 
     assert world.state() is S.RUNNING
     assert world.book.requests == []

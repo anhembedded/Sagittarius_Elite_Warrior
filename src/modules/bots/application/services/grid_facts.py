@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
     BotOrderEnd,
     BotOrderFill,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
@@ -129,8 +132,8 @@ class GridFacts(IBotFacts):
     def on_end(self, end: BotOrderEnd) -> None:
         self._post(f"end of {end.client_order_id}", lambda: self._apply_end(end))
 
-    def on_tick(self, price: Decimal) -> None:
-        self._post("tick", lambda: self._parts.prices.on_tick(price))
+    def on_tick(self, tick: PriceTick) -> None:
+        self._post("tick", lambda: self._parts.prices.on_tick(tick))
 
     def on_price_age_check(self) -> None:
         """The price watch's beat: is the feed quiet, and (`EPIC-035F`, on its

@@ -18,6 +18,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -123,7 +126,7 @@ def test_a_parked_bot_is_not_cancelled_again_by_every_task() -> None:
     reads_after_park = world.activity.open_order_reads
 
     for price in ("120", "121", "122"):
-        world.executor.facts.on_tick(Decimal(price))
+        world.executor.facts.on_tick(PriceTick.at(Decimal(price)))
     world.executor.facts.on_end(BotOrderEnd("not-this-bots-order"))
 
     assert len(world.book.cancels) == cancels_after_park

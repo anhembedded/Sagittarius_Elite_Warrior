@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
     BotOrderEnd,
     BotOrderFill,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -107,13 +110,19 @@ class BotEventRouter:
 
     def on_tick(self, event: MarketTickEvent) -> None:
         candle = event.market_data
+        tick = PriceTick(
+            Decimal(str(candle.close_price)),
+            Decimal(str(candle.low_price)),
+            Decimal(str(candle.high_price)),
+            candle.open_time,
+        )
         for executor in self._executors.all():
             if (
                 executor.symbol == candle.symbol
                 and executor.venue.market_type is event.market_type
                 and executor.venue.market_data_venue is event.market_data_venue
             ):
-                executor.facts.on_tick(Decimal(str(candle.close_price)))
+                executor.facts.on_tick(tick)
 
     def on_switch(self, event: TradingSwitchChangedEvent) -> None:
         if not event.enabled:

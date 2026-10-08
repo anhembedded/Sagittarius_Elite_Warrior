@@ -18,6 +18,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -100,7 +103,7 @@ def test_a_halted_bot_still_runs_its_stop_loss() -> None:
     world.executor.facts.on_end(BotOrderEnd(oid, rejection="insufficient balance"))
     world.derive("4.126")
 
-    world.executor.facts.on_tick(Decimal(89))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(89)))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.STOP_LOSS
@@ -114,7 +117,7 @@ def test_a_faulted_bot_still_runs_its_take_profit() -> None:
     world.fill(Decimal(110), "2.272")
     assert world.state() is S.ERROR
 
-    world.executor.facts.on_tick(Decimal(150))
+    world.executor.facts.on_tick(PriceTick.at(Decimal(150)))
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.TAKE_PROFIT

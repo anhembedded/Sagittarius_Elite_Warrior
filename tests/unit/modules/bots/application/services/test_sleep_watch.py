@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch
     DEFAULT_SLEEP_LIMITS,
     SleepLimits,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -94,7 +97,7 @@ def test_the_exit_check_reads_the_price_afresh_not_the_last_tick() -> None:
     """The last tick the bot heard before sleeping was inside the band; the
     stop loss is only crossed in the fresh read."""
     s = Sleeper(ScriptedFreshPrice(_BELOW_STOP_LOSS))
-    s.world.executor.facts.on_tick(_INSIDE_THE_BAND)
+    s.world.executor.facts.on_tick(PriceTick.at(_INSIDE_THE_BAND))
 
     s.sleep(_NIGHT)
 
