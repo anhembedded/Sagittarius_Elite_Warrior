@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings.query import (
     GetHoldingsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.shared_account_status import (
+    SharedAccountStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -26,10 +29,13 @@ logger = logging.getLogger("App.QueryHandler")
 
 
 class GetHoldingsQueryHandler(IQueryHandler[GetHoldingsQuery, tuple[SpotHolding, ...]]):
-    def __init__(self, contexts: IVenueContexts) -> None:
+    def __init__(self, contexts: IVenueContexts, shared: SharedAccountStatus) -> None:
         self._contexts = contexts
+        self._shared = shared
 
     def execute(self, query: GetHoldingsQuery) -> tuple[SpotHolding, ...]:
         logger.debug("Handling GetHoldingsQuery on %s", query.venue.value)
-        status = self._contexts.get(query.venue).account_reader.check_connection()
+        status = self._shared.read(
+            query.venue, self._contexts.get(query.venue).account_reader
+        )
         return status.holdings or ()

@@ -180,7 +180,8 @@ class SpotAccountReader(ITradingAccountReader):
                         symbol,
                     )
                 return None
-            logger.info(
+            # DEBUG: one line per holding on every poll (`logging-rule.md` §6).
+            logger.debug(
                 "SpotAccountReader equity: priced %s via %s ticker = %s",
                 holding.asset,
                 symbol,

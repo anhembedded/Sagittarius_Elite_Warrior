@@ -3,6 +3,7 @@ venue's own connection check, the seam `GetHoldingsQueryHandler` reads."""
 
 from __future__ import annotations
 
+import time
 from dataclasses import replace
 from decimal import Decimal
 
@@ -10,6 +11,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary import (
     GetAccountSummaryQuery,
     GetAccountSummaryQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.shared_account_status import (
+    SharedAccountStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
@@ -80,7 +84,8 @@ def _handler(
         FakeVenueContexts(
             fake_venue_context(_FUTURES, account_reader=futures),
             fake_venue_context(_SPOT, account_reader=spot),
-        )
+        ),
+        SharedAccountStatus(time.monotonic, window_seconds=0.0),
     )
 
 

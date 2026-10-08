@@ -373,3 +373,18 @@ def test_a_failed_refresh_after_a_fill_is_logged_not_lost(caplog) -> None:
         record.levelname == "ERROR" and "after a fill" in record.getMessage()
         for record in caplog.records
     )
+
+
+def test_a_fill_asks_for_a_fresh_read_and_a_tick_for_a_shareable_one() -> None:
+    """`EPIC-035V` — a tick may share the read the holdings refresh took in the
+    same second; the read after a fill must see the balances the fill changed."""
+    setup = _Service(_ScriptedDispatcher(_summary("900"), _summary("850")))
+
+    setup.service.refresh_once()
+    setup.service.on_order_filled(_fill(_SPOT))
+    setup.handed_off[0]()
+
+    assert setup.dispatcher.dispatched == [
+        GetAccountSummaryQuery(venue=_SPOT),
+        GetAccountSummaryQuery(venue=_SPOT, fresh=True),
+    ]

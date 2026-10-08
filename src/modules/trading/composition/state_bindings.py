@@ -12,11 +12,16 @@ built, only *where* the binding that builds it lives.
 
 from __future__ import annotations
 
+import time
+
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
     SessionReadiness,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.shared_account_status import (
+    SharedAccountStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
@@ -34,6 +39,9 @@ def bind_state(container: IContainer) -> None:
     # `EPIC-028B`: each venue's session state, and the one lookup every
     # venue-addressed handler resolves its venue through.
     container.singleton(VenueSessionStates, VenueSessionStates())
+    # `EPIC-035V`: the one account read the holdings and the summary refreshes of
+    # a tick share, so a Spot venue is read once per tick, not twice.
+    container.singleton(SharedAccountStatus, SharedAccountStatus(time.monotonic))
     container.singleton(
         VenueTradingScopes,
         lambda c: VenueTradingScopes(

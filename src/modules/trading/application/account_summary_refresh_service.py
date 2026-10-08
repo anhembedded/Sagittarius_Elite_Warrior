@@ -111,6 +111,9 @@ class AccountSummaryRefreshService:
         return self._venue
 
     def refresh_once(self) -> None:
+        self._refresh(GetAccountSummaryQuery(venue=self._venue))
+
+    def _refresh(self, query: GetAccountSummaryQuery) -> None:
         if not self._session_state.enabled:
             return
         with self._lock:
@@ -120,9 +123,7 @@ class AccountSummaryRefreshService:
         try:
             summary = cast(
                 AccountSummary | None,
-                self._ports.dispatcher.dispatch(
-                    GetAccountSummaryQuery, GetAccountSummaryQuery(venue=self._venue)
-                ),
+                self._ports.dispatcher.dispatch(GetAccountSummaryQuery, query),
             )
         except AccountSummaryUnavailableError as exc:
             self._mark_stale_if_newest(
@@ -193,7 +194,7 @@ class AccountSummaryRefreshService:
         """The worker pool keeps a task's exception on a `Future` nobody
         reads, so a failure here is logged rather than lost."""
         try:
-            self.refresh_once()
+            self._refresh(GetAccountSummaryQuery(venue=self._venue, fresh=True))
         # Worker boundary: the pool discards what a task raises, so this is
         # the only place a failure here can be seen; it is re-reported whole.
         except Exception:
