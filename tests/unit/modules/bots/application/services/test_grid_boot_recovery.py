@@ -148,7 +148,7 @@ def test_enabling_trading_reconciles_and_clears_the_boot_report() -> None:
     assert world.runtime().reason is GridReason.RECOVERY_READ
     world.session.set_enabled(enabled=True)
 
-    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+    world.executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.state() is S.RUNNING
     assert world.runtime().reason is None
@@ -225,7 +225,7 @@ def test_the_cancel_waits_for_the_order_session_and_the_switch_on_pays_it() -> N
     assert "4 tagged order(s) still rest" in world.runtime().reason_detail
     assert "when trading is enabled" in world.runtime().reason_detail
 
-    executors.for_bot(world.store.load(BotId(BOT)).bot).on_switch(
+    executors.for_bot(world.store.load(BotId(BOT)).bot).facts.on_switch(
         True, TradingSwitchCause.ENABLED
     )
 
@@ -267,7 +267,7 @@ def test_starting_restored_then_trading_enabled_leaves_no_tagged_order() -> None
     world = _restored_from_starting()
     executor = world.factory.create(world.store.load(BotId(BOT)).bot)
 
-    executor.on_switch(True, TradingSwitchCause.ENABLED)
+    executor.facts.on_switch(True, TradingSwitchCause.ENABLED)
 
     assert world.book.open == {}
     assert world.state() is S.HALTED

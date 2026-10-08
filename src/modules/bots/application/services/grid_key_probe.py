@@ -2,7 +2,7 @@
 
 A revoked API key gave no sign until the next order failed its connection check;
 the bot's orders kept resting on an exchange that would no longer take a cancel.
-Every beat of the price watch (`GridExecutor.on_price_age_check`, a task on the
+Every beat of the price watch (`IBotFacts.on_price_age_check`, a task on the
 bot's own queue) the bot asks, once per `KEY_PROBE_EVERY_SECONDS`, whether the
 exchange still accepts its key (`BotOrderGateway.key_rejected`: the venue's
 connection check, one account read). A rejection halts the bot with

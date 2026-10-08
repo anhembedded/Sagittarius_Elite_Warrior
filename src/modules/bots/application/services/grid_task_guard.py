@@ -59,11 +59,18 @@ _PARKED: frozenset[BotLifecycleState] = frozenset(
     {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
 )
 
-#: The reasons whose halt leaves the ladder where it is: the exchange refuses
-#: every cancel (trading is off by design; the API key is rejected).
-_CANNOT_CANCEL: frozenset[GridReason] = frozenset(
-    {GridReason.SWITCH_OFF, GridReason.KEY_REJECTED}
+#: Halts that come from a closed order session, where a cancel would be refused:
+#: the ladder rests by design (D13), and a start it cut short owes the cancel
+#: instead (`BUG-190`). A rejected API key (`EPIC-035F`) is the other: the cancel
+#: would be rejected too.
+_CANCEL_REFUSED_REASONS: frozenset[GridReason] = frozenset(
+    {
+        GridReason.SWITCH_OFF,
+        GridReason.START_CUT_BY_SWITCH_OFF,
+        GridReason.KEY_REJECTED,
+    }
 )
+
 
 #: How a parked bot says its file is behind; also what keeps the note single.
 _STORAGE_NOTE = "its state could not be saved"
@@ -97,7 +104,7 @@ class GridTaskGuard:
         return (
             state.state in _PARKED
             and (before not in _PARKED or sent)
-            and state.runtime.reason not in _CANNOT_CANCEL
+            and state.runtime.reason not in _CANCEL_REFUSED_REASONS
         )
 
     def _unsaved_and_parked(self) -> bool:

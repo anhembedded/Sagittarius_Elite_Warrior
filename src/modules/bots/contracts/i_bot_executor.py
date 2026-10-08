@@ -7,26 +7,19 @@ outcome as a lifecycle event (`ladder_ready`, `start_refused`,
 `stop_confirmed`, `fault`), never as a return value, because every one of these
 takes exchange round trips the caller must not wait on.
 
-`EPIC-029E` adds the facts every kind hears — fills, ends, ticks and the
-trading switch — and builds the Grid's executor (`GridExecutor`). Each fact is
-copied off the caller's thread and queued (ADR D9).
+The facts every kind hears — fills, ends, ticks, the trading switch, the
+stream — are a separate port, `IBotFacts`, reached through `facts`: commands
+and facts have different callers (`EPIC-029E`; the split is architecture-rule §1,
+Interface Segregation). The Grid's executor is `GridExecutor`.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import timedelta
-from decimal import Decimal
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
-    BotOrderEnd,
-    BotOrderFill,
-)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
-    TradingSwitchCause,
-)
 
 
 class BaseHandling(str, Enum):
@@ -63,36 +56,10 @@ class IBotExecutor(ABC):
     def has_resume_proposal(self) -> bool:
         """A resume from HALTED proposed a ladder that awaits confirmation."""
 
+    @property
     @abstractmethod
-    def on_fill(self, fill: BotOrderFill) -> None:
-        """One of the bot's orders filled, fully or partly."""
-
-    @abstractmethod
-    def on_end(self, end: BotOrderEnd) -> None:
-        """One of the bot's orders ended without filling whole."""
-
-    @abstractmethod
-    def on_tick(self, price: Decimal) -> None:
-        """The bot's symbol traded at `price` (stop loss and take profit, D11)."""
-
-    @abstractmethod
-    def on_price_age_check(self) -> None:
-        """Time passed: halt if the bot holds orders and its price feed went
-        quiet (`EPIC-035A`)."""
-
-    @abstractmethod
-    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
-        """Trading on the bot's venue was enabled, disabled or Emergency-Stopped."""
-
-    @abstractmethod
-    def reconcile_after_gap(self) -> None:
-        """The venue's user-data stream was down and is back, or a periodic
-        check came due: bring the ladder level with the exchange (`EPIC-035B`)."""
-
-    @abstractmethod
-    def halt_user_stream_down(self, down_for: timedelta) -> None:
-        """The user-data stream has been down for `down_for`: halt and park
-        the ladder, because no fill can be seen (`EPIC-035B`)."""
+    def facts(self) -> IBotFacts:
+        """Where the facts about this bot are reported (`IBotFacts`)."""
 
 
 class IBotExecutorFactory(ABC):

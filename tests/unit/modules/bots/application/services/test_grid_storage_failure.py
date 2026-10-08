@@ -50,7 +50,7 @@ def test_a_storage_failure_is_named_beside_the_fault_not_instead_of_it() -> None
     world = _a_counter_order_faulted_on_a_full_disk()
     world.store.heal()
 
-    world.executor.on_end(BotOrderEnd("not-this-bots-order"))
+    world.executor.facts.on_end(BotOrderEnd("not-this-bots-order"))
 
     assert world.state() is S.ERROR, "the next write persisted the true state"
     runtime = world.runtime()
@@ -66,7 +66,7 @@ def test_the_next_successful_write_persists_the_true_state() -> None:
     assert world.state() is S.RUNNING, "the file still says what it said before"
     world.store.heal()
 
-    world.executor.on_end(BotOrderEnd("not-this-bots-order"))
+    world.executor.facts.on_end(BotOrderEnd("not-this-bots-order"))
 
     assert world.state() is S.ERROR
     assert world.runtime().open_orders == ()

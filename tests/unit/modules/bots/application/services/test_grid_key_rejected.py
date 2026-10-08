@@ -63,7 +63,7 @@ def _running() -> GridWorld:
     world = grid_world()
     world.executor.start()
     assert world.state() is S.RUNNING
-    world.executor.on_tick(Decimal(121))
+    world.executor.facts.on_tick(Decimal(121))
     return world
 
 
@@ -73,8 +73,8 @@ def _beats(world: GridWorld, seconds: float, every: float = 30.0) -> None:
     while elapsed < seconds:
         world.monotonic.advance(every)
         elapsed += every
-        world.executor.on_tick(Decimal(121))
-        world.executor.on_price_age_check()
+        world.executor.facts.on_tick(Decimal(121))
+        world.executor.facts.on_price_age_check()
 
 
 def _assert_halted_by_the_key_without_a_cancel(world: GridWorld) -> None:

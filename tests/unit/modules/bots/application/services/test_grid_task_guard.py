@@ -44,7 +44,7 @@ def _halted_with_a_proposal() -> GridWorld:
     a new one that awaits the user's confirmation."""
     world = grid_world()
     world.executor.start()
-    world.executor.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
+    world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.derive("4.132", cost="499.97")
     world.executor.resume()
     assert world.state() is S.HALTED
@@ -83,7 +83,7 @@ def _replace_faulted() -> GridWorld:
     oid = world.open_ids_by_price()[Decimal(140)]
     world.book.open.pop(oid)
     world.book.raise_next = [ConnectionError("read timed out")]
-    world.executor.on_end(BotOrderEnd(oid))
+    world.executor.facts.on_end(BotOrderEnd(oid))
     return world
 
 
@@ -123,8 +123,8 @@ def test_a_parked_bot_is_not_cancelled_again_by_every_task() -> None:
     reads_after_park = world.activity.open_order_reads
 
     for price in ("120", "121", "122"):
-        world.executor.on_tick(Decimal(price))
-    world.executor.on_end(BotOrderEnd("not-this-bots-order"))
+        world.executor.facts.on_tick(Decimal(price))
+    world.executor.facts.on_end(BotOrderEnd("not-this-bots-order"))
 
     assert len(world.book.cancels) == cancels_after_park
     assert world.activity.open_order_reads == reads_after_park, (

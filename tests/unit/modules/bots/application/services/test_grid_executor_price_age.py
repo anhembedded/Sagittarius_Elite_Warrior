@@ -59,10 +59,10 @@ def _in(state: S) -> GridWorld:
 
 def test_no_tick_for_the_limit_halts_the_bot_with_a_named_reason() -> None:
     world = _running()
-    world.executor.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_tick(_INSIDE_THE_BAND)
 
     world.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.HALTED
     runtime = world.runtime()
@@ -74,10 +74,10 @@ def test_no_tick_for_the_limit_halts_the_bot_with_a_named_reason() -> None:
 
 def test_a_tick_inside_the_limit_leaves_the_bot_running() -> None:
     world = _running()
-    world.executor.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_tick(_INSIDE_THE_BAND)
 
     world.monotonic.advance(PRICE_STALE_AFTER_SECONDS - 1)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.RUNNING
     assert len(world.book.open) == 4
@@ -86,9 +86,9 @@ def test_a_tick_inside_the_limit_leaves_the_bot_running() -> None:
 def test_every_tick_restarts_the_clock() -> None:
     world = _running()
     for _ in range(5):
-        world.executor.on_tick(_INSIDE_THE_BAND)
+        world.executor.facts.on_tick(_INSIDE_THE_BAND)
         world.monotonic.advance(PRICE_STALE_AFTER_SECONDS - 1)
-        world.executor.on_price_age_check()
+        world.executor.facts.on_price_age_check()
 
     assert world.state() is S.RUNNING
 
@@ -98,11 +98,11 @@ def test_the_start_grace_is_bounded_and_named() -> None:
     world = _running()
 
     world.monotonic.advance(PRICE_START_GRACE_SECONDS - 1)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.RUNNING
 
     world.monotonic.advance(1)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.HALTED
     runtime = world.runtime()
     assert runtime.reason is GridReason.PRICE_FEED_STALE
@@ -113,11 +113,11 @@ def test_the_start_grace_is_bounded_and_named() -> None:
 def test_a_tick_after_a_stale_halt_does_not_resume() -> None:
     world = _running()
     world.monotonic.advance(PRICE_START_GRACE_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.HALTED
 
-    world.executor.on_tick(_INSIDE_THE_BAND)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_tick(_INSIDE_THE_BAND)
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.PRICE_FEED_STALE
@@ -131,7 +131,7 @@ def test_a_stale_feed_halts_every_state_that_holds_or_is_laying_orders(
     world = _in(state)
 
     world.monotonic.advance(PRICE_START_GRACE_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.PRICE_FEED_STALE
@@ -142,7 +142,7 @@ def test_a_stale_feed_leaves_a_bot_that_places_nothing_where_it_is(state: S) -> 
     world = grid_world(state=state)
 
     world.monotonic.advance(PRICE_START_GRACE_SECONDS * 10)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is state
 
@@ -150,7 +150,7 @@ def test_a_stale_feed_leaves_a_bot_that_places_nothing_where_it_is(state: S) -> 
 def _halted_for_a_quiet_feed() -> GridWorld:
     world = _running()
     world.monotonic.advance(PRICE_START_GRACE_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.HALTED
     world.derive("0")
     return world
@@ -170,11 +170,11 @@ def test_a_resume_right_after_a_stale_halt_gets_a_fresh_wait_for_the_first_tick(
     world = _halted_for_a_quiet_feed()
 
     _resumed(world)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.RUNNING, "the wait began again at the halt"
 
     world.monotonic.advance(PRICE_START_GRACE_SECONDS)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
     assert world.state() is S.HALTED, "a feed that never returns halts it again"
 
 
@@ -185,8 +185,8 @@ def test_a_resume_hours_after_a_stale_halt_gets_a_fresh_wait_too() -> None:
 
     for _ in range(3):
         world.monotonic.advance(3600)
-        world.executor.on_price_age_check()
+        world.executor.facts.on_price_age_check()
     _resumed(world)
-    world.executor.on_price_age_check()
+    world.executor.facts.on_price_age_check()
 
     assert world.state() is S.RUNNING

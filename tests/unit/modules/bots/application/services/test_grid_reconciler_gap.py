@@ -58,7 +58,7 @@ def test_a_fill_missed_in_the_gap_places_its_counter_order() -> None:
     filled_in_the_gap(world, Decimal(110), "2.272")
     _bought_in_the_gap(world, "2.272")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert [(r.side, r.reference_price) for r in world.book.requests[-1:]] == [
@@ -73,8 +73,8 @@ def test_a_reconcile_with_nothing_missed_places_nothing() -> None:
     requests = len(world.book.requests)
     runtime = world.runtime()
 
-    world.executor.reconcile_after_gap()
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert len(world.book.requests) == requests
@@ -88,9 +88,9 @@ def test_a_gap_reconcile_run_twice_places_the_counter_once() -> None:
     filled_in_the_gap(world, Decimal(110), "2.272")
     _bought_in_the_gap(world, "2.272")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     placed = len(world.book.requests)
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert len(world.book.requests) == placed
 
@@ -103,7 +103,7 @@ def test_a_paused_bot_counts_the_gap_fill_but_holds_its_counter() -> None:
     filled_in_the_gap(world, Decimal(110), "2.272")
     _bought_in_the_gap(world, "2.272")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.PAUSED
     assert len(world.book.requests) == requests, "nothing placed while paused"
@@ -126,7 +126,7 @@ def test_an_order_sent_but_never_saved_is_adopted_not_placed_twice() -> None:
     world.book.open[unsaved.client_order_id] = unsaved
     requests = len(world.book.requests)
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert len(world.book.requests) == requests
@@ -140,7 +140,7 @@ def test_a_saved_inventory_unlike_the_derived_one_halts_and_parks_the_ladder() -
     world.derive("99")
     world.hold("99")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.INVENTORY_MISMATCH
@@ -154,7 +154,7 @@ def test_order_history_that_does_not_answer_is_a_wait_not_a_fault() -> None:
     requests = len(world.book.requests)
     runtime = world.runtime()
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert len(world.book.requests) == requests
@@ -168,7 +168,7 @@ def test_a_refused_budget_registration_leaves_a_running_bot_alone() -> None:
     )
     runtime = world.runtime()
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is S.RUNNING
     assert world.runtime() == runtime
@@ -183,7 +183,7 @@ def test_only_a_running_or_paused_bot_reconciles_after_a_gap(
     world = grid_world(state=state)
     requests = len(world.book.requests)
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
 
     assert world.state() is state
     assert len(world.book.requests) == requests
@@ -206,8 +206,8 @@ def test_a_fill_that_arrives_while_the_reconcile_reads_does_not_halt_the_bot() -
     world.hold(str(before + partial))
     resting = world.book.open[world.open_ids_by_price()[Decimal(110)]]
 
-    world.executor.reconcile_after_gap()
-    world.executor.on_fill(
+    world.executor.facts.reconcile_after_gap()
+    world.executor.facts.on_fill(
         BotOrderFill(
             resting.client_order_id,
             resting.side,
@@ -231,7 +231,7 @@ def test_a_disagreement_that_the_second_run_still_finds_halts_the_bot() -> None:
     world.derive("99")
     world.hold("99")
 
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     queue.run_all()
 
     assert world.state() is S.HALTED
@@ -248,14 +248,14 @@ def test_a_disagreement_that_cleared_is_forgotten_by_the_next_one() -> None:
     world.hold("99")
 
     world.derive("99")
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     queue.run_next()  # strike one: the confirming run is queued
     world.derive(str(inventory))  # the ladder caught up before it ran
     queue.run_all()
     assert world.state() is S.RUNNING
 
     world.derive("99")
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     queue.run_next()  # strike one again, not strike two
 
     assert world.state() is S.RUNNING
@@ -268,7 +268,7 @@ def _one_disagreement_pending(world: GridWorld, queue: ManualWorkQueue) -> None:
     """Strike one has happened and its confirming run is queued."""
     world.derive("99")
     world.hold("99")
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     queue.run_next()
     assert world.state() is S.RUNNING
 
@@ -288,7 +288,7 @@ def test_a_confirming_run_that_could_not_read_clears_the_strike() -> None:
     )
     queue.run_next()  # the confirming run cannot read: no verdict
     world.derive("99")
-    world.executor.reconcile_after_gap()  # the periodic run, a lone sighting
+    world.executor.facts.reconcile_after_gap()  # the periodic run, a lone sighting
     queue.run_next()
 
     assert world.state() is S.RUNNING
@@ -309,7 +309,7 @@ def test_a_confirming_run_that_raised_clears_the_strike() -> None:
     world.activity.open_orders = timing_out  # type: ignore[method-assign]
     queue.run_next()
     world.activity.open_orders = real_open_orders  # type: ignore[method-assign]
-    world.executor.reconcile_after_gap()
+    world.executor.facts.reconcile_after_gap()
     queue.run_next()
 
     assert world.state() is S.RUNNING
@@ -347,8 +347,8 @@ def test_a_fill_between_the_history_read_and_the_open_orders_read_is_not_lost() 
     world.session.register_owner_budget = registering  # type: ignore[method-assign]
     world.derive(str(world.runtime().inventory))
 
-    world.executor.reconcile_after_gap()  # the fill lands during this run
-    world.executor.reconcile_after_gap()  # the next run finds it
+    world.executor.facts.reconcile_after_gap()  # the fill lands during this run
+    world.executor.facts.reconcile_after_gap()  # the next run finds it
 
     assert world.state() is S.RUNNING
     assert Decimal(120) in world.open_ids_by_price(), "the counter order was placed"

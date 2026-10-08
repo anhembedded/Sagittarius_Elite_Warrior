@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     IBotExecutor,
     IBotExecutorFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import OverlayRole
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
@@ -52,6 +53,12 @@ class _Executor(IBotExecutor):
     def has_resume_proposal(self) -> bool:
         return False
 
+    @property
+    def facts(self) -> IBotFacts:
+        return _Facts()
+
+
+class _Facts(IBotFacts):
     def on_fill(self, fill: BotOrderFill) -> None: ...
 
     def on_end(self, end: BotOrderEnd) -> None: ...
@@ -75,6 +82,12 @@ class _Factory(IBotExecutorFactory):
 def _kind(thresholds: GridThresholds | None = None) -> tuple[GridKind, _Factory]:
     factory = _Factory()
     return GridKind(factory, thresholds or GridThresholds()), factory
+
+
+def test_the_executor_double_is_complete_and_hands_out_its_facts() -> None:
+    """A double that cannot be built (a missing abstract member) hides until
+    something creates one; the factory's executor must be constructible."""
+    assert isinstance(_Executor().facts, IBotFacts)
 
 
 def test_identity_and_factory() -> None:

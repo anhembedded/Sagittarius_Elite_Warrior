@@ -1,6 +1,9 @@
 """`EPIC-029E` — what a refused or failed order does to a running Grid (ADR D9, §3.1).
 
-  · `SWITCH_OFF` → `switch_off`: trading is off; HALTED (STOPPING waits).
+  · `SWITCH_OFF` → `switch_off`: trading is off; HALTED (STOPPING waits). While
+    STARTING it writes `START_CUT_BY_SWITCH_OFF`: the partial ladder cannot be
+    cancelled with the session closed, so the cancel is owed and paid when
+    trading is enabled (`BUG-190`, as `EPIC-035C` does for a restart).
   · `REFUSED` → `start_refused` while STARTING, `halt` otherwise, naming the
     refusal.
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
@@ -42,6 +45,12 @@ _REFUSAL_REASONS: dict[OrderOutcomeKind, GridReason] = {
     OrderOutcomeKind.KEY_REJECTED: GridReason.KEY_REJECTED,
 }
 
+#: What a start cut by the switch tells the user, after the order's own detail.
+START_CUT_BY_SWITCH_OFF_DETAIL = (
+    "trading went off while this bot was starting; its tagged orders may still "
+    "rest and are cancelled when trading is enabled"
+)
+
 
 def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
     """Move the bot for `outcome` (not done); `what` names the order."""
@@ -49,7 +58,15 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
     if outcome.kind is OrderOutcomeKind.KEY_REJECTED:
         detail = key_rejected_detail(what, outcome.detail)
     if outcome.kind is OrderOutcomeKind.SWITCH_OFF:
-        _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
+        if state.state is BotLifecycleState.STARTING:
+            _apply(
+                state,
+                BotLifecycleEvent.SWITCH_OFF,
+                GridReason.START_CUT_BY_SWITCH_OFF,
+                f"{detail}; {START_CUT_BY_SWITCH_OFF_DETAIL}",
+            )
+        else:
+            _apply(state, BotLifecycleEvent.SWITCH_OFF, GridReason.SWITCH_OFF, detail)
     elif outcome.kind is OrderOutcomeKind.FAULT:
         _apply(state, BotLifecycleEvent.FAULT, GridReason.ORDER_FAILED, detail)
     else:
