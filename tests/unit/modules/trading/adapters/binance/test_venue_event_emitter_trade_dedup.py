@@ -140,3 +140,29 @@ def test_a_trade_the_registration_already_counted_is_not_counted_again() -> None
     world.emitter.order_filled(_order(), _FILL, None, 777)
 
     assert world.held == 0
+
+
+class _BooksThatFailOnce(OwnerBooks):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = False
+
+    def apply_fill(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def, override]
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("the book refused")
+        super().apply_fill(*args, **kwargs)
+
+
+def test_a_fill_that_could_not_be_applied_can_be_counted_by_the_next_record() -> None:
+    """The claim is given back when the apply raises, so the stream's copy of
+    the trade is not dropped for good."""
+    books = _BooksThatFailOnce()
+    books.install(_TAG, OwnerBook(_REGISTRATION, EMPTY_INVENTORY))
+    emitter = VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET, books)
+    with pytest.raises(RuntimeError):
+        emitter.order_filled(_order(), _FILL, None, 777)
+
+    emitter.order_filled(_order(), _FILL, None, 777)
+
+    assert books.shares()[0].inventory.quantity == Decimal("0.002")

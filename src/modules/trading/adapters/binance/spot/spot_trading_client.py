@@ -141,18 +141,25 @@ class SpotTradingClient(ITradingClient):
         return order
 
     def _report_fills(self, order: Order, response: object) -> None:
-        """Hand the response's trades to the fill door (`BOT-173`)."""
+        """Hand the response's trades to the fill door (`BOT-173`).
+
+        Best effort: the exchange has accepted the order, so nothing here may
+        make `place_order` raise (the caller would retry a live order). A report
+        that fails is logged; the stream or the history still counts the fill."""
+        try:
+            self._report_response_fills(order, response)
+        except Exception:
+            logger.warning(
+                "Counting the fills of %s from its placement response failed; the "
+                "stream or the history will count them [response-fills]",
+                order.client_order_id,
+                exc_info=True,
+            )
+
+    def _report_response_fills(self, order: Order, response: object) -> None:
         if not isinstance(response, dict):
             return
-        try:
-            responded = map_spot_order_payload_to_order(response)
-        except KeyError:
-            logger.warning(
-                "Placement response of %s unreadable; its fills, if any, "
-                "wait for the stream or the history [response-fills]",
-                order.client_order_id,
-            )
-            return
+        responded = map_spot_order_payload_to_order(response)
         found = response_fills(response)
         if found.unreadable:
             logger.warning(

@@ -106,6 +106,22 @@ class VenueEventEmitter(IOrderFillReporter):
                 order.client_order_id,
             )
             return
+        try:
+            self._apply_and_publish(order, fill, fee, trade_id)
+        except Exception:
+            # The trade was claimed but not counted everywhere: let the next
+            # record of it (the stream, a history re-read) try again. The owner
+            # book keeps its own trade-id memory, so a second apply is safe.
+            self._reported_trades.release(order.symbol, trade_id)
+            raise
+
+    def _apply_and_publish(
+        self,
+        order: Order,
+        fill: tuple[Decimal, Decimal],
+        fee: tuple[Decimal, str] | None,
+        trade_id: int | None,
+    ) -> None:
         fill_price, fill_quantity = fill
         self._owner_books.apply_fill(order, fill, fee, trade_id)
         self._event_bus.emit(

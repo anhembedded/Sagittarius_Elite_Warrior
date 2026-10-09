@@ -37,6 +37,7 @@ class ReportedTrades:
         report: it cannot be told from another."""
         if trade_id is None:
             return True
+
         key = (symbol, trade_id)
         with self._lock:
             if key in self._seen:
@@ -45,3 +46,11 @@ class ReportedTrades:
             while len(self._seen) > self._limit:
                 self._seen.popitem(last=False)
         return True
+
+    def release(self, symbol: str, trade_id: int | None) -> None:
+        """@brief Forget a claim whose fill could not be applied, so the next
+        record of the trade (the stream, a history re-read) can still count it."""
+        if trade_id is None:
+            return
+        with self._lock:
+            self._seen.pop((symbol, trade_id), None)

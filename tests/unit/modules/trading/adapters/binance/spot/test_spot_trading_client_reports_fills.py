@@ -195,3 +195,38 @@ class TestPlaceOrderReportsTheResponsesFills:
         )
 
         assert reporter.reported == []
+
+
+class _ExplodingReporter(FakeOrderFillReporter):
+    def order_filled(self, *args: object, **kwargs: object) -> None:  # type: ignore[override]
+        raise RuntimeError("the book refused")
+
+
+def test_a_failing_report_never_makes_an_accepted_order_look_failed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The exchange accepted the order: raising here would invite a retry of a
+    live order. The failure is a WARNING and the stream or history counts it."""
+    raw_client = Mock()
+    raw_client.create_order.return_value = _response(fills=[_trade(11)])
+    order = _order()
+
+    with caplog.at_level("WARNING", logger="App.Trading.SpotClient"):
+        placed = _client(
+            raw_client, OrderSubmissionMode.LIVE, _ExplodingReporter()
+        ).place_order(order)
+
+    assert placed is order
+    assert "[response-fills]" in caplog.text
+
+
+def test_an_unreadable_response_never_fails_the_placement() -> None:
+    raw_client = Mock()
+    broken = _response(fills=[_trade(11)])
+    broken["origQty"] = "not-a-number"
+    raw_client.create_order.return_value = broken
+    reporter = FakeOrderFillReporter()
+
+    _client(raw_client, OrderSubmissionMode.LIVE, reporter).place_order(_order())
+
+    assert reporter.reported == []
