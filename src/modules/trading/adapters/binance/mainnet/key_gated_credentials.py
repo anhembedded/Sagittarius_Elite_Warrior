@@ -69,7 +69,9 @@ class KeyGatedCredentials(IExchangeCredentialsProvider):
         refused = self._gate.check()
         if refused is None:
             return resolved
-        return ResolvedCredentials(None, CredentialsSource.NONE, refusal_words(refused))
+        return ResolvedCredentials(
+            None, CredentialsSource.NONE, refusal_words(refused), refused.kind.value
+        )
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         self._stored.save_to_file(api_key, api_secret)

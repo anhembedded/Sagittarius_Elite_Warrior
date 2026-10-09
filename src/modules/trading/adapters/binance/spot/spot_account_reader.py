@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.account_can_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
+    missing_key_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_parsing import (
     parse_holdings,
@@ -96,7 +97,7 @@ class SpotAccountReader(ITradingAccountReader):
     def check_connection(self) -> ExchangeConnectionStatus:
         resolution = self._credentials_provider.resolve()
         if resolution.credentials is None:
-            return self._status(failure=ConnectionFailureKind.NOT_CONFIGURED)
+            return self._status(failure=missing_key_failure(resolution))
 
         try:
             # `Client(...)` pings on construction by default (`BUG-045`), so

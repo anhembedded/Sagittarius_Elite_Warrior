@@ -56,6 +56,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_only_the_entry_points_take_the_instance_lock.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    # `BUG-193` — only the credentials contract words an absent key.
+    (
+        "tests/unit/architecture/test_a_refused_key_is_never_worded_as_a_missing_one.py",
+        (("src", "*.py"),),
+    ),
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
     # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
     # appear in a container registration anywhere in `src/`.

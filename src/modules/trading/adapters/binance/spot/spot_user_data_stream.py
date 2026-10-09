@@ -114,11 +114,10 @@ class SpotUserDataStream(ManagedUserDataStream):
         # Resolved here, not cached at construction time: this class must
         # stay safely constructible with no credentials configured at all
         # (same reasoning as `FuturesUserDataStream._run_stream`).
-        credentials = self._credentials_provider.resolve().credentials
+        resolved = self._credentials_provider.resolve()
+        credentials = resolved.credentials
         if credentials is None:
-            logger.error(
-                "No exchange credentials configured — cannot open the user data stream."
-            )
+            logger.error(resolved.unusable_because("Spot", "open the user data stream"))
             return
 
         def is_current() -> bool:

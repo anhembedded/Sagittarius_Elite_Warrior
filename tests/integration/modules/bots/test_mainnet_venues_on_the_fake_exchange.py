@@ -213,6 +213,7 @@ def test_a_key_that_can_withdraw_opens_no_order_session_and_reads_nothing_else(
     assert not opened.ready
     assert opened.block_reason is SessionBlockReason.CONNECTION_NOT_READY
     assert not status.reachable
-    assert status.failure is ConnectionFailureKind.NOT_CONFIGURED
+    # The key gate refused a stored key that can withdraw: the desk says so, not "no key" (BUG-193).
+    assert status.failure is ConnectionFailureKind.WITHDRAWAL_ENABLED
     assert set(_reads(exchange)) == {"/sapi/v1/account/apiRestrictions"}
     assert not [r for r in exchange.urls.requests if r[0] in _PLACING]

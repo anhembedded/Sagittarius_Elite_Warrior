@@ -42,7 +42,10 @@ No existing net covered any of the three: the tests that edit the Grid panel emi
 - `planner_recovery.py` (new, 60 lines) subscribed to the Connect step: the first connected answer while the selected bot's market has a `problem` reads the planner again. One INFO line per distinct problem (`[plan-rejudge]`: the bot, the problem), DEBUG while it stands, at most one read a minute (the Connect refresh).
 - `ResolvedCredentials.refusal` + `absence(market)` (`i_exchange_credentials_provider.py`), set by `KeyGatedCredentials` from the gate's own words; the Spot and Futures commission readers and `FuturesAccountControl` word a refused key as "the Spot key cannot be used: -2015 Invalid API-key, IP, or permissions … IP whitelist …", and a missing one as before.
 
-Not changed, same family, listed for a follow-up: `history_reads.require_credentials`, the two `_resolve_client` messages and the user-data-stream log lines still say "no … credentials configured" for a refused mainnet key. A planner read that *raised* (as opposed to answering a problem) still waits for its message bar's Retry.
+- Every other surface that turned a refused key into "no key" now goes through the same two methods (`ResolvedCredentials.absence` / `unusable_because`, plus `refusal_kind`): the Spot and Futures account readers (so Tools → Options → Trading's State reads "Binance refused the key … IP allowlist …" instead of "No key. Use Add key…", found by the owner on the real app), `history_reads.require_credentials` (`GetTradeHistoryQuery` / `GetOrderHistoryQuery`), both `_resolve_client` messages and both user-data-stream log lines. `tests/unit/architecture/test_a_refused_key_is_never_worded_as_a_missing_one.py` fails on any string in `src/` that says "credentials configured" outside the credentials contract.
+- Consequence for two existing tests that pinned the old wording: `test_module_venue_contexts_client_flag.py` (a key the gate could not judge) now expects `NETWORK`, and `test_mainnet_venues_on_the_fake_exchange.py` (a key that can withdraw) expects `WITHDRAWAL_ENABLED`, instead of `NOT_CONFIGURED`.
+
+Not changed: a planner read that *raised* (as opposed to answering a problem) still waits for its message bar's Retry.
 
 ## Regression test
 - `tests/unit/modules/bots/ui/bots_screen/test_bots_plan_is_rejudged.py` (the real Bots presenter, view, store, use cases and queries over `open_screen`; the real Grid panel driven by `QTest` key events; only the venue's ports are fakes):
@@ -50,11 +53,12 @@ Not changed, same family, listed for a follow-up: `history_reads.require_credent
   - `test_save_stores_the_grids_on_screen_and_judges_what_it_stored` — red before: `AssertionError: '10' == '5'` (the stored bot kept 10 grids after Save said "done"); green after.
   - `test_save_stores_what_the_editor_shows_even_when_a_widget_said_nothing` — Save with a silent widget change; red with `read_editor` removed.
   - `test_a_recovered_connection_judges_the_plan_again_without_a_user_action` — red before: the readiness still read "The plan cannot be judged: … no terms seeded" after the connection answered again; green after, and the `[plan-rejudge]` INFO line is asserted.
+- `tests/unit/modules/trading/adapters/binance/test_a_refused_key_is_reported_as_refused.py` — the Trading page's State (Spot and Futures, through `state_of`), and the history, for a refused key vs a missing one; the architecture guard above covers the streams and signing clients.
 - `tests/unit/modules/bots/ui/kinds/test_grid_panel.py::test_every_way_of_setting_the_grid_count_is_an_edit` — arrow key, `stepBy`, typing.
 - `tests/unit/modules/trading/adapters/binance/test_commission_rate_readers.py::test_a_key_the_exchange_refused_is_not_reported_as_missing` (Spot, Futures, account control) and `::test_a_key_that_is_missing_still_says_so`; `mainnet/test_key_gated_credentials.py::test_a_key_the_exchange_refused_resolves_with_the_exchange_s_reason`.
 - Mutation check: reverting `grid_panel.py` reddens the arrows test and the panel test; removing the `read_editor` call reddens the silent-widget test; removing the `PlannerRecovery` construction reddens the recovery test.
 
 ## Verification
-- `tests/unit/modules/bots`, `tests/unit/modules/trading/adapters/binance` and `tests/unit/support/binance_gateway` green locally; the commit tier (`ci-local.ps1 -SkipTests`) and `tests/unit/architecture` green on the fix commit. The `-Full` run is GitHub Actions'.
+- `tests/unit` and `tests/integration` green locally except `test_workbench_conformance[True-1024x700]` (backtest window size), which also fails on the unmodified base; the commit tier (`ci-local.ps1 -SkipTests`) and `tests/unit/architecture` green on the fix commit. The `-Full` run is GitHub Actions'.
 - Positive proof the new mechanisms ran: the recovery test captures the `[plan-rejudge]` INFO line from `App.Bots.Screen` and the planner's second read; the Save test reads the stored bot back from the store (`grid_count == "5"`).
 - Not verified: the owner's real mainnet key and gesture. No order was placed, tested or simulated on any exchange.

@@ -164,7 +164,7 @@ class SpotTradingClient(ITradingClient):
         resolution = self._credentials_provider.resolve()
         if resolution.credentials is None:
             raise ValueError(
-                "No exchange credentials configured — cannot sign a trading request."
+                resolution.unusable_because("Spot", "sign a trading request")
             )
         try:
             return self._session_factory.create_trading_client(resolution.credentials)

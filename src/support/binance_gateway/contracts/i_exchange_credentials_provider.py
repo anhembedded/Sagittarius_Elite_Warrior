@@ -35,6 +35,9 @@ class ResolvedCredentials:
     #: the exchange refused it, or it can withdraw. Empty when there is simply no
     #: key, so a reader never calls a refused key "not configured".
     refusal: str = ""
+    #: The value of the `ConnectionFailureKind` behind `refusal`, so a status
+    #: row names the same cause as the sentence; empty when `refusal` is.
+    refusal_kind: str = ""
 
     def absence(self, market: str) -> str:
         """What a reader says when it got no credentials: the key is missing, or
@@ -42,6 +45,13 @@ class ResolvedCredentials:
         if self.refusal:
             return f"the {market} key cannot be used: {self.refusal}"
         return f"no {market} credentials configured"
+
+    def unusable_because(self, market: str, what_is_blocked: str) -> str:
+        """`absence` as a sentence of its own, for an error or a log line: why
+        `what_is_blocked` cannot go ahead. The one place a reader words a key it
+        did not get, so none can call a refused key "not configured"."""
+        reason = self.absence(market)
+        return f"{reason[0].upper()}{reason[1:]} — cannot {what_is_blocked}."
 
 
 class IExchangeCredentialsProvider(ABC):
