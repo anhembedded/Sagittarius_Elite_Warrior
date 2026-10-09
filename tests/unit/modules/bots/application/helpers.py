@@ -40,11 +40,12 @@ def seed(
     bot_id: str,
     state: BotLifecycleState,
     config: dict[str, str] | None = None,
+    runtime: dict[str, object] | None = None,
 ) -> Bot:
     bot = Bot(
         BotId(bot_id), definition(config=config), BotLifecycle(state), FAKE_CLOCK_START
     )
-    store.save(StoredBot(bot, {"cycles": 1}))
+    store.save(StoredBot(bot, {"cycles": 1} if runtime is None else runtime))
     return bot
 
 

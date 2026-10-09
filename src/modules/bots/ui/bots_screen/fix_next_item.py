@@ -2,7 +2,7 @@
 
 Each item left before Start names its fix (`ReadinessFix`); this is the one
 command that performs it, in the order the items are listed: read the account
-again, bring the field a design item is about forward, or select the bot that
+again, ask the exchange again, bring the field a design item is about forward, or select the bot that
 is still active so Stop is one command away. The command is enabled exactly
 while there is such an item (`next_fix`).
 """
@@ -50,6 +50,8 @@ class FixNextItem:
             return
         if item.fix is ReadinessFix.RETRY_CONNECTION:
             self._step.retry()
+        elif item.fix is ReadinessFix.REFRESH_EXCHANGE:
+            self._model.refresh_exchange_requested.emit()
         elif item.fix is ReadinessFix.STOP_OTHER_BOT:
             self._model.select_requested.emit(item.target)
         elif panel is not None:

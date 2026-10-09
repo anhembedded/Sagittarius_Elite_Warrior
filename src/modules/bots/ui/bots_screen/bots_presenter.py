@@ -70,6 +70,7 @@ from .bots_ui_fsm_matrix import (
 from .connect_effects import ConnectEffects
 from .connect_step import ConnectStep
 from .detail_effects import DetailEffects
+from .exchange_check import ExchangeCheck
 from .fenced_reads import BotQueries, FencedReads, ReadKind
 from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
@@ -151,6 +152,9 @@ class BotsPresenter(CommandPresenter):
             self._selected, self._model, self._charts, self._backtests, self._account
         )
         self._refresh_detail = self._detail.refresh
+        self._exchange = ExchangeCheck(
+            self._queries, self._reads, self._selected, self._refresh_detail
+        )
         self._account_effects = ConnectEffects(
             self._account, view, self._charts, self._selected, self._refresh_detail
         )
@@ -182,6 +186,7 @@ class BotsPresenter(CommandPresenter):
             lambda: self._queries.fills(self._model.selected)
         )
         model.fit_levels_requested.connect(self._charts.fit_levels)
+        model.refresh_exchange_requested.connect(self._exchange.refresh)
         self._reads.answered.connect(self._on_read_answered)
         self._reads.failed.connect(self._failures.read_failed)
         self._commands.finished.connect(self._on_finished)
@@ -237,6 +242,7 @@ class BotsPresenter(CommandPresenter):
             if self._model.selected is not None:
                 self._select(None)
         else:
+            self._exchange.follow_a_change(self._model.selected, fresh)
             self._model.set_selected(fresh)
             self._selected.take_snapshot(fresh)
             self._dispatch(selection_event(fresh))
@@ -267,6 +273,7 @@ class BotsPresenter(CommandPresenter):
         self.view.set_kind_panel(panel)
         KindCommands.follow_panel_of(self._model, panel)
         self._account.select(bot)
+        self._exchange.follow(bot)
         if bot is not None:
             self._queries.planner(bot)
             self._queries.fills(bot)
@@ -328,7 +335,7 @@ class BotsPresenter(CommandPresenter):
         )
         if accepted and isinstance(result, BotCommandResult):
             self._model.set_status(
-                f"{label}: done.{self._still_blocked(pending)}", False
+                f"{label}: done.{self._selected.still_blocked(pending.action)}", False
             )
             if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id
@@ -341,20 +348,9 @@ class BotsPresenter(CommandPresenter):
         logger.info("Bots screen: %s %s", label, "accepted" if accepted else "refused")
         self._dispatch(settled_event(self._model.selected))
         self._follow_selection()
+        self._exchange.refresh()
         self._venues.choices()
         self._queries.bots()
-
-    def _still_blocked(self, pending: PendingAction) -> str:
-        """What a Save leaves undone (`EPIC-035N`): the parameters were stored
-        as they are, and Start still refuses them, for the reason it would give
-        (read before the edits are dropped, so it judges what was saved)."""
-        if pending.action is not BotAction.SAVE:
-            return ""
-        detail = self._selected.detail()
-        readiness = detail.readiness if detail else None
-        if readiness is None or readiness.can_start:
-            return ""
-        return f" Saved as they are. Start is still blocked: {readiness.message()}"
 
     def _follow_selection(self) -> None:
         """A list read that landed during the action may have moved the

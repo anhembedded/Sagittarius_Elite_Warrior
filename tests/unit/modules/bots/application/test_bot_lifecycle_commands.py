@@ -10,6 +10,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
     BotCommandLock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+    ResumeReadinessReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
     ConfirmBotResumeCommand,
     ConfirmBotResumeCommandHandler,
@@ -277,18 +280,23 @@ def test_a_bot_whose_file_is_unreadable_is_refused_as_unreadable(
     ],
 )
 def test_a_declared_command_is_queued_on_the_bots_executor(
-    store: FakeBotStore, runner: _RecordingRunner, origin: S, run: str, sent: str
+    world: ReadinessWorld,
+    store: FakeBotStore,
+    runner: _RecordingRunner,
+    origin: S,
+    run: str,
+    sent: str,
 ) -> None:
     """The executor is the bot's one writer (ADR D9): the use case checks the
     table and queues; the state does not change here."""
-    seed(store, "abc123", origin)
+    seed(store, "abc123", origin, config=CONFIG, runtime={})
     handlers = {
         "pause": lambda: PauseBotCommandHandler(store, runner).execute(
             PauseBotCommand("abc123")
         ),
-        "resume": lambda: ResumeBotCommandHandler(store, runner).execute(
-            ResumeBotCommand("abc123")
-        ),
+        "resume": lambda: ResumeBotCommandHandler(
+            store, runner, ResumeReadinessReader(world.facts, world.ports, world.caps)
+        ).execute(ResumeBotCommand("abc123")),
         "stop": lambda: StopBotCommandHandler(store, runner).execute(
             StopBotCommand("abc123", BaseHandling.KEEP)
         ),

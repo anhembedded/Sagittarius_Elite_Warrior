@@ -54,16 +54,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
-    buys_within_capital,
-    resized_for_inventory,
     unplaced_inventory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
-    GridPlan,
-    plan,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
-    LadderRules,
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resume_plan import (
+    resume_plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -145,15 +140,7 @@ class GridResumeSequence:
     ) -> ResumeProposal:
         """The plan at `price` over `inventory` (`EPIC-035R`): SELLs sized to
         what is held, BUYs sized to the capital it leaves."""
-        terms = self._context.terms
-        rules = LadderRules(terms.step_size, terms.min_notional)
-        sells = resized_for_inventory(
-            plan(self._context.params, terms, price),
-            inventory.quantity,
-            terms.min_notional,
-        )
-        left = self._context.params.capital_quote - inventory.cost
-        sized = buys_within_capital(sells, left, rules)
+        sized = resume_plan(self._context.params, self._context.terms, price, inventory)
         return ResumeProposal(
             sized, inventory, unplaced_inventory(sized, inventory.quantity)
         )

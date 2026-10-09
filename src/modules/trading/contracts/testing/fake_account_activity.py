@@ -45,6 +45,7 @@ class FakeAccountActivity(IAccountActivity):
         self._scanned: tuple[str, ...] = ()
         self._notices: tuple[str, ...] = ()
         self._history_error: Exception | None = None
+        self._open_orders_error: Exception | None = None
         #: Every `order_history` request, in order.
         self.order_requests: list[HistoryRequest] = []
         #: Every `trade_history` request, in order.
@@ -75,11 +76,17 @@ class FakeAccountActivity(IAccountActivity):
     def history_raises(self, error: Exception) -> None:
         self._history_error = error
 
+    def open_orders_raise(self, error: Exception) -> None:
+        """The open-orders read fails as a network or rate-limit error does."""
+        self._open_orders_error = error
+
     def summary(self) -> AccountSummary | None:
         return self._summary
 
     def open_orders(self) -> tuple[Order, ...]:
         self.open_order_reads += 1
+        if self._open_orders_error is not None:
+            raise self._open_orders_error
         return self._open_orders
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:

@@ -14,6 +14,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ExchangeConnectionStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -25,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snaps
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
     AccountSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 READ_AT = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
@@ -65,3 +71,22 @@ def a_funded_snapshot() -> VenueAccountSnapshot:
     """The same account with more than any capital a screen test plans with,
     so the balance constraint (`EPIC-034F`) passes unless a test is about it."""
     return a_venue_account_snapshot(available=50_000)
+
+
+def a_funded_status(
+    venue: TradingVenue, available: Decimal = Decimal(50_000)
+) -> ExchangeConnectionStatus:
+    """`BOT-174` — what the venue's trading account reports for the same funded
+    account: `available` USDT, free, nothing locked, the key allowed to trade."""
+    return ExchangeConnectionStatus(
+        venue=venue,
+        reachable=True,
+        failure=None,
+        server_time_skew_ms=0,
+        usdt_balance=available,
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+        holdings=(SpotHolding("USDT", available, Decimal(0), Decimal("0.00000001")),),
+        can_trade=True,
+    )

@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     ReadinessStep,
     StepStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
+    ExchangeSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
 )
@@ -38,6 +41,9 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_exampl
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     inputs as grid_inputs,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.exchange_facts_fixtures import (
+    loaded,
 )
 
 TITLE = "Spot Testnet"
@@ -53,6 +59,7 @@ def _assess(
     market: PlannerMarket | None = _MARKET,
     run: RunFacts = _NO_FACTS,
     config: dict[str, str] | None = None,
+    exchange: ExchangeSnapshot | None = None,
 ):
     return assess_readiness(
         ReadinessInputs(
@@ -63,6 +70,7 @@ def _assess(
             connection=connection,
             market=market,
             run=run,
+            exchange=exchange or loaded(),
         )
     )
 
@@ -152,16 +160,15 @@ def test_advice_is_never_an_item() -> None:
     assert readiness.can_start
 
 
-def test_the_balance_and_the_key_are_design_items_read_from_the_account() -> None:
-    poor = ConnectionRead(
+def test_the_key_is_a_design_item_read_from_the_account() -> None:
+    cannot_trade = ConnectionRead(
         ConnectionState.CONNECTED, TITLE, AccountView(Decimal(1), "USDT", False, TITLE)
     )
 
-    readiness = _assess(poor)
+    readiness = _assess(cannot_trade)
 
     assert {i.code for i in readiness.step(ReadinessStep.DESIGN).items} == {
-        "CAPITAL_ABOVE_BALANCE",
-        "KEY_CANNOT_TRADE",
+        "KEY_CANNOT_TRADE"
     }
 
 

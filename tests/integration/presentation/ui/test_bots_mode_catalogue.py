@@ -36,6 +36,7 @@ BOTS_MENU = [
     "Refresh fills",
     "Fit levels",
     "Retry venue account",
+    "Refresh exchange check",
     "Fix next item",
     "Arm strategy…",
     "Disarm strategy",

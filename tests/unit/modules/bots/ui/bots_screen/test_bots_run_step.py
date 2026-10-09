@@ -33,7 +33,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 )
 
 from .bots_screen_fixtures import NOW, SYMBOL, stored
-from .connect_screen_helpers import failure, fresh_snapshot, select, start_rule
+from .connect_screen_helpers import (
+    failure,
+    fresh_snapshot,
+    poor_account,
+    select,
+    start_rule,
+)
 
 
 def _plan(screen):
@@ -90,7 +96,7 @@ def test_start_is_disabled_with_the_count_and_the_tip_says_what_is_left(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    screen.account.answer_with(replace(fresh_snapshot(), available=Decimal(800)))
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()
@@ -99,25 +105,26 @@ def test_start_is_disabled_with_the_count_and_the_tip_says_what_is_left(
 
     assert not command.isEnabled()
     assert _plan(screen).readiness_header.text() == "Start: 1 thing left"
-    assert "1 thing left: The capital is 1000 USDT" in command.toolTip()
-    assert screen.presenter._account.state is ReadinessState.DESIGNING
+    assert "1 thing left: The opening buy and the BUY levels need" in command.toolTip()
+    assert screen.presenter._account.state is ReadinessState.RUN_BLOCKED
     assert [s.status for s in screen.view.model.readiness.steps] == [
         StepStatus.DONE,
+        StepStatus.DONE,
         StepStatus.OPEN,
-        StepStatus.WAITING,
     ]
 
 
 def test_an_item_names_its_reason_and_where_to_fix_it(open_bots_screen) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    screen.account.answer_with(replace(fresh_snapshot(), available=Decimal(800)))
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()
 
     line = _plan(screen).readiness_items.text()
 
-    assert "Design: The capital is 1000 USDT, above the 800.00 USDT available" in line
+    assert "Run: The opening buy and the BUY levels need 995.48 USDT" in line
+    assert "Spot Testnet has 800.00 USDT free" in line
     assert line.endswith("→ edit Capital (quote)")
 
 
@@ -125,7 +132,7 @@ def test_fix_next_brings_the_field_a_design_item_is_about_forward(
     open_bots_screen, qtbot
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    screen.account.answer_with(replace(fresh_snapshot(), available=Decimal(800)))
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()

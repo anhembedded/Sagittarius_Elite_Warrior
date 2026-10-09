@@ -25,9 +25,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 #: is about none of its fields (the key's permission).
 type FieldLabelOf = Callable[[str], str | None]
 
+#: The fixes that are a command of the screen, whatever the item.
+_DONE_BY_A_COMMAND = (
+    ReadinessFix.RETRY_CONNECTION,
+    ReadinessFix.REFRESH_EXCHANGE,
+    ReadinessFix.STOP_OTHER_BOT,
+)
+
 CONNECTING = "Connecting…"
 NOT_CONNECTED = "Not connected"
 RETRY_WORDS = "Bots → Retry venue account"
+REFRESH_WORDS = "Bots → Refresh exchange check"
 STOP_WORDS = "select that bot, then Bots → Stop…"
 
 
@@ -64,6 +72,11 @@ def item_lines(readiness: BotReadiness, label_of: FieldLabelOf) -> tuple[str, ..
     return tuple(_item_line(item, label_of) for item in readiness.items)
 
 
+def advisory_lines(readiness: BotReadiness) -> tuple[str, ...]:
+    """`BOT-174` — what the exchange says that does not stand in Start's way."""
+    return tuple(f"• Note: {advisory.text}" for advisory in readiness.advisories)
+
+
 def _item_line(item: ReadinessItem, label_of: FieldLabelOf) -> str:
     fix = _fix_words(item, label_of)
     return f"• {item.step.value}: {item.reason}" + (f" → {fix}" if fix else "")
@@ -72,6 +85,8 @@ def _item_line(item: ReadinessItem, label_of: FieldLabelOf) -> str:
 def _fix_words(item: ReadinessItem, label_of: FieldLabelOf) -> str:
     if item.fix is ReadinessFix.RETRY_CONNECTION:
         return RETRY_WORDS
+    if item.fix is ReadinessFix.REFRESH_EXCHANGE:
+        return REFRESH_WORDS
     if item.fix is ReadinessFix.STOP_OTHER_BOT:
         return STOP_WORDS
     if item.fix is ReadinessFix.EDIT_FIELD:
@@ -83,7 +98,7 @@ def _fix_words(item: ReadinessItem, label_of: FieldLabelOf) -> str:
 def next_fix(readiness: BotReadiness, label_of: FieldLabelOf) -> ReadinessItem | None:
     """The first item whose fix is something the screen can do."""
     for item in readiness.items:
-        if item.fix in (ReadinessFix.RETRY_CONNECTION, ReadinessFix.STOP_OTHER_BOT):
+        if item.fix in _DONE_BY_A_COMMAND:
             return item
         if item.fix is ReadinessFix.EDIT_FIELD and label_of(item.target):
             return item

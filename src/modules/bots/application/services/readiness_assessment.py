@@ -26,11 +26,19 @@ What cannot be known before an order, because it needs the exchange to answer
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+    RuleOutcome,
+    RunPurpose,
+    judge_exchange,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_needs import (
+    start_ladder_needs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
@@ -42,6 +50,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     ReadinessStep,
     StepReadiness,
     StepStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
+    ExchangeChecking,
+    ExchangeSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -99,6 +111,8 @@ class ReadinessInputs:
     #: `None` while the market numbers are being read.
     market: PlannerMarket | None
     run: RunFacts
+    #: `BOT-174` — what the exchange says; still being asked until it answers.
+    exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
 
 
 def assess_readiness(inputs: ReadinessInputs) -> BotReadiness:
@@ -108,7 +122,11 @@ def assess_readiness(inputs: ReadinessInputs) -> BotReadiness:
     # Run step names it once and Design waits.
     designable = connected and not inputs.run.venue_problem
     design = _design_items(inputs) if designable else ()
-    run = _run_items(inputs, connected)
+    # The exchange's facts are judged against a plan that stands: Connect, the
+    # Run step's venue item and Design already say what blocks one, and the
+    # facts would repeat one cause as two.
+    exchange = _exchange_outcome(inputs) if designable and not design else RuleOutcome()
+    run = _run_items(inputs, connected) + exchange.items
     return BotReadiness(
         (
             StepReadiness(
@@ -126,8 +144,20 @@ def assess_readiness(inputs: ReadinessInputs) -> BotReadiness:
                 _status(run, waiting=bool(connect or design)),
                 run,
             ),
-        )
+        ),
+        exchange.advisories,
     )
+
+
+def _exchange_outcome(inputs: ReadinessInputs) -> RuleOutcome:
+    """The exchange rules over the plan a Start would place."""
+    market = inputs.market
+    needs = (
+        start_ladder_needs(inputs.config, market.terms, market.market.last_price)
+        if market is not None and market.terms and market.market
+        else None
+    )
+    return judge_exchange(inputs.exchange, needs, RunPurpose.START)
 
 
 def _status(items: tuple[ReadinessItem, ...], *, waiting: bool) -> StepStatus:
