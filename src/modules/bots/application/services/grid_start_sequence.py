@@ -1,5 +1,7 @@
 """`EPIC-029E` — the start of a Grid: the opening buy, then the ladder (ADR §3.1, §3.4).
 
+  0. **Earlier runs** (`BUG-196`): what the bot's earlier runs left on the account
+     is read and recorded on the run, never traded and never a reason to refuse.
   1. **The opening buy** goes out in slices at or below the per-order cap, each
      waiting its turn (D21): ⌈quote / cap⌉ market BUYs.
   2. **The ladder**, outward from the last price; the level nearest the price
@@ -38,6 +40,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     OrderOutcome,
     OrderOutcomeKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_earlier_runs import (
+    GridEarlierRuns,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
     GridHousekeeping,
@@ -83,12 +88,14 @@ class GridStartSequence:
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
         self._housekeeping = GridHousekeeping(context)
+        self._earlier_runs = GridEarlierRuns(context)
 
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""
         state = self._context.state
         terms = self._context.terms
         state.update(runtime_from_plan(plan, terms.step_size))
+        self._earlier_runs.record()
         ladder = sells_net_of_opening_fee(plan, terms.taker_fee, terms.step_size)
         if (
             self._buy_opening(plan)
@@ -117,6 +124,8 @@ class GridStartSequence:
                 mark_price=earned.mark_price,
                 mark_price_at=earned.mark_price_at,
                 unpriced_fees=earned.unpriced_fees,
+                earlier_runs_base=earned.earlier_runs_base,
+                earlier_runs_cost=earned.earlier_runs_cost,
             )
         )
         if self._place_ladder(plan):

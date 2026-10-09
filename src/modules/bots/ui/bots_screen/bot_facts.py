@@ -77,6 +77,8 @@ class BotFacts:
     total_pnl: str = NO_VALUE
     #: What the same capital would have gained held since the run began.
     hodl: str = NO_VALUE
+    #: `BUG-196` — base earlier runs left that this run does not trade.
+    earlier_runs: str = NO_VALUE
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -94,6 +96,7 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         running_time=_running_time(bot, now),
         total_pnl=_total(bot),
         hodl=_money(progress.pnl.hodl if progress and progress.pnl else None),
+        earlier_runs=_earlier_runs(bot),
     )
 
 
@@ -137,6 +140,16 @@ def _inventory(bot: BotSnapshot) -> str:
         return NO_VALUE
     cost = progress.average_cost
     return f"{_quantity(progress.inventory)} at an average {_price(cost)}"
+
+
+def _earlier_runs(bot: BotSnapshot) -> str:
+    progress = bot.progress
+    if progress is None or progress.earlier_runs_base <= 0:
+        return NO_VALUE
+    cost = _money(progress.earlier_runs_cost)
+    return (
+        f"{_quantity(progress.earlier_runs_base)} (cost {cost}), not traded by this run"
+    )
 
 
 def _running_time(bot: BotSnapshot, now: datetime) -> timedelta | None:

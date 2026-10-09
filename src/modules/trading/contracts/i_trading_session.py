@@ -50,6 +50,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
+    EarlierRunsInventory,
+    EarlierRunsRequest,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -180,6 +184,16 @@ class ITradingSession(ABC):
         Spot, a cap is exceeded, another owner holds the tag, or the venue
         does not answer. Registering again re-derives everything.
         """
+
+    @abstractmethod
+    def earlier_runs_inventory(
+        self, request: EarlierRunsRequest
+    ) -> EarlierRunsInventory:
+        """`BUG-196` — the base the owner's earlier runs left and a new run does
+        not trade: its tagged history before `request.until`, capped by the
+        account's free base. Reads the venue's history; changes nothing (no book,
+        no checkpoint). A venue that does not answer is `unavailable`, never an
+        empty answer."""
 
     @abstractmethod
     def clear_owner_budget(self, owner_id: str) -> None:

@@ -45,5 +45,8 @@ class BotProgress:
     orders: tuple[BotOrderLine, ...] = ()
     #: The last price the bot heard (`EPIC-035M`); `None` before it heard one.
     mark_price: Decimal | None = None
+    #: `BUG-196` — base earlier runs left that this run does not trade, and its cost.
+    earlier_runs_base: Decimal = Decimal(0)
+    earlier_runs_cost: Decimal = Decimal(0)
     #: What the run has earned: the total, its parts and the HODL benchmark.
     pnl: PnlSummary | None = None

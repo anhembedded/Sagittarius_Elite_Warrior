@@ -185,6 +185,11 @@ class GridRuntime:
     #: its fees: the completed cycles (`realised_profit`) and the sells of the
     #: opening inventory and of an exit. The total PnL is this plus the unrealised.
     realised_total: Decimal = _ZERO
+    #: `BUG-196` — base the bot's earlier runs left on the account, which this
+    #: run does not trade (a run counts only its own orders, ADR D6), and what it
+    #: cost. Read from the exchange when the run starts; shown, never traded.
+    earlier_runs_base: Decimal = _ZERO
+    earlier_runs_cost: Decimal = _ZERO
     #: The price the run began at, the HODL benchmark's start (`EPIC-035M`).
     start_price: Decimal | None = None
     #: The last price the bot heard, saved at most every `MARK_PRICE_SAVE_SECONDS`
