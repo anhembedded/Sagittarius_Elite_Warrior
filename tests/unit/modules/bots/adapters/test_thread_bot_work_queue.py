@@ -73,3 +73,25 @@ def test_close_from_inside_a_task_does_not_wait_for_itself() -> None:
     queue.post(close_from_inside)
 
     assert closed.wait(timeout=5)
+
+
+def test_close_gives_up_on_a_worker_stuck_in_a_task_and_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`EPIC-035V` (L8) — shutdown joined each worker with no timeout, so one
+    task stuck on the network held the whole app open."""
+    queue = ThreadBotWorkQueue(_NAME, join_timeout=0.05)
+    started = threading.Event()
+    release = threading.Event()
+    queue.post(lambda: (started.set(), release.wait(timeout=30)))
+    assert started.wait(timeout=5)
+    closer = threading.Thread(target=queue.close, name="closer", daemon=True)
+
+    with caplog.at_level(logging.WARNING, logger="App.Bots.Worker"):
+        closer.start()
+        closer.join(timeout=5)
+        returned = not closer.is_alive()
+        release.set()
+
+    assert returned, "close() waited for the stuck task"
+    assert any("did not finish" in record.getMessage() for record in caplog.records)

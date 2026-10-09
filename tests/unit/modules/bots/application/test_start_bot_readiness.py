@@ -92,10 +92,11 @@ class _CountingRunner(IBotRunner):
 def _start(
     world: ReadinessWorld, runner: IBotRunner, config: dict[str, str] | None = None
 ) -> BotCommandResult:
+    """A Start as the screen sends it: the real-money question answered."""
     handler = StartBotCommandHandler(
         world.store, runner, BotCommandLock(), world.reader, world.clock
     )
-    return handler.execute(StartBotCommand(BOT, config))
+    return handler.execute(StartBotCommand(BOT, config, real_money_confirmed=True))
 
 
 def _query(world: ReadinessWorld, config: dict[str, str] | None = None):

@@ -99,6 +99,10 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         #: A network read on the real adapter; a panel reading it per
         #: keystroke is a defect a test should be able to see.
         self.reads: list[str] = []
+        #: The reads that asked the exchange again, not its cached catalog
+        #: (`EPIC-035U`); each is also in `reads`.
+        self.fresh_reads: list[str] = []
+        self._fresh_failure: Exception | None = None
         #: Book reads per symbol: a bot that must not trade on a stale price
         #: re-reads the book, and a test should be able to see that it did.
         self.book_reads: list[str] = []
@@ -109,6 +113,19 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         if terms is None:
             raise SymbolRulesUnavailableError(f"no terms seeded for {symbol}")
         return terms
+
+    def fresh_terms_for(self, symbol: str) -> OrderEntryTerms:
+        """The answer a test seeded, recorded as a read the exchange was asked
+        for again (`fresh_reads`)."""
+        self.fresh_reads.append(symbol)
+        if self._fresh_failure is not None:
+            raise self._fresh_failure
+        return self.terms_for(symbol)
+
+    def fail_fresh_reads_with(self, error: Exception | None) -> None:
+        """From now on a read from the exchange raises `error` (it did not
+        answer); `None` lets it answer again."""
+        self._fresh_failure = error
 
     def answer_with(self, entry: OrderEntryTerms) -> None:
         """From now on `entry.rules.symbol` has these terms (a status that

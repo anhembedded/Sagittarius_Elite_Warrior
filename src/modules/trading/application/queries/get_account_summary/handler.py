@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary.query import (
     GetAccountSummaryQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.shared_account_status import (
+    SharedAccountStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
@@ -37,12 +40,18 @@ class GetAccountSummaryQueryHandler(
     @throws AccountSummaryUnavailableError The check failed; the exception
     carries its `ConnectionFailureKind` (`BUG-174`)."""
 
-    def __init__(self, contexts: IVenueContexts) -> None:
+    def __init__(self, contexts: IVenueContexts, shared: SharedAccountStatus) -> None:
         self._contexts = contexts
+        self._shared = shared
 
     def execute(self, query: GetAccountSummaryQuery) -> AccountSummary | None:
         logger.debug("Handling GetAccountSummaryQuery on %s", query.venue.value)
-        status = self._contexts.get(query.venue).account_reader.check_connection()
+        reader = self._contexts.get(query.venue).account_reader
+        status = (
+            self._shared.read_now(query.venue, reader)
+            if query.fresh
+            else self._shared.read(query.venue, reader)
+        )
         if status.summary is None and status.failure is not None:
             raise AccountSummaryUnavailableError(status.failure)
         return status.summary

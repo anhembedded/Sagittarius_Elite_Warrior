@@ -237,5 +237,6 @@ def test_after_boot_a_fill_refreshes_its_own_venues_summary_on_a_worker() -> Non
 
     container.resolve(IEventBus).emit(_spot_fill())
 
-    assert dispatcher.dispatched == [GetAccountSummaryQuery(venue=_SPOT)]
+    # `EPIC-035V`: the read after a fill is never one shared with a tick's.
+    assert dispatcher.dispatched == [GetAccountSummaryQuery(venue=_SPOT, fresh=True)]
     assert len(container.resolve(IThreadManager).submitted) == 1

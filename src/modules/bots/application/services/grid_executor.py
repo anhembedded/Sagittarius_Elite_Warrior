@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
     GridTaskGuard,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_terms_watch import (
+    GridTermsWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
     SymbolStatusGate,
 )
@@ -149,6 +152,7 @@ class GridExecutor(IBotExecutor):
                 self._reconciler,
                 self._interrupted_start,
                 GridKeyProbe(context),
+                GridTermsWatch(context),
             ),
             self._post,
             self._forget_proposal,
@@ -193,7 +197,8 @@ class GridExecutor(IBotExecutor):
         self._post("resume", self._run_resume)
 
     def stop(self, base: BaseHandling) -> None:
-        self._post("stop", lambda: self._stop.run(base, GridReason.USER_STOP))
+        self._context.stop_requested.set()
+        self._post("stop", lambda: self._run_stop(base))
 
     def confirm_resume(self) -> None:
         self._post("confirm resume", self._run_confirm)
@@ -221,10 +226,17 @@ class GridExecutor(IBotExecutor):
         if state.state is not _S.STARTING:
             logger.info("Bot %s: start ignored in %s", self.bot_id, state.state.value)
             return
+        if self._context.stop_requested.is_set():
+            logger.info("Bot %s: Stop asked before the start began", self.bot_id)
+            return
         if not self._status.admits():
             return
         price = self._price()
         self._start.run(plan(self._context.params, self._context.terms, price))
+
+    def _run_stop(self, base: BaseHandling) -> None:
+        self._context.stop_requested.clear()
+        self._stop.run(base, GridReason.USER_STOP)
 
     def _run_pause(self) -> None:
         self._transition_if_declared(_E.PAUSE)

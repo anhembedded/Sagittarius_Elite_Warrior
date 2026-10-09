@@ -75,8 +75,14 @@ class OrderEntryTermsService(IOrderEntryTerms):
         self._venue = venue
 
     def terms_for(self, symbol: str) -> OrderEntryTerms:
+        return self._terms(symbol, refresh=False)
+
+    def fresh_terms_for(self, symbol: str) -> OrderEntryTerms:
+        return self._terms(symbol, refresh=True)
+
+    def _terms(self, symbol: str, *, refresh: bool) -> OrderEntryTerms:
         rules = self._ask(
-            GetSymbolOrderRulesQuery(venue=self._venue, symbol=symbol),
+            GetSymbolOrderRulesQuery(venue=self._venue, symbol=symbol, refresh=refresh),
             SymbolOrderMetadata,
         )
         commission = self._ask(

@@ -11,6 +11,7 @@ start-up for every restored bot, where D12 allows no network and no order.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -57,10 +58,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 
 class LazyExchangeTerms:
-    """The terms, read once when first asked for."""
+    """The terms, read once when first asked for, and again on `refresh`."""
 
-    def __init__(self, read: Callable[[], ExchangeTerms]) -> None:
+    def __init__(
+        self,
+        read: Callable[[], ExchangeTerms],
+        read_fresh: Callable[[], ExchangeTerms],
+    ) -> None:
+        """@param read The terms as the venue's cached catalog has them.
+        @param read_fresh The terms asked of the exchange again (`EPIC-035U`)."""
         self._read = read
+        self._read_fresh = read_fresh
         self._terms: ExchangeTerms | None = None
 
     def get(self) -> ExchangeTerms:
@@ -69,9 +77,10 @@ class LazyExchangeTerms:
         return self._terms
 
     def refresh(self) -> None:
-        """Read the terms again, replacing the kept ones (`EPIC-035E`: the
-        symbol's status is read at each Start and Resume, not once per run)."""
-        self._terms = self._read()
+        """Ask the exchange for the terms again, replacing the kept ones
+        (`EPIC-035E`: the symbol's status is read at each Start and Resume, not
+        once per run; `EPIC-035U`: not from the venue's day-old catalog)."""
+        self._terms = self._read_fresh()
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +104,11 @@ class GridRunContext:
     events: IEventPublisher
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
+    #: Set by `GridExecutor.stop` from the caller's thread the moment a Stop is
+    #: asked, read between a start's orders (`EPIC-035V`): a Stop queued behind a
+    #: Start need not wait for every order the Start would still lay. Cleared when
+    #: the queued Stop runs.
+    stop_requested: threading.Event = field(default_factory=threading.Event)
     #: The fills the run has counted, so a repeat is counted once (`EPIC-035P`).
     applied_fills: AppliedFills = field(default_factory=AppliedFills)
 
