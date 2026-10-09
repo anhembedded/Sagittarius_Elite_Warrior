@@ -60,6 +60,15 @@ class IOrderEntryTerms(ABC):
         """
 
     @abstractmethod
+    def fresh_terms_for(self, symbol: str) -> OrderEntryTerms:
+        """`terms_for`, with the symbol's filters read from the exchange again
+        instead of the venue's cached catalog (`EPIC-035U`): what a long run
+        asks to learn that a tick size, a step or a status changed.
+        @raise SymbolRulesUnavailableError The venue does not list `symbol`.
+        @raise CommissionRateUnavailableError The fee read failed.
+        """
+
+    @abstractmethod
     def futures_setting_for(self, symbol: str) -> FuturesSymbolSetting | NotApplicable:
         """Read `symbol`'s current leverage and margin mode.
         @raise AccountControlRejectedError The exchange refused the read.

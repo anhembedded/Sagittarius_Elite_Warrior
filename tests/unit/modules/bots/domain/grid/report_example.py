@@ -39,8 +39,11 @@ def inputs(
     terms: ExchangeTerms = TERMS,
     last_price: Decimal = LAST_PRICE,
     daily_atr: Decimal | None = None,
+    foreign_open_orders: int | None = None,
     **changes: str,
 ) -> BotKindInputs:
     return BotKindInputs(
-        {**CONFIG, **changes}, terms, MarketView(last_price, daily_atr)
+        {**CONFIG, **changes},
+        terms,
+        MarketView(last_price, daily_atr, foreign_open_orders),
     )

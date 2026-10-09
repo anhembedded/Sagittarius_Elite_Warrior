@@ -65,3 +65,20 @@ def test_a_symbol_the_venue_does_not_list_is_refused_by_name() -> None:
 def test_an_empty_symbol_is_refused_at_construction() -> None:
     with pytest.raises(ValueError, match="symbol"):
         GetSymbolOrderRulesQuery(venue=_SPOT, symbol="")
+
+
+def test_a_refresh_query_asks_the_exchange_again_and_a_plain_one_does_not() -> None:
+    """`EPIC-035U` — a long run must see a filter change the cached catalog
+    (a day old) would hide; a plain read stays on the cache."""
+    provider = FakeMarketMetadataProvider([_SPOT_RULES])
+    handler = GetSymbolOrderRulesQueryHandler(
+        FakeVenueContexts(fake_venue_context(_SPOT, metadata_provider=provider))
+    )
+
+    handler.execute(GetSymbolOrderRulesQuery(venue=_SPOT, symbol="BTCUSDT"))
+    assert provider.refreshes == 0
+
+    handler.execute(
+        GetSymbolOrderRulesQuery(venue=_SPOT, symbol="BTCUSDT", refresh=True)
+    )
+    assert provider.refreshes == 1

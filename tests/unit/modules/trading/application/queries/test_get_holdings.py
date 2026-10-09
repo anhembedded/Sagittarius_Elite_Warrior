@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import time
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings import (
     GetHoldingsQuery,
     GetHoldingsQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.shared_account_status import (
+    SharedAccountStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
@@ -55,7 +59,8 @@ def test_execute_reads_holdings_through_the_account_readers_connection_check() -
     handler = GetHoldingsQueryHandler(
         FakeVenueContexts(
             venue_context(TradingVenue.SPOT_TESTNET, account_reader=account_reader)
-        )
+        ),
+        SharedAccountStatus(time.monotonic, window_seconds=0.0),
     )
 
     result = handler.execute(GetHoldingsQuery(venue=TradingVenue.SPOT_TESTNET))
@@ -72,7 +77,8 @@ def test_execute_returns_empty_tuple_when_the_venue_answers_none() -> None:
     handler = GetHoldingsQueryHandler(
         FakeVenueContexts(
             venue_context(TradingVenue.SPOT_TESTNET, account_reader=account_reader)
-        )
+        ),
+        SharedAccountStatus(time.monotonic, window_seconds=0.0),
     )
 
     assert handler.execute(GetHoldingsQuery(venue=TradingVenue.SPOT_TESTNET)) == ()

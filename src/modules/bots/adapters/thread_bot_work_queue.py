@@ -14,6 +14,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 logger = logging.getLogger("App.Bots.Worker")
 
 
+#: How long `close()` waits for the worker to finish what is queued: past it the
+#: app is closing with a task stuck (a network call), and it must not wait for it.
+CLOSE_JOIN_SECONDS: float = 10.0
+
+
 class _Stop:
     """What `close()` queues last: the worker ends when it reaches it."""
 
@@ -24,7 +29,8 @@ _STOP = _Stop()
 class ThreadBotWorkQueue(IBotWorkQueue):
     """A FIFO queue drained by its own thread, named after the bot."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, join_timeout: float = CLOSE_JOIN_SECONDS) -> None:
+        self._join_timeout = join_timeout
         self._tasks: queue.Queue[Callable[[], None] | _Stop] = queue.Queue()
         self._closed = False
         self._thread = threading.Thread(target=self._run, name=name, daemon=True)
@@ -40,7 +46,14 @@ class ThreadBotWorkQueue(IBotWorkQueue):
         self._closed = True
         self._tasks.put(_STOP)
         if threading.current_thread() is not self._thread:
-            self._thread.join()
+            self._thread.join(timeout=self._join_timeout)
+            if self._thread.is_alive():
+                logger.warning(
+                    "Worker %s did not finish within %.0f s of close; it is a "
+                    "daemon thread and ends with the process",
+                    self._thread.name,
+                    self._join_timeout,
+                )
 
     def _run(self) -> None:
         while True:

@@ -12,8 +12,8 @@ from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
-    SymbolRulesUnavailableError,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_catalog_unreachable_error import (
+    SymbolCatalogUnreachableError,
 )
 
 #: What a catalog fetch can raise from the SDK or the network.
@@ -22,12 +22,12 @@ _CATALOG_FAILURES = (BinanceAPIException, BinanceRequestException, RequestExcept
 
 @contextmanager
 def catalog_read_failures(what: str) -> Iterator[None]:
-    """@throws SymbolRulesUnavailableError `"<what> could not be read:
+    """@throws SymbolCatalogUnreachableError `"<what> could not be read:
     <reason>"` from any SDK or network failure inside the block, the cause
     chained."""
     try:
         yield
     except _CATALOG_FAILURES as exc:
-        raise SymbolRulesUnavailableError(
+        raise SymbolCatalogUnreachableError(
             f"{what} could not be read: {describe_failure(exc)}"
         ) from exc

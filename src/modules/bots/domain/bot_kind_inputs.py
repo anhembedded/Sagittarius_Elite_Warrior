@@ -103,6 +103,9 @@ class MarketView:
     #: ATR(14) on the daily timeframe; `None` when no candles are available,
     #: in which case the range-versus-ATR check reports that it did not run.
     daily_atr: Decimal | None = None
+    #: Orders already open on the symbol that the plan did not place (`EPIC-035V`,
+    #: L7); `None` when they were not read, and the check then says it did not run.
+    foreign_open_orders: int | None = None
 
     def __post_init__(self) -> None:
         if self.last_price <= 0:

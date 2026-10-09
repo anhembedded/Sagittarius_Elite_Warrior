@@ -34,6 +34,9 @@ class BotRefusal(str, Enum):
     #: `EPIC-035H` — another copy of the app holds the data root; this one
     #: reads bots and starts none.
     READ_ONLY_INSTANCE = "READ_ONLY_INSTANCE"
+    #: `EPIC-035V` — a bot on a mainnet venue was started by a caller that did
+    #: not carry the user's answer to the real-money question.
+    REAL_MONEY_NOT_CONFIRMED = "REAL_MONEY_NOT_CONFIRMED"
 
 
 @dataclass(frozen=True, slots=True)

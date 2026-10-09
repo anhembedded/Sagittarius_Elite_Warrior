@@ -248,14 +248,16 @@ def terms_entry(
     maker: str = "0.001",
     market_step: Decimal | None = None,
     status: str = "TRADING",
+    tick: str = "0.01",
+    min_notional: str = "5",
 ) -> OrderEntryTerms:
     return OrderEntryTerms(
         rules=SymbolOrderMetadata(
             symbol=SYMBOL,
             status=status,
             step_size=STEP,
-            tick_size=Decimal("0.01"),
-            min_notional=Decimal(5),
+            tick_size=Decimal(tick),
+            min_notional=Decimal(min_notional),
             quantity_precision=None,
             price_precision=None,
             fetched_at=RUN_STARTED,

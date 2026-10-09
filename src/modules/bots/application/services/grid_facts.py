@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stoppe
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stream_gap import (
     GridStreamGap,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_terms_watch import (
+    GridTermsWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
     BotOrderFill,
@@ -112,6 +115,7 @@ class GridFactParts:
     reconciler: GridReconciler
     interrupted_start: GridInterruptedStart
     key_probe: GridKeyProbe
+    terms_watch: GridTermsWatch
 
 
 class GridFacts(IBotFacts):
@@ -143,6 +147,7 @@ class GridFacts(IBotFacts):
         own interval) does the exchange still accept the key."""
         self._post("price age check", self._parts.prices.check_age)
         self._post("key probe", self._parts.key_probe.check)
+        self._post("terms refresh", self._parts.terms_watch.check)
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))

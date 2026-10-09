@@ -59,10 +59,12 @@ gantt
 | EPIC-035O | Phase 3 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 | EPIC-035W | [Health visible on screen](incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
 | EPIC-035X | [Decision audit trail](incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md) | — | 🟡 | 🔵 Planned; owner: not yet | — |
+| EPIC-035U | [Exchange filters are refreshed](completed/EPIC-035U_exchange_filters_are_refreshed.md) | branch `claude/epic-035-uv` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
+| EPIC-035V | [The remaining low findings](completed/EPIC-035V_the_remaining_low_findings.md) | branch `claude/epic-035-uv` | 🟢 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035S | [Levels that round together are refused](completed/EPIC-035S_levels_that_round_together_are_refused.md) | branch `claude/epic-035l-035s-range-and-levels` | 🟢 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035R | [Resume sizes from what is left](completed/EPIC-035R_resume_sizes_from_what_is_left.md) | branch `claude/epic-035t-035r` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
 | EPIC-035T | [A rejected counter order does not kill the grid](completed/EPIC-035T_a_rejected_counter_order_does_not_kill_the_grid.md) | branch `claude/epic-035t-035r` | 🟡 | ✅ Done (2026-10-08) | pull request open, awaiting review |
-| EPIC-035P–Q, U–V | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
+| EPIC-035P–Q | Phase 4 (see the [README](README.md) §3) | — | 🟡 | 🔵 Planned | — |
 
 ---
 

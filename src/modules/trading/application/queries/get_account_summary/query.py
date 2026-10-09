@@ -14,3 +14,6 @@ class GetAccountSummaryQuery:
     #: The venue to read. Keyword-only and required (ADR D3): a caller that
     #: forgets it fails at construction, never reads some default venue.
     venue: TradingVenue = field(kw_only=True)
+    #: Read the exchange rather than share the read the same tick already took
+    #: (`EPIC-035V`): the read that follows a fill sees what the fill changed.
+    fresh: bool = field(kw_only=True, default=False)

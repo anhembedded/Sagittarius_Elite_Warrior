@@ -90,7 +90,7 @@ def test_start_sends_the_start_command_once_agreed() -> None:
         BotAction.START, _bot(), _dialogs(FakeRealMoneyConsent(agrees=True))
     )
 
-    assert command == StartBotCommand("a00001")
+    assert command == StartBotCommand("a00001", real_money_confirmed=True)
 
 
 @pytest.mark.parametrize("action", [BotAction.PAUSE, BotAction.SAVE])
@@ -111,7 +111,7 @@ def test_a_testnet_bot_starts_without_the_question(venue: TradingVenue) -> None:
 
     command = command_for(BotAction.START, _bot(venue), _dialogs(consent))
 
-    assert command == StartBotCommand("a00001")
+    assert command == StartBotCommand("a00001", real_money_confirmed=True)
     assert consent.asked == []
 
 
@@ -147,4 +147,6 @@ def test_save_and_start_with_edits_carries_them_once_real_money_is_agreed() -> N
         BotAction.START, _bot(), _dialogs(consent), {"capital_quote": "1500"}
     )
 
-    assert command == StartBotCommand("a00001", {"capital_quote": "1500"})
+    assert command == StartBotCommand(
+        "a00001", {"capital_quote": "1500"}, real_money_confirmed=True
+    )

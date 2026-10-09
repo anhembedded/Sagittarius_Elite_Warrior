@@ -59,3 +59,24 @@ def test_unlist_makes_the_venue_not_know_the_symbol() -> None:
 
     with pytest.raises(SymbolRulesUnavailableError):
         terms.terms_for(_SYMBOL)
+
+
+def test_a_fresh_read_answers_like_a_plain_one_and_is_recorded_apart() -> None:
+    terms = FakeOrderEntryTerms(_entry())
+
+    assert terms.fresh_terms_for(_SYMBOL) == terms.terms_for(_SYMBOL)
+
+    assert terms.fresh_reads == [_SYMBOL]
+    assert terms.reads == [_SYMBOL, _SYMBOL], "each is also a read"
+
+
+def test_a_fresh_read_can_be_made_to_fail_and_to_recover() -> None:
+    terms = FakeOrderEntryTerms(_entry())
+    terms.fail_fresh_reads_with(RuntimeError("exchangeInfo timed out"))
+
+    with pytest.raises(RuntimeError, match="timed out"):
+        terms.fresh_terms_for(_SYMBOL)
+    assert terms.terms_for(_SYMBOL) is not None, "a plain read is unaffected"
+
+    terms.fail_fresh_reads_with(None)
+    assert terms.fresh_terms_for(_SYMBOL) is not None

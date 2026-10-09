@@ -234,6 +234,26 @@ def test_equity_is_quote_balance_plus_holdings_priced_at_the_ticker():
     client.get_symbol_ticker.assert_called_once_with(symbol="BTCUSDT")
 
 
+def test_pricing_a_holding_is_a_debug_line_not_an_info_one_per_poll(caplog):
+    """`EPIC-035V` — the periodic poll priced every holding at INFO, the owner's
+    log filled with it (`logging-rule.md` §6: INFO is decisions, not polls)."""
+    client = _happy_client(
+        account_payload=_account_payload(
+            balances=[
+                {"asset": "USDT", "free": "10000.00000000", "locked": "0"},
+                {"asset": "BTC", "free": "0.5", "locked": "0"},
+            ]
+        )
+    )
+    client.get_symbol_ticker.return_value = {"price": "50000.00"}
+
+    with caplog.at_level("DEBUG", logger="App.TradingAdapter"):
+        _reader(client).check_connection()
+
+    priced = [r for r in caplog.records if "priced BTC" in r.getMessage()]
+    assert [r.levelname for r in priced] == ["DEBUG"]
+
+
 def test_equity_excludes_dust_holdings_from_pricing():
     client = _happy_client(
         account_payload=_account_payload(
