@@ -30,6 +30,8 @@ Second defect found on the way: `OwnerBook.apply_fill` had no memory of trade id
 
 The gate was green because the integration harness's pacer delivered the stream's reports before every order turn (`grid_fake_exchange.DeliveringPacer`), so no journey ever started with a silent stream.
 
+Not a regression (bisected on the fake exchange): the stream-down journey fails identically at `0f292ca` (the owner's good run of 2026-10-08) and at `56f6b22`, while the stream-up journey (`test_grid_bot_against_fake_server.py`) passes at both. Yesterday's start worked because the user stream was delivering; the defect was latent in the design, and #445–#449 neither introduced nor hid it.
+
 ## Fix
 - `grid_start_sequence.py`: between the opening buy and the ladder, `_count_opening` has trading register the budget again (`GridHousekeeping.register`, the same re-derivation Stop, Resume and reconciliation use), and lays the ladder only when the derived inventory covers the ladder's SELLs. Otherwise the start halts with `start_refused` before any ladder order, naming what the exchange's record holds. INFO line: `opening buy counted from the exchange's record: X ETH held, the ladder sells Y`.
 - `owner_book.py` / `owner_books.py` / `register_owner_budget/handler.py`: the book takes the derivation's `counted` predicate and remembers the trade ids it applied, so a fill reported by the history and the stream, or twice by the stream, moves the inventory once.
