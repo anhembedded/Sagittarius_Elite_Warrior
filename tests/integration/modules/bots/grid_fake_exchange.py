@@ -242,18 +242,23 @@ class FakeExchange:
 
 
 @contextmanager
-def booted(exchange: FakeExchange, *, open_session: bool = True) -> Iterator[BootedApp]:
+def booted(
+    exchange: FakeExchange, *, open_session: bool = True, stream_up: bool = True
+) -> Iterator[BootedApp]:
     """The app with Spot Testnet on; its bots on the serial queue.
 
     @param open_session Seed the Spot session as open (what most journeys
     start from, the fake having no websocket for a real open to start). False
     leaves it closed, as a fresh app is: Start opens it itself (`EPIC-034C`).
+    @param stream_up False is a user data stream that is down: the pacer
+    delivers nothing, so the exchange's reports reach the app only when a test
+    calls `BootedApp.deliver` (the stream coming back late).
     """
     engine = create_app(app_config(exchange.tmp_path))
     container = engine.context.container
     holder: list[BootedApp] = []
     queue = SerialQueue()
-    pacer = DeliveringPacer(lambda: holder[0].deliver())
+    pacer = DeliveringPacer(lambda: holder[0].deliver() if stream_up else None)
 
     def executors(_container: IContainer) -> BotExecutors:
         deps = GridExecutorDeps(

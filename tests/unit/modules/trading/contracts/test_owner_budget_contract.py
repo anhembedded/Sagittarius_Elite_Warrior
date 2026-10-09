@@ -9,6 +9,7 @@ service's.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
@@ -31,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
     EMPTY_INVENTORY,
+    OwnerInventory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
@@ -105,6 +107,29 @@ class TestTheFakesOwnBookkeeping:
 
         fake.clear_owner_budget("bot-1")
         assert fake.budgets == {}
+
+    def test_an_answer_taken_from_the_venue_is_asked_at_each_registration(
+        self,
+    ) -> None:
+        """`BUG-194` — the inventory is the venue's record as it is at that
+        registration, so the answer is asked every time, not kept."""
+        fake = FakeTradingSession()
+        fake.set_enabled(enabled=True)
+        held = [Decimal(0)]
+        fake.register_owner_budget_answers_from(
+            lambda: OwnerBudgetRegistrationResult(
+                None, OwnerInventory(held[0], Decimal(0))
+            )
+        )
+
+        first = fake.register_owner_budget(contract_registration())
+        held[0] = Decimal("0.5")
+        second = fake.register_owner_budget(contract_registration())
+
+        assert (first.inventory, second.inventory) == (
+            OwnerInventory(Decimal(0), Decimal(0)),
+            OwnerInventory(Decimal("0.5"), Decimal(0)),
+        )
 
     def test_a_refusal_it_is_told_to_answer_registers_nothing(self) -> None:
         fake = FakeTradingSession()

@@ -200,3 +200,46 @@ def test_an_unknown_fill_still_moves_the_inventory() -> None:
         _order(9, status=OrderStatus.FILLED), (Decimal(50000), Decimal("0.001")), None
     )
     assert book.inventory == OwnerInventory(Decimal("0.001"), Decimal(50))
+
+
+def test_a_fill_the_inventory_was_derived_from_is_not_counted_again() -> None:
+    """`BUG-194` — the history counted trade 7 (0.002 held); the stream reports
+    it late. 0.002 held, not 0.004."""
+    book = OwnerBook(
+        _REGISTRATION,
+        OwnerInventory(Decimal("0.002"), Decimal(100)),
+        counted=lambda trade_id: trade_id == 7,
+    )
+
+    book.apply_fill(
+        _order(1, status=OrderStatus.FILLED),
+        (Decimal(50000), Decimal("0.002")),
+        None,
+        trade_id=7,
+    )
+
+    assert book.inventory == OwnerInventory(Decimal("0.002"), Decimal(100))
+
+
+def test_a_fill_reported_twice_moves_the_inventory_once() -> None:
+    book = _book()
+    fill = (Decimal(50000), Decimal("0.002"))
+
+    for _ in range(2):
+        book.apply_fill(_order(1, status=OrderStatus.FILLED), fill, None, trade_id=9)
+
+    assert book.inventory == OwnerInventory(Decimal("0.002"), Decimal(100))
+
+
+def test_two_fills_of_one_order_with_their_own_ids_are_both_counted() -> None:
+    book = _book()
+
+    for trade_id in (9, 10):
+        book.apply_fill(
+            _order(1, status=OrderStatus.PARTIALLY_FILLED),
+            (Decimal(50000), Decimal("0.001")),
+            None,
+            trade_id=trade_id,
+        )
+
+    assert book.inventory.quantity == Decimal("0.002")

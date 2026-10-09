@@ -117,7 +117,7 @@ class RegisterOwnerBudgetCommandHandler(
         except AccountHistoryUnavailableError as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
             return _refused(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
-        book = OwnerBook(registration, derivation.inventory)
+        book = OwnerBook(registration, derivation.inventory, derivation.counted)
         for order in resting:
             book.adopt_open(order, _resting_notional(order))
         if not scope.session_state.install_owner_book(

@@ -16,20 +16,33 @@ off is `switch_off`; a request that raised is `fault` (`grid_order_failure`).
 Start's preconditions (venue, verdicts, lease, budget) are the start use case's,
 checked before the bot ever reached STARTING.
 
-@par Known limit
-A SELL level is placed against the base the opening bought, and trading counts
-that base only when the fill event arrives on the user data stream. The pacer's
-spacing separates the last opening slice from the first SELL; a stream slower
-than that refuses the SELL (`owner_budget_sell_exceeds_inventory`) and the bot
-halts with `start_refused`, from which a resume re-plans with the inventory
-then derived. `EPIC-029H` measures the stream's latency on Testnet.
+@par The opening buy is counted from the exchange, not from the stream
+A SELL level is placed against the base the opening bought, and trading's owner
+book learns that base from the user data stream. A stream that is down, or later
+than the first SELL, left the inventory at zero and refused the SELL
+(`owner_budget_sell_exceeds_inventory`) with the buy already paid for
+(`BUG-194`). So between the opening buy and the ladder the bot has trading
+register its budget again, which derives the inventory from the exchange's own
+record of the bot's orders (D6), and lays the ladder only when that inventory
+covers the SELLs. A buy the record does not show yet halts the start with
+`start_refused`, naming what was counted; the stream's later report of the same
+fill is not counted again (`OwnerBook.apply_fill`).
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
+    OrderOutcome,
+    OrderOutcomeKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
+    GridHousekeeping,
+    refusal_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
 )
@@ -53,8 +66,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     quote_slices,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -65,6 +82,7 @@ class GridStartSequence:
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
+        self._housekeeping = GridHousekeeping(context)
 
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""
@@ -72,7 +90,11 @@ class GridStartSequence:
         terms = self._context.terms
         state.update(runtime_from_plan(plan, terms.step_size))
         ladder = sells_net_of_opening_fee(plan, terms.taker_fee, terms.step_size)
-        if self._buy_opening(plan) and self._place_ladder(ladder):
+        if (
+            self._buy_opening(plan)
+            and self._count_opening(ladder)
+            and self._place_ladder(ladder)
+        ):
             state.transition(BotLifecycleEvent.LADDER_READY)
 
     def place_ladder(self, plan: GridPlan, inventory: OwnerInventory) -> None:
@@ -118,6 +140,52 @@ class GridStartSequence:
             if not outcome.done:
                 fail_with(self._context.state, outcome, f"opening buy slice {index}")
                 return False
+        return True
+
+    def _count_opening(self, ladder: GridPlan) -> bool:
+        """Have trading count the opening buy from the exchange's record, and
+        say whether the SELLs of `ladder` are now covered by what it counted."""
+        state = self._context.state
+        registration = self._housekeeping.register()
+        if not registration.registered or registration.inventory is None:
+            kind = (
+                OrderOutcomeKind.SWITCH_OFF
+                if registration.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF
+                else OrderOutcomeKind.REFUSED
+            )
+            fail_with(
+                state,
+                OrderOutcome(kind, detail=refusal_text(registration)),
+                "the opening buy could not be counted from the exchange",
+            )
+            return False
+        held = registration.inventory.quantity
+        selling = sum(
+            (a.quantity for a in ladder_orders(ladder) if a.side is OrderSide.SELL),
+            Decimal(0),
+        )
+        base = self._context.base_asset
+        if held < selling:
+            fail_with(
+                state,
+                OrderOutcome(
+                    OrderOutcomeKind.REFUSED,
+                    detail=(
+                        f"the exchange's record of the opening buy holds {held} {base}, "
+                        f"the ladder's SELLs need {selling}; nothing was laid"
+                    ),
+                ),
+                "the opening buy is not in the exchange's record",
+            )
+            return False
+        logger.info(
+            "Bot %s: opening buy counted from the exchange's record: %s %s held, "
+            "the ladder sells %s",
+            state.bot_id,
+            held,
+            base,
+            selling,
+        )
         return True
 
     def _place_ladder(self, plan: GridPlan) -> bool:

@@ -88,6 +88,10 @@ class _Fill:
     quote_amount: Decimal
     commission: Decimal
     commission_asset: str
+    #: The exchange's id of this trade: the history lists it as `id`, and the
+    #: stream's executionReport carries it as `"t"`, so a client can count the
+    #: fill once however it learned of it.
+    trade_id: int
 
 
 class _Balance:
@@ -179,7 +183,7 @@ class SpotAccountState:
         self.history.remember_trade(
             {
                 "symbol": order["symbol"],
-                "id": next(self._trade_ids),
+                "id": fill.trade_id,
                 "orderId": order["orderId"],
                 "orderListId": -1,
                 "price": _q(fill.price),
@@ -315,6 +319,7 @@ class SpotAccountState:
             quote_amount=quote_amount,
             commission=commission,
             commission_asset=commission_asset,
+            trade_id=next(self._trade_ids),
         )
 
     def _fill_entry(self, fill: _Fill) -> dict[str, str]:
@@ -362,6 +367,7 @@ class SpotAccountState:
                 "q": order["origQty"],
                 "l": _q(fill.qty),
                 "L": _q(fill.price),
+                "t": fill.trade_id,
                 "z": _q(fill.qty),
                 "n": _q(fill.commission),
                 "N": fill.commission_asset,

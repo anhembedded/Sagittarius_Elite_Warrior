@@ -111,6 +111,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.simu
     SimulatedActivity,
     SimulatedBook,
     SimulatedSubmission,
+    derive_inventory_from,
 )
 from sagittarius_engine.domain.i_domain_event import IDomainEvent
 
@@ -290,6 +291,7 @@ def grid_world(
     )
     session = FakeTradingSession()
     session.set_enabled(enabled=True)
+    derive_inventory_from(book, session)
     snapshot = FakeAccountSnapshot()
     ports = fake_venue_ports(
         VENUE,

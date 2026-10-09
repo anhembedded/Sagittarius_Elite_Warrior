@@ -29,6 +29,7 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
     OwnerBook,
+    nothing_counted,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -82,12 +83,7 @@ class OwnerEventBuffer:
             if isinstance(event, Order):
                 book.apply_end(event)
             elif not counted(event.trade_id):
-                book.apply_fill(event.order, event.fill, event.fee)
-
-
-def nothing_counted(_trade_id: int | None) -> bool:
-    """The `counted` of a book whose inventory holds none of the held fills."""
-    return False
+                book.apply_fill(event.order, event.fill, event.fee, event.trade_id)
 
 
 class OwnerBooks:
@@ -178,7 +174,7 @@ class OwnerBooks:
             self._hold(order, _HeldFill(order, fill, fee, trade_id))
             book = self._book_of(order)
             if book is not None:
-                book.apply_fill(order, fill, fee)
+                book.apply_fill(order, fill, fee, trade_id)
 
     def apply_end(self, order: Order) -> None:
         with self._lock:

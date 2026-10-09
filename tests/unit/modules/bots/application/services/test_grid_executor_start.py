@@ -8,9 +8,11 @@ halts, never ERROR; a request that raised is a fault.
 
 from __future__ import annotations
 
+import logging
 import threading
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_work_queue import (
     ThreadBotWorkQueue,
 )
@@ -38,6 +40,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistrationResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
 )
@@ -231,3 +240,59 @@ def test_each_sell_is_sized_net_of_the_fee_the_opening_paid_in_base() -> None:
     ]
     assert sells == [Decimal("2.063"), Decimal("2.063")]
     assert sum(sells) <= Decimal("4.132") * Decimal("0.999")
+
+
+def test_the_opening_buy_is_counted_from_the_exchange_before_any_sell(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`BUG-194` — trading's owner book hears of a fill only from the user
+    stream; the start has it register again, which derives the inventory from
+    the exchange's record, before the first SELL."""
+    world = grid_world()
+    requests_at_registration: list[int] = []
+
+    def derive() -> OwnerBudgetRegistrationResult:
+        requests_at_registration.append(len(world.book.requests))
+        return OwnerBudgetRegistrationResult(
+            None, OwnerInventory(world.book.bought_base, world.book.bought_quote)
+        )
+
+    world.session.register_owner_budget_answers_from(derive)
+
+    with caplog.at_level(logging.INFO, logger="App.Bots.GridExecutor"):
+        world.executor.start()
+
+    slices = len([r for r in world.book.requests if r.order_type is OrderType.MARKET])
+    assert requests_at_registration[0] == slices
+    assert world.state() is S.RUNNING
+    assert "opening buy counted from the exchange's record" in caplog.text
+
+
+def test_an_opening_buy_the_exchange_does_not_show_lays_no_ladder_and_halts() -> None:
+    world = grid_world()
+    world.derive("0")
+
+    world.executor.start()
+
+    assert world.state() is S.HALTED
+    assert all(r.order_type is OrderType.MARKET for r in world.book.requests)
+    runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
+    assert runtime.reason is GridReason.START_REFUSED
+    assert "the opening buy is not in the exchange's record" in runtime.reason_detail
+    assert "holds 0" in runtime.reason_detail
+
+
+def test_a_budget_trading_refuses_after_the_opening_buy_halts_naming_why() -> None:
+    world = grid_world()
+    world.derive("0")
+    world.session.register_owner_budget_answers(
+        OwnerBudgetRegistrationResult(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
+    )
+
+    world.executor.start()
+
+    assert world.state() is S.HALTED
+    assert all(r.order_type is OrderType.MARKET for r in world.book.requests)
+    runtime = decode_runtime(world.store.load(BotId(BOT)).runtime)
+    assert runtime.reason is GridReason.START_REFUSED
+    assert OwnerBudgetRefusal.INVENTORY_UNAVAILABLE.value in runtime.reason_detail
