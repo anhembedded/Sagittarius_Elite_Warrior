@@ -14,7 +14,8 @@ amount the screen says a Start needs is the amount the Start places.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
@@ -34,6 +35,12 @@ class LadderNeeds:
     price: Decimal
     #: The capital the plan shares among its levels.
     capital: Decimal
+    #: The quote the same ladder would take at another capital, drawn with the
+    #: real plan (step and minimum notional included), for a suggestion that is
+    #: checked rather than estimated. Not part of the value's identity.
+    quote_at: Callable[[Decimal], Decimal] | None = field(
+        default=None, compare=False, repr=False
+    )
 
 
 def start_needs(plan: GridPlan, capital: Decimal) -> LadderNeeds:

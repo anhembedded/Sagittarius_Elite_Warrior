@@ -245,12 +245,12 @@ def quote_short_for_ladder(context: RuleContext) -> RuleOutcome:
     )
     need = f"{what} need {_money(needs.quote, ROUND_CEILING)} {facts.quote_asset}"
     if context.purpose is RunPurpose.START:
-        largest = _money(needs.capital * available / needs.quote, ROUND_FLOOR)
+        advice = _capital_advice(needs, available)
         return RuleOutcome(
             (
                 _item(
                     QUOTE_SHORT,
-                    f"{need} and {have}; lower the capital to at most {largest}",
+                    f"{need} and {have}; {advice}",
                     BotRefusal.BALANCE_TOO_SMALL,
                     ReadinessFix.EDIT_FIELD,
                     CAPITAL_FIELD,
@@ -266,6 +266,47 @@ def quote_short_for_ladder(context: RuleContext) -> RuleOutcome:
             ),
         )
     )
+
+
+#: Refinements `fitting_capital` may take; each shrinks the capital, and the
+#: first estimate is within a few percent, so a handful settles it.
+_FIT_ATTEMPTS = 50
+
+
+def fitting_capital(needs: LadderNeeds, available: Decimal) -> Decimal | None:
+    """A capital, in cents, whose ladder `available` pays for, checked against the
+    same plan the rule judges (never an estimate that may still fail by a step or
+    a minimum notional); `None` when none is found.
+
+    @details It starts from the proportional estimate, which the exchange's step
+    rounding and minimum notional leave a little off, and refines it with the real
+    plan until the ladder fits. With no way to re-draw the plan it offers nothing.
+    """
+    if needs.quote_at is None or needs.quote <= 0:
+        return None
+    capital = (needs.capital * available / needs.quote).quantize(
+        _CENT, rounding=ROUND_FLOOR
+    )
+    for _ in range(_FIT_ATTEMPTS):
+        if capital <= 0:
+            return None
+        quote = needs.quote_at(capital)
+        if quote <= available:
+            return capital
+        capital = min(
+            capital - _CENT,
+            (capital * available / quote).quantize(_CENT, rounding=ROUND_FLOOR),
+        )
+    return None
+
+
+def _capital_advice(needs: LadderNeeds, available: Decimal) -> str:
+    if needs.quote_at is None:
+        return "lower the capital"
+    fits = fitting_capital(needs, available)
+    if fits is None:
+        return "no capital makes this ladder fit; free quote on the account"
+    return f"lower the capital to at most {_money(fits)}"
 
 
 #: The rules, in the order their findings are listed. A new check is one more entry.

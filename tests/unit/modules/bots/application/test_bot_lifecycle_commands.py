@@ -289,7 +289,7 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
 ) -> None:
     """The executor is the bot's one writer (ADR D9): the use case checks the
     table and queues; the state does not change here."""
-    seed(store, "abc123", origin, runtime={})
+    seed(store, "abc123", origin, config=CONFIG, runtime={})
     handlers = {
         "pause": lambda: PauseBotCommandHandler(store, runner).execute(
             PauseBotCommand("abc123")

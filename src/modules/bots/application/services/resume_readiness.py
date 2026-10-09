@@ -22,6 +22,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
+    PlannerMarket,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
     ExchangeFactsReader,
 )
@@ -40,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_need
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_numbers import (
     read_planner_numbers,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+    MARKET_NOT_READ,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
@@ -52,8 +58,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
-    ExchangeTerms,
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_needs import (
+    LadderNeeds,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -77,20 +83,55 @@ _UNREADABLE_RECORD = ReadinessItem(
 @dataclass(frozen=True, slots=True)
 class ResumeInputs:
     config: Mapping[str, str]
-    #: `None` while the symbol's terms or price are not read: no plan can be drawn.
-    terms: ExchangeTerms | None
-    price: Decimal | None
+    #: `None` while the market numbers are being read.
+    market: PlannerMarket | None
     inventory: OwnerInventory
     exchange: ExchangeSnapshot
 
 
 def assess_resume(inputs: ResumeInputs) -> RuleOutcome:
-    needs = (
-        resume_ladder_needs(inputs.config, inputs.terms, inputs.price, inputs.inventory)
-        if inputs.terms is not None and inputs.price is not None
-        else None
+    """The resume's findings. It fails closed, as Start does: a ladder that
+    cannot be drawn (the market numbers still being read, unreadable, or
+    parameters that do not parse) is one named item, never a silent pass."""
+    needs, unplanned = _needs_of(inputs)
+    outcome = judge_exchange(inputs.exchange, needs, RunPurpose.RESUME)
+    return RuleOutcome(unplanned + outcome.items, outcome.advisories)
+
+
+def _needs_of(
+    inputs: ResumeInputs,
+) -> tuple[LadderNeeds | None, tuple[ReadinessItem, ...]]:
+    market = inputs.market
+    if market is None:
+        return None, (
+            _plan_item("RUN_PLAN_READING", MARKET_NOT_READ, ReadinessFix.WAIT),
+        )
+    if market.terms is None or market.market is None:
+        return None, (
+            _plan_item(
+                "RUN_PLAN_UNREADABLE",
+                f"The resumed ladder cannot be drawn: {market.problem}",
+                ReadinessFix.NONE,
+            ),
+        )
+    needs = resume_ladder_needs(
+        inputs.config, market.terms, market.market.last_price, inputs.inventory
     )
-    return judge_exchange(inputs.exchange, needs, RunPurpose.RESUME)
+    if needs is None:
+        return None, (
+            _plan_item(
+                "RUN_PLAN_UNREADABLE",
+                "The resumed ladder cannot be drawn: the bot's parameters cannot be read",
+                ReadinessFix.NONE,
+            ),
+        )
+    return needs, ()
+
+
+def _plan_item(code: str, reason: str, fix: ReadinessFix) -> ReadinessItem:
+    return ReadinessItem(
+        ReadinessStep.RUN, code, reason, fix, BotRefusal.VENUE_NOT_READY
+    )
 
 
 class ResumeReadinessReader:
@@ -115,19 +156,13 @@ class ResumeReadinessReader:
         numbers = read_planner_numbers(
             self._ports, self._caps, definition.venue, definition.symbol
         )
-        terms, price = (
-            (None, None)
+        market = (
+            PlannerMarket(None, None, None, None, numbers)
             if isinstance(numbers, str)
-            else (numbers[0], numbers[1].last_price)
+            else PlannerMarket(numbers[0], numbers[1], None, None)
         )
         outcome = assess_resume(
-            ResumeInputs(
-                definition.config,
-                terms,
-                price,
-                inventory,
-                self._facts.read(bot),
-            )
+            ResumeInputs(definition.config, market, inventory, self._facts.read(bot))
         )
         logger.debug(
             "Bot %s resume readiness: %d thing(s) left (%s)",

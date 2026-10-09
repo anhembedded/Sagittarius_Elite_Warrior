@@ -346,3 +346,37 @@ def test_a_command_that_finished_asks_the_exchange_again(open_bots_screen) -> No
     screen.settle()
 
     assert screen.exchange_account.connection_checks == checks + 1
+
+
+def test_resume_is_off_while_the_market_numbers_are_still_being_read(
+    open_bots_screen,
+) -> None:
+    """Fail closed, as Start does: with the exchange loaded but no plan to draw,
+    the resume is not called ready."""
+    screen = open_bots_screen([_halted_with_inventory()])
+    screen.settle()
+    select(screen, "a00001")
+    while True:
+        ready = [
+            index
+            for index, (_, args) in enumerate(screen.pool.pending)
+            if args[:1] != (ReadKind.PLANNER,)
+        ]
+        if not ready:
+            break
+        screen.pool.run(ready[0])
+
+    rule = screen.view.model.availability[BotAction.RESUME]
+
+    assert isinstance(_snapshot(screen), ExchangeLoaded)
+    assert not rule.enabled
+    assert (
+        rule.reason
+        == "Resume is blocked: The market numbers for this symbol are still being read."
+    )
+
+    screen.settle()
+
+    assert (
+        "market numbers" not in screen.view.model.availability[BotAction.RESUME].reason
+    )

@@ -123,7 +123,7 @@ sound, I start it, and I watch what it does."*
      that this run will not trade" (`BUG-196`: Start is allowed, the base is told, not carried). If
      the history cannot be read the advice says so.
    - *The free quote is too small* for the opening buy and the BUY levels refuses Start, naming
-     both numbers and the largest capital that fits (it replaces the former Design verdict
+     both numbers and a capital that fits, found by drawing the real plan until the ladder passes the same rule (a proportional estimate failed one time in five); it replaces the former Design verdict
      `CAPITAL_ABOVE_BALANCE`, which compared the whole capital with a balance read earlier; the
      sentence still shows on the Capital field).
    - *The free base is too small for the SELLs of a Resume* refuses the Resume of a Halted bot
@@ -131,7 +131,7 @@ sound, I start it, and I watch what it does."*
      free; 0.005 ETH is locked by orders that are not this bot's; free the base or stop the bot",
      `BUG-195`). The bot's own resting SELLs count as free, since a Resume cancels them first. The
      Resume button carries the sentence as its tip, and the Resume use case refuses it before
-     anything is queued, on facts read at the click; a Paused bot's resume lays no ladder and is
+     anything is queued, on facts read at the click; a ladder that cannot be drawn (the market numbers still being read or unreadable, parameters that do not parse) is a named item too, never a silent pass; a Paused bot's resume lays no ladder and is
      not judged.
    A further check is one more rule in `RULES`; the extension cases are in that module's docstring.
 7. The trader clicks **Save and start**. The edits on screen are judged as they would be saved, and
@@ -316,6 +316,7 @@ available while it runs.
 | The exchange rules as pure functions: the three states of the snapshot, each rule at and around its boundary, the advisory, a further rule as one line in `RULES` | `tests/unit/modules/bots/application/test_exchange_rules.py` | unit |
 | The exchange snapshot read over the venue's ports: free and locked balances, own orders apart from others, a failed read unavailable and never empty | `tests/unit/modules/bots/application/test_exchange_facts_reader.py` | unit (fakes) |
 | A Resume is refused before anything is queued when the free base cannot cover its SELLs; a paused bot's resume is not judged | `tests/unit/modules/bots/application/test_resume_bot_readiness.py` | unit (real reader over fakes) |
+| The suggested capital passes the rule it was suggested for (600 random plans), and a resume whose plan cannot be drawn is a named item, on the screen and at the click | `test_exchange_rules_capital_suggestion.py` · `test_resume_bot_readiness.py` · `test_bots_exchange_check.py` | unit |
 | The screen loads the snapshot off the UI thread: checking, unavailable, refresh on demand and on a state change, a late or replaced answer dropped, cancelled on deselection and shutdown, the Resume tip | `tests/unit/modules/bots/ui/bots_screen/test_bots_exchange_check.py` | unit (real bots graph) |
 | The snapshot, the warning before Start, a short quote and a Resume whose base was moved, on the composed app | `tests/integration/modules/bots/test_exchange_backed_readiness_on_the_fake_exchange.py` | integration (fake exchange) |
 | From a new bot to a running bot through the three steps on the composed app; Save and start with edits; a capital above the account listed before the click | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |

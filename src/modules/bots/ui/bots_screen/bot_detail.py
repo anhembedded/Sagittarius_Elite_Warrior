@@ -155,8 +155,7 @@ def _resume_blocked_by(inputs: DetailInputs) -> str:
     left = assess_resume(
         ResumeInputs(
             inputs.edited if inputs.edited is not None else bot.config,
-            market.terms if market else None,
-            market.market.last_price if market and market.market else None,
+            market,
             _recorded_inventory(bot),
             inputs.exchange,
         )
@@ -171,8 +170,7 @@ def _recorded_inventory(bot: BotSnapshot) -> OwnerInventory:
     progress = bot.progress
     if progress is None:
         return OwnerInventory(Decimal(0), Decimal(0))
-    average = progress.average_cost or Decimal(0)
-    return OwnerInventory(progress.inventory, progress.inventory * average)
+    return OwnerInventory(progress.inventory, progress.cost)
 
 
 def _not_drawn(

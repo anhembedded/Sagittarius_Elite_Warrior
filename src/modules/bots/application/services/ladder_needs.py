@@ -14,6 +14,7 @@ the plan then says nothing.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -43,7 +44,14 @@ def start_ladder_needs(
     params = _params(config)
     if params is None:
         return None
-    return start_needs(plan(params, terms, price), params.capital_quote)
+    needs = start_needs(plan(params, terms, price), params.capital_quote)
+
+    def quote_at(capital: Decimal) -> Decimal:
+        return start_needs(
+            plan(replace(params, capital_quote=capital), terms, price), capital
+        ).quote
+
+    return replace(needs, quote_at=quote_at)
 
 
 def resume_ladder_needs(

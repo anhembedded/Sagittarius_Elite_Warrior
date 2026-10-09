@@ -8,6 +8,7 @@ either side of it, so flipping an operator or shifting a threshold turns a test 
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -227,12 +228,13 @@ def test_a_start_whose_ladder_costs_exactly_the_free_quote_is_not_blocked() -> N
     assert outcome.items == ()
 
 
-def test_a_start_one_cent_short_of_quote_is_refused_with_the_largest_capital_that_fits() -> (
-    None
-):
+def test_a_start_one_cent_short_of_quote_is_refused_with_a_capital_that_fits() -> None:
+    def quote_at(capital: Decimal) -> Decimal:
+        return capital * Decimal("0.9")  # a ladder that costs 90% of its capital
+
     outcome = judge_exchange(
         loaded(quote_free=Decimal("999.99")),
-        _needs(quote="1000", capital="1100"),
+        replace(_needs(quote="1000", capital="1111.11"), quote_at=quote_at),
         START,
     )
 
@@ -241,9 +243,25 @@ def test_a_start_one_cent_short_of_quote_is_refused_with_the_largest_capital_tha
     assert item.refusal is BotRefusal.BALANCE_TOO_SMALL
     assert "need 1000.00 USDT" in item.reason
     assert "Spot Testnet has 999.99 USDT free" in item.reason
-    # The needs scale with the capital: 1100 × 999.99 / 1000.
-    assert "lower the capital to at most 1099.98" in item.reason
+    # 999.99 / 0.9, floored to the cent, and checked: the ladder at it costs <= 999.99.
+    assert "lower the capital to at most 1111.09" in item.reason
     assert (item.fix, item.target) == (ReadinessFix.EDIT_FIELD, CAPITAL_FIELD)
+
+
+def test_without_a_way_to_redraw_the_plan_no_figure_is_offered() -> None:
+    (item,) = judge_exchange(loaded(quote_free=Decimal(1)), _needs(), START).items
+
+    assert item.reason.endswith("; lower the capital")
+
+
+def test_when_no_capital_fits_the_item_says_so() -> None:
+    (item,) = judge_exchange(
+        loaded(quote_free=Decimal(1)),
+        replace(_needs(), quote_at=lambda capital: capital + 5),
+        START,
+    ).items
+
+    assert "no capital makes this ladder fit" in item.reason
 
 
 def test_the_need_is_rounded_up_and_the_balance_down_so_a_shortfall_is_never_hidden() -> (

@@ -13,11 +13,19 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
+    PlannerMarket,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     encode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+    MARKET_NOT_READ,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+    ResumeInputs,
     ResumeReadinessReader,
+    assess_resume,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
     ResumeBotCommand,
@@ -25,6 +33,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
+    ReadinessFix,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
+    ExchangeChecking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
@@ -47,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
     OrderType,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -59,7 +76,17 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_wor
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
+    CONFIG,
     SYMBOL,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
+    TERMS,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
+    inputs as grid_inputs,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.exchange_facts_fixtures import (
+    loaded,
 )
 
 #: The ladder the world's parameters draw at 121 sells 2 × 2.066 BTC.
@@ -227,3 +254,70 @@ def test_a_paused_bots_resume_lays_no_ladder_and_is_not_gated(
     assert result.accepted
     assert runner.resumed == [BOT]
     assert world.session.earlier_runs_requests == []
+
+
+# --- fail closed: a ladder that cannot be drawn is a named item, as in Start ----
+
+
+def test_a_resume_whose_market_numbers_are_still_being_read_waits() -> None:
+    outcome = assess_resume(
+        ResumeInputs(CONFIG, None, OwnerInventory(HELD, Decimal(500)), loaded())
+    )
+
+    (item,) = outcome.items
+    assert (item.code, item.fix) == ("RUN_PLAN_READING", ReadinessFix.WAIT)
+    assert item.reason == MARKET_NOT_READ
+
+
+def test_a_resume_whose_market_could_not_be_read_says_why() -> None:
+    market = PlannerMarket(None, None, None, None, "no book for BTCUSDT")
+
+    (item,) = assess_resume(
+        ResumeInputs(CONFIG, market, OwnerInventory(HELD, Decimal(500)), loaded())
+    ).items
+
+    assert item.code == "RUN_PLAN_UNREADABLE"
+    assert item.reason == "The resumed ladder cannot be drawn: no book for BTCUSDT"
+    assert item.fix is ReadinessFix.NONE
+
+
+def test_a_resume_whose_parameters_cannot_be_read_is_named_not_passed() -> None:
+    market = PlannerMarket(TERMS, grid_inputs().market, None, None)
+
+    (item,) = assess_resume(
+        ResumeInputs({}, market, OwnerInventory(HELD, Decimal(500)), loaded())
+    ).items
+
+    assert item.code == "RUN_PLAN_UNREADABLE"
+    assert "parameters cannot be read" in item.reason
+
+
+def test_a_plan_that_cannot_be_drawn_does_not_hide_the_snapshots_own_state() -> None:
+    codes = [
+        item.code
+        for item in assess_resume(
+            ResumeInputs(
+                CONFIG, None, OwnerInventory(HELD, Decimal(500)), ExchangeChecking()
+            )
+        ).items
+    ]
+
+    assert codes == ["RUN_PLAN_READING", "RUN_EXCHANGE_CHECKING"]
+
+
+def test_a_resume_at_the_click_is_refused_when_the_symbols_numbers_cannot_be_read(
+    world: ReadinessWorld,
+) -> None:
+    """The planner numbers are read at the click; an unknown symbol has none."""
+    stored = world.store.load(BotId(BOT))
+    unknown = replace(stored.bot.definition, symbol="ZZZUSDT")
+    world.store.save(StoredBot(replace(stored.bot, definition=unknown), stored.runtime))
+    _hold(world, "4.132")
+    runner = _Runner()
+
+    result = _resume(world, runner)
+
+    assert not result.accepted
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert "The resumed ladder cannot be drawn" in result.message
+    assert runner.resumed == []
