@@ -13,7 +13,7 @@
 3. During that window, press Save bot (10:07:09).
 4. Fix or wait out the refusal; the header turns to "Spot Mainnet: Connected · 35.77 USDT available · key can trade".
 
-Expected: the Plan is judged again and Start is allowed. Actual: the Plan keeps "Start is still blocked: 1 thing left: The plan cannot be judged: ETHUSDT on Spot Mainnet: ETHUSDT: no Spot credentials configured". Frequency: seen once; not yet reproduced by a session.
+Expected: the Plan is judged again and Start is allowed. Actual: the Plan keeps "Start is still blocked: 1 thing left: The plan cannot be judged: ETHUSDT on Spot Mainnet: ETHUSDT: no Spot credentials configured". Frequency: seen once; not yet reproduced by a session. Restarting the app clears it (owner, 2026-10-09): after a restart the Plan is judged afresh and Start is no longer blocked, so the stale state lives in memory only, not in the saved bot.
 
 ## Symptom
 Log:
@@ -42,4 +42,4 @@ Not run.
 ## Suggested next steps
 1. Trace what the Plan readiness subscribes to and whether the Connected header and the Plan read the same source; make a recovered connection re-judge the Plan.
 2. Let the key gate's refusal reach the reader as a named reason (refused by the exchange, with the `-2015` guidance on IP whitelist), not as "no credentials configured"; check the other mainnet readers that share `order_credentials` for the same wording.
-3. Workaround for the owner meanwhile: select another bot and back, or press Save bot again, once the header says Connected.
+3. Workaround for the owner meanwhile: restart the app (confirmed to clear it); selecting another bot and back, or Save bot again, is untested.
