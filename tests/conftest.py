@@ -2,6 +2,7 @@
 Root conftest.py — shared fixtures available to all tests.
 """
 
+import logging
 import sys
 from collections.abc import Iterator, Mapping
 from typing import Any
@@ -66,6 +67,18 @@ def release_finished_test_objects() -> None:
     """
     collect_due_generations()
     flush_qt_deferred_deletes()
+
+
+@pytest.fixture(autouse=True)
+def _restore_app_logger_level() -> Iterator[None]:
+    """`BUG-197`: a test that sets the `App` logger's level leaves it set for
+    every test the same xdist worker runs next, and whether `App.*` INFO
+    records are emitted then depends on which tests shared the worker. Each
+    test starts from the level it found and gives it back."""
+    app_logger = logging.getLogger("App")
+    level = app_logger.level
+    yield
+    app_logger.setLevel(level)
 
 
 @pytest.fixture(autouse=True)
