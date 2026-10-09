@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridRuntime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
+    NO_VALUE,
     bot_facts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_panel import (
@@ -144,3 +145,24 @@ def test_a_run_started_in_the_future_has_run_for_nothing() -> None:
     bot = replace(_running(), run_started_at=NOW + timedelta(minutes=3))
 
     assert bot_facts(bot, NOW).running_time == timedelta(0)
+
+
+def test_base_earlier_runs_left_is_named_with_its_cost_and_otherwise_shows_nothing() -> (
+    None
+):
+    """`BUG-196` — the figure a new run does not trade is not left unsaid."""
+    none = bot_facts(_running(), NOW).earlier_runs
+    left = bot_facts(
+        _running(
+            replace(
+                _HELD,
+                earlier_runs_base=Decimal("0.0083"),
+                earlier_runs_cost=Decimal("20.5"),
+            )
+        ),
+        NOW,
+    ).earlier_runs
+
+    assert none == NO_VALUE
+    assert "0.0083" in left
+    assert "not traded by this run" in left

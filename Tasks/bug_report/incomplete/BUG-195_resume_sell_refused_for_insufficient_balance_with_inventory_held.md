@@ -25,6 +25,9 @@ Not yet established. The SELL (0.0028) is below the derived inventory (0.0082917
 - the halted run's ETH not being where the bot thinks (the account-wide holding was never compared with the derived inventory before the SELL).
 What decides it: the account's ETH free and locked at 10:45:57 and its open orders at that time (not in the log).
 
+## Relation to BUG-196
+Checked 2026-10-09: not the same cause. BUG-196 (a new Start forgets the previous run's base) needs a new `run_started_at`, which a Resume from HALTED never stamps (`bot.py:164-166`); the 0.0082917 ETH the resume derived was its own run's. What BUG-196 does add to the candidates above: an account that holds base the bot does not track makes "free base on the account" and "inventory derived by the bot" differ in both directions, so the comparison named in the first suggested step stays necessary.
+
 ## Fix
 None yet.
 

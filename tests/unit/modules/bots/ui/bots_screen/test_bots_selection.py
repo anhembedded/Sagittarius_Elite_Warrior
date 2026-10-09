@@ -6,6 +6,9 @@ Picking nothing leaves each panel's instruction."""
 
 from __future__ import annotations
 
+import logging
+
+import pytest
 from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotOrderLine,
@@ -41,7 +44,13 @@ def _shown_chart(screen: BotsScreen) -> ChartCard | None:
     return cards[0] if len(cards) == 1 else None
 
 
-def test_the_chart_and_every_panel_follow_the_selection(open_bots_screen) -> None:
+def test_the_chart_and_every_panel_follow_the_selection(
+    open_bots_screen, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The chart tells its load on the bot's log at INFO (`EPIC-034A`), so
+    # whether those lines exist is the `App.Bots` level. Pinned here, it is
+    # not whatever an earlier test of the same worker left (`BUG-197`).
+    caplog.set_level(logging.INFO, logger="App.Bots")
     screen = open_bots_screen(
         [
             stored("a00001", S.RUNNING, name="alpha grid"),
@@ -61,7 +70,11 @@ def test_the_chart_and_every_panel_follow_the_selection(open_bots_screen) -> Non
 
     assert alpha_chart is not None
     assert view.plan.title.text() == "alpha grid"
-    assert view.log.toPlainText() == "Bot a00001 placed level 3"
+    # The bot's own line, then the chart's load lines, which name the bot too.
+    alpha_log = view.log.toPlainText().splitlines()
+    assert alpha_log[0] == "Bot a00001 placed level 3"
+    assert alpha_log[1:], "the chart's load says nothing on the bot's log"
+    assert all("Bot a00001 chart: " in line for line in alpha_log[1:])
     assert view.orders.orders.rows == _orders_of(model.selected)
     assert view.fills.note.text() == _FILLS_UNREAD
     fills_notice = screen.notifier.last

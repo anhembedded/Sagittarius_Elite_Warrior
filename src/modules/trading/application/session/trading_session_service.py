@@ -24,11 +24,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_session_ready.command import (
     EnsureSessionReadyCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.read_earlier_runs.command import (
+    ReadEarlierRunsCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget.command import (
     RegisterOwnerBudgetCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
+    EarlierRunsInventory,
+    EarlierRunsRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -130,6 +137,16 @@ class TradingSessionService(ITradingSession):
             RegisterOwnerBudgetCommand(registration, venue=self._trading_venue),
         )
         return _answered(response, OwnerBudgetRegistrationResult)  # type: ignore[return-value]
+
+    def earlier_runs_inventory(
+        self, request: EarlierRunsRequest
+    ) -> EarlierRunsInventory:
+        """Dispatched, as the registration is: it reads the venue's history."""
+        response = self._dispatcher.dispatch(
+            ReadEarlierRunsCommand,
+            ReadEarlierRunsCommand(request, venue=self._trading_venue),
+        )
+        return _answered(response, EarlierRunsInventory)  # type: ignore[return-value]
 
     def clear_owner_budget(self, owner_id: str) -> None:
         """Straight to the state, as the lease is: a dict removal with nothing

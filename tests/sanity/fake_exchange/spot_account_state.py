@@ -243,6 +243,13 @@ class SpotAccountState:
             for order in self._book.resting(symbol)
         ]
 
+    def free_balance(self, asset: str) -> Decimal:
+        return self._balances[asset].free
+
+    def withdraw_free(self, asset: str, amount: Decimal) -> None:
+        """The user moves or sells `amount` of `asset` by hand, outside any bot."""
+        self._balances[asset].free -= amount
+
     def account_balances(self) -> list[dict[str, str]]:
         return [
             {"asset": asset, "free": _q(balance.free), "locked": _q(balance.locked)}

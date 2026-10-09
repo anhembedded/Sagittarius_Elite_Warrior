@@ -16,6 +16,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
+    EarlierRunsInventory,
+    EarlierRunsRequest,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -81,6 +85,9 @@ class FakeTradingSession(ITradingSession):
         #: its books.
         self.budgets: dict[str, OwnerBudgetRegistration] = {}
         self._registration_answer: OwnerBudgetRegistrationResult | None = None
+        #: `BUG-196` — what earlier runs left, and the requests made.
+        self._earlier_runs = EarlierRunsInventory()
+        self.earlier_runs_requests: list[EarlierRunsRequest] = []
         self._registration_answer_from: (
             Callable[[], OwnerBudgetRegistrationResult] | None
         ) = None
@@ -178,6 +185,16 @@ class FakeTradingSession(ITradingSession):
         if answer.registered:
             self.budgets[registration.owner_id] = registration
         return answer
+
+    def earlier_runs_answers(self, answer: EarlierRunsInventory) -> None:
+        """Sets what `earlier_runs_inventory` answers; none by default."""
+        self._earlier_runs = answer
+
+    def earlier_runs_inventory(
+        self, request: EarlierRunsRequest
+    ) -> EarlierRunsInventory:
+        self.earlier_runs_requests.append(request)
+        return self._earlier_runs
 
     def clear_owner_budget(self, owner_id: str) -> None:
         self.budgets.pop(owner_id, None)
