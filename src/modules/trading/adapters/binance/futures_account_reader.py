@@ -52,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.account_can_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     classify_connection_failure,
+    missing_key_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
@@ -218,7 +219,7 @@ class FuturesAccountReader(ITradingAccountReader):
             # DISABLED: `NOT_CONFIGURED` already says the real story on its
             # own — a second, differently-named "no venue" signal here would
             # only be confusing.
-            return self._status(failure=ConnectionFailureKind.NOT_CONFIGURED)
+            return self._status(failure=missing_key_failure(resolution))
 
         try:
             # `Client(...)`'s own constructor pings on construction by

@@ -19,13 +19,11 @@ from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
+    missing_key_failure,
     named_failure_kind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_lookback import (
     require_within_lookback,
@@ -104,10 +102,10 @@ def require_credentials(
 ) -> ExchangeCredentials:
     """@throws AccountHistoryUnavailableError No credentials configured, before
     any request is made."""
-    credentials = provider.resolve().credentials
-    if credentials is None:
+    resolved = provider.resolve()
+    if resolved.credentials is None:
         raise AccountHistoryUnavailableError(
-            f"No {venue_label} credentials configured — cannot read account history.",
-            ConnectionFailureKind.NOT_CONFIGURED,
+            resolved.unusable_because(venue_label, "read account history"),
+            missing_key_failure(resolved),
         )
-    return credentials
+    return resolved.credentials

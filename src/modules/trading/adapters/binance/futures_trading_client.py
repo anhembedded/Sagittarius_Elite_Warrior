@@ -276,7 +276,7 @@ class FuturesTradingClient(ITradingClient):
         resolution = self._credentials_provider.resolve()
         if resolution.credentials is None:
             raise ValueError(
-                "No exchange credentials configured — cannot sign a trading request."
+                resolution.unusable_because("Futures", "sign a trading request")
             )
         # `Client(...)`'s own constructor pings on construction by default
         # (same trigger as `BUG-045`/`EPIC-021D` §4) — letting that raise

@@ -64,10 +64,11 @@ class SpotCommissionRateReader(ICommissionRateReader):
         self._credentials_provider = credentials_provider
 
     def commission_rate(self, symbol: str) -> CommissionRate:
-        credentials = self._credentials_provider.resolve().credentials
+        resolved = self._credentials_provider.resolve()
+        credentials = resolved.credentials
         if credentials is None:
             raise CommissionRateUnavailableError(
-                f"{symbol}: no Spot credentials configured"
+                f"{symbol}: {resolved.absence('Spot')}"
             )
         try:
             client = self._session_factory.create_account_client(credentials)
