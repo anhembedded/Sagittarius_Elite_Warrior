@@ -29,6 +29,9 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    ResolvedCredentials,
+)
 
 logger = logging.getLogger("App.TradingAdapter")
 
@@ -127,6 +130,14 @@ def describe_failure(
         page[:_MAX_LOGGED_BODY_CHARS],
     )
     return f"the exchange is unavailable ({status}{' ' + title if title else ''})"
+
+
+def missing_key_failure(resolved: ResolvedCredentials) -> ConnectionFailureKind:
+    """Why a check got no key: not configured, or the key gate refused the stored
+    one (`BUG-193`: a refused key read "No key" on the Trading page)."""
+    if resolved.refusal_kind:
+        return ConnectionFailureKind(resolved.refusal_kind)
+    return ConnectionFailureKind.NOT_CONFIGURED
 
 
 def named_failure_kind(exc: BaseException) -> ConnectionFailureKind | None:

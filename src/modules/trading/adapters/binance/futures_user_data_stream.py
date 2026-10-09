@@ -181,10 +181,11 @@ class FuturesUserDataStream(ManagedUserDataStream):
         # `FuturesUserDataStream` must still be safely *constructible* with no
         # credentials configured at all (same reasoning as `FuturesTradingClient.
         # _resolve_client()`, EPIC-021F).
-        credentials = self._credentials_provider.resolve().credentials
+        resolved = self._credentials_provider.resolve()
+        credentials = resolved.credentials
         if credentials is None:
             logger.error(
-                "No exchange credentials configured — cannot open the user data stream."
+                resolved.unusable_because("Futures", "open the user data stream")
             )
             return
 

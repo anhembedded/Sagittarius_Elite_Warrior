@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
     SuggestedRange,
@@ -85,6 +86,26 @@ def test_showing_parameters_is_not_an_edit_but_typing_is(qtbot) -> None:
 
     qtbot.keyClicks(panel.capital, "5")
     assert heard[-1]["capital_quote"] == "10005"
+
+
+def test_every_way_of_setting_the_grid_count_is_an_edit(qtbot) -> None:
+    """`BUG-193`: the arrows, the wheel and Up/Down raised neither `textEdited`
+    nor `editingFinished`, so the screen kept the count it had."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.set_config({**_CONFIG, "grid_count": "10"})
+    heard: list[dict[str, str]] = []
+    panel.config_changed.connect(heard.append)
+
+    qtbot.keyClick(panel.grid_count, Qt.Key.Key_Down)
+    assert heard[-1]["grid_count"] == "9"
+
+    panel.grid_count.stepBy(-4)
+    assert heard[-1]["grid_count"] == "5"
+
+    panel.grid_count.lineEdit().selectAll()
+    qtbot.keyClicks(panel.grid_count, "7")
+    assert heard[-1]["grid_count"] == "7"
 
 
 def test_an_exit_switched_off_reads_off_and_disables_its_value(qtbot) -> None:
