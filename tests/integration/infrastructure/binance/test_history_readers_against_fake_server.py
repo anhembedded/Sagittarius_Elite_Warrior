@@ -70,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -132,7 +135,11 @@ def _spot() -> tuple[SpotTradingClient, SpotHistoryReader]:
     cache = InMemorySymbolOrderMetadataCache()
     metadata = SpotMetadataProvider(sessions, cache)
     trading = SpotTradingClient(
-        sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
+        sessions,
+        _Credentials(),
+        metadata,
+        OrderSubmissionMode.LIVE,
+        FakeOrderFillReporter(),
     )
     return trading, SpotHistoryReader(
         sessions, _Credentials(), ListedSymbols(metadata, cache)
@@ -211,7 +218,10 @@ def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
         sessions = FuturesSessionFactory()
         metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
         trading = FuturesTradingClient(
-            sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
+            sessions,
+            _Credentials(),
+            metadata,
+            OrderSubmissionMode.LIVE,
         )
         history = FuturesHistoryReader(sessions, _Credentials())
         trading.place_order(_order("SEW-hist-fut-lim01", OrderType.LIMIT))

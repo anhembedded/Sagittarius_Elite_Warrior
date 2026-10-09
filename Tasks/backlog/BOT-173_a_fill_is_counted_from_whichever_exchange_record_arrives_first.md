@@ -1,6 +1,6 @@
 # BOT-173 — A fill is counted from whichever exchange record arrives first, exactly once, keyed by trade id
 
-**Status:** 🟡 In progress
+**Status:** 🟡 In progress (implemented; waits for the -Full run and review)
 **Board:** Trading's owner book and the bots' ladder learned a fill only from the user-data stream (or a history re-read); the order response, the stream and the trade history now each report a fill once, keyed by trade id, whichever arrives first.
 **Source:** the owner, 2026-10-09 via the coordinator session: "a fill is counted from whichever exchange evidence arrives first — the order response, the user stream, or the REST trade history (reconcile) — exactly once, keyed by trade id; the stream becomes a latency path, not the source of truth." BUG-194 was one symptom; #452 patched only Start.
 **Risk:** 🟡 — the order response becomes a second writer of the owner book and of the bus's fill event; a wrong key double-counts base (a SELL larger than the base held) or loses a fill (a ladder that never places its counter order)
@@ -64,4 +64,9 @@ The emitter becomes one object per venue (`VenueAssembly.fill_events`, built onc
 | ladder applies once | `tests/unit/modules/bots/application/services/test_grid_duplicate_fill.py` (extended) | unit |
 
 ## Implementation notes (written when done)
-Pending.
+- **Found on the way:** with the stream down the *bot's own ladder state* (`GridRuntime.inventory`) also stayed 0 after Start (probe on the fake exchange, old code: stream up 0.023976, stream down 0), the bots-side half of the stream-only assumption. The bots' intake is the bus event, so reporting the response through the emitter fixes it with no bots-side code; `AppliedFills` stays for fills the bots applied from their own history reads. The `USER_STREAM_DOWN` halt stays: a resting order's fill is still only seen by the stream or a reconcile.
+- **Not changed:** Futures (its response carries no fills); `ITradingClient.place_order`'s signature; the registration's `counted` predicate (BUG-194), which is the history source's key.
+- **Extra:** `LockedCachedProperty` moved out of `venue_assembly.py` into its own file (the extra emitter wiring put it over the 400-line guard; it is its own abstraction level). The fake exchange's `fills` entries now carry `tradeId`, as Binance's do.
+- **Mutation checks:** reporting from the response disabled → the three integration tests and three client tests go red; the ledger disabled → the late-report integration test, the market-sell test and both arrival-order unit tests go red.
+- **Verification:** commit tier green (`ci-local.ps1 -SkipTests`); `tests/unit` and `tests/integration` green locally (4 800+ tests). The full gate is GitHub Actions' `ci-local.ps1 -Full` on the PR head. Nothing was run against a real exchange.
+- **Open follow-up (not built):** a REST trade-history poll that reports fills while the stream is down would let the stream-down halt relax; it is one more caller of `IOrderFillReporter` (seam recorded in the port's docstring).

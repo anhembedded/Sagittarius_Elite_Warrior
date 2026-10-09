@@ -1,6 +1,7 @@
 """`EPIC-035B` — what a running Grid does about its user-data stream.
 
-The stream is the only source of fills. Two facts about it reach a bot, both
+The stream is the quickest record of a resting order's fill, not the only one
+(`BOT-173`: a fill counts once from whichever record of it arrives first). Two facts about it reach a bot, both
 posted onto its queue like every other fact (`GridExecutor`):
 
   · **The stream was down and is back, or a periodic check came due**

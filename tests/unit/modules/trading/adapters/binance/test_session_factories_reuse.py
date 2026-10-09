@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -146,6 +149,7 @@ def test_spot_trading_client_tells_a_pause_met_opening_its_session_as_a_pause() 
         _Credentials(),
         Mock(),
         OrderSubmissionMode.LIVE,
+        FakeOrderFillReporter(),
     )
 
     with pytest.raises(ExchangeRateLimitedError):

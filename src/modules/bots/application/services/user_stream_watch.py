@@ -1,7 +1,10 @@
 """`EPIC-035B` — what the bots module does about the user-data stream's health.
 
-The stream is the only source of fills. Trading publishes where it is
-(`UserStreamHealthEvent`); this service turns that into three guarantees for
+A fill is counted from whichever exchange record tells of it first, exactly
+once, keyed by trade id (`BOT-173`): the placement response of a market order,
+the stream, or the trade history a reconcile reads. The stream is the quickest
+record of a resting order's fill, and the only one as it happens. Trading
+publishes where it is (`UserStreamHealthEvent`); this service turns that into three guarantees for
 every bot on the venue, without importing the adapter:
 
   1. **A reconnect catches up.** `CONNECTED` → each executor reconciles its

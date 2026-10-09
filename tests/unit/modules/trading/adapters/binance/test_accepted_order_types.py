@@ -84,7 +84,7 @@ _VENUES: list[tuple[str, ITradingClientFactory, Mapper]] = [
     ),
     (
         "spot",
-        SpotTradingClientFactory(Mock(), Mock(), Mock()),
+        SpotTradingClientFactory(Mock(), Mock(), Mock(), Mock()),
         map_order_to_spot_params,
     ),
 ]

@@ -87,6 +87,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
 )
@@ -208,7 +211,9 @@ def _spot_context(credentials: _FakeCredentialsProvider) -> VenueContext:
     return venue_context(
         _SPOT,
         account_reader=SpotAccountReader(sessions, credentials),
-        client_factory=SpotTradingClientFactory(sessions, credentials, metadata),
+        client_factory=SpotTradingClientFactory(
+            sessions, credentials, metadata, FakeOrderFillReporter()
+        ),
         metadata_provider=metadata,
     )
 
