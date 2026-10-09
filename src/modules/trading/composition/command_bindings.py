@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.ensure_se
     EnsureSessionReadyCommand,
     EnsureSessionReadyCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.read_earlier_runs import (
+    ReadEarlierRunsCommand,
+    ReadEarlierRunsCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
     RegisterOwnerBudgetCommandHandler,
@@ -59,6 +63,7 @@ def bind_commands(container: IContainer) -> None:
     container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
     container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
     container.bind(RegisterOwnerBudgetCommand, RegisterOwnerBudgetCommandHandler)
+    container.bind(ReadEarlierRunsCommand, ReadEarlierRunsCommandHandler)
     container.bind(CancelOrderCommand, CancelOrderCommandHandler)
     container.bind(ChangeLeverageCommand, ChangeLeverageCommandHandler)
     container.bind(ChangeMarginTypeCommand, ChangeMarginTypeCommandHandler)

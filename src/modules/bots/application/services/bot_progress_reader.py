@@ -51,6 +51,8 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
         completed_cycles=runtime.completed_cycles,
         open_orders=len(runtime.open_orders),
         inventory=runtime.inventory,
+        earlier_runs_base=runtime.earlier_runs_base,
+        earlier_runs_cost=runtime.earlier_runs_cost,
         average_cost=runtime.average_cost,
         reason=runtime.reason.value if runtime.reason is not None else "",
         reason_detail=runtime.reason_detail,

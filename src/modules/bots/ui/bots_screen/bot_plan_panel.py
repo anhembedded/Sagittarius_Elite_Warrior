@@ -65,6 +65,7 @@ FACT_SPECS = (
             ("unrealised", "of which unrealised"),
             ("hodl", "HODL benchmark"),
             ("inventory", "Held"),
+            ("earlier_runs", "Left from earlier runs"),
         )
     ),
     ColumnSpec("running_time", "Running time", ColumnKind.DURATION),

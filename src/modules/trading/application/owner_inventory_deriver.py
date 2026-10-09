@@ -9,7 +9,7 @@ base asset (`owner_inventory_policy.py`). So:
 
 - a store that claims more than the exchange shows changes nothing;
 - base a previous run kept is not counted, since its orders predate
-  `run_started_at`;
+  `run_started_at` (it is reported instead, `earlier_runs_deriver.py`, `BUG-196`);
 - a fee in BNB leaves the inventory whole, and one in the base asset does
   not.
 
@@ -145,7 +145,9 @@ class OwnerInventoryDeriver:
                 last_trade_id is not None and trade.trade_id <= last_trade_id
             ):
                 continue
-            inventory = inventory_after(inventory, _owner_fill(trade, registration))
+            inventory = inventory_after(
+                inventory, owner_fill_of(trade, registration.base_asset)
+            )
             replayed.add(trade.trade_id)
             last_trade_id = trade.trade_id
         self._checkpoints.save(
@@ -185,8 +187,10 @@ class OwnerInventoryDeriver:
         return checkpoint
 
 
-def _owner_fill(trade: TradeRecord, registration: OwnerBudgetRegistration) -> OwnerFill:
-    base_fee = trade.fee if trade.fee_asset == registration.base_asset else Decimal(0)
+def owner_fill_of(trade: TradeRecord, base_asset: str) -> OwnerFill:
+    """@brief `trade` as the owner's inventory takes it: a fee in the base
+    asset leaves less base than was traded."""
+    base_fee = trade.fee if trade.fee_asset == base_asset else Decimal(0)
     return OwnerFill(trade.side, trade.quantity, trade.quote_quantity, base_fee)
 
 

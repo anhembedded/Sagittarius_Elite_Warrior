@@ -9,6 +9,7 @@ service's.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -28,6 +29,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.trading_s
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_inventory import (
+    EarlierRunsInventory,
+    EarlierRunsRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
@@ -168,3 +173,19 @@ def test_the_real_service_clears_a_budget_without_dispatching() -> None:
     service.clear_owner_budget("bot-1")
 
     dispatcher.dispatch.assert_not_called()
+
+
+def test_the_fake_answers_what_earlier_runs_left_as_told_and_remembers_the_request() -> (
+    None
+):
+    """`BUG-196` — the fake's helper is exercised here, beside the contract."""
+    session = FakeTradingSession()
+    request = EarlierRunsRequest(
+        "a3f9c1", "BTCUSDT", "BTC", datetime(2026, 10, 1, tzinfo=UTC), datetime.now(UTC)
+    )
+    assert session.earlier_runs_inventory(request).quantity == 0
+
+    session.earlier_runs_answers(EarlierRunsInventory(Decimal("0.5"), Decimal(10)))
+
+    assert session.earlier_runs_inventory(request).quantity == Decimal("0.5")
+    assert session.earlier_runs_requests == [request, request]
