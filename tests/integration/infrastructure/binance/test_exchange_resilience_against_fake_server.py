@@ -78,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -158,7 +161,11 @@ def _venue() -> Iterator[_Venue]:
         factory = SpotSessionFactory(TradingVenue.SPOT_TESTNET, sessions=sessions)
         metadata = SpotMetadataProvider(factory, InMemorySymbolOrderMetadataCache())
         client = SpotTradingClient(
-            factory, _FakeCredentialsProvider(), metadata, OrderSubmissionMode.LIVE
+            factory,
+            _FakeCredentialsProvider(),
+            metadata,
+            OrderSubmissionMode.LIVE,
+            FakeOrderFillReporter(),
         )
         history = SpotHistoryReader(
             factory, _FakeCredentialsProvider(), ListedSymbols(metadata, _Cache())

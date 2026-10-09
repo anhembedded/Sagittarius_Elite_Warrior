@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_tr
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -92,6 +95,7 @@ def _build_collaborators(
         credentials_provider,
         metadata_provider,
         OrderSubmissionMode.LIVE,
+        FakeOrderFillReporter(),
     )
     account_reader = SpotAccountReader(session_factory, credentials_provider)
     return client, account_reader, metadata_provider

@@ -102,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
 )
@@ -225,7 +228,10 @@ def _spot_panel_on_fake_server() -> Iterator[_SpotPanel]:
                 _SPOT,
                 account_reader=SpotAccountReader(session_factory, credentials),
                 client_factory=SpotTradingClientFactory(
-                    session_factory, credentials, metadata_provider
+                    session_factory,
+                    credentials,
+                    metadata_provider,
+                    FakeOrderFillReporter(),
                 ),
                 metadata_provider=metadata_provider,
             ),

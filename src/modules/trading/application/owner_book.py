@@ -13,9 +13,10 @@ of itself. It holds three things:
 - the send times inside the budget's window, and the last one.
 
 It is seeded with an inventory derived from exchange history
-(`OwnerInventoryDeriver`) and kept current by the venue's user-data path,
-which applies every fill and every end here **before** the event reaches
-the bus (`VenueEventEmitter`). Not thread-safe on its own:
+(`OwnerInventoryDeriver`) and kept current by the venue's emitter
+(`VenueEventEmitter`), which each exchange record of a fill reaches: the
+placement response, the user-data stream. It applies every fill and every end
+here **before** the event reaches the bus. Not thread-safe on its own:
 `TradingSessionState` holds the books and calls them under its lock.
 """
 

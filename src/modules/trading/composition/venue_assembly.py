@@ -4,7 +4,8 @@
 per port (`EPIC-027G`–`027L`). Each part is built on first use and cached, so
 asking for one venue's metadata provider never builds its user data stream —
 and never resolves `IEventBus`/`ITaskManager`, which a caller that only wants
-rounding rules may not have bound.
+rounding rules may not have bound (a Spot client factory resolves the bus: it
+reports fills through it, `BOT-173`).
 
 Everything a venue owns is its own: credentials for its own env-var pair, its
 own metadata cache (a Futures and a Spot `BTCUSDT` are different
@@ -18,8 +19,6 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from functools import cached_property
-from typing import Any, Self, overload
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
@@ -110,6 +109,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.locked_cached_property import (
+    LockedCachedProperty,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
@@ -183,26 +185,6 @@ class SharedVenueInputs:
     instance: IInstanceAccess
 
 
-class _LockedCachedProperty[T](cached_property[T]):
-    """`cached_property` that builds under the instance's `_lock`.
-
-    @details Python 3.12 removed `cached_property`'s own lock, so two threads
-    asking for an unbuilt part could each build one — a second metadata cache,
-    or a second user data stream on one account (`EPIC-028A` review F1). The
-    instance lock is re-entrant because a part builds the parts it depends on.
-    """
-
-    @overload
-    def __get__(self, instance: None, owner: type[Any] | None = None) -> Self: ...
-    @overload
-    def __get__(self, instance: object, owner: type[Any] | None = None) -> T: ...
-    def __get__(self, instance: object | None, owner: type[Any] | None = None) -> Any:
-        if instance is None:
-            return self
-        with instance._lock:  # type: ignore[attr-defined]
-            return super().__get__(instance, owner)
-
-
 class VenueAssembly:
     """Builds and caches one venue's adapters and per-venue state."""
 
@@ -219,18 +201,18 @@ class VenueAssembly:
     def _is_spot(self) -> bool:
         return self._venue.market_type is MarketType.SPOT
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def _futures_sessions(self) -> FuturesSessionFactory:
         """This venue's own session factory (`EPIC-034` D11): the venue is what
         tells it which exchange to open sessions on, so Futures Testnet and
         Futures Mainnet are this class with one argument different."""
         return FuturesSessionFactory(self._venue)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def _spot_sessions(self) -> SpotSessionFactory:
         return SpotSessionFactory(self._venue)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def credentials_provider(self) -> IExchangeCredentialsProvider:
         """The venue's stored key, as it is: what Options saves to and what the
         desk asks "is there a key" of. Adapters resolve `order_credentials`."""
@@ -241,7 +223,7 @@ class VenueAssembly:
             SecretsFileSource(self._shared.secrets_file_path), self._venue
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def key_gate(self) -> IKeyPermissionGate | None:
         """A mainnet venue's refusal of a key that can move funds (`EPIC-034` D5);
         a testnet has none (no `apiRestrictions` there)."""
@@ -250,7 +232,7 @@ class VenueAssembly:
         stored = self.credentials_provider
         return ApiRestrictionsKeyGate(self._venue, lambda: stored.resolve().credentials)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def order_credentials(self) -> IExchangeCredentialsProvider:
         """What every adapter of this venue resolves its key from: the stored
         key, and on a mainnet venue only while the key gate accepts it, so no
@@ -260,21 +242,24 @@ class VenueAssembly:
             return self.credentials_provider
         return KeyGatedCredentials(self.credentials_provider, gate)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def metadata_cache(self) -> ISymbolOrderMetadataCache:
         return InMemorySymbolOrderMetadataCache()
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def metadata_provider(self) -> IMarketMetadataProvider:
         if self._is_spot:
             return SpotMetadataProvider(self._spot_sessions, self.metadata_cache)
         return FuturesMetadataProvider(self._futures_sessions, self.metadata_cache)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def client_factory(self) -> ITradingClientFactory:
         factory: ITradingClientFactory = (
             SpotTradingClientFactory(
-                self._spot_sessions, self.order_credentials, self.metadata_provider
+                self._spot_sessions,
+                self.order_credentials,
+                self.metadata_provider,
+                self.fill_events,
             )
             if self._is_spot
             else FuturesTradingClientFactory(
@@ -283,7 +268,7 @@ class VenueAssembly:
         )
         return guarded_client_factory(factory, self._shared.instance)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def account_reader(self) -> ITradingAccountReader:
         if self._is_spot:
             return SpotAccountReader(
@@ -293,7 +278,7 @@ class VenueAssembly:
             self._futures_sessions, self.order_credentials, venue=self._venue
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def history_reader(self) -> IAccountHistoryReader:
         # `EPIC-028Q` — paging re-reads the whole span; the cache bounds the
         # request weight that costs.
@@ -309,7 +294,7 @@ class VenueAssembly:
             FuturesHistoryReader(self._futures_sessions, self.order_credentials)
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def commission_reader(self) -> ICommissionRateReader:
         if self._is_spot:
             return SpotCommissionRateReader(self._spot_sessions, self.order_credentials)
@@ -317,7 +302,7 @@ class VenueAssembly:
             self._futures_sessions, self.order_credentials
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def account_control(self) -> IFuturesAccountControl | None:
         """`EPIC-028F` — Spot has no leverage or margin mode, so it has no
         control; `DISABLED` keeps the Futures shape it has always had, and the
@@ -329,13 +314,13 @@ class VenueAssembly:
             self._shared.instance,
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def book_ticker_reader(self) -> IBookTickerReader:
         if self._is_spot:
             return SpotBookTickerReader(self._spot_sessions)
         return FuturesBookTickerReader(self._futures_sessions)
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def mark_price_reader(self) -> IMarkPriceReader | None:
         """`EPIC-028O` — Spot has no mark price, so it has no reader, as it
         has no `account_control`."""
@@ -353,25 +338,28 @@ class VenueAssembly:
     def equity_recorder(self) -> EquityCurveRecorder:
         return self._shared.session_states.equity_recorder(self._venue)
 
-    @_LockedCachedProperty
-    def user_data_stream(self) -> IUserDataStream:
-        # `EPIC-028C` — the stream emits through its own venue's emitter.
-        events = VenueEventEmitter(
+    @LockedCachedProperty
+    def fill_events(self) -> VenueEventEmitter:
+        """`BOT-173` — shared by the stream and the Spot client."""
+        return VenueEventEmitter(
             self._shared.container.resolve(IEventBus),
             self._venue,
             self.session_state.owner_books,
         )
+
+    @LockedCachedProperty
+    def user_data_stream(self) -> IUserDataStream:
         task_manager = self._shared.container.resolve(ITaskManager)
         if self._is_spot:
             return SpotUserDataStream(
-                events,
+                self.fill_events,
                 task_manager,
                 self.order_credentials,
                 self.account_reader,
                 self.equity_recorder,
             )
         return FuturesUserDataStream(
-            events,
+            self.fill_events,
             task_manager,
             self.order_credentials,
             self.client_factory,
@@ -379,7 +367,7 @@ class VenueAssembly:
             self.equity_recorder,
         )
 
-    @_LockedCachedProperty
+    @LockedCachedProperty
     def context(self) -> VenueContext:
         return VenueContext(
             venue=self._venue,

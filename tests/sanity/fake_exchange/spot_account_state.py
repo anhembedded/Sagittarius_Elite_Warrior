@@ -335,6 +335,7 @@ class SpotAccountState:
             "qty": _q(fill.qty),
             "commission": _q(fill.commission),
             "commissionAsset": fill.commission_asset,
+            "tradeId": fill.trade_id,
         }
 
     def _emit_cancel_report(self, order: dict[str, Any]) -> None:

@@ -69,6 +69,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
 )
@@ -156,7 +159,10 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
         session_state = TradingSessionState()
         session_state.enable(set())
         trading_client_factory = SpotTradingClientFactory(
-            session_factory, credentials_provider, metadata_provider
+            session_factory,
+            credentials_provider,
+            metadata_provider,
+            FakeOrderFillReporter(),
         )
 
         before = account_reader.check_connection()
@@ -243,7 +249,10 @@ def test_a_second_manual_buy_on_the_same_symbol_is_not_blocked_by_a_position_lim
             TradingVenue.SPOT_TESTNET,
             account_reader=account_reader,
             client_factory=SpotTradingClientFactory(
-                session_factory, credentials_provider, metadata_provider
+                session_factory,
+                credentials_provider,
+                metadata_provider,
+                FakeOrderFillReporter(),
             ),
             metadata_provider=metadata_provider,
         )

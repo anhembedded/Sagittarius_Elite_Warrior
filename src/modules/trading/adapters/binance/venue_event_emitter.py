@@ -12,6 +12,11 @@ its counter order synchronously in its handler included, sees a book that
 already holds it. Trading is never a peer subscriber of its own events for
 this: the order of the two steps is this file's, not the bus's.
 
+`BOT-173` — a fill is reported by whichever exchange record tells of it first:
+the placement response (`SpotTradingClient`) or the stream. This emitter is
+the one door (`IOrderFillReporter`), and `ReportedTrades` keeps the second
+record of a trade from reaching the books or the bus, in either order.
+
 Plausible extensions, each one new method here (`architecture-rule.md`
 §7.2.1): an open-order change once a stream reports one to the UI
 (`EPIC-028E`), a balance-changed event (`EPIC-028D`).
@@ -19,11 +24,15 @@ Plausible extensions, each one new method here (`architecture-rule.md`
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerBooks,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.reported_trades import (
+    ReportedTrades,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
@@ -47,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
     UserStreamHealthEvent,
     UserStreamState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_fill_reporter import (
+    IOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
@@ -56,8 +68,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
+logger = logging.getLogger("App.Trading.VenueEvents")
 
-class VenueEventEmitter:
+
+class VenueEventEmitter(IOrderFillReporter):
     """Every account event one venue's stream emits, with that venue on it."""
 
     def __init__(
@@ -66,6 +80,7 @@ class VenueEventEmitter:
         self._event_bus = event_bus
         self._venue = venue
         self._owner_books = owner_books
+        self._reported_trades = ReportedTrades()
 
     @property
     def venue(self) -> TradingVenue:
@@ -81,7 +96,32 @@ class VenueEventEmitter:
         """`fill` is `(price, quantity)` of this one fill; `fee` is
         `(amount, asset)` where the venue reports one (Spot), else `None`;
         `trade_id` is the exchange's id of this fill where the venue reports
-        one (Spot), which the owner books and the bots use to count a fill once (`EPIC-035P`)."""
+        one (Spot), which the owner books and the bots use to count a fill once (`EPIC-035P`).
+        A trade already reported, by the response or the stream, is dropped here
+        (`BOT-173`)."""
+        if not self._reported_trades.claim(order.symbol, trade_id):
+            logger.info(
+                "Fill %s of %s already reported; not counted again [duplicate-fill]",
+                trade_id,
+                order.client_order_id,
+            )
+            return
+        try:
+            self._apply_and_publish(order, fill, fee, trade_id)
+        except Exception:
+            # The trade was claimed but not counted everywhere: let the next
+            # record of it (the stream, a history re-read) try again. The owner
+            # book keeps its own trade-id memory, so a second apply is safe.
+            self._reported_trades.release(order.symbol, trade_id)
+            raise
+
+    def _apply_and_publish(
+        self,
+        order: Order,
+        fill: tuple[Decimal, Decimal],
+        fee: tuple[Decimal, str] | None,
+        trade_id: int | None,
+    ) -> None:
         fill_price, fill_quantity = fill
         self._owner_books.apply_fill(order, fill, fee, trade_id)
         self._event_bus.emit(
