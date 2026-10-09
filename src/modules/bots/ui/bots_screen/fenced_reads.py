@@ -2,7 +2,7 @@
 
 Four reads, each its own kind: the list, the planner's market numbers for
 the selected bot, its fills, and what the exchange says about its symbol
-and account (`BOT-173`). A newer read of a kind supersedes the older
+and account (`BOT-174`). A newer read of a kind supersedes the older
 one, whose answer is then dropped as stale (`async-ui-action-rule.md` §1):
 selecting another bot while the first one's fills load never shows the first
 one's fills. The presenter owns the trackers (one per kind) and hands them
@@ -56,7 +56,7 @@ class ReadKind(str, Enum):
     #: `EPIC-034D` — the selected bot's venue account; read by `ConnectStep`'s
     #: own `FencedReads`, so the screen's presenter never sees its answers.
     CONNECT = "connect"
-    #: `BOT-173` — what the exchange says about the selected bot's symbol and
+    #: `BOT-174` — what the exchange says about the selected bot's symbol and
     #: account, the facts the exchange rules of its readiness are judged on.
     EXCHANGE = "exchange"
 

@@ -1,4 +1,4 @@
-"""`BOT-173` — the exchange snapshot of one bot, read over the venue's ports.
+"""`BOT-174` — the exchange snapshot of one bot, read over the venue's ports.
 
 @details The reader never raises and never turns a failed read into an empty
 account: a read that did not answer is `ExchangeUnavailable` with the reason in

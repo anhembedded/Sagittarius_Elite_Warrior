@@ -1,4 +1,4 @@
-# BOT-173 — Readiness can use the exchange's facts: one asynchronous snapshot every venue-dependent check plugs into
+# BOT-174 — Readiness can use the exchange's facts: one asynchronous snapshot every venue-dependent check plugs into
 
 **Status:** 🟡 In progress
 **Priority:** P2

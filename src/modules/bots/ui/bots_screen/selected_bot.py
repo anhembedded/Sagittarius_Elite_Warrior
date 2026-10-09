@@ -75,7 +75,7 @@ class SelectedBot:
         #: selecting a bot never clears it. It carries the account the balance
         #: and key constraints read (`EPIC-034F`).
         self.connection: ConnectionRead | None = None
-        #: What the exchange says about the selection (`BOT-173`): still being
+        #: What the exchange says about the selection (`BOT-174`): still being
         #: asked from the moment a bot is selected, so one bot's facts are never
         #: judged for another.
         self.exchange: ExchangeSnapshot = ExchangeChecking()

@@ -73,7 +73,7 @@ def bind_bots_commands(
         enabled=fills.changed,
         initially_enabled=fills.value,
     )
-    # `BOT-173`: the exchange's facts are the selected bot's, like its fills.
+    # `BOT-174`: the exchange's facts are the selected bot's, like its fills.
     binder.bind(
         REFRESH_EXCHANGE,
         lambda _checked: view_model.refresh_exchange_requested.emit(),

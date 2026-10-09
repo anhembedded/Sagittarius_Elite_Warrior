@@ -3,7 +3,7 @@ the same items.
 
 The screen assembles its inputs from what it holds (the Connect step's account,
 the planner's market numbers, the list's bots, the exchange snapshot of
-`BOT-173`); Start reads them afresh. The
+`BOT-174`); Start reads them afresh. The
 inputs are built apart, the judgement is one function, so a scenario fed to both
 must agree: a difference is an input one of them builds differently.
 """

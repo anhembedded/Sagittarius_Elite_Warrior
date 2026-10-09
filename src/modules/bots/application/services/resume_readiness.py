@@ -1,4 +1,4 @@
-"""`BOT-173` — what stands in the way of resuming a HALTED Grid, from the exchange's facts.
+"""`BOT-174` — what stands in the way of resuming a HALTED Grid, from the exchange's facts.
 
 @details A resume lays no opening buy: its SELL levels sell base the account must
 already hold free, and its BUY levels spend quote (`grid_resume_plan.py`). The

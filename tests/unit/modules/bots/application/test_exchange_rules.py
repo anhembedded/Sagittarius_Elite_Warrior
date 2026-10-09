@@ -1,4 +1,4 @@
-"""`BOT-173` — the readiness rules over the exchange's facts, as pure functions.
+"""`BOT-174` — the readiness rules over the exchange's facts, as pure functions.
 
 @details Numbers in, items and advisories out: no port, no clock, no screen. The
 three states of the snapshot are told apart in one place (`judge_exchange`); the

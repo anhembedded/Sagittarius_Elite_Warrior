@@ -111,7 +111,7 @@ class ReadinessInputs:
     #: `None` while the market numbers are being read.
     market: PlannerMarket | None
     run: RunFacts
-    #: `BOT-173` — what the exchange says; still being asked until it answers.
+    #: `BOT-174` — what the exchange says; still being asked until it answers.
     exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
 
 

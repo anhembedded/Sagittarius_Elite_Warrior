@@ -1,4 +1,4 @@
-"""`BOT-173` — "what does the exchange say about this bot's symbol and account"."""
+"""`BOT-174` — "what does the exchange say about this bot's symbol and account"."""
 
 from __future__ import annotations
 

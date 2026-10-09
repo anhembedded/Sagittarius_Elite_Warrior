@@ -45,7 +45,7 @@ class ReadinessFix(str, Enum):
     EDIT_FIELD = "EDIT_FIELD"
     #: Stop the bot that is still active: `target` is its id.
     STOP_OTHER_BOT = "STOP_OTHER_BOT"
-    #: Ask the exchange again (`BOT-173`): its facts could not be read.
+    #: Ask the exchange again (`BOT-174`): its facts could not be read.
     REFRESH_EXCHANGE = "REFRESH_EXCHANGE"
     #: The reason says what to do, and it is not on this screen (a key's
     #: permission, a strategy that holds the symbol).
@@ -68,7 +68,7 @@ class ReadinessItem:
 
 @dataclass(frozen=True, slots=True)
 class ReadinessAdvisory:
-    """`BOT-173` — something the owner should know before Start that does not
+    """`BOT-174` — something the owner should know before Start that does not
     stand in its way (the kind's advice is never an item either)."""
 
     #: A stable name a test or a screen can key on.
@@ -86,7 +86,7 @@ class StepReadiness:
 @dataclass(frozen=True, slots=True)
 class BotReadiness:
     steps: tuple[StepReadiness, ...]
-    #: What the exchange's facts say that does not block Start (`BOT-173`).
+    #: What the exchange's facts say that does not block Start (`BOT-174`).
     advisories: tuple[ReadinessAdvisory, ...] = ()
 
     @property

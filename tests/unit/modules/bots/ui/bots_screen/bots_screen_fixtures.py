@@ -240,7 +240,7 @@ class BotsScreen:
     #: The testnet's order terms: what the planner reads its filters and fees from.
     venue_terms: FakeOrderEntryTerms
     #: What the testnet's trading account reports: the exchange snapshot's balances
-    #: (`BOT-173`), beside the Connect step's own read above.
+    #: (`BOT-174`), beside the Connect step's own read above.
     exchange_account: FakeAccountSnapshot
 
     def settle(self) -> None:

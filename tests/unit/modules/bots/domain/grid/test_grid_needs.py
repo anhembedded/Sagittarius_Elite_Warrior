@@ -1,4 +1,4 @@
-"""`BOT-173` — what a ladder asks of the account, and the plan a resume proposes.
+"""`BOT-174` — what a ladder asks of the account, and the plan a resume proposes.
 
 @details The numbers are the report's worked example (60,000–70,000, ten grids, 10,000
 USDT at 65,000): ten levels, one left empty beside the price, five BUYs below and four

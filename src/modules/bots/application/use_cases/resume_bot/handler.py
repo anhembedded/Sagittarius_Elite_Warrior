@@ -3,7 +3,7 @@
 `EPIC-029E`: checked against the lifecycle table here, carried out by the
 bot's executor (`BotCommandGate`, ADR D9).
 
-`BOT-173`: before the resume is queued, the exchange's facts are read and the
+`BOT-174`: before the resume is queued, the exchange's facts are read and the
 resume rules judge them (`ResumeReadinessReader`), so a base the ladder's SELLs
 cannot use is refused here, in the words the screen showed on the button, rather
 than by the exchange's `-2010` after the BUY went out (`BUG-195`).

@@ -1,4 +1,4 @@
-"""`BOT-173` — readiness judged on the exchange's own facts, on the composed app.
+"""`BOT-174` — readiness judged on the exchange's own facts, on the composed app.
 
 @details The composed app over the fake Binance server. The snapshot is read from
 the exchange (balances free and locked, the orders resting on the symbol, what an

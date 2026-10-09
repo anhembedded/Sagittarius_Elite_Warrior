@@ -59,7 +59,7 @@ class StartConditions:
     #: count and every reason; empty when nothing is.
     blocked_by: str = ""
     #: What the exchange's facts leave in a halted bot's Resume's way
-    #: (`BOT-173`), in words; empty when nothing does.
+    #: (`BOT-174`), in words; empty when nothing does.
     resume_blocked_by: str = ""
 
 

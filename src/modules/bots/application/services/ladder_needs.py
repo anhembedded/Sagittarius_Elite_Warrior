@@ -1,4 +1,4 @@
-"""`BOT-173` — what a bot's plan asks of the account, from its parameters and the market.
+"""`BOT-174` — what a bot's plan asks of the account, from its parameters and the market.
 
 @details The readiness rules (`exchange_rules.py`) compare these numbers with the
 exchange's facts. They are the plan the executors would draw at that price

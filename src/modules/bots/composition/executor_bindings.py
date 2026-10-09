@@ -183,7 +183,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
 
 
 def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
-    """What the exchange says about a bot's symbol (`BOT-173`): the screen's load
+    """What the exchange says about a bot's symbol (`BOT-174`): the screen's load
     and the Start and Resume gates read it through this one reader."""
     return ExchangeFactsReader(
         container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
@@ -191,7 +191,7 @@ def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
 
 
 def _build_resume_readiness_reader(container: IContainer) -> ResumeReadinessReader:
-    """What the Resume use case asks before it queues the resume (`BOT-173`)."""
+    """What the Resume use case asks before it queues the resume (`BOT-174`)."""
     return ResumeReadinessReader(
         container.resolve(ExchangeFactsReader),
         container.resolve(IVenueTradingPorts),

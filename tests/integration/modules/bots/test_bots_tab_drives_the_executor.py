@@ -285,7 +285,7 @@ def test_save_and_start_saves_the_edits_on_screen_and_starts_with_them(
 def test_a_ladder_the_account_cannot_pay_for_is_listed_before_the_click_and_start_waits(
     screen: _Screen,
 ) -> None:
-    """The balance is the exchange's snapshot (`BOT-173`): once the account holds
+    """The balance is the exchange's snapshot (`BOT-174`): once the account holds
     less than the ladder spends, a refresh lists it on the Plan and holds Start
     off, with nothing placed."""
     app = screen.app

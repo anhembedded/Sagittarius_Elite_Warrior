@@ -1,4 +1,4 @@
-"""`BOT-173` — the selected bot's exchange snapshot: asked, awaited, dropped when stale.
+"""`BOT-174` — the selected bot's exchange snapshot: asked, awaited, dropped when stale.
 
 @details A bot that is at rest (DRAFT, STOPPED) or HALTED has a Start or a Resume
 whose rules need the exchange's facts, so the screen asks for them when it is

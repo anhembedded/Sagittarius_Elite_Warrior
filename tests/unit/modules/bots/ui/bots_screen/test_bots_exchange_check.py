@@ -1,4 +1,4 @@
-"""`BOT-173` — the selected bot's exchange snapshot on the real presenter.
+"""`BOT-174` — the selected bot's exchange snapshot on the real presenter.
 
 @details A bot at rest or halted has a Start or a Resume whose rules need the
 exchange's facts. The screen asks for them off the UI thread when the bot is

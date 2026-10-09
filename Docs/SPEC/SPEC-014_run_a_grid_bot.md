@@ -110,7 +110,7 @@ sound, I start it, and I watch what it does."*
    refuse in their own words, and a race on a listed item (another bot started in the gap) refuses
    in the list's words. Nothing is placed and nothing saved when the list refuses.
 
-   **The exchange's facts** (`BOT-173`). What only the venue knows is one snapshot, read off the UI
+   **The exchange's facts** (`BOT-174`). What only the venue knows is one snapshot, read off the UI
    thread when a bot at rest (Draft, Stopped) or Halted is selected, again by Bots → **Refresh
    exchange check** (or the item's own fix) and whenever the bot's state changes or a command it was
    sent finishes: the free and locked base and quote, the bot's own resting orders apart from the

@@ -1,4 +1,4 @@
-"""`BOT-173` — reads the exchange's facts about one bot's symbol and account.
+"""`BOT-174` — reads the exchange's facts about one bot's symbol and account.
 
 @details The one place the venue is asked for what readiness needs: the account's
 free and locked balances of the symbol's base and quote, the orders resting on the

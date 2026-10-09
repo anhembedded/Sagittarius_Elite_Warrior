@@ -45,7 +45,7 @@ def _verdict(code: str, severity: VerdictSeverity, reason: str = "r") -> Verdict
 def test_every_violation_code_either_has_a_field_or_says_why_not() -> None:
     codes = {code for c in GRID_CONSTRAINTS for code in c.violations}
     codes |= {"PARAMETERS_NOT_SET", "PARAMETERS_UNREADABLE"}
-    # The balance is judged on the exchange's snapshot (`BOT-173`) and speaks
+    # The balance is judged on the exchange's snapshot (`BOT-174`) and speaks
     # on the Capital field through `field_verdicts`.
     codes |= {CAPITAL_FIELD}
     assert codes == set(FIELDS_OF_CODE) | set(NO_FIELD)

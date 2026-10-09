@@ -69,7 +69,7 @@ def fresh_snapshot() -> VenueAccountSnapshot:
 
 def poor_account(screen, available: Decimal) -> None:
     """The account can spend `available` USDT, as the Connect step reads it and
-    as the exchange snapshot does (`BOT-173`)."""
+    as the exchange snapshot does (`BOT-174`)."""
     screen.account.answer_with(
         replace(fresh_snapshot(), available=available, read_at=NOW)
     )

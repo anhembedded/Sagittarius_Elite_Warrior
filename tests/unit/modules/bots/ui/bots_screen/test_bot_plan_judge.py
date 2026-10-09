@@ -78,7 +78,7 @@ def test_the_account_is_judged_beside_the_plan() -> None:
 
     refusing = [v.code for v in judged.verdicts if v.refuses]
     assert refusing == ["KEY_CANNOT_TRADE"]
-    # The balance is the exchange snapshot's to judge (`BOT-173`): a poor
+    # The balance is the exchange snapshot's to judge (`BOT-174`): a poor
     # account is not a verdict of the plan.
     assert "CAPITAL_ABOVE_BALANCE" not in [v.code for v in judged.verdicts]
 

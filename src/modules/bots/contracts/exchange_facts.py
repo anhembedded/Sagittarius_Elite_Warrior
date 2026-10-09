@@ -1,4 +1,4 @@
-"""`BOT-173` — what the exchange says about a bot's symbol and account, as one value.
+"""`BOT-174` — what the exchange says about a bot's symbol and account, as one value.
 
 @details Readiness used to be judged from state this process holds, so a check
 that needs the venue's facts (the free base, the orders resting on the symbol,

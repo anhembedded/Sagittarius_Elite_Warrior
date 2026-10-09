@@ -76,7 +76,7 @@ def a_funded_snapshot() -> VenueAccountSnapshot:
 def a_funded_status(
     venue: TradingVenue, available: Decimal = Decimal(50_000)
 ) -> ExchangeConnectionStatus:
-    """`BOT-173` — what the venue's trading account reports for the same funded
+    """`BOT-174` — what the venue's trading account reports for the same funded
     account: `available` USDT, free, nothing locked, the key allowed to trade."""
     return ExchangeConnectionStatus(
         venue=venue,

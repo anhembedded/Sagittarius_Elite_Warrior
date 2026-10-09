@@ -1,4 +1,4 @@
-"""`BOT-173` — handler for `GetExchangeFactsQuery`: the exchange snapshot of one bot.
+"""`BOT-174` — handler for `GetExchangeFactsQuery`: the exchange snapshot of one bot.
 
 A bot that cannot be found or read is an unavailable snapshot, in the words every
 bot command refuses it with, so the screen has one thing to show for it.

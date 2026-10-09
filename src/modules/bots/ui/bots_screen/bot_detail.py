@@ -84,7 +84,7 @@ class DetailInputs:
     connection: ConnectionRead | None = None
     #: The Run step's facts (`EPIC-034H`).
     run: RunFacts = field(default_factory=RunFacts)
-    #: What the exchange says (`BOT-173`); still being asked until it answers.
+    #: What the exchange says (`BOT-174`); still being asked until it answers.
     exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
 
 
@@ -147,7 +147,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
 
 
 def _resume_blocked_by(inputs: DetailInputs) -> str:
-    """What the exchange's facts leave in a HALTED bot's Resume's way (`BOT-173`):
+    """What the exchange's facts leave in a HALTED bot's Resume's way (`BOT-174`):
     the same rules and words the Resume use case refuses with."""
     bot, market = inputs.bot, inputs.market
     if bot.state is not BotLifecycleState.HALTED:

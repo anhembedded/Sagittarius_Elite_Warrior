@@ -1,4 +1,4 @@
-"""`BOT-173` — an exchange snapshot a test can start from.
+"""`BOT-174` — an exchange snapshot a test can start from.
 
 @details A funded Spot Testnet account that holds a little of the base, no open
 order on the symbol and nothing left by earlier runs: a test changes the one fact

@@ -105,8 +105,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | Emergency &stop | F8 | every mode | yes |
 | &Bots | &New bot… | — | Bots | — |
 | | &Save bot | Ctrl+S | Bots | — |
-| | Save and s&tart (decision D8: saves the edits on screen, then starts; off while the plan's readiness has items left, and its tip says how many; `EPIC-034H`. Readiness is judged on local state **and the exchange's snapshot** (`BOT-173`): loaded off the UI thread when a bot is selected, refreshed by Refresh &exchange check and on every state change, in three states — *checking* (the bot is not called ready), *unavailable* (named, never an empty account) and *loaded*) | — | Bots | — |
-| | &Pause / &Resume (a halted bot's Resume is off while the exchange's snapshot cannot cover its SELLs, with the shortfall as its tip; `BOT-173`) | — | Bots | — |
+| | Save and s&tart (decision D8: saves the edits on screen, then starts; off while the plan's readiness has items left, and its tip says how many; `EPIC-034H`. Readiness is judged on local state **and the exchange's snapshot** (`BOT-174`): loaded off the UI thread when a bot is selected, refreshed by Refresh &exchange check and on every state change, in three states — *checking* (the bot is not called ready), *unavailable* (named, never an empty account) and *loaded*) | — | Bots | — |
+| | &Pause / &Resume (a halted bot's Resume is off while the exchange's snapshot cannot cover its SELLs, with the shortfall as its tip; `BOT-174`) | — | Bots | — |
 | | Refresh &exchange check (asks the exchange again for the facts readiness is judged on) | — | Bots | — |
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |

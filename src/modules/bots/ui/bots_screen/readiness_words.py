@@ -73,7 +73,7 @@ def item_lines(readiness: BotReadiness, label_of: FieldLabelOf) -> tuple[str, ..
 
 
 def advisory_lines(readiness: BotReadiness) -> tuple[str, ...]:
-    """`BOT-173` — what the exchange says that does not stand in Start's way."""
+    """`BOT-174` — what the exchange says that does not stand in Start's way."""
     return tuple(f"• Note: {advisory.text}" for advisory in readiness.advisories)
 
 

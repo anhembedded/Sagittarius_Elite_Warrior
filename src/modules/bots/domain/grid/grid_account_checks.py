@@ -3,7 +3,7 @@
 Two named assertions, each reading the Connect step's `AccountView`
 (`EPIC-034D`'s snapshot, narrowed) rather than the exchange. The balance is not
 one of them: whether the account can pay for the ladder is a rule over the
-exchange's own snapshot (`BOT-173`, `exchange_rules.quote_short_for_ladder`),
+exchange's own snapshot (`BOT-174`, `exchange_rules.quote_short_for_ladder`),
 judged with the plan's exact need and the same words at the screen and at Start.
 
   · `OPENING_BUY` — **the plan buys its own base** (ADR O2). The SELL levels

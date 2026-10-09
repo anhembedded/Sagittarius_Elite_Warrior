@@ -1,4 +1,4 @@
-"""`BOT-173` — the readiness rules that need the exchange's facts: pure functions.
+"""`BOT-174` — the readiness rules that need the exchange's facts: pure functions.
 
 @details Each rule is `RuleContext -> RuleOutcome`: the local state (what the plan
 needs from the account, whether a start or a resume) and the exchange's facts, in,

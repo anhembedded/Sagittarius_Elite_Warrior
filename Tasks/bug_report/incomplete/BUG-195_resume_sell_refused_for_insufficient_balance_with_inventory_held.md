@@ -29,7 +29,7 @@ What decides it: the account's ETH free and locked at 10:45:57 and its open orde
 Checked 2026-10-09: not the same cause. BUG-196 (a new Start forgets the previous run's base) needs a new `run_started_at`, which a Resume from HALTED never stamps (`bot.py:164-166`); the 0.0082917 ETH the resume derived was its own run's. What BUG-196 does add to the candidates above: an account that holds base the bot does not track makes "free base on the account" and "inventory derived by the bot" differ in both directions, so the comparison named in the first suggested step stays necessary.
 
 ## Fix
-None yet for the cause. **Mitigation (`BOT-173`):** a Resume of a halted bot is refused, before anything is queued, when the account's free base (plus the base locked in the bot's own resting SELLs, which the resume cancels) is below the SELLs its ladder lays; the refusal names both numbers and the base other orders lock. It is a guard, not the root-cause fix: the bug stays Open until the divergence it came from is established.
+None yet for the cause. **Mitigation (`BOT-174`):** a Resume of a halted bot is refused, before anything is queued, when the account's free base (plus the base locked in the bot's own resting SELLs, which the resume cancels) is below the SELLs its ladder lays; the refusal names both numbers and the base other orders lock. It is a guard, not the root-cause fix: the bug stays Open until the divergence it came from is established.
 
 ## Regression test
 Not written. Candidate: a fake exchange whose free base is lower than the derived inventory; the resume names the shortfall instead of reporting a bare `-2010`.

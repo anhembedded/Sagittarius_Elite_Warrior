@@ -1,4 +1,4 @@
-"""`BOT-173` — a resume from HALTED is refused, before anything is queued, when the
+"""`BOT-174` — a resume from HALTED is refused, before anything is queued, when the
 account's free base cannot cover the SELLs its ladder lays (`BUG-195`).
 
 @details The exchange refuses the first SELL of such a ladder with `-2010` after

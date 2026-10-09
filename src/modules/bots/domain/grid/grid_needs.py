@@ -1,4 +1,4 @@
-"""`BOT-173` — what a ladder asks of the account, from the plan alone.
+"""`BOT-174` — what a ladder asks of the account, from the plan alone.
 
 @details The readiness rules compare these numbers with the exchange's facts
 (`exchange_rules.py`). They are pure functions of a `GridPlan`, which both the

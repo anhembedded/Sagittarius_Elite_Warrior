@@ -1,4 +1,4 @@
-"""`EPIC-035R`, `BOT-173` — the ladder a Resume proposes, as one pure function.
+"""`EPIC-035R`, `BOT-174` — the ladder a Resume proposes, as one pure function.
 
 A resume from HALTED lays no opening buy (ADR D13, §3.4): the SELL side is sized
 to the inventory the bot holds and the BUY side shares only the capital that
