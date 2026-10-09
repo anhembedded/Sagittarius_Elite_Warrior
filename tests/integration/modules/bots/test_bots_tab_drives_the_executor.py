@@ -13,6 +13,7 @@ step waits on a named condition (`qtbot.waitUntil`), never a sleep.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -281,33 +282,33 @@ def test_save_and_start_saves_the_edits_on_screen_and_starts_with_them(
     assert resting(app.urls) == ladder(app.runtime(bot_id))
 
 
-def test_a_capital_above_the_account_is_listed_before_the_click_and_start_waits(
+def test_a_ladder_the_account_cannot_pay_for_is_listed_before_the_click_and_start_waits(
     screen: _Screen,
 ) -> None:
-    """The fake account holds 100,000 USDT: 150,000 is the balance constraint,
-    shown on the Plan and holding Start off, with nothing placed."""
+    """The balance is the exchange's snapshot (`BOT-173`): once the account holds
+    less than the ladder spends, a refresh lists it on the Plan and holds Start
+    off, with nothing placed."""
     app = screen.app
     bot_id = _created(app)
     screen.select(bot_id)
     screen.qtbot.waitUntil(
         lambda: _plan_says(screen, "Start: Ready to start"), timeout=_WAIT_MS
     )
-    panel = screen.view._kind_panel
-    assert panel is not None
+    spot = app.urls.spot_account
+    spot.withdraw_free("USDT", spot.free_balance("USDT") - Decimal(1500))
 
-    panel.capital.setText("150000")
-    panel.capital.textEdited.emit("150000")
+    screen.view.model.refresh_exchange_requested.emit()
 
     model = screen.view.model
 
     def balance_is_listed() -> bool:
         left = model.readiness
-        return left is not None and "CAPITAL_ABOVE_BALANCE" in [
+        return left is not None and "RUN_QUOTE_SHORT" in [
             item.code for item in left.items
         ]
 
     screen.qtbot.waitUntil(balance_is_listed, timeout=_WAIT_MS)
     assert "left" in screen.view.plan.readiness_header.text()
-    assert "available on Spot Testnet" in screen.view.plan.readiness_items.text()
+    assert "USDT free" in screen.view.plan.readiness_items.text()
     assert not screen.actions.action(lifecycle_id(BotAction.START)).isEnabled()
     assert resting(app.urls) == {}

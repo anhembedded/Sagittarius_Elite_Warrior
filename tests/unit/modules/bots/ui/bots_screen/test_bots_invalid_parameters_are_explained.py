@@ -12,7 +12,6 @@ The status bar's line of the audit is `EPIC-035W`'s, not here.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from decimal import Decimal
 
 from PySide6.QtCore import QPoint
@@ -27,8 +26,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import 
     GridPanel,
 )
 
-from .bots_screen_fixtures import NOW, stored
-from .connect_screen_helpers import fresh_snapshot, select
+from .bots_screen_fixtures import stored
+from .connect_screen_helpers import poor_account, select
 
 
 def _panel(screen) -> GridPanel:
@@ -39,9 +38,7 @@ def _panel(screen) -> GridPanel:
 
 def _poor_draft(open_bots_screen):
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    screen.account.answer_with(
-        replace(fresh_snapshot(), available=Decimal(800), read_at=NOW)
-    )
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()
@@ -150,7 +147,7 @@ def test_a_save_over_a_plan_start_refuses_says_so(open_bots_screen) -> None:
     text = screen.view.status.text()
     assert text.startswith("Save"), text
     assert "Start is still blocked" in text
-    assert "800.00 USDT available" in text
+    assert "has 800.00 USDT free" in text
 
 
 def test_a_save_of_a_plan_that_can_start_says_only_that_it_is_done(

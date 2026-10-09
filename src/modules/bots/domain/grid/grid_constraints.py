@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_account_checks import (
-    check_capital_within_balance,
     check_key_may_trade,
     check_opening_buy,
 )
@@ -111,11 +110,6 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
         "every_level_has_its_own_price",
         check_distinct_levels,
         {"LEVELS_ROUND_TO_ONE_PRICE": True},
-    ),
-    GridConstraint(
-        "capital_within_balance",
-        check_capital_within_balance,
-        {"CAPITAL_ABOVE_BALANCE": True},
     ),
     GridConstraint("opening_buy_is_planned", check_opening_buy, {}),
     GridConstraint("key_may_trade", check_key_may_trade, {"KEY_CANNOT_TRADE": True}),

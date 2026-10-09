@@ -4,6 +4,7 @@ shows, Start's rule, and the two answers a venue can give."""
 from __future__ import annotations
 
 from dataclasses import replace
+from decimal import Decimal
 
 from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
@@ -16,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
+    a_funded_status,
     a_venue_account_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
@@ -26,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_sou
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
-from .bots_screen_fixtures import NOW, BotsScreen
+from .bots_screen_fixtures import NOW, VENUE, BotsScreen
 
 _SPOT = AccountSource.SPOT_TESTNET
 
@@ -63,6 +65,15 @@ FUNDED = 50_000
 
 def fresh_snapshot() -> VenueAccountSnapshot:
     return replace(a_venue_account_snapshot(available=FUNDED), read_at=NOW)
+
+
+def poor_account(screen, available: Decimal) -> None:
+    """The account can spend `available` USDT, as the Connect step reads it and
+    as the exchange snapshot does (`BOT-173`)."""
+    screen.account.answer_with(
+        replace(fresh_snapshot(), available=available, read_at=NOW)
+    )
+    screen.exchange_account.answer_with(a_funded_status(VENUE, available))
 
 
 def failure(kind: ConnectionFailureKind, detail: str = "the account") -> ConnectFailure:

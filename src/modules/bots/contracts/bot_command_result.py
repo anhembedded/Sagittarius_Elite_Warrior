@@ -26,6 +26,10 @@ class BotRefusal(str, Enum):
     #: trading on, no REFUSED verdict, the symbol's lease, the owner budget.
     VENUE_NOT_READY = "VENUE_NOT_READY"
     PARAMETERS_REFUSED = "PARAMETERS_REFUSED"
+    #: `BOT-173` — the exchange's facts could not be read, so what they decide
+    #: is not known; and an account that holds too little for the ladder.
+    EXCHANGE_NOT_READ = "EXCHANGE_NOT_READ"
+    BALANCE_TOO_SMALL = "BALANCE_TOO_SMALL"
     SYMBOL_LEASED = "SYMBOL_LEASED"
     BUDGET_REFUSED = "BUDGET_REFUSED"
     #: A HALTED bot's executor holds no resume proposal to confirm (none

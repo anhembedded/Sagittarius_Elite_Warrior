@@ -164,9 +164,9 @@ def test_a_capital_above_the_balance_is_refused_before_any_order() -> None:
     reported = _query(world)
     result = _start(world, runner)
 
-    assert [i.code for i in reported.items] == ["CAPITAL_ABOVE_BALANCE"]
-    assert result.refusal is BotRefusal.PARAMETERS_REFUSED
-    assert "999" in result.message
+    assert [i.code for i in reported.items] == ["RUN_QUOTE_SHORT"]
+    assert result.refusal is BotRefusal.BALANCE_TOO_SMALL
+    assert "999.00 USDT free" in result.message
     assert runner.started == []
     assert world.session.ready_requests == 0
 
@@ -283,7 +283,7 @@ def test_save_and_start_with_edits_that_are_not_ready_saves_nothing() -> None:
 
     result = _start(world, runner, edited)
 
-    assert result.refusal is BotRefusal.PARAMETERS_REFUSED
+    assert result.refusal is BotRefusal.BALANCE_TOO_SMALL
     assert runner.started == []
     assert world.store.load(BotId(BOT)).bot.definition.config == CONFIG
 
@@ -303,8 +303,8 @@ def test_the_query_judges_edits_that_are_not_saved_yet() -> None:
     saved = _query(world)
     edited = _query(world, {**CONFIG, "capital_quote": "400"})
 
-    assert "CAPITAL_ABOVE_BALANCE" in [i.code for i in saved.items]
-    assert "CAPITAL_ABOVE_BALANCE" not in [i.code for i in edited.items]
+    assert "RUN_QUOTE_SHORT" in [i.code for i in saved.items]
+    assert "RUN_QUOTE_SHORT" not in [i.code for i in edited.items]
 
 
 def test_save_and_start_is_judged_on_the_edits_not_on_the_saved_parameters() -> None:

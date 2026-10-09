@@ -76,6 +76,8 @@ class BotsViewModel(StatusMessageViewModel):
     refresh_fills_requested = Signal()
     #: Read the selected bot's venue account again (`EPIC-034D`).
     retry_connect_requested = Signal()
+    #: Ask the exchange again for the facts the readiness is judged on (`BOT-173`).
+    refresh_exchange_requested = Signal()
     #: Do the first fix the readiness offers (`EPIC-034H`): bring the field
     #: forward, read the account again, or select the bot that is still active.
     fix_next_requested = Signal()

@@ -83,3 +83,13 @@ def test_a_seeded_error_is_raised_by_both_histories() -> None:
     for read in (fake.order_history, fake.trade_history):
         with pytest.raises(AccountHistoryUnavailableError):
             read(HistoryRequest(symbol=None, since=_SINCE))
+
+
+def test_open_orders_raise_makes_the_read_fail_as_a_network_error_does() -> None:
+    fake = FakeAccountActivity()
+    fake.holding_open_orders([order()])
+    fake.open_orders_raise(ConnectionError("rate limited"))
+
+    with pytest.raises(ConnectionError, match="rate limited"):
+        fake.open_orders()
+    assert fake.open_order_reads == 1

@@ -19,8 +19,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import 
     GridPanel,
 )
 
-from .bots_screen_fixtures import GOOD_CONFIG, NOW, stored
-from .connect_screen_helpers import chart_shown, fresh_snapshot, select, start_rule
+from .bots_screen_fixtures import GOOD_CONFIG, stored
+from .connect_screen_helpers import (
+    chart_shown,
+    fresh_snapshot,
+    poor_account,
+    select,
+    start_rule,
+)
 
 
 def _panel(screen) -> GridPanel:
@@ -36,17 +42,11 @@ def _edit_capital(screen, text: str) -> None:
     screen.presenter._refresh_detail()
 
 
-def _poor_account(screen, available: str) -> None:
-    screen.account.answer_with(
-        replace(fresh_snapshot(), available=Decimal(available), read_at=NOW)
-    )
-
-
 def test_a_capital_above_the_balance_is_said_on_the_capital_field_with_the_number(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    _poor_account(screen, "800")
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()
@@ -54,9 +54,9 @@ def test_a_capital_above_the_balance_is_said_on_the_capital_field_with_the_numbe
     message = _panel(screen).field_error_text("capital_quote")
 
     assert message.startswith("Blocks Start: ")
-    assert "1000 USDT" in message
-    assert "800.00 USDT available on Spot Testnet" in message
-    assert "at most 800.00" in message
+    assert "need 995.48 USDT" in message
+    assert "Spot Testnet has 800.00 USDT free" in message
+    assert "at most 803.63" in message
     # Only the field the constraint is about carries it; the range's own
     # advice (the ATR) is another constraint's and does not block.
     assert not _panel(screen).field_error_text("lower").startswith("Blocks")
@@ -67,7 +67,7 @@ def test_the_balance_blocks_start_and_names_itself_as_the_reason(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    _poor_account(screen, "800")
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()
@@ -75,14 +75,14 @@ def test_the_balance_blocks_start_and_names_itself_as_the_reason(
     enabled, reason = start_rule(screen)
 
     assert not enabled
-    assert "800.00 USDT available" in reason
+    assert "Spot Testnet has 800.00 USDT free" in reason
 
 
 def test_lowering_the_capital_to_the_balance_clears_the_field_and_opens_start(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
-    _poor_account(screen, "800")
+    poor_account(screen, Decimal(800))
     screen.settle()
     select(screen, "a00001")
     screen.settle()

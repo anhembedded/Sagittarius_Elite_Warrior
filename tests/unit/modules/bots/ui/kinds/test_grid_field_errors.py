@@ -5,6 +5,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+    CAPITAL_FIELD,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_constraints import (
     GRID_CONSTRAINTS,
 )
@@ -42,6 +45,9 @@ def _verdict(code: str, severity: VerdictSeverity, reason: str = "r") -> Verdict
 def test_every_violation_code_either_has_a_field_or_says_why_not() -> None:
     codes = {code for c in GRID_CONSTRAINTS for code in c.violations}
     codes |= {"PARAMETERS_NOT_SET", "PARAMETERS_UNREADABLE"}
+    # The balance is judged on the exchange's snapshot (`BOT-173`) and speaks
+    # on the Capital field through `field_verdicts`.
+    codes |= {CAPITAL_FIELD}
     assert codes == set(FIELDS_OF_CODE) | set(NO_FIELD)
     assert not set(FIELDS_OF_CODE) & set(NO_FIELD)
 

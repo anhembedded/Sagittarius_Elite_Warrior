@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readine
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
     BotRunner,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
+    ExchangeFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
@@ -60,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
     ReadOnlyBotRunner,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+    ResumeReadinessReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
     SleepWatch,
@@ -109,6 +115,8 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(BotExecutors, _build_executors)
     container.singleton(IBotRunner, _build_runner)
     container.singleton(BotReadinessReader, _build_readiness_reader)
+    container.singleton(ExchangeFactsReader, _build_exchange_facts_reader)
+    container.singleton(ResumeReadinessReader, _build_resume_readiness_reader)
     container.singleton(IBotKindCatalog, _build_kind_catalog)
     container.singleton(IBotTicker, _build_ticker)
     container.singleton(BotPriceWatch, _build_price_watch)
@@ -174,6 +182,23 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
     return GridExecutorFactory(deps)
 
 
+def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
+    """What the exchange says about a bot's symbol (`BOT-173`): the screen's load
+    and the Start and Resume gates read it through this one reader."""
+    return ExchangeFactsReader(
+        container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
+    )
+
+
+def _build_resume_readiness_reader(container: IContainer) -> ResumeReadinessReader:
+    """What the Resume use case asks before it queues the resume (`BOT-173`)."""
+    return ResumeReadinessReader(
+        container.resolve(ExchangeFactsReader),
+        container.resolve(IVenueTradingPorts),
+        container.resolve(OwnerBudgetCaps),
+    )
+
+
 def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
     """What the Start use case and `GetBotReadinessQuery` both ask (`EPIC-034H`)."""
     return BotReadinessReader(
@@ -182,6 +207,7 @@ def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
         container.resolve(IVenueAccounts),
         container.resolve(IVenueTradingPorts),
         container.resolve(OwnerBudgetCaps),
+        container.resolve(ExchangeFactsReader),
     )
 
 

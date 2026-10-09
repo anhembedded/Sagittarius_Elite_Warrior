@@ -83,6 +83,9 @@ class BotsFailures:
         self._show_fills(BotFills(problem=f"not read: {state_words(refusal)}"))
 
     def read_failed(self, kind: ReadKind, _label: str, detail: str) -> None:
+        if kind is ReadKind.EXCHANGE:
+            # Told by the snapshot itself: the Run step names it unavailable.
+            return
         if kind is ReadKind.FILLS:
             self._show_fills(BotFills(problem=FILLS_PROBLEM))
         self._notifier.report_failure(

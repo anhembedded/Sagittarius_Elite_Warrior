@@ -14,9 +14,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+    field_verdicts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
     MARKET_NOT_READ,
@@ -26,15 +30,24 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_a
     RunFacts,
     assess_readiness,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+    ResumeInputs,
+    assess_resume,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
+    ExchangeChecking,
+    ExchangeSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
+    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
@@ -53,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge im
     judge,
     verdict_line,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 
 
 @dataclass(frozen=True)
@@ -68,6 +84,8 @@ class DetailInputs:
     connection: ConnectionRead | None = None
     #: The Run step's facts (`EPIC-034H`).
     run: RunFacts = field(default_factory=RunFacts)
+    #: What the exchange says (`BOT-173`); still being asked until it answers.
+    exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
 
 
 @dataclass(frozen=True)
@@ -104,18 +122,21 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
                 connection,
                 inputs.market,
                 inputs.run,
+                inputs.exchange,
             )
         )
         if bot.state in RUN_STARTING_STATES
         else None
     )
     start = StartConditions(
-        blocked_by=readiness.message() if readiness and not readiness.can_start else ""
+        blocked_by=readiness.message() if readiness and not readiness.can_start else "",
+        resume_blocked_by=_resume_blocked_by(inputs),
     )
+    verdicts = judged.verdicts + (field_verdicts(readiness.items) if readiness else ())
     return BotDetail(
         facts=bot_facts(bot, inputs.now),
-        verdicts=judged.verdicts,
-        verdict_lines=tuple(verdict_line(verdict) for verdict in judged.verdicts),
+        verdicts=verdicts,
+        verdict_lines=tuple(verdict_line(verdict) for verdict in verdicts),
         availability={
             action: availability(bot.state, action, start) for action in BotAction
         },
@@ -123,6 +144,35 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         readiness=readiness,
         overlay_note=_not_drawn(bot, inputs.market, judged),
     )
+
+
+def _resume_blocked_by(inputs: DetailInputs) -> str:
+    """What the exchange's facts leave in a HALTED bot's Resume's way (`BOT-173`):
+    the same rules and words the Resume use case refuses with."""
+    bot, market = inputs.bot, inputs.market
+    if bot.state is not BotLifecycleState.HALTED:
+        return ""
+    left = assess_resume(
+        ResumeInputs(
+            inputs.edited if inputs.edited is not None else bot.config,
+            market.terms if market else None,
+            market.market.last_price if market and market.market else None,
+            _recorded_inventory(bot),
+            inputs.exchange,
+        )
+    ).items
+    return (
+        "Resume is blocked: " + "; ".join(item.reason for item in left) if left else ""
+    )
+
+
+def _recorded_inventory(bot: BotSnapshot) -> OwnerInventory:
+    """What the bot's own record says it holds, and what that cost."""
+    progress = bot.progress
+    if progress is None:
+        return OwnerInventory(Decimal(0), Decimal(0))
+    average = progress.average_cost or Decimal(0)
+    return OwnerInventory(progress.inventory, progress.inventory * average)
 
 
 def _not_drawn(

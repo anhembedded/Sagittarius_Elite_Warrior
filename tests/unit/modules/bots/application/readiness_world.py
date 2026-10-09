@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_ca
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readiness_reader import (
     BotReadinessReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
+    ExchangeFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
@@ -44,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
     DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudgetCaps,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
@@ -51,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
     FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
+    a_funded_status,
     a_venue_account_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
@@ -89,6 +96,9 @@ class ReadinessWorld:
     caps: OwnerBudgetCaps
     ports: FakeVenueTradingPorts
     kinds: BotKindCatalog
+    facts: ExchangeFactsReader
+    #: What the venue's trading account reports: the exchange snapshot's balances.
+    holdings: FakeAccountSnapshot
 
 
 def readiness_world(
@@ -102,10 +112,12 @@ def readiness_world(
     can_trade: bool | None = True,
 ) -> ReadinessWorld:
     session = FakeTradingSession()
+    holdings = FakeAccountSnapshot(a_funded_status(venue, available))
     ports = FakeVenueTradingPorts(
         fake_venue_ports(
             venue,
             trading_session=session,
+            account_snapshot=holdings,
             order_entry_terms=FakeOrderEntryTerms(
                 terms_entry(),
                 books={
@@ -130,8 +142,23 @@ def readiness_world(
     )
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
     kinds = BotKindCatalog([GridKind(None, GridThresholds())])  # type: ignore[arg-type]
-    reader = BotReadinessReader(store, kinds, FakeVenueAccounts(account), ports, caps)
-    return ReadinessWorld(store, clock, session, account, reader, caps, ports, kinds)
+    accounts = FakeVenueAccounts(account)
+    facts = ExchangeFactsReader(ports, clock)
+    reader = BotReadinessReader(store, kinds, accounts, ports, caps, facts)
+    return ReadinessWorld(
+        store, clock, session, account, reader, caps, ports, kinds, facts, holdings
+    )
+
+
+def set_available(world: ReadinessWorld, available: Decimal) -> None:
+    """The quote the account can spend, as the Connect step and the exchange
+    snapshot both read it."""
+    world.account.answer_with(
+        replace(world.account.read(SYMBOL), available=available)  # type: ignore[type-var]
+    )
+    world.holdings.answer_with(
+        a_funded_status(world.holdings.check_connection().venue, available)
+    )
 
 
 def add_bot(

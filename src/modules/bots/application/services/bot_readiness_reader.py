@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_fac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
     failure_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
+    ExchangeFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
     other_active_bot,
 )
@@ -85,19 +88,22 @@ class BotReadinessReader:
         accounts: IVenueAccounts,
         ports: IVenueTradingPorts,
         caps: OwnerBudgetCaps,
+        exchange: ExchangeFactsReader,
     ) -> None:
         self._store = store
         self._kinds = kinds
         self._accounts = accounts
         self._ports = ports
         self._caps = caps
+        self._exchange = exchange
         self._run_facts = BotRunFactsReader(ports, caps)
 
     def read(self, bot: Bot, config: Mapping[str, str] | None = None) -> BotReadiness:
         definition = bot.definition
         judged = dict(config) if config is not None else dict(definition.config)
         bot_id = bot.bot_id.value
-        connection, account_ok = self._connection(bot)
+        answer = self._account(bot)
+        connection, account_ok = self._connection(bot, answer)
         readings = self._store.load_all()
         run = self._run_facts.read(
             bot_id,
@@ -119,6 +125,7 @@ class BotReadinessReader:
                 connection=connection,
                 market=self._market(bot) if account_ok else None,
                 run=run,
+                exchange=self._exchange.read(bot),
             )
         )
         logger.debug(
@@ -135,15 +142,19 @@ class BotReadinessReader:
         except UnknownBotKindError:
             return None
 
-    def _connection(self, bot: Bot) -> tuple[ConnectionRead, bool]:
+    def _account(self, bot: Bot) -> VenueAccountSnapshot | ConnectFailure:
         source = AccountSource.for_venue(bot.definition.venue)
-        title = source.venue_title
         try:
-            answer = self._accounts.reader(source).read(bot.definition.symbol)
+            return self._accounts.reader(source).read(bot.definition.symbol)
         except UnknownAccountSourceError:
-            answer = ConnectFailure(
+            return ConnectFailure(
                 source, ConnectionFailureKind.NOT_CONFIGURED, "the venue is not enabled"
             )
+
+    def _connection(
+        self, bot: Bot, answer: VenueAccountSnapshot | ConnectFailure
+    ) -> tuple[ConnectionRead, bool]:
+        title = AccountSource.for_venue(bot.definition.venue).venue_title
         if isinstance(answer, VenueAccountSnapshot):
             return (
                 ConnectionRead(

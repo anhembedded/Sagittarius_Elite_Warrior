@@ -58,6 +58,9 @@ class StartConditions:
     #: What is left before Start, in words (`BotReadiness.message`): the
     #: count and every reason; empty when nothing is.
     blocked_by: str = ""
+    #: What the exchange's facts leave in a halted bot's Resume's way
+    #: (`BOT-173`), in words; empty when nothing does.
+    resume_blocked_by: str = ""
 
 
 def availability(
@@ -73,6 +76,8 @@ def availability(
         )
     if action is BotAction.START and start.blocked_by:
         return ActionAvailability(False, start.blocked_by)
+    if action is BotAction.RESUME and start.resume_blocked_by:
+        return ActionAvailability(False, start.resume_blocked_by)
     return ActionAvailability(True, _WHAT_IT_DOES[action])
 
 

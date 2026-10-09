@@ -27,9 +27,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_a
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
+    ExchangeChecking,
+    ExchangeSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
     UnknownBotKindError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
+    BotAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import (
     BotDetail,
@@ -68,10 +75,15 @@ class SelectedBot:
         #: selecting a bot never clears it. It carries the account the balance
         #: and key constraints read (`EPIC-034F`).
         self.connection: ConnectionRead | None = None
+        #: What the exchange says about the selection (`BOT-173`): still being
+        #: asked from the moment a bot is selected, so one bot's facts are never
+        #: judged for another.
+        self.exchange: ExchangeSnapshot = ExchangeChecking()
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
         self.bot, self.market, self.edited = bot, None, None
+        self.exchange = ExchangeChecking()
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
             self.panel.set_config(bot.config)
@@ -85,6 +97,9 @@ class SelectedBot:
     def take_snapshot(self, bot: BotSnapshot) -> None:
         """The same bot, re-read: its state and progress may have moved."""
         self.bot = bot
+
+    def take_exchange(self, exchange: ExchangeSnapshot) -> None:
+        self.exchange = exchange
 
     def take_market(self, market: PlannerMarket) -> None:
         self.market = market
@@ -105,6 +120,18 @@ class SelectedBot:
 
     def saved(self) -> None:
         self.edited = None
+
+    def still_blocked(self, action: BotAction | None) -> str:
+        """What a Save leaves undone (`EPIC-035N`): the parameters were stored as
+        they are, and Start still refuses them, for the reason it would give
+        (read before the edits are dropped, so it judges what was saved)."""
+        if action is not BotAction.SAVE:
+            return ""
+        detail = self.detail()
+        readiness = detail.readiness if detail else None
+        if readiness is None or readiness.can_start:
+            return ""
+        return f" Saved as they are. Start is still blocked: {readiness.message()}"
 
     def detail(self) -> BotDetail | None:
         if self.bot is None:
@@ -134,6 +161,7 @@ class SelectedBot:
                 self.edited,
                 self.connection,
                 run,
+                self.exchange,
             )
         )
 

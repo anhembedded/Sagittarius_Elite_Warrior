@@ -2,7 +2,8 @@
 the same items.
 
 The screen assembles its inputs from what it holds (the Connect step's account,
-the planner's market numbers, the list's bots); Start reads them afresh. The
+the planner's market numbers, the list's bots, the exchange snapshot of
+`BOT-173`); Start reads them afresh. The
 inputs are built apart, the judgement is one function, so a scenario fed to both
 must agree: a difference is an input one of them builds differently.
 """
@@ -10,7 +11,6 @@ must agree: a difference is an input one of them builds differently.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -51,6 +51,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_wor
     ReadinessWorld,
     add_bot,
     readiness_world,
+    set_available,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
@@ -91,6 +92,7 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
                 ConnectionState.CONNECTED, "Spot Testnet", account_view_of(answer)
             ),
             run,
+            world.facts.read(stored.bot),
         )
     )
     assert detail.readiness is not None
@@ -103,9 +105,7 @@ def _starts_items(world: ReadinessWorld) -> list[str]:
 
 
 def _poor(world: ReadinessWorld) -> None:
-    world.account.answer_with(
-        replace(world.account.read(SYMBOL), available=Decimal(10))  # type: ignore[type-var]
-    )
+    set_available(world, Decimal(10))
 
 
 SCENARIOS: dict[str, Callable[[ReadinessWorld], None]] = {

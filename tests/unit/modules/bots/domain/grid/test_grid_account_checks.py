@@ -47,49 +47,6 @@ def _verdict(evaluation: GridEvaluation, *codes: str) -> Verdict:
     return matches[0]
 
 
-def _balance(view: AccountView | None, **changes: str) -> Verdict:
-    return _verdict(
-        _evaluate(view, **changes),
-        "BALANCE",
-        "CAPITAL_ABOVE_BALANCE",
-        "BALANCE_NOT_READ",
-    )
-
-
-# --- capital ≤ available quote balance --------------------------------------
-
-
-def test_a_capital_equal_to_the_balance_passes() -> None:
-    assert _balance(account("10000")).code == "BALANCE"
-
-
-def test_a_capital_one_cent_above_the_balance_blocks_and_names_what_fits() -> None:
-    verdict = _balance(account("9999.99"))
-    assert verdict.code == "CAPITAL_ABOVE_BALANCE"
-    assert verdict.refuses
-    assert verdict.numbers["capital"] == Decimal(10000)
-    assert verdict.numbers["available"] == Decimal("9999.99")
-    assert verdict.numbers["largest_capital"] == Decimal("9999.99")
-    assert "9999.99 USDT available on Spot Testnet" in verdict.reason
-    assert "at most 9999.99" in verdict.reason
-
-
-def test_the_largest_capital_that_fits_is_floored_to_a_cent() -> None:
-    assert _balance(account("9999.999")).numbers["largest_capital"] == Decimal(
-        "9999.99"
-    )
-
-
-def test_a_larger_balance_passes() -> None:
-    assert _balance(account("10000.01")).severity is VerdictSeverity.OK
-
-
-def test_without_the_account_the_balance_check_says_it_did_not_run() -> None:
-    verdict = _balance(None)
-    assert verdict.code == "BALANCE_NOT_READ"
-    assert verdict.severity is VerdictSeverity.OK
-
-
 # --- the base for the sell levels: the plan buys it first (ADR O2) ----------
 
 

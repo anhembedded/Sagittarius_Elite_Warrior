@@ -99,6 +99,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
 )
@@ -110,6 +113,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_account_snapshot import (
     a_funded_snapshot,
+    a_funded_status,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_accounts import (
     FakeVenueAccountReader,
@@ -235,6 +239,9 @@ class BotsScreen:
     market_sources: FakeMarketDataSources
     #: The testnet's order terms: what the planner reads its filters and fees from.
     venue_terms: FakeOrderEntryTerms
+    #: What the testnet's trading account reports: the exchange snapshot's balances
+    #: (`BOT-173`), beside the Connect step's own read above.
+    exchange_account: FakeAccountSnapshot
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -280,6 +287,7 @@ def open_screen(
     trading_session = FakeTradingSession()
     venue_terms = terms()
     activity, mainnet_activity = FakeAccountActivity(), FakeAccountActivity()
+    exchange_account = FakeAccountSnapshot(a_funded_status(VENUE))
     container.singleton(
         IVenueTradingPorts,
         FakeVenueTradingPorts(
@@ -288,11 +296,13 @@ def open_screen(
                 order_entry_terms=venue_terms,
                 trading_session=trading_session,
                 account_activity=activity,
+                account_snapshot=exchange_account,
             ),
             fake_venue_ports(
                 MAINNET,
                 order_entry_terms=terms(),
                 account_activity=mainnet_activity,
+                account_snapshot=FakeAccountSnapshot(a_funded_status(MAINNET)),
             ),
         ),
     )
@@ -348,4 +358,5 @@ def open_screen(
         mainnet_activity,
         market_sources,
         venue_terms,
+        exchange_account,
     )

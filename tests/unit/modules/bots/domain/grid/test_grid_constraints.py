@@ -88,7 +88,6 @@ _PROVOKING: dict[str, dict[str, object]] = {
             ),
         )
     },
-    "CAPITAL_ABOVE_BALANCE": {"account": AccountView(Decimal(1), "USDT", True, "x")},
     "KEY_CANNOT_TRADE": {"account": AccountView(Decimal(10000), "USDT", False, "x")},
     "STEP_BELOW_MINIMUM": {"grid_count": "100", "capital_quote": "10000"},
     "RANGE_OUTSIDE_ATR_BAND": {"daily_atr": Decimal(1)},
@@ -159,7 +158,6 @@ def test_the_rules_of_the_exchange_and_money_block() -> None:
         "LEVEL_ABOVE_MAX_NOTIONAL",
         "TOO_MANY_LEVELS",
         "LEVEL_OUTSIDE_PRICE_BAND",
-        "CAPITAL_ABOVE_BALANCE",
         "KEY_CANNOT_TRADE",
         "STOP_LOSS_INSIDE_RANGE",
         "TAKE_PROFIT_INSIDE_RANGE",

@@ -1,7 +1,8 @@
 """`EPIC-029F` — the Bots screen's reads, off the UI thread and fenced.
 
-Three reads, each its own kind: the list, the planner's market numbers for
-the selected bot, and its fills. A newer read of a kind supersedes the older
+Four reads, each its own kind: the list, the planner's market numbers for
+the selected bot, its fills, and what the exchange says about its symbol
+and account (`BOT-173`). A newer read of a kind supersedes the older
 one, whose answer is then dropped as stale (`async-ui-action-rule.md` §1):
 selecting another bot while the first one's fills load never shows the first
 one's fills. The presenter owns the trackers (one per kind) and hands them
@@ -25,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import failure_detail
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_exchange_facts import (
+    GetExchangeFactsQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
@@ -52,6 +56,9 @@ class ReadKind(str, Enum):
     #: `EPIC-034D` — the selected bot's venue account; read by `ConnectStep`'s
     #: own `FencedReads`, so the screen's presenter never sees its answers.
     CONNECT = "connect"
+    #: `BOT-173` — what the exchange says about the selected bot's symbol and
+    #: account, the facts the exchange rules of its readiness are judged on.
+    EXCHANGE = "exchange"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
@@ -81,6 +88,10 @@ class FencedReads(UiThreadRelay):
             return
         action = self._trackers[kind].begin_action(kind, label, None)
         self._threads.submit(self._read_on_pool, kind, action.action_id, label, task)
+
+    def abandon(self, kind: ReadKind) -> None:
+        """The read of `kind` in flight, if any, is answered into nothing."""
+        self._trackers[kind].invalidate_active()
 
     def drop_all(self) -> None:
         """Every read in flight is answered into nothing, and every later
@@ -144,6 +155,9 @@ class BotQueries:
         if bot is not None:
             self._read(ReadKind.FILLS, bot.bot_id, GetBotFillsQuery(bot.bot_id))
 
+    def exchange(self, bot: BotSnapshot) -> None:
+        self._read(ReadKind.EXCHANGE, bot.bot_id, GetExchangeFactsQuery(bot.bot_id))
+
     def again(self, kind: ReadKind) -> None:
         """Asks `kind` once more, for the selected bot (Retry on its message bar)."""
         bot = self._selected()
@@ -151,6 +165,8 @@ class BotQueries:
             self.bots()
         elif kind is ReadKind.PLANNER and bot is not None:
             self.planner(bot)
+        elif kind is ReadKind.EXCHANGE and bot is not None:
+            self.exchange(bot)
         else:
             self.fills(bot)
 

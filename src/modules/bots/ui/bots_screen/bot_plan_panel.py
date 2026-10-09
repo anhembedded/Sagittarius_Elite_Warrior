@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
     BotsViewModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words import (
+    advisory_lines,
     header,
     item_lines,
     step_lines,
@@ -260,8 +261,9 @@ class BotPlanPanel(QStackedWidget):
             f"Start: {header(readiness, self._model.readiness_state)}"
         )
         self.readiness_steps.setText("\n".join(step_lines(readiness)))
-        self.readiness_items.setText("\n".join(item_lines(readiness, label_of)))
-        self.readiness_items.setVisible(bool(readiness.items))
+        lines = (*item_lines(readiness, label_of), *advisory_lines(readiness))
+        self.readiness_items.setText("\n".join(lines))
+        self.readiness_items.setVisible(bool(lines))
 
     def _show_judgement(self) -> None:
         self.verdicts.setText("\n".join(self._model.verdict_lines))

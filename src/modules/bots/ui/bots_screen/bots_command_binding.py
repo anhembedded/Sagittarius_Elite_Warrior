@@ -28,6 +28,7 @@ from .bots_commands import (
     FIT_LEVELS,
     FIX_NEXT,
     NEW_BOT,
+    REFRESH_EXCHANGE,
     REFRESH_FILLS,
     RETRY_CONNECTION,
     lifecycle_id,
@@ -69,6 +70,13 @@ def bind_bots_commands(
     binder.bind(
         REFRESH_FILLS,
         lambda _checked: view_model.refresh_fills_requested.emit(),
+        enabled=fills.changed,
+        initially_enabled=fills.value,
+    )
+    # `BOT-173`: the exchange's facts are the selected bot's, like its fills.
+    binder.bind(
+        REFRESH_EXCHANGE,
+        lambda _checked: view_model.refresh_exchange_requested.emit(),
         enabled=fills.changed,
         initially_enabled=fills.value,
     )

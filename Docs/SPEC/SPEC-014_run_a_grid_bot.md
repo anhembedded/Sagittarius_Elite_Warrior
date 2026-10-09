@@ -85,21 +85,23 @@ sound, I start it, and I watch what it does."*
    that is strategy judgement only **advises**: the ATR, the room left for slippage, the spacing, how
    far an exit sits, some grids losing on each cycle, **the price above the range** (the bot starts
    with nothing bought and waits for a fall: `PRICE_ABOVE_RANGE`). The field the number lives in carries the sentence
-   under it, "Blocks Start: The capital is 10,000 USDT, above the 9,999.99 USDT available on Spot
-   Testnet; lower it to at most 9,999.99", or "Advice: …"; a constraint about the key, which is no
+   under it, "Blocks Start: The opening buy and the BUY levels need 995.48 USDT and Spot Testnet has
+   800.00 USDT free; lower the capital to at most 803.63" (the balance is judged on the exchange's
+   snapshot, step 6), or "Advice: …"; a constraint about the key, which is no
    field, appears in the verdicts and in Start's reason. While any verdict is Refused, Start is
    off and the Plan lists it among what is left (step 6). **The sell
    levels need no base in the account**: Start buys the base they sell at market first, out of the
    same capital, and the "Opening buy" verdict says how much and for about what (ADR O2).
 6. **Run** (`EPIC-034H`). At the top of the Plan the trader sees the three steps in words and what
    is left before Start: "Start: 3 things left", then "1. Connect: done", "2. Design: 2 things left",
-   "3. Run: waits for Design", then one line per item with its reason and its fix ("• Design: The
-   capital is 1000 USDT, above the 800.00 USDT available on Spot Testnet; lower it to at most 800.00
-   → edit Capital (quote)"). The items come from one query, `GetBotReadiness`, the same function the
-   Start use case asks at the click, so the button and the click cannot disagree: Connect (the
-   account unread or not readable), Design (every blocking constraint of step 5, once connected) and
-   Run (the venue trades Spot, no other bot is active, nobody else holds the symbol, the owner budget
-   fits trading's caps). Bots → **Fix next item** does the first fix on offer: reads the account again,
+   "3. Run: waits for Design", then one line per item with its reason and its fix ("• Run: The
+   opening buy and the BUY levels need 995.48 USDT and Spot Testnet has 800.00 USDT free; lower the
+   capital to at most 803.63 → edit Capital (quote)"). The items come from one query,
+   `GetBotReadiness`, the same function the Start use case asks at the click, so the button and the
+   click cannot disagree: Connect (the account unread or not readable), Design (every blocking
+   constraint of step 5, once connected) and Run (the venue trades Spot, no other bot is active,
+   nobody else holds the symbol, the owner budget fits trading's caps, and the exchange's own facts
+   below). Bots → **Fix next item** does the first fix on offer: reads the account again,
    brings the field to change forward, or selects the bot that is still active so **Stop…** is one
    command away. The primary action is **Save and start** (decision D8, Bots menu and toolbar): it
    is off while anything is left, and its tip says "N things left" and why. One thing a click can
@@ -107,6 +109,31 @@ sound, I start it, and I watch what it does."*
    (a position the app did not open, §5) and registering the owner budget; they
    refuse in their own words, and a race on a listed item (another bot started in the gap) refuses
    in the list's words. Nothing is placed and nothing saved when the list refuses.
+
+   **The exchange's facts** (`BOT-173`). What only the venue knows is one snapshot, read off the UI
+   thread when a bot at rest (Draft, Stopped) or Halted is selected, again by Bots → **Refresh
+   exchange check** (or the item's own fix) and whenever the bot's state changes or a command it was
+   sent finishes: the free and locked base and quote, the bot's own resting orders apart from the
+   others on the symbol, and what its earlier runs left. It has three states and the Run step says
+   each in words. **Checking the exchange…** while it is asked: the bot is not called ready and
+   Start (or Resume) is off. **Unavailable**, with the reason ("Not connected: exchange
+   unreachable"), never an empty account or a zero balance; Refresh asks again. **Loaded**: the
+   rules judge it, each a pure function of the plan's needs and the facts (`exchange_rules.py`):
+   - *Left from earlier runs* is advice, never an item: "A previous run kept 0.0166 ETH ≈ 41.50 USDT
+     that this run will not trade" (`BUG-196`: Start is allowed, the base is told, not carried). If
+     the history cannot be read the advice says so.
+   - *The free quote is too small* for the opening buy and the BUY levels refuses Start, naming
+     both numbers and the largest capital that fits (it replaces the former Design verdict
+     `CAPITAL_ABOVE_BALANCE`, which compared the whole capital with a balance read earlier; the
+     sentence still shows on the Capital field).
+   - *The free base is too small for the SELLs of a Resume* refuses the Resume of a Halted bot
+     ("Resume is blocked: The resumed ladder sells 0.0028 ETH and Spot Testnet has 0.0010 ETH
+     free; 0.005 ETH is locked by orders that are not this bot's; free the base or stop the bot",
+     `BUG-195`). The bot's own resting SELLs count as free, since a Resume cancels them first. The
+     Resume button carries the sentence as its tip, and the Resume use case refuses it before
+     anything is queued, on facts read at the click; a Paused bot's resume lays no ladder and is
+     not judged.
+   A further check is one more rule in `RULES`; the extension cases are in that module's docstring.
 7. The trader clicks **Save and start**. The edits on screen are judged as they would be saved, and
    only a bot that is ready with them is saved and started: a refusal from the list saves nothing. A
    refusal only the exchange can give (the reconciliation, the budget's registration) comes after the
@@ -264,11 +291,11 @@ available while it runs.
 
 ## 7. Ports and modules it exercises
 
-- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotReadinessQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
+- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetVenueConnectionQuery`, `GetBotReadinessQuery`, `GetExchangeFactsQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
   `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`, `ChangeBotVenueCommand`; `IBotKindCatalog`,
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`; `UserStreamWatch` (hears `UserStreamHealthEvent`); `SleepWatch` (reads the clocks; `IFreshPriceReader`).
-- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `ITradingSession.lease_holder`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`, `UserStreamHealthEvent` (`UserStreamState`), `IAccountHistoryReader.discard_remembered`.
+- trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`, `IAccountSnapshot`, `ITradingSession.lease_holder`, `ITradingSession.earlier_runs_inventory`), `IVenueAccounts` / `IVenueAccountReader` (`VenueAccountSnapshot`, `ConnectFailure`), `OwnerBudgetCaps`, `UserStreamHealthEvent` (`UserStreamState`), `IAccountHistoryReader.discard_remembered`.
 - market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
   `IMarketDataRepository` (the 1-second klines, streamed); `IMarketDataSources` and `IMarketStream`
   for each bot's own price stream (`BotPriceWatch`, `EPIC-035A`).
@@ -281,9 +308,14 @@ available while it runs.
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
-| Every constraint at and around its boundary; the balance, the key and the opening buy read the account; each violation blocks exactly when D7 says | `tests/unit/modules/bots/domain/grid/test_grid_checks.py` · `test_grid_account_checks.py` · `test_grid_constraints.py` | unit |
+| Every constraint at and around its boundary; the key and the opening buy read the account; each violation blocks exactly when D7 says | `tests/unit/modules/bots/domain/grid/test_grid_checks.py` · `test_grid_account_checks.py` · `test_grid_constraints.py` | unit |
 | What is left before Start is one assessment: each step's items, status and words; the Start use case refuses exactly what the query reports, before any order and before saving; Save and start judges the edits as they would be saved | `tests/unit/modules/bots/application/test_bot_readiness_assessment.py` · `test_start_bot_readiness.py` · `test_other_active_bot_and_budget.py` | unit (real reader over fakes) |
 | The Plan shows the three steps and each item with its reason and fix; Bots → Fix next item; Save and start is the primary action, off with "N things left"; a bot with a run shows no progress; a click refused in the list's words | `tests/unit/modules/bots/ui/bots_screen/test_bots_run_step.py` · `test_readiness_words.py` · `test_save_and_start_command.py` · `test_bot_readiness_fsm_matrix.py` | unit (real bots graph) |
+| The exchange rules as pure functions: the three states of the snapshot, each rule at and around its boundary, the advisory, a further rule as one line in `RULES` | `tests/unit/modules/bots/application/test_exchange_rules.py` | unit |
+| The exchange snapshot read over the venue's ports: free and locked balances, own orders apart from others, a failed read unavailable and never empty | `tests/unit/modules/bots/application/test_exchange_facts_reader.py` | unit (fakes) |
+| A Resume is refused before anything is queued when the free base cannot cover its SELLs; a paused bot's resume is not judged | `tests/unit/modules/bots/application/test_resume_bot_readiness.py` | unit (real reader over fakes) |
+| The screen loads the snapshot off the UI thread: checking, unavailable, refresh on demand and on a state change, a late or replaced answer dropped, cancelled on deselection and shutdown, the Resume tip | `tests/unit/modules/bots/ui/bots_screen/test_bots_exchange_check.py` | unit (real bots graph) |
+| The snapshot, the warning before Start, a short quote and a Resume whose base was moved, on the composed app | `tests/integration/modules/bots/test_exchange_backed_readiness_on_the_fake_exchange.py` | integration (fake exchange) |
 | From a new bot to a running bot through the three steps on the composed app; Save and start with edits; a capital above the account listed before the click | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | The lease's holder is readable without claiming | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | unit (contract suite, real and fake) |
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
