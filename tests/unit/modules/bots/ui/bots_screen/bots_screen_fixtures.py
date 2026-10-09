@@ -99,6 +99,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
+    FakeOrderEntryTerms,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_real_money_consent import (
     FakeRealMoneyConsent,
 )
@@ -230,6 +233,8 @@ class BotsScreen:
     mainnet_activity: FakeAccountActivity
     #: Each venue's market data, which records the venues asked for.
     market_sources: FakeMarketDataSources
+    #: The testnet's order terms: what the planner reads its filters and fees from.
+    venue_terms: FakeOrderEntryTerms
 
     def settle(self) -> None:
         """Runs every read and command the screen has queued."""
@@ -273,13 +278,14 @@ def open_screen(
     notifier = recording_notifier.RecordingNotifier()
     container.singleton(INotifier, notifier)
     trading_session = FakeTradingSession()
+    venue_terms = terms()
     activity, mainnet_activity = FakeAccountActivity(), FakeAccountActivity()
     container.singleton(
         IVenueTradingPorts,
         FakeVenueTradingPorts(
             fake_venue_ports(
                 VENUE if venue_enabled else TradingVenue.DISABLED,
-                order_entry_terms=terms(),
+                order_entry_terms=venue_terms,
                 trading_session=trading_session,
                 account_activity=activity,
             ),
@@ -341,4 +347,5 @@ def open_screen(
         mainnet_account,
         mainnet_activity,
         market_sources,
+        venue_terms,
     )

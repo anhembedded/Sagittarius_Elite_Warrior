@@ -58,15 +58,18 @@ class _Stored(IExchangeCredentialsProvider):
 
 
 class _Gate(IKeyPermissionGate):
-    def __init__(self, refusal: ConnectionFailureKind | None = None) -> None:
+    def __init__(
+        self, refusal: ConnectionFailureKind | None = None, reply: str = ""
+    ) -> None:
         self.refusal = refusal
+        self.reply = reply
         self.asked = 0
 
     def check(self) -> ConnectFailure | None:
         self.asked += 1
         if self.refusal is None:
             return None
-        return ConnectFailure(AccountSource.SPOT_MAINNET, self.refusal)
+        return ConnectFailure(AccountSource.SPOT_MAINNET, self.refusal, "", self.reply)
 
 
 def test_a_key_the_gate_accepts_resolves_as_stored() -> None:
@@ -80,13 +83,27 @@ def test_a_key_that_can_withdraw_resolves_to_no_key() -> None:
 
     resolved = KeyGatedCredentials(_Stored(_STORED), gate).resolve()
 
-    assert resolved == _NO_KEY
+    assert resolved.credentials is None
+    assert "withdraw" in resolved.refusal
 
 
 def test_a_key_the_gate_could_not_judge_resolves_to_no_key() -> None:
     gate = _Gate(ConnectionFailureKind.NETWORK)
 
-    assert KeyGatedCredentials(_Stored(_STORED), gate).resolve() == _NO_KEY
+    resolved = KeyGatedCredentials(_Stored(_STORED), gate).resolve()
+
+    assert resolved.credentials is None
+    assert resolved.refusal
+
+
+def test_a_key_the_exchange_refused_resolves_with_the_exchange_s_reason() -> None:
+    """`BUG-193`: the reason the gate had was dropped on the way to the readers."""
+    gate = _Gate(ConnectionFailureKind.KEY_REJECTED, "-2015 Invalid API-key, IP.")
+
+    resolved = KeyGatedCredentials(_Stored(_STORED), gate).resolve()
+
+    assert resolved.credentials is None
+    assert resolved.refusal == "-2015 Invalid API-key, IP."
 
 
 def test_without_a_stored_key_the_gate_is_not_asked() -> None:
@@ -95,6 +112,7 @@ def test_without_a_stored_key_the_gate_is_not_asked() -> None:
     resolved = KeyGatedCredentials(_Stored(_NO_KEY), gate).resolve()
 
     assert resolved == _NO_KEY
+    assert resolved.refusal == ""
     assert gate.asked == 0
 
 
@@ -143,4 +161,4 @@ def test_emergency_stop_still_gets_its_key_when_the_gate_cannot_reach_the_exchan
 
     now[0] += ACCEPTED_FOR_SECONDS
     answer[0] = {**read_only, "enableWithdrawals": True}
-    assert gated.resolve() == _NO_KEY
+    assert gated.resolve().credentials is None

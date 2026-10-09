@@ -74,6 +74,7 @@ from .fenced_reads import BotQueries, FencedReads, ReadKind
 from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
 from .new_bot_symbols import new_bot_symbols
+from .planner_recovery import PlannerRecovery
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
 from .selected_bot import SelectedBot
 
@@ -153,6 +154,7 @@ class BotsPresenter(CommandPresenter):
         self._account_effects = ConnectEffects(
             self._account, view, self._charts, self._selected, self._refresh_detail
         )
+        self._recovery = PlannerRecovery(self._account, self._selected, self._queries)
         self._select_after_create = ""
         self._closed = False
         self._reread = single_shot_timer(self, COALESCE_MS, self._queries.bots)
@@ -279,6 +281,7 @@ class BotsPresenter(CommandPresenter):
         bot = self._model.selected
         if bot is None or self._busy():
             return
+        self._selected.read_editor()
         command = command_for(
             BotAction(value), bot, self._dialogs, self._selected.edited
         )

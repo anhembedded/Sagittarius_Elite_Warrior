@@ -185,10 +185,11 @@ class FuturesAccountControl(IFuturesAccountControl):
         outcome: str,
         request: Callable[[ITradingSessionClient], T],
     ) -> T:
-        credentials = self._credentials_provider.resolve().credentials
+        resolved = self._credentials_provider.resolve()
+        credentials = resolved.credentials
         if credentials is None:
             raise AccountControlUnavailableError(
-                f"{what} not sent: no Futures credentials configured"
+                f"{what} not sent: {resolved.absence('Futures')}"
             )
         with _exchange_answer(what, outcome):
             return request(self._session_factory.create_trading_client(credentials))

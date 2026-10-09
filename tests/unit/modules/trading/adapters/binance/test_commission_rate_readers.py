@@ -56,7 +56,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 
 
 class _Credentials(IExchangeCredentialsProvider):
-    def __init__(self, configured: bool = True) -> None:
+    def __init__(self, configured: bool = True, refusal: str = "") -> None:
+        self._refusal = refusal
         self._credentials = (
             ExchangeCredentials(api_key="key", api_secret="secret")
             if configured
@@ -64,7 +65,9 @@ class _Credentials(IExchangeCredentialsProvider):
         )
 
     def resolve(self) -> ResolvedCredentials:
-        return ResolvedCredentials(self._credentials, CredentialsSource.FILE)
+        return ResolvedCredentials(
+            self._credentials, CredentialsSource.FILE, self._refusal
+        )
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise AssertionError("not used")
@@ -216,3 +219,38 @@ def test_no_credentials_raises_before_any_request() -> None:
 
     assert futures.method_calls == []
     assert spot.method_calls == []
+
+
+_REFUSED = "-2015 Invalid API-key, IP, or permissions. The key's IP whitelist"
+
+
+def test_a_key_the_exchange_refused_is_not_reported_as_missing() -> None:
+    """`BUG-193`: the key gate refused a stored key, and the Plan said "no Spot
+    credentials configured" over a key that is configured and valid."""
+    refused = _Credentials(configured=False, refusal=_REFUSED)
+    spot, futures = Mock(), Mock()
+
+    with pytest.raises(CommissionRateUnavailableError) as spot_error:
+        SpotCommissionRateReader(_SpotSessions(spot), refused).commission_rate(
+            "BTCUSDT"
+        )
+    with pytest.raises(CommissionRateUnavailableError) as futures_error:
+        FuturesCommissionRateReader(_FuturesSessions(futures), refused).commission_rate(
+            "BTCUSDT"
+        )
+    with pytest.raises(AccountControlUnavailableError) as control_error:
+        FuturesAccountControl(_FuturesSessions(futures), refused).change_margin_type(
+            "BTCUSDT", MarginType.CROSSED
+        )
+
+    for error in (spot_error, futures_error, control_error):
+        assert "-2015" in str(error.value)
+        assert "IP whitelist" in str(error.value)
+        assert "configured" not in str(error.value)
+
+
+def test_a_key_that_is_missing_still_says_so() -> None:
+    with pytest.raises(CommissionRateUnavailableError, match="no Spot credentials"):
+        SpotCommissionRateReader(
+            _SpotSessions(Mock()), _Credentials(configured=False)
+        ).commission_rate("BTCUSDT")

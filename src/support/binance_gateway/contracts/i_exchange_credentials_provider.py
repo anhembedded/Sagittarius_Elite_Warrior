@@ -31,6 +31,17 @@ class ResolvedCredentials:
 
     credentials: ExchangeCredentials | None
     source: CredentialsSource
+    #: Why a key that is stored was not handed out, in plain words (`BUG-193`):
+    #: the exchange refused it, or it can withdraw. Empty when there is simply no
+    #: key, so a reader never calls a refused key "not configured".
+    refusal: str = ""
+
+    def absence(self, market: str) -> str:
+        """What a reader says when it got no credentials: the key is missing, or
+        it exists and was refused (with the refusal's own words)."""
+        if self.refusal:
+            return f"the {market} key cannot be used: {self.refusal}"
+        return f"no {market} credentials configured"
 
 
 class IExchangeCredentialsProvider(ABC):

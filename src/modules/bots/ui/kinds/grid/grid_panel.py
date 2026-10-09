@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
@@ -157,10 +157,14 @@ class GridPanel(BotKindPanel):
 
     def set_config(self, config: Mapping[str, str]) -> None:
         """Programmatic writes emit nothing: every signal used below is a
-        user-edit signal (`textEdited`, `activated`, `editingFinished`)."""
+        user-edit signal (`textEdited`, `activated`, and the count's
+        `valueChanged`, which a write would also raise, so it is blocked)."""
         self.lower_price.setText(config.get("lower", ""))
         self.upper_price.setText(config.get("upper", ""))
-        self.grid_count.setValue(_int_or(config.get("grid_count", ""), _DEFAULT_GRIDS))
+        with QSignalBlocker(self.grid_count):
+            self.grid_count.setValue(
+                _int_or(config.get("grid_count", ""), _DEFAULT_GRIDS)
+            )
         index = self.spacing.findData(
             config.get("spacing", GridSpacing.ARITHMETIC.value)
         )
@@ -334,8 +338,10 @@ class GridPanel(BotKindPanel):
     def _connect(self) -> None:
         for field in (self.lower_price, self.upper_price, self.capital):
             field.textEdited.connect(self._emit)
-        self.grid_count.editingFinished.connect(self._emit)
-        self.grid_count.lineEdit().textEdited.connect(self._emit)
+        # The arrows, the wheel and Up/Down change the count without a
+        # `textEdited` or an `editingFinished` (`BUG-193`): only `valueChanged`
+        # hears every way a person sets it, typing included.
+        self.grid_count.valueChanged.connect(self._emit)
         self.spacing.activated.connect(self._emit)
         self.stop_loss.edited.connect(self._emit)
         self.take_profit.edited.connect(self._emit)

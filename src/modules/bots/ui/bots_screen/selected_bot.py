@@ -94,6 +94,15 @@ class SelectedBot:
     def edit(self, config: Mapping[str, str]) -> None:
         self.edited = dict(config)
 
+    def read_editor(self) -> None:
+        """What the editor shows is what Save and Start send, whatever gesture
+        changed it (`BUG-193`): a widget that missed a signal cannot leave the
+        edits stale at the click."""
+        if self.panel is None or self.bot is None:
+            return
+        config = self.panel.config()
+        self.edited = config if config != dict(self.bot.config) else None
+
     def saved(self) -> None:
         self.edited = None
 
