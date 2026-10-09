@@ -63,11 +63,11 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
     OwnerBook,
+    nothing_counted,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerBooks,
     OwnerEventBuffer,
-    nothing_counted,
 )
 
 

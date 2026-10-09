@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from decimal import Decimal
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
@@ -52,7 +53,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRegistrationResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -84,6 +95,11 @@ class SimulatedBook:
         self.filled_before_cancel: set[str] = set()
         #: Cancels that raise with the order still open (the request was lost).
         self.cancel_raises: list[Exception] = []
+        #: The base and the quote of the market BUYs the venue accepted: what
+        #: its record of the account's trades shows, which trading derives an
+        #: owner's inventory from (`BUG-194`).
+        self.bought_base = Decimal(0)
+        self.bought_quote = Decimal(0)
 
 
 class SimulatedSubmission(IOrderSubmission):
@@ -118,6 +134,9 @@ class SimulatedSubmission(IOrderSubmission):
             quote_quantity=request.quote_quantity,
         )
         self._book.submitted.append(order.client_order_id)
+        if request.order_type is OrderType.MARKET and request.side is OrderSide.BUY:
+            self._book.bought_base += request.quantity
+            self._book.bought_quote += request.quantity * request.reference_price
         if request.order_type is OrderType.LIMIT:
             self._book.open[order.client_order_id] = order
         return ExecuteOrderResult(None, None, (), order)
@@ -179,3 +198,14 @@ class SimulatedActivity(IAccountActivity):
 
     def trade_history(self, request: HistoryRequest) -> HistoryPage[TradeRecord]:
         return HistoryPage(tuple(self.trades), 0, len(self.trades), (SYMBOL,))
+
+
+def derive_inventory_from(book: SimulatedBook, session: FakeTradingSession) -> None:
+    """Make `session`'s budget registrations answer as trading does: with the
+    inventory the venue's record of the bot's trades shows at that moment, never
+    one a stream report may not have made (`BUG-194`)."""
+    session.register_owner_budget_answers_from(
+        lambda: OwnerBudgetRegistrationResult(
+            None, OwnerInventory(book.bought_base, book.bought_quote)
+        )
+    )

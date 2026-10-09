@@ -98,6 +98,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
     SimulatedActivity,
     SimulatedBook,
     SimulatedSubmission,
+    derive_inventory_from,
     terms_entry,
 )
 
@@ -132,6 +133,7 @@ def _start_world(
     book = SimulatedBook()
     # Closed, as a fresh app boots: Start opens the session itself (`EPIC-034C`).
     session = FakeTradingSession()
+    derive_inventory_from(book, session)
     ports = FakeVenueTradingPorts(
         fake_venue_ports(
             TradingVenue.SPOT_TESTNET,

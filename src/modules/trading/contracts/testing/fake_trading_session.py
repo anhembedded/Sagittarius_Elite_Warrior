@@ -14,6 +14,8 @@ replaces the whole value instead of editing fields.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -79,6 +81,9 @@ class FakeTradingSession(ITradingSession):
         #: its books.
         self.budgets: dict[str, OwnerBudgetRegistration] = {}
         self._registration_answer: OwnerBudgetRegistrationResult | None = None
+        self._registration_answer_from: (
+            Callable[[], OwnerBudgetRegistrationResult] | None
+        ) = None
 
     def answer_with(self, snapshot: TradingSessionSnapshot) -> None:
         """Sets what the next `snapshot()` reports."""
@@ -105,6 +110,14 @@ class FakeTradingSession(ITradingSession):
         """Sets what a registration made while trading is on answers; a
         refusal registers nothing."""
         self._registration_answer = result
+
+    def register_owner_budget_answers_from(
+        self, answer: Callable[[], OwnerBudgetRegistrationResult]
+    ) -> None:
+        """Sets what a registration made while trading is on answers, asked of
+        `answer` each time: the way trading derives an inventory from the
+        venue's record as it is at that moment, not a fixed one."""
+        self._registration_answer_from = answer
 
     def ready_raises(self, error: Exception) -> None:
         """Makes the next `ensure_ready()` raise instead of answering.
@@ -153,8 +166,14 @@ class FakeTradingSession(ITradingSession):
     ) -> OwnerBudgetRegistrationResult:
         if not self._snapshot.enabled:
             return OwnerBudgetRegistrationResult(OwnerBudgetRefusal.TRADING_SWITCH_OFF)
-        answer = self._registration_answer or OwnerBudgetRegistrationResult(
-            None, EMPTY_INVENTORY
+        answer = (
+            self._registration_answer
+            or (
+                self._registration_answer_from()
+                if self._registration_answer_from is not None
+                else None
+            )
+            or OwnerBudgetRegistrationResult(None, EMPTY_INVENTORY)
         )
         if answer.registered:
             self.budgets[registration.owner_id] = registration

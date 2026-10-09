@@ -22,6 +22,7 @@ the bus (`VenueEventEmitter`). Not thread-safe on its own:
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -45,6 +46,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.owner_invento
 )
 
 _ZERO = Decimal(0)
+
+
+def nothing_counted(_trade_id: int | None) -> bool:
+    """The `counted` of a book whose inventory holds none of the venue's fills."""
+    return False
 
 
 @dataclass
@@ -79,10 +85,20 @@ class OwnerBook:
     """One budgeted owner's open orders, inventory and recent sends."""
 
     def __init__(
-        self, registration: OwnerBudgetRegistration, inventory: OwnerInventory
+        self,
+        registration: OwnerBudgetRegistration,
+        inventory: OwnerInventory,
+        counted: Callable[[int | None], bool] = nothing_counted,
     ) -> None:
+        """@param counted Whether the fill with a trade id is already in
+        `inventory`: a report of it that arrives later (the stream, after the
+        history was read) is not counted a second time (`BUG-194`)."""
         self._registration = registration
         self._inventory = inventory
+        self._counted = counted
+        #: The trade ids this book applied live, so a venue that reports one
+        #: fill twice moves the inventory once.
+        self._applied: set[int] = set()
         self._open: dict[str, _OpenOrder] = {}
         #: Fills and ends the venue reported before `record_sent` ran: a
         #: market order can fill while `place_order` is still returning.
@@ -153,10 +169,17 @@ class OwnerBook:
         order: Order,
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None,
+        trade_id: int | None = None,
     ) -> None:
         """@brief One fill of `order`: `fill` is `(price, quantity)` of this
-        fill alone, `fee` its commission. A fee in the base asset leaves the
-        owner holding less than it bought (ADR D6)."""
+        fill alone, `fee` its commission, `trade_id` the venue's id of it. A
+        fee in the base asset leaves the owner holding less than it bought
+        (ADR D6). A fill the inventory already holds, from the history it was
+        derived from or from an earlier report, changes nothing."""
+        if trade_id is not None:
+            if self._counted(trade_id) or trade_id in self._applied:
+                return
+            self._applied.add(trade_id)
         price, quantity = fill
         base_fee = fee[0] if fee is not None and fee[1] == self._base_asset else _ZERO
         self._inventory = inventory_after(
