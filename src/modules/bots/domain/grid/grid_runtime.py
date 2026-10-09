@@ -65,7 +65,7 @@ class GridReason(str, Enum):
     #: No price tick for longer than the bot may go without one (`EPIC-035A`):
     #: it cannot watch its stop loss, so it stops placing and takes its ladder off.
     PRICE_FEED_STALE = "price_feed_stale"
-    #: The user-data stream (the only source of fills) was down too long
+    #: The user-data stream (the only live record of a resting order's fill) was down too long
     #: (`EPIC-035B`); the ladder was parked.
     USER_STREAM_DOWN = "user_stream_down"
     #: A resume ladder was confirmed after the market left the price it was

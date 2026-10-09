@@ -1,6 +1,7 @@
 """`EPIC-035B` — the supervisor both Binance user-data streams run under.
 
-The stream is the only source of fills, so it must outlive anything the link
+The stream is the only record of a resting order's fill as it happens
+(`BOT-173`), so it must outlive anything the link
 or the library throws at it. `python-binance==1.0.37` raises, out of the
 socket, `ValueError` (its subscribe step returned no subscription id),
 `BinanceWebsocketUnableToConnect` (its own reconnect budget of five is spent),

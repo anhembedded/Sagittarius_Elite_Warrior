@@ -27,6 +27,9 @@ choice:
 
 from __future__ import annotations
 
+import logging
+from dataclasses import replace
+
 from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_failure import (
     SEND_FAILURES,
@@ -43,8 +46,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_or
     map_order_to_spot_params,
     map_spot_order_payload_to_order,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_order_response_fills import (
+    response_fills,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_fill_reporter import (
+    IOrderFillReporter,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
@@ -53,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
@@ -70,6 +82,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_spot_sess
     ISpotSessionFactory,
 )
 
+logger = logging.getLogger("App.Trading.SpotClient")
+
 
 class SpotTradingClient(ITradingClient):
     """@brief The Spot half of the one instance in this app allowed to sign
@@ -83,11 +97,13 @@ class SpotTradingClient(ITradingClient):
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
         submission_mode: OrderSubmissionMode,
+        fill_reporter: IOrderFillReporter,
     ) -> None:
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
         self._submission_mode = submission_mode
+        self._fill_reporter = fill_reporter
 
     def place_order(self, order: Order) -> Order:
         """@raise ValueError No credentials configured, or `order.symbol`
@@ -100,7 +116,11 @@ class SpotTradingClient(ITradingClient):
         @return `order` unchanged on acceptance, matching
         `FuturesTradingClient`'s own contract: the authoritative order
         lifecycle is what the Spot User Data Stream (`EPIC-027L`) reports,
-        not this call's return value.
+        not this call's return value. The fills the exchange's response
+        carries are the exception, reported through `IOrderFillReporter`
+        before this returns (`BOT-173`): a fill is counted from whichever
+        record of it arrives first, so a silent stream does not hide the
+        trades of a market order.
         """
         client = self._resolve_client()
         metadata = self._require_metadata(order.symbol)
@@ -109,15 +129,62 @@ class SpotTradingClient(ITradingClient):
         try:
             if self._submission_mode is OrderSubmissionMode.VALIDATE_ONLY:
                 client.create_test_order(**params)
-            else:
-                client.create_order(**params)
+                return order
+            response = client.create_order(**params)
         except SEND_FAILURES as exc:
             raise_for_failed_send(
                 order,
                 exc,
                 live=self._submission_mode is not OrderSubmissionMode.VALIDATE_ONLY,
             )
+        self._report_fills(order, response)
         return order
+
+    def _report_fills(self, order: Order, response: object) -> None:
+        """Hand the response's trades to the fill door (`BOT-173`).
+
+        Best effort: the exchange has accepted the order, so nothing here may
+        make `place_order` raise (the caller would retry a live order). A report
+        that fails is logged; the stream or the history still counts the fill."""
+        try:
+            self._report_response_fills(order, response)
+        except Exception:
+            logger.warning(
+                "Counting the fills of %s from its placement response failed; the "
+                "stream or the history will count them [response-fills]",
+                order.client_order_id,
+                exc_info=True,
+            )
+
+    def _report_response_fills(self, order: Order, response: object) -> None:
+        if not isinstance(response, dict):
+            return
+        responded = map_spot_order_payload_to_order(response)
+        found = response_fills(response)
+        if found.unreadable:
+            logger.warning(
+                "%d fill(s) of %s carry no readable trade id and are left to "
+                "the stream or the history [response-fills]",
+                found.unreadable,
+                order.client_order_id,
+            )
+        for index, fill in enumerate(found.fills, start=1):
+            # The order is over only with its last trade, as the stream says it.
+            last = index == len(found.fills)
+            reported = (
+                responded
+                if last or responded.status is not OrderStatus.FILLED
+                else replace(responded, status=OrderStatus.PARTIALLY_FILLED)
+            )
+            self._fill_reporter.order_filled(
+                reported, (fill.price, fill.quantity), fill.fee, fill.trade_id
+            )
+        if found.fills:
+            logger.info(
+                "Counted %d fill(s) of %s from the placement response [response-fills]",
+                len(found.fills),
+                order.client_order_id,
+            )
 
     def find_order(self, symbol: str, client_order_id: str) -> Order | None:
         client = self._resolve_client()

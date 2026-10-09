@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -108,8 +111,11 @@ def _build(venue: str, raw: Mock, mode: OrderSubmissionMode) -> ITradingClient:
         price_precision=2,
         fetched_at=datetime(2026, 8, 27, tzinfo=UTC),
     )
-    cls = FuturesTradingClient if venue == "futures" else SpotTradingClient
-    return cls(sessions, credentials, metadata, mode)
+    if venue == "futures":
+        return FuturesTradingClient(sessions, credentials, metadata, mode)
+    return SpotTradingClient(
+        sessions, credentials, metadata, mode, FakeOrderFillReporter()
+    )
 
 
 def _create(venue: str, raw: Mock) -> Mock:

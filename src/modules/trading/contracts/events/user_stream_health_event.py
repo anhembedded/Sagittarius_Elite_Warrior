@@ -1,7 +1,8 @@
 """`EPIC-035B` — the health of a venue's user-data stream, told to whoever cares.
 
-The user-data stream is the only source of fills: while it is not connected
-the app is blind about its own money. The adapter publishes where the stream
+The user-data stream is the quickest record of a resting order's fill (a
+market order's fills also arrive in its placement response, `BOT-173`): while
+it is not connected the app is blind about its resting orders' fills. The adapter publishes where the stream
 is; what to do about it (catch up after a gap, halt after too long) is the
 consumer's policy, so the bots module subscribes to this contract without
 importing the adapter (`architecture-rule.md` §3).

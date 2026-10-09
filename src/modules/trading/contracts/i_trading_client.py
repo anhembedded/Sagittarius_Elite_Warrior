@@ -35,7 +35,9 @@ class ITradingClient(ABC):
         """@brief Sends `order` to the exchange.
         @return The same order as the exchange acknowledged it — at minimum
         with `status` advanced off `OrderStatus.NEW` if the exchange
-        responded synchronously.
+        responded synchronously. A client whose exchange lists the order's
+        trades in that answer reports them through `IOrderFillReporter` before
+        returning (`BOT-173`).
         @raise OrderRejectedByExchangeError The exchange read the order and
         refused it: nothing is live.
         @raise OrderOutcomeUnknownError A live submission got no readable

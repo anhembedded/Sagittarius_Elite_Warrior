@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_tr
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_fill_reporter import (
+    IOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
 )
@@ -47,10 +50,12 @@ class SpotTradingClientFactory(ITradingClientFactory):
         session_factory: ISpotSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
+        fill_reporter: IOrderFillReporter,
     ) -> None:
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
+        self._fill_reporter = fill_reporter
 
     def accepted_order_types(self) -> frozenset[OrderType]:
         return SPOT_SENDABLE_ORDER_TYPES
@@ -61,4 +66,5 @@ class SpotTradingClientFactory(ITradingClientFactory):
             self._credentials_provider,
             self._metadata_provider,
             mode,
+            self._fill_reporter,
         )

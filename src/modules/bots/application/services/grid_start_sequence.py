@@ -18,12 +18,14 @@ off is `switch_off`; a request that raised is `fault` (`grid_order_failure`).
 Start's preconditions (venue, verdicts, lease, budget) are the start use case's,
 checked before the bot ever reached STARTING.
 
-@par The opening buy is counted from the exchange, not from the stream
-A SELL level is placed against the base the opening bought, and trading's owner
-book learns that base from the user data stream. A stream that is down, or later
-than the first SELL, left the inventory at zero and refused the SELL
-(`owner_budget_sell_exceeds_inventory`) with the buy already paid for
-(`BUG-194`). So between the opening buy and the ladder the bot has trading
+@par The opening buy is counted from the exchange, not only from the stream
+A SELL level is placed against the base the opening bought. Trading counts a
+fill from whichever exchange record tells of it first (`BOT-173`): the market
+buy's placement response lists its trades, so the book and the bot's ladder
+state hold the base the moment the order returns, with the stream down or not.
+Before that, a stream that was down, or later than the first SELL, left the
+inventory at zero and refused the SELL (`owner_budget_sell_exceeds_inventory`)
+with the buy already paid for (`BUG-194`). Between the opening buy and the ladder the bot has trading
 register its budget again, which derives the inventory from the exchange's own
 record of the bot's orders (D6), and lays the ladder only when that inventory
 covers the SELLs. A buy the record does not show yet halts the start with

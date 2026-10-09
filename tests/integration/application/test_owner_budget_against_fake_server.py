@@ -232,21 +232,24 @@ def _venue(urls: FakeServerUrls) -> _Venue:
     cache = InMemorySymbolOrderMetadataCache()
     metadata = SpotMetadataProvider(sessions, cache)
     account_reader = SpotAccountReader(sessions, _Credentials())
+    state = TradingSessionState()
+    state.enable(set(), spot_baseline_holdings=_BASELINE)
+    bus = MemoryEventBus()
+    emitter = VenueEventEmitter(bus, _SPOT, state.owner_books)
     context = venue_context(
         _SPOT,
         account_reader=account_reader,
-        client_factory=SpotTradingClientFactory(sessions, _Credentials(), metadata),
+        client_factory=SpotTradingClientFactory(
+            sessions, _Credentials(), metadata, emitter
+        ),
         metadata_provider=metadata,
         history_reader=SpotHistoryReader(
             sessions, _Credentials(), ListedSymbols(metadata, cache)
         ),
         book_ticker_reader=SpotBookTickerReader(sessions),
     )
-    state = TradingSessionState()
-    state.enable(set(), spot_baseline_holdings=_BASELINE)
-    bus = MemoryEventBus()
     stream = SpotUserDataStream(
-        VenueEventEmitter(bus, _SPOT, state.owner_books),
+        emitter,
         Mock(),
         _Credentials(),
         account_reader,

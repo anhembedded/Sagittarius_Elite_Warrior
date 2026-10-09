@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -86,7 +89,8 @@ def _order() -> Order:
 
 
 def _client(
-    raw_client: Mock, mode: OrderSubmissionMode = OrderSubmissionMode.VALIDATE_ONLY
+    raw_client: Mock,
+    mode: OrderSubmissionMode = OrderSubmissionMode.VALIDATE_ONLY,
 ) -> SpotTradingClient:
     session_factory = Mock()
     session_factory.create_trading_client.return_value = raw_client
@@ -97,7 +101,11 @@ def _client(
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = _metadata()
     return SpotTradingClient(
-        session_factory, credentials_provider, metadata_provider, mode
+        session_factory,
+        credentials_provider,
+        metadata_provider,
+        mode,
+        FakeOrderFillReporter(),
     )
 
 
@@ -141,6 +149,7 @@ class TestPlaceOrderRouting:
             credentials_provider,
             metadata_provider,
             OrderSubmissionMode.VALIDATE_ONLY,
+            FakeOrderFillReporter(),
         )
 
         with pytest.raises(ValueError, match="credentials"):

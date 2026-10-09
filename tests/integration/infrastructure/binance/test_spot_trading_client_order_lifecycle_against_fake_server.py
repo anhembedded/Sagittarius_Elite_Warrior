@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_fill_reporter import (
+    FakeOrderFillReporter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -101,6 +104,7 @@ def _client_and_provider() -> tuple[SpotTradingClient, SpotMetadataProvider]:
         _FakeCredentialsProvider(),
         metadata_provider,
         OrderSubmissionMode.LIVE,
+        FakeOrderFillReporter(),
     )
     return client, metadata_provider
 
