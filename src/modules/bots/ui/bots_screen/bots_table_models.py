@@ -13,6 +13,7 @@ are quoted in its tick size and their quantities in its step size
 from __future__ import annotations
 
 from collections.abc import Sequence
+from decimal import Decimal
 from typing import ClassVar
 
 from PySide6.QtCore import QObject
@@ -55,7 +56,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         ColumnSpec("venue", "Venue", ColumnKind.TEXT),
         ColumnSpec("symbol", "Symbol", ColumnKind.TEXT),
         ColumnSpec("state", "State", ColumnKind.STATUS),
-        ColumnSpec("profit", "Grid profit", ColumnKind.MONEY),
+        ColumnSpec("profit", "Total PnL", ColumnKind.MONEY),
     )
 
     def row_index_of(self, bot_id: str) -> int:
@@ -71,12 +72,18 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
             row.venue.display_name,
             row.symbol,
             state_text(row.state),
-            row.progress.realised_profit if row.progress else None,
+            _total_pnl(row),
         )
         return values[column]
 
     def _is_emphasised(self, row: BotSnapshot, column: int) -> bool:
         return column == self.column("state") and row.state in _ATTENTION_STATES
+
+
+def _total_pnl(row: BotSnapshot) -> Decimal | None:
+    """The run's total (`EPIC-035M`); blank while it cannot be judged."""
+    progress = row.progress
+    return progress.pnl.total if progress and progress.pnl else None
 
 
 class SelectedBotRows[TRow](RowTableModel[TRow]):

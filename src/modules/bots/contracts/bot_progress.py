@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import PnlSummary
+
 
 @dataclass(frozen=True, slots=True)
 class BotOrderLine:
@@ -41,3 +43,7 @@ class BotProgress:
     reason_detail: str
     #: The orders resting now, lowest level first.
     orders: tuple[BotOrderLine, ...] = ()
+    #: The last price the bot heard (`EPIC-035M`); `None` before it heard one.
+    mark_price: Decimal | None = None
+    #: What the run has earned: the total, its parts and the HODL benchmark.
+    pnl: PnlSummary | None = None

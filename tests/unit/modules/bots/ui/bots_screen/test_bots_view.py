@@ -124,7 +124,12 @@ def test_without_a_chart_the_centre_says_how_to_get_one(view) -> None:
 
     view.set_chart(None)
     assert chart.parent() is None
-    notes = [label.text() for label in view.chart_area.findChildren(QLabel)]
+    # The "Grid not drawn" line above the chart is hidden until a reason exists.
+    notes = [
+        label.text()
+        for label in view.chart_area.findChildren(QLabel)
+        if not label.isHidden()
+    ]
     assert notes == [NO_CHART_TEXT]
 
 

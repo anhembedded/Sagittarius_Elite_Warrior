@@ -85,7 +85,6 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
             snapshot,
             world.kinds.kind("grid"),
             PlannerMarket(numbers[0], numbers[1], None, None),
-            None,
             world.clock.now(),
             None,
             ConnectionRead(

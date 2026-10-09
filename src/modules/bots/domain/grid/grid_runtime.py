@@ -181,6 +181,19 @@ class GridRuntime:
     cost: Decimal = _ZERO
     realised_profit: Decimal = _ZERO
     completed_cycles: int = 0
+    #: `EPIC-035M` — what every sell has earned against the average cost, net of
+    #: its fees: the completed cycles (`realised_profit`) and the sells of the
+    #: opening inventory and of an exit. The total PnL is this plus the unrealised.
+    realised_total: Decimal = _ZERO
+    #: The price the run began at, the HODL benchmark's start (`EPIC-035M`).
+    start_price: Decimal | None = None
+    #: The last price the bot heard, saved at most every `MARK_PRICE_SAVE_SECONDS`
+    #: of the bot's own clock: the unrealised PnL is judged on it, not on a chart.
+    mark_price: Decimal | None = None
+    mark_price_at: datetime | None = None
+    #: Fills whose fee was paid in an asset that could not be priced in the quote
+    #: asset; the total is then short by those fees.
+    unpriced_fees: int = 0
     held: tuple[HeldOrder, ...] = ()
     reason: GridReason | None = None
     reason_detail: str = ""

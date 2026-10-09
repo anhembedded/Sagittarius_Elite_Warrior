@@ -37,7 +37,7 @@ def test_the_table_the_read_out_and_the_stop_question_say_the_title() -> None:
     shown = model.data(model.index(0, model.column("venue")))
 
     assert shown == "Spot Testnet"
-    assert bot_facts(bot, None, NOW).venue == "Spot Testnet"
+    assert bot_facts(bot, NOW).venue == "Spot Testnet"
     assert "Spot Testnet" in stop_question(bot)
     assert "spot_testnet" not in stop_question(bot)
 

@@ -24,6 +24,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RUN_STARTING_STATES,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
@@ -57,8 +60,10 @@ FACT_SPECS = (
             ("venue", "Venue"),
             ("symbol", "Symbol"),
             ("capital", "Capital"),
-            ("grid_profit", "Grid profit"),
-            ("unrealised", "Unrealised PnL"),
+            ("total_pnl", "Total PnL"),
+            ("grid_profit", "of which grid profit"),
+            ("unrealised", "of which unrealised"),
+            ("hodl", "HODL benchmark"),
             ("inventory", "Held"),
         )
     ),
@@ -109,6 +114,7 @@ class BotPlanPanel(QStackedWidget):
         empty = empty_page(EMPTY_TEXT, "lblBotsEmpty")
         plan = QWidget()
         column = QVBoxLayout(plan)
+        self._column = column
         column.addWidget(self.title)
         column.addWidget(self.state)
         venue = QFormLayout()
@@ -121,6 +127,7 @@ class BotPlanPanel(QStackedWidget):
         column.addLayout(self._panel_slot)
         column.addWidget(plain_label("What the kind says about these parameters:"))
         column.addWidget(self.verdicts)
+        self._parameters_first = False
         column.addStretch(1)
         scroll = QScrollArea()
         scroll.setObjectName("scrollBotPlan")
@@ -141,8 +148,47 @@ class BotPlanPanel(QStackedWidget):
         # asks for a change.
         self.venue.activated.connect(self._on_venue_picked)
 
+    def index_of_parameters(self) -> int:
+        """Where the kind's parameters sit in the panel, top to bottom."""
+        return self._column.indexOf(self._panel_slot)
+
+    def index_of_figures(self) -> int:
+        """Where the bot's figures sit, top to bottom."""
+        return self._column.indexOf(self.facts)
+
+    def _arrange(self) -> None:
+        """A bot at rest is being designed: its parameters come right after the
+        count of what is left, and the steps, the reasons and the figures follow,
+        so the sentence under a field and the field are in view together
+        (`EPIC-035N`). A bot with a run is being watched: its figures come first
+        and its parameters are read-only below."""
+        bot = self._model.selected
+        parameters_first = bot is not None and bot.state in RUN_STARTING_STATES
+        if parameters_first == self._parameters_first:
+            return
+        self._parameters_first = parameters_first
+        column = self._column
+        movable: tuple[QWidget, ...] = (
+            self.readiness_steps,
+            self.readiness_items,
+            self.facts,
+        )
+        for widget in movable:
+            column.removeWidget(widget)
+        column.removeItem(self._panel_slot)
+        at = column.indexOf(self.readiness_header) + 1
+        if parameters_first:
+            column.insertLayout(at, self._panel_slot)
+            for offset, widget in enumerate(movable, start=1):
+                column.insertWidget(at + offset, widget)
+        else:
+            for offset, widget in enumerate(movable):
+                column.insertWidget(at + offset, widget)
+            column.insertLayout(at + 3, self._panel_slot)
+
     def _show_selection(self) -> None:
         bot = self._model.selected
+        self._arrange()
         self.setCurrentIndex(0 if bot is None else 1)
         self.title.setText(bot.name if bot else "")
         self._show_facts()
@@ -187,6 +233,7 @@ class BotPlanPanel(QStackedWidget):
             self._model.venue_change_requested.emit(value)
 
     def _show_facts(self) -> None:
+        self._arrange()
         facts = self._model.facts
         self.state.setText(facts.state if facts else "")
         self.facts.set_values(

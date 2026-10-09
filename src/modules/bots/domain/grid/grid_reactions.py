@@ -295,8 +295,12 @@ def _book_inventory(
         )
     average = runtime.average_cost or _ZERO
     sold = min(fill.quantity + fill.base_fee, runtime.inventory)
+    earned = fill.price * fill.quantity - fill.quote_fee - average * sold
     return replace(
-        runtime, inventory=runtime.inventory - sold, cost=runtime.cost - average * sold
+        runtime,
+        inventory=runtime.inventory - sold,
+        cost=runtime.cost - average * sold,
+        realised_total=runtime.realised_total + earned,
     )
 
 

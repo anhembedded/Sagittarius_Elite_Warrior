@@ -13,11 +13,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
@@ -187,7 +185,6 @@ class BotsPresenter(CommandPresenter):
         self._commands.finished.connect(self._on_finished)
         self._changes.changed.connect(self._on_bot_changed)
         self._log.line.connect(model.append_log_line)
-        self._ticks.candle.connect(self._on_candle)
         self._clock.timeout.connect(self._refresh_detail)
 
     # -- reads ------------------------------------------------------------- #
@@ -276,10 +273,6 @@ class BotsPresenter(CommandPresenter):
         self._selected.edit(config)
         self._rejudge.start()
 
-    def _on_candle(self, candle: MarketData) -> None:
-        if self._selected.take_price(candle.symbol, Decimal(str(candle.close_price))):
-            self._detail.show_price()
-
     # -- actions ----------------------------------------------------------- #
 
     def _on_action(self, value: str) -> None:
@@ -331,7 +324,9 @@ class BotsPresenter(CommandPresenter):
             action_id, ActionOutcome.SUCCEEDED if accepted else ActionOutcome.FAILED
         )
         if accepted and isinstance(result, BotCommandResult):
-            self._model.set_status(f"{label}: done.", False)
+            self._model.set_status(
+                f"{label}: done.{self._still_blocked(pending)}", False
+            )
             if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id
             if pending.action in (BotAction.SAVE, BotAction.START):
@@ -345,6 +340,18 @@ class BotsPresenter(CommandPresenter):
         self._follow_selection()
         self._venues.choices()
         self._queries.bots()
+
+    def _still_blocked(self, pending: PendingAction) -> str:
+        """What a Save leaves undone (`EPIC-035N`): the parameters were stored
+        as they are, and Start still refuses them, for the reason it would give
+        (read before the edits are dropped, so it judges what was saved)."""
+        if pending.action is not BotAction.SAVE:
+            return ""
+        detail = self._selected.detail()
+        readiness = detail.readiness if detail else None
+        if readiness is None or readiness.can_start:
+            return ""
+        return f" Saved as they are. Start is still blocked: {readiness.message()}"
 
     def _follow_selection(self) -> None:
         """A list read that landed during the action may have moved the

@@ -14,12 +14,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+    MARKET_NOT_READ,
     ConnectionRead,
     ConnectionState,
     ReadinessInputs,
@@ -61,7 +61,6 @@ class DetailInputs:
     #: `None` when no kind in the catalog has the bot's `kind_id`.
     kind: IBotKind | None
     market: PlannerMarket | None
-    last_price: Decimal | None
     now: datetime
     #: The parameters on screen when they differ from the saved ones.
     edited: Mapping[str, str] | None = None
@@ -81,6 +80,9 @@ class BotDetail:
     #: What is left before Start, for a bot that is at rest; `None` for one
     #: that already has a run, whose Start is not a next step.
     readiness: BotReadiness | None
+    #: Why no grid is drawn on the chart of a bot at rest ("Grid not drawn: …"),
+    #: empty when one is (`EPIC-035N`).
+    overlay_note: str = ""
 
 
 def detail_for(inputs: DetailInputs) -> BotDetail:
@@ -111,7 +113,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         blocked_by=readiness.message() if readiness and not readiness.can_start else ""
     )
     return BotDetail(
-        facts=bot_facts(bot, inputs.last_price, inputs.now),
+        facts=bot_facts(bot, inputs.now),
         verdicts=judged.verdicts,
         verdict_lines=tuple(verdict_line(verdict) for verdict in judged.verdicts),
         availability={
@@ -119,4 +121,23 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         },
         overlay=judged.overlay,
         readiness=readiness,
+        overlay_note=_not_drawn(bot, inputs.market, judged),
     )
+
+
+def _not_drawn(
+    bot: BotSnapshot, market: PlannerMarket | None, judged: JudgedPlan
+) -> str:
+    """Why a bot at rest has no grid on its chart: the plan that is judged and
+    drawn is the one a Start would place, so the reason is the first thing that
+    refuses it, or that the market numbers are not read yet."""
+    if bot.state not in RUN_STARTING_STATES:
+        return ""
+    if judged.overlay is not None and judged.overlay.lines:
+        return ""
+    if market is None or market.terms is None or market.market is None:
+        return f"Grid not drawn: {MARKET_NOT_READ[0].lower()}{MARKET_NOT_READ[1:]}"
+    refusing = next((v for v in judged.verdicts if v.refuses), None)
+    if refusing is not None:
+        return f"Grid not drawn: {refusing.reason}"
+    return "Grid not drawn: the parameters do not make a plan yet"

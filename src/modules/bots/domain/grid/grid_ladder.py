@@ -67,7 +67,8 @@ def runtime_from_plan(plan: GridPlan, step_size: Decimal) -> GridRuntime:
                 ),
             )
             for level in plan.levels
-        )
+        ),
+        start_price=plan.last_price,
     )
 
 
