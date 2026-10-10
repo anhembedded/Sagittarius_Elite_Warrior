@@ -71,7 +71,7 @@ Phase 1 is the gate for unattended mainnet; Phases 2–4 follow in order. Each c
 ## 5. Out of scope
 - Exchange-side stop-loss (OCO / STOP_LOSS_LIMIT): [`EPIC-026K`](../EPIC-026_road_to_real_money/README.md). It is the structural answer to H1 while the app is closed; `035A` covers the app-side window only.
 - Multiple bots and stream-gap catch-up beyond one bot per symbol: `EPIC-029J`. `035B` pulls the gap catch-up forward for the single-bot case.
-- Futures grid, leverage and liquidation guard: `EPIC-029K`. `035B` only checks whether the Futures user-data stream shares H3 and files a bug if it does.
+- Futures grid, leverage and liquidation guard: `EPIC-039` (supersedes `EPIC-029K`). `035B` only checks whether the Futures user-data stream shares H3 and files a bug if it does.
 - A default stop-loss or a forced "no stop-loss" warning: the owner decided against both (D2).
 - Trailing grid, regime filter (`L11` of the audit): new features, not scheduled.
 - A 24-hour Testnet soak of stream latency and the ORDERS rate limit: `EPIC-029H`, waiting on the owner's run.

@@ -41,7 +41,6 @@ gantt
     section After the fast track
     029I Desks manual only                   :         i, after m1, 3d
     029J Many bots                           :         j, after m1, 3d
-    029K Grid on Futures                     :         k, after j, 5d
     029L Signal and DCA kinds                :         l, after i j, 5d
 ```
 
@@ -61,7 +60,7 @@ gantt
 | EPIC-029H | [Spot Testnet soak](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | — | 🟡 | 🟡 In progress | PR7 (tests); soak by the user |
 | EPIC-029I | [Desks manual only](incomplete/EPIC-029I_desks_manual_only.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029J | [Many bots](incomplete/EPIC-029J_many_bots.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-029K | [Grid on Futures](incomplete/EPIC-029K_grid_on_futures.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-029K | [Grid on Futures](cancelled/EPIC-029K_grid_on_futures.md) | — | 🔴 | ❌ Cancelled; superseded by [EPIC-039](../EPIC-039_futures_venue_profile/README.md) | — |
 | EPIC-029L | [Signal and DCA kinds](incomplete/EPIC-029L_signal_and_dca_kinds.md) | — | 🟡 | 🔵 Planned | — |
 
 ---

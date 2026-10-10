@@ -51,7 +51,7 @@
 
 ## 5. Out of scope
 - Mainnet limits and caps beyond what every venue has (`EPIC-026` D5, the typed acknowledgement): D11 says no order is blocked, so they are not part of this epic; `EPIC-026`'s remaining stages are the owner's to reopen.
-- Futures grids and other bot kinds: `EPIC-029K` / `EPIC-029L`.
+- Futures grids: `EPIC-039` (supersedes `EPIC-029K`); other bot kinds: `EPIC-029L`.
 - The historical-tick backtest on Futures: [`BUG-166`](../../bug_report/incomplete/BUG-166_historical_tick_backtest_cannot_run_on_futures_and_its_execution_dialog_misleads.md) and [`BOT-168`](../../backlog/BOT-168_true_futures_one_second_ticks_for_the_realtime_backtest.md).
 
 ## Notes (newest first)
