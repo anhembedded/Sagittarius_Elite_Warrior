@@ -1,5 +1,8 @@
 # EPIC-029K — A Grid bot runs on Futures with leverage, a liquidation guard and Long, Short or Neutral mode
 
+**Status:** ❌ Cancelled (2026-10-10; superseded by [EPIC-039](../../EPIC-039_futures_venue_profile/README.md))
+**Superseded by:** [EPIC-039](../../EPIC-039_futures_venue_profile/README.md). Why: this task scoped Futures as one Grid-only task. The owner's goal (2026-10-10) is that **every** bot kind has a Futures and a Spot side, so the fork is made once in shared ports (a venue profile, an exposure book, a risk guard, a cost model, a settings gate) and the Grid is their first user. The acceptance criteria below are all carried by EPIC-039's children: liquidation guard and the one-ATR stop rule → 039F; ladder orders carry the tag and budget, reduce-only exits → 039D/039H; the fake exchange fills resting Futures LIMIT orders → 039C; restart reconciliation covers the position → 039D/039H. This file is kept as history and is not to be started.
+
 **Status:** 🔵 Backlog — after the fast track; sliced in detail when it starts
 **Source:** [`PRO-006`](../../../proposal/PRO-006.md) §4.3 "After the fast track", accepted by the user on 2026-10-03 (*"Oki, duyệt"*).
 **Risk:** 🔴 — leverage and liquidation; a stop placed after the liquidation price is worthless.

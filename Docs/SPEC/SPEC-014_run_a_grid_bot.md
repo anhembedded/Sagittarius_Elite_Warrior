@@ -58,7 +58,7 @@ sound, I start it, and I watch what it does."*
    the chart switches to that venue's market, and readiness is judged again; parameters not yet
    saved stay on screen. Moving to Spot Mainnet asks nothing here; the real-money question is asked
    at Start (`EPIC-034` D11). A bot that has run or runs keeps its venue, and the field says so
-   (`BOT-171`; Futures grid bots are `EPIC-029K`).
+   (`BOT-171`; Futures grid bots are `EPIC-039`).
    The new bot's design follows: the app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
@@ -267,7 +267,7 @@ available while it runs.
 
 ## 6. What this use case does NOT promise
 
-- Futures grids, trailing grids, DCA and signal bots: Spot Grid is the only kind (`EPIC-029K`/`029L`).
+- Futures grids (`EPIC-039`), trailing grids, DCA and signal bots (`EPIC-029L`): Spot Grid is the only kind.
 - A backtest that fills like the exchange: it fills a level only when the price trades a tick
   through it (never on touch), orders levels inside a candle by its 1-second klines and, without
   them, takes the adverse side first and says so. It models no slippage, no queue position and no

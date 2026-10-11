@@ -94,7 +94,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-029A](completed/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | ✅ Done (2026-10-03), PR2 |
 | [EPIC-029E](completed/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | ✅ Done (2026-10-04), PR4 |
-| [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
+| [EPIC-029K](cancelled/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | ❌ Cancelled (2026-10-10; superseded by [EPIC-039](../EPIC-039_futures_venue_profile/README.md)) |
 | [EPIC-029B](completed/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | ✅ Done (2026-10-03), PR1 |
 | [EPIC-029D](completed/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | ✅ Done (2026-10-04), PR6 |
 | [EPIC-029F](completed/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029G, O4 (built against the use-case commands; the end-to-end run with 029E is checked in 029H) | 🟡 | ✅ Done (2026-10-04), PR5 |
