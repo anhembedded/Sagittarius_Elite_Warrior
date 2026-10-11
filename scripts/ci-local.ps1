@@ -309,7 +309,7 @@ if (-not $checkoutNameValid) { $failed += "Checkout Name" }
 # (Sagittarius_Elite_Warrior), so $repoRoot alone on PYTHONPATH already
 # resolves `import Sagittarius_Elite_Warrior` -- no .venv_alias symlink
 # needed. That alias existed only to paper over a checkout cloned with
-# hyphens (see run-ui.ps1's still-present name-mismatch fallback).
+# hyphens (see run.ps1's still-present name-mismatch fallback).
 $pythonPathSeparator = [System.IO.Path]::PathSeparator
 $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 

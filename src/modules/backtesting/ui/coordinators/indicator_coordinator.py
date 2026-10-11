@@ -104,7 +104,7 @@ class IndicatorCoordinator:
         one knows about strategy/script indicator lines drawn on the old one,
         and neither caches the underlying x/y series to replay, so drop the
         stale bookkeeping rather than let it silently desync (BOT-098F6D bug,
-        2026-08-18: real run-ui.ps1 session — indicator lines vanished after a
+        2026-08-18: real desktop-launcher session — indicator lines vanished after a
         chart-mode round-trip, then the next `set_indicator_visible()` call
         crashed and was swallowed silently by `safe_ui_action`). Re-running
         the backtest already redraws every line from scratch.

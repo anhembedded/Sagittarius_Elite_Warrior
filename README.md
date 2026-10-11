@@ -72,7 +72,7 @@ Sagittarius_Elite_Warrior/
 │   ├── config/              # app_config.json, user_config.json, cli_commands.json
 │   └── main.py              # CLI entry point (headless + interactive shell)
 ├── tests/                   # unit/ · integration/ · sanity/ · testnet/ (opt-in)
-├── scripts/                 # ci-local.ps1, run.ps1, run-ui.ps1, preview-qml.ps1, probe/benchmark
+├── scripts/                 # ci-local.ps1, run.ps1 (the one launcher), preview-qml.ps1, probe/benchmark
 ├── Tasks/                   # ROADMAP.md, epics/, bug_report/, backlog/, completed/, history/, reports/
 ├── Docs/                    # Architecture diagrams, project intent, detailed design
 ├── .claude/                 # ONBOARDING.md, rules/, skills/, agents/, templates/ — workflow for human & AI agents
@@ -88,8 +88,9 @@ Sagittarius_Elite_Warrior/
 ### Windows (PowerShell) — Automated Environment Scripts
 
 ```powershell
-.\scripts\run.ps1        # creates .venv, installs dependencies + engine, runs CLI
-.\scripts\run-ui.ps1     # same as above, but launches the desktop app
+.\scripts\run.ps1                      # creates .venv, installs dependencies + engine, launches the desktop app (= -UI)
+.\scripts\run.ps1 -CLI                 # same setup, opens the interactive CLI shell
+.\scripts\run.ps1 -CLI exchange-status # same setup, one headless command (arguments after -CLI go to src/main.py)
 ```
 
 ### Manual Setup (Linux/macOS/Windows)
@@ -127,9 +128,9 @@ If environment variables are not set, the app reads `src/config/secrets.local.js
 ### 5.1 Desktop Application (PySide6)
 
 ```powershell
-.\scripts\run-ui.ps1                 # normal execution
-.\scripts\run-ui.ps1 -Dev            # DEBUG logging -> logs/dev-<timestamp>.log, enables FPS/click logging
-.\scripts\run-ui.ps1 -Debug          # TRACE logging -> logs/debug-<timestamp>.log (includes -Dev)
+.\scripts\run.ps1 -UI                # normal execution (-UI is the default)
+.\scripts\run.ps1 -UI -Dev           # DEBUG logging -> logs/dev-<timestamp>.log, enables FPS/click logging
+.\scripts\run.ps1 -UI -Debug         # TRACE logging -> logs/debug-<timestamp>.log (includes -Dev)
 ```
 
 Manual equivalent (run from parent workspace directory):
