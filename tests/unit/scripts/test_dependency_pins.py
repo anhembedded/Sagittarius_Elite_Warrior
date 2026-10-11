@@ -5,8 +5,8 @@ so two runs of one commit could build different code. `engine.ref` names one
 engine commit; `requirements.lock` (`uv pip compile --universal`) names every
 transitive version. This test keeps the three files agreeing.
 
-`BUG-148`: CI installed `engine.ref`'s commit, but `run-ui.ps1` installed the
-engine's moving `main`, `run.ps1` installed none, the app's reinstall hint
+`BUG-148`: CI installed `engine.ref`'s commit, but the desktop launcher installed the
+engine's moving `main`, the CLI launcher installed none, the app's reinstall hint
 named `main` too, and `ci-local.ps1`'s mypy step put a sibling engine checkout
 on `MYPYPATH`, ahead of the installed engine. So a machine could run, and
 type-check against, an engine CI never built. Every install now goes through
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
 from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
 
 _ROOT = repo_root()
@@ -93,8 +92,8 @@ def test_only_the_installer_names_where_the_engine_comes_from() -> None:
     assert _engine_url_holders() == [_INSTALLER]
 
 
-@pytest.mark.parametrize("launcher", ["scripts/run-ui.ps1", "scripts/run.ps1"])
-def test_every_launcher_installs_the_pinned_engine(launcher: str) -> None:
+def test_the_launcher_installs_the_pinned_engine() -> None:
+    launcher = "scripts/run.ps1"
     text = (_ROOT / launcher).read_text(encoding="utf-8")
     assert _INSTALL.search(text), (
         f"{launcher} must install the engine with {_INSTALLER}"

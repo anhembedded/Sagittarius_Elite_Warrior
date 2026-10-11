@@ -1,7 +1,7 @@
 """`BUG-148` — the one way to install the engine, and the check that it is `engine.ref`'s.
 
-CI installed the commit `engine.ref` names; `run-ui.ps1` installed the engine's
-moving `main`, `run.ps1` installed none, and `ci-local.ps1`'s mypy step put a
+CI installed the commit `engine.ref` names; the desktop launcher installed the
+engine's moving `main`, the CLI launcher installed none, and `ci-local.ps1`'s mypy step put a
 sibling engine checkout on `MYPYPATH`. A machine could therefore run, and
 type-check against, an engine CI never built, and nothing said so.
 
