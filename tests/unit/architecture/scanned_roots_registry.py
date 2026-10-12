@@ -163,6 +163,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_a_bus_subscriber_is_constructed.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    # `EPIC-038A` — follows module-level imports from the two entry points'
+    # composition; every file it reaches is under `src/`.
+    (
+        "tests/unit/architecture/test_the_shared_composition_path_imports_no_ui_package.py",
+        (("src", "*.py"),),
+    ),
     # PR 1.6g — every name declared to be the repository root must resolve to
     # it. A hop count breaks on any change of depth, which is every move this
     # epic makes, and it did so twice in two pull requests.

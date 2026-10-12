@@ -105,3 +105,41 @@ def test_the_gate_checks_the_pin_and_puts_no_engine_checkout_on_a_path() -> None
     gate = (_ROOT / "scripts" / "ci-local.ps1").read_text(encoding="utf-8")
     assert _CHECK.search(gate), f"ci-local.ps1 must run {_INSTALLER} check"
     assert "Sagittarius_Engine" not in gate
+
+
+_QT_PACKAGES = frozenset({"pyside6", "pyqtgraph", "pytest-qt", "shiboken6"})
+
+
+def _headless_requirements() -> set[str]:
+    return {
+        _normalised(match.group(1))
+        for line in (_ROOT / "requirements-headless.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if (match := _NAME.match(line.strip()))
+    }
+
+
+def test_headless_requirements_name_no_qt_package() -> None:
+    """`EPIC-038A` (owner decision O6): a server installs no Qt and none of its
+    system libraries. Every name is also pinned by the one lock, which the
+    headless install uses as a constraint, so no version is introduced here."""
+    headless = _headless_requirements()
+    locked = {
+        _normalised(line.split("==", 1)[0])
+        for line in (_ROOT / "requirements.lock")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if "==" in line and not line.startswith((" ", "#"))
+    }
+    assert headless, "requirements-headless.txt names no dependency"
+    assert headless & _QT_PACKAGES == set(), sorted(headless & _QT_PACKAGES)
+    assert headless <= locked, f"not in requirements.lock: {sorted(headless - locked)}"
+    gui_and_dev = {
+        _normalised(match.group(1))
+        for line in (_ROOT / "requirements.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if (match := _NAME.match(line.strip()))
+    }
+    assert headless <= gui_and_dev, sorted(headless - gui_and_dev)

@@ -16,6 +16,13 @@ whole time, behind a green gate and a passing test file. `BUG-126` is that, and
 [`CS-002`](../../Docs/CASE_STUDIES/CS-002_the_subscriber_nobody_built.md) is why
 no check said so.
 
+## What it hears, and what it does not (`EPIC-038A`)
+
+`TaskFailed` only. `UiActionFailedEvent` is published by the GUI alone and its
+type comes from the Engine's Qt package, so its subscription moved to
+`add_gui_wiring` (`shell/gui_wiring.py`), which hands each report to
+`report()` below. A process with no window has no UI action to fail.
+
 ## Why this is not a feed
 
 Three properties decide it, and each one is a reason the Qt feed was the wrong
@@ -49,10 +56,6 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.shell.system_error_report import (
     SystemErrorReport,
     from_task_failed,
-    from_ui_action_failed,
-)
-from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
-    UiActionFailedEvent,
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_logger import ILogger
@@ -66,21 +69,18 @@ _TAG = "[system-failure]"
 
 
 class SystemFailureLog:
-    """Subscribes once to both failure events and writes each one to the app's
-    own logger."""
+    """Subscribes once to `TaskFailed` and writes each one to the app's own
+    logger; `report` is also the sink the GUI's UI-failure subscriber writes
+    to (`shell/ui_action_failure.py`, `EPIC-038A`)."""
 
     def __init__(self, event_bus: IEventBus, logger: ILogger) -> None:
         self._logger = logger
-        event_bus.on(UiActionFailedEvent, self._on_ui_action_failed)
         event_bus.on(TaskFailed, self._on_task_failed)
 
-    def _on_ui_action_failed(self, event: UiActionFailedEvent) -> None:
-        self._report(from_ui_action_failed(event))
-
     def _on_task_failed(self, event: TaskFailed) -> None:
-        self._report(from_task_failed(event))
+        self.report(from_task_failed(event))
 
-    def _report(self, report: SystemErrorReport) -> None:
+    def report(self, report: SystemErrorReport) -> None:
         """`ERROR`, not `CRITICAL`: an operation failed and the process is
         still sound (`logging-rule.md` §6).
 

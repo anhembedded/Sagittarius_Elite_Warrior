@@ -28,6 +28,11 @@ COMPOSITION_ROOT_FILES = frozenset(
     {
         "main.py",
         "shell/composition_root.py",
+        # `EPIC-038A` — the GUI half of the composition root: `create_gui_app`
+        # is `create_app` plus the additions that name Qt or an infrastructure
+        # adapter. It has no allowlist entry to hide; it exists so the shared
+        # `composition_root.py` can stay Qt-free.
+        "shell/gui_wiring.py",
     }
 )
 

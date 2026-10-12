@@ -118,7 +118,7 @@ def booted_app(qapp, tmp_path_factory):
 
     from binance.client import Client
     from binance_fake_server import run_binance_fake_server
-    from Sagittarius_Elite_Warrior.src.main import create_app
+    from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
     from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
     config_manager = ConfigManager()
@@ -132,7 +132,11 @@ def booted_app(qapp, tmp_path_factory):
         {"bots.state_dir": str(tmp_path_factory.mktemp("bots_state"))}
     )
 
-    app = create_app(config_manager)
+    # `EPIC-038A` — the graph the GUI entry point boots (`create_app` plus the
+    # GUI's additions): this tier proves the application the GUI runs, and its
+    # window tests need them. The shared composition alone is booted, with
+    # PySide6 blocked, by `test_the_app_boots_without_pyside6.py`.
+    app = create_gui_app(config_manager)
 
     real_client_api_url = Client.API_URL
     with (

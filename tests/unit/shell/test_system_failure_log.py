@@ -18,9 +18,9 @@ because this is the file a later reader will check it against:
 
 | deleted assertion | now proved by |
 | :--- | :--- |
-| a failing UI slot reaches a subscriber | `test_a_failing_ui_slot_is_logged` |
+| a failing UI slot reaches a subscriber | `tests/unit/shell/test_ui_action_failure.py::test_a_failing_ui_slot_is_logged_with_its_traceback` (`EPIC-038A` moved the subscription to the GUI wiring) |
 | a failed background task reaches a subscriber | `test_a_failed_background_task_is_logged` |
-| both sources share one subscriber | `test_the_real_graph_subscribes_somebody_to_both_failure_events` — one level up, it is the *graph* that must have a subscriber for each |
+| both sources share one subscriber | `test_the_real_shared_graph_subscribes_somebody_to_the_task_failure` and `test_gui_wiring.py::test_the_gui_graph_subscribes_somebody_to_every_failure_event` — one level up, it is the *graph* that must have a subscriber for each |
 | `stop()` unsubscribes | `tests/unit/support/ui_kit/test_base_feed.py::test_stop_unsubscribes` |
 | `stop()` is idempotent | `tests/unit/support/ui_kit/test_base_feed.py::test_stop_is_idempotent` |
 
@@ -39,17 +39,13 @@ is the blind spot rather than this one instance of it.
 from __future__ import annotations
 
 import os
-from typing import Any
 
 import pytest
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
-from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
-    UiActionFailedEvent,
-)
+from Sagittarius_Elite_Warrior.tests.unit.shell.failure_doubles import RecordingLogger
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_logger import ILogger
 from sagittarius_engine.runtime.tasks.events import TaskFailed
 
 _CONFIG_DIR = os.path.join(
@@ -57,41 +53,6 @@ _CONFIG_DIR = os.path.join(
     "src",
     "config",
 )
-
-
-class _RecordingLogger(ILogger):
-    """A real `ILogger`, not a shape assembled from the calls under test.
-
-    `CS-001` is the case study for the alternative: `BUG-124`'s hand-written bus
-    double carried `publish` **and** `emit` **and** an invented `subscribe`, so
-    it agreed with a call that does not exist. Subclassing the interface means
-    this double cannot drift from it — a method added to `ILogger` breaks this
-    class at definition time, which is the point (`testing-rule.md` §2).
-    """
-
-    def __init__(self) -> None:
-        self.lines: dict[str, list[str]] = {}
-
-    def _record(self, level: str, message: str) -> None:
-        self.lines.setdefault(level, []).append(message)
-
-    def info(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("info", message)
-
-    def warning(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("warning", message)
-
-    def error(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("error", message)
-
-    def debug(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("debug", message)
-
-    def critical(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("critical", message)
-
-    def trace(self, message: str, extra: dict[str, Any] | None = None) -> None:
-        self._record("trace", message)
 
 
 @pytest.fixture
@@ -104,51 +65,20 @@ def booted_app():
     app.stop()
 
 
-def test_the_real_graph_subscribes_somebody_to_both_failure_events(booted_app):
-    """`BUG-126` itself. Asserted against the bus the composition root built,
-    because "somebody is listening" is a property of the graph and of nothing
-    smaller."""
+def test_the_real_shared_graph_subscribes_somebody_to_the_task_failure(booted_app):
+    """`BUG-126` itself, for the event the shared composition owns. Asserted
+    against the bus the composition root built, because "somebody is listening"
+    is a property of the graph and of nothing smaller. The UI-slot event is the
+    GUI's: `tests/unit/shell/test_gui_wiring.py` asserts it against
+    the graph the GUI entry point builds."""
     bus = booted_app.event_bus
     assert isinstance(bus, MemoryEventBus)
 
-    unheard = [
-        event_type.__name__
-        for event_type in (UiActionFailedEvent, TaskFailed)
-        if not bus.get_handlers(event_type)
-    ]
-
-    assert unheard == [], (
-        f"{unheard} reach nobody after create_app(). A failure published on one "
-        "of these leaves no trace anywhere a user or the CI log scan can see — "
+    assert bus.get_handlers(TaskFailed), (
+        "TaskFailed reaches nobody after create_app(). A background task that "
+        "dies leaves no trace anywhere a user or the CI log scan can see — "
         "EPIC-008 §1's P1 finding. Something must subscribe at boot; see "
         "src/shell/system_failure_log.py."
-    )
-
-
-def test_a_failing_ui_slot_is_logged():
-    """`safe_ui_action` publishes a full traceback. The summary line carries the
-    slot name and the exception; the traceback follows on its own line, because
-    `BOT-061` cost a misdirected investigation when only the short message
-    survived."""
-    bus = MemoryEventBus()
-    logger = _RecordingLogger()
-    SystemFailureLog(bus, logger)
-
-    bus.emit(
-        UiActionFailedEvent(
-            function_name="_on_start_clicked",
-            exception_type="AttributeError",
-            message="'MemoryEventBus' object has no attribute 'publish'",
-            traceback="Traceback (most recent call last):\n  ...",
-        )
-    )
-
-    errors = logger.lines.get("error", [])
-    assert any(
-        "_on_start_clicked" in line and "AttributeError" in line for line in errors
-    ), f"no error line named the failing slot and its exception: {errors}"
-    assert any("Traceback (most recent call last)" in line for line in errors), (
-        f"the traceback never reached the log: {errors}"
     )
 
 
@@ -157,7 +87,7 @@ def test_a_failed_background_task_is_logged():
     main thread: a logger is thread-safe, which is why this sink needs no
     `QtEventBridge` and works with no `QApplication` at all."""
     bus = MemoryEventBus()
-    logger = _RecordingLogger()
+    logger = RecordingLogger()
     SystemFailureLog(bus, logger)
 
     bus.emit(
@@ -180,17 +110,10 @@ def test_nothing_is_logged_at_a_level_the_log_scan_ignores():
     still be invisible to the gate and to `--dev`'s default threshold, which is
     the same class of silence `BUG-126` is about."""
     bus = MemoryEventBus()
-    logger = _RecordingLogger()
+    logger = RecordingLogger()
     SystemFailureLog(bus, logger)
 
-    bus.emit(
-        UiActionFailedEvent(
-            function_name="_on_click",
-            exception_type="RuntimeError",
-            message="boom",
-            traceback="Traceback...",
-        )
-    )
+    bus.emit(TaskFailed(task_id="t1", task_name="job-a", error=RuntimeError("boom")))
 
     assert set(logger.lines) == {"error"}, (
         "a swallowed failure must be reported at ERROR and nowhere else; got "

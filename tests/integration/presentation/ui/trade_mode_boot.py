@@ -27,7 +27,6 @@ from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -70,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_view import (
     TradeView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     FUTURES_ENV_API_KEY,
     FUTURES_ENV_API_SECRET,
@@ -193,7 +193,7 @@ def trade_mode_running(
     ):
         for binding in _GET_LOOP_BINDINGS:
             owned_loop.enter_context(patch(binding, lambda: loop))
-        engine = create_app(config)
+        engine = create_gui_app(config)
         container = engine.context.container
         container.singleton(IHistoricalKlines, lambda _c: seeded_history)
         container.singleton(IMarketStream, lambda _c: market_stream)

@@ -46,7 +46,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-038A | [Qt-free boot and guard](incomplete/EPIC-038A_qt_free_boot_and_guard.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-038A | [Qt-free boot and guard](completed/EPIC-038A_qt_free_boot_and_guard.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038B | [Exit codes and output formats](incomplete/EPIC-038B_exit_codes_and_output_formats.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-038C | [Bot status read model](incomplete/EPIC-038C_bot_status_read_model.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-038D | [The run host](incomplete/EPIC-038D_run_host.md) | — | 🔴 | 🔵 Planned; waits for O1, O2, O8 | — |

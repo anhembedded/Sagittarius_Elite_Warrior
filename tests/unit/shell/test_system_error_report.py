@@ -1,4 +1,8 @@
-"""The two normalisers in `shell/system_error_report.py` (`BUG-126`).
+"""The task-failure normaliser in `shell/system_error_report.py` (`BUG-126`).
+
+`from_ui_action_failed` moved to `shell/ui_action_failure.py` with its
+subscriber (`EPIC-038A`); its test moved with it, to
+`tests/unit/shell/test_ui_action_failure.py`.
 
 They used to live inside the Qt feed that `BUG-126` deleted, where
 `test_system_error_feed.py` reached them through a `QObject`, a
@@ -15,32 +19,8 @@ rather than turning a report into the word `unknown`.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.shell.system_error_report import (
-    from_task_failed,
-    from_ui_action_failed,
-)
-from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
-    UiActionFailedEvent,
-)
+from Sagittarius_Elite_Warrior.src.shell.system_error_report import from_task_failed
 from sagittarius_engine.runtime.tasks.events import TaskFailed
-
-
-def test_a_failed_ui_action_names_the_slot_and_keeps_the_traceback() -> None:
-    report = from_ui_action_failed(
-        UiActionFailedEvent(
-            function_name="_on_start_clicked",
-            exception_type="AttributeError",
-            message="no attribute 'publish'",
-            traceback="Traceback (most recent call last):\n  line one\n  line two",
-        )
-    )
-
-    assert report.source == "_on_start_clicked"
-    assert "AttributeError" in report.summary
-    assert "no attribute 'publish'" in report.summary
-    # The whole traceback, not its first line: `BOT-061` is the investigation
-    # that cost, and the reason `detail` is a separate field at all.
-    assert report.detail.count("\n") == 2
 
 
 def test_a_failed_task_is_named_by_its_task_name() -> None:

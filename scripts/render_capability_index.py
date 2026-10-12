@@ -48,8 +48,10 @@ sys.path.insert(
 
 from Sagittarius_Elite_Warrior.scripts.render_claude_manifest import repo_root
 
-#: Where markers are read, relative to the repository root.
-CAPABILITY_ROOTS: tuple[str, ...] = ("src/support", "src/core")
+#: Where markers are read, relative to the repository root. `src/shell` is here because the
+#: composition root's own helpers (the instance lock, the configuration loader) are what a
+#: new entry point reuses (`EPIC-038A`); `capabilities.md` already loads on `src/shell/**`.
+CAPABILITY_ROOTS: tuple[str, ...] = ("src/support", "src/core", "src/shell")
 
 #: The rule file that carries the generated table, and the markers around it.
 RULE_FILE = ".claude/rules/capabilities.md"

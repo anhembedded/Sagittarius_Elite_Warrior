@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
+from Sagittarius_Elite_Warrior.src.core.contracts.boot_priority import (
+    PREFLIGHT_BOOT_PRIORITY,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_extension import IExtension
 
@@ -52,7 +55,14 @@ class AssetValidatorExtension(IExtension[Any]):
     Validates the presence of required UI SVG icon assets during application boot.
     In Dev mode (dev.mode=True), fails fast with CRITICAL FAULT if any asset is missing.
     In Production mode, logs a warning and allows fallback rendering without crashing.
+
+    `priority` makes the Engine boot it before the default-priority extensions,
+    which is where it sat when `create_app` registered it first. The GUI wiring
+    (`shell/gui_wiring.py`, `EPIC-038A`) now registers it after the
+    modules, and a dev-mode fail-fast must still fire before any module boots.
     """
+
+    priority: ClassVar[int] = PREFLIGHT_BOOT_PRIORITY
 
     def __init__(
         self,

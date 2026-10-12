@@ -59,7 +59,7 @@ Each child is one PR, done in the order the dependencies allow (A → B → C �
 | [EPIC-038D](incomplete/EPIC-038D_run_host.md) | The `run` host: `IHostedService`, signals, stop policy, lock refusal, health line, `--start-planned` | Elite | 038A, 038B, 038C, 038G; owner decisions O1, O2, O8 | 🔴 | Planned |
 | [EPIC-038E](incomplete/EPIC-038E_headless_secret_backends.md) | Headless secret backends behind `ISecretStore`: systemd credentials, permission-checked file | Elite | owner decision O3; coordinates `EPIC-036A` | 🔴 | Planned |
 | [EPIC-038J](incomplete/EPIC-038J_control_of_a_running_host.md) | Control of a running host (only if decision O4 asks for it) | Elite | 038D; `EPIC-036F`; owner decision O4 | 🔴 | Planned; gated |
-| [EPIC-038A](incomplete/EPIC-038A_qt_free_boot_and_guard.md) | Qt-free boot: UI wiring leaves the shared path; CI guard with PySide6 blocked; headless requirements | Elite | owner decisions O6, O7 | 🟡 | Planned |
+| [EPIC-038A](completed/EPIC-038A_qt_free_boot_and_guard.md) | Qt-free boot: UI wiring leaves the shared path; CI guard with PySide6 blocked; headless requirements | Elite | owner decisions O6, O7 | 🟡 | Done 2026-10-12 |
 | [EPIC-038C](incomplete/EPIC-038C_bot_status_read_model.md) | Bot status read model, health snapshot file, `status`, `bot list/show` | Elite | 038B | 🟡 | Planned |
 | [EPIC-038F](incomplete/EPIC-038F_preflight_command.md) | `preflight`: clock skew, credentials, key permissions, outbound address, disk | Elite | 038B | 🟡 | Planned |
 | [EPIC-038G](incomplete/EPIC-038G_logging_for_unattended_runs.md) | Logging for unattended runs: stdout/journal first, bounded files, one parseable health line | Elite | 038A | 🟡 | Planned |
@@ -85,4 +85,5 @@ Each child is one PR, done in the order the dependencies allow (A → B → C �
 - Any code. This epic is documentation until a child task is started.
 
 ## Notes (newest first)
+- **2026-10-12** — `EPIC-038A` done. Building it found a **fourth** UI concern in the shared path that §1 does not list: `EngineCapabilityValidatorExtension` imports the Engine's `pyside_mvc` at `boot()` (both capabilities it declares are the Qt workbench), and with PySide6 absent it reported the Engine as stale. Moved to the GUI wiring with the other three; the shared composition's Engine extension count is nine, not eleven. No Engine change was needed (O7 stands).
 - **2026-10-09** — Epic scaffolded from the headless-boot proof, the code survey and the operators' research; documentation only, nothing started. Open owner decisions O1–O8 are listed with recommendations in the decision record.

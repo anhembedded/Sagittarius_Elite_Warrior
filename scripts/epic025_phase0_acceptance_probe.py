@@ -86,8 +86,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import (
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     load_app_config,
 )
-from Sagittarius_Elite_Warrior.src.shell.composition_root import (
-    create_app,
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import (
+    create_gui_app,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import (
     real_screen_registry,
@@ -145,7 +145,7 @@ def main() -> int:
     # the screen it means to check would report success for two of three.
     config_manager, _dev_mode = load_app_config([sys.argv[0], "--dev"])
     app_qt = QApplication.instance() or QApplication(sys.argv)
-    app = create_app(config_manager)
+    app = create_gui_app(config_manager)
 
     _SHOTS.mkdir(parents=True, exist_ok=True)
     failures: list[str] = []
