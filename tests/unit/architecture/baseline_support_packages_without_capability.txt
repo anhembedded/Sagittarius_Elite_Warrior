@@ -1,0 +1,23 @@
+# Support units with no `Capability:` block, AS FOUND (EPIC-037A, 2026-10-12, skeleton commit).
+# Read by tests/unit/architecture/test_every_support_package_is_in_the_catalog.py.
+#
+# One directory per line, relative to the repository root. The guard fails on a unit
+# missing a marker that is NOT listed here, and on a listed unit that now has one: delete
+# the line in the same commit. This list only shrinks, and the file is deleted when it is
+# empty, so the guard becomes a ban.
+src/support/binance_gateway
+src/support/charting
+src/support/charting/chart_card
+src/support/charting/live_chart
+src/support/charting/timeframe_picker
+src/support/indicators
+src/support/indicators/indicator_scripts
+src/support/indicators/indicators
+src/support/indicators/scripting
+src/support/indicators/ui
+src/support/ui_kit/environment_banner
+src/support/ui_kit/param_form
+src/support/ui_kit/registry
+src/support/ui_kit/services
+src/support/ui_kit/state
+src/support/ui_kit/time_range_picker

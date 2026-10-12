@@ -382,6 +382,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/sanity/test_python_floor.py",
         (("src", "*.py"), ("scripts", "*.py"), ("tests", "*.py")),
     ),
+    # `EPIC-037A` — every support unit has a `Capability:` block in the catalog.
+    (
+        "tests/unit/architecture/test_every_support_package_is_in_the_catalog.py",
+        (("src/support", "*.py"), ("src/core", "*.py")),
+    ),
     # BUG-152 — imports every module under `src/` in a fresh interpreter.
     ("tests/sanity/test_shutdown_leaves_nothing_uncollectable.py", (("src", "*.py"),)),
 )
