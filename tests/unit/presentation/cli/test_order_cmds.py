@@ -23,6 +23,7 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from binance.exceptions import BinanceAPIException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
@@ -301,8 +302,59 @@ class TestOrderDryRun:
         assert "Could not send the payload" in outcome.message
         assert "Could not send" not in capsys.readouterr().out
 
+    @pytest.mark.parametrize(
+        ("binance_code", "code"),
+        [
+            (-2015, ExitCode.CONFIGURATION),
+            (-2008, ExitCode.CONFIGURATION),
+            (-2014, ExitCode.CONFIGURATION),
+            (-1022, ExitCode.CONFIGURATION),
+            (-1021, ExitCode.EXCHANGE),
+            (-1003, ExitCode.EXCHANGE),
+            (0, ExitCode.EXCHANGE),
+        ],
+    )
+    def test_a_raw_binance_error_exits_by_whether_a_restart_can_fix_it(
+        self,
+        app: Mock,
+        submission: FakeOrderSubmission,
+        binance_code: int,
+        code: ExitCode,
+    ) -> None:
+        """`EPIC-038` D9: the key and signature codes are the operator's (5), the
+        clock and everything else a wait (6) — as `exchange-status` and `preflight`."""
+        submission.validate_raises(_binance_error(binance_code))
+
+        outcome = execute_order_dry_run(app, _args())
+
+        assert outcome is not None
+        assert outcome.code is code
+        if code is ExitCode.CONFIGURATION:
+            assert f"code {binance_code}" in outcome.message
+            assert "repeating the command will not help" in outcome.message
+
+    def test_an_order_refused_for_its_key_exits_as_a_configuration_error(
+        self, app: Mock, submission: FakeOrderSubmission
+    ) -> None:
+        submission.validate_raises(
+            OrderRejectedByExchangeError(OrderRejectionReason.KEY_REJECTED, "-2015")
+        )
+
+        outcome = execute_order_dry_run(app, _args())
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.CONFIGURATION
+
     def test_a_bad_number_is_a_usage_exit(self, app: Mock) -> None:
         outcome = execute_order_dry_run(app, _args(price="free"))
 
         assert outcome is not None
         assert outcome.code is ExitCode.USAGE
+
+
+def _binance_error(code: int) -> BinanceAPIException:
+    """The exception python-binance raises for `{"code": code, "msg": ...}`."""
+    response = Mock()
+    response.status_code = 400
+    response.text = f'{{"code": {code}, "msg": "refused"}}'
+    return BinanceAPIException(response, 400, response.text)

@@ -12,11 +12,11 @@ is policy-blocked in this sandbox.
 from __future__ import annotations
 
 from binance.exceptions import BinanceAPIException
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
-    KEY_REJECTED_CODES,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectionReason,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    KEY_REJECTED_CODES,
 )
 
 #: Binance's one generic "filter failure" code — shared by several distinct

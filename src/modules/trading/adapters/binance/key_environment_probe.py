@@ -38,7 +38,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_clie
     new_client,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
-    UNKNOWN_KEY_CODES,
     classify_connection_failure,
     describe_failure,
 )
@@ -58,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_key import (
     key_fingerprint,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    UNKNOWN_KEY_CODES,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,

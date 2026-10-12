@@ -12,6 +12,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_exit_code import (
+    exit_code_of_binance_error,
+    exit_code_of_order_rejection,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
@@ -97,10 +101,14 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> CliOutcome | No
             "src/config/user_config.json, then try again.",
         )
     except OrderRejectedByExchangeError as exc:
-        return CliOutcome(ExitCode.EXCHANGE, format_submission_rejected(exc))
+        return CliOutcome(
+            exit_code_of_order_rejection(exc.reason), format_submission_rejected(exc)
+        )
     except InvalidOrderForSubmissionError as exc:
         return CliOutcome(ExitCode.USAGE, f"Order is not valid for submission: {exc}")
-    except (BinanceAPIException, BinanceRequestException, RequestException):
+    except BinanceAPIException as exc:
+        return _exchange_error_outcome(exc)
+    except (BinanceRequestException, RequestException):
         return CliOutcome(
             ExitCode.EXCHANGE,
             "Could not send the payload to the exchange — check your network connection and try again.",
@@ -108,3 +116,21 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> CliOutcome | No
 
     print(format_submission_accepted())
     return None
+
+
+def _exchange_error_outcome(exc: BinanceAPIException) -> CliOutcome:
+    """A raw Binance error from the test endpoint (`EPIC-038` D9): a key or
+    signature the exchange refuses is the operator's to fix (5), anything else a
+    wait (6). The code is not a secret; the exchange's own text can hold a signed
+    URL, so only the code travels."""
+    code = exit_code_of_binance_error(exc.code)
+    if code is ExitCode.CONFIGURATION:
+        return CliOutcome(
+            code,
+            f"The exchange refused the API key or its signature (code {exc.code}) — "
+            "check the key, its permissions and its IP list; repeating the command will not help.",
+        )
+    return CliOutcome(
+        code,
+        "Could not send the payload to the exchange — check your network connection and try again.",
+    )

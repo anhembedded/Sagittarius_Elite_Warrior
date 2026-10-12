@@ -52,7 +52,7 @@ Checked `.claude/rules/capabilities.md`. **Used:** `ICliRegistry`/`CliCommandDes
 | `src/modules/operations/cli/preflight_cli_handler.py`, `module.py`, `src/config/cli_commands.json` | the command and its declarations |
 | `src/modules/trading/adapters/preflight/` (new), `module.py` | the five exchange checks, `VenueReads`, declared by `TradingModule` |
 | `tests/unit/architecture/boundaries/rules.py`, `test_boundary_rules.py` | a module's `cli/` may import `support/cli_host`; domain and application refused; pinned |
-| `src/modules/trading/contracts/connection_failure_exit_code.py` (new), `src/presentation/cli/exchange_status_report.py`, `src/support/cli_host/exit_code_table.py`, `Docs/OPERATIONS/exit_codes.md`, DESIGN §7, DECISION D9 | the one failure-kind → exit-code mapping (D9) |
+| `src/modules/trading/contracts/connection_failure_exit_code.py` (new), `src/support/binance_gateway/contracts/binance_error_codes.py` (new; the code sets, read by the connection check, the order translator and the exit codes), `src/modules/strategy/cli/trade_once_cmd.py`, `src/presentation/cli/order_dry_run_cmd.py`, `src/presentation/cli/exchange_status_report.py`, `src/support/cli_host/exit_code_table.py`, `Docs/OPERATIONS/exit_codes.md`, DESIGN §7, DECISION D9 | the one failure-kind → exit-code mapping (D9) |
 | `.claude/rules/capabilities.md` | regenerated (one new row) |
 | `Docs/VOCABULARY/README.md` | **Pre-flight check**; `BoundedContextModule` has a fourth hook |
 | tests | `tests/unit/modules/operations/`, `tests/unit/modules/trading/adapters/preflight/`, `tests/unit/shell/test_operations_registry.py`, `tests/integration/modules/bots/test_preflight_on_the_fake_exchange.py` |

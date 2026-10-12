@@ -153,7 +153,9 @@ def _signal() -> Signal:
     )
 
 
-def _app_ready_to_submit_an_order() -> tuple[Mock, FakeOrderSubmission]:
+def _app_ready_to_submit_an_order(
+    status: ExchangeConnectionStatus | None = None,
+) -> tuple[Mock, FakeOrderSubmission]:
     """An `App` double set up to reach `execute_trade_once()`'s live
     `IOrderSubmission.submit()` call: one candle, a strategy registered, an
     actionable engine signal, known metadata, and a known USDT balance.
@@ -172,7 +174,7 @@ def _app_ready_to_submit_an_order() -> tuple[Mock, FakeOrderSubmission]:
     # unknown symbol, which is the promise the order-shaping path below rounds
     # against.
     metadata_provider = FakeMarketMetadataProvider([_metadata()])
-    account_reader = FakeTradingAccountReader(_ready_status())
+    account_reader = FakeTradingAccountReader(status or _ready_status())
 
     history = FakeHistoricalKlines()
     history.seed([_candle()])

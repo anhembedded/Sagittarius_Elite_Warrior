@@ -29,6 +29,11 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    BAD_SIGNATURE_CODE,
+    CLOCK_SKEW_CODE,
+    KEY_REJECTED_CODES,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     ResolvedCredentials,
 )
@@ -38,22 +43,9 @@ logger = logging.getLogger("App.TradingAdapter")
 #: Binance error codes that name a failure precisely. Any other
 #: `BinanceAPIException` code — or a failure with no code at all — degrades to
 #: `ConnectionFailureKind.NETWORK`.
-#: `BUG-175`/`BUG-176`: the codes that say the exchange does not know the key
-#: (`-2008` Invalid Api-Key ID, `-2014` API-key format invalid), as against `-2015`,
-#: which says it knows the key and refuses this request. All three are
-#: `KEY_REJECTED`; Add key… on the Options page tells the first two from the third
-#: (the key is for another environment, or it is known and refused here) and reads
-#: them from here, so the codes exist once.
-UNKNOWN_KEY_CODES = frozenset({-2008, -2014})
-
-#: Every code that says the exchange rejects the API key itself (`EPIC-035F`):
-#: the connection check files them under `KEY_REJECTED`, and the order
-#: translator under `OrderRejectionReason.KEY_REJECTED`; the codes exist once.
-KEY_REJECTED_CODES = frozenset({-2015, *UNKNOWN_KEY_CODES})
-
 _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
-    -1021: ConnectionFailureKind.CLOCK_SKEW,
-    -1022: ConnectionFailureKind.BAD_SIGNATURE,
+    CLOCK_SKEW_CODE: ConnectionFailureKind.CLOCK_SKEW,
+    BAD_SIGNATURE_CODE: ConnectionFailureKind.BAD_SIGNATURE,
     #: `-2015`, and `BUG-175`: "Invalid Api-Key ID" (the exchange does not know
     #: the key: a testnet key pasted for mainnet, or the reverse) and "API-key
     #: format invalid". All are about the key, never the network.
