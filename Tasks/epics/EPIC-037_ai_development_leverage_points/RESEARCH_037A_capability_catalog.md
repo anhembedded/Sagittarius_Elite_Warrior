@@ -1,6 +1,6 @@
 # Research for EPIC-037A — how an agent learns a shared mechanism exists at the moment it decides
 
-Recorded 2026-10-12 for [`EPIC-037A`](incomplete/EPIC-037A_capability_catalog.md). Sources were read or searched on that date; a claim a source does not state is marked *(inferred)*. Question: what delivers "this mechanism already exists" to an AI session at the moment it chooses what to write, and keeps that statement true as the code changes?
+Recorded 2026-10-12 for [`EPIC-037A`](completed/EPIC-037A_capability_catalog.md). Sources were read or searched on that date; a claim a source does not state is marked *(inferred)*. Question: what delivers "this mechanism already exists" to an AI session at the moment it chooses what to write, and keeps that statement true as the code changes?
 
 ## 1. Delivering project knowledge just in time
 

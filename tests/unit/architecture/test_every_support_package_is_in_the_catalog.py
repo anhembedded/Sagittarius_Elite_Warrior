@@ -48,6 +48,8 @@ from Sagittarius_Elite_Warrior.scripts.render_capability_index import (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+#: The checkout's directory name, which every absolute import in `src/` starts with.
+_PACKAGE = _REPO_ROOT.name
 _SUPPORT = "src/support"
 
 #: Directories that roll up into their parent unit instead of being one.
@@ -87,16 +89,36 @@ def defined_names(source: str) -> set[str]:
     return names
 
 
-def imported_names(source: str) -> set[str]:
-    """The names `source` imports from elsewhere, as written at the source (`from m import X`
-    gives `X`, not an alias). A word in a string or comment is not an import."""
-    names: set[str] = set()
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.ImportFrom):
-            names.update(a.name for a in node.names)
-        elif isinstance(node, ast.Import):
-            names.update(a.name.split(".")[-1] for a in node.names)
-    return names
+def imports_from(source: str) -> set[tuple[str, str]]:
+    """`(module, name)` for every absolute `from module import name` in `source`. A word in
+    a string or comment is not an import, and a relative import names no module here."""
+    return {
+        (node.module, alias.name)
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module
+        for alias in node.names
+    }
+
+
+def dotted_module(source_path: str) -> str:
+    """The dotted module a repo-relative `.py` path is imported as (a package for
+    `__init__.py`), under the checkout's own package name."""
+    parts = Path(source_path).with_suffix("").parts
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join((_PACKAGE, *parts))
+
+
+def imports_the_capability(user_source: str, capability: Capability) -> bool:
+    """Whether `user_source` imports one of the capability's symbols **from the module that
+    declares it, or a package above it that re-exports it**. A same-named symbol from an
+    unrelated module is not a user."""
+    declaring = dotted_module(capability.source)
+    return any(
+        name in capability.symbols
+        and (declaring == module or declaring.startswith(module + "."))
+        for module, name in imports_from(user_source)
+    )
 
 
 def unit_directories(support: Path) -> list[Path]:
@@ -206,9 +228,10 @@ def test_every_user_really_imports_the_capability() -> None:
             problems.append(
                 f"  {_id(c)}: User {c.user} is inside the capability itself"
             )
-        if not set(c.symbols) & imported_names(user.read_text(encoding="utf-8")):
+        if not imports_the_capability(user.read_text(encoding="utf-8"), c):
             problems.append(
-                f"  {_id(c)}: User {c.user} imports none of {', '.join(c.symbols)}"
+                f"  {_id(c)}: User {c.user} imports none of {', '.join(c.symbols)} "
+                f"from {dotted_module(c.source)} (or a package above it)"
             )
     assert problems == [], "`User:` must be a real consumer:\n" + "\n".join(problems)
 
@@ -325,9 +348,28 @@ def test_a_user_must_be_a_source_path() -> None:
 
 
 def test_a_mention_in_a_string_is_not_an_import() -> None:
-    assert imported_names('x = "SymbolPickerOverlay"\n') == set()
-    assert imported_names("from pkg.mod import Name as Other\n") == {"Name"}
-    assert imported_names("import a.b.c\n") == {"c"}
+    assert imports_from('x = "SymbolPickerOverlay"\n') == set()
+    assert imports_from("from pkg.mod import Name as Other\n") == {("pkg.mod", "Name")}
+    assert imports_from("from . import Name\n") == set()
+
+
+def _capability(source: str) -> Capability:
+    (capability,) = parse_docstring(source, _GOOD).capabilities
+    return capability
+
+
+def test_a_same_named_symbol_from_another_module_is_not_a_user() -> None:
+    capability = _capability("src/support/k/overlay.py")  # declares Overlay, Source
+    mod = f"{_PACKAGE}.src.support.k.overlay"
+    assert imports_the_capability(f"from {mod} import Overlay\n", capability)
+    assert imports_the_capability(
+        f"from {_PACKAGE}.src.support.k import Overlay\n", capability
+    )
+    assert not imports_the_capability("from other.place import Overlay\n", capability)
+    assert not imports_the_capability(f"from {mod} import Unrelated\n", capability)
+    assert not imports_the_capability(
+        f"from {_PACKAGE}.src.support.kk import Overlay\n", capability
+    )
 
 
 def test_defined_names_see_classes_functions_imports_and_aliases() -> None:

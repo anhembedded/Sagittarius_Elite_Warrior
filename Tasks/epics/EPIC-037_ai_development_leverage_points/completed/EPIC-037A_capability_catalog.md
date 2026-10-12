@@ -1,9 +1,9 @@
 # EPIC-037A — A capability catalog the AI receives when it touches UI or application code
 
-**Status:** 🔵 Planned — not started
+**Status:** ✅ Done (2026-10-12)
 **Source:** the owner's systems-thinking review, 2026-10-09 (see the epic README for the quote)
 **Risk:** 🟢 — documentation and one generator script; a stale catalog is the main risk
-**Complexity:** S — one rule file, one script, one guard
+**Complexity:** M — one rule file, one script, one guard, and a marker on 31 modules (grew from S once the design was researched)
 **Epic:** [EPIC-037](../README.md)
 **Depends on:** None
 
@@ -33,7 +33,7 @@ Leverage point 6 (information flow), delivered just in time (Anthropic, context 
 | `CLAUDE.md` navigation table, `.claude/README.md` | rows for the new rule (`test_rule_navigation_is_complete.py`) |
 
 ## 5. Testing
-Guard file: `tests/unit/architecture/test_every_support_package_is_in_the_catalog.py` (unit tier, stdlib, 22 tests: 10 guards, 12 probes of the parser and the AST helpers). Registered in `scanned_roots_registry.py`.
+Guard file: `tests/unit/architecture/test_every_support_package_is_in_the_catalog.py` (unit tier, stdlib, 23 tests: 10 guards, 13 probes of the parser and the AST helpers). Registered in `scanned_roots_registry.py`.
 
 **Mutation proofs** (each applied to the committed tree, run, restored, run green again; baseline 22 passed):
 | # | Mutation | Red test |
@@ -48,6 +48,7 @@ Guard file: `tests/unit/architecture/test_every_support_package_is_in_the_catalo
 | M8 | misspelled head `Capabilty:` | marker well formed (near-miss) |
 | M9 | remove the `services` marker (after the baseline was deleted) | support unit missing |
 | M10 | `User:` repointed to a file that imports nothing from it | user really imports |
+| M11 | the user's import of `Deferred` repointed to a same-named module that is not the declaring one (review round 1) | user really imports |
 
 Other: `python3 scripts/check_skill_prompt_references.py` OK (7 checks, 44 documents); `test_claude_tree_is_wired.py`, `test_rule_navigation_is_complete.py`, `test_scanned_roots_are_not_empty.py` green; `ruff check`, `ruff format --check` clean on touched paths; `mypy scripts/render_capability_index.py` clean.
 
@@ -60,5 +61,6 @@ Other: `python3 scripts/check_skill_prompt_references.py` OK (7 checks, 44 docum
 - **Term:** "capability" kept and defined in `Docs/VOCABULARY/README.md` against the Engine-API sense (design §3.1).
 - **Always-loaded text did not rise** (285): the rule is path-scoped and its navigation entries were added to existing rows of `CLAUDE.md` and `ONBOARDING.md` §1.
 - **Reuse section** is `## 3a` in the task template; rubric check **A7** (total now 109) in `rubric.md`, `SKILL.md`, `reviewer.md` and `ONBOARDING.md` §7.
+- **Review round 1 (reviewer verdict at `16fb07e`).** The `User:` check first matched the symbol name only; it now requires `from <declaring module or a package above it> import <symbol>` (`imports_the_capability`), proved by M11 and a probe. Stale `Status` line and two dead `incomplete/` links (TRACKING, RESEARCH) fixed.
 - **Limits.** Core is judged, not enumerated: three markers there, protected by the generated-block comparison and the row floor, not by a per-file rule. Which modules deserve a row inside the flat `ui_kit` is judgement; the guard guarantees every package has one, not that every reusable module does. A session that never opens a UI or application file never receives the rule (by design).
 - **Follow-up for `EPIC-037C`:** the "only one" guards can read this catalog for the canonical symbol of each mechanism.
