@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    BAD_SIGNATURE_CODE,
     KEY_REJECTED_CODES,
 )
 
@@ -49,6 +50,8 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     # `EPIC-035F` — the exchange rejects the API key itself (revoked, another
     # environment's, off its IP list).
     **dict.fromkeys(KEY_REJECTED_CODES, OrderRejectionReason.KEY_REJECTED),
+    # `EPIC-038` D9 — the signature does not verify: a mistyped secret.
+    BAD_SIGNATURE_CODE: OrderRejectionReason.BAD_SIGNATURE,
     # `EPIC-035T` — Spot's "new order rejected" (an insufficient balance, a
     # post-only that would cross): the exchange read the order and refused its
     # content. Unverified against a live answer, see the note above.

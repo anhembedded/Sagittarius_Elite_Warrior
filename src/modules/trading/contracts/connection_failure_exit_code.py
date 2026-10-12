@@ -52,12 +52,21 @@ EXIT_CODE_FOR_FAILURE: dict[ConnectionFailureKind, ExitCode] = {
 }
 
 
+#: The refusals that are the connection failure of the same name: the key itself,
+#: or the signature. Any other refusal is the exchange's answer to this order.
+_FAILURE_OF_REJECTION: dict[OrderRejectionReason, ConnectionFailureKind] = {
+    OrderRejectionReason.KEY_REJECTED: ConnectionFailureKind.KEY_REJECTED,
+    OrderRejectionReason.BAD_SIGNATURE: ConnectionFailureKind.BAD_SIGNATURE,
+}
+
+
 def exit_code_of_order_rejection(reason: OrderRejectionReason) -> ExitCode:
-    """A refused order: the key itself rejected is the operator's (5); any other
-    refusal is the exchange's answer to this order (6), as it always was."""
-    if reason is OrderRejectionReason.KEY_REJECTED:
-        return EXIT_CODE_FOR_FAILURE[ConnectionFailureKind.KEY_REJECTED]
-    return ExitCode.EXCHANGE
+    """A refused order: a rejected key or signature is the operator's (5); any
+    other refusal is the exchange's answer to this order (6), as it always was."""
+    failure = _FAILURE_OF_REJECTION.get(reason)
+    if failure is None:
+        return ExitCode.EXCHANGE
+    return EXIT_CODE_FOR_FAILURE[failure]
 
 
 def exit_code_of_binance_error(code: int | None) -> ExitCode:

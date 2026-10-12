@@ -14,12 +14,15 @@ from __future__ import annotations
 
 #: The exchange does not know the key: `-2008` Invalid Api-Key ID (a testnet key on
 #: mainnet, or the reverse), `-2014` API-key format invalid.
-UNKNOWN_KEY_CODES = frozenset({-2008, -2014})
+UNKNOWN_KEY_ID_CODE = -2008
+KEY_FORMAT_CODE = -2014
+UNKNOWN_KEY_CODES = frozenset({UNKNOWN_KEY_ID_CODE, KEY_FORMAT_CODE})
 
 #: Every code that says the exchange rejects the API key itself: the unknown-key
 #: codes and `-2015` (it knows the key and refuses this request: an address off
 #: the key's allowlist, or a missing permission).
-KEY_REJECTED_CODES = frozenset({-2015, *UNKNOWN_KEY_CODES})
+KEY_REJECTED_CODE = -2015
+KEY_REJECTED_CODES = frozenset({KEY_REJECTED_CODE, *UNKNOWN_KEY_CODES})
 
 #: `-1022`: the request's signature does not verify (a mistyped or truncated secret).
 BAD_SIGNATURE_CODE = -1022

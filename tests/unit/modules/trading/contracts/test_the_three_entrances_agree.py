@@ -50,8 +50,8 @@ def test_a_code_exits_the_same_as_the_connection_failure_it_names(code: int) -> 
     assert exit_code_of_binance_error(code) is EXIT_CODE_FOR_FAILURE[kind]
 
 
-@pytest.mark.parametrize("code", sorted(KEY_REJECTED_CODES))
-def test_a_rejected_key_exits_the_same_as_an_order_refused_for_its_key(
+@pytest.mark.parametrize("code", sorted(OPERATOR_FIXABLE_CODES))
+def test_an_operator_fixable_code_exits_the_same_as_the_order_refused_for_it(
     code: int,
 ) -> None:
     reason = translate_binance_error(_error(code))

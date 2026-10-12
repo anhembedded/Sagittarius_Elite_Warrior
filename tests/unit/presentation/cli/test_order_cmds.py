@@ -333,6 +333,20 @@ class TestOrderDryRun:
             assert f"code {binance_code}" in outcome.message
             assert "repeating the command will not help" in outcome.message
 
+    def test_an_order_refused_for_its_signature_exits_as_a_configuration_error(
+        self, app: Mock, submission: FakeOrderSubmission
+    ) -> None:
+        """`validate()` wraps a Binance error in `OrderRejectedByExchangeError`, so a
+        mistyped secret (`-1022`) reaches the command as a named reason (`EPIC-038` D9)."""
+        submission.validate_raises(
+            OrderRejectedByExchangeError(OrderRejectionReason.BAD_SIGNATURE, "-1022")
+        )
+
+        outcome = execute_order_dry_run(app, _args())
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.CONFIGURATION
+
     def test_an_order_refused_for_its_key_exits_as_a_configuration_error(
         self, app: Mock, submission: FakeOrderSubmission
     ) -> None:

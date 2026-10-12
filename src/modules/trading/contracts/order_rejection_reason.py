@@ -42,6 +42,10 @@ class OrderRejectionReason(Enum):
     #: `EPIC-035F` — the exchange rejected the API key itself (`-2015`,
     #: `-2008`, `-2014`): revoked, of another environment, or off its IP list.
     KEY_REJECTED = "key_rejected"
+    #: `EPIC-038` D9 — the exchange could not verify the request's signature
+    #: (`-1022`): a mistyped or truncated secret. Named so the exit code can tell
+    #: it from `UNKNOWN`: only the operator can fix it.
+    BAD_SIGNATURE = "bad_signature"
     #: `EPIC-035T` — Spot's `-2010` "new order rejected": the exchange read the
     #: order and refused it for its own content (balance, a post-only cross).
     NEW_ORDER_REJECTED = "new_order_rejected"

@@ -32,7 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
     BAD_SIGNATURE_CODE,
     CLOCK_SKEW_CODE,
+    KEY_FORMAT_CODE,
+    KEY_REJECTED_CODE,
     KEY_REJECTED_CODES,
+    UNKNOWN_KEY_ID_CODE,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     ResolvedCredentials,
@@ -56,16 +59,16 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
 #: appends it to the exchange's own code and message, so a log line, the
 #: key-enrolment script and the Connect step all say the same thing.
 _KEY_CODE_HINTS: dict[int, str] = {
-    -2015: (
+    KEY_REJECTED_CODE: (
         "The key's IP whitelist does not include this machine's public IP "
         "(a LAN address such as 192.168.x.x never matches), Enable Reading is "
         "off, or the change is not saved yet."
     ),
-    -2008: (
+    UNKNOWN_KEY_ID_CODE: (
         "The exchange does not know this key; a testnet or Demo Trading key "
         "does not work on mainnet."
     ),
-    -2014: "The key is malformed: copy it again, with no spaces or missing characters.",
+    KEY_FORMAT_CODE: "The key is malformed: copy it again, with no spaces or missing characters.",
 }
 
 #: The text python-binance starts a non-JSON answer's message with
