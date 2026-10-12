@@ -2,7 +2,7 @@
 
 **Epic:** [EPIC-038](README.md)
 **Date:** 2026-10-09
-**Status:** Accepted for D1–D3 (the owner's instruction); Proposed for D4–D6; O1–O8 are open and pending the owner
+**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); Proposed for D4–D5
 **Decided by:** D1–D3 the owner, 2026-10-09, relayed by the coordinator session's brief: the owner wants the app to run bots with no GUI, from the command line on a VPS (Linux or a Windows server), and said *"nhớ chú ý design dễ dàng mở rộng SOLID"* (translated: mind a design that is easy to extend, SOLID); the brief also says *"No TUI in this epic. Record the decision and its reasons"*. D4–D6 are this epic's proposals; they become decisions when the owner answers. O1–O8: Pending.
 
 | Label | Meaning |
@@ -55,6 +55,36 @@ Reconsider only if **all** of the following hold: (a) `status --watch` and the a
 | O6 | A headless dependency set | add `requirements-headless.txt` (no PySide6, pyqtgraph, pytest-qt) · keep one file | **Add it** — a server should not install Qt's system libraries (run C needed `libEGL`). Dependency change: approval. | 038A |
 | O7 | Engine changes | (i) a Qt-free home for `UiActionFailedEvent` · (ii) `RotatingFileHandler` in `StdLogger` | **Neither in this epic.** (i) is avoided by D6; (ii) is covered by journald/NSSM, and logged as a separate Engine proposal if the owner wants a rotating file. Engine edits need a separate confirmation (`ONBOARDING.md` §2). | 038A, 038G |
 | O8 | May `run` start mainnet venues on its first release? | same rules as the GUI · testnet-only for the first release | **Same rules as the GUI,** with the startup warning (§11 of the design) while alerts are not carrying bot events; the venue confirmation the screen shows must have a CLI equivalent (to verify in 038D). | 038D |
+
+## 4a. Answers, 2026-10-12
+The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you decide these yourself, by the Constitution?) for Q9, O1, O2, O3, O7 and O8, after accepting the rule that an owner question defaults to its recommendation when the recommendation passes every invariant (`ONBOARDING.md` §7). O4, O5 and the default of a bare `main.py` (D8) fall under that rule directly; O6 the owner approved (*"ok thêm"*). Each answer below is reversible by a later decision record.
+
+| # | Decision | Reason |
+| :-- | :--- | :--- |
+| O1 | **A: shutdown leaves resting orders**; `--on-stop stop-bots` stops the bots first for maintenance. | One path for a stop, a crash and closing the GUI. The boot reconciliation from exchange history (`BOT-173`, `BUG-194`) already exists (P5). Known gap, recorded for `EPIC-036`: while the app is stopped, no stop loss is watched, under either option. |
+| O2 | **(a): a person resumes a RECOVERING bot** (`bot resume` or the GUI). `--resume-recovering` is offered only after `EPIC-036B` and `036C` ship. | Nothing trades unattended while a failure can be silent; the opt-in is a seam built later (P7). |
+| O3 | **Linux: systemd credentials (`LoadCredential`), environment variables as fallback. Windows: Credential Manager through `keyring` under the service account if 038E proves it works for a service, else a permission-checked file.** Behind `IExchangeCredentialsProvider`; never in a plan file, a log or a report. | Reuses the existing port and the existing `keyring` dependency (P5); a backend is one adapter (D3). |
+| O4 | **No control of a running host in v1**; control is restart plus `bot apply`; remote control is `EPIC-036F`. | No new port or input path (R11). |
+| O5 | **NSSM documented, Task Scheduler as the fallback; neither becomes a dependency.** | No dependency change. |
+| O6 | **`requirements-headless.txt` added** (owner approval). | Delivered by 038A, PR #465. |
+| O7 | **No Engine change in this epic.** | 038A proved the Qt-free boot needs none; the rotating log file is a separate Engine proposal if the owner wants one. |
+| O8 | **Same rules as the GUI.** Starting a bot on a mainnet venue from the CLI requires `--confirm-venue <venue>` whose value equals that venue; otherwise the command is refused with exit code 2. | The CLI equivalent of the GUI's real-funds dialog, enforced by the command, not by habit (P1); a command copied from a testnet run cannot start mainnet. |
+| D7 (Q9) | **The CLI host is built in the app, as an isolated package that imports no domain or module code (a guard enforces it), on the existing `ICliRegistry`/`declare_cli`;** it may move to the Engine later as one package move. | D2 (reuse the existing CLI machinery) and O7 (no Engine change) are already decided, and P5 puts sound repo mechanisms first. The guard is the seam that keeps the later move to the Engine a move, not a rewrite (P7). This replaces the coordinator's earlier "Engine first" recommendation, which did not weigh D2 and O7. |
+| D8 (Q10) | **A bare `main.py` prints help and exits with code 2;** `main.py gui` opens the GUI (what `run.ps1 -UI` calls), `main.py shell` the REPL. | The default is safe in every environment: a supervisor that starts it by mistake neither opens a window nor waits on input. |
+
+**Constitution check.** ✅ means the decision complies; each row was checked against `.claude/CONSTITUTION.md`.
+
+| # | P1 | P2 | P3 | P4 | P5 | P6 | P7 | P8 | P9 | P10 | P11 | Reversible |
+| :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| O1 | ✅ one tested stop path | ✅ | ✅ | ✅ | ✅ reuses reconciliation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ a flag |
+| O2 | ✅ refusal is the default | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ opt-in later | ✅ | ✅ | ✅ | ✅ | ✅ |
+| O3 | ✅ adapters behind one port | ✅ | ✅ | ✅ 038E proves it | ✅ `keyring` exists | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ one adapter |
+| O4 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ 036F later | ✅ | ✅ | ✅ | ✅ | ✅ |
+| O5 | ✅ | ✅ | ✅ | ✅ | ✅ standard tools | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| O7 | ✅ | ✅ proven by 038A | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| O8 | ✅ enforced by the command | ✅ | ✅ | ✅ | ✅ mirrors the GUI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| D7 | ✅ isolation guard | ✅ | ✅ one host, moved not copied | ✅ | ✅ existing registry | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ a package move |
+| D8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
