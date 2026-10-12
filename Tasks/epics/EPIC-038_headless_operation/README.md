@@ -62,7 +62,7 @@ Each child is one PR, done in the order the dependencies allow (A → B → C �
 | [EPIC-038A](completed/EPIC-038A_qt_free_boot_and_guard.md) | Qt-free boot: UI wiring leaves the shared path; CI guard with PySide6 blocked; headless requirements | Elite | owner decisions O6, O7 | 🟡 | Done 2026-10-12 |
 | [EPIC-038C](incomplete/EPIC-038C_bot_status_read_model.md) | Bot status read model, health snapshot file, `status`, `bot list/show` | Elite | 038B | 🟡 | Planned |
 | [EPIC-038F](incomplete/EPIC-038F_preflight_command.md) | `preflight`: clock skew, credentials, key permissions, outbound address, disk | Elite | 038B | 🟡 | Planned |
-| [EPIC-038G](incomplete/EPIC-038G_logging_for_unattended_runs.md) | Logging for unattended runs: stdout/journal first, bounded files, one parseable health line | Elite | 038A | 🟡 | Planned |
+| [EPIC-038G](completed/EPIC-038G_logging_for_unattended_runs.md) | Logging for unattended runs: stdout/journal first, bounded files, one parseable health line | Elite | 038A | 🟡 | Done 2026-10-12 |
 | [EPIC-038I](incomplete/EPIC-038I_bot_plan_files.md) | Bot plan files and `bot apply` (idempotent, no secrets, diff first) | Elite | 038B, 038C | 🟡 | Planned |
 | [EPIC-038B](incomplete/EPIC-038B_exit_codes_and_output_formats.md) | Exit codes and the `--json` renderer registry; handlers may return a `CliOutcome` | Elite | None | 🟢 | Planned |
 | [EPIC-038H](incomplete/EPIC-038H_service_units_and_runbook.md) | systemd unit, Windows (NSSM) procedure, runbook, upgrade procedure | Elite | 038D, 038E, 038F, 038G; supported-unattended wording waits for 036B/C/E | 🟢 | Planned |
@@ -85,5 +85,6 @@ Each child is one PR, done in the order the dependencies allow (A → B → C �
 - Any code. This epic is documentation until a child task is started.
 
 ## Notes (newest first)
+- **2026-10-12** — `EPIC-038G` done. The task's file path needed the `operations` module (decision D4, still *Proposed*), so a minimal one now exists: an id, no hooks, the health line's format and `HostState`. The shipped config already logs to stdout only, so there was nothing to build for rotation; the guide `Docs/OPERATIONS/LOGGING.md` says so and gives the `copytruncate` stanza for an operator-set `log.file`. The unit-file, host-stdout and 038E-backend halves of three criteria cannot be tested before their subjects exist; each was handed to 038D, 038E or 038H as a criterion.
 - **2026-10-12** — `EPIC-038A` done. Building it found a **fourth** UI concern in the shared path that §1 does not list: `EngineCapabilityValidatorExtension` imports the Engine's `pyside_mvc` at `boot()` (both capabilities it declares are the Qt workbench), and with PySide6 absent it reported the Engine as stale. Moved to the GUI wiring with the other three; the shared composition's Engine extension count is nine, not eleven. No Engine change was needed (O7 stands).
 - **2026-10-09** — Epic scaffolded from the headless-boot proof, the code survey and the operators' research; documentation only, nothing started. Open owner decisions O1–O8 are listed with recommendations in the decision record.
