@@ -125,6 +125,7 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/unit/architecture/test_guard_scans_its_registered_root.py": "reads each registered guard file's own source via `.read_text()` — no glob/rglob/iterdir call of its own; the exact same shape as `test_scanned_roots_are_not_empty.py`, registered next to it for the same reason.",
     "tests/unit/architecture/test_god_files_only_shrink.py": "scans via `measure()`, imported from `tools/measure_god_files.py` — no glob/rglob call of its own.",
     "tests/unit/architecture/test_every_support_package_is_in_the_catalog.py": "scans via `collect()`, imported from `scripts/render_capability_index.py` (`CAPABILITY_ROOTS`), and `unit_directories()` walks `.iterdir()` on a runtime-discovered root — no literal glob/rglob chain at a call site.",
+    "tests/unit/architecture/test_the_shared_composition_path_imports_no_ui_package.py": "follows imports from two named entry-point files (`_ROOTS`) — no glob/rglob/iterdir call; every file it reaches is under `src`.",
     "tests/unit/architecture/test_rule_tree_is_mechanically_consistent.py": "scans through scripts/rule_integrity/trees.py, no glob of its own",
 }
 

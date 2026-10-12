@@ -56,7 +56,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
@@ -78,6 +77,7 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
@@ -181,7 +181,7 @@ def build(instance: IInstanceAccess | None = None) -> AppRuntime:
     if banner is not None:
         print(banner)
 
-    app_engine = create_app(config_manager, instance)
+    app_engine = create_gui_app(config_manager, instance)
     app_engine.boot()
 
     # ------------------------------------------------------------------ #

@@ -14,6 +14,14 @@ English comment in `composition_root.py` — swapping the two calls broke nothin
 that told you. `dependencies` below is what the engine's own topological sort
 (`ExtensionManager._build_and_sort`) now enforces instead, by name, against the
 engine's own `DependencyValidatorExtension`.
+
+`EPIC-038A`: every API it checks is the Engine's Qt workbench
+(`REQUIRED_ENGINE_CAPABILITIES`), and importing those modules to look them up
+needs PySide6 — on a machine without it the lookup failed and this reported the
+engine as *stale*, the misleading diagnosis it exists to prevent. So the GUI
+wiring registers it (`shell/gui_wiring.py`); the shared composition
+does not. A capability the headless path itself depends on goes into a second
+list, checked by a registration in `create_app`.
 """
 
 from __future__ import annotations
@@ -22,6 +30,9 @@ import logging
 import sys
 from typing import Any, ClassVar
 
+from Sagittarius_Elite_Warrior.src.core.contracts.boot_priority import (
+    PREFLIGHT_BOOT_PRIORITY,
+)
 from sagittarius_engine.interfaces.i_extension import IExtension
 
 from .engine_capabilities import (
@@ -57,6 +68,10 @@ class EngineCapabilityValidatorExtension(IExtension[Any]):
     #: `sagittarius_engine`, not this app — `descriptor.name` for an
     #: undeclared-name extension defaults to its class name.
     dependencies: ClassVar[list[str]] = ["DependencyValidatorExtension"]
+
+    #: `EPIC-038A` — registered by the GUI wiring, after the modules, so the
+    #: fail-fast says when it boots instead of leaning on registration order.
+    priority: ClassVar[int] = PREFLIGHT_BOOT_PRIORITY
 
     def __init__(
         self,

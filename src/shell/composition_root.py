@@ -62,9 +62,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispat
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.config_reader_adapter import (
     EngineConfigReader,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
-    EngineCapabilityValidatorExtension,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -116,9 +113,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.macd_ful
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.rsi_14_script import (
     Rsi14Script,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    AssetValidatorExtension,
 )
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
@@ -226,12 +220,15 @@ def create_app(
     container.singleton(IConfigWriter, ConfigManagerWriter(config_manager))
 
     # `BUG-126` — the two failure paths `EPIC-008` §1 found unsubscribed get a
-    # subscriber here, at the one place both entry points pass through, rather
-    # than in a screen. `EPIC-008G`'s answer was a Qt feed constructed *by a
-    # screen*, and no screen ever constructed it: a UI slot that raised and a
-    # background task that died still reached nobody. Registered as a singleton
-    # so the graph owns it — `bus.on()` alone would keep it alive through the
-    # bound handler, which is a lifetime nobody reading this file could see.
+    # subscriber, at the one place the entry points pass through, rather than in
+    # a screen. `EPIC-008G`'s answer was a Qt feed constructed *by a screen*, and
+    # no screen ever constructed it: a UI slot that raised and a background task
+    # that died still reached nobody. This one hears the background task; the UI
+    # slot's event has a Qt type, so `add_gui_wiring` (`presentation/ui/`)
+    # subscribes to it for the GUI entry point only (`EPIC-038A`). Registered as
+    # a singleton so the graph owns it — `bus.on()` alone would keep it alive
+    # through the bound handler, which is a lifetime nobody reading this file
+    # could see.
     #
     # Before `boot()` on purpose: an extension that fails during `boot()` is
     # exactly the failure worth seeing, and a subscriber registered afterwards
@@ -277,17 +274,12 @@ def create_app(
 
     _register_indicator_scripts(container)
 
-    # Load Framework Extensions
-    app.use(DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"]))
-    # Capability must run after presence: the engine can be installed and
-    # still predate an API this app's source calls, which is the failure
-    # `pip show` cannot see and that has misled this project four times — see
-    # `engine_capabilities.py` for the list and BOT-133. That ordering is now
-    # `EngineCapabilityValidatorExtension.dependencies` (BOT-119), which the
-    # engine's own topological sort enforces — these two `app.use()` calls
-    # could be swapped without breaking the check.
-    app.use(EngineCapabilityValidatorExtension())
-    app.use(AssetValidatorExtension())
+    # Load Framework Extensions. Only what every entry point needs is checked
+    # here: a process with no window boots where Qt is not installed
+    # (`EPIC-038A`); the GUI adds its Qt package check, its icon-asset
+    # validator and the engine-build check (every API that one declares is the
+    # Engine's Qt workbench) in `add_gui_wiring`.
+    app.use(DependencyValidatorExtension(["sqlalchemy"]))
 
     app.use(LoggerExtension())
     app.use(ThreadManagerExtension())

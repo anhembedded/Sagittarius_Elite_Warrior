@@ -2,14 +2,16 @@
 beyond the log file `SystemFailureLog` already writes to.
 
 @details
-`SystemFailureLog` (`BUG-126`) already turns `UiActionFailedEvent`/
-`TaskFailed` into an `ERROR` log line — necessary, but easy to miss if
-nobody is watching the log file. This subscriber fans the same two events,
-plus a bulk data-sync failure (`BulkSyncProgressEvent` with
-`has_error=True`), out to zero or more `INotificationChannel`s (a UI toast,
-a Telegram message) instead of duplicating what already reaches the log —
-message text for the two failure events is read from
-`system_error_report.py`'s own normalisers rather than re-derived here.
+`SystemFailureLog` (`BUG-126`) already turns `TaskFailed` into an `ERROR`
+log line — necessary, but easy to miss if nobody is watching the log file.
+This subscriber fans that event, plus a bulk data-sync failure
+(`BulkSyncProgressEvent` with `has_error=True`), out to zero or more
+`INotificationChannel`s (a UI toast, a Telegram message) instead of
+duplicating what already reaches the log — message text for `TaskFailed` is
+read from `system_error_report.py`'s own normaliser rather than re-derived
+here. `UiActionFailedEvent` (a UI slot raised) is fed in by the GUI's own
+subscriber through `notify()` (`EPIC-038A`): its type comes from the Engine's
+Qt package, which a process with no UI must not import.
 
 Channels are added after construction (`add_channel`), not passed as a
 complete list up front, because the UI channel needs a `MainWindow` that
@@ -51,13 +53,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notification_channel import 
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.shell.system_error_report import (
-    from_task_failed,
-    from_ui_action_failed,
-)
-from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
-    UiActionFailedEvent,
-)
+from Sagittarius_Elite_Warrior.src.shell.system_error_report import from_task_failed
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_logger import ILogger
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
@@ -69,7 +65,7 @@ _DELIVERY_TASK_NAME = "notification-delivery"
 
 
 class NotificationEventHandler:
-    """Subscribes once to the three failure sources `BOT-018` names and fans
+    """Subscribes once to the Qt-free failure sources `BOT-018` names and fans
     each one out to every registered `INotificationChannel`."""
 
     def __init__(
@@ -80,7 +76,6 @@ class NotificationEventHandler:
         self._channels: list[INotificationChannel] = []
         self._last_message: str | None = None
         event_bus.on(BulkSyncProgressEvent, self._on_bulk_sync_progress)
-        event_bus.on(UiActionFailedEvent, self._on_ui_action_failed)
         event_bus.on(TaskFailed, self._on_task_failed)
 
     def add_channel(self, channel: INotificationChannel) -> None:
@@ -89,17 +84,17 @@ class NotificationEventHandler:
     def _on_bulk_sync_progress(self, event: BulkSyncProgressEvent) -> None:
         if not event.has_error:
             return
-        self._notify(
+        self.notify(
             f"Data sync failed — {event.symbol} ({event.interval}): {event.message}"
         )
 
-    def _on_ui_action_failed(self, event: UiActionFailedEvent) -> None:
-        self._notify(from_ui_action_failed(event).summary)
-
     def _on_task_failed(self, event: TaskFailed) -> None:
-        self._notify(from_task_failed(event).summary)
+        self.notify(from_task_failed(event).summary)
 
-    def _notify(self, message: str) -> None:
+    def notify(self, message: str) -> None:
+        """Fan `message` out to every channel, dropping an immediate repeat. Public
+        so the GUI's UI-failure subscriber (`EPIC-038A`) can feed it the one event
+        this handler no longer subscribes to."""
         if message == self._last_message:
             return
         self._last_message = message
