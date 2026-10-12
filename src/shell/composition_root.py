@@ -22,6 +22,12 @@ bindings sit inline in `create_app()` — they need no `register()`/`boot()`
 split of their own, since `event_bus`, `config_manager` and `app` are already
 resolved local variables here, not values a module would need to fetch from
 a `RegisteringContainer` (`Docs/SDD/04_boot_and_configuration.md` §4).
+
+Capability: Take the data root's single-instance lock before building the app (one writable copy per data root)
+    Also: instance lock, single instance, second copy, read-only copy, instance.lock, data root access
+    Use: acquire_instance_access
+    User: src/main.py
+    Status: stable
 """
 
 from __future__ import annotations

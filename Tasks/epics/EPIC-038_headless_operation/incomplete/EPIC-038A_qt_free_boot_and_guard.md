@@ -1,6 +1,6 @@
 # EPIC-038A — The app boots with PySide6 absent, and CI keeps it so
 
-**Status:** 🔵 Planned — not started
+**Status:** 🟡 In progress (started 2026-10-12)
 **Source:** the owner, 2026-10-09 (run bots with no GUI on a VPS); the coordinator's brief asked to prove first whether `create_app` boots headless. It does not: [DESIGN §1.1](../DESIGN_2026-10-09_headless_operation.md).
 **Risk:** 🟡 — edits the composition root that every entry point passes through; a wrong move silently removes a GUI subscriber or validator
 **Complexity:** M — three small relocations, one new guard, one requirements file
@@ -15,6 +15,7 @@
 Run on 2026-10-09 with the engine at its pin (`engine.ref` = `f4ef582`) and PySide6 absent or unimportable, `import composition_root` fails: `src/shell/system_error_report.py:41` imports `UiActionFailedEvent` from `sagittarius_engine.extensions.pyside_mvc.safety`, whose package `__init__` imports the Qt runtime. Two more UI concerns sit in the shared path: `AssetValidatorExtension` (`composition_root.py:284`, it reaches `support/ui_kit/assets/icon_loader.py`, which imports `QtGui`/`QtSvg`) and `DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"])` (`composition_root.py:275`), which calls `sys.exit(1)` when PySide6 is not installed. With PySide6 installed and no window, the same boot succeeds and the bots start (DESIGN §1.1, run C). Nothing in CI would notice Qt creeping back: the unit suite runs with Qt installed.
 
 ## 2. Acceptance criteria
+- [ ] **Capability catalog first (added 2026-10-12, owner).** Before any headless code, `Capability:` blocks exist for the mechanisms headless work reuses — the command dispatcher (`ICommandDispatcher`), the module CLI contribution hook (`declare_cli` through `ICliRegistry`), the data-root instance lock (`acquire_instance_access`) and the application configuration loader (`load_app_config`) — and `python3 scripts/render_capability_index.py --write` regenerates the catalog.
 - [ ] `create_app(...)`, `app.boot()` and `app.stop()` complete in a process where `PySide6`, `PySide6.*`, `shiboken6` and `pyqtgraph` cannot be imported **and** `importlib.util.find_spec` reports them absent (the VPS without Qt), with an empty data root and no credentials. The 11 modules boot, `BotsModule.boot` logs its four "Bots …" lines, `stop` closes the workers.
 - [ ] The GUI entry point's behaviour is unchanged: it still registers the UI-failure subscriber, the asset validator and the Qt package check, in the same order relative to `boot()`. A test builds the GUI composition and asserts all three are present.
 - [ ] The shared path (`create_app`) names no UI package: a source scan fails if `composition_root.py` or anything it imports at module level imports `PySide6`, `pyqtgraph` or `sagittarius_engine.extensions.pyside_mvc` (type-checking-only imports excepted, as today's three).
@@ -25,6 +26,9 @@ Run on 2026-10-09 with the engine at its pin (`engine.ref` = `f4ef582`) and PySi
 ## 3. Design
 Split the composition into **common** and **GUI additions** — the shape `app_bootstrapper.py` already uses for the GUI toast channel ("added later, once a `MainWindow` exists"). `create_app(config, instance, *, presentation)` or, cleaner, two functions: `create_app` (everything both entry points need) and `add_gui_wiring(app)` (UI-failure subscriber, asset validator, Qt package check) called by the GUI bootstrapper. Interface segregation: the headless entry point receives a composition that has never heard of Qt. The UI-failure subscriber is moved, not rewritten: `EPIC-036B` replaces `NotificationEventHandler` later and must find the same seam. A subscriber that only the GUI can feed (a UI action failed) has no business in a process with no UI.
 Alternatives considered: wrapping the Engine import in `try/except ImportError` (hides the next Qt import behind a silent skip — the forgiving double of `EPIC-037`); moving `UiActionFailedEvent` into a Qt-free Engine module (an Engine change, O7).
+
+## 3a. Reuse
+Checked `.claude/rules/capabilities.md` and `src/support/` for what this task is about to build: it builds no widget, flow or helper a row covers. It does not build a second boot path — it splits the one `create_app` already is. Instance lock (`acquire_instance_access`), configuration (`load_app_config`), CLI table (`declare_cli`) and the dispatcher (`ICommandDispatcher`) are used as they are by `main.py`; this task adds their catalog rows, nothing else around them. The GUI toast channel's two-phase pattern in `app_bootstrapper.py` (`add_channel` once a window exists) is the model for the GUI additions: `used` the pattern, `not used` any new registry.
 
 ## 4. Changes, per file
 | File | Change |

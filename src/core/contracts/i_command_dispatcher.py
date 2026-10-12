@@ -11,6 +11,12 @@ dependencies. What it should *not* also have to depend on is the engine's
 `IDispatcher`, which is what this port replaces (`EPIC-008F`; see
 `i_config_reader.py` for why this port and that one are in the task even
 though its numbered requirements omitted both).
+
+Capability: Run an application command from anywhere that holds no handler (a screen, a CLI verb, a host)
+    Also: dispatch, command bus, run a use case, start a bot from code, command handler lookup
+    Use: ICommandDispatcher
+    User: src/modules/bots/ui/bots_screen/bot_actions_coordinator.py
+    Status: stable
 """
 
 from abc import ABC, abstractmethod

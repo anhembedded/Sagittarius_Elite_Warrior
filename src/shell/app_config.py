@@ -21,6 +21,12 @@ The file set, in precedence order (later wins, which is `ConfigManager`'s rule):
 with its own writable path (`ConfigManagerStateStore`), because
 `ConfigManager.save()` writes exactly one file and window geometry must not
 share a file with user settings — nor a save cycle.
+
+Capability: Load the application's configuration the way every entry point does (files, --dev, --debug)
+    Also: config loader, ConfigManager, app_config.json, user_config.json, argv flags, developer mode
+    Use: load_app_config
+    User: src/main.py
+    Status: stable
 """
 
 from __future__ import annotations

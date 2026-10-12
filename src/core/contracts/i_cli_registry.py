@@ -21,6 +21,12 @@ the parsing (PR 0.4a-2 inverted that separately, see `ICliCommandHandler`). A
 declaration here says who runs a command, not what its arguments are; a name
 declared here with no entry in that file would parse as taking none, which the
 shell reports rather than crashing.
+
+Capability: Add a command-line command from a module, one class and one declaration
+    Also: declare_cli, CLI command, subcommand, headless command, cli_commands.json, argparse verb
+    Use: ICliRegistry, CliCommandDescriptor
+    User: src/modules/market_data/module.py
+    Status: stable
 """
 
 from __future__ import annotations
