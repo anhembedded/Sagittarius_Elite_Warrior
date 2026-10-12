@@ -74,6 +74,10 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+    CliCommandDescriptor,
+    ICliRegistry,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
@@ -106,6 +110,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
     UserStreamWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_cli_handler import (
+    BotCliHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
@@ -238,6 +245,15 @@ class BotsModule(BoundedContextModule):
         # `EPIC-033D` — the Bots mode's commands.
         for command in bots_commands(BOTS_ROUTE):
             registry.contribute_command(command)
+
+    def declare_cli(self, registry: ICliRegistry) -> None:
+        """`bot list` and `bot show` (`EPIC-038C`): the command line's view of
+        the bots, read through the queries the Bots tab reads through."""
+        registry.declare(
+            CliCommandDescriptor(
+                name="bot", handler=BotCliHandler, contributor_id=self.module_id
+            )
+        )
 
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so

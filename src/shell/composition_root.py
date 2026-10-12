@@ -54,9 +54,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
+    IInstanceProbe,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
     IReportFormats,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_report_printer import (
+    IReportPrinter,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
@@ -77,6 +83,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notific
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
+    FileLockInstanceProbe,
+)
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
@@ -86,6 +95,7 @@ from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModul
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
@@ -171,6 +181,18 @@ def acquire_instance_access() -> InstanceAccess:
     `data_root()` so two different roots (every test run has its own,
     `EPIC-030M`) never meet."""
     return InstanceAccess.acquire(instance_lock_file())
+
+
+def read_only_instance_access() -> InstanceAccess:
+    """Read-only by the caller's request, with no lock taken (`EPIC-038C`).
+
+    For a command that only reads (`support/cli_host/command_access.py`): it
+    must not be the writable copy, whose boot applies the restart rule to the
+    bots, and it must not hold the lock `status` asks a host about."""
+    return InstanceAccess.declined(
+        "This command only reads: it shows what is there, and places, cancels "
+        "and saves nothing."
+    )
 
 
 def _log_instance(instance: IInstanceAccess | None) -> None:
@@ -310,7 +332,13 @@ def create_app(
     # `EPIC-038B` — the output formats a report command offers (`--json`,
     # `--format`). A new format is one `register` call on this object; no
     # command and no parser changes.
-    container.singleton(IReportFormats, ReportFormats.default())
+    report_formats = ReportFormats.default()
+    container.singleton(IReportFormats, report_formats)
+    container.singleton(IReportPrinter, ReportPrinter(report_formats))
+
+    # `EPIC-038C` — `status` asks whether some copy holds the data root, on the
+    # lock file this module names and `InstanceAccess` takes.
+    container.singleton(IInstanceProbe, FileLockInstanceProbe(instance_lock_file()))
 
     # `HealthCheckQuery`'s container sweep (engine `health_check_query.py`)
     # only finds what each bounded context's own `register()` already bound —

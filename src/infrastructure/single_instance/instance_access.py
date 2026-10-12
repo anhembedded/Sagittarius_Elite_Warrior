@@ -35,6 +35,14 @@ class InstanceAccess(IInstanceAccess):
         return cls(None, "")
 
     @classmethod
+    def declined(cls, reason: str) -> Self:
+        """Read-only because the caller asked not to write, with no lock taken:
+        a command that only reads must neither be the writable copy (its boot
+        would apply the restart rule to the bots) nor hold the lock a host is
+        asked about (`EPIC-038C`)."""
+        return cls(None, reason)
+
+    @classmethod
     def acquire(cls, lock_file: Path) -> Self:
         """Lock `lock_file`, creating it and its folder; read-only if it is taken."""
         lock_file.parent.mkdir(parents=True, exist_ok=True)
