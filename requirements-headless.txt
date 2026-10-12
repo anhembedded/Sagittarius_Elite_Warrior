@@ -1,0 +1,16 @@
+# Runtime dependencies for running the bots with no display (EPIC-038A, owner decision O6).
+#
+# The same names as requirements.txt minus the Qt packages (PySide6, pyqtgraph) and
+# every test, lint and type-check tool, so a server installs no Qt and none of Qt's
+# system libraries (libEGL, libGL, libxkbcommon, ...). requirements.txt is unchanged
+# and stays the GUI's and the developers' set.
+#
+# Versions come from the one lock, as a constraint, so a server runs what CI built:
+#   uv pip install -r requirements-headless.txt -c requirements.lock
+#   python scripts/engine_pin.py install
+python-binance
+requests
+sqlalchemy
+pydantic
+pyarrow
+keyring

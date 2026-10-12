@@ -98,7 +98,7 @@
 
 ## 16. Headless mode is also a resource saving, and a Qt install on a server has its own cost
 - Hummingbot's July 2025 newsletter says headless mode cuts memory by up to 40% (a vendor claim, found in a search summary, **not opened** — not relied on). The app's own proof, [README §1](README.md): even with PySide6 installed, importing `QtWidgets` on a fresh server image failed with `libEGL.so.1: cannot open shared object file` until the package was installed.
-- **Meaning here:** a headless install must not need Qt's system libraries. → [038A](incomplete/EPIC-038A_qt_free_boot_and_guard.md)
+- **Meaning here:** a headless install must not need Qt's system libraries. → [038A](completed/EPIC-038A_qt_free_boot_and_guard.md)
 
 ## 17. What was searched for and not found
 - **Reddit.** Two searches (r/algotrading lessons, VPS crashes) returned only vendor pages; no thread was opened. Nothing in this file is attributed to Reddit.

@@ -1,6 +1,6 @@
 # EPIC-038A — The app boots with PySide6 absent, and CI keeps it so
 
-**Status:** 🟡 In progress (started 2026-10-12) — every criterion but the headless requirements file is implemented and verified locally; that file waits for the owner's O6 approval
+**Status:** ✅ Done (2026-10-12)
 **Source:** the owner, 2026-10-09 (run bots with no GUI on a VPS); the coordinator's brief asked to prove first whether `create_app` boots headless. It does not: [DESIGN §1.1](../DESIGN_2026-10-09_headless_operation.md).
 **Risk:** 🟡 — edits the composition root that every entry point passes through; a wrong move silently removes a GUI subscriber or validator
 **Complexity:** M — three small relocations, one new guard, one requirements file
@@ -20,7 +20,7 @@ Run on 2026-10-09 with the engine at its pin (`engine.ref` = `f4ef582`) and PySi
 - [x] The GUI entry point's behaviour is unchanged: it still registers the UI-failure subscriber, the asset validator and the Qt package check, in the same order relative to `boot()`. A test builds the GUI composition and asserts all three are present.
 - [x] The shared path (`create_app`) names no UI package: a source scan fails if `composition_root.py` or anything it imports at module level imports `PySide6`, `pyqtgraph` or `sagittarius_engine.extensions.pyside_mvc` (type-checking-only imports excepted, as today's three).
 - [x] The guard runs in CI (`tests/sanity/`, sequential) as a **subprocess** with `sys.modules["PySide6"] = None` (and the others), and a second case with PySide6 importable but no `QApplication`; and it is shown **red** on the unmodified `master-warrior` before the fix.
-- [ ] A headless requirements file lists the runtime dependencies without PySide6, `pyqtgraph`, `pytest-qt`; `requirements.txt` is unchanged for the GUI (O6; approval first).
+- [x] A headless requirements file lists the runtime dependencies without PySide6, `pyqtgraph`, `pytest-qt`; `requirements.txt` is unchanged for the GUI (O6; approval first).
 - [x] No Engine file is edited (O7). If a Qt import survives only because of an Engine module, the task stops and reports it rather than editing the Engine.
 
 ## 3. Design
@@ -71,9 +71,8 @@ Written 2026-10-12 on branch `claude/epic-038a-qt-free-boot`, from `master-warri
 
 **Verification (head of this branch, before the PR).** Commit tier `ci-local.ps1 -SkipTests`: `RESULT: PASS`, log scanned for `FAILED|ERROR|Traceback|ResourceWarning`: none. `tests/unit/architecture` + `tests/unit/shell` + `tests/unit/presentation` + `tests/unit/support/ui_kit` + `tests/unit/infrastructure`: 1592 passed; `tests/sanity`: 45 passed. The `-Full` run is GitHub Actions' on the PR head; not run locally.
 
-**Not done.** `requirements-headless.txt` and `test_headless_requirements_name_no_qt_package` (O6, a dependency change): proposed to the owner, not committed. If the owner declines, the task closes without them and records that here.
+**Owner decision O6, 2026-10-12: approved** ("ok thêm"), relayed by the coordinator session. `requirements-headless.txt` lists `python-binance requests sqlalchemy pydantic pyarrow keyring`, no version of its own: the install is `uv pip install -r requirements-headless.txt -c requirements.lock` then `scripts/engine_pin.py install`, so `requirements.lock` stays the one source of versions (no second lock, `requirements.txt` unchanged). `test_headless_requirements_name_no_qt_package` (in `test_dependency_pins.py`) asserts no Qt package, every name pinned in the lock and present in `requirements.txt`; adding `PySide6` to the file turns it red. Verified in a clean venv with that set (42 packages, no Qt): boot, stop and `exchange-status` run.
+
+**Pre-existing, not this task's.** `tests/integration/presentation/ui/test_workbench_conformance.py::[True-1024x700]` (backtest `fits_the_window`) fails locally on the untouched base `d0410c4` too (container font metrics).
 
 **Not covered by this task.** A bot with live orders run headless (the epic runs nothing against an exchange); `stop()` on SIGTERM (038D).
-
-## Resume
-Waiting on the owner's answer to O6. If approved: add `requirements-headless.txt` exactly as proposed, plus `test_headless_requirements_name_no_qt_package` (names no `PySide6`, `pyqtgraph`, `pytest-qt`, `shiboken6`; every name is pinned in `requirements.lock`), run the commit tier, commit, then close the task per ONBOARDING §6 (move to `completed/`, `✅ Done`, epic README row and `Tasks/epics/README.md` row). If declined: close without them.
