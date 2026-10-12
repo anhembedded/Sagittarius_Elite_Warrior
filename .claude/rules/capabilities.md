@@ -1,10 +1,7 @@
 ---
-description: The shared mechanisms this application already has (need, symbol, where, one current user), delivered when UI or application code is opened so a change reuses one instead of building a second. The table is generated from `Capability:` docstring blocks.
+description: The shared mechanisms this application already has (need, symbol, where, one current user), delivered whenever source code is opened so a change reuses one instead of building a second. The table is generated from `Capability:` docstring blocks.
 paths:
-  - "src/modules/**/ui/**"
-  - "src/modules/**/application/**"
-  - "src/shell/**/*.py"
-  - "src/presentation/ui/**/*.py"
+  - "src/**/*.py"
 ---
 
 # CAPABILITY CATALOG — find what exists before you write
