@@ -41,19 +41,24 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.zones import (
     is_contracts_package,
     zone_of,
 )
+from Sagittarius_Elite_Warrior.tests.unit.architecture.source_presence import (
+    holds_python_source,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
 _MODULES_ROOT = _SRC_ROOT / "modules"
 
 
-def _packages_on_disk() -> set[str]:
-    if not _MODULES_ROOT.is_dir():
+def _packages_on_disk(root: Path = _MODULES_ROOT) -> set[str]:
+    if not root.is_dir():
         return set()
     return {
         path.name
-        for path in _MODULES_ROOT.iterdir()
-        if path.is_dir() and not path.name.startswith(("_", "."))
+        for path in root.iterdir()
+        if path.is_dir()
+        and not path.name.startswith(("_", "."))
+        and holds_python_source(path)
     }
 
 

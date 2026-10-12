@@ -12,6 +12,9 @@ import ast
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.scripts.render_capability_index import Capability
+from Sagittarius_Elite_Warrior.tests.unit.architecture.source_presence import (
+    holds_python_source,
+)
 
 #: The checkout's directory name, which every absolute import in `src/` starts with.
 PACKAGE = Path(__file__).resolve().parents[3].name
@@ -86,7 +89,8 @@ def symbol_sites(root: Path, capability: Capability) -> list[Path]:
 
 
 def unit_directories(support: Path) -> list[Path]:
-    """Every directory at depth 1 or 2 under `support` that is a unit."""
+    """Every directory at depth 1 or 2 under `support` that is a unit: one that holds
+    Python source, not a shell of `__pycache__` a deleted package left on disk (`BUG-198`)."""
     units: list[Path] = []
     frontier = [support]
     for _ in range(UNIT_DEPTH):
@@ -94,7 +98,9 @@ def unit_directories(support: Path) -> list[Path]:
             child
             for parent in frontier
             for child in sorted(parent.iterdir())
-            if child.is_dir() and child.name not in ROLLS_UP
+            if child.is_dir()
+            and child.name not in ROLLS_UP
+            and holds_python_source(child)
         ]
         units.extend(frontier)
     return units
