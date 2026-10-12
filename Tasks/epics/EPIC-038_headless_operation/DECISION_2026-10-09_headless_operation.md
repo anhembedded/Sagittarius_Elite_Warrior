@@ -2,7 +2,7 @@
 
 **Epic:** [EPIC-038](README.md)
 **Date:** 2026-10-09
-**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); Proposed for D4–D5
+**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); D4 accepted as a default by the coordinator session on 2026-10-12 (owner may veto); Proposed for D5
 **Decided by:** D1–D3 the owner, 2026-10-09, relayed by the coordinator session's brief: the owner wants the app to run bots with no GUI, from the command line on a VPS (Linux or a Windows server), and said *"nhớ chú ý design dễ dàng mở rộng SOLID"* (translated: mind a design that is easy to extend, SOLID); the brief also says *"No TUI in this epic. Record the decision and its reasons"*. D4–D6 are this epic's proposals; they become decisions when the owner answers. O1–O8: Pending.
 
 | Label | Meaning |
@@ -21,7 +21,7 @@ The app already has a headless path (`main.py` commands and an interactive REPL,
 | D1 | **No TUI in this epic.** Headless operation is `run` (a service), `status [--watch] [--json]`, `bot …` verbs and alerts. | Accepted | 🟢 the owner (brief) | Reasons in §2.1. Reconsideration conditions in §2.2. |
 | D2 | **Reuse the existing CLI machinery.** New commands are `declare_cli` entries plus rows in `cli_commands.json`; no second parser. Bot verbs dispatch the same commands the UI does through `ICommandDispatcher`. | Accepted | 🟢 the owner (brief: "Reuse before inventing") | The CLI and the GUI run one handler per action; a parity test per verb. |
 | D3 | **Open/closed by registration.** A command, secret backend, output format, preflight check, health contributor, stop policy or supervisor integration is one new class registered; no edit to existing code. | Accepted | 🟢 the owner (brief: "easy to extend, SOLID") | [DESIGN §9](DESIGN_2026-10-09_headless_operation.md) lists the cases; each child task names the port it adds. |
-| D4 | A new bounded context `src/modules/operations` holds the host, preflight and status; `bots` owns the `bot` verbs; a small shared-kernel addition (`ExitCode`, `Report`, `IOperationsRegistry`) goes in `core/contracts`. | 🔵 Proposed | Pending | The alternative (everything in `shell/` and `bots/cli`) is smaller and puts a run loop in the composition layer; rejected because it makes `shell/` a god package, but the owner may prefer fewer modules. |
+| D4 | A new bounded context `src/modules/operations` holds the host, preflight and status; `bots` owns the `bot` verbs; a small shared-kernel addition (`ExitCode`, `Report`, `IOperationsRegistry`) goes in `core/contracts`. | Accepted — 🤖 default, owner may veto (2026-10-12) | 🤖 default (coordinator session, ONBOARDING §7) | The alternative (everything in `shell/` and `bots/cli`) is smaller and puts a run loop in the composition layer; rejected because it makes `shell/` a god package, but the owner may prefer fewer modules. |
 | D5 | `status` reads a snapshot file the host writes (`state/health.json`) plus the held lock; **no port is opened**. | 🔵 Proposed | Pending | No new attack surface (R11). A live control channel is O4. |
 | D6 | The headless wiring is separated from the GUI wiring in the composition root: UI-only subscribers and validators (UI failure handler, asset validator, the Qt packages in the dependency list) are added by the GUI entry point, not by `create_app`. | 🔵 Proposed | Pending | Qt-free boot without touching the Engine; the CI guard enforces it. `EPIC-036B` later replaces `notification_event_handler.py`, so 038A moves only what 036B would otherwise have to untangle. |
 
@@ -83,6 +83,7 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | O5 | ✅ | ✅ | ✅ | ✅ | ✅ standard tools | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | O7 | ✅ | ✅ proven by 038A | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | O8 | ✅ enforced by the command | ✅ | ✅ | ✅ | ✅ mirrors the GUI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| D4 | ✅ operations listens, is depended on by none | ✅ | ✅ | ✅ | ✅ same shape as the other modules | ✅ avoids a `shell/` god package | ✅ a module can absorb the host later | ✅ | ✅ | ✅ | ✅ | ✅ two files and a list entry to move |
 | D7 | ✅ isolation guard | ✅ | ✅ one host, moved not copied | ✅ | ✅ existing registry | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ a package move |
 | D8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -92,6 +93,6 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | D1 | none (a boundary) | Accepted; nothing to deliver | this record; [`EPIC-038` README](README.md) §5 |
 | D2 | 038B, 038C, 038I | Not started | Not yet verified |
 | D3 | 038B, 038D, 038E, 038F | Not started | Not yet verified |
-| D4 | 038D, 038F | Not started | Not yet verified |
+| D4 | 038G, 038D, 038F | Started: 038G created the minimal `operations` module (id, no hooks; health line format, `HostState`), PR #467 | `src/modules/operations/`; `test_module_declarations.py` |
 | D5 | 038C | Not started | Not yet verified |
 | D6 | 038A | Not started | the probe in DESIGN §1.1 is the evidence for the problem, not for the fix |
