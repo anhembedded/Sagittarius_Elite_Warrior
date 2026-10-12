@@ -2,7 +2,7 @@
 
 **Epic:** [EPIC-038](README.md)
 **Date:** 2026-10-09
-**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); D4 accepted as a default by the coordinator session on 2026-10-12 (owner may veto); Proposed for D5
+**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7, D8 and D9 decided on 2026-10-12 under the owner's delegation (§4a); D4 accepted as a default by the coordinator session on 2026-10-12 (owner may veto); Proposed for D5
 **Decided by:** D1–D3 the owner, 2026-10-09, relayed by the coordinator session's brief: the owner wants the app to run bots with no GUI, from the command line on a VPS (Linux or a Windows server), and said *"nhớ chú ý design dễ dàng mở rộng SOLID"* (translated: mind a design that is easy to extend, SOLID); the brief also says *"No TUI in this epic. Record the decision and its reasons"*. D4 was accepted as a default by the coordinator session on 2026-10-12 (owner may veto) and D6 was delivered by 038A; D5 stays this epic's proposal until the owner answers. O1–O8, D7, D8: decided 2026-10-12 (§4a).
 
 | Label | Meaning |
@@ -71,6 +71,7 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | O8 | **Same rules as the GUI.** Starting a bot on a mainnet venue from the CLI requires `--confirm-venue <venue>` whose value equals that venue; otherwise the command is refused with exit code 2. | The CLI equivalent of the GUI's real-funds dialog, enforced by the command, not by habit (P1); a command copied from a testnet run cannot start mainnet. |
 | D7 (Q9) | **The CLI host is built in the app, as an isolated package that imports no domain or module code (a guard enforces it), on the existing `ICliRegistry`/`declare_cli`;** it may move to the Engine later as one package move. | D2 (reuse the existing CLI machinery) and O7 (no Engine change) are already decided, and P5 puts sound repo mechanisms first. The guard is the seam that keeps the later move to the Engine a move, not a rewrite (P7). This replaces the coordinator's earlier "Engine first" recommendation, which did not weigh D2 and O7. |
 | D8 (Q10) | **A bare `main.py` prints help and exits with code 2;** `main.py gui` opens the GUI (what `run.ps1 -UI` calls), `main.py shell` the REPL. | The default is safe in every environment: a supervisor that starts it by mistake neither opens a window nor waits on input. |
+| D9 | **Exit codes follow whether a restart can fix the fault, with one mapping for every command that reads a connection failure** (2026-10-12, on the reviewer's finding on PR #469). **5** = only the operator can fix it: no key, `-2015`, `-1022`, a key that can withdraw, Hedge Mode. **6** = a restart can outlast it: network, maintenance, `-1021`. **4** = a pre-flight check failed that is neither (disk, data root, Python, a skew the check itself measured over the threshold, a key without trading permission). | Restarting on a rejected key only repeats rejected signed requests and risks an IP ban; the same fault must not get two restart policies depending on which command found it. 038B's table changes: `KEY_REJECTED` and `BAD_SIGNATURE` 6 → 5. The one function is `EXIT_CODE_FOR_FAILURE` (`trading/contracts/connection_failure_exit_code.py`), read by `exchange-status` and `preflight`; `sync`, `trade-once` and `order-*` keep their own mappings, outside this change. Decided as a default by the coordinator session (ONBOARDING §7); the owner may veto. |
 
 **Constitution check.** ✅ means the decision complies; each row was checked against `.claude/CONSTITUTION.md`.
 
@@ -86,6 +87,7 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | D4 | ✅ "depended on by none" is held by `test_no_module_depends_on_operations.py` (only `operations` and `src/shell` may name it) | ✅ | ✅ | ✅ | ✅ same shape as the other modules | ✅ avoids a `shell/` god package | ✅ a module can absorb the host later | ✅ | ✅ | ✅ | ✅ | ✅ two files and a list entry to move |
 | D7 | ✅ isolation guard | ✅ | ✅ one host, moved not copied | ✅ | ✅ existing registry | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ a package move |
 | D8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| D9 | ✅ one mapping, one rule | ✅ | ✅ one function, not two copies | ✅ | ✅ standard supervisor semantics (restart only what a restart can fix) | ✅ | ✅ | ✅ test per kind | ✅ | ✅ | ✅ | ✅ a table row |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
@@ -95,6 +97,7 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | D3 | 038B, 038D, 038E, 038F | 038B done (the output-format case); 038F done (the preflight-check case) | `test_a_new_renderer_registers_without_editing_a_command`; `test_a_new_check_appears_without_editing_the_runner` |
 | D7 | 038B | Done | `src/support/cli_host/` and `tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py` (allowlist, eleven planted-import mutations) |
 | D8 | 038B | Done | `src/main.py`; `test_a_bare_main_prints_help_and_exits_two`, `test_a_bare_invocation_prints_the_help_and_exits_two`; `run.ps1 -CLI` passes `shell` |
+| D9 | 038B, 038F | Done | `src/modules/trading/contracts/connection_failure_exit_code.py`; `test_a_failure_kind_exits_the_same_through_preflight_as_through_exchange_status`, `test_every_failure_kind_has_an_exit_code`, `Docs/OPERATIONS/exit_codes.md` (generated) |
 | D4 | 038G, 038D, 038F | Started: 038G created the minimal `operations` module (PR #467); 038F added `declare_operations`, the `preflight` command and the machine checks, with the check port in `core/contracts` | `src/modules/operations/`; `test_module_declarations.py`; `test_no_module_depends_on_operations.py` |
 | D5 | 038C | Not started | Not yet verified |
 | D6 | 038A | Delivered (PR #465) | `create_app` boots with PySide6 blocked: `tests/sanity/test_the_app_boots_without_pyside6.py` |

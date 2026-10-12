@@ -20,6 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.key_permis
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_checks import (
     PerVenueCheck,
+    cause_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context import (
     VenueContext,
@@ -49,5 +53,6 @@ class NoWithdrawPermissionCheck(PerVenueCheck):
                 "the key can withdraw funds",
                 "Create a key without withdrawal (leave 'Enable Withdrawals' off), "
                 "store it in place of this one and delete this key on the exchange.",
+                cause_of(ConnectionFailureKind.WITHDRAWAL_ENABLED),
             )
         return CheckFinding(name, CheckStatus.PASS, "the key cannot withdraw")

@@ -15,9 +15,9 @@ a guard compares it with the generator.
 | 1 | `ERROR` | unexpected error: a failure nothing named (an unhandled exception has its traceback in the log) | all | restarted |
 | 2 | `USAGE` | usage error or a designed refusal: a bad flag, an unknown format, a request that cannot be an order, or a command that declined to act (no data to work on yet, a safety limit); repeating it unchanged cannot help | all | not restarted |
 | 3 | `LOCK_HELD` | another copy holds the data root | `run`, mutating commands | not restarted |
-| 4 | `PREFLIGHT_FAILED` | a pre-flight check failed | `run`, `preflight` | not restarted |
-| 5 | `CONFIGURATION` | configuration or credentials are missing, or the application refuses them (no key, a key that can withdraw, Hedge Mode) | `run`, `preflight`, `exchange-status`, trade commands | not restarted |
-| 6 | `EXCHANGE` | the exchange was unreachable or rejected the request (including `-2015` and `-1021`) | commands that touch the exchange | restarted with a delay |
+| 4 | `PREFLIGHT_FAILED` | a pre-flight check failed that is neither of the two below: the machine (disk, data root, Python), a clock skew the check measured over its threshold, a key without trading permission | `run`, `preflight` | not restarted |
+| 5 | `CONFIGURATION` | only the operator can fix it, so a restart would repeat it: no key, a key the exchange rejects (`-2015`: key, address or permission), a bad signature (`-1022`), a key that can withdraw, Hedge Mode | `run`, `preflight`, `exchange-status`, trade commands | not restarted |
+| 6 | `EXCHANGE` | the exchange was unreachable or out of service, or rejected the clock (`-1021`, which resyncs): a restart can outlast it | commands that touch the exchange | restarted with a delay |
 | 10 | `HOST_NOT_RUNNING` | no host is running | `status` | — |
 | 11 | `HOST_UNHEALTHY` | a host is running but unhealthy (snapshot stale, a section unavailable) | `status` | — |
 

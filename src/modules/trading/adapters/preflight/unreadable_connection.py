@@ -9,12 +9,11 @@ exit code needs.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.check_result import (
-    CheckCause,
     CheckFinding,
     CheckStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_checks import (
-    CAUSE_OF_FAILURE,
+    cause_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -84,5 +83,5 @@ def unreadable_connection(
         CheckStatus.FAIL,
         f"{what} could not be read: {reason}",
         remedy,
-        CAUSE_OF_FAILURE.get(kind, CheckCause.NONE),
+        cause_of(kind),
     )

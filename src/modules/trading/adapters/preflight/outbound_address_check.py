@@ -88,9 +88,9 @@ class OutboundAddressCheck(PerVenueCheck):
                 CheckStatus.FAIL,
                 f"the exchange rejected the key (-2015 family); {describe_address(seen)}",
                 CHECKLIST,
-                CheckCause.CREDENTIALS,
+                CheckCause.CONFIGURATION,
             )
-        if status.reachable or status.server_time_skew_ms is not None:
+        if status.reachable:
             return CheckFinding(
                 name,
                 CheckStatus.PASS,

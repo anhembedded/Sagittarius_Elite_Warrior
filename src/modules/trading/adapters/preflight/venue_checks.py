@@ -17,14 +17,19 @@ from Sagittarius_Elite_Warrior.src.core.contracts.check_result import (
     CheckResult,
     CheckStatus,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.core.contracts.i_preflight_check import (
     IPreflightCheck,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.preflight_scope import (
     PreflightScope,
+    ReadPendingError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_reads import (
     VenueReads,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_exit_code import (
+    EXIT_CODE_FOR_FAILURE,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -32,20 +37,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context import (
     VenueContext,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    REQUEST_TIMEOUT_SECONDS,
+)
 
-#: Complete on purpose (`test_every_failure_kind_has_a_cause`): the key is the
-#: operator's to fix (5, never retried) or the exchange is out of reach (6,
-#: retried); everything else is a plain failure (4).
-CAUSE_OF_FAILURE: dict[ConnectionFailureKind, CheckCause] = {
-    ConnectionFailureKind.NOT_CONFIGURED: CheckCause.CREDENTIALS,
-    ConnectionFailureKind.BAD_SIGNATURE: CheckCause.CREDENTIALS,
-    ConnectionFailureKind.KEY_REJECTED: CheckCause.CREDENTIALS,
-    ConnectionFailureKind.NETWORK: CheckCause.EXCHANGE,
-    ConnectionFailureKind.MAINTENANCE: CheckCause.EXCHANGE,
-    ConnectionFailureKind.CLOCK_SKEW: CheckCause.NONE,
-    ConnectionFailureKind.WITHDRAWAL_ENABLED: CheckCause.NONE,
-    ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: CheckCause.NONE,
+#: What each exit code means for a finding. Only the two a connection failure can
+#: reach; the mapping itself is `EXIT_CODE_FOR_FAILURE`, shared with `exchange-status`.
+_CAUSE_OF_EXIT_CODE: dict[ExitCode, CheckCause] = {
+    ExitCode.CONFIGURATION: CheckCause.CONFIGURATION,
+    ExitCode.EXCHANGE: CheckCause.EXCHANGE,
 }
+
+
+def cause_of(kind: ConnectionFailureKind) -> CheckCause:
+    """The cause a connection failure gives a finding: one rule, `exchange-status`'s."""
+    return _CAUSE_OF_EXIT_CODE[EXIT_CODE_FOR_FAILURE[kind]]
+
 
 NO_VENUE_IN_USE = "no venue has a key, so there is nothing to check"
 NOT_ENABLED = "this venue is not served by this build"
@@ -55,7 +62,20 @@ PROVIDE_A_KEY = (
 )
 
 
+#: A check reads the venue's account once, and the read is up to four requests
+#: (ping, time, account, position mode), each bounded by the client's own timeout.
+#: The deadline is longer than all four, so a dead route ends as the client's
+#: `NETWORK` failure (exit 6) rather than as the runner's cut-off.
+_READS_PER_CHECK = 4
+_DEADLINE_MARGIN_SECONDS = 5.0
+
+
 class PerVenueCheck(IPreflightCheck):
+    deadline_seconds = (
+        REQUEST_TIMEOUT_SECONDS * _READS_PER_CHECK + _DEADLINE_MARGIN_SECONDS
+    )
+    timeout_cause = CheckCause.EXCHANGE
+
     def __init__(self, reads: VenueReads) -> None:
         self._reads = reads
 
@@ -79,7 +99,16 @@ class PerVenueCheck(IPreflightCheck):
         context = self._reads.context(name)
         if context is None:
             return CheckFinding(name, CheckStatus.FAIL, NOT_ENABLED, PROVIDE_A_KEY)
-        return self.look_at(scope, name, context)
+        try:
+            return self.look_at(scope, name, context)
+        except ReadPendingError:
+            return CheckFinding(
+                name,
+                CheckStatus.FAIL,
+                "the exchange has not answered the read an earlier check started",
+                "Check the VPS's outbound network and retry; the exchange is not responding.",
+                CheckCause.EXCHANGE,
+            )
 
     @abstractmethod
     def look_at(

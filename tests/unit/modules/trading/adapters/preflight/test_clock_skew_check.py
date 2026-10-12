@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.clock_skew
     ClockSkewCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_checks import (
-    CAUSE_OF_FAILURE,
+    cause_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -76,7 +76,13 @@ def test_the_exchange_rejecting_the_timestamp_fails_even_when_the_measure_is_sma
     result = _run(120, ConnectionFailureKind.CLOCK_SKEW)
 
     assert result.status is CheckStatus.FAIL
-    assert result.cause is CheckCause.NONE
+    assert result.cause is CheckCause.EXCHANGE, (
+        "-1021 resyncs: exit 6, as exchange-status"
+    )
+
+
+def test_a_measured_skew_beyond_the_threshold_is_the_machines_fault_exit_four() -> None:
+    assert _run(1200).cause is CheckCause.NONE
 
 
 def test_an_unreachable_exchange_is_a_fail_with_the_exchange_cause() -> None:
@@ -100,7 +106,10 @@ def test_a_rejected_key_still_reports_the_skew_it_measured() -> None:
 
 
 def test_every_failure_kind_has_a_cause() -> None:
-    assert set(CAUSE_OF_FAILURE) == set(ConnectionFailureKind)
+    assert {cause_of(kind) for kind in ConnectionFailureKind} <= {
+        CheckCause.CONFIGURATION,
+        CheckCause.EXCHANGE,
+    }
 
 
 def test_the_exchange_is_asked_once_for_all_the_checks_of_one_run() -> None:

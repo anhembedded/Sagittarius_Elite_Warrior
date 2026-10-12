@@ -54,7 +54,7 @@ def test_nothing_failed_exits_zero_even_with_warnings() -> None:
     ("cause", "code"),
     [
         (CheckCause.NONE, ExitCode.PREFLIGHT_FAILED),
-        (CheckCause.CREDENTIALS, ExitCode.CONFIGURATION),
+        (CheckCause.CONFIGURATION, ExitCode.CONFIGURATION),
         (CheckCause.EXCHANGE, ExitCode.EXCHANGE),
     ],
 )
@@ -73,7 +73,7 @@ def test_missing_credentials_outrank_an_unreachable_exchange_and_a_plain_failure
     results = (
         _result("disk", CheckStatus.FAIL),
         _result("net", CheckStatus.FAIL, CheckCause.EXCHANGE),
-        _result("key", CheckStatus.FAIL, CheckCause.CREDENTIALS),
+        _result("key", CheckStatus.FAIL, CheckCause.CONFIGURATION),
     )
 
     outcome = preflight_outcome(results)
@@ -83,7 +83,7 @@ def test_missing_credentials_outrank_an_unreachable_exchange_and_a_plain_failure
 
 
 def test_a_warning_never_carries_its_cause_into_the_exit_code() -> None:
-    results = (_result("a", CheckStatus.WARN, CheckCause.CREDENTIALS),)
+    results = (_result("a", CheckStatus.WARN, CheckCause.CONFIGURATION),)
 
     assert preflight_outcome(results) is None
 

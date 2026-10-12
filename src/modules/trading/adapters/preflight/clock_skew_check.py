@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.unreadable
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_checks import (
     PerVenueCheck,
+    cause_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -59,6 +60,7 @@ class ClockSkewCheck(PerVenueCheck):
                 CheckStatus.FAIL,
                 f"the exchange rejected a request as outside its time window{known}",
                 SYNC_THE_CLOCK,
+                cause_of(ConnectionFailureKind.CLOCK_SKEW),
             )
         if skew is None:
             return unreadable_connection(name, status, "the clock skew")

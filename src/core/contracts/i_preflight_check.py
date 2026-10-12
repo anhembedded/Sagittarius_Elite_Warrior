@@ -26,7 +26,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from Sagittarius_Elite_Warrior.src.core.contracts.check_result import CheckResult
+from Sagittarius_Elite_Warrior.src.core.contracts.check_result import (
+    CheckCause,
+    CheckResult,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.preflight_scope import (
     PreflightScope,
 )
@@ -39,6 +42,10 @@ class IPreflightCheck(ABC):
     title: str
     #: How long the runner waits for `run` before it reports a `FAIL`.
     deadline_seconds: float = 20.0
+    #: The cause of that `FAIL`, for the exit code: a check that waits on the
+    #: exchange names `EXCHANGE` (a restart can outlast it), any other waits on
+    #: nothing the operator or a supervisor can tell apart, so exit 4.
+    timeout_cause: CheckCause = CheckCause.NONE
 
     @abstractmethod
     def run(self, scope: PreflightScope) -> CheckResult:

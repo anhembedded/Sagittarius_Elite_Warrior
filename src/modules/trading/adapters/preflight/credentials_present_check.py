@@ -44,7 +44,7 @@ class CredentialsPresentCheck(PerVenueCheck):
                 CheckStatus.FAIL,
                 "no venue has a key",
                 _PROVIDE,
-                CheckCause.CREDENTIALS,
+                CheckCause.CONFIGURATION,
             ),
         )
 
@@ -63,5 +63,5 @@ class CredentialsPresentCheck(PerVenueCheck):
             CheckStatus.FAIL,
             "no key is configured",
             _PROVIDE,
-            CheckCause.CREDENTIALS,
+            CheckCause.CONFIGURATION,
         )

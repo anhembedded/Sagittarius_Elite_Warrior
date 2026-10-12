@@ -11,7 +11,9 @@ named for that check, and the others still run:
   * it raises -> `CheckOrigin.CRASHED`, with the exception's *type* in the
     report and the traceback in the log. The message stays out of the report
     because an exchange client's exception can carry a signed URL;
-  * it does not answer within `deadline_seconds` -> `CheckOrigin.TIMED_OUT`. A
+  * it does not answer within `deadline_seconds` -> `CheckOrigin.TIMED_OUT`,
+    with the check's own `timeout_cause` (a check that waits on the exchange makes
+    this exit 6, not 4: a supervisor restarts on 6). A
     thread cannot be killed, so the check keeps running on a daemon thread of
     its own (it cannot keep the process alive) and its eventual answer is
     ignored;
@@ -29,6 +31,7 @@ import threading
 from collections.abc import Sequence
 
 from Sagittarius_Elite_Warrior.src.core.contracts.check_result import (
+    CheckCause,
     CheckFinding,
     CheckOrigin,
     CheckResult,
@@ -142,6 +145,7 @@ def _run_isolated(check: IPreflightCheck, scope: PreflightScope) -> CheckResult:
             check.title,
             CheckOrigin.TIMED_OUT,
             f"the check gave no answer within {check.deadline_seconds:g} s",
+            check.timeout_cause,
         )
     if crashes:
         return _failed(
@@ -153,12 +157,22 @@ def _run_isolated(check: IPreflightCheck, scope: PreflightScope) -> CheckResult:
     return answers[0]
 
 
-def _failed(check_id: str, title: str, origin: CheckOrigin, reason: str) -> CheckResult:
+def _failed(
+    check_id: str,
+    title: str,
+    origin: CheckOrigin,
+    reason: str,
+    cause: CheckCause = CheckCause.NONE,
+) -> CheckResult:
     return CheckResult.single(
         check_id,
         title,
         CheckFinding(
-            "", CheckStatus.FAIL, reason, _BUG_IN_THE_CHECK.format(check_id=check_id)
+            "",
+            CheckStatus.FAIL,
+            reason,
+            _BUG_IN_THE_CHECK.format(check_id=check_id),
+            cause,
         ),
         origin,
     )

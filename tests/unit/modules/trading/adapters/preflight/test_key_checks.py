@@ -86,7 +86,7 @@ def test_a_withdraw_enabled_key_fails() -> None:
 
     assert result.status is CheckStatus.FAIL
     assert "key without withdrawal" in result.findings[0].remedy
-    assert result.cause is CheckCause.NONE
+    assert result.cause is CheckCause.CONFIGURATION, "a restart cannot fix it: exit 5"
 
 
 def test_a_key_that_cannot_withdraw_passes() -> None:
@@ -159,7 +159,7 @@ def test_a_key_the_exchange_refuses_is_a_credentials_failure(
 
     result = _on_mainnet(KeyPermissionsCheck, verdict)
 
-    assert result.cause is CheckCause.CREDENTIALS
+    assert result.cause is CheckCause.CONFIGURATION
 
 
 def test_an_unreachable_exchange_is_not_a_key_failure() -> None:
@@ -209,7 +209,7 @@ def test_an_absent_key_is_a_credentials_failure() -> None:
     result = CredentialsPresentCheck(reads).run(PreflightScope())
 
     assert result.status is CheckStatus.FAIL
-    assert result.cause is CheckCause.CREDENTIALS
+    assert result.cause is CheckCause.CONFIGURATION
 
 
 def test_a_withdraw_enabled_key_is_one_failure_not_four() -> None:
@@ -246,7 +246,7 @@ def test_error_2015_prints_the_three_cause_checklist() -> None:
 
     finding = result.findings[0]
     assert result.status is CheckStatus.FAIL
-    assert result.cause is CheckCause.CREDENTIALS
+    assert result.cause is CheckCause.CONFIGURATION
     assert finding.remedy == CHECKLIST
     for cause in ("(1)", "(2)", "(3)", "per address", "IPv6"):
         assert cause in finding.remedy
@@ -337,7 +337,7 @@ def test_with_no_key_anywhere_the_exchange_checks_warn_and_the_credentials_check
     assert skew.status is CheckStatus.WARN
     assert "--venue" in skew.findings[0].remedy
     assert credentials.status is CheckStatus.FAIL
-    assert credentials.cause is CheckCause.CREDENTIALS
+    assert credentials.cause is CheckCause.CONFIGURATION
 
 
 def test_only_venues_with_a_key_are_checked_unless_one_is_named() -> None:
@@ -369,3 +369,26 @@ def test_a_named_venue_the_build_does_not_serve_is_a_failure() -> None:
 
     assert result.status is CheckStatus.FAIL
     assert "not served" in result.findings[0].reason
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        ConnectionFailureKind.BAD_SIGNATURE,
+        ConnectionFailureKind.CLOCK_SKEW,
+        ConnectionFailureKind.NETWORK,
+        ConnectionFailureKind.MAINTENANCE,
+    ],
+)
+def test_a_signed_read_that_failed_after_the_time_call_is_never_a_pass(
+    kind: ConnectionFailureKind,
+) -> None:
+    """Both readers set the skew after the unsigned `/time` and before the signed
+    account read, so the skew is known while the key was never accepted."""
+    failed = status(SPOT_TEST, skew_ms=40, failure=kind)
+    reads = reads_over(venue(SPOT_TEST, failed))
+
+    result = OutboundAddressCheck(reads).run(PreflightScope())
+
+    assert result.status is not CheckStatus.PASS
+    assert "accepted the key" not in result.findings[0].reason

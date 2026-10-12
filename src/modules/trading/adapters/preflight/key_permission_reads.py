@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.preflight_scope import (
     PreflightScope,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_checks import (
-    CAUSE_OF_FAILURE,
+    cause_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_reads import (
     VenueReads,
@@ -52,10 +52,10 @@ def mainnet_permissions(
             CheckStatus.FAIL,
             f"the exchange would not tell what the key may do: {verdict.reason}",
             "See the outbound-address check for the three causes and how to tell them apart.",
-            CheckCause.CREDENTIALS,
+            CheckCause.CONFIGURATION,
         )
     cause = (
-        CAUSE_OF_FAILURE[verdict.failure]
+        cause_of(verdict.failure)
         if verdict.failure is not None
         else CheckCause.EXCHANGE
     )

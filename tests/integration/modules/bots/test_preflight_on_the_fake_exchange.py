@@ -158,7 +158,7 @@ def test_a_read_only_mainnet_key_fails_the_permission_check_but_not_the_withdraw
 
 
 @pytest.mark.usefixtures("mainnet_key")
-def test_a_withdraw_enabled_mainnet_key_fails_once_and_exits_four(
+def test_a_withdraw_enabled_mainnet_key_fails_once_and_exits_five(
     exchange: FakeExchange,
 ) -> None:
     exchange.urls.api_restrictions.enable_spot_and_margin_trading = True
@@ -169,7 +169,7 @@ def test_a_withdraw_enabled_mainnet_key_fails_once_and_exits_four(
     failed = [c for c, s in _statuses(document).items() if s == "FAIL"]
     assert failed == ["no-withdraw-permission"]
     assert outcome is not None
-    assert outcome.code is ExitCode.PREFLIGHT_FAILED
+    assert outcome.code is ExitCode.CONFIGURATION
     rendered = json.dumps(document)
     assert _KEY_VALUE not in rendered
     assert _SIGNING_VALUE not in rendered
@@ -227,3 +227,19 @@ def test_error_2015_from_the_exchange_prints_the_checklist_and_exits_five(
     assert "per address" in finding["remedy"]
     assert outcome is not None
     assert outcome.code is ExitCode.CONFIGURATION
+
+
+def test_an_exchange_that_cannot_be_reached_exits_six(
+    exchange: FakeExchange,
+) -> None:
+    """The route to the exchange is dead (nothing listens): the clients' own
+    failure, through the real adapters, is the exchange being out of reach."""
+    with (
+        _preflight_app(exchange, [TradingVenue.SPOT_TESTNET.value]) as app,
+        patch.object(Client, "API_TESTNET_URL", "http://127.0.0.1:9/api"),
+        patch.object(Client, "API_URL", "http://127.0.0.1:9/api"),
+    ):
+        outcome, document = _run(app, skip="disk-space,data-root-writable")
+
+    assert outcome is not None
+    assert outcome.code is ExitCode.EXCHANGE, _statuses(document)

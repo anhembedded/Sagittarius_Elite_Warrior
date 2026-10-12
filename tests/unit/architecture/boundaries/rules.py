@@ -94,7 +94,9 @@ _COMPUTATION_SUB_PACKAGES = frozenset(
 
 #: `support/cli_host` (`EPIC-038B`, decision D7) is the headless host's output and
 #: exit-status machinery. A module's command handler prints its `Report` through
-#: it (`emit_report`), so every module may import it whole. Safe by construction:
+#: it (`emit_report`), so a module's `cli/` package may import it, and nothing
+#: else of the module (a `domain` or `application` file has no business printing).
+#: Safe by construction:
 #: the package imports no domain or module code, which
 #: `test_cli_host_imports_no_domain_or_module_code.py` enforces, so a module
 #: reaching it cannot form a cycle. Named by zone, so a second support package is
@@ -230,7 +232,10 @@ def _module_may_import(
             return True
         if _is_computation_library(dst_zone, imported_module):
             return True
-        if dst_zone in _HOST_SUPPORT_ZONES:
+        if (
+            dst_zone in _HOST_SUPPORT_ZONES
+            and sub_package_of(importing_module) == "cli"
+        ):
             return True
         return (
             sub_package_of(importing_module) == "ui" and dst_zone in _UI_SUPPORT_ZONES

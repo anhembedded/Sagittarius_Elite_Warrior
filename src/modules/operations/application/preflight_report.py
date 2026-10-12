@@ -36,7 +36,7 @@ SCHEMA_VERSION = 1
 CAUSE_EXIT_CODE: dict[CheckCause, ExitCode] = {
     CheckCause.NONE: ExitCode.PREFLIGHT_FAILED,
     CheckCause.EXCHANGE: ExitCode.EXCHANGE,
-    CheckCause.CREDENTIALS: ExitCode.CONFIGURATION,
+    CheckCause.CONFIGURATION: ExitCode.CONFIGURATION,
 }
 
 _STATUS_WIDTH = 6

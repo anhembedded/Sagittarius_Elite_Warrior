@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
     IReportFormats,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_exit_code import (
+    EXIT_CODE_FOR_FAILURE,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -28,7 +31,6 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
     execute_exchange_status,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_report import (
-    EXIT_CODE_FOR_FAILURE,
     exchange_status_outcome,
     exchange_status_report,
 )
@@ -119,9 +121,9 @@ def test_every_failure_kind_has_an_exit_code() -> None:
         (ConnectionFailureKind.NOT_CONFIGURED, ExitCode.CONFIGURATION),
         (ConnectionFailureKind.WITHDRAWAL_ENABLED, ExitCode.CONFIGURATION),
         (ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED, ExitCode.CONFIGURATION),
-        (ConnectionFailureKind.KEY_REJECTED, ExitCode.EXCHANGE),
+        (ConnectionFailureKind.KEY_REJECTED, ExitCode.CONFIGURATION),
         (ConnectionFailureKind.CLOCK_SKEW, ExitCode.EXCHANGE),
-        (ConnectionFailureKind.BAD_SIGNATURE, ExitCode.EXCHANGE),
+        (ConnectionFailureKind.BAD_SIGNATURE, ExitCode.CONFIGURATION),
         (ConnectionFailureKind.NETWORK, ExitCode.EXCHANGE),
         (ConnectionFailureKind.MAINTENANCE, ExitCode.EXCHANGE),
     ],
@@ -129,8 +131,9 @@ def test_every_failure_kind_has_an_exit_code() -> None:
 def test_a_failed_connection_exits_with_the_documented_code(
     kind: ConnectionFailureKind, code: ExitCode
 ) -> None:
-    """DESIGN §7: 5 when the operator must change the configuration, 6 when the
-    exchange itself refused or could not be reached (`-2015`, `-1021`)."""
+    """DESIGN §7 / D9: 5 when only the operator can fix it (no key, `-2015`,
+    `-1022`, a key that can withdraw), 6 when a restart can outlast it (network,
+    maintenance, `-1021`)."""
     status = EXCHANGE_STATUS_CASES[f"futures_{kind.name.lower()}"]
 
     assert exchange_status_outcome(status) == CliOutcome(code)
@@ -174,7 +177,7 @@ def test_a_failed_connection_prints_its_json_and_then_fails(
 
     outcome = execute_exchange_status(_app(status), _args(json=True))
 
-    assert outcome == CliOutcome(ExitCode.EXCHANGE)
+    assert outcome == CliOutcome(ExitCode.CONFIGURATION)
     assert json.loads(capsys.readouterr().out)["data"]["failure"] == "key_rejected"
 
 

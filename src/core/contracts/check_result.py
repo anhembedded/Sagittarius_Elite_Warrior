@@ -7,7 +7,7 @@ directory), so a check that covers three venues says which of them is wrong
 instead of folding the three into one sentence.
 
 `CheckCause` exists for the exit code and nothing else: a failed finding says
-whether the fault is the operator's credentials, the exchange being out of
+whether the fault is the operator's configuration, the exchange being out of
 reach, or neither, because a supervisor keys its restart policy on that
 (`ExitCode.CONFIGURATION` is never retried, `ExitCode.EXCHANGE` is).
 
@@ -40,12 +40,14 @@ class CheckStatus(IntEnum):
 class CheckCause(IntEnum):
     """Why a finding failed, for the exit code; the order is the precedence."""
 
-    #: A plain failure of the machine or the key's permissions (exit 4).
+    #: A plain failure of the machine or of what the check measured (exit 4).
     NONE = 0
-    #: The exchange could not be reached or was out of service (exit 6).
+    #: The exchange could not be reached or was out of service; a restart can
+    #: outlast it (exit 6, restarted with a delay).
     EXCHANGE = 1
-    #: The credentials are absent or the exchange refused them (exit 5).
-    CREDENTIALS = 2
+    #: Only the operator can fix it: no key, a key the exchange rejects, a key that
+    #: can withdraw (exit 5, never restarted).
+    CONFIGURATION = 2
 
 
 @dataclass(frozen=True, slots=True)
