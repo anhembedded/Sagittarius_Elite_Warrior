@@ -6,6 +6,12 @@ Since `EPIC-033D` it also carries the commands the modules contributed with
 their screens. A desk's presenter binds its desk's commands as the window
 builds it, so a window given the screens without their commands could not
 build. Both arrive in this one object, from one `build_screen_registry`.
+
+Capability: Register a screen (mode) with the workbench
+    Also: route, mode, screen descriptor, navigation entry
+    Use: IScreenRegistry
+    User: src/shell/screen_wiring.py
+    Status: stable
 """
 
 from __future__ import annotations

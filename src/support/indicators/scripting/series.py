@@ -1,3 +1,12 @@
+"""`Series` and the comparisons scripts make over it.
+
+Capability: Compare series in a script: crossings, above, constants
+    Also: crossover, cross above, cross below, series compare
+    Use: Series, crossed_above, crossed_below
+    User: src/modules/strategy/domain/strategies/ema_crossover_strategy.py
+    Status: stable
+"""
+
 from __future__ import annotations
 
 from collections import deque

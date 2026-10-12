@@ -1,4 +1,11 @@
-"""`EPIC-021B` — resolving a trading venue's API credentials, env-var first."""
+"""`EPIC-021B` — resolving a trading venue's API credentials, env-var first.
+
+Capability: Get a venue's API key and secret without reading env vars or files yourself
+    Also: credentials, api key, secret, keyring, environment variable
+    Use: IExchangeCredentialsProvider, ResolvedCredentials
+    User: src/modules/trading/adapters/binance/futures_account_control.py
+    Status: stable
+"""
 
 from __future__ import annotations
 

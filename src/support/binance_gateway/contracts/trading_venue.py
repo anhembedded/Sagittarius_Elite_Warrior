@@ -1,3 +1,12 @@
+"""`TradingVenue` — which physical Binance endpoint an order reaches.
+
+Capability: Name a trading venue (Spot or Futures, mainnet or testnet), never a raw string
+    Also: venue, market type, testnet flag, endpoint
+    Use: TradingVenue
+    User: src/modules/bots/adapters/venue_fresh_price_reader.py
+    Status: stable
+"""
+
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType

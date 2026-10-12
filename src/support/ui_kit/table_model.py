@@ -95,6 +95,12 @@ verified by constructing a parametrised subclass before this file was written.
 It matters: without it `row_for()` answers `Any`, every panel that reads a row
 casts, and `support/ui_kit` is a tree mypy actually checks (`src/presentation/`
 is excluded wholesale, which is how four models drifted this far unremarked).
+
+Capability: Model rows for a table view
+    Also: QAbstractTableModel, row model, table data
+    Use: RowTableModel
+    User: src/modules/backtesting/ui/metric_comparison_model.py
+    Status: stable
 """
 
 from __future__ import annotations

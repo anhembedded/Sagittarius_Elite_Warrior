@@ -1,3 +1,12 @@
+"""The user's display timezone: label, offset and formatting.
+
+Capability: Show a time in the user's display timezone
+    Also: timezone, utc offset, local time, datetime format
+    Use: get_display_timezone_label, get_supported_timezones, format_display_datetime, get_utc_offset_seconds
+    User: src/modules/backtesting/ui/view_models/time_range_view_model.py
+    Status: stable
+"""
+
 from __future__ import annotations
 
 import logging

@@ -5,6 +5,12 @@ Prototyped here against the `PresenterManager` router (`Docs/HLD/05_engine_app_s
 §5.2, ❓O2) and then built in the Engine as `WorkbenchShell`'s `NavigationService`
 (`TASK-043` E3). Since `EPIC-033C` the adapter is
 `presentation/ui/shell_navigation.py`, over the workbench window.
+
+Capability: Ask the window to show a mode
+    Also: navigate, open screen, switch mode, go to
+    Use: INavigationService
+    User: src/presentation/ui/main_window.py
+    Status: stable
 """
 
 from __future__ import annotations

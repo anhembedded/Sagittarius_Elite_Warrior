@@ -10,6 +10,12 @@ depends on what is selected or typed.
 
 Plausible extensions, each local: a question with a "don't ask" check box
 (refused by the rule, so none); a third button (one parameter).
+
+Capability: Ask a risky action's question, answered with its own verbs
+    Also: confirm, are you sure, QMessageBox, yes no dialog
+    Use: VerbQuestion, ask_with_verbs
+    User: src/modules/trading/ui/desk/order_entry/order_entry_panel.py
+    Status: stable
 """
 
 from __future__ import annotations

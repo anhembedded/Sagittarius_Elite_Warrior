@@ -11,8 +11,8 @@ catalog does, and a catalog is only as good as the checks that keep it complete 
 1. *Complete.* A **unit** is a directory at depth 1 or 2 under `src/support/`, except
    `contracts`, `adapters` and `assets`, which roll up into their parent (ports,
    implementations and icons of it). A file belongs to its nearest unit. A unit holding no
-   `Capability:` block must be listed in `baseline_support_packages_without_capability.txt`,
-   which only shrinks.
+   `Capability:` block fails. This began as a shrink-only baseline (the walking skeleton
+   had three entries); it emptied, the file was deleted, and the guard is a ban.
 2. *Well formed.* Every block parses; a near-miss head (`Capabilty:`) is an error, not a
    dropped row.
 3. *True.* Each `Use` symbol is defined (or re-exported) at the top level of the marked
@@ -49,10 +49,6 @@ from Sagittarius_Elite_Warrior.scripts.render_capability_index import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SUPPORT = "src/support"
-_BASELINE_FILE = Path(__file__).with_name(
-    "baseline_support_packages_without_capability.txt"
-)
-_COMMENT = "#"
 
 #: Directories that roll up into their parent unit instead of being one.
 _ROLLS_UP = frozenset({"contracts", "adapters", "assets", "__pycache__"})
@@ -62,7 +58,7 @@ _UNIT_DEPTH = 2
 #: it stays small; it may fall, never rise without the owner's decision.
 _RULE_MAX_LINES = 120
 #: Floors that catch a lost scan (the markers or the units vanishing), not churn.
-_MIN_CAPABILITIES = 3
+_MIN_CAPABILITIES = 25
 _MIN_UNITS = 10
 
 _CATALOGUED_PATH = re.compile(r"`(src/[^`\s]+)`")
@@ -123,15 +119,6 @@ def owning_unit(file: Path, units: set[Path]) -> Path | None:
     return next((p for p in file.parents if p in units), None)
 
 
-def _read_baseline() -> list[str]:
-    entries: list[str] = []
-    for raw in _BASELINE_FILE.read_text(encoding="utf-8").splitlines():
-        line = raw.split(_COMMENT, 1)[0].strip()
-        if line:
-            entries.append(line)
-    return entries
-
-
 # --------------------------------------------------------------------------- #
 # The tree                                                                    #
 # --------------------------------------------------------------------------- #
@@ -185,29 +172,14 @@ def test_every_marker_is_well_formed() -> None:
 
 
 def test_every_support_unit_is_in_the_catalog() -> None:
-    recorded = set(_read_baseline())
-    new = [unit for unit in _uncatalogued_units() if unit not in recorded]
-    assert new == [], (
+    missing = _uncatalogued_units()
+    assert missing == [], (
         "a support unit has no `Capability:` block, so a session opening UI or "
         "application code is never told it exists. Add the block to the docstring of "
         "the module that provides it (shape: scripts/render_capability_index.py), then "
         "`python3 scripts/render_capability_index.py --write`:\n"
-        + "\n".join(f"  - {unit}" for unit in new)
+        + "\n".join(f"  - {unit}" for unit in missing)
     )
-
-
-def test_the_baseline_has_not_gone_stale() -> None:
-    stale = sorted(set(_read_baseline()) - set(_uncatalogued_units()))
-    assert stale == [], (
-        "these units now have a `Capability:` block (or are gone) — delete them from "
-        "the baseline; when it is empty, delete the file and this guard is a ban:\n"
-        + "\n".join(f"  - {unit}" for unit in stale)
-    )
-
-
-def test_the_baseline_has_no_duplicate_entries() -> None:
-    entries = _read_baseline()
-    assert len(entries) == len(set(entries)), "duplicate lines in the baseline"
 
 
 def test_every_used_symbol_is_defined_where_the_marker_sits() -> None:

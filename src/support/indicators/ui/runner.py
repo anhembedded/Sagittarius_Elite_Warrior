@@ -1,3 +1,12 @@
+"""`IndicatorScriptRunner` — runs indicator scripts on a chart's candles.
+
+Capability: Run indicator scripts on a chart's candles and name their lines
+    Also: indicator lines, script runner, overlay lines
+    Use: IndicatorScriptRunner, qualified_line_name
+    User: src/modules/backtesting/ui/coordinators/indicator_coordinator.py
+    Status: stable
+"""
+
 from __future__ import annotations
 
 import functools

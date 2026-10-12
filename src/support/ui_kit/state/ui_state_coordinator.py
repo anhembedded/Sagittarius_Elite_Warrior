@@ -12,6 +12,12 @@ Matches the coalescing behaviour the design's sequence diagram describes:
 changing the symbol and then the interval inside the debounce window is one
 user action in spirit and becomes one write, covering every contributor that
 went dirty in that window — not one write per field.
+
+Capability: Remember a screen's UI state across runs
+    Also: persist, restore, splitter, last symbol, favourites, ui_state.json
+    Use: UiStateCoordinator
+    User: src/modules/backtesting/ui/backtest_presenter.py
+    Status: stable
 """
 
 from __future__ import annotations

@@ -1,3 +1,12 @@
+"""`IndicatorScriptRegistry` — the chart indicator scripts by id.
+
+Capability: Look up or register a chart indicator script by id
+    Also: indicator, overlay, EMA line, script registry
+    Use: IndicatorScriptRegistry
+    User: src/modules/trading/ui/market/market_chart.py
+    Status: stable
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

@@ -7,6 +7,12 @@ file chose to send: on 2026-10-07 the Bots panel drew a gateway's
 `502 Bad Gateway` page as a heading (`BUG-168`). Every label is made here, so
 text is text unless a file says otherwise in the guard's exemption table
 (`tests/unit/architecture/test_labels_show_plain_text.py`).
+
+Capability: Make a QLabel whose text is text, never markup
+    Also: label, QLabel, setText, rich text
+    Use: plain_label
+    User: src/modules/backtesting/ui/_drawdown_chart_widget.py
+    Status: stable
 """
 
 from __future__ import annotations

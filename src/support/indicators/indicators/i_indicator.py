@@ -1,3 +1,12 @@
+"""`IIndicator` — a streaming indicator over candles.
+
+Capability: Compute an indicator on candles (EMA, RSI, MACD, bands, ATR)
+    Also: moving average, rsi, bollinger, atr, technical indicator
+    Use: IIndicator
+    User: src/modules/strategy/domain/strategies/base_strategy.py
+    Status: stable
+"""
+
 from abc import ABC, abstractmethod
 
 

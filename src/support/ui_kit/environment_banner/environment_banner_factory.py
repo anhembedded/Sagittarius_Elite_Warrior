@@ -1,4 +1,11 @@
-"""Which runs get a banner strip at all (`BUG-156`)."""
+"""Which runs get a banner strip at all (`BUG-156`).
+
+Capability: Show the which-funds-am-I-trading banner
+    Also: banner, testnet warning, mainnet warning, environment strip
+    Use: environment_banner_factory
+    User: src/presentation/ui/app_bootstrapper.py
+    Status: stable
+"""
 
 from __future__ import annotations
 

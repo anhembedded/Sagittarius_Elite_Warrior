@@ -1,3 +1,12 @@
+"""`EmaCrossScript` — a ready-made chart indicator script, and the shape of the others.
+
+Capability: Add a chart indicator script (EMA 20/50/100/200, cross, ribbon, MACD, RSI 14 exist; copy one)
+    Also: custom indicator, BaseIndicatorScript, overlay script
+    Use: EmaCrossScript
+    User: src/shell/composition_root.py
+    Status: stable
+"""
+
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.chart_series import (
     ChartSeries,
