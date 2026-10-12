@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-038](README.md)
 **Date:** 2026-10-09
-**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); Proposed for D4–D5
-**Decided by:** D1–D3 the owner, 2026-10-09, relayed by the coordinator session's brief: the owner wants the app to run bots with no GUI, from the command line on a VPS (Linux or a Windows server), and said *"nhớ chú ý design dễ dàng mở rộng SOLID"* (translated: mind a design that is easy to extend, SOLID); the brief also says *"No TUI in this epic. Record the decision and its reasons"*. D4–D6 are this epic's proposals; they become decisions when the owner answers. O1–O8: Pending.
+**Status:** Accepted for D1–D3 (the owner's instruction) and D6 (delivered by 038A); O1–O8, D7 and D8 decided on 2026-10-12 under the owner's delegation (§4a); D4 accepted as a default by the coordinator session on 2026-10-12 (owner may veto); Proposed for D5
+**Decided by:** D1–D3 the owner, 2026-10-09, relayed by the coordinator session's brief: the owner wants the app to run bots with no GUI, from the command line on a VPS (Linux or a Windows server), and said *"nhớ chú ý design dễ dàng mở rộng SOLID"* (translated: mind a design that is easy to extend, SOLID); the brief also says *"No TUI in this epic. Record the decision and its reasons"*. D4 was accepted as a default by the coordinator session on 2026-10-12 (owner may veto) and D6 was delivered by 038A; D5 stays this epic's proposal until the owner answers. O1–O8, D7, D8: decided 2026-10-12 (§4a).
 
 | Label | Meaning |
 | :--- | :--- |
@@ -21,9 +21,9 @@ The app already has a headless path (`main.py` commands and an interactive REPL,
 | D1 | **No TUI in this epic.** Headless operation is `run` (a service), `status [--watch] [--json]`, `bot …` verbs and alerts. | Accepted | 🟢 the owner (brief) | Reasons in §2.1. Reconsideration conditions in §2.2. |
 | D2 | **Reuse the existing CLI machinery.** New commands are `declare_cli` entries plus rows in `cli_commands.json`; no second parser. Bot verbs dispatch the same commands the UI does through `ICommandDispatcher`. | Accepted | 🟢 the owner (brief: "Reuse before inventing") | The CLI and the GUI run one handler per action; a parity test per verb. |
 | D3 | **Open/closed by registration.** A command, secret backend, output format, preflight check, health contributor, stop policy or supervisor integration is one new class registered; no edit to existing code. | Accepted | 🟢 the owner (brief: "easy to extend, SOLID") | [DESIGN §9](DESIGN_2026-10-09_headless_operation.md) lists the cases; each child task names the port it adds. |
-| D4 | A new bounded context `src/modules/operations` holds the host, preflight and status; `bots` owns the `bot` verbs; a small shared-kernel addition (`ExitCode`, `Report`, `IOperationsRegistry`) goes in `core/contracts`. | 🔵 Proposed | Pending | The alternative (everything in `shell/` and `bots/cli`) is smaller and puts a run loop in the composition layer; rejected because it makes `shell/` a god package, but the owner may prefer fewer modules. |
+| D4 | A new bounded context `src/modules/operations` holds the host, preflight and status; `bots` owns the `bot` verbs; a small shared-kernel addition (`ExitCode`, `Report`, `IOperationsRegistry`) goes in `core/contracts`. | Accepted — 🤖 default, owner may veto (2026-10-12) | 🤖 default (coordinator session, ONBOARDING §7) | The alternative (everything in `shell/` and `bots/cli`) is smaller and puts a run loop in the composition layer; rejected because it makes `shell/` a god package, but the owner may prefer fewer modules. |
 | D5 | `status` reads a snapshot file the host writes (`state/health.json`) plus the held lock; **no port is opened**. | 🔵 Proposed | Pending | No new attack surface (R11). A live control channel is O4. |
-| D6 | The headless wiring is separated from the GUI wiring in the composition root: UI-only subscribers and validators (UI failure handler, asset validator, the Qt packages in the dependency list) are added by the GUI entry point, not by `create_app`. | 🔵 Proposed | Pending | Qt-free boot without touching the Engine; the CI guard enforces it. `EPIC-036B` later replaces `notification_event_handler.py`, so 038A moves only what 036B would otherwise have to untangle. |
+| D6 | The headless wiring is separated from the GUI wiring in the composition root: UI-only subscribers and validators (UI failure handler, asset validator, the Qt packages in the dependency list) are added by the GUI entry point, not by `create_app`. | Accepted — delivered by 038A (PR #465) | 🟢 delivered, 2026-10-12 | Qt-free boot without touching the Engine; the CI guard enforces it. `EPIC-036B` later replaces `notification_event_handler.py`, so 038A moves only what 036B would otherwise have to untangle. |
 
 ### 2.1 Why not a TUI (D1)
 1. **It would be a third presentation layer.** The app has a QtWidgets GUI and a `cmd.Cmd` shell; a curses/Textual UI would be a third place that reads bot state and a third place that must dispatch commands. "Sibling paths that do one job drift" is bug class A in `EPIC-037`'s analysis (the bot built its own symbol picker instead of reusing one). The CLI-over-`ICommandDispatcher` design makes two paths share one handler; a TUI adds a path with its own widgets, its own refresh model and its own concurrency (a terminal UI loop beside a host's signal loop and bot worker threads).
@@ -83,6 +83,7 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | O5 | ✅ | ✅ | ✅ | ✅ | ✅ standard tools | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | O7 | ✅ | ✅ proven by 038A | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | O8 | ✅ enforced by the command | ✅ | ✅ | ✅ | ✅ mirrors the GUI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| D4 | ✅ "depended on by none" is held by `test_no_module_depends_on_operations.py` (only `operations` and `src/shell` may name it) | ✅ | ✅ | ✅ | ✅ same shape as the other modules | ✅ avoids a `shell/` god package | ✅ a module can absorb the host later | ✅ | ✅ | ✅ | ✅ | ✅ two files and a list entry to move |
 | D7 | ✅ isolation guard | ✅ | ✅ one host, moved not copied | ✅ | ✅ existing registry | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ a package move |
 | D8 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
@@ -94,6 +95,6 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | D3 | 038B, 038D, 038E, 038F | 038B done (the output-format case) | `test_a_new_renderer_registers_without_editing_a_command` |
 | D7 | 038B | Done | `src/support/cli_host/` and `tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py` (allowlist, eleven planted-import mutations) |
 | D8 | 038B | Done | `src/main.py`; `test_a_bare_main_prints_help_and_exits_two`, `test_a_bare_invocation_prints_the_help_and_exits_two`; `run.ps1 -CLI` passes `shell` |
-| D4 | 038D, 038F | Not started | Not yet verified |
+| D4 | 038G, 038D, 038F | Started: 038G created the minimal `operations` module (id, no hooks; health line format, `HostState`), PR #467 | `src/modules/operations/`; `test_module_declarations.py` |
 | D5 | 038C | Not started | Not yet verified |
-| D6 | 038A | Not started | the probe in DESIGN §1.1 is the evidence for the problem, not for the fix |
+| D6 | 038A | Delivered (PR #465) | `create_app` boots with PySide6 blocked: `tests/sanity/test_the_app_boots_without_pyside6.py` |

@@ -41,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
 from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
+from Sagittarius_Elite_Warrior.src.modules.operations.module import OperationsModule
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
 
@@ -50,6 +51,7 @@ MODULES: tuple[type[BoundedContextModule], ...] = (
     StrategyModule,
     BacktestingModule,
     BotsModule,
+    OperationsModule,
 )
 
 

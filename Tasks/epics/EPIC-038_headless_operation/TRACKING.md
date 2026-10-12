@@ -52,7 +52,7 @@ gantt
 | EPIC-038D | [The run host](incomplete/EPIC-038D_run_host.md) | — | 🔴 | 🔵 Planned; waits for O1, O2, O8 | — |
 | EPIC-038E | [Headless secret backends](incomplete/EPIC-038E_headless_secret_backends.md) | — | 🔴 | 🔵 Planned; waits for O3 | — |
 | EPIC-038F | [Preflight command](incomplete/EPIC-038F_preflight_command.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-038G | [Logging for unattended runs](incomplete/EPIC-038G_logging_for_unattended_runs.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-038G | [Logging for unattended runs](completed/EPIC-038G_logging_for_unattended_runs.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038H | [Service units and runbook](incomplete/EPIC-038H_service_units_and_runbook.md) | — | 🟢 | 🔵 Planned; waits for 038D–G | — |
 | EPIC-038I | [Bot plan files](incomplete/EPIC-038I_bot_plan_files.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-038J | [Control of a running host](incomplete/EPIC-038J_control_of_a_running_host.md) | — | 🔴 | 🔵 Planned; gated on O4 and `EPIC-036F` | — |
