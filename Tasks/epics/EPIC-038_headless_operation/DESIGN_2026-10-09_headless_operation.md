@@ -279,8 +279,8 @@ A restart leaves RUNNING/PAUSED bots RECOVERING and waits for the order session,
 | 2 | usage error (argparse already uses 2) | all | not restarted |
 | 3 | another copy holds the data root | `run`, mutating commands | **not** restarted (`RestartPreventExitStatus`) |
 | 4 | preflight failed | `run`, `preflight` | not restarted |
-| 5 | configuration or credentials missing/refused | `run`, `preflight`, trade commands | not restarted |
-| 6 | exchange unreachable or rejected the request (includes `-2015`, `-1021`) | commands that touch the exchange | restarted with delay |
+| 5 | only the operator can fix it: no key, a key the exchange rejects (`-2015`), a bad signature (`-1022`), a key that can withdraw (decision D9) | `run`, `preflight`, `exchange-status`, trade commands | not restarted |
+| 6 | exchange unreachable or out of service, or the clock rejected (`-1021`, which resyncs): a restart can outlast it (decision D9) | commands that touch the exchange | restarted with delay |
 | 10 | host not running | `status` | — |
 | 11 | host running but unhealthy (snapshot stale, a section unavailable) | `status` | — |
 

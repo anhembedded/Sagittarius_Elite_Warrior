@@ -58,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    IPreflightCheckTable,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
     IReportFormats,
 )
@@ -95,6 +98,7 @@ from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModul
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.shell.operations_registry import OperationsRegistry
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
@@ -328,6 +332,14 @@ def create_app(
     for module in modules:
         module.declare_cli(cli_registry)
     container.singleton(ICliCommandTable, cli_registry)
+
+    # `EPIC-038F` — what every module contributes to running unattended (its
+    # pre-flight checks). Registered under the *reading* port only, as the
+    # command table is: `operations` reads the finished table and cannot add.
+    operations_registry = OperationsRegistry()
+    for module in modules:
+        module.declare_operations(operations_registry)
+    container.singleton(IPreflightCheckTable, operations_registry)
 
     # `EPIC-038B` — the output formats a report command offers (`--json`,
     # `--format`). A new format is one `register` call on this object; no

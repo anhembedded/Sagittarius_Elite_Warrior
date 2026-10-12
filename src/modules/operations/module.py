@@ -17,8 +17,13 @@ What it holds today:
   - **`status`**, which reads that file, the instance lock and the bots, and
     opens no port.
 
-The `run` host, preflight and the contributors of other modules join this
-module's hooks with `EPIC-038D`, `038F` and the rest of `038C`.
+  - the `preflight` command with the machine-level checks (`EPIC-038F`): disk
+    space, data-root writability and the Python floor; the checks that need the
+    exchange are declared by `trading`, the module that knows the key and the
+    clock.
+
+The `run` host (`EPIC-038D`) will join these hooks; `subscribe` and `contribute`
+are inherited no-ops.
 """
 
 from __future__ import annotations
@@ -41,12 +46,26 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    IOperationsRegistry,
+    PortResolver,
+    PreflightCheckDescriptor,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.data_root_writable_check import (
+    DataRootWritableCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.disk_space_check import (
+    DiskSpaceCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_sink import (
     FileHealthSnapshotSink,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
     FileHealthSnapshotSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.python_floor_check import (
+    PythonFloorCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.system_operations_clock import (
     SystemOperationsClock,
@@ -67,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.no_health_cont
 from Sagittarius_Elite_Warrior.src.modules.operations.application.queries.get_host_status import (
     GetHostStatusQuery,
     GetHostStatusQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.cli.preflight_cli_handler import (
+    PreflightCliHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.status_cli_handler import (
     StatusCliHandler,
@@ -123,6 +145,19 @@ class OperationsModule(BoundedContextModule):
                 name="status", handler=StatusCliHandler, contributor_id=self.module_id
             )
         )
+        registry.declare(
+            CliCommandDescriptor("preflight", PreflightCliHandler, self.module_id)
+        )
+
+    def declare_operations(self, registry: IOperationsRegistry) -> None:
+        for check_id, factory in (
+            ("disk-space", _disk_space),
+            ("data-root-writable", _data_root_writable),
+            ("python-floor", _python_floor),
+        ):
+            registry.declare_preflight(
+                PreflightCheckDescriptor(check_id, factory, self.module_id)
+            )
 
     def boot(self, context: IEngineContext) -> None:
         container = context.container
@@ -171,3 +206,16 @@ class OperationsModule(BoundedContextModule):
 
 def _snapshot_path() -> Path:
     return data_root() / "state" / "health.json"
+
+
+def _disk_space(_resolver: PortResolver) -> DiskSpaceCheck:
+    root = data_root()
+    return DiskSpaceCheck({"data root": root, "log directory": root / "logs"})
+
+
+def _data_root_writable(_resolver: PortResolver) -> DataRootWritableCheck:
+    return DataRootWritableCheck(Path(data_root()))
+
+
+def _python_floor(_resolver: PortResolver) -> PythonFloorCheck:
+    return PythonFloorCheck()

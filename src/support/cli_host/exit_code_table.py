@@ -53,18 +53,22 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         SupervisorAction.DO_NOT_RESTART,
     ),
     ExitCode.PREFLIGHT_FAILED: ExitCodeRow(
-        "a pre-flight check failed",
+        "a pre-flight check failed that is neither of the two below: the machine (disk, data "
+        "root, Python), a clock skew the check measured over its threshold, a key without "
+        "trading permission",
         "`run`, `preflight`",
         SupervisorAction.DO_NOT_RESTART,
     ),
     ExitCode.CONFIGURATION: ExitCodeRow(
-        "configuration or credentials are missing, or the application refuses them "
-        "(no key, a key that can withdraw, Hedge Mode)",
+        "only the operator can fix it, so a restart would repeat it: no key, a key the exchange "
+        "rejects (`-2015`: key, address or permission), a bad signature (`-1022`), a key that can "
+        "withdraw, Hedge Mode",
         "`run`, `preflight`, `exchange-status`, trade commands",
         SupervisorAction.DO_NOT_RESTART,
     ),
     ExitCode.EXCHANGE: ExitCodeRow(
-        "the exchange was unreachable or rejected the request (including `-2015` and `-1021`)",
+        "the exchange was unreachable or out of service, or rejected the clock (`-1021`, which "
+        "resyncs): a restart can outlast it",
         "commands that touch the exchange",
         SupervisorAction.RESTART_AFTER_DELAY,
     ),

@@ -43,6 +43,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.position_siz
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_action_to_order_intent import (
     order_intent_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_exit_code import (
+    EXIT_CODE_FOR_FAILURE,
+    exit_code_of_order_rejection,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+    ExchangeConnectionStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
@@ -103,6 +111,8 @@ def _refusal_exit_code(
         return ExitCode.USAGE
     if isinstance(exc, OrderNotPlacedError):
         return ExitCode.USAGE
+    if isinstance(exc, OrderRejectedByExchangeError):
+        return exit_code_of_order_rejection(exc.reason)
     return ExitCode.EXCHANGE
 
 
@@ -114,12 +124,24 @@ _CONFIGURATION_GATES = frozenset(
         ExecuteOrderSafetyGate.TRADING_SWITCH_OFF,
     }
 )
-_EXCHANGE_GATES = frozenset(
-    {
-        ExecuteOrderSafetyGate.CONNECTION_NOT_READY,
-        ExecuteOrderSafetyGate.KEY_REJECTED,
-    }
-)
+#: The gates that mean the exchange is the problem, with the connection failure
+#: each stands for, so the exit code is the shared one (`EPIC-038` D9): a rejected
+#: key is the operator's (5), a connection that is not ready is a wait (6). The
+#: finer kinds (no key, a bad signature) are caught by the balance read above,
+#: which keeps the failure kind; the gate only sees what changed since.
+_FAILURE_OF_GATE: dict[object, ConnectionFailureKind] = {
+    ExecuteOrderSafetyGate.CONNECTION_NOT_READY: ConnectionFailureKind.NETWORK,
+    ExecuteOrderSafetyGate.KEY_REJECTED: ConnectionFailureKind.KEY_REJECTED,
+}
+
+
+def _balance_unknown_exit_code(status: ExchangeConnectionStatus) -> ExitCode:
+    """Why the balance is unknown decides the code (`EPIC-038` D9): no key or a key
+    the exchange rejects is the operator's (5), a lost connection is a wait (6).
+    A status that names no failure keeps the code this branch always had."""
+    if status.failure is None:
+        return ExitCode.CONFIGURATION
+    return EXIT_CODE_FOR_FAILURE[status.failure]
 
 
 def _blocked_exit_code(result: ExecuteOrderResult) -> ExitCode | None:
@@ -132,8 +154,8 @@ def _blocked_exit_code(result: ExecuteOrderResult) -> ExitCode | None:
         return None
     if result.blocked_by in _CONFIGURATION_GATES:
         return ExitCode.CONFIGURATION
-    if result.blocked_by in _EXCHANGE_GATES:
-        return ExitCode.EXCHANGE
+    if result.blocked_by in _FAILURE_OF_GATE:
+        return EXIT_CODE_FOR_FAILURE[_FAILURE_OF_GATE[result.blocked_by]]
     return ExitCode.USAGE
 
 
@@ -210,7 +232,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> CliOutcome | None:
     status = venue.account_reader.check_connection()
     if status.usdt_balance is None:
         print("USDT balance unknown (credentials not configured or connection lost).")
-        return CliOutcome(ExitCode.CONFIGURATION)
+        return CliOutcome(_balance_unknown_exit_code(status))
 
     intent = order_intent_for(signal.action)
     reference_price = Decimal(str(signal.price))
