@@ -30,8 +30,8 @@ _HOST_KEYS = {
     "app_version", "started_at", "written_at", "interval_s",
 }  # fmt: skip
 _PAYLOAD_KEYS = {
-    "host", "sections", "unavailable_sections", "app_running", "bots", "unreadable",
-    "counts",
+    "host", "sections", "unavailable_sections", "unhealthy_sections", "app_running",
+    "bots", "unreadable", "counts",
 }  # fmt: skip
 _UNAVAILABLE = {"status": "unavailable", "reason": "raised ValueError"}
 
@@ -162,3 +162,41 @@ def test_status_text_says_the_bot_states_are_recorded_when_no_host_runs(
     assert RECORDED_STATES_NOTE in out
     _, running = _run(True, StubSource(snapshot_aged(1)), capsys, json=False)
     assert RECORDED_STATES_NOTE not in running
+
+
+def test_a_section_that_says_it_is_degraded_makes_the_host_unhealthy(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The general rule, with a section that is not the Engine's: any contributor
+    may set the reserved `status` key to `degraded`."""
+    source = StubSource(
+        snapshot_aged(
+            1,
+            {
+                "bots": {"total": 2},
+                "feeds": {"status": "degraded", "reason": "a feed is dead"},
+            },
+        )
+    )
+
+    code, out = _run(True, source, capsys)
+
+    assert code is ExitCode.HOST_UNHEALTHY
+    data = json.loads(out)["data"]
+    assert data["unhealthy_sections"] == ["feeds"]
+    assert data["unavailable_sections"] == []
+    assert data["host"]["state"] == "running"
+
+
+def test_unavailable_and_degraded_sections_are_both_listed_as_unhealthy(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = StubSource(
+        snapshot_aged(
+            1, {"a": _UNAVAILABLE, "b": {"status": "degraded"}, "c": {"n": 1}}
+        )
+    )
+
+    _, out = _run(True, source, capsys)
+
+    assert json.loads(out)["data"]["unhealthy_sections"] == ["a", "b"]

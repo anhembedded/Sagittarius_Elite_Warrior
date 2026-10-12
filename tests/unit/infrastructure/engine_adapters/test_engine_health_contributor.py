@@ -34,3 +34,18 @@ def test_the_section_is_json_ready_and_named_engine() -> None:
 
     assert contributor.name == "engine"
     assert json.dumps(dict(contributor.snapshot()))
+
+
+def test_a_failed_engine_check_is_a_degraded_section() -> None:
+    """The Engine's `unhealthy` is mapped to the general rule, so `status` exits 11."""
+    container = StdLibContainer()  # no IContainer bound: the Engine's own check fails
+    section = EngineHealthContributor(container, MemoryEventBus()).snapshot()
+
+    assert section["verdict"] == "unhealthy"
+    assert section["status"] == "degraded"
+    assert section["components"]["container"].startswith("error")  # type: ignore[index]
+    assert "reason" in section
+
+
+def test_a_healthy_engine_check_sets_no_status_key() -> None:
+    assert "status" not in _contributor().snapshot()

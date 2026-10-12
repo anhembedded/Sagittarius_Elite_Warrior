@@ -17,6 +17,11 @@ user-data stream): the file is read by anyone who can read the data
 root, and a monitor may ship it elsewhere. The publisher refuses a section that
 names such a key.
 
+**Saying "I am not well".** A section may set the reserved key `status` to
+`"degraded"` (with a `reason`): `status` then exits 11 for the host, exactly as it
+does when a section is `unavailable`. The rule is the same for every contributor;
+the Engine's health check is one user of it, not a special case.
+
 @par Extension cases
   · a new section (a future module's feed) - one contributor and one
     declaration in its module; `HealthPublisher`, the sink and `status` are
@@ -31,6 +36,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
+
+#: The reserved keys of a section (`status`, `reason`) and the two values that say
+#: the host is not well. Vocabulary of the kernel, not of `operations`: every
+#: module's contributor may set them, and a section that holds none is well.
+STATUS_KEY = "status"
+REASON_KEY = "reason"
+#: Set by the publisher when a contributor did not answer or was refused.
+UNAVAILABLE = "unavailable"
+#: Set by a contributor that answered and is not well.
+DEGRADED = "degraded"
 
 
 class IHealthContributor(ABC):

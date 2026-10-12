@@ -3,6 +3,10 @@
 `tick_age_s` is the age of the freshest candle across every feed (the health
 line's field): `null` when no feed has delivered one, which is the normal state
 of a host that has opened none. `feeds` gives each `market:symbol` its own age.
+
+**`tick_age_s` is the freshest feed**, so one dead symbol hides behind any live
+one, and a feed closed on purpose is never forgotten (`Docs/OPERATIONS/LOGGING.md`
+§5); a monitor that cares about one symbol reads `feeds`.
 """
 
 from __future__ import annotations

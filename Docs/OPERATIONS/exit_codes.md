@@ -19,7 +19,7 @@ a guard compares it with the generator.
 | 5 | `CONFIGURATION` | only the operator can fix it, so a restart would repeat it: no key, a key the exchange rejects (`-2015`: key, address or permission), a bad signature (`-1022`), a key that can withdraw, Hedge Mode | `run`, `preflight`, `exchange-status`, trade commands | not restarted |
 | 6 | `EXCHANGE` | the exchange was unreachable or out of service, or rejected the clock (`-1021`, which resyncs): a restart can outlast it | commands that touch the exchange | restarted with a delay |
 | 10 | `HOST_NOT_RUNNING` | no host is running | `status` | — |
-| 11 | `HOST_UNHEALTHY` | a host is running but unhealthy (snapshot stale, a section unavailable) | `status` | — |
+| 11 | `HOST_UNHEALTHY` | a host is running but unhealthy (snapshot stale, a section unavailable or degraded) | `status` | — |
 
 A systemd unit takes `RestartPreventExitStatus=2 3 4 5` from this table.
 

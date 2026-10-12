@@ -22,6 +22,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
+    DEGRADED,
+    REASON_KEY,
+    STATUS_KEY,
     IHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
@@ -29,6 +32,8 @@ from sagittarius_engine.extensions.health.health_check_query import HealthCheckQ
 from sagittarius_engine.interfaces import IContainer, IEventBus
 
 SECTION_NAME = "engine"
+#: The word `HealthCheckQuery` uses for "all components ok".
+HEALTHY = "healthy"
 
 
 class EngineHealthContributor(IHealthContributor):
@@ -43,8 +48,14 @@ class EngineHealthContributor(IHealthContributor):
 
     def snapshot(self) -> Mapping[str, JsonValue]:
         result = self._query.execute()
-        components = result.get("components", {})
-        return {
-            "verdict": str(result.get("status", "unknown")),
-            "components": {str(key): str(value) for key, value in components.items()},
+        verdict = str(result.get("status", "unknown"))
+        components: dict[str, JsonValue] = {
+            str(key): str(value) for key, value in result.get("components", {}).items()
         }
+        section: dict[str, JsonValue] = {"verdict": verdict, "components": components}
+        if verdict != HEALTHY:
+            # The general rule (`IHealthContributor`): a section that says it is
+            # not well makes `status` exit 11.
+            section[STATUS_KEY] = DEGRADED
+            section[REASON_KEY] = "the Engine's health check reports " + verdict
+        return section

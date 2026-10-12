@@ -7,7 +7,7 @@ code is the same facts read as a verdict:
 | Liveness | Exit |
 | :--- | :-: |
 | running, every section answered | 0 |
-| running, a section unavailable | 11 |
+| running, a section unavailable or degraded | 11 |
 | stale | 11 |
 | not running | 10 |
 """
@@ -51,13 +51,18 @@ def status_outcome(status: HostStatus) -> CliOutcome | None:
     outcome carries no message."""
     if status.liveness is HostLiveness.NOT_RUNNING:
         return CliOutcome(ExitCode.HOST_NOT_RUNNING)
-    if status.liveness is HostLiveness.STALE or _unavailable(status):
+    if status.liveness is HostLiveness.STALE or _unhealthy(status):
         return CliOutcome(ExitCode.HOST_UNHEALTHY)
     return None
 
 
 def _unavailable(status: HostStatus) -> tuple[str, ...]:
     return () if status.snapshot is None else status.snapshot.unavailable_sections
+
+
+def _unhealthy(status: HostStatus) -> tuple[str, ...]:
+    """Sections that did not answer or say they are degraded: one rule for all."""
+    return () if status.snapshot is None else status.snapshot.unhealthy_sections
 
 
 def _payload(status: HostStatus) -> dict[str, JsonValue]:
@@ -81,6 +86,7 @@ def _payload(status: HostStatus) -> dict[str, JsonValue]:
         "host": host,
         "sections": sections,
         "unavailable_sections": list(_unavailable(status)),
+        "unhealthy_sections": list(_unhealthy(status)),
         **status.bots.payload(),
         "counts": dict(status.bots.state_counts()),
     }

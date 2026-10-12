@@ -249,3 +249,43 @@ def test_no_secret_reaches_any_output_of_these_commands(
     assert _FAKE_SECRET not in (data_root / "state" / "health.json").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        ("preflight",),
+        ("exchange-status",),
+        (
+            "order-preview",
+            "--symbol",
+            "BTCUSDT",
+            "--side",
+            "BUY",
+            "--qty",
+            "1",
+            "--price",
+            "100",
+        ),
+    ],
+    ids=["preflight", "exchange-status", "order-preview"],
+)
+def test_a_command_that_only_reads_leaves_a_running_bot_running(
+    data_root: Path, command: tuple[str, ...]
+) -> None:
+    """The review's finding: `preflight` booted as the writable copy, whose
+    restart rule turned RUNNING bots into RECOVERING, and the next step of the
+    operator's flow (`run`) would not resume them. A command that only reads is
+    declared `read_only`, so it is never that copy (`command_access.py`)."""
+    bot_file = data_root / "state" / "bots" / "aaaaaa.json"
+    before = bot_file.read_text(encoding="utf-8")
+
+    result = _run(data_root, *command)
+
+    assert "Traceback" not in result.stderr, result.stderr
+    assert bot_file.read_text(encoding="utf-8") == before, (
+        "the bot's file was rewritten"
+    )
+    assert json.loads(before)["lifecycle"]["state"] == "RUNNING"
+    assert not (data_root / "state" / "instance.lock").exists()
+    assert not (data_root / "state" / "health.json").exists()

@@ -55,6 +55,7 @@
     },
     "exchange-status": {
       "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode",
+      "read_only": true,
       "args": [
         {
           "name": "--json",
@@ -70,6 +71,7 @@
     },
     "preflight": {
       "help": "Check this machine before the first order: clock skew, credentials, key permissions, outbound address, disk, data root, Python. Read-only; exit 0 none failed, 4 a check failed, 5 credentials absent or refused, 6 exchange unreachable",
+      "read_only": true,
       "args": [
         {
           "name": "--venue",
@@ -96,6 +98,7 @@
     },
     "order-preview": {
       "help": "Preview a normalized live order (rounding + minNotional check) without sending it",
+      "read_only": true,
       "args": [
         {
           "name": "--symbol",
