@@ -13,12 +13,6 @@ Opening a chart reads local history only; `go_live` asks for the stream
 (`BUG-107`: opening a screen is not a request to go on the network). The
 history arrives through a Qt signal, so the chart widget is touched only on
 the Qt thread (`BUG-031`).
-
-Capability: Show a chart that loads a symbol's history and stays live
-    Also: live chart, streaming candles, ticker chart, kline stream
-    Use: LiveCandleChart
-    User: src/modules/bots/ui/chart/bot_chart.py
-    Status: stable
 """
 
 from __future__ import annotations

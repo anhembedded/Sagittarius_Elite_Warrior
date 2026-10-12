@@ -16,7 +16,9 @@ catalog does, and a catalog is only as good as the checks that keep it complete 
 2. *Well formed.* Every block parses; a near-miss head (`Capabilty:`) is an error, not a
    dropped row.
 3. *True.* Each `Use` symbol is defined (or re-exported) at the top level of the marked
-   module; each `User` file exists, lies outside the capability's own directory and
+   module, or, for a marker in a package's `__init__.py`, of a module directly in that
+   package (a module past the 400-line ceiling keeps its marker in the package docstring
+   instead of growing, `test_god_files_only_shrink.py`); each `User` file exists, lies outside the capability's own directory and
    *imports* a `Use` symbol, read with `ast`, never as text. A `deprecated ->` replacement is
    another row's symbol.
 4. *Paths exist.* Every `src/...` path the rule file names exists.
@@ -33,7 +35,6 @@ reusable symbols for a session), or the `Capability:` convention is dropped from
 
 from __future__ import annotations
 
-import ast
 import re
 from pathlib import Path
 
@@ -41,20 +42,20 @@ from Sagittarius_Elite_Warrior.scripts.render_capability_index import (
     RULE_FILE,
     Capability,
     collect,
-    parse_docstring,
     render_table,
     table_block,
-    with_table,
+)
+from Sagittarius_Elite_Warrior.tests.unit.architecture.capability_catalog_checks import (
+    defined_names,
+    dotted_module,
+    imports_the_capability,
+    owning_unit,
+    symbol_sites,
+    unit_directories,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-#: The checkout's directory name, which every absolute import in `src/` starts with.
-_PACKAGE = _REPO_ROOT.name
 _SUPPORT = "src/support"
-
-#: Directories that roll up into their parent unit instead of being one.
-_ROLLS_UP = frozenset({"contracts", "adapters", "assets", "__pycache__"})
-_UNIT_DEPTH = 2
 
 #: Ceiling for the rule file, in lines. The catalog loads on every UI or application file, so
 #: it stays small; it may fall, never rise without the owner's decision.
@@ -64,81 +65,6 @@ _MIN_CAPABILITIES = 25
 _MIN_UNITS = 10
 
 _CATALOGUED_PATH = re.compile(r"`(src/[^`\s]+)`")
-
-
-# --------------------------------------------------------------------------- #
-# Pure helpers                                                                #
-# --------------------------------------------------------------------------- #
-
-
-def defined_names(source: str) -> set[str]:
-    """The names a module binds at its top level: classes, functions, assignments,
-    type aliases and imports (an `__init__.py` re-exports by importing)."""
-    names: set[str] = set()
-    for node in ast.parse(source).body:
-        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-            names.add(node.name)
-        elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
-            names.add(node.name.id)
-        elif isinstance(node, ast.Assign):
-            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            names.add(node.target.id)
-        elif isinstance(node, ast.ImportFrom | ast.Import):
-            names.update((a.asname or a.name).split(".")[0] for a in node.names)
-    return names
-
-
-def imports_from(source: str) -> set[tuple[str, str]]:
-    """`(module, name)` for every absolute `from module import name` in `source`. A word in
-    a string or comment is not an import, and a relative import names no module here."""
-    return {
-        (node.module, alias.name)
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module
-        for alias in node.names
-    }
-
-
-def dotted_module(source_path: str) -> str:
-    """The dotted module a repo-relative `.py` path is imported as (a package for
-    `__init__.py`), under the checkout's own package name."""
-    parts = Path(source_path).with_suffix("").parts
-    if parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join((_PACKAGE, *parts))
-
-
-def imports_the_capability(user_source: str, capability: Capability) -> bool:
-    """Whether `user_source` imports one of the capability's symbols **from the module that
-    declares it, or a package above it that re-exports it**. A same-named symbol from an
-    unrelated module is not a user."""
-    declaring = dotted_module(capability.source)
-    return any(
-        name in capability.symbols
-        and (declaring == module or declaring.startswith(module + "."))
-        for module, name in imports_from(user_source)
-    )
-
-
-def unit_directories(support: Path) -> list[Path]:
-    """Every directory at depth 1 or 2 under `support` that is a unit."""
-    units: list[Path] = []
-    frontier = [support]
-    for _ in range(_UNIT_DEPTH):
-        frontier = [
-            child
-            for parent in frontier
-            for child in sorted(parent.iterdir())
-            if child.is_dir() and child.name not in _ROLLS_UP
-        ]
-        units.extend(frontier)
-    return units
-
-
-def owning_unit(file: Path, units: set[Path]) -> Path | None:
-    """The nearest ancestor directory of `file` that is a unit."""
-    return next((p for p in file.parents if p in units), None)
 
 
 # --------------------------------------------------------------------------- #
@@ -172,6 +98,14 @@ def _rule_text() -> str:
 
 def _source_of(relative: str) -> str:
     return (_REPO_ROOT / relative).read_text(encoding="utf-8")
+
+
+def _names_defined_for(capability: Capability) -> set[str]:
+    return {
+        name
+        for site in symbol_sites(_REPO_ROOT, capability)
+        for name in defined_names(site.read_text(encoding="utf-8"))
+    }
 
 
 def _id(capability: Capability) -> str:
@@ -209,7 +143,7 @@ def test_every_used_symbol_is_defined_where_the_marker_sits() -> None:
         f"  {_id(c)}: {symbol}"
         for c in _capabilities()
         for symbol in c.symbols
-        if symbol not in defined_names(_source_of(c.source))
+        if symbol not in _names_defined_for(c)
     ]
     assert missing == [], (
         "a `Use:` symbol is not defined or re-exported by the module carrying the "
@@ -272,123 +206,4 @@ def test_the_catalog_stays_small() -> None:
     assert lines <= _RULE_MAX_LINES, (
         f"{RULE_FILE} is {lines} lines (ceiling {_RULE_MAX_LINES}); it loads on every UI "
         "or application file. Shorten a row's synonyms, or split by path."
-    )
-
-
-# --------------------------------------------------------------------------- #
-# Probes: the guard can fail                                                  #
-# --------------------------------------------------------------------------- #
-
-_GOOD = """Summary line.
-
-Capability: Choose a pair
-    Also: picker, chooser
-    Use: Overlay, Source
-    User: src/modules/x/ui/y.py
-    Status: stable
-"""
-
-
-def test_a_well_formed_block_parses() -> None:
-    parsed = parse_docstring("src/support/a.py", _GOOD)
-    assert parsed.problems == ()
-    (capability,) = parsed.capabilities
-    assert capability.symbols == ("Overlay", "Source")
-    assert capability.synonyms == ("picker", "chooser")
-    assert capability.where == "src/support/a.py"
-
-
-def test_a_package_marker_is_located_at_its_directory() -> None:
-    parsed = parse_docstring("src/support/k/p/__init__.py", _GOOD)
-    assert parsed.capabilities[0].where == "src/support/k/p/"
-
-
-def test_a_continuation_line_extends_the_field_above() -> None:
-    text = _GOOD.replace("Use: Overlay, Source", "Use: Overlay,\n        Source")
-    assert parse_docstring("a.py", text).capabilities[0].symbols == (
-        "Overlay",
-        "Source",
-    )
-
-
-def test_two_blocks_in_one_docstring_are_two_rows() -> None:
-    parsed = parse_docstring("a.py", _GOOD + "\n" + _GOOD.replace("pair", "range"))
-    assert len(parsed.capabilities) == 2
-
-
-def test_a_missing_required_field_is_a_problem() -> None:
-    text = _GOOD.replace("    User: src/modules/x/ui/y.py\n", "")
-    parsed = parse_docstring("a.py", text)
-    assert parsed.capabilities == ()
-    assert any("missing field `User:`" in p for p in parsed.problems)
-
-
-def test_a_misspelled_head_is_a_problem_not_a_skipped_row() -> None:
-    for head in ("Capabilty: x", "capability: x", "Capabilities: x"):
-        parsed = parse_docstring("a.py", head)
-        assert parsed.capabilities == ()
-        assert parsed.problems, head
-
-
-def test_an_unknown_field_is_a_problem() -> None:
-    text = _GOOD.replace("    Also:", "    Alias:")
-    assert any("Alias" in p for p in parse_docstring("a.py", text).problems)
-
-
-def test_the_status_grammar_is_enforced() -> None:
-    assert parse_docstring("a.py", _GOOD.replace("stable", "fine")).problems
-    deprecated = parse_docstring("a.py", _GOOD.replace("stable", "deprecated -> Other"))
-    assert deprecated.problems == ()
-    assert deprecated.capabilities[0].replacement == "Other"
-
-
-def test_a_user_must_be_a_source_path() -> None:
-    text = _GOOD.replace("src/modules/x/ui/y.py", "somewhere")
-    assert parse_docstring("a.py", text).problems
-
-
-def test_a_mention_in_a_string_is_not_an_import() -> None:
-    assert imports_from('x = "SymbolPickerOverlay"\n') == set()
-    assert imports_from("from pkg.mod import Name as Other\n") == {("pkg.mod", "Name")}
-    assert imports_from("from . import Name\n") == set()
-
-
-def _capability(source: str) -> Capability:
-    (capability,) = parse_docstring(source, _GOOD).capabilities
-    return capability
-
-
-def test_a_same_named_symbol_from_another_module_is_not_a_user() -> None:
-    capability = _capability("src/support/k/overlay.py")  # declares Overlay, Source
-    mod = f"{_PACKAGE}.src.support.k.overlay"
-    assert imports_the_capability(f"from {mod} import Overlay\n", capability)
-    assert imports_the_capability(
-        f"from {_PACKAGE}.src.support.k import Overlay\n", capability
-    )
-    assert not imports_the_capability("from other.place import Overlay\n", capability)
-    assert not imports_the_capability(f"from {mod} import Unrelated\n", capability)
-    assert not imports_the_capability(
-        f"from {_PACKAGE}.src.support.kk import Overlay\n", capability
-    )
-
-
-def test_defined_names_see_classes_functions_imports_and_aliases() -> None:
-    source = "from p import R\nclass C: ...\ndef f(): ...\nV = 1\ntype T = int\n"
-    assert defined_names(source) == {"R", "C", "f", "V", "T"}
-    assert defined_names("def f():\n    class Inner: ...\n") == {"f"}
-
-
-def test_a_file_belongs_to_its_nearest_unit() -> None:
-    root = Path("/r/src/support")
-    units = {root / "ui_kit", root / "ui_kit" / "state"}
-    nested = root / "ui_kit" / "state" / "adapters" / "s.py"
-    assert owning_unit(nested, units) == root / "ui_kit" / "state"
-    assert owning_unit(root / "ui_kit" / "x.py", units) == root / "ui_kit"
-    assert owning_unit(root / "other" / "x.py", units) is None
-
-
-def test_with_table_replaces_only_the_block() -> None:
-    text = "head\n<!-- capabilities:begin -->\nold\n<!-- capabilities:end -->\ntail\n"
-    assert with_table(text, "NEW") == (
-        "head\n<!-- capabilities:begin -->\nNEW\n<!-- capabilities:end -->\ntail\n"
     )
