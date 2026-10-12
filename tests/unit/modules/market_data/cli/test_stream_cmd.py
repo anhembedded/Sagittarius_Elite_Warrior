@@ -25,7 +25,10 @@ same commit — or this test becomes a hang, not a failure.
 
 from argparse import Namespace
 
-import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
@@ -46,10 +49,9 @@ def _args(**overrides) -> Namespace:
 def test_execute_stream_dispatch_raises_reports_and_exits(capsys):
     app, dispatcher = dispatching_app(raises=ConnectionError("Network error"))
 
-    with pytest.raises(SystemExit) as exc_info:
-        execute_stream(app, _args())
+    outcome = execute_stream(app, _args())
 
-    assert exc_info.value.code == 1
+    assert outcome == CliOutcome(ExitCode.ERROR)
     args, _ = dispatcher.dispatch.call_args
     assert args[0] == StartLiveStreamCommand
     captured = capsys.readouterr()
@@ -66,8 +68,7 @@ def test_execute_stream_exits_when_the_engine_refuses_to_start(capsys):
     """
     app, _dispatcher = dispatching_app(success=False, message="already streaming")
 
-    with pytest.raises(SystemExit) as exc_info:
-        execute_stream(app, _args())
+    outcome = execute_stream(app, _args())
 
-    assert exc_info.value.code == 1
+    assert outcome == CliOutcome(ExitCode.ERROR)
     assert "Failed to start stream: already streaming" in capsys.readouterr().out

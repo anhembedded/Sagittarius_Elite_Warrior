@@ -54,7 +54,19 @@
       }
     },
     "exchange-status": {
-      "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode"
+      "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode",
+      "args": [
+        {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.exchange-status/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        }
+      ]
     },
     "order-preview": {
       "help": "Preview a normalized live order (rounding + minNotional check) without sending it",
@@ -94,7 +106,12 @@
         {
           "name": "--json",
           "action": "store_true",
-          "help": "Print the normalized domain Order as JSON instead of the text report"
+          "help": "Print the normalized domain Order as JSON (schema sew.order-preview/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
         }
       ]
     },

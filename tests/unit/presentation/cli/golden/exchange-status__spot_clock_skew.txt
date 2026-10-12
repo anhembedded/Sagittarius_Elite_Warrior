@@ -1,0 +1,2 @@
+Venue: SPOT_TESTNET   Connection: ✘  CLOCK_SKEW
+→ The local clock is too far from the exchange's time. Resync the system clock (NTP) and try again.

@@ -13,6 +13,7 @@ retargeted and its row here changes in the same commit.
 
 from __future__ import annotations
 
+from .scanned_roots_registry_cli_host import CLI_HOST_GUARDS
 from .scanned_roots_registry_order_paths import ORDER_PATH_GUARDS
 from .ui_trees import UI_TREE_PATHS
 
@@ -292,6 +293,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("src/support/indicators/indicator_scripts", "*.py"),
         ),
     ),
+    *CLI_HOST_GUARDS,
     *ORDER_PATH_GUARDS,
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),

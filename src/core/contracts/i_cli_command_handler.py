@@ -39,6 +39,8 @@ import argparse
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import CliOutcome
+
 if TYPE_CHECKING:
     from sagittarius_engine import App
 
@@ -48,7 +50,7 @@ class ICliCommandHandler(ABC):
 
     @staticmethod
     @abstractmethod
-    def handle(args: argparse.Namespace, app: App) -> None:
+    def handle(args: argparse.Namespace, app: App) -> CliOutcome | None:
         """Run the command against already-parsed arguments.
 
         `args` carries exactly the arguments `cli_commands.json` declares for
@@ -59,4 +61,11 @@ class ICliCommandHandler(ABC):
         Reporting failure is still the handler's job, because only it knows
         what went wrong: catch the domain's own errors and print something the
         user can act on rather than letting a traceback reach the prompt.
+
+        **Returns** the outcome (`EPIC-038B`): `None` means success, so a
+        handler written before the contract existed keeps working. A failure
+        is `CliOutcome(ExitCode.X)`, after the handler has printed its own
+        explanation; the entry point turns it into the process exit status.
+        The interactive shell ignores it — a failed line must not end the
+        session.
         """

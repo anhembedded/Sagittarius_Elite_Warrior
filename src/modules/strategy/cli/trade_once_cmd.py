@@ -9,6 +9,10 @@ from decimal import Decimal
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -41,6 +45,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_actio
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
+    ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -85,6 +90,51 @@ def _refusal_words(
     return f"Exchange rejected the order: {exc}"
 
 
+def _refusal_exit_code(
+    exc: OrderRejectedByExchangeError
+    | OrderOutcomeUnknownError
+    | OrderNotPlacedError
+    | InvalidOrderForSubmissionError,
+) -> ExitCode:
+    """The exchange refusing, or not answering, is `EXCHANGE`; an order the
+    application never placed is `ERROR`; one it could not form is `USAGE`."""
+    if isinstance(exc, InvalidOrderForSubmissionError):
+        return ExitCode.USAGE
+    if isinstance(exc, OrderNotPlacedError):
+        return ExitCode.ERROR
+    return ExitCode.EXCHANGE
+
+
+#: The safety gates that mean "the operator has not set this up" rather than
+#: "the exchange said no": retrying them unchanged cannot help.
+_CONFIGURATION_GATES = frozenset(
+    {
+        ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED,
+        ExecuteOrderSafetyGate.TRADING_SWITCH_OFF,
+    }
+)
+_EXCHANGE_GATES = frozenset(
+    {
+        ExecuteOrderSafetyGate.CONNECTION_NOT_READY,
+        ExecuteOrderSafetyGate.KEY_REJECTED,
+    }
+)
+
+
+def _blocked_exit_code(result: ExecuteOrderResult) -> ExitCode | None:
+    """`None` when the pipeline did not block the order. Any block means no
+    order was sent, which a script must not read as success; the gate decides
+    which failure it is, and a limit, a minNotional, a crossed stop or a price
+    band — the application's own refusals — are `ERROR`."""
+    if result.blocked_by is None:
+        return None
+    if result.blocked_by in _CONFIGURATION_GATES:
+        return ExitCode.CONFIGURATION
+    if result.blocked_by in _EXCHANGE_GATES:
+        return ExitCode.EXCHANGE
+    return ExitCode.ERROR
+
+
 #: How many closed candles to warm indicators up on before trusting the
 #: latest one's signal — generous enough for this repo's slower
 #: strategies (e.g. EMA 200) without a per-strategy lookback table.
@@ -97,12 +147,21 @@ _SIZING = PositionSizing(type=PositionSizingType.PERCENT_OF_EQUITY, value=20.0)
 _LEVERAGE = 1.0
 
 
-def execute_trade_once(app: App, args: argparse.Namespace) -> None:
+def execute_trade_once(app: App, args: argparse.Namespace) -> CliOutcome | None:
+    """Run one evaluation and at most one order; `None` when it ended as designed.
+
+    `EPIC-038B` — "no signal" and "nothing to size" are designed endings and
+    exit 0. Every path that stopped before an order was handled is non-zero:
+    an unusable request `USAGE`; missing candles `ERROR` (run `sync`); missing
+    credentials `CONFIGURATION`; no metadata, an exchange refusal or an
+    unknown outcome `EXCHANGE`; an order the application itself did not place
+    `ERROR`.
+    """
     try:
         interval = TimeFrame(args.interval)
     except ValueError:
         print(f"Invalid interval: {args.interval!r}")
-        return
+        return CliOutcome(ExitCode.USAGE)
 
     strategy_registry = app.container.resolve(StrategyRegistry)
     if args.strategy not in strategy_registry.available():
@@ -110,7 +169,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
             f"Strategy does not exist: {args.strategy!r}. "
             f"Available: {sorted(strategy_registry.available())}"
         )
-        return
+        return CliOutcome(ExitCode.USAGE)
 
     # `EPIC-025` PR 1.1 — resolved from the container rather than dispatched,
     # so this command names only market_data's contract. `app.dispatch` stays
@@ -124,7 +183,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         print(
             f"No candle data for {args.symbol} {interval.value} yet — run `sync` first."
         )
-        return
+        return CliOutcome(ExitCode.ERROR)
 
     engine = build_engine(
         strategy_registry, args.strategy, app.container.resolve(IEventPublisher)
@@ -135,7 +194,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
 
     print(format_candle_and_signal(candles[-1], args.strategy, signal))
     if signal is None:
-        return
+        return None
 
     # `EPIC-028B` — the process's primary venue, the one `IOrderSubmission`
     # below sends to: the CLI has no venue flag yet.
@@ -143,12 +202,12 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
     metadata = venue.metadata_provider.get_or_fetch(args.symbol)
     if metadata is None:
         print(f"No futures metadata available for {args.symbol}.")
-        return
+        return CliOutcome(ExitCode.EXCHANGE)
 
     status = venue.account_reader.check_connection()
     if status.usdt_balance is None:
         print("USDT balance unknown (credentials not configured or connection lost).")
-        return
+        return CliOutcome(ExitCode.CONFIGURATION)
 
     intent = order_intent_for(signal.action)
     reference_price = Decimal(str(signal.price))
@@ -161,7 +220,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
     )
     if quantity <= 0:
         print("Calculated quantity is 0 — nothing to send.")
-        return
+        return None
 
     order_request = OrderRequest(
         symbol=args.symbol,
@@ -187,12 +246,12 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         InvalidOrderForSubmissionError,
     ) as exc:
         print(_refusal_words(exc))
-        return
+        return CliOutcome(_refusal_exit_code(exc))
     except (BinanceAPIException, BinanceRequestException, RequestException):
         print(
             "Could not send the order to the exchange — check your network connection and try again."
         )
-        return
+        return CliOutcome(ExitCode.EXCHANGE)
 
     # `EPIC-025` PR 2.1g — the thresholds come off the result, not off a
     # `container.resolve(TradingLimitPolicy)`. A command-line file resolving a
@@ -208,3 +267,5 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         )
 
     print(format_result(result, args.live))
+    blocked = _blocked_exit_code(result)
+    return None if blocked is None else CliOutcome(blocked)

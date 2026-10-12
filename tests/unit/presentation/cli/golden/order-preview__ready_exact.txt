@@ -1,0 +1,6 @@
+Normalized order
+  client_order_id : SEW-a91f4c72e0b8
+  symbol/side     : BTCUSDT / BUY   position_side=BOTH (One-way)
+  type/quantity   : MARKET / 0.013
+  estimated notional: 832.00 USDT     ≥ minNotional 100.00 ✔
+Status: READY TO SEND  (not sent — this task has no network egress)

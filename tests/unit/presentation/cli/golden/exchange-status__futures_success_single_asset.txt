@@ -1,0 +1,5 @@
+Venue:            FUTURES_TESTNET           Connection: ✔
+Clock skew:       +134 ms                   (recvWindow 5000 ms → safe)
+Position mode:    ONE_WAY ✔                 Margin type: CROSSED
+Wallet (USDT):    15,000.00                 Open positions: 2
+Available (USDT): 12,345.67                 Unrealized PnL: -100.50

@@ -2,6 +2,10 @@ import argparse
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
+    LauncherVerb,
+    add_launcher_verbs,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 TYPE_MAPPING = {"str": str, "int": int, "float": float, "bool": bool}
@@ -60,10 +64,18 @@ def _build_command_parser(
     return cmd_parser
 
 
-def build_parser(config: IConfig) -> argparse.ArgumentParser:
-    """Builds the main parser (used by headless mode) by reading config."""
+def build_parser(
+    config: IConfig, launcher_verbs: tuple[LauncherVerb, ...] = ()
+) -> argparse.ArgumentParser:
+    """Builds the main parser (used by headless mode) by reading config.
+
+    `launcher_verbs` (`EPIC-038B`) are the words that start a mode rather than
+    run a report command (`gui`, `shell`); they are listed in `--help` beside
+    the commands but live in the entry point, not in `cli_commands.json`.
+    """
     parser = argparse.ArgumentParser(description="Binance Trading Bot CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    add_launcher_verbs(subparsers, launcher_verbs)
 
     cli_commands = config.get(ConfigKeys.CLI_COMMANDS.value, {})
     for cmd_name, cmd_config in cli_commands.items():

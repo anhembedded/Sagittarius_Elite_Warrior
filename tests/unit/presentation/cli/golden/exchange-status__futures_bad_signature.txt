@@ -1,0 +1,2 @@
+Venue: FUTURES_TESTNET   Connection: ✘  BAD_SIGNATURE
+→ Request signature is invalid. Double-check the API Secret was copied correctly, with no extra or missing characters.

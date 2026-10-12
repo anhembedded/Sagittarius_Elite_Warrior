@@ -1,15 +1,28 @@
-"""Renders `OrderPreview` as the text `EPIC-021E` §5 specifies — a
-normalized-order block plus a ready/rejected status line — or as the
+"""Lays out `OrderPreview` as the report `EPIC-021E` §5 specifies — a
+normalized-order block plus a ready/rejected status line — and gives the
 underlying domain object for `--json`. Shared by every entry point that
-previews an order, so they never drift."""
+previews an order, so they never drift.
+
+`EPIC-038B` — the block is a titled section of rows, not a string; the text
+renderer prints the bytes it always printed (golden fixtures) and the JSON
+renderer wraps `order_preview_to_dict` in the common envelope."""
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    JsonValue,
+    Report,
+    ReportRow,
+    ReportSection,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
+)
+from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
+    TextReportRenderer,
 )
 
 
@@ -23,14 +36,13 @@ def _quantity_line(preview: OrderPreview) -> str:
     )
 
 
-def format_order_preview(preview: OrderPreview) -> str:
+def order_preview_layout(preview: OrderPreview) -> tuple[ReportSection, ...]:
     order = preview.order
     is_sufficient = preview.notional_check is NotionalCheck.SUFFICIENT
     comparator = "≥" if is_sufficient else "<"
     mark = "✔" if is_sufficient else "✘"
 
     lines = [
-        "Normalized order",
         f"  client_order_id : {order.client_order_id}",
         (
             f"  symbol/side     : {order.symbol} / {order.side.value}   "
@@ -53,10 +65,29 @@ def format_order_preview(preview: OrderPreview) -> str:
             f"{preview.estimated_notional:,.2f} USDT < {preview.min_notional:,.2f} USDT"
         )
 
-    return "\n".join(lines)
+    return (
+        ReportSection("Normalized order", tuple(ReportRow.of(line) for line in lines)),
+    )
 
 
-def order_preview_to_dict(preview: OrderPreview) -> dict[str, object]:
+def format_order_preview(preview: OrderPreview) -> str:
+    """The text report, for the tests that pin it and any caller wanting a string."""
+    return TextReportRenderer().render(
+        Report("order-preview", 1, {}, order_preview_layout(preview))
+    )
+
+
+def order_preview_report(preview: OrderPreview) -> Report:
+    """The `sew.order-preview/1` report: the payload is `order_preview_to_dict`."""
+    return Report(
+        command="order-preview",
+        version=1,
+        payload=order_preview_to_dict(preview),
+        layout=order_preview_layout(preview),
+    )
+
+
+def order_preview_to_dict(preview: OrderPreview) -> dict[str, JsonValue]:
     """@brief The domain `Order` (plus the rounding decision around it) as
     a plain, JSON-serializable dict — for `--json` to diff by eye against
     the request payload `EPIC-021F`'s adapter will eventually build."""

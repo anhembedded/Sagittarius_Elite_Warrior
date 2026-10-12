@@ -1,0 +1,5 @@
+Venue:            FUTURES_TESTNET           Connection: ✔
+Clock skew:       ?                         
+Position mode:    ?                         Margin type: ?
+Wallet (USDT):    ?                         Open positions: ?
+Available (USDT): ?                         Unrealized PnL: ?

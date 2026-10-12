@@ -90,7 +90,12 @@ def test_the_launcher_declares_both_modes_and_passes_the_rest_through() -> None:
     # Unbound arguments (`$args`) reach src/main.py as they are.
     assert "$ForwardedArgs = @($args)" in text
     assert "@EntryArgs" in text
-    assert "$EntryArgs = $ForwardedArgs" in text
+    # `EPIC-038B` (D8): a bare `main.py` prints help and exits 2, so `-CLI` with
+    # nothing after it names the prompt; with arguments they go through as they are.
+    assert (
+        '$EntryArgs = if ($ForwardedArgs.Count -eq 0) { @("shell") } '
+        "else { $ForwardedArgs }"
+    ) in text
     # The Python process's exit code is the script's.
     assert text.rstrip().endswith("exit $LASTEXITCODE")
     assert not (_ROOT / "scripts" / "run-ui.ps1").exists(), "one start point only"

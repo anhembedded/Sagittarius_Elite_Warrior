@@ -1,7 +1,13 @@
-import sys
 import time
 from typing import cast
 
+from binance.exceptions import BinanceAPIException, BinanceRequestException
+from pydantic import ValidationError
+from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -35,11 +41,16 @@ from sagittarius_engine import App
 #: PySide6 reason. Moving two files out of that directory is what surfaced it.
 
 
-def execute_stream(app: App, args):
+def execute_stream(app: App, args) -> CliOutcome | None:
     """
     Executes the stream command.
     The actual WebSocket streaming is managed by the LiveStreamExtension's HostedService.
     This function simply blocks the main thread to keep the application alive.
+
+    `EPIC-038B` — returns the outcome of *starting*: `None` once the stream was
+    started and the operator interrupted it, otherwise the code the failure
+    deserves (an unusable request is `USAGE`, the exchange `EXCHANGE`, a refusal
+    or anything else `ERROR`).
     """
     symbols_list = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     try:
@@ -48,7 +59,7 @@ def execute_stream(app: App, args):
         print(
             f"Invalid interval: {args.interval}. Must be one of {[t.value for t in TimeFrame]}"
         )
-        sys.exit(1)
+        return CliOutcome(ExitCode.USAGE)
 
     # `EPIC-027A` — the CLI has no market option; it streams Spot, as it always has.
     cmd = StartLiveStreamCommand(
@@ -72,11 +83,11 @@ def execute_stream(app: App, args):
         )
     except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
         print(f"❌ Failed to start stream: {e}")
-        sys.exit(1)
+        return CliOutcome(_failure_code(e))
 
     if not response.success:
         print(f"Failed to start stream: {response.message}")
-        sys.exit(1)
+        return CliOutcome(ExitCode.ERROR)
 
     print(
         f"Live stream started for {symbols_list} at {timeframe.value} in the background. Press Ctrl+C to stop."
@@ -86,3 +97,16 @@ def execute_stream(app: App, args):
             time.sleep(1)
     except KeyboardInterrupt:
         print("\nReceived KeyboardInterrupt. Shutting down gracefully...")
+    return None
+
+
+def _failure_code(error: Exception) -> ExitCode:
+    """A request the command rejects is `USAGE`, an exchange or network failure
+    is `EXCHANGE`, anything else `ERROR`."""
+    if isinstance(error, ValueError | ValidationError):
+        return ExitCode.USAGE
+    if isinstance(
+        error, BinanceAPIException | BinanceRequestException | RequestException
+    ):
+        return ExitCode.EXCHANGE
+    return ExitCode.ERROR

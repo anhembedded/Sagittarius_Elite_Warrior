@@ -100,6 +100,18 @@ real balances and a real order. That is the owner's manual check.
   an invented zero — and a Spot summary's equity is `None` when a holding cannot be priced.
   A Futures summary is also `None` when the asset mode cannot be read: guessing it would label
   one mode's figures as the other's.
+- **On the command line the answer is also an exit status and, on request, a document**
+  (`EPIC-038B`). `exchange-status` exits `0` on a healthy connection, `5` when the operator must
+  change the configuration (`NOT_CONFIGURED`, `WITHDRAWAL_ENABLED`, `HEDGE_MODE_UNSUPPORTED`) and
+  `6` when the exchange itself refused or could not be reached (`KEY_REJECTED`, `BAD_SIGNATURE`,
+  `CLOCK_SKEW`, `NETWORK`, `MAINTENANCE`); the table is `Docs/OPERATIONS/exit_codes.md`. The text
+  report is unchanged, byte for byte. `--json` (short for `--format json`) prints one JSON document,
+  `{"schema": "sew.exchange-status/1", "generated_at": …, "data": {…}}`, and nothing else on
+  standard output; a failed connection still prints its document, then exits `5` or `6`. The
+  document carries the venue, `reachable`, the failure kind (`failure`, the enum's value such as
+  `key_rejected`), the skew and whether it is within the receive window, the balances as strings,
+  the position mode, the margin type, the open-position count, the holdings and `can_trade`, each
+  `null` exactly when it was not learned. It never carries a key or a secret.
 - A successful check is not permission to trade. The first start, arm or order opens the order
   session (SPEC-004), and it runs its own check.
 
@@ -142,6 +154,9 @@ resolution and the error translation.
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_account_snapshot_contract.py` | contract |
 | The account reads behind it | `tests/unit/modules/trading/contracts/test_trading_account_reader_contract.py` | contract |
 | The command line's report for each outcome | `tests/unit/presentation/cli/test_exchange_status_formatter.py` | unit |
+| The command line's text is byte-identical to what it printed before the report renderer, for every outcome | `tests/unit/presentation/cli/test_exchange_status_text_is_unchanged.py` (golden fixtures in `tests/unit/presentation/cli/golden/`) | unit |
+| The JSON document's field names are pinned, each failure kind has its exit code, and the same status gives the text and the JSON | `tests/unit/presentation/cli/test_exchange_status_report.py` | unit |
+| The real process: exit `0`, `5`, `6` and `2`, standard output that is only the JSON, and no secret in anything it wrote | `tests/integration/presentation/test_main_exit_codes_process.py` (fake Binance server) | integration |
 | The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
 | The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
 | The Options page lists one row per venue, words each venue's connection state, and shows only a key's first and last four characters | `tests/unit/modules/trading/ui/settings/test_trading_settings_page.py` | unit |

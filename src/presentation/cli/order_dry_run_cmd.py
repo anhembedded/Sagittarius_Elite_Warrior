@@ -8,6 +8,10 @@ from decimal import Decimal, InvalidOperation
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
@@ -34,13 +38,20 @@ from sagittarius_engine import App
 from sagittarius_engine.exceptions import DependencyResolutionError
 
 
-def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
+def execute_order_dry_run(app: App, args: argparse.Namespace) -> CliOutcome | None:
+    """Dry-run one order; `None` when the exchange accepted it.
+
+    `EPIC-038B` — a rejected or unsendable order is a non-zero exit with the
+    text this command always printed: `USAGE` when the order itself is
+    unusable, `CONFIGURATION` when trading is switched off, `EXCHANGE` when the
+    exchange refused it or could not be reached.
+    """
     try:
         quantity = Decimal(args.qty)
         reference_price = Decimal(args.price)
     except InvalidOperation:
         print(f"Invalid number: qty={args.qty!r} price={args.price!r}")
-        return
+        return CliOutcome(ExitCode.USAGE)
 
     order_request = OrderRequest(
         symbol=args.symbol,
@@ -58,7 +69,7 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
         preview = submission.preview(order_request)
     except ValueError as exc:
         print(f"Could not preview the order: {exc}")
-        return
+        return CliOutcome(ExitCode.USAGE)
     except (
         BinanceAPIException,
         BinanceRequestException,
@@ -69,7 +80,7 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
             "Could not fetch exchange rules for "
             f"{args.symbol} — check your network connection and try again."
         )
-        return
+        return CliOutcome(ExitCode.EXCHANGE)
 
     print(format_submission_request(preview.order))
     print()
@@ -82,17 +93,18 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
             '"exchange.trading_venue": "futures_testnet" in '
             "src/config/user_config.json, then try again."
         )
-        return
+        return CliOutcome(ExitCode.CONFIGURATION)
     except OrderRejectedByExchangeError as exc:
         print(format_submission_rejected(exc))
-        return
+        return CliOutcome(ExitCode.EXCHANGE)
     except InvalidOrderForSubmissionError as exc:
         print(f"Order is not valid for submission: {exc}")
-        return
+        return CliOutcome(ExitCode.USAGE)
     except (BinanceAPIException, BinanceRequestException, RequestException):
         print(
             "Could not send the payload to the exchange — check your network connection and try again."
         )
-        return
+        return CliOutcome(ExitCode.EXCHANGE)
 
     print(format_submission_accepted())
+    return None

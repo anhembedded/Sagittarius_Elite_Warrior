@@ -1,0 +1,6 @@
+Normalized order
+  client_order_id : SEW-a91f4c72e0b8
+  symbol/side     : BTCUSDT / BUY   position_side=BOTH (One-way)
+  type/quantity   : MARKET / 0.001
+  estimated notional: 64.00 USDT     < minNotional 100.00 ✘
+Status: REJECTED  MIN_NOTIONAL — 64.00 USDT < 100.00 USDT

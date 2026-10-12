@@ -1,7 +1,7 @@
 # The one start point (BOT-175). Without -UI or -CLI it starts the desktop app.
 #   .\scripts\run.ps1                          desktop app (same as -UI)
 #   .\scripts\run.ps1 -UI -Dev                 desktop app, DEBUG logging
-#   .\scripts\run.ps1 -CLI                     interactive REPL (src/main.py)
+#   .\scripts\run.ps1 -CLI                     interactive REPL (src/main.py shell; a bare main.py prints help and exits 2)
 #   .\scripts\run.ps1 -CLI exchange-status     one headless command; every argument after -CLI goes to src/main.py untouched
 param(
     # Start the desktop app (src/presentation/ui/app_bootstrapper.py). The default.
@@ -160,7 +160,9 @@ Set-Location $BotRoot
 
 if ($CLI) {
     $Entry = [System.IO.Path]::Combine($BotRoot, "src", "main.py")
-    $EntryArgs = $ForwardedArgs
+    # EPIC-038B (D8): a bare src/main.py prints its help and exits 2, so "-CLI" with
+    # nothing after it asks for the prompt by name.
+    $EntryArgs = if ($ForwardedArgs.Count -eq 0) { @("shell") } else { $ForwardedArgs }
     Write-Host "Starting Sagittarius CLI..." -ForegroundColor Green
 } else {
     $Entry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "app_bootstrapper.py")
