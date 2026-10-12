@@ -39,7 +39,8 @@ Until then, rotate the file from outside. The handler keeps its file open, so `c
 Every record is `%(asctime)s - %(name)s - %(levelname)s - %(message)s`. The order and the ` - ` separator are fixed: the CI run-log scan reads `- (WARNING|ERROR|CRITICAL) -`, and so should an operator's filter:
 
 ```bash
-journalctl -u sew-run -o cat   # unit name as `EPIC-038H` will ship it | grep -E ' - (WARNING|ERROR|CRITICAL) - '
+# The unit name is the one EPIC-038H will ship.
+journalctl -u sew-run -o cat | grep -E ' - (WARNING|ERROR|CRITICAL) - '
 ```
 
 JSON logging would be a formatter the Engine owns. It is recorded, not built.
