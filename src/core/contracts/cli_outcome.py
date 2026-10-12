@@ -9,7 +9,7 @@ this file keeps working unchanged.
 
 The table below is the documented contract. A number is never reused for a
 different meaning, because a supervisor's restart policy is keyed on it
-(`RestartPreventExitStatus=3 4 5`). The meanings, the commands that use each
+(`RestartPreventExitStatus` is generated from the table: today `2 3 4 5`). The meanings, the commands that use each
 code and what a supervisor should do are generated from this enum into
 `Docs/OPERATIONS/exit_codes.md` (`support/cli_host/exit_code_table.py`), so the
 prose cannot differ from the code.

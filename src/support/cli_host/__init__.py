@@ -3,10 +3,11 @@
 `EPIC-038B`, decision D7 (`DECISION_2026-10-09_headless_operation.md` §4a). This
 package is the host half of the command line and none of its content: it knows
 what an exit code and a report are, never what `sync` or a bot is. It imports
-the Python standard library, the Engine, and exactly four kernel contracts
-(`ICliCommandHandler`, `ICliRegistry`, `CliOutcome`, `Report` with its two
-renderer ports) — no module, no domain value object, no infrastructure, no
-shell, no presentation, no other support package.
+the Python standard library, itself, and exactly four kernel contract files
+(`cli_outcome`, `report`, `i_report_renderer`, `i_report_formats`) — no Engine
+symbol, no module, no domain value object, no infrastructure, no shell, no
+presentation, no other support package, and not the two CLI ports
+(`ICliCommandHandler`, `ICliRegistry`), which stay in the application.
 `tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py`
 holds that line, so that moving this package to the Engine later is a move of
 one directory plus those four contract files, not a rewrite.

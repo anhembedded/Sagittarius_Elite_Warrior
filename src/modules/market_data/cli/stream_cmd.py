@@ -1,9 +1,6 @@
 import time
 from typing import cast
 
-from binance.exceptions import BinanceAPIException, BinanceRequestException
-from pydantic import ValidationError
-from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
@@ -18,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamResponse,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.failure_exit_code import (
+    failure_exit_code,
 )
 from sagittarius_engine import App
 
@@ -83,7 +83,7 @@ def execute_stream(app: App, args) -> CliOutcome | None:
         )
     except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
         print(f"❌ Failed to start stream: {e}")
-        return CliOutcome(_failure_code(e))
+        return CliOutcome(failure_exit_code(e))
 
     if not response.success:
         print(f"Failed to start stream: {response.message}")
@@ -98,15 +98,3 @@ def execute_stream(app: App, args) -> CliOutcome | None:
     except KeyboardInterrupt:
         print("\nReceived KeyboardInterrupt. Shutting down gracefully...")
     return None
-
-
-def _failure_code(error: Exception) -> ExitCode:
-    """A request the command rejects is `USAGE`, an exchange or network failure
-    is `EXCHANGE`, anything else `ERROR`."""
-    if isinstance(error, ValueError | ValidationError):
-        return ExitCode.USAGE
-    if isinstance(
-        error, BinanceAPIException | BinanceRequestException | RequestException
-    ):
-        return ExitCode.EXCHANGE
-    return ExitCode.ERROR

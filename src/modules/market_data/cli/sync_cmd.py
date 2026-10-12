@@ -1,6 +1,3 @@
-from binance.exceptions import BinanceAPIException, BinanceRequestException
-from pydantic import ValidationError
-from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
@@ -12,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.failure_exit_code import (
+    failure_exit_code,
 )
 from sagittarius_engine import App
 
@@ -67,17 +67,5 @@ def execute_sync(app: App, args) -> CliOutcome | None:
         )
     except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
         print(f"❌ Sync failed: {e}")
-        return CliOutcome(_failure_code(e))
+        return CliOutcome(failure_exit_code(e))
     return None
-
-
-def _failure_code(error: Exception) -> ExitCode:
-    """A request the command rejects is `USAGE`, an exchange or network failure
-    is `EXCHANGE`, anything else `ERROR`."""
-    if isinstance(error, ValueError | ValidationError):
-        return ExitCode.USAGE
-    if isinstance(
-        error, BinanceAPIException | BinanceRequestException | RequestException
-    ):
-        return ExitCode.EXCHANGE
-    return ExitCode.ERROR

@@ -191,6 +191,21 @@ class TestOrderPreview:
         printed = json.loads(capsys.readouterr().out)
         assert printed["data"]["notional_check"] == NotionalCheck.INSUFFICIENT.value
 
+    def test_a_failure_under_json_leaves_stdout_empty_and_speaks_on_the_outcome(
+        self, app: Mock, submission: FakeOrderSubmission, capsys
+    ) -> None:
+        """`order-preview --json | jq` must never read an error sentence as the
+        start of a document: the sentence travels in the outcome, which the entry
+        point writes to stderr."""
+        submission.preview = Mock(side_effect=RequestException("down"))  # type: ignore[method-assign]
+
+        outcome = execute_order_preview(app, _args(json=True))
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "Could not fetch exchange rules" in outcome.message
+        assert capsys.readouterr().out == ""
+
     def test_an_unknown_format_prints_nothing_and_is_a_usage_error(
         self, app: Mock, capsys
     ) -> None:
@@ -207,8 +222,10 @@ class TestOrderPreview:
         outcome = execute_order_preview(app, _args(qty="not-a-number"))
 
         assert submission.previewed == []
-        assert "Invalid number" in capsys.readouterr().out
-        assert outcome == CliOutcome(ExitCode.USAGE)
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE
+        assert "Invalid number" in outcome.message
+        assert capsys.readouterr().out == ""
 
 
 class TestOrderDryRun:
@@ -238,8 +255,10 @@ class TestOrderDryRun:
 
         outcome = execute_order_dry_run(app, _args())  # must not raise
 
-        assert "min_notional" in capsys.readouterr().out.lower()
-        assert outcome == CliOutcome(ExitCode.EXCHANGE)
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "min_notional" in outcome.message.lower()
+        assert "min_notional" not in capsys.readouterr().out.lower()
 
     def test_an_order_this_app_built_wrong_is_reported_not_raised(
         self, app: Mock, submission: FakeOrderSubmission, capsys
@@ -253,8 +272,10 @@ class TestOrderDryRun:
 
         outcome = execute_order_dry_run(app, _args())  # must not raise
 
-        assert "not valid for submission" in capsys.readouterr().out
-        assert outcome == CliOutcome(ExitCode.USAGE)
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE
+        assert "not valid for submission" in outcome.message
+        assert "not valid" not in capsys.readouterr().out
 
     def test_trading_switched_off_is_a_configuration_exit(
         self, app: Mock, submission: FakeOrderSubmission, capsys
@@ -263,8 +284,10 @@ class TestOrderDryRun:
 
         outcome = execute_order_dry_run(app, _args())
 
-        assert "Trading venue is DISABLED" in capsys.readouterr().out
-        assert outcome == CliOutcome(ExitCode.CONFIGURATION)
+        assert outcome is not None
+        assert outcome.code is ExitCode.CONFIGURATION
+        assert "Trading venue is DISABLED" in outcome.message
+        assert "DISABLED" not in capsys.readouterr().out
 
     def test_an_unreachable_exchange_is_an_exchange_exit(
         self, app: Mock, submission: FakeOrderSubmission, capsys
@@ -273,10 +296,13 @@ class TestOrderDryRun:
 
         outcome = execute_order_dry_run(app, _args())
 
-        assert "Could not send the payload" in capsys.readouterr().out
-        assert outcome == CliOutcome(ExitCode.EXCHANGE)
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "Could not send the payload" in outcome.message
+        assert "Could not send" not in capsys.readouterr().out
 
     def test_a_bad_number_is_a_usage_exit(self, app: Mock) -> None:
         outcome = execute_order_dry_run(app, _args(price="free"))
 
-        assert outcome == CliOutcome(ExitCode.USAGE)
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE

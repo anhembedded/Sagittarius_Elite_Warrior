@@ -49,8 +49,10 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> CliOutcome | No
         quantity = Decimal(args.qty)
         reference_price = Decimal(args.price)
     except InvalidOperation:
-        print(f"Invalid number: qty={args.qty!r} price={args.price!r}")
-        return CliOutcome(ExitCode.USAGE)
+        return CliOutcome(
+            ExitCode.USAGE,
+            f"Invalid number: qty={args.qty!r} price={args.price!r}",
+        )
 
     request = OrderRequest(
         symbol=args.symbol,
@@ -63,8 +65,7 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> CliOutcome | No
     try:
         preview = app.container.resolve(IOrderSubmission).preview(request)
     except ValueError as exc:
-        print(f"Could not preview the order: {exc}")
-        return CliOutcome(ExitCode.USAGE)
+        return CliOutcome(ExitCode.USAGE, f"Could not preview the order: {exc}")
     except (
         BinanceAPIException,
         BinanceRequestException,
@@ -75,11 +76,11 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> CliOutcome | No
         # (EPIC-021D), makes no "never raises" promise — this is the one
         # network call this task's CLI makes, and this is where its
         # failure is classified and shown, not inside the domain/handler.
-        print(
+        return CliOutcome(
+            ExitCode.EXCHANGE,
             "Could not fetch exchange rules for "
-            f"{args.symbol} — check your network connection and try again."
+            f"{args.symbol} — check your network connection and try again.",
         )
-        return CliOutcome(ExitCode.EXCHANGE)
 
     refused = emit_report(
         order_preview_report(preview), args, app.container.resolve(IReportFormats)

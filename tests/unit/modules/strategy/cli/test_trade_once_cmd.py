@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd import (
+    _blocked_exit_code,
     execute_trade_once,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
@@ -39,6 +40,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
     PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
+    ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -252,7 +259,7 @@ def test_a_network_failure_during_live_submission_prints_a_friendly_message_not_
         ),
         (
             OrderNotPlacedError(_SYMBOL, "SEW-1", "exchange holds no such order"),
-            ExitCode.ERROR,
+            ExitCode.USAGE,
         ),
         (InvalidOrderForSubmissionError("not aligned"), ExitCode.USAGE),
     ],
@@ -293,7 +300,7 @@ def test_a_strategy_that_does_not_exist_is_a_usage_error(capsys):
     assert "Strategy does not exist" in capsys.readouterr().out
 
 
-def test_missing_candles_exit_with_the_error_code_and_say_to_sync(capsys):
+def test_missing_candles_exit_with_the_usage_code_and_say_to_sync(capsys):
     app, _submission = _app_ready_to_submit_an_order()
     empty = FakeHistoricalKlines()
     original = app.container.resolve.side_effect
@@ -303,5 +310,32 @@ def test_missing_candles_exit_with_the_error_code_and_say_to_sync(capsys):
 
     outcome = execute_trade_once(app, _args())
 
-    assert outcome == CliOutcome(ExitCode.ERROR)
+    assert outcome == CliOutcome(ExitCode.USAGE)
     assert "run `sync` first" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "blocked_by",
+    [
+        ExecuteOrderNotionalRejection.MIN_NOTIONAL,
+        ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE,
+        ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND,
+        ExecuteOrderSafetyGate.SYMBOL_LEASED,
+    ],
+)
+def test_a_block_by_the_safety_pipeline_is_a_designed_refusal_not_an_unexpected_error(
+    blocked_by,
+):
+    """Exit 1 is documented as "unexpected error"; a supervisor restarts on it.
+    The pipeline refusing an order is neither unexpected nor helped by a restart."""
+    result = Mock()
+    result.blocked_by = blocked_by
+
+    assert _blocked_exit_code(result) is ExitCode.USAGE
+
+
+def test_a_gate_that_needs_the_operator_to_set_something_up_is_a_configuration_exit():
+    result = Mock()
+    result.blocked_by = ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
+
+    assert _blocked_exit_code(result) is ExitCode.CONFIGURATION

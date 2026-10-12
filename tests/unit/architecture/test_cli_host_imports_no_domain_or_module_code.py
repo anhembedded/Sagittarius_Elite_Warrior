@@ -101,12 +101,16 @@ def scan_source(source: str, file: str) -> list[_Violation]:
                     )
                 continue
             # `from a.b import c` imports `a.b`, and `c` may itself be a module of
-            # the kernel: judge the module and, for a package import, each name.
+            # the kernel. Allowed when `a.b` is, or when *every* name is: one
+            # allowed name must never excuse a forbidden one beside it.
             module = node.module or ""
-            names = [module] + [f"{module}.{alias.name}" for alias in node.names]
-            if _is_allowed(module) or any(_is_allowed(name) for name in names[1:]):
+            if _is_allowed(module):
                 continue
-            violations.append(_Violation(file, node.lineno, module))
+            violations.extend(
+                _Violation(file, node.lineno, f"{module}.{alias.name}")
+                for alias in node.names
+                if not _is_allowed(f"{module}.{alias.name}")
+            )
             continue
         else:
             continue
@@ -157,6 +161,12 @@ _PLANTED = {
     "the Engine": "from sagittarius_engine import App",
     "a third-party package": "import binance",
     "a relative import out of the package": "from ... import modules",
+    "a mixed import of an allowed and a forbidden contract": (
+        f"from {_PACKAGE}.src.core.contracts import cli_outcome, i_cli_registry"
+    ),
+    "a forbidden contract first, an allowed one second": (
+        f"from {_PACKAGE}.src.core.contracts import i_cli_registry, cli_outcome"
+    ),
 }
 
 
@@ -181,6 +191,7 @@ def test_planting_a_forbidden_import_is_caught(kind: str) -> None:
         "from collections.abc import Callable",
         f"from {_PACKAGE}.src.core.contracts.cli_outcome import CliOutcome",
         f"from {_PACKAGE}.src.core.contracts.report import Report",
+        f"from {_PACKAGE}.src.core.contracts import cli_outcome, report",
         f"from {_PACKAGE}.src.support.cli_host.report_formats import ReportFormats",
         "from .json_report_renderer import JsonReportRenderer",
     ],

@@ -97,11 +97,12 @@ def _refusal_exit_code(
     | InvalidOrderForSubmissionError,
 ) -> ExitCode:
     """The exchange refusing, or not answering, is `EXCHANGE`; an order the
-    application never placed is `ERROR`; one it could not form is `USAGE`."""
+    application never placed, or could not form, is `USAGE`: a designed refusal,
+    not the unexpected failure `ERROR` documents, and a restart would repeat it."""
     if isinstance(exc, InvalidOrderForSubmissionError):
         return ExitCode.USAGE
     if isinstance(exc, OrderNotPlacedError):
-        return ExitCode.ERROR
+        return ExitCode.USAGE
     return ExitCode.EXCHANGE
 
 
@@ -125,14 +126,15 @@ def _blocked_exit_code(result: ExecuteOrderResult) -> ExitCode | None:
     """`None` when the pipeline did not block the order. Any block means no
     order was sent, which a script must not read as success; the gate decides
     which failure it is, and a limit, a minNotional, a crossed stop or a price
-    band — the application's own refusals — are `ERROR`."""
+    band — the application's own refusals — are `USAGE`, designed refusals and
+    not the unexpected failure `ERROR` documents."""
     if result.blocked_by is None:
         return None
     if result.blocked_by in _CONFIGURATION_GATES:
         return ExitCode.CONFIGURATION
     if result.blocked_by in _EXCHANGE_GATES:
         return ExitCode.EXCHANGE
-    return ExitCode.ERROR
+    return ExitCode.USAGE
 
 
 #: How many closed candles to warm indicators up on before trusting the
@@ -152,10 +154,11 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> CliOutcome | None:
 
     `EPIC-038B` — "no signal" and "nothing to size" are designed endings and
     exit 0. Every path that stopped before an order was handled is non-zero:
-    an unusable request `USAGE`; missing candles `ERROR` (run `sync`); missing
-    credentials `CONFIGURATION`; no metadata, an exchange refusal or an
-    unknown outcome `EXCHANGE`; an order the application itself did not place
-    `ERROR`.
+    an unusable request `USAGE`; missing candles (run `sync`), a refusal by the
+    safety pipeline and an order the application did not place also `USAGE`;
+    missing credentials `CONFIGURATION`; no metadata, an exchange refusal or an
+    unknown outcome `EXCHANGE`. `ERROR` (an unexpected failure) is left for what
+    nobody named.
     """
     try:
         interval = TimeFrame(args.interval)
@@ -183,7 +186,7 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> CliOutcome | None:
         print(
             f"No candle data for {args.symbol} {interval.value} yet — run `sync` first."
         )
-        return CliOutcome(ExitCode.ERROR)
+        return CliOutcome(ExitCode.USAGE)
 
     engine = build_engine(
         strategy_registry, args.strategy, app.container.resolve(IEventPublisher)

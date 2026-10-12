@@ -12,8 +12,8 @@ a guard compares it with the generator.
 | Code | Name | Meaning | Used by | Supervisor |
 | :-: | :--- | :--- | :--- | :--- |
 | 0 | `SUCCESS` | success, or a clean shutdown | all | — |
-| 1 | `ERROR` | unexpected error (the traceback is in the log) | all | restarted |
-| 2 | `USAGE` | usage error: a bad flag, an unknown format, a request that cannot be an order | all | not restarted |
+| 1 | `ERROR` | unexpected error: a failure nothing named (an unhandled exception has its traceback in the log) | all | restarted |
+| 2 | `USAGE` | usage error or a designed refusal: a bad flag, an unknown format, a request that cannot be an order, or a command that declined to act (no data to work on yet, a safety limit); repeating it unchanged cannot help | all | not restarted |
 | 3 | `LOCK_HELD` | another copy holds the data root | `run`, mutating commands | not restarted |
 | 4 | `PREFLIGHT_FAILED` | a pre-flight check failed | `run`, `preflight` | not restarted |
 | 5 | `CONFIGURATION` | configuration or credentials are missing, or the application refuses them (no key, a key that can withdraw, Hedge Mode) | `run`, `preflight`, `exchange-status`, trade commands | not restarted |

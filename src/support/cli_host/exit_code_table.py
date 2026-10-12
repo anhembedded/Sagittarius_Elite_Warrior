@@ -36,12 +36,14 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         "success, or a clean shutdown", "all", SupervisorAction.NONE
     ),
     ExitCode.ERROR: ExitCodeRow(
-        "unexpected error (the traceback is in the log)",
+        "unexpected error: a failure nothing named (an unhandled exception has its traceback in the log)",
         "all",
         SupervisorAction.RESTART,
     ),
     ExitCode.USAGE: ExitCodeRow(
-        "usage error: a bad flag, an unknown format, a request that cannot be an order",
+        "usage error or a designed refusal: a bad flag, an unknown format, a request that "
+        "cannot be an order, or a command that declined to act (no data to work on yet, "
+        "a safety limit); repeating it unchanged cannot help",
         "all",
         SupervisorAction.DO_NOT_RESTART,
     ),
