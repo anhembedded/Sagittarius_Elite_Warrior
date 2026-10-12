@@ -1,4 +1,11 @@
-"""The shared "choose a trading pair" dialog and the pure logic behind it."""
+"""The shared "choose a trading pair" dialog and the pure logic behind it.
+
+Capability: Choose a trading pair, with favourites and recents
+    Also: symbol picker, pair chooser, ticker selector, market combo, symbol field
+    Use: SymbolPickerOverlay, ISymbolPickerSource
+    User: src/modules/bots/ui/bots_screen/new_bot_dialog.py
+    Status: stable
+"""
 
 from .filtering import (
     QUOTE_ANY,

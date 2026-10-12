@@ -18,6 +18,12 @@ The access keys avoid the letters of the Backtest mode's View → Chart items
 (c, e, s, i, v, b), which share its submenu. The commands are one menu group,
 the chart's navigation (`NAVIGATION_GROUP`, `BOT-157`), so a separator
 divides them from a mode's own chart commands in the same menu.
+
+Capability: Put a chart's toolbar actions in a mode's menu as commands
+    Also: menu, QAction, zoom command, chart toolbar
+    Use: chart_commands
+    User: src/modules/backtesting/ui/backtest_commands.py
+    Status: stable
 """
 
 from __future__ import annotations

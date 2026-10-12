@@ -14,6 +14,12 @@ drift back apart.
 
 Pure data: no Qt import, so the ordering and the labels are testable without
 a `QApplication`.
+
+Capability: Offer the timeframes a market supports, ordered and named
+    Also: interval, candle size, 1m 5m 1h, kline interval
+    Use: all_options, options_for_market, describe
+    User: src/modules/backtesting/ui/backtest_view_model.py
+    Status: stable
 """
 
 from __future__ import annotations

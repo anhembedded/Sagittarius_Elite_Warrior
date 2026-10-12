@@ -34,6 +34,12 @@ The presets, the summary line and the "both ends or neither" validation, all of
 which live in `range_rules.py` with no widget attached. This file is the
 wiring: which control writes which end, and keeping the calendars, the
 `DateTimeField`s and the summary showing the same pair.
+
+Capability: Pick a start and an end time
+    Also: date range, from and to, period
+    Use: TimeRangePickerDialog
+    User: src/modules/backtesting/ui/backtest_modals/time_range_picker_dialog.py
+    Status: stable
 """
 
 from __future__ import annotations

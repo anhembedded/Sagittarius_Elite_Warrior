@@ -7,6 +7,12 @@ draws the dock flat (Windows 11) an empty Bots mode read as one undivided
 area (`BUG-165`). Every empty page is made here, so it wears what the filled
 view wears: the same frame shape and shadow, and the `Base` palette *role* —
 never a colour of its own (`ui-presentation-rule.md` §1).
+
+Capability: A panel's page while it has nothing to show, framed like a filled view
+    Also: empty state, EmptyStateStack, no data label, placeholder, instruction text
+    Use: empty_page, frame_instruction_page
+    User: src/modules/bots/ui/bots_screen/bot_plan_panel.py
+    Status: stable
 """
 
 from __future__ import annotations

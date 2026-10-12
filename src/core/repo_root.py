@@ -14,6 +14,12 @@ subprocess boot, which inherits the environment — never writes into the real
 checkout's app state (`EPIC-030M`: tests used to write bots that restore as
 RUNNING). Plausible next cases, each one line here: a packaged build's
 per-user data directory; a `--data-root` command-line flag.
+
+Capability: Find the repository root, or where runtime data is written
+    Also: data directory, state folder, logs path, parents[2], cwd
+    Use: data_root, data_root_override
+    User: src/modules/bots/composition/state_bindings.py
+    Status: stable
 """
 
 from __future__ import annotations

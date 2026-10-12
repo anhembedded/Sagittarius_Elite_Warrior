@@ -28,6 +28,9 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 ## 3. Design
 {The choice made and the reason for each non-obvious one; the named pattern or vetted project it applies (`CONSTITUTION.md` P5: apply before you invent). A restructuring shows as-is and to-be.}
 
+## 3a. Reuse
+{Required. For each UI or application need this task has, the catalog row or search checked (`.claude/rules/capabilities.md`), then `used <symbol>` or `not used because …`. `None: no UI or application need` is a valid answer, with the reason in the same line. Review check A7.}
+
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |

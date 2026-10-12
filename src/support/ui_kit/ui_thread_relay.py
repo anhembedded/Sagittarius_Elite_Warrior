@@ -10,6 +10,12 @@ dropped after shutdown) is each subclass's `_deliver` to decide.
 
 Shared by the Bots screen's `FencedReads` and the Market Watchlist's
 `WatchlistFilters` (review of PR #374), so the hand-off is written once.
+
+Capability: Hand a worker thread's answer to the UI thread
+    Also: background thread, QThread, signal, async result, main thread
+    Use: UiThreadRelay
+    User: src/modules/bots/ui/bots_screen/fenced_reads.py
+    Status: stable
 """
 
 from __future__ import annotations

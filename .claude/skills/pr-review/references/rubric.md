@@ -10,6 +10,7 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **A4** | Ensure architectural decisions remain within `.claude/ONBOARDING.md` §7 authority levels. |
 | **A5** | Enforce P5 Technical Choice Hierarchy: reject duplicating brittle repo patterns; reject bespoke inventions when stdlib or vetted standards exist. |
 | **A6** | Verify deferred work is recorded in task plans with explicit technical rationale. |
+| **A7** | Verify the task's `Reuse` section (`.claude/templates/task.md` §3a) names, for each UI or application need, the catalog row or search checked (`.claude/rules/capabilities.md`) and either `used <symbol>` or `not used because …`; a new widget, helper or flow beside a catalogued mechanism without a reason is Blocking (`BUG-155`, `BUG-165`). |
 | **B1** | Confirm the GitHub Actions `ci-local.ps1 -Full` check run passed on the reviewed head sha (or, for a documentation-only change, that the doc guards ran) — read the check run yourself; a claim in the PR body is not evidence. This run is the full gate: the reviewer does not re-run it locally (user decision 2026-10-03). |
 | **B2** | Inspect that run's job log directly (`RESULT:`, `FAILED_STEPS:`, and its warnings), never the badge alone; explain all warning and error occurrences. |
 | **B3** | Verify documentation-only exception applies only when no runtime code or tests were modified. |

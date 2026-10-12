@@ -28,6 +28,12 @@ implementation delivers on the UI thread.
 `Protocol`, not `ABC`: the implementation is a `QObject`, whose metaclass
 conflicts with `ABCMeta` (`architecture-rule.md` §2.1 reason (a); the same
 reason as `INotificationChannel`).
+
+Capability: Tell the user about a failure or an event
+    Also: error message, toast, message bar, notify, QMessageBox
+    Use: INotifier, FailureNotice, FailureKind
+    User: src/modules/backtesting/ui/failure_reporting.py
+    Status: stable
 """
 
 from __future__ import annotations

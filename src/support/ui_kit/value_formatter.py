@@ -43,6 +43,12 @@ table model per cell (`RowTableModel.SYMBOL_QUOTED`, the Engine's
 exactly its decimals: `64,250.1` at a tick of 0.1, `0.015` at a step of
 0.001, `3.14160` at a tick of 0.00001. Without one (filters not fetched yet, a
 table whose rows carry no symbol) the magnitude rule above decides.
+
+Capability: Write a price, number, percentage or time for display
+    Also: format, decimals, number to text, f-string, round
+    Use: APP_VALUE_FORMATTER, write_value
+    User: src/modules/backtesting/ui/coordinators/data_sync_coordinator.py
+    Status: stable
 """
 
 from __future__ import annotations

@@ -8,6 +8,12 @@ text colour alone when the answer is `None`.
 Profit and loss are the chart's bull and bear colours
 (`support/charting/chart_card/theme.py`), the one place their values are
 written, so a table's profit and a chart's up-candle cannot drift apart.
+
+Capability: Colour something by meaning (good, bad, warning), never a hex
+    Also: colour, red green, tone, palette, stylesheet
+    Use: Tone, tone_colour
+    User: src/modules/backtesting/ui/backtest_stat_row.py
+    Status: stable
 """
 
 from __future__ import annotations

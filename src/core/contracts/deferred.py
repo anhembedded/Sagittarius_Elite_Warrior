@@ -13,6 +13,12 @@ the module the first time the factory is called — the standard library's
 **The cost and what pays it.** A string escapes mypy and the import guards, so
 `tests/unit/architecture/test_deferred_targets_resolve.py` resolves every
 target the real modules contribute and holds each inside its own module.
+
+Capability: Name a widget or factory by import path so boot imports no widget module
+    Also: lazy import, deferred import, late import, contribution factory, PLC0415
+    Use: Deferred
+    User: src/modules/trading/module.py
+    Status: stable
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # EPIC-037 — The AI finds what already exists before it writes, and the machine stops it when it does not
 
-- **Status:** 🔵 Planned — scaffolded 2026-10-09; **not started** (the owner: "lưu vào 1 epic, để tuần sau làm tiếp việc này", save it in an epic and continue next week)
+- **Status:** 🟡 In progress (1/6) — scaffolded 2026-10-09; 037A done 2026-10-12. Started on the owner's word ( "lưu vào 1 epic, để tuần sau làm tiếp việc này", save it in an epic and continue next week)
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the owner's systems-thinking review of 2026-10-09: *"there are module features that could use a mechanism that already exists, but when the AI develops it does not notice, e.g. choosing the bot's symbol: another screen already had a picker mechanism, but the bot built a different one instead of reusing it"* (translated). The analysis, its data and its sources are recorded in [`ANALYSIS_2026-10-09_systems_thinking.md`](ANALYSIS_2026-10-09_systems_thinking.md).
 - **North star:** [`ANALYSIS_2026-10-09_systems_thinking.md`](ANALYSIS_2026-10-09_systems_thinking.md). The owner's page (https://claude.ai/artifact/SSMXy58rtcwCYrXn1kraCJ, private, English, with a systems-thinking primer) is a secondary reference only.
@@ -26,7 +26,7 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-037A](incomplete/EPIC-037A_capability_catalog.md) | A capability catalog the AI receives when it touches UI or application code | Elite | None | 🟢 | Planned |
+| [EPIC-037A](completed/EPIC-037A_capability_catalog.md) | A capability catalog the AI receives when it touches UI or application code | Elite | None | 🟢 | ✅ Done (2026-10-12) |
 | [EPIC-037B](incomplete/EPIC-037B_system_health_metrics.md) | Bugs carry a root-cause class and the audit reports system-health metrics | Elite | None | 🟢 | Planned |
 | [EPIC-037F](incomplete/EPIC-037F_one_place_issues_task_ids.md) | One place issues BOT and BUG ids, open PR branches included | Elite | None | 🟢 | Planned |
 | [EPIC-037C](incomplete/EPIC-037C_only_one_guards.md) | "Only one" guards: a second copy of a canonical mechanism turns CI red | Elite | 037A | 🟡 | Planned |
@@ -36,7 +36,7 @@
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| 0 — Information and measurement (037A, 037B, 037F) | The catalog covers every package under `src/support/`; the baseline metrics are recorded | Completeness guard green; the first audit report with the new metrics. Not run |
+| 0 — Information and measurement (037A, 037B, 037F) | The catalog covers every package under `src/support/`; the baseline metrics are recorded | Completeness guard green (done for 037A, 2026-10-12: 31 rows, 18 of 18 support units); the first audit report with the new metrics. Not run for 037B |
 | 1 — Feedback (037C, 037D) | Five canonical mechanisms guarded; three sibling families under parity tests | Each guard and parity test shown red by re-introducing an old bug (BUG-155, BUG-191, BUG-194). Not run |
 | 2 — Demanding fake (037E) | Integration tests of bots and trading run with faults on by default | BUG-194 and BUG-195's shape reproduced from a seed alone. Not run |
 | 3 — Review | Metrics compared with the 2026-10-09 baseline; keep, adjust or drop each intervention | The owner's decision recorded in Notes. Not run |
@@ -47,4 +47,5 @@
 - PRO-007's PnL and risk figures (a separate proposal).
 
 ## Notes (newest first)
+- **2026-10-12** — `037A` done: capability catalog (`.claude/rules/capabilities.md`, 31 rows) generated from `Capability:` docstring blocks, one completeness guard, Reuse section and review check A7. Research and design: [`RESEARCH_037A_capability_catalog.md`](RESEARCH_037A_capability_catalog.md). Always-loaded lines unchanged (285).
 - **2026-10-09** — Scaffolded from the systems analysis; documentation only, not started.

@@ -30,6 +30,12 @@ A default is exactly the escape hatch that let the gap above go
 unnoticed. Callers that genuinely have a non-enum input (a value parsed
 from JSON, say) should validate it into the enum first — that is a
 different problem with a different answer.
+
+Capability: Give every member of an enum a user-facing label
+    Also: enum to text, display name, label table
+    Use: EnumLabels
+    User: src/modules/backtesting/ui/logic/chart_controls.py
+    Status: stable
 """
 
 from __future__ import annotations

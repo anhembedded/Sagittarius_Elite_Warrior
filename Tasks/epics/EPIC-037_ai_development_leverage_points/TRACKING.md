@@ -1,7 +1,7 @@
 # EPIC-037 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🔵 Planned
+- **Status:** 🟡 In progress (037A done 2026-10-12)
 - **Target Completion:** 2026-11-13 (four weeks from the start in the week of 2026-10-12; a target, not a commitment)
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -33,7 +33,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-037A | [capability catalog](incomplete/EPIC-037A_capability_catalog.md) | — | 🟢 | 🔵 Planned | 2026-10-14 |
+| EPIC-037A | [capability catalog](completed/EPIC-037A_capability_catalog.md) | — | 🟢 | ✅ Done (2026-10-12) | 2026-10-14 |
 | EPIC-037B | [system-health metrics](incomplete/EPIC-037B_system_health_metrics.md) | — | 🟢 | 🔵 Planned | 2026-10-13 |
 | EPIC-037F | [one id issuer](incomplete/EPIC-037F_one_place_issues_task_ids.md) | — | 🟢 | 🔵 Planned | 2026-10-14 |
 | EPIC-037C | [only-one guards](incomplete/EPIC-037C_only_one_guards.md) | — | 🟡 | 🔵 Planned | 2026-10-20 |

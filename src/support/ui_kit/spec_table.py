@@ -11,6 +11,12 @@ Every panel used to do this by hand: a `QSortFilterProxyModel` pointed at a
 `SORT_ROLE`, five view setters, a header resize mode per column, a `QLabel`
 and a `QStackedWidget` for the empty case — the same thirty lines in each of
 the order book's three panels, and slightly different in each.
+
+Capability: Show rows in a table the one way every table here is shown
+    Also: QTableView, table panel, grid, sortable table, empty table text
+    Use: SpecTable
+    User: src/modules/backtesting/ui/backtest_trade_logs_panel.py
+    Status: stable
 """
 
 from __future__ import annotations

@@ -30,6 +30,12 @@ of the data it renders. `botParamsRows: list[dict]` became
 `botParamsGroups: tuple[ParamGroup, ...]`: `build_bot_params_rows`'s
 QML-`Repeater` flattening is dead (PR 4.3 deleted the QML), so this dialog
 now renders the strategy's declared groups directly.
+
+Capability: Edit a strategy's parameters in the shared dialog
+    Also: params dialog, strategy settings, parameter form
+    Use: StrategyParamsDialog
+    User: src/modules/bots/ui/strategies/arm_strategy_dialog.py
+    Status: stable
 """
 
 from __future__ import annotations
