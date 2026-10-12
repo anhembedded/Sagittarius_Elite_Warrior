@@ -54,6 +54,10 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     acquire_instance_access,
     create_app,
+    read_only_instance_access,
+)
+from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
+    command_is_read_only,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_status import run_command
 from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
@@ -182,7 +186,15 @@ def main() -> int:
     if banner is not None:
         print(banner)
     # `EPIC-035H` — the first copy on the data root trades; any other reads.
-    instance = acquire_instance_access()
+    # `EPIC-038C` — a command that only reads (`"read_only": true` in
+    # `cli_commands.json`) is never the writable copy: its boot would apply the
+    # restart rule to the bots, and it would hold the lock `status` asks about.
+    commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
+    instance = (
+        read_only_instance_access()
+        if command_is_read_only(commands, args)
+        else acquire_instance_access()
+    )
     try:
         return run_command(lambda: work(create_app(config_manager, instance)))
     finally:

@@ -55,6 +55,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    HealthContributorDescriptor,
+    IOperationsRegistry,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_options_section import (
     IOptionsSection,
 )
@@ -66,6 +70,13 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adap
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseManager,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.health.feed_health_contributor import (
+    SECTION_NAME,
+    FeedHealthContributor,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.health.last_tick_recorder import (
+    LastTickRecorder,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cli_handler import (
     StreamCliHandler,
@@ -84,6 +95,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.port_bindings
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_bindings import (
     bind_queries,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -156,6 +170,22 @@ class MarketDataModule(BoundedContextModule):
         for command in data_commands(DATABASE_ROUTE):
             registry.contribute_command(command)
 
+    def __init__(self) -> None:
+        super().__init__()
+        #: `EPIC-038C` - when each feed last delivered a candle, for the health
+        #: snapshot; subscribed to the bus by `boot()`.
+        self._ticks = LastTickRecorder()
+
+    def declare_operations(self, registry: IOperationsRegistry) -> None:
+        """The feeds' section of the health snapshot (`EPIC-038C`)."""
+        registry.declare_health(
+            HealthContributorDescriptor(
+                SECTION_NAME,
+                lambda _resolver: FeedHealthContributor(self._ticks),
+                self.module_id,
+            )
+        )
+
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`sync` and `stream` are this context's commands, so this context
         names their handlers (`EPIC-025` PR 1.3c-5).
@@ -188,6 +218,7 @@ class MarketDataModule(BoundedContextModule):
         context.hosted_services.register(
             context.container.resolve(LiveStreamEngineAdapter)
         )
+        context.event_bus.on(MarketTickEvent, self._ticks.on_tick)
 
     def shutdown(self, context: Any) -> None:
         """Close what holds an OS resource: the SQLite engines and the client.

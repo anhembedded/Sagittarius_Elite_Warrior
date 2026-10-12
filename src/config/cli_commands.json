@@ -55,6 +55,7 @@
     },
     "exchange-status": {
       "help": "Check Futures Testnet connection: signature, clock skew, balance, position mode",
+      "read_only": true,
       "args": [
         {
           "name": "--json",
@@ -70,6 +71,7 @@
     },
     "preflight": {
       "help": "Check this machine before the first order: clock skew, credentials, key permissions, outbound address, disk, data root, Python. Read-only; exit 0 none failed, 4 a check failed, 5 credentials absent or refused, 6 exchange unreachable",
+      "read_only": true,
       "args": [
         {
           "name": "--venue",
@@ -96,6 +98,7 @@
     },
     "order-preview": {
       "help": "Preview a normalized live order (rounding + minNotional check) without sending it",
+      "read_only": true,
       "args": [
         {
           "name": "--symbol",
@@ -143,6 +146,7 @@
     },
     "order-dry-run": {
       "help": "Send a normalized order to POST /fapi/v1/order/test — validates signature, permissions and payload, creates nothing",
+      "read_only": true,
       "args": [
         {
           "name": "--symbol",
@@ -214,6 +218,79 @@
           "help": "Actually submit the order (POST /fapi/v1/order). Without this flag, stops after showing the decision — no order-submission network call at all"
         }
       ]
+    },
+    "status": {
+      "help": "Say whether a host is running and what it holds. Exit 0 running, 10 not running, 11 running but unhealthy",
+      "read_only": true,
+      "args": [
+        {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.status/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        },
+        {
+          "name": "--watch",
+          "action": "store_true",
+          "help": "Repeat the report until Ctrl-C"
+        },
+        {
+          "name": "--interval",
+          "type": "int",
+          "default": 10,
+          "help": "Seconds between reports with --watch"
+        }
+      ]
+    },
+    "bot": {
+      "help": "List and show bots, read from their files; nothing is changed",
+      "subparsers": {
+        "dest": "action",
+        "required": true,
+        "commands": {
+          "list": {
+            "help": "List every bot, and any bot file this build cannot read",
+            "read_only": true,
+            "args": [
+              {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.bot-list/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        }
+            ]
+          },
+          "show": {
+            "help": "Show one bot",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.bot-show/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        }
+            ]
+          }
+        }
+      }
     }
   }
 }

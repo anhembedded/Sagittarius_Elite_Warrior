@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) is updated for the plan-driven journey.
 **Design:** [DESIGN §5.3, §6](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§14](../RESEARCH_2026-10-09_headless_operation.md)
-**Depends on:** [038B](EPIC-038B_exit_codes_and_output_formats.md), [038C](EPIC-038C_bot_status_read_model.md); `--start-planned` is consumed by [038D](EPIC-038D_run_host.md).
+**Depends on:** [038B](EPIC-038B_exit_codes_and_output_formats.md), [038C](../completed/EPIC-038C_bot_status_read_model.md); `--start-planned` is consumed by [038D](EPIC-038D_run_host.md).
 
 ---
 

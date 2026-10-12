@@ -76,7 +76,7 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         "no host is running", "`status`", SupervisorAction.NONE
     ),
     ExitCode.HOST_UNHEALTHY: ExitCodeRow(
-        "a host is running but unhealthy (snapshot stale, a section unavailable)",
+        "a host is running but unhealthy (snapshot stale, a section unavailable or degraded)",
         "`status`",
         SupervisorAction.NONE,
     ),

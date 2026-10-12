@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_monotonic_clock import (
     SystemMonotonicClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report import (
+    BotsStateDirectory,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
 )
@@ -68,17 +71,23 @@ def bind_state(container: IContainer) -> None:
     container.singleton(IMonotonicClock, SystemMonotonicClock())
     container.singleton(BotIdGenerator, BotIdGenerator())
     container.singleton(BotRestoreService, _build_restore_service)
+    container.singleton(BotsStateDirectory, _build_state_directory)
 
 
 def _build_store(container: IContainer) -> IBotStore:
     """The JSON store, announcing every write (`EPIC-029F`, `BotChangedEvent`);
     read-only when another copy of the app holds the data root (`EPIC-035H`)."""
     store = NotifyingBotStore(
-        JsonBotStore(bots_directory(container.resolve(IConfig))),
+        JsonBotStore(container.resolve(BotsStateDirectory).path),
         container.resolve(IEventPublisher),
     )
     instance = container.resolve(IInstanceAccess)
     return ReadOnlyBotStore(store, instance.reason) if instance.read_only else store
+
+
+def _build_state_directory(container: IContainer) -> BotsStateDirectory:
+    """The folder the store reads, named for `bot list` to point at a refused file."""
+    return BotsStateDirectory(bots_directory(container.resolve(IConfig)))
 
 
 def _build_restore_service(container: IContainer) -> BotRestoreService:

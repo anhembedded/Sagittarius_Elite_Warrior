@@ -79,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.declarations import (
     trading_preflight_checks,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.health.trading_health import (
+    TradingHealth,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -197,6 +200,8 @@ class TradingModule(BoundedContextModule):
         #: The venues enabled in this run, read by `boot()` from
         #: `IVenueContexts`: the Trade menu lists them (`EPIC-033I`).
         self._venues: tuple[TradingVenue, ...] = ()
+        #: `EPIC-038C` - the health snapshot's trading section (see `boot()`).
+        self._health = TradingHealth()
 
     def register(self, context: Any) -> None:
         """This module's own adapters, state, commands, queries, and the
@@ -271,6 +276,7 @@ class TradingModule(BoundedContextModule):
         (`EPIC-038F`): this context knows them, `operations` runs them."""
         for descriptor in trading_preflight_checks(self.module_id):
             registry.declare_preflight(descriptor)
+        registry.declare_health(self._health.declaration(self.module_id))
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
@@ -304,6 +310,8 @@ class TradingModule(BoundedContextModule):
         """
         container = context.container
         self._container = container
+        for event_type, handler in self._health.subscriptions():
+            context.event_bus.on(event_type, handler)
         self._venues = tuple(container.resolve(IVenueContexts).enabled())
 
         config = container.resolve(IConfig)
