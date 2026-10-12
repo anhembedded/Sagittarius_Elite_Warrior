@@ -360,3 +360,25 @@ def test_a_reader_that_never_lets_go_is_reported_after_the_bounded_retries(
 
     assert len(attempts) == REPLACE_ATTEMPTS
     assert len(pauses) == REPLACE_ATTEMPTS - 1
+
+
+@pytest.mark.parametrize("claimed", ["unavailable", "degrade", "ok", "", 0, True])
+def test_a_section_may_claim_only_degraded_in_the_reserved_key(claimed: object) -> None:
+    publisher, _ = _publisher(FixedContributor("bots", {"status": claimed}))  # type: ignore[dict-item]
+
+    section = publisher.publish(HostState.SERVING).sections["bots"]
+
+    assert is_unavailable(section)
+    assert section["reason"] == "refused: reserved status key misused"
+
+
+def test_a_section_may_say_it_is_degraded_and_keeps_its_content() -> None:
+    publisher, _ = _publisher(
+        FixedContributor(
+            "feeds", {"status": "degraded", "reason": "a feed is dead", "n": 1}
+        )
+    )
+
+    section = publisher.publish(HostState.SERVING).sections["feeds"]
+
+    assert section == {"status": "degraded", "reason": "a feed is dead", "n": 1}

@@ -22,6 +22,8 @@ import threading
 from collections.abc import Mapping
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
+    DEGRADED,
+    STATUS_KEY,
     IHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
@@ -107,6 +109,15 @@ class HealthSectionCollector:
         section = answer.section
         if section is None:
             return unavailable_section("gave no section")
+        claimed = section.get(STATUS_KEY)
+        if claimed is not None and claimed != DEGRADED:
+            # The reserved key: a contributor may say it is degraded and nothing
+            # else. `unavailable` is the publisher's word, and a typo would
+            # otherwise read as a well section.
+            logger.warning(
+                "[health-section] %r refused: status %r is not allowed", name, claimed
+            )
+            return unavailable_section("refused: reserved status key misused")
         forbidden = _forbidden_key_in(section)
         if forbidden is not None:
             logger.warning(

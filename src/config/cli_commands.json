@@ -146,6 +146,7 @@
     },
     "order-dry-run": {
       "help": "Send a normalized order to POST /fapi/v1/order/test — validates signature, permissions and payload, creates nothing",
+      "read_only": true,
       "args": [
         {
           "name": "--symbol",

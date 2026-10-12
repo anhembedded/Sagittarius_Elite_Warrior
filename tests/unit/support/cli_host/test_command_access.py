@@ -59,14 +59,15 @@ _READ_ONLY = {
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),
+    # Always a VALIDATE_ONLY client, which a read-only copy lets through.
+    ("order-dry-run", None),
 }
 #: Writable on purpose (`EPIC-038C` note 15): they write market data, open the
-#: live feed, or go through order submission, which a read-only copy refuses.
+#: live feed, or place real orders, which a read-only copy refuses.
 _WRITABLE = {
     ("sync", None),
     ("stream", "start"),
     ("stream", "stop"),
-    ("order-dry-run", None),
     ("trade-once", None),
 }
 

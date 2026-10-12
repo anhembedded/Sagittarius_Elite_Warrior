@@ -267,8 +267,19 @@ def test_no_secret_reaches_any_output_of_these_commands(
             "--price",
             "100",
         ),
+        (
+            "order-dry-run",
+            "--symbol",
+            "BTCUSDT",
+            "--side",
+            "BUY",
+            "--qty",
+            "1",
+            "--price",
+            "100",
+        ),
     ],
-    ids=["preflight", "exchange-status", "order-preview"],
+    ids=["preflight", "exchange-status", "order-preview", "order-dry-run"],
 )
 def test_a_command_that_only_reads_leaves_a_running_bot_running(
     data_root: Path, command: tuple[str, ...]
