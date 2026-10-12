@@ -1,6 +1,6 @@
 # EPIC-038C — One bot status read model: `status`, `bot list`, `bot show` and the health snapshot file
 
-**Status:** 🔵 Planned — not started
+**Status:** 🟡 In progress — pull request open; the contributor half of the second criterion waits for `IOperationsRegistry` (038F), see Resume
 **Source:** the owner, 2026-10-09; the brief asked for "a presentation-agnostic port for anything the CLI needs, e.g. a bot status read model" and `--json` on status commands.
 **Risk:** 🟡 — a new read model beside two that are planned (`EPIC-035W` health strip, `EPIC-036E` heartbeat); three consumers that disagree is the failure to avoid
 **Complexity:** M — a read model, a contributor hook, a snapshot sink and file, three commands
@@ -15,41 +15,67 @@
 A person can see a bot's state only on the Bots screen. A script, a monitor or the owner over SSH has nothing: no command lists bots, no file says whether a host is alive, and "alive" means different things (R1): the process exists, the bots are in the right state, the feeds are fresh. A second process cannot ask the first (the second copy is read-only; no port is opened, D5), so the first must leave its view on disk. `EPIC-035W` and `EPIC-036E` each plan a health snapshot; this task must be the one place that builds it or a consumer of theirs, never a third.
 
 ## 2. Acceptance criteria
-- [ ] `BotStatusReport` (frozen) is built by one application query from `ListBotsQuery`/`GetBotQuery` results: per bot id, name, kind, venue, symbol, state, reason, `run_started_at`, plus a free `health` mapping that stays empty until `EPIC-035W` exists, and then carries its snapshot **unchanged**. A test shows the GUI's list and `bot list` agree on every bot of a seeded store.
-- [ ] `IOperationsRegistry.declare_health` and the `declare_operations` hook exist (default no-op, like `declare_cli`); bots, trading (user-stream state and age, clock skew) and market_data (last tick age per symbol) each contribute a section; a contributor that raises or blocks is reported as `unavailable` and never fails the snapshot (a deadline per contributor, injected clock).
-- [ ] `FileHealthSnapshotSink` writes `state/health.json` atomically (temp file + rename) with `schema`, `app_version`, `pid`, `started_at`, `written_at`, `host_state` and one object per contributor; no secret and no balance (a test greps it).
-- [ ] `status [--json]` decides the host state from the lock (`IInstanceProbe.is_held`) **and** `written_at` within three health intervals: `running`, `stale`, `not running`; exits 0, 11 or 10. It reads bot files the way a read-only copy does and works while the host runs.
-- [ ] `status --watch [--interval n]` repeats the same `Report` through the same renderer (D1's replacement for a TUI); it exits on Ctrl-C with 0.
-- [ ] `bot list` and `bot show <id>` print the read model; `--json` works; an unknown id exits 2 with a plain message.
-- [ ] A bot file this build cannot read is shown as `unreadable` with its path, not hidden (the restore service already refuses and leaves such a file untouched).
-- [ ] A fourth section, added by a test-only contributor, appears in the snapshot, in `status` and in `--json` with **no edit** to the publisher, the sink or the handler.
+- [x] `BotStatusReport` (frozen) is built by one application query from `ListBotsQuery`/`GetBotQuery` results: per bot id, name, kind, venue, symbol, state, reason, `run_started_at`, plus a free `health` mapping that stays empty until `EPIC-035W` exists, and then carries its snapshot **unchanged**. A test shows the GUI's list and `bot list` agree on every bot of a seeded store. — `GetBotStatusReportQuery` (`bots/contracts/bot_status_report.py`, handler in `bots/application/queries/get_bot_status_report/`); `test_the_report_agrees_with_the_bots_tab_list_on_every_bot`, `test_the_report_is_built_from_the_tabs_queries_not_from_the_store`, `test_health_stays_empty_until_the_bot_health_snapshot_exists`, `test_bot_list_json_agrees_with_the_bots_tab_list_on_every_bot`, and on the composed graph `test_the_status_report_and_the_bots_tab_list_agree_on_the_composed_graph`.
+- [ ] `IOperationsRegistry.declare_health` and the `declare_operations` hook exist (default no-op, like `declare_cli`); bots, trading (user-stream state and age, clock skew) and market_data (last tick age per symbol) each contribute a section; a contributor that raises or blocks is reported as `unavailable` and never fails the snapshot (a deadline per contributor, injected clock). — **Half done.** Done: `IHealthContributor`/`IHealthContributors` (`core/contracts/i_health_contributor.py`), the publisher, the per-contributor deadline and the `unavailable` rule (`test_a_contributor_that_raises_is_unavailable_not_fatal`, `test_a_slow_contributor_is_cut_off_at_its_deadline`). **Open:** `IOperationsRegistry`, `declare_operations` and the three modules' contributions: 038F creates the registry port, its collector and the hook (coordination note of 2026-10-12), and this task adds `declare_health` and the contributors after that merges. The deadline uses a real thread join, not the injected clock: the clock stamps `written_at`.
+- [x] `FileHealthSnapshotSink` writes `state/health.json` atomically (temp file + rename) with `schema`, `app_version`, `pid`, `started_at`, `written_at`, `host_state` and one object per contributor; no secret and no balance (a test greps it). — `test_the_file_sink_round_trips_and_holds_no_secret`, `test_the_snapshot_is_written_atomically`; a section naming a secret or balance key is refused by the publisher (`test_a_section_naming_a_secret_or_a_balance_is_refused`). Contributors' objects are nested under `sections` and the snapshot adds `interval_s`, see Implementation notes.
+- [x] `status [--json]` decides the host state from the lock (`IInstanceProbe.is_held`) **and** `written_at` within three health intervals: `running`, `stale`, `not running`; exits 0, 11 or 10. It reads bot files the way a read-only copy does and works while the host runs. — `test_a_stale_snapshot_with_the_lock_free_reports_not_running`, `test_a_fresh_snapshot_with_the_lock_held_reports_running`, `test_an_old_snapshot_with_the_lock_held_reports_stale`, `test_status_exit_codes_are_0_10_11`; as a real process beside a second process holding the lock: `tests/integration/presentation/test_status_and_bot_commands_process.py`.
+- [x] `status --watch [--interval n]` repeats the same `Report` through the same renderer (D1's replacement for a TUI); it exits on Ctrl-C with 0. — `test_watch_repeats_the_same_report_until_interrupted`, `test_watch_refuses_an_interval_below_one_second`. Ctrl-C is simulated by the injected wait raising `KeyboardInterrupt`; a real SIGINT to a live `--watch` process was not exercised.
+- [x] `bot list` and `bot show <id>` print the read model; `--json` works; an unknown id exits 2 with a plain message. — `test_bot_list_json_agrees…`, `test_bot_show_prints_one_bot`, `test_an_unknown_id_exits_two_with_a_plain_message`, and as processes `test_bot_list_and_show_read_beside_a_running_host`, `test_an_unknown_bot_id_exits_2_with_a_plain_message`.
+- [x] A bot file this build cannot read is shown as `unreadable` with its path, not hidden (the restore service already refuses and leaves such a file untouched). — `test_an_unreadable_bot_file_is_listed_with_its_path`, `test_an_unreadable_file_is_shown_with_its_path_in_the_text_view`; `status` lists it too.
+- [ ] A fourth section, added by a test-only contributor, appears in the snapshot, in `status` and in `--json` with **no edit** to the publisher, the sink or the handler. — **Half done:** `test_a_new_contributor_needs_no_edit_to_the_publisher` and `test_a_section_a_module_contributes_reaches_status_and_json` prove the publisher and `status` take any section; the declaration through `declare_health` waits for the registry (above).
 
 ## 3. Design
 Read model (CQRS query side) behind a port the CLI, the health line, the future heartbeat and the health strip share; the `Report` of 038B is its output. Contributors follow the proven contribution pattern (`declare_cli`/`ICliRegistry`) instead of `operations` importing every module (open/closed). The snapshot file is a handoff between processes in the *Blackboard* style, chosen over an RPC because it opens nothing (R11); the lock is the liveness proof the file cannot give after a crash (R1). Decision D5 is the proposal this task implements.
 
+## 3a. Reuse
+Checked `.claude/rules/capabilities.md` before writing, and `src/modules/bots`/`src/support/cli_host` once more by search.
+- Bot reads: **used** `ListBotsQuery`, `GetBotQuery` through `ICommandDispatcher`, the dispatch `fenced_reads.py:147` makes; the new query reads no bot file.
+- Add a CLI command from a module: **used** `ICliRegistry`/`CliCommandDescriptor` (`declare_cli`) for `bot` and `status`, and `cli_commands.json` for their arguments (decision D2).
+- Print a report as text or JSON: **used** `emit_report` and the renderer registry, behind a new narrow port `IReportPrinter` because a module may not import the host (`architecture-rule.md` §3); nothing was reimplemented.
+- Exit codes: **used** `CliOutcome`/`ExitCode` (`HOST_NOT_RUNNING`, `HOST_UNHEALTHY` were defined by 038B).
+- Instance lock: **used** `file_lock.try_lock_exclusive`/`unlock` for the probe, and `acquire_instance_access` unchanged for writers.
+- Where data lives: **used** `data_root()`.
+- Periodic work: **used** the Engine `Scheduler` (`scheduler.every(...).do(...)`), as `trading` does.
+- Atomic file write: the bot store's temp-file-and-rename is private to `JsonBotStore`; **not used** because it is bound to a bot record. The sink has the same few lines for its own file (a shared helper would be a refactor of the store, outside this task).
+- UI: none; no UI need.
+
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/core/contracts/i_operations_registry.py` (new), `bounded_context_module.py` | registry port and the default-no-op hook |
-| `src/modules/operations/` (new, per D4) | `HealthSnapshot`, `IHealthContributor`, `HealthPublisher`, `IHealthSnapshotSink`, `FileHealthSnapshotSink`, `StatusQuery`, `IInstanceProbe` adapter |
-| `src/modules/bots/`, `trading/`, `market_data/` `module.py` | `declare_operations` with one contributor each |
-| `src/modules/bots/cli/` (new) | `bot list`, `bot show` |
-| `src/config/cli_commands.json` | `status`, `bot` (subparsers) |
-| `src/infrastructure/single_instance/` | `is_held` probe |
+| `src/core/contracts/i_health_contributor.py`, `i_instance_probe.py`, `i_report_printer.py` (new) | the contributor port, the lock probe port, the report-printing port a module may use |
+| `src/modules/bots/contracts/bot_status_report.py`, `application/queries/get_bot_status_report/`, `cli/` (new); `composition/`, `module.py` | the read model and its query; `bot list`/`bot show` as a verb table; `declare_cli` |
+| `src/modules/operations/` `contracts/`, `application/`, `adapters/`, `cli/`, `module.py` | `HealthSnapshot`, sink/source ports, `HealthPublisher`, `HealthSectionCollector`, `HealthPublishing`, `GetHostStatusQuery`, `FileHealthSnapshotSink`/`Source`, `status` |
+| `src/infrastructure/single_instance/instance_probe.py`, `instance_access.py` | the probe over the lock file; `InstanceAccess.declined` |
+| `src/support/cli_host/command_access.py` (new) | `command_is_read_only` |
+| `src/shell/composition_root.py`, `report_printer.py` (new); `src/main.py` | bind the probe and the printer; `read_only_instance_access()`; the entry point asks before it locks |
+| `src/config/cli_commands.json` | `status`, `bot` (sub-commands `list`, `show`), `"read_only": true` |
+| `Docs/`, `.claude/rules/capabilities.md` (generated) | vocabulary; the catalog row for `command_is_read_only` |
 
 ## 5. Testing
-Tier: unit with fakes; one integration test starting a real app in-process (no exchange) and reading its file.
-- `test_status_agrees_with_the_bots_screen_list_for_a_seeded_store`
-- `test_a_stale_snapshot_with_the_lock_free_reports_not_running` · `test_a_fresh_snapshot_with_the_lock_held_reports_running` · `test_an_old_snapshot_with_the_lock_held_reports_stale`
-- `test_the_snapshot_is_written_atomically` (kill between write and rename leaves the old file intact)
-- `test_a_contributor_that_raises_is_unavailable_not_fatal` · `test_a_slow_contributor_is_cut_off_at_its_deadline`
-- `test_a_new_contributor_needs_no_edit_to_the_publisher`
-- `test_the_snapshot_contains_no_secret` · `test_an_unreadable_bot_file_is_listed_with_its_path`
-- `test_status_exit_codes_are_0_10_11`
-Not run yet.
+Tier: unit with fakes derived from the ports; one integration test boots the composed app in-process (no exchange) and reads its file; one process-level test runs the real `main()` beside a second process holding the lock.
+- `test_status_agrees_with_the_bots_screen_list_for_a_seeded_store` is `test_the_report_agrees_with_the_bots_tab_list_on_every_bot` (unit) and `test_the_status_report_and_the_bots_tab_list_agree_on_the_composed_graph` (integration).
+- `test_a_stale_snapshot_with_the_lock_free_reports_not_running` · `test_a_fresh_snapshot_with_the_lock_held_reports_running` · `test_an_old_snapshot_with_the_lock_held_reports_stale` — `tests/unit/modules/operations/application/test_host_status.py`.
+- `test_the_snapshot_is_written_atomically` · `test_a_contributor_that_raises_is_unavailable_not_fatal` · `test_a_slow_contributor_is_cut_off_at_its_deadline` · `test_a_new_contributor_needs_no_edit_to_the_publisher` — `.../application/test_health_publisher.py`.
+- `test_no_secret_reaches_any_output_of_these_commands` (process) · `test_the_file_sink_round_trips_and_holds_no_secret` · `test_a_section_naming_a_secret_or_a_balance_is_refused`.
+- `test_an_unreadable_bot_file_is_listed_with_its_path` — `tests/unit/modules/bots/application/test_get_bot_status_report.py`.
+- `test_status_exit_codes_are_0_10_11` — `tests/unit/modules/operations/cli/test_status_cli.py`; payload keys pinned by `test_the_status_payload_keys_are_pinned` and `test_the_bot_report_payload_keys_are_pinned`.
+- `command_is_read_only` — `tests/unit/support/cli_host/test_command_access.py`; the lock probe — `tests/unit/infrastructure/single_instance/test_instance_probe.py`.
+Run: see Implementation notes. Not run: a real SIGINT to a live `status --watch`; the contributor tests of the three modules (not written yet).
 
 ## Implementation notes (written when done)
-Not started.
+Delivered on branch `claude/epic-038c-status-read-model`; pull request: see the epic README note. Not merged. Decisions taken while building, each also recorded where it lives:
+1. **`IHealthContributor` lives in `core/contracts`, not in `operations`** as the design table has it: a module may not import another module's non-contract code and `operations` is depended on by none (`test_no_module_depends_on_operations`), so the port a bots/trading/market_data contributor implements has to be in the kernel. `IInstanceProbe` is there too, as designed.
+2. **The registry is not built here.** 038F owns `IOperationsRegistry`, `declare_operations` and the shell collector (coordination note, 2026-10-12). Until it lands the module binds `NoHealthContributors`, an honest empty list: the snapshot carries identity and host state and no sections. The publisher reads `IHealthContributors`, so the collector replaces that one binding.
+3. **A command that only reads must not be the writable copy.** `main()` took the writable lock for every command, so `status` on a quiet machine would have booted as the writer, whose boot applies the restart rule (RUNNING becomes RECOVERING) and which holds the very lock `status` asks about. `cli_commands.json` now says `"read_only": true` (command or sub-command), `command_is_read_only` reads it before the lock is taken, and `read_only_instance_access()` hands back a read-only `IInstanceAccess` without locking. `test_status_with_no_host_exits_10_and_changes_nothing` fails with this line forced off (run, not described). The guard `test_only_the_entry_points_take_the_instance_lock` still holds.
+4. **`IReportPrinter`** (new, `core/contracts`, bound to `emit_report` in the shell): a module's handler cannot import `support/cli_host` (boundary guard), and the allowlist is not to grow.
+5. **Snapshot shape.** Contributors' objects sit under `sections`, not at the top level: a module could name its section `pid` and overwrite a field the reader trusts. `interval_s` is added so a reader judges freshness by the host's own cadence (three of them); the file's schema is `sew.health/1`. `status` calls the observer's verdict `host.state` (`running`/`stale`/`not running`) and the host's own word `host.host_state` (`SERVING`...).
+6. **Who writes the snapshot.** Any writable copy of the app: `OperationsModule.boot()` writes `SERVING` and the scheduler rewrites it every `HEALTH_INTERVAL_SECONDS` (10 s); `shutdown()` writes `STOPPED`. So the GUI and a long one-shot command (`sync`) are visible to `status` too, and a clean stop is distinguishable from a crash (a crash leaves `SERVING` and a free lock). A read-only copy writes nothing. `EPIC-038D`'s `run` will say `BOOTING`/`DRAINING`/`FAILED` itself.
+7. **A contributor cannot hold the snapshot hostage or leak through it.** Each is asked on a daemon thread with a deadline (2 s); a late one is not asked again until it answered; its failure is published as the exception's *type* only (the text goes to the log); a section naming a secret/balance key or holding non-JSON is refused.
+8. **Clock skew is not in this change.** The criterion lists it for `trading`, but nothing in the app keeps a skew: the only source is `check_connection()`, a network call that a contributor may not make. The `trading` contributor will carry the user stream; skew needs either a cached value from the account refresh or `preflight` (038F) and is recorded as an open question for the reviewer and the owner.
+9. `operations` now declares `dependencies = ["bots"]` (it reads the bots' status report); `bots` still names nothing of `operations`.
+10. `status` has one inherent race: the lock can be taken or dropped between the probe and the snapshot read. The verdict is a moment, like any `ps`.
+
+Verification (on the head the pull request carries; the full gate is the pull request's `ci-local.ps1 -Full` check run): "Every Commit" row (`ci-local.ps1 -SkipTests`) PASS; unit tier 10 954 passed (includes `tests/unit/architecture`); `tests/integration/presentation/test_status_and_bot_commands_process.py` 9 passed; `tests/integration/modules/operations` 3 passed; sanity tier and `test_main_exit_codes_process.py`: see the pull request. Mutation checks run: forcing `main()` to the writable path (process test red), removing `publishing.begin()` and `publishing.end()` (integration test red).
 
 ## Resume
-Not started. First action: check the state of `EPIC-035W` and `EPIC-036E` and record whether either has defined a snapshot yet; if so, consume it.
+Last verified: everything above except the contributor half. **Next executable action, once 038F's pull request (`IOperationsRegistry`, `declare_operations`, `shell/operations_registry.py`) is merged and master is merged into this branch:** (1) add `declare_health` to that port and its collector and bind the collector as `IHealthContributors` instead of `NoHealthContributors`; (2) `bots`: a contributor over `GetBotStatusReportQuery` (state counts, unreadable count; no profit); (3) `trading`: a recorder fed by `UserStreamHealthEvent` (state, age per venue) and the skew decision (note 8); (4) `market_data`: a recorder fed by `MarketTickEvent` (last tick age per symbol); (5) a test-only fourth contributor declared through `declare_health` reaching `status --json`; (6) tick the two open criteria, move this file to `completed/` with `✅ Done`, update the epic README row. Until then the task stays in `incomplete/`.
