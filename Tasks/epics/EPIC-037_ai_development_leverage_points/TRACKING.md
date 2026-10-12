@@ -1,7 +1,7 @@
 # EPIC-037 — Tracking
 
 - **Epic:** [README](README.md)
-- **Status:** 🔵 Planned
+- **Status:** 🟡 In progress (037A done 2026-10-12)
 - **Target Completion:** 2026-11-13 (four weeks from the start in the week of 2026-10-12; a target, not a commitment)
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
