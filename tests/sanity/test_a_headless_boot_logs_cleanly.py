@@ -14,7 +14,10 @@ Four facts:
    scan stays quiet on a healthy headless run;
 2. the health line arrives as an INFO record in the Engine's fixed field order
    and the parser reads it back from that real output;
-3. no canary secret appears anywhere in stdout or stderr;
+3. no canary secret appears anywhere in stdout or stderr, **after** the run read
+   each venue's canary through the real credential providers (the boot alone
+   resolves none, so without that read the check would prove only that boot
+   does not print the environment);
 4. a plain run creates no log file under the data root.
 
 `EPIC-038D` points this at `run` itself when the host exists; `run` adds a loop,
@@ -98,6 +101,29 @@ log_health_line(
         tick_age_s=1, stream_age_s=None, skew_ms=-3, rss_mb=250,
     ),
 )
+
+# `create_app/boot/stop` resolves no credential on an empty data root, so the
+# canary has to be read on purpose: through the same provider classes the venues
+# use (`venue_assembly.credentials_provider`), over the same environment.
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider, MainnetCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import SecretsFileSource
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import TradingVenue
+from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
+
+read = 0
+for venue in TradingVenue:
+    if venue is TradingVenue.DISABLED:
+        continue
+    provider = (
+        MainnetCredentialsProvider(InMemorySecretStore(), venue) if venue.is_mainnet
+        else EnvFirstCredentialsProvider(SecretsFileSource("no-such-secrets-file.json"), venue)
+    )
+    credentials = provider.resolve().credentials
+    if credentials is not None and credentials.api_key.startswith("CANARY-KEY-"):
+        read += 1
+print(f"CREDENTIALS_READ={read}")
 app.stop()
 print("HEADLESS_BOOT_DONE")
 """
@@ -163,6 +189,11 @@ def test_the_health_line_in_the_real_log_output_parses_back(boot: _Boot) -> None
 
 def test_no_credential_reaches_the_log(boot: _Boot) -> None:
     assert boot.result.returncode == 0, boot.evidence
+    # Positive proof first: the run read every venue's canary through the real
+    # provider classes, so the absence below is not just "nothing touched it".
+    assert (
+        f"CREDENTIALS_READ={len(_CREDENTIAL_VARIABLES) // 2}" in boot.result.stdout
+    ), boot.evidence
     assert _CANARY_KEY not in boot.log, "an API key reached the log"
     assert _CANARY_SECRET not in boot.log, "an API secret reached the log"
 

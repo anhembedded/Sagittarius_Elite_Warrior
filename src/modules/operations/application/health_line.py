@@ -41,7 +41,12 @@ HEALTH_TAG = "[health]"
 _UNKNOWN = "na"
 _NO_BOTS = "none"
 _BOT_STATE = re.compile(r"[a-z_]+")
-_INTEGER = re.compile(r"-?\d+")
+#: ASCII digits only (`\d` also matches Arabic-Indic ones) and at most 18, so
+#: `int()` never meets a value Python refuses to convert.
+_INTEGER = re.compile(r"-?[0-9]{1,18}")
+#: A health record: the tag opens the message, and its first key is `state`.
+#: A foreign record that merely mentions `[health]` does not match.
+_HEALTH_RECORD = re.compile(r"(?:^|\bINFO - )\[health\] state=")
 
 
 class HealthLineError(ValueError):
@@ -134,9 +139,14 @@ def parse_health_line(text: str) -> HealthLine:
 
 
 def health_lines_in(log_text: str) -> tuple[HealthLine, ...]:
-    """Every health line in a log, in order; other records are skipped."""
+    """Every health line in a log, in order; other records are skipped.
+
+    A record that opens like a health line but is malformed still raises: that
+    is a format bug, not noise."""
     return tuple(
-        parse_health_line(line) for line in log_text.splitlines() if HEALTH_TAG in line
+        parse_health_line(line)
+        for line in log_text.splitlines()
+        if _HEALTH_RECORD.search(line)
     )
 
 

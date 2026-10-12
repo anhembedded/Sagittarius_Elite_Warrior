@@ -39,14 +39,14 @@ Until then, rotate the file from outside. The handler keeps its file open, so `c
 Every record is `%(asctime)s - %(name)s - %(levelname)s - %(message)s`. The order and the ` - ` separator are fixed: the CI run-log scan reads `- (WARNING|ERROR|CRITICAL) -`, and so should an operator's filter:
 
 ```bash
-journalctl -u sew-run -o cat | grep -E ' - (WARNING|ERROR|CRITICAL) - '
+journalctl -u sew-run -o cat   # unit name as `EPIC-038H` will ship it | grep -E ' - (WARNING|ERROR|CRITICAL) - '
 ```
 
 JSON logging would be a formatter the Engine owns. It is recorded, not built.
 
 ## 4. The health line
 
-The `run` host writes one INFO record per health interval (`--health-interval`, default 60 s), through `log_health_line` in `src/modules/operations/application/health_line.py`, the only writer:
+The `run` host writes one INFO record per health interval (`--health-interval`, default 60 s; the flag and the host arrive with `EPIC-038D`), through `log_health_line` in `src/modules/operations/application/health_line.py`, the only writer:
 
 ```text
 [health] state=SERVING up=3600s bots=running:3,paused:1,halted:0 tick_age_s=2 stream_age_s=5 skew_ms=-120 rss_mb=310

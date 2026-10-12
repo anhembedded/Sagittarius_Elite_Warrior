@@ -97,6 +97,20 @@ def test_a_malformed_line_is_refused_not_guessed(text: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "up",
+    ["٣s", "9" * 5000 + "s", "1" * 19 + "s"],
+    ids=["arabic-indic digit", "5000 digits", "19 digits"],
+)
+def test_a_number_that_is_not_a_plain_bounded_ascii_integer_is_refused_as_malformed(
+    up: str,
+) -> None:
+    text = format_health_line(_SERVING).replace("up=3600s", f"up={up}")
+
+    with pytest.raises(HealthLineError):
+        parse_health_line(text)
+
+
+@pytest.mark.parametrize(
     "field_overrides",
     [
         {"up_s": -1},
@@ -143,6 +157,25 @@ def test_health_lines_are_found_among_other_records() -> None:
     )
 
     assert health_lines_in(log) == (_SERVING,)
+
+
+def test_unrelated_records_mentioning_the_tag_are_skipped_not_fatal() -> None:
+    log = "\n".join(
+        [
+            "2026-10-12 10:00:00,000 - App - INFO - user said [health] is fine",
+            "2026-10-12 10:00:30,000 - App - INFO - [health] interval=60s",
+            f"2026-10-12 10:01:00,000 - App.Operations - INFO - {format_health_line(_SERVING)}",
+        ]
+    )
+
+    assert health_lines_in(log) == (_SERVING,)
+
+
+def test_a_record_that_opens_like_a_health_line_but_is_malformed_still_raises() -> None:
+    log = "2026-10-12 10:00:00,000 - App.Operations - INFO - [health] state=SERVING up=soon"
+
+    with pytest.raises(HealthLineError):
+        health_lines_in(log)
 
 
 def test_a_stale_feed_is_logged_at_info_never_warning(

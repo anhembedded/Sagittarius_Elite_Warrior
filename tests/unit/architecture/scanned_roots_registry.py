@@ -13,6 +13,7 @@ retargeted and its row here changes in the same commit.
 
 from __future__ import annotations
 
+from .scanned_roots_registry_module_dependencies import MODULE_DEPENDENCY_GUARDS
 from .scanned_roots_registry_order_paths import ORDER_PATH_GUARDS
 from .ui_trees import UI_TREE_PATHS
 
@@ -293,6 +294,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     *ORDER_PATH_GUARDS,
+    *MODULE_DEPENDENCY_GUARDS,
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
     # Guard 3's cross-screen check used to register a second root here
