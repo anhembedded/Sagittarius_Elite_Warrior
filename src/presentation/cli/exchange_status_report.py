@@ -5,24 +5,22 @@ from it, so they cannot disagree. The outcome is separate from the report: a
 failed connection still prints its report (a monitor wants the JSON of the
 failure) and *then* exits non-zero.
 
-Failure kind -> exit code (DESIGN §7). `NOT_CONFIGURED` is code 5 because the
-operator has not given the application a key; the two kinds where the key
-exists but the application refuses it (`WITHDRAWAL_ENABLED`) or the account
-cannot trade here (`HEDGE_MODE_UNSUPPORTED`) are code 5 too — a configuration
-the operator must change. Everything the exchange itself answered or failed to
-answer (`-2015`, `-1021`, `-1022`, network, maintenance) is code 6, which a
-supervisor retries after a delay.
+Failure kind -> exit code is `connection_failure_exit_code.py` (`EPIC-038` D9),
+shared with `preflight`: what the operator must change exits 5 (no key, `-2015`,
+`-1022`, a key that can withdraw, Hedge Mode), what a restart can outlast exits 6
+(network, maintenance, `-1021`).
 """
 
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
-    ExitCode,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connection_failure_exit_code import (
+    EXIT_CODE_FOR_FAILURE,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
@@ -34,19 +32,6 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_payload impo
 )
 
 COMMAND = "exchange-status"
-
-#: Complete on purpose: `test_every_failure_kind_has_an_exit_code` fails for a
-#: kind added to `ConnectionFailureKind` without a decision here.
-EXIT_CODE_FOR_FAILURE: dict[ConnectionFailureKind, ExitCode] = {
-    ConnectionFailureKind.NOT_CONFIGURED: ExitCode.CONFIGURATION,
-    ConnectionFailureKind.WITHDRAWAL_ENABLED: ExitCode.CONFIGURATION,
-    ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: ExitCode.CONFIGURATION,
-    ConnectionFailureKind.BAD_SIGNATURE: ExitCode.EXCHANGE,
-    ConnectionFailureKind.CLOCK_SKEW: ExitCode.EXCHANGE,
-    ConnectionFailureKind.KEY_REJECTED: ExitCode.EXCHANGE,
-    ConnectionFailureKind.NETWORK: ExitCode.EXCHANGE,
-    ConnectionFailureKind.MAINTENANCE: ExitCode.EXCHANGE,
-}
 
 
 def exchange_status_report(status: ExchangeConnectionStatus) -> Report:

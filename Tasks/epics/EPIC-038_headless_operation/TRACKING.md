@@ -51,7 +51,7 @@ gantt
 | EPIC-038C | [Bot status read model](incomplete/EPIC-038C_bot_status_read_model.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-038D | [The run host](incomplete/EPIC-038D_run_host.md) | — | 🔴 | 🔵 Planned; waits for O1, O2, O8 | — |
 | EPIC-038E | [Headless secret backends](incomplete/EPIC-038E_headless_secret_backends.md) | — | 🔴 | 🔵 Planned; waits for O3 | — |
-| EPIC-038F | [Preflight command](incomplete/EPIC-038F_preflight_command.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-038F | [Preflight command](completed/EPIC-038F_preflight_command.md) | `claude/epic-038f-preflight` | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038G | [Logging for unattended runs](completed/EPIC-038G_logging_for_unattended_runs.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038H | [Service units and runbook](incomplete/EPIC-038H_service_units_and_runbook.md) | — | 🟢 | 🔵 Planned; waits for 038D–G | — |
 | EPIC-038I | [Bot plan files](incomplete/EPIC-038I_bot_plan_files.md) | — | 🟡 | 🔵 Planned | — |
@@ -63,6 +63,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-12 | 038F | `preflight` delivered: eight isolated checks, exit 0/4/5/6, the `declare_operations` registry, a gate for `run`. The exchange cannot report the address it sees; a `-2015` reply is the only source. |
 | 2026-10-12 | 038B | Exit codes, the report renderers and the isolated CLI host (`support/cli_host`) delivered; a bare `main.py` prints help and exits 2. Four commands stopped exiting 0 on a failure; `--json` is pure stdout. |
 | 2026-10-09 | Spec | Headless boot proven impossible without PySide6 (three UI concerns in `create_app`); epic scaffolded with ten children, a design, a research record and a decision record (no TUI). Documentation only. |
 

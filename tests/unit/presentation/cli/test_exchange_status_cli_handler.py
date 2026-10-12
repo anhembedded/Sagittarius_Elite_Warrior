@@ -53,7 +53,7 @@ def test_the_prompt_honours_json_instead_of_ignoring_the_flag(
 
     outcome = ExchangeStatusCliHandler.handle(args, _app("futures_key_rejected"))
 
-    assert outcome == CliOutcome(ExitCode.EXCHANGE)
+    assert outcome == CliOutcome(ExitCode.CONFIGURATION)
     assert json.loads(capsys.readouterr().out)["data"]["failure"] == "key_rejected"
 
 

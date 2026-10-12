@@ -8,10 +8,11 @@ A module is an Engine `IExtension` plus three seams of this application's own:
 | `boot(context)` | after every module registered | `resolve`; start hosted services and scheduler jobs |
 | `contribute(registry)` | after `boot()` | hand over descriptors; no widget module imported |
 | `declare_cli(registry)` | with `contribute()` | claim the interactive-shell commands this context owns |
+| `declare_operations(registry)` | with `declare_cli()` | offer what this context contributes to running unattended (pre-flight checks) |
 | `subscribe(bridge)` | after `contribute()` | attach event handlers for the life of the process |
 | `shutdown(context)` | reverse order | release what `boot()` started |
 
-`contribute()`, `declare_cli()` and `subscribe()` all default to doing nothing,
+`contribute()`, `declare_cli()`, `declare_operations()` and `subscribe()` all default to doing nothing,
 so a module with no UI, no commands and no event handlers implements none of
 them — and a CLI-only context implements exactly the one it needs. `module_id`
 is the identity that appears in every descriptor and in `shell/modules.py`;
@@ -39,6 +40,9 @@ if TYPE_CHECKING:
     )
     from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
         IContributionRegistry,
+    )
+    from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+        IOperationsRegistry,
     )
     from sagittarius_engine.extensions.pyside_mvc import QtEventBridge
 
@@ -83,6 +87,9 @@ class BoundedContextModule(IExtension[Any]):
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """Claim this context's interactive-shell commands. Default: none."""
+
+    def declare_operations(self, registry: IOperationsRegistry) -> None:
+        """Offer this context's pre-flight checks (`EPIC-038F`). Default: none."""
 
     def subscribe(self, bridge: QtEventBridge) -> None:
         """Attach this context's long-lived event handlers. Default: none."""

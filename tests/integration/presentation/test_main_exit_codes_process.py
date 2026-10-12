@@ -128,14 +128,14 @@ def test_no_secret_reaches_a_json_report(
         assert _FAKE_KEY not in result.stdout, args
 
 
-def test_a_refused_key_exits_with_the_exchange_code_and_still_prints_the_report(
+def test_a_refused_key_exits_with_the_configuration_code_and_still_prints_the_report(
     tmp_path: Path, exchange: FakeServerUrls
 ) -> None:
     exchange.keys.known = {"some-other-key"}
 
     result = _run(tmp_path, exchange, "exchange-status", "--json")
 
-    assert result.returncode == int(ExitCode.EXCHANGE), result.stderr
+    assert result.returncode == int(ExitCode.CONFIGURATION), result.stderr
     document = json.loads(result.stdout)
     assert document["data"]["reachable"] is False
     assert document["data"]["failure"] == "key_rejected"

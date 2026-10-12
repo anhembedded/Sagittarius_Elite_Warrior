@@ -40,9 +40,11 @@ class ExitCode(IntEnum):
     LOCK_HELD = 3
     #: A pre-flight check failed.
     PREFLIGHT_FAILED = 4
-    #: Configuration or credentials are missing, or refused by the application.
+    #: Only the operator can fix it: no key, a key the exchange rejects (`-2015`,
+    #: `-1022`), a key that can withdraw. A restart would repeat the refusal.
     CONFIGURATION = 5
-    #: The exchange was unreachable or rejected the request (`-2015`, `-1021`).
+    #: The exchange was unreachable, out of service, or rejected the clock
+    #: (`-1021`): a restart with a delay can outlast it.
     EXCHANGE = 6
     #: `status`: no host is running.
     HOST_NOT_RUNNING = 10
