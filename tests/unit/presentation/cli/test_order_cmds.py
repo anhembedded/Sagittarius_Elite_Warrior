@@ -23,6 +23,14 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
+    IReportFormats,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -57,7 +65,9 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_cmd import (
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
     execute_order_preview,
 )
+from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from sagittarius_engine import App
+from sagittarius_engine.exceptions import DependencyResolutionError
 
 _SYMBOL = "BTCUSDT"
 
@@ -70,6 +80,7 @@ def _args(**overrides: object) -> Namespace:
         "qty": "0.005",
         "price": "64000",
         "json": False,
+        "format": None,
     }
     base.update(overrides)
     return Namespace(**base)
@@ -113,6 +124,8 @@ def app(submission: FakeOrderSubmission) -> Mock:
     def resolve(interface: object) -> object:
         if interface is IOrderSubmission:
             return submission
+        if interface is IReportFormats:
+            return ReportFormats.default()
         return Mock()
 
     app.container.resolve.side_effect = resolve
@@ -144,19 +157,75 @@ class TestOrderPreview:
         execute_order_preview(app, _args(json=True))
 
         printed = json.loads(capsys.readouterr().out)
-        assert printed["order"]["symbol"] == _SYMBOL
+        # `EPIC-038B` — the common envelope; the domain order sits under `data`.
+        assert printed["schema"] == "sew.order-preview/1"
+        data = printed["data"]
+        assert data["order"]["symbol"] == _SYMBOL
         # The normalized quantity, not the one the actor typed — which is the
         # reason `--json` exists (`order_preview_to_dict`'s own docstring).
-        assert printed["order"]["quantity"] == "0.005"
-        assert printed["raw_quantity"] == "0.0051"
+        assert data["order"]["quantity"] == "0.005"
+        assert data["raw_quantity"] == "0.0051"
+
+    def test_a_ready_preview_exits_zero(self, app: Mock) -> None:
+        assert execute_order_preview(app, _args()) is None
+
+    def test_a_preview_below_min_notional_still_prints_and_exits_usage(
+        self, app: Mock, submission: FakeOrderSubmission, capsys
+    ) -> None:
+        """The order as asked cannot be sent: a script gating on `$?` must not
+        carry on to trade it. The report is printed first, in the format asked."""
+        submission.preview_answers(
+            OrderPreview(
+                order=_order(),
+                raw_quantity=Decimal("0.001"),
+                estimated_notional=Decimal(64),
+                min_notional=Decimal(100),
+                step_size=Decimal("0.001"),
+                notional_check=NotionalCheck.INSUFFICIENT,
+            )
+        )
+
+        outcome = execute_order_preview(app, _args(json=True))
+
+        assert outcome == CliOutcome(ExitCode.USAGE)
+        printed = json.loads(capsys.readouterr().out)
+        assert printed["data"]["notional_check"] == NotionalCheck.INSUFFICIENT.value
+
+    def test_a_failure_under_json_leaves_stdout_empty_and_speaks_on_the_outcome(
+        self, app: Mock, submission: FakeOrderSubmission, capsys
+    ) -> None:
+        """`order-preview --json | jq` must never read an error sentence as the
+        start of a document: the sentence travels in the outcome, which the entry
+        point writes to stderr."""
+        submission.preview = Mock(side_effect=RequestException("down"))  # type: ignore[method-assign]
+
+        outcome = execute_order_preview(app, _args(json=True))
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "Could not fetch exchange rules" in outcome.message
+        assert capsys.readouterr().out == ""
+
+    def test_an_unknown_format_prints_nothing_and_is_a_usage_error(
+        self, app: Mock, capsys
+    ) -> None:
+        outcome = execute_order_preview(app, _args(format="xml"))
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE
+        assert "xml" in outcome.message
+        assert capsys.readouterr().out == ""
 
     def test_a_bad_number_is_reported_before_the_port_is_asked(
         self, app: Mock, submission: FakeOrderSubmission, capsys
     ) -> None:
-        execute_order_preview(app, _args(qty="not-a-number"))
+        outcome = execute_order_preview(app, _args(qty="not-a-number"))
 
         assert submission.previewed == []
-        assert "Invalid number" in capsys.readouterr().out
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE
+        assert "Invalid number" in outcome.message
+        assert capsys.readouterr().out == ""
 
 
 class TestOrderDryRun:
@@ -165,8 +234,9 @@ class TestOrderDryRun:
     ) -> None:
         """The guarantee that makes `order-dry-run` safe to run with trading
         off: it reaches the venue's test endpoint and nothing else."""
-        execute_order_dry_run(app, _args())
+        outcome = execute_order_dry_run(app, _args())
 
+        assert outcome is None
         (previewed,) = submission.previewed
         (validated,) = submission.validated
         assert validated == previewed
@@ -183,9 +253,12 @@ class TestOrderDryRun:
             )
         )
 
-        execute_order_dry_run(app, _args())  # must not raise
+        outcome = execute_order_dry_run(app, _args())  # must not raise
 
-        assert "min_notional" in capsys.readouterr().out.lower()
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "min_notional" in outcome.message.lower()
+        assert "min_notional" not in capsys.readouterr().out.lower()
 
     def test_an_order_this_app_built_wrong_is_reported_not_raised(
         self, app: Mock, submission: FakeOrderSubmission, capsys
@@ -197,6 +270,39 @@ class TestOrderDryRun:
             InvalidOrderForSubmissionError("quantity 0.0051 is not aligned to 0.001")
         )
 
-        execute_order_dry_run(app, _args())  # must not raise
+        outcome = execute_order_dry_run(app, _args())  # must not raise
 
-        assert "not valid for submission" in capsys.readouterr().out
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE
+        assert "not valid for submission" in outcome.message
+        assert "not valid" not in capsys.readouterr().out
+
+    def test_trading_switched_off_is_a_configuration_exit(
+        self, app: Mock, submission: FakeOrderSubmission, capsys
+    ) -> None:
+        submission.validate_raises(DependencyResolutionError("IOrderSubmission"))
+
+        outcome = execute_order_dry_run(app, _args())
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.CONFIGURATION
+        assert "Trading venue is DISABLED" in outcome.message
+        assert "DISABLED" not in capsys.readouterr().out
+
+    def test_an_unreachable_exchange_is_an_exchange_exit(
+        self, app: Mock, submission: FakeOrderSubmission, capsys
+    ) -> None:
+        submission.validate_raises(RequestException("down"))
+
+        outcome = execute_order_dry_run(app, _args())
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.EXCHANGE
+        assert "Could not send the payload" in outcome.message
+        assert "Could not send" not in capsys.readouterr().out
+
+    def test_a_bad_number_is_a_usage_exit(self, app: Mock) -> None:
+        outcome = execute_order_dry_run(app, _args(price="free"))
+
+        assert outcome is not None
+        assert outcome.code is ExitCode.USAGE

@@ -13,7 +13,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
+import pytest
 from binance.exceptions import BinanceRequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -25,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd import (
+    _blocked_exit_code,
     execute_trade_once,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
@@ -35,11 +41,24 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
     PositionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
+    ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
+    InvalidOrderForSubmissionError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
+    OrderNotPlacedError,
+    OrderOutcomeUnknownError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -203,9 +222,10 @@ def test_a_live_order_rejected_by_the_exchange_prints_a_friendly_message_not_a_c
         "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
     ) as mock_build_engine:
         mock_build_engine.return_value.on_tick.return_value = _signal()
-        execute_trade_once(app, _args())  # must not raise
+        outcome = execute_trade_once(app, _args())  # must not raise
 
     assert "Exchange rejected the order" in capsys.readouterr().out
+    assert outcome == CliOutcome(ExitCode.EXCHANGE)
 
 
 def test_a_network_failure_during_live_submission_prints_a_friendly_message_not_a_crash(
@@ -218,6 +238,104 @@ def test_a_network_failure_during_live_submission_prints_a_friendly_message_not_
         "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
     ) as mock_build_engine:
         mock_build_engine.return_value.on_tick.return_value = _signal()
-        execute_trade_once(app, _args())  # must not raise
+        outcome = execute_trade_once(app, _args())  # must not raise
 
     assert "Could not send the order to the exchange" in capsys.readouterr().out
+    assert outcome == CliOutcome(ExitCode.EXCHANGE)
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        (
+            OrderRejectedByExchangeError(
+                OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+            ),
+            ExitCode.EXCHANGE,
+        ),
+        (
+            OrderOutcomeUnknownError(_SYMBOL, "SEW-1", "no readable answer"),
+            ExitCode.EXCHANGE,
+        ),
+        (
+            OrderNotPlacedError(_SYMBOL, "SEW-1", "exchange holds no such order"),
+            ExitCode.USAGE,
+        ),
+        (InvalidOrderForSubmissionError("not aligned"), ExitCode.USAGE),
+    ],
+)
+def test_each_refusal_of_a_live_order_has_its_documented_exit_code(error, code):
+    """`EPIC-038B` — a refusal the command prints is also the process status."""
+    app, submission = _app_ready_to_submit_an_order()
+    submission.submit_raises(error)
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
+    ) as mock_build_engine:
+        mock_build_engine.return_value.on_tick.return_value = _signal()
+        outcome = execute_trade_once(app, _args())
+
+    assert outcome == CliOutcome(code)
+
+
+def test_a_round_with_no_signal_is_a_success_not_a_failure():
+    """ "Nothing to do" is the designed ending of a quiet market."""
+    app, _submission = _app_ready_to_submit_an_order()
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
+    ) as mock_build_engine:
+        mock_build_engine.return_value.on_tick.return_value = None
+        outcome = execute_trade_once(app, _args())
+
+    assert outcome is None
+
+
+def test_a_strategy_that_does_not_exist_is_a_usage_error(capsys):
+    app, _submission = _app_ready_to_submit_an_order()
+
+    outcome = execute_trade_once(app, _args(strategy="no_such_strategy"))
+
+    assert outcome == CliOutcome(ExitCode.USAGE)
+    assert "Strategy does not exist" in capsys.readouterr().out
+
+
+def test_missing_candles_exit_with_the_usage_code_and_say_to_sync(capsys):
+    app, _submission = _app_ready_to_submit_an_order()
+    empty = FakeHistoricalKlines()
+    original = app.container.resolve.side_effect
+    app.container.resolve.side_effect = lambda iface: (
+        empty if iface is IHistoricalKlines else original(iface)
+    )
+
+    outcome = execute_trade_once(app, _args())
+
+    assert outcome == CliOutcome(ExitCode.USAGE)
+    assert "run `sync` first" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "blocked_by",
+    [
+        ExecuteOrderNotionalRejection.MIN_NOTIONAL,
+        ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE,
+        ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND,
+        ExecuteOrderSafetyGate.SYMBOL_LEASED,
+    ],
+)
+def test_a_block_by_the_safety_pipeline_is_a_designed_refusal_not_an_unexpected_error(
+    blocked_by,
+):
+    """Exit 1 is documented as "unexpected error"; a supervisor restarts on it.
+    The pipeline refusing an order is neither unexpected nor helped by a restart."""
+    result = Mock()
+    result.blocked_by = blocked_by
+
+    assert _blocked_exit_code(result) is ExitCode.USAGE
+
+
+def test_a_gate_that_needs_the_operator_to_set_something_up_is_a_configuration_exit():
+    result = Mock()
+    result.blocked_by = ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
+
+    assert _blocked_exit_code(result) is ExitCode.CONFIGURATION

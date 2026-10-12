@@ -4,13 +4,22 @@ decision behind an order, visible before `EPIC-021F` wires a real
 placement adapter onto `ITradingClient`."""
 
 import argparse
-import json
 from decimal import Decimal, InvalidOperation
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
+    IReportFormats,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
+    NotionalCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
@@ -21,19 +30,29 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavai
     SymbolRulesUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_formatter import (
-    format_order_preview,
-    order_preview_to_dict,
+    order_preview_report,
 )
+from Sagittarius_Elite_Warrior.src.support.cli_host.report_output import emit_report
 from sagittarius_engine import App
 
 
-def execute_order_preview(app: App, args: argparse.Namespace) -> None:
+def execute_order_preview(app: App, args: argparse.Namespace) -> CliOutcome | None:
+    """Preview one order; the exit code says whether it could be sent.
+
+    `EPIC-038B` — an unusable request (a number that is not one, a symbol the
+    rules reject, an order below minNotional) is `USAGE`: the arguments cannot
+    form an order, and a script gating on `$?` must not carry on to trade it.
+    The exchange rules not being fetchable is `EXCHANGE`. The report of a
+    rejected preview is still printed first, in the format asked for.
+    """
     try:
         quantity = Decimal(args.qty)
         reference_price = Decimal(args.price)
     except InvalidOperation:
-        print(f"Invalid number: qty={args.qty!r} price={args.price!r}")
-        return
+        return CliOutcome(
+            ExitCode.USAGE,
+            f"Invalid number: qty={args.qty!r} price={args.price!r}",
+        )
 
     request = OrderRequest(
         symbol=args.symbol,
@@ -46,8 +65,7 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> None:
     try:
         preview = app.container.resolve(IOrderSubmission).preview(request)
     except ValueError as exc:
-        print(f"Could not preview the order: {exc}")
-        return
+        return CliOutcome(ExitCode.USAGE, f"Could not preview the order: {exc}")
     except (
         BinanceAPIException,
         BinanceRequestException,
@@ -58,13 +76,17 @@ def execute_order_preview(app: App, args: argparse.Namespace) -> None:
         # (EPIC-021D), makes no "never raises" promise — this is the one
         # network call this task's CLI makes, and this is where its
         # failure is classified and shown, not inside the domain/handler.
-        print(
+        return CliOutcome(
+            ExitCode.EXCHANGE,
             "Could not fetch exchange rules for "
-            f"{args.symbol} — check your network connection and try again."
+            f"{args.symbol} — check your network connection and try again.",
         )
-        return
 
-    if args.json:
-        print(json.dumps(order_preview_to_dict(preview), ensure_ascii=False, indent=2))
-    else:
-        print(format_order_preview(preview))
+    refused = emit_report(
+        order_preview_report(preview), args, app.container.resolve(IReportFormats)
+    )
+    if refused is not None:
+        return refused
+    if preview.notional_check is not NotionalCheck.SUFFICIENT:
+        return CliOutcome(ExitCode.USAGE)
+    return None

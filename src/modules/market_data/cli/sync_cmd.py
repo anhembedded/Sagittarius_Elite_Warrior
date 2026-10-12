@@ -1,5 +1,7 @@
-import sys
-
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
+    CliOutcome,
+    ExitCode,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -7,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.failure_exit_code import (
+    failure_exit_code,
 )
 from sagittarius_engine import App
 
@@ -30,7 +35,13 @@ from sagittarius_engine import App
 #: PySide6 reason. Moving two files out of that directory is what surfaced it.
 
 
-def execute_sync(app: App, args):
+def execute_sync(app: App, args) -> CliOutcome | None:
+    """Sync history; `None` on success.
+
+    `EPIC-038B` — a failure is a returned outcome, not a `sys.exit(1)` in the
+    middle of the command: a request the command rejects is `USAGE`, an
+    exchange or network failure is `EXCHANGE`, anything else `ERROR`.
+    """
     symbols_list = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     try:
         timeframe = TimeFrame(args.interval)
@@ -38,7 +49,7 @@ def execute_sync(app: App, args):
         print(
             f"Invalid interval: {args.interval}. Must be one of {[t.value for t in TimeFrame]}"
         )
-        sys.exit(1)
+        return CliOutcome(ExitCode.USAGE)
 
     # `EPIC-027A` — see `sync_cli_handler.py`'s identical comment: no
     # `--market` flag yet, pinned to Spot.
@@ -56,4 +67,5 @@ def execute_sync(app: App, args):
         )
     except Exception as e:  # noqa: BLE001 - CLI boundary: report the real failure instead of an uncaught traceback
         print(f"❌ Sync failed: {e}")
-        sys.exit(1)
+        return CliOutcome(failure_exit_code(e))
+    return None

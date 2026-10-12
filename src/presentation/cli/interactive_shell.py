@@ -2,6 +2,7 @@ import argparse
 import cmd
 import logging
 import shlex
+import sys
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
@@ -106,7 +107,12 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         parsed = self._parse(cmd_name, words[1:])
         if parsed is None:
             return
-        self.handlers[cmd_name].handle(parsed, self.app)
+        # `EPIC-038B` — the outcome's code is a process status and means nothing
+        # at a prompt that must keep running; its sentence is the only place a
+        # refusal (an unusable `--format`) is worded, so it is shown.
+        outcome = self.handlers[cmd_name].handle(parsed, self.app)
+        if outcome is not None and outcome.message:
+            sys.stderr.write(outcome.message + "\n")
 
     def _parse(self, cmd_name: str, words: list[str]) -> argparse.Namespace | None:
         """The parsed arguments, or `None` when there is nothing to run.

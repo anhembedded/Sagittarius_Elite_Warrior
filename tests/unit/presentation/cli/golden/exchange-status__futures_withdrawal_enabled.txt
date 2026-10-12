@@ -1,0 +1,2 @@
+Venue: FUTURES_TESTNET   Connection: ✘  WITHDRAWAL_ENABLED
+→ The API key can withdraw funds, so the app refuses it. Create a read-only key (reading only, withdrawals off) and use that.

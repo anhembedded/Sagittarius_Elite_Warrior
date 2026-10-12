@@ -1,0 +1,5 @@
+Venue:            SPOT_TESTNET              Connection: ✔
+Clock skew:       -12 ms                   
+USDT balance:     9,876.50                  Equity (USDT): 41,000.25
+Holdings:
+  BTC        free 0.5  locked 0.1

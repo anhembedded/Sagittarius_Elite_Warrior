@@ -194,7 +194,9 @@ def test_the_handler_receives_parsed_arguments_not_a_string():
     line is an `argparse.Namespace` with defaults applied."""
     shell, _dispatcher = _shell_with_sync()
 
-    with patch.object(SyncCliHandler, "handle") as handle:
+    # A handler's return is a `CliOutcome | None` now; a bare patch would hand
+    # back a mock, which is no outcome.
+    with patch.object(SyncCliHandler, "handle", return_value=None) as handle:
         shell.default("sync --symbols BTCUSDT")
 
     handle.assert_called_once()

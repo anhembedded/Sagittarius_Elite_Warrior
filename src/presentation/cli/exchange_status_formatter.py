@@ -1,10 +1,22 @@
-"""Renders `ExchangeConnectionStatus` as the two-shape text `EPIC-021D` §5
+"""Lays out `ExchangeConnectionStatus` as the two-shape report `EPIC-021D` §5
 specifies — a success table, or a one-line failure plus guidance. Shared by
 the headless (`exchange_status_cmd.py`) and interactive
-(`ExchangeStatusCliHandler`) CLI entry points, so the two never drift."""
+(`ExchangeStatusCliHandler`) CLI entry points, so the two never drift.
+
+`EPIC-038B` — this file no longer builds a string. It describes the rows
+(`exchange_status_layout`) and `TextReportRenderer` turns them into the same
+bytes as before (`tests/unit/presentation/cli/golden/`); `--json` renders the
+payload (`exchange_status_payload.py`) of the same status from the same
+`Report`, so the two views cannot disagree."""
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.report import (
+    Report,
+    ReportCell,
+    ReportRow,
+    ReportSection,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
@@ -14,13 +26,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
+    TextReportRenderer,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
+
+#: The label column of the aligned rows: a label is padded to this, then one
+#: space, then the value column. Both are the widths the hand-built strings used.
+_LABEL_WIDTH = 17
+_VALUE_WIDTH = 25
 
 #: python-binance's own default `recvWindow` — matches what
 #: `FuturesSessionFactory.create_trading_client()` implicitly uses (no
 #: override is passed), so this is the real threshold a request would be
 #: judged against, not an arbitrary display cutoff.
-_RECV_WINDOW_MS = 5000
+RECV_WINDOW_MS = 5000
 
 _FAILURE_GUIDANCE = EnumLabels(
     ConnectionFailureKind,
@@ -112,22 +132,46 @@ def _require_failure_kind(status: ExchangeConnectionStatus) -> ConnectionFailure
     return status.failure
 
 
-def format_exchange_connection_status(status: ExchangeConnectionStatus) -> str:
+def _rows(*lines: str) -> tuple[ReportSection, ...]:
+    return (ReportSection(None, tuple(ReportRow.of(line) for line in lines)),)
+
+
+def _aligned(label: str, value: str, trailer: str | None = None) -> ReportRow:
+    """`label`, `value` and an optional trailing cell in the fixed columns."""
+    cells = [ReportCell(label, _LABEL_WIDTH), ReportCell(value, _VALUE_WIDTH)]
+    if trailer is not None:
+        cells.append(ReportCell(trailer))
+    return ReportRow(tuple(cells))
+
+
+def exchange_status_layout(
+    status: ExchangeConnectionStatus,
+) -> tuple[ReportSection, ...]:
     if status.failure is not None and not status.reachable:
-        return _format_unreachable(status)
+        return _layout_unreachable(status)
     if status.failure is not None:
-        return _format_reachable_with_failure(status)
-    return _format_success(status)
+        return _layout_reachable_with_failure(status)
+    return _layout_success(status)
 
 
-def _format_unreachable(status: ExchangeConnectionStatus) -> str:
+def format_exchange_connection_status(status: ExchangeConnectionStatus) -> str:
+    """The text report, for the interactive shell and the tests that pin it."""
+    return TextReportRenderer().render(
+        Report("exchange-status", 1, {}, exchange_status_layout(status))
+    )
+
+
+def _layout_unreachable(status: ExchangeConnectionStatus) -> tuple[ReportSection, ...]:
     kind = _require_failure_kind(status)
-    lines = [f"Venue: {status.venue.name}   Connection: ✘  {kind.name}"]
-    lines.append(f"→ {_guidance_for(status, kind)}")
-    return "\n".join(lines)
+    return _rows(
+        f"Venue: {status.venue.name}   Connection: ✘  {kind.name}",
+        f"→ {_guidance_for(status, kind)}",
+    )
 
 
-def _format_reachable_with_failure(status: ExchangeConnectionStatus) -> str:
+def _layout_reachable_with_failure(
+    status: ExchangeConnectionStatus,
+) -> tuple[ReportSection, ...]:
     """Reachable, but a later check (Hedge Mode) blocks trade-readiness —
     show what was actually learned, then the guidance."""
     kind = _require_failure_kind(status)
@@ -135,12 +179,12 @@ def _format_reachable_with_failure(status: ExchangeConnectionStatus) -> str:
     if status.usdt_balance is not None:
         lines.append(f"USDT balance: {status.usdt_balance:,.2f}")
     lines.append(f"→ {_guidance_for(status, kind)}")
-    return "\n".join(lines)
+    return _rows(*lines)
 
 
-def _format_success(status: ExchangeConnectionStatus) -> str:
+def _layout_success(status: ExchangeConnectionStatus) -> tuple[ReportSection, ...]:
     if status.venue.market_type is MarketType.SPOT:
-        return _format_spot_success(status)
+        return _layout_spot_success(status)
 
     skew = status.server_time_skew_ms
     skew_text = "?" if skew is None else f"{skew:+d} ms"
@@ -148,9 +192,9 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
         ""
         if skew is None
         else (
-            f"(recvWindow {_RECV_WINDOW_MS} ms → safe)"
-            if abs(skew) < _RECV_WINDOW_MS
-            else f"(recvWindow {_RECV_WINDOW_MS} ms → WARNING, may hit -1021)"
+            f"(recvWindow {RECV_WINDOW_MS} ms → safe)"
+            if abs(skew) < RECV_WINDOW_MS
+            else f"(recvWindow {RECV_WINDOW_MS} ms → WARNING, may hit -1021)"
         )
     )
     position_mode_text = (
@@ -169,29 +213,39 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
     upnl_text = "?" if futures is None else f"{futures.unrealized_pnl:+,.2f}"
     # `EPIC-028O` — in Multi-Assets mode the figure counts every margin
     # asset, in USD; labelling it USDT would misstate it. The label keeps the
-    # column width, and one more line names the mode (PR #304 review,
+    # column width, and one more row names the mode (PR #304 review,
     # finding 6).
     multi_assets = futures is not None and futures.asset_mode is AssetMode.MULTI_ASSETS
-    available_label = "Available (USD): " if multi_assets else "Available (USDT):"
-    asset_mode_lines = (
-        ["Asset mode:       MULTI_ASSETS (every margin asset, in USD)"]
+    available_label = "Available (USD):" if multi_assets else "Available (USDT):"
+    asset_mode_rows = (
+        [
+            ReportRow(
+                (
+                    ReportCell("Asset mode:", _LABEL_WIDTH),
+                    ReportCell("MULTI_ASSETS (every margin asset, in USD)"),
+                )
+            )
+        ]
         if multi_assets
         else []
     )
 
-    return "\n".join(
-        [
-            f"Venue:            {status.venue.name:<25} Connection: ✔",
-            f"Clock skew:       {skew_text:<25} {skew_safety}",
-            f"Position mode:    {position_mode_text:<25} Margin type: {margin_type_text}",
-            f"Wallet (USDT):    {balance_text:<25} Open positions: {open_positions_text}",
-            f"{available_label} {available_text:<25} Unrealized PnL: {upnl_text}",
-            *asset_mode_lines,
-        ]
+    rows = (
+        _aligned("Venue:", status.venue.name, "Connection: ✔"),
+        _aligned("Clock skew:", skew_text, skew_safety),
+        _aligned(
+            "Position mode:", position_mode_text, f"Margin type: {margin_type_text}"
+        ),
+        _aligned(
+            "Wallet (USDT):", balance_text, f"Open positions: {open_positions_text}"
+        ),
+        _aligned(available_label, available_text, f"Unrealized PnL: {upnl_text}"),
+        *asset_mode_rows,
     )
+    return (ReportSection(None, rows),)
 
 
-def _format_spot_success(status: ExchangeConnectionStatus) -> str:
+def _layout_spot_success(status: ExchangeConnectionStatus) -> tuple[ReportSection, ...]:
     """`EPIC-027H` — Spot has no position mode/margin type to show, and a
     list of per-asset holdings instead of one USDT wallet figure. `?` for
     `equity` means "not available" (`SpotAccountReader` never guesses a
@@ -201,19 +255,21 @@ def _format_spot_success(status: ExchangeConnectionStatus) -> str:
     balance_text = "?" if status.usdt_balance is None else f"{status.usdt_balance:,.2f}"
     equity_text = "?" if status.equity is None else f"{status.equity:,.2f}"
 
-    lines = [
-        f"Venue:            {status.venue.name:<25} Connection: ✔",
-        f"Clock skew:       {skew_text:<25}",
-        f"USDT balance:     {balance_text:<25} Equity (USDT): {equity_text}",
-        "Holdings:",
+    rows = [
+        _aligned("Venue:", status.venue.name, "Connection: ✔"),
+        _aligned("Clock skew:", skew_text),
+        _aligned("USDT balance:", balance_text, f"Equity (USDT): {equity_text}"),
+        ReportRow.of("Holdings:"),
     ]
     holdings = [
         h for h in (status.holdings or ()) if h.asset != "USDT" and not h.is_dust
     ]
     if not holdings:
-        lines.append("  (none above dust threshold)")
+        rows.append(ReportRow.of("  (none above dust threshold)"))
     for holding in holdings:
-        lines.append(
-            f"  {holding.asset:<10} free {holding.free}  locked {holding.locked}"
+        rows.append(
+            ReportRow.of(
+                f"  {holding.asset:<10} free {holding.free}  locked {holding.locked}"
+            )
         )
-    return "\n".join(lines)
+    return (ReportSection(None, tuple(rows)),)

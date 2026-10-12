@@ -1,0 +1,2 @@
+Venue: FUTURES_TESTNET   Connection: ✘  NETWORK
+→ Could not connect to the exchange. Check your network/proxy and try again.

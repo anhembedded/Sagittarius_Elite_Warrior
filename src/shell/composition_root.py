@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
+    IReportFormats,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -84,6 +87,7 @@ from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -302,6 +306,11 @@ def create_app(
     for module in modules:
         module.declare_cli(cli_registry)
     container.singleton(ICliCommandTable, cli_registry)
+
+    # `EPIC-038B` — the output formats a report command offers (`--json`,
+    # `--format`). A new format is one `register` call on this object; no
+    # command and no parser changes.
+    container.singleton(IReportFormats, ReportFormats.default())
 
     # `HealthCheckQuery`'s container sweep (engine `health_check_query.py`)
     # only finds what each bounded context's own `register()` already bound —

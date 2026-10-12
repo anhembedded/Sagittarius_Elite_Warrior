@@ -13,4 +13,9 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_no_module_depends_on_operations.py",
         (("src", "*.py"),),
     ),
+    # `EPIC-038B` (D7) — the command-line host imports no domain or module code.
+    (
+        "tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py",
+        (("src/support/cli_host", "*.py"),),
+    ),
 )

@@ -91,8 +91,10 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | none (a boundary) | Accepted; nothing to deliver | this record; [`EPIC-038` README](README.md) §5 |
-| D2 | 038B, 038C, 038I | Not started | Not yet verified |
-| D3 | 038B, 038D, 038E, 038F | Not started | Not yet verified |
+| D2 | 038B, 038C, 038I | 038B done | `--json`/`--format` and the exit codes ride the existing `cli_commands.json` and `declare_cli`; a declared handler runs without an edit to `main.py` (`test_a_command_a_module_declares_runs_without_an_edit_here`) |
+| D3 | 038B, 038D, 038E, 038F | 038B done (the output-format case) | `test_a_new_renderer_registers_without_editing_a_command` |
+| D7 | 038B | Done | `src/support/cli_host/` and `tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py` (allowlist, eleven planted-import mutations) |
+| D8 | 038B | Done | `src/main.py`; `test_a_bare_main_prints_help_and_exits_two`, `test_a_bare_invocation_prints_the_help_and_exits_two`; `run.ps1 -CLI` passes `shell` |
 | D4 | 038G, 038D, 038F | Started: 038G created the minimal `operations` module (id, no hooks; health line format, `HostState`), PR #467 | `src/modules/operations/`; `test_module_declarations.py` |
 | D5 | 038C | Not started | Not yet verified |
 | D6 | 038A | Delivered (PR #465) | `create_app` boots with PySide6 blocked: `tests/sanity/test_the_app_boots_without_pyside6.py` |
