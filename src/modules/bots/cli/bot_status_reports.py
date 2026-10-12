@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     ReportSection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    RECORDED_STATES_NOTE,
     BotStatusEntry,
     BotStatusReport,
     UnreadableBotEntry,
@@ -27,6 +28,12 @@ SCHEMA_VERSION = 1
 
 _NAME_WIDTH = 24
 _STATE_WIDTH = 10
+
+
+def _recorded_note(status: BotStatusReport) -> tuple[ReportSection, ...]:
+    if status.app_running or status.is_empty:
+        return ()
+    return (ReportSection(None, (ReportRow.of(RECORDED_STATES_NOTE),)),)
 
 
 def bot_list_report(status: BotStatusReport) -> Report:
@@ -50,13 +57,13 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
-    return (ReportSection(None, tuple(rows)),)
+    return (*_recorded_note(status), ReportSection(None, tuple(rows)))
 
 
 def _show_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     sections = [_bot_section(bot) for bot in status.bots]
     sections += [_unreadable_section(bot) for bot in status.unreadable]
-    return tuple(sections)
+    return (*_recorded_note(status), *sections)
 
 
 def _row(

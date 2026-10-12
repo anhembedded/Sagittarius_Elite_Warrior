@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import (
     ListBotsVerb,
     ShowBotVerb,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    RECORDED_STATES_NOTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -30,10 +33,11 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers impor
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
     BOTS_DIRECTORY,
     BotQueryDispatcher,
+    HeldProbe,
 )
 
 _PRINTER = ReportPrinter(ReportFormats.default())
-_LIST_KEYS = {"bots", "unreadable", "counts"}
+_LIST_KEYS = {"app_running", "bots", "unreadable", "counts"}
 _BOT_KEYS = {
     "bot_id", "name", "kind", "venue", "symbol", "state", "reason",
     "run_started_at", "health",
@@ -41,12 +45,12 @@ _BOT_KEYS = {
 _UNREADABLE_KEYS = {"bot_id", "state", "path", "reason"}
 
 
-def _world() -> BotQueryDispatcher:
+def _world(held: bool = True) -> BotQueryDispatcher:
     store = FakeBotStore()
     seed(store, "aaaaaa", BotLifecycleState.RUNNING)
     seed(store, "bbbbbb", BotLifecycleState.HALTED)
     store.refuse_file(BotId("dddddd"), "not valid JSON")
-    return BotQueryDispatcher(store)
+    return BotQueryDispatcher(store, HeldProbe(held))
 
 
 def _args(**values: object) -> argparse.Namespace:
@@ -131,3 +135,29 @@ def test_an_unknown_id_exits_two_with_a_plain_message(
 
 def test_the_verbs_are_a_table_not_a_chain() -> None:
     assert [verb.name for verb in BOT_VERBS] == ["list", "show"]
+
+
+def test_with_no_copy_running_the_text_says_the_states_are_only_recorded(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ListBotsVerb().run(_args(json=False), _world(held=False), _PRINTER)
+
+    out = capsys.readouterr().out
+    assert RECORDED_STATES_NOTE in out
+    assert out.index(RECORDED_STATES_NOTE) < out.index("aaaaaa")
+
+
+def test_with_no_copy_running_the_json_carries_the_same_fact(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ShowBotVerb().run(_args(bot_id="aaaaaa"), _world(held=False), _PRINTER)
+
+    assert json.loads(capsys.readouterr().out)["data"]["app_running"] is False
+
+
+def test_with_a_copy_running_the_states_are_not_qualified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    ListBotsVerb().run(_args(json=False), _world(held=True), _PRINTER)
+
+    assert RECORDED_STATES_NOTE not in capsys.readouterr().out

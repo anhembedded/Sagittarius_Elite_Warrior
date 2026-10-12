@@ -8,7 +8,7 @@ the bot may own orders, and its file is the only record of them.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import cast
 
@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
+    IInstanceProbe,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
 )
@@ -52,12 +55,20 @@ class GetBotStatusReportQueryHandler(
     """The status of every bot, or of the one named."""
 
     def __init__(
-        self, dispatcher: ICommandDispatcher, directory: BotsStateDirectory
+        self,
+        dispatcher: ICommandDispatcher,
+        directory: BotsStateDirectory,
+        probe: IInstanceProbe,
     ) -> None:
         self._dispatcher = dispatcher
         self._directory = directory
+        self._probe = probe
 
     def execute(self, query: GetBotStatusReportQuery) -> BotStatusReport:
+        report = self._report(query)
+        return replace(report, app_running=self._probe.is_held())
+
+    def _report(self, query: GetBotStatusReportQuery) -> BotStatusReport:
         if query.bot_id is None:
             return self._report_of(self._list())
         snapshot = cast(

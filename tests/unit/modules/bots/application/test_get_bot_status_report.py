@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers impor
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
     BOTS_DIRECTORY,
     BotQueryDispatcher,
+    HeldProbe,
 )
 
 
@@ -106,3 +107,15 @@ def test_health_stays_empty_until_the_bot_health_snapshot_exists() -> None:
     _, dispatcher = _seeded()
 
     assert all(dict(bot.health) == {} for bot in _report(dispatcher).bots)
+
+
+def test_the_report_says_whether_a_copy_of_the_app_is_running() -> None:
+    store = FakeBotStore()
+    seed(store, "aaaaaa", BotLifecycleState.RUNNING)
+    for held in (True, False):
+        report = BotQueryDispatcher(store, HeldProbe(held)).dispatch(
+            GetBotStatusReportQuery, GetBotStatusReportQuery()
+        )
+        assert isinstance(report, BotStatusReport)
+        assert report.app_running is held
+        assert report.payload()["app_running"] is held

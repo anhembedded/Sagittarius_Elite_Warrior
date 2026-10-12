@@ -11,6 +11,12 @@ Plain, frozen and JSON-ready: a script's `--json` is `payload()` of this report,
 so a field here is a field in the contract with scripts. It holds no account
 balance, no profit and no credential (`test_the_status_payloads_hold_no_secret`).
 
+@par `state` is a record, not a measurement
+Bot states come from the bots' files. While a copy of the app is running they are
+kept current; with none running they are what the last copy left, so a bot can
+read `RUNNING` and trade nowhere. `app_running` says which of the two a reader
+holds, and the text views say so in words.
+
 @par `health` stays empty until `EPIC-035W` exists
 and then carries that task's per-bot snapshot unchanged, under whatever keys it
 defines. `status` does not interpret it.
@@ -28,6 +34,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
 #: The `state` of a bot whose file this build cannot read. Not a lifecycle
 #: state: the bot may well be running, and the file is the only record of it.
 UNREADABLE_STATE = "unreadable"
+
+#: Said above any list of states when no copy of the app is running.
+RECORDED_STATES_NOTE = (
+    "No copy of the app is running: these are the states recorded in the bot "
+    "files, not live (a bot shown as RUNNING is running nowhere)."
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +106,11 @@ class BotStatusReport:
 
     bots: tuple[BotStatusEntry, ...] = ()
     unreadable: tuple[UnreadableBotEntry, ...] = ()
+    #: Whether some copy of the app holds the data root. When it is `False` the
+    #: `state` of every bot is only what its file *recorded* when the last copy
+    #: stopped (a bot may say `RUNNING` and be running nowhere); a reader that
+    #: acts on `state` must read this first.
+    app_running: bool = True
 
     @property
     def is_empty(self) -> bool:
@@ -110,6 +127,7 @@ class BotStatusReport:
 
     def payload(self) -> dict[str, JsonValue]:
         return {
+            "app_running": self.app_running,
             "bots": [bot.payload() for bot in self.bots],
             "unreadable": [bot.payload() for bot in self.unreadable],
         }

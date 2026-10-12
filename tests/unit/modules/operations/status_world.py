@@ -132,7 +132,7 @@ class HostStatusDispatcher(ICommandDispatcher):
     def __init__(
         self, probe: IInstanceProbe, source: IHealthSnapshotSource, bots: FakeBotStore
     ) -> None:
-        self._bots = BotQueryDispatcher(bots)
+        self._bots = BotQueryDispatcher(bots, probe)
         self._status = GetHostStatusQueryHandler(
             probe, source, self._bots, FixedClock()
         )

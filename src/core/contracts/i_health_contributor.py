@@ -12,7 +12,8 @@ licence: a contributor answers from what it already holds (a recorder fed by
 events, a file it can read in microseconds), never from a network call.
 
 **What a section may hold.** Counts, ages, state names and ids. No credential, no
-account balance, no profit: the file is read by anyone who can read the data
+account balance, no profit or PnL, no listen key (a bearer credential for the
+user-data stream): the file is read by anyone who can read the data
 root, and a monitor may ship it elsewhere. The publisher refuses a section that
 names such a key.
 

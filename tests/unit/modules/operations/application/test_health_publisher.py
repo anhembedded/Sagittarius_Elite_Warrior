@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from collections.abc import Mapping
 from datetime import timedelta
@@ -14,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_sink import (
+    REPLACE_ATTEMPTS,
     FileHealthSnapshotSink,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
@@ -292,3 +294,76 @@ def test_a_failed_write_is_logged_and_does_not_stop_the_host(
         publishing.tick()
 
     assert caplog.text.count("[health-snapshot] could not write") == 2
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["profit", "unrealized_pnl", "realizedPnL", "listenKey", "listen_key", "Equity"],
+)
+def test_the_money_and_session_keys_the_port_promises_to_refuse_are_refused(
+    key: str,
+) -> None:
+    publisher, _ = _publisher(FixedContributor("trading", {"venue": {key: 1}}))
+
+    assert is_unavailable(publisher.publish(HostState.SERVING).sections["trading"])
+
+
+def test_the_rename_is_retried_while_a_reader_holds_the_file_open(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "health.json"
+    refusals = {"left": 3}
+    renamed: list[Path] = []
+    pauses: list[float] = []
+
+    def refuse_while_a_reader_has_it_open(source: Path, target: Path) -> None:
+        if refusals["left"]:
+            refusals["left"] -= 1
+            raise PermissionError(13, "The process cannot access the file")
+        renamed.append(target)
+        os.replace(source, target)
+
+    sink = FileHealthSnapshotSink(
+        path, replace=refuse_while_a_reader_has_it_open, sleep=pauses.append
+    )
+    publisher = HealthPublisher(
+        FixedContributors(),
+        sink,
+        HealthSectionCollector(_DEADLINE_S),
+        FixedClock(),
+        _IDENTITY,
+    )
+
+    publisher.publish(HostState.SERVING)
+
+    assert renamed == [path]
+    assert len(pauses) == 3
+    assert FileHealthSnapshotSource(path).read() is not None
+
+
+def test_a_reader_that_never_lets_go_is_reported_after_the_bounded_retries(
+    tmp_path: Path,
+) -> None:
+    attempts: list[int] = []
+    pauses: list[float] = []
+
+    def always_refuse(source: Path, target: Path) -> None:
+        attempts.append(1)
+        raise PermissionError(13, "in use")
+
+    sink = FileHealthSnapshotSink(
+        tmp_path / "health.json", replace=always_refuse, sleep=pauses.append
+    )
+    publisher = HealthPublisher(
+        FixedContributors(),
+        sink,
+        HealthSectionCollector(_DEADLINE_S),
+        FixedClock(),
+        _IDENTITY,
+    )
+
+    with pytest.raises(PermissionError):
+        publisher.publish(HostState.SERVING)
+
+    assert len(attempts) == REPLACE_ATTEMPTS
+    assert len(pauses) == REPLACE_ATTEMPTS - 1

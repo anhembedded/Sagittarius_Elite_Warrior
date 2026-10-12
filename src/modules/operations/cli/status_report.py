@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     ReportRow,
     ReportSection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    RECORDED_STATES_NOTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.application.queries.get_host_status import (
     HostStatus,
 )
@@ -104,7 +107,10 @@ def _layout(status: HostStatus) -> tuple[ReportSection, ...]:
                 ),
             )
         )
-    sections.append(ReportSection("Bots", (_field("Count", _counts(status)),)))
+    bot_rows = [_field("Count", _counts(status))]
+    if not status.bots.app_running and not status.bots.is_empty:
+        bot_rows.append(_field("Note", RECORDED_STATES_NOTE))
+    sections.append(ReportSection("Bots", tuple(bot_rows)))
     return tuple(sections)
 
 

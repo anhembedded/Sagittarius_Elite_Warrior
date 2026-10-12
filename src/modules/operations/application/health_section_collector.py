@@ -43,6 +43,10 @@ FORBIDDEN_KEY_PARTS = (
     "token",
     "balance",
     "equity",
+    "profit",
+    "pnl",
+    "listenkey",
+    "listen_key",
 )
 
 

@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
+    IInstanceProbe,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
     GetBotQueryHandler,
@@ -35,16 +38,28 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store
 BOTS_DIRECTORY = Path("/data/state/bots")
 
 
+class HeldProbe(IInstanceProbe):
+    """Whether some copy holds the data root, as the test says."""
+
+    def __init__(self, held: bool = True) -> None:
+        self.held = held
+
+    def is_held(self) -> bool:
+        return self.held
+
+
 class BotQueryDispatcher(ICommandDispatcher):
     """Routes the three bot reads to their real handlers; records what was asked."""
 
-    def __init__(self, store: FakeBotStore) -> None:
+    def __init__(
+        self, store: FakeBotStore, probe: IInstanceProbe | None = None
+    ) -> None:
         self.asked: list[type] = []
         self._handlers: dict[type, IQueryHandler] = {
             ListBotsQuery: ListBotsQueryHandler(store),
             GetBotQuery: GetBotQueryHandler(store),
             GetBotStatusReportQuery: GetBotStatusReportQueryHandler(
-                self, BotsStateDirectory(BOTS_DIRECTORY)
+                self, BotsStateDirectory(BOTS_DIRECTORY), probe or HeldProbe()
             ),
         }
 

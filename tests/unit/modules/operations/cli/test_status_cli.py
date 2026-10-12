@@ -7,6 +7,9 @@ import json
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    RECORDED_STATES_NOTE,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.status_cli_handler import (
     run_status,
 )
@@ -27,7 +30,8 @@ _HOST_KEYS = {
     "app_version", "started_at", "written_at", "interval_s",
 }  # fmt: skip
 _PAYLOAD_KEYS = {
-    "host", "sections", "unavailable_sections", "bots", "unreadable", "counts",
+    "host", "sections", "unavailable_sections", "app_running", "bots", "unreadable",
+    "counts",
 }  # fmt: skip
 _UNAVAILABLE = {"status": "unavailable", "reason": "raised ValueError"}
 
@@ -148,3 +152,13 @@ def test_watch_refuses_an_interval_below_one_second(
 
     assert code is ExitCode.USAGE
     assert out == ""
+
+
+def test_status_text_says_the_bot_states_are_recorded_when_no_host_runs(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _, out = _run(False, StubSource(None), capsys, json=False)
+
+    assert RECORDED_STATES_NOTE in out
+    _, running = _run(True, StubSource(snapshot_aged(1)), capsys, json=False)
+    assert RECORDED_STATES_NOTE not in running
