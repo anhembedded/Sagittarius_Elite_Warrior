@@ -20,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
@@ -35,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 
 _START_TIMEOUT_SECONDS = 5.0
@@ -118,7 +118,7 @@ def main() -> None:
                 ConfigKeys.DATABASE_DIR.value: db_dir,
             }
         )
-        engine = create_app(config)
+        engine = create_gui_app(config)
         engine.boot()
         exchange = _BlockingExchangeClient()
         engine.container.singleton(IExchangeClient, exchange)

@@ -224,7 +224,7 @@ def create_app(
     # a screen. `EPIC-008G`'s answer was a Qt feed constructed *by a screen*, and
     # no screen ever constructed it: a UI slot that raised and a background task
     # that died still reached nobody. This one hears the background task; the UI
-    # slot's event has a Qt type, so `add_gui_wiring` (`presentation/ui/`)
+    # slot's event has a Qt type, so `add_gui_wiring` (`shell/gui_wiring.py`)
     # subscribes to it for the GUI entry point only (`EPIC-038A`). Registered as
     # a singleton so the graph owns it — `bus.on()` alone would keep it alive
     # through the bound handler, which is a lifetime nobody reading this file

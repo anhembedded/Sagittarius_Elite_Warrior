@@ -20,8 +20,8 @@ engine's own `DependencyValidatorExtension`.
 needs PySide6 — on a machine without it the lookup failed and this reported the
 engine as *stale*, the misleading diagnosis it exists to prevent. So the GUI
 wiring registers it (`shell/gui_wiring.py`); the shared composition
-does not. A capability the headless path itself depends on goes into a second
-list, checked by a registration in `create_app`.
+does not. A capability the headless path itself would depend on would go into a
+second list, checked by a registration in `create_app`; none exists today.
 """
 
 from __future__ import annotations

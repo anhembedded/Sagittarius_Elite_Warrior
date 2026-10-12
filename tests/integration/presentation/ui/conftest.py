@@ -27,7 +27,6 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         item.add_marker(marker)
 
 
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -74,6 +73,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     SEEDED_SYMBOLS,
@@ -190,7 +190,7 @@ def app_engine(
     if dev_mode:
         config_manager.load_dict({"dev.mode": True})
 
-    engine = create_app(config_manager)
+    engine = create_gui_app(config_manager)
 
     def mock_dispatch(command_type, command_obj):
         # `ArmStrategyCommandHandler`/`DisarmStrategyCommandHandler` are run

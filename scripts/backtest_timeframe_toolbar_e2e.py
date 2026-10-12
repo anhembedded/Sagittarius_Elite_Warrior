@@ -28,7 +28,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
@@ -39,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
     RangeCoverageSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 
 _SYMBOL = "BTCUSDT"
 _CANDLE_COUNT = 240
@@ -256,7 +256,7 @@ def main() -> None:
         app = QApplication.instance() or QApplication([])
         app.setQuitOnLastWindowClosed(False)
         with tempfile.TemporaryDirectory(prefix="sagittarius-timeframe-e2e-") as db_dir:
-            engine = create_app(_load_config(project_root, db_dir))
+            engine = create_gui_app(_load_config(project_root, db_dir))
             engine.boot()
             seeded_klines = _make_klines(_INITIAL_INTERVAL) + _make_klines(
                 _REQUESTED_INTERVAL

@@ -1,6 +1,7 @@
 """A UI slot raised: normalise the event and hand it to the failure sinks.
 
-`EPIC-038A` moved this out of the shell. `UiActionFailedEvent` comes from the
+`EPIC-038A` moved this out of the shared composition (`composition_root.py`,
+`SystemFailureLog`, `NotificationEventHandler`). `UiActionFailedEvent` comes from the
 Engine's `pyside_mvc` package, whose `__init__` imports the Qt runtime, so
 anything that names it needs PySide6 installed. The shared composition
 (`shell/composition_root.py`) is what a process with no window builds, so the

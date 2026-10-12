@@ -10,7 +10,7 @@ Qt installed.
 **What it enforces.** Starting from `src/shell/composition_root.py` and
 `src/main.py`, it follows every module-level import that resolves to a file in
 this checkout, plus each package's `__init__.py` on the way (importing `a.b.c`
-runs `a/__init__` and `a/b/__init__`), and fails on a module-level import of
+runs `a/__init__` and `a/b/__init__`), resolving a relative import (`from .handler import X`) against the importing file's package so the handlers that use them are walked too, and fails on a module-level import of
 `PySide6`, `shiboken6`, `pyqtgraph` or `sagittarius_engine.extensions.pyside_mvc`.
 Imports under `if TYPE_CHECKING:` and inside a function body are not module-level
 imports; the three `core/contracts` files that name `QWidget` that way are the
@@ -60,9 +60,10 @@ _MIN_MODULES = 150
 
 @dataclass(frozen=True)
 class _Import:
-    module: str
+    module: str  # empty for `from . import x`
     names: tuple[str, ...]
     line: int
+    level: int = 0  # leading dots of a relative import
 
 
 def _is_type_checking(test: ast.expr) -> bool:
@@ -78,9 +79,14 @@ def _module_level_imports(statements: list[ast.stmt]) -> list[_Import]:
     for node in statements:
         if isinstance(node, ast.Import):
             found.extend(_Import(a.name, (), node.lineno) for a in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+        elif isinstance(node, ast.ImportFrom) and (node.level > 0 or node.module):
             found.append(
-                _Import(node.module, tuple(a.name for a in node.names), node.lineno)
+                _Import(
+                    node.module or "",
+                    tuple(a.name for a in node.names),
+                    node.lineno,
+                    node.level,
+                )
             )
         elif isinstance(node, ast.If):
             if not _is_type_checking(node.test):
@@ -100,26 +106,37 @@ def _is_banned(module: str) -> bool:
     return any(module == b or module.startswith(b + ".") for b in _BANNED)
 
 
-def _file_of(dotted: str) -> Path | None:
+def _absolute(imported: _Import, importing_file: Path, root: Path) -> str:
+    """The dotted name `imported` names, resolving leading dots against the
+    package of `importing_file` (its directory, for a module and an `__init__`
+    alike)."""
+    if imported.level == 0:
+        return imported.module
+    package = [_PACKAGE, *importing_file.parent.relative_to(root).parts]
+    base = package[: len(package) - (imported.level - 1)]
+    return ".".join([*base, imported.module] if imported.module else base)
+
+
+def _file_of(dotted: str, root: Path) -> Path | None:
     """The file a first-party dotted module name resolves to, else None."""
     prefix = _PACKAGE + "."
     if not dotted.startswith(prefix):
         return None
     relative = Path(*dotted[len(prefix) :].split("."))
-    as_module = _REPO_ROOT / relative.with_suffix(".py")
+    as_module = root / relative.with_suffix(".py")
     if as_module.is_file():
         return as_module
-    as_package = _REPO_ROOT / relative / "__init__.py"
+    as_package = root / relative / "__init__.py"
     return as_package if as_package.is_file() else None
 
 
-def _with_parent_packages(dotted: str) -> list[Path]:
+def _with_parent_packages(dotted: str, root: Path) -> list[Path]:
     """The files importing `dotted` executes: each ancestor package's
     `__init__.py`, then the module itself."""
     parts = dotted.split(".")
     files: list[Path] = []
     for end in range(2, len(parts) + 1):
-        target = _file_of(".".join(parts[:end]))
+        target = _file_of(".".join(parts[:end]), root)
         if target is not None:
             files.append(target)
     return files
@@ -127,9 +144,13 @@ def _with_parent_packages(dotted: str) -> list[Path]:
 
 def _reachable_files() -> tuple[set[Path], list[str]]:
     """Every file the roots import at module level, and the banned imports met."""
+    return _walk([_REPO_ROOT / root for root in _ROOTS], _REPO_ROOT)
+
+
+def _walk(roots: list[Path], repo: Path) -> tuple[set[Path], list[str]]:
     seen: set[Path] = set()
     violations: list[str] = []
-    queue: deque[Path] = deque(_REPO_ROOT / root for root in _ROOTS)
+    queue: deque[Path] = deque(roots)
     while queue:
         path = queue.popleft()
         if path in seen:
@@ -137,16 +158,41 @@ def _reachable_files() -> tuple[set[Path], list[str]]:
         seen.add(path)
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for imported in _module_level_imports(tree.body):
-            where = f"{path.relative_to(_REPO_ROOT).as_posix()}:{imported.line}"
-            if _is_banned(imported.module):
-                violations.append(f"{where} imports {imported.module}")
+            where = f"{path.relative_to(repo).as_posix()}:{imported.line}"
+            absolute = _absolute(imported, path, repo)
+            if _is_banned(absolute):
+                violations.append(f"{where} imports {absolute}")
                 continue
-            candidates = [imported.module] + [
-                f"{imported.module}.{name}" for name in imported.names
-            ]
+            candidates = [absolute] + [f"{absolute}.{name}" for name in imported.names]
             for candidate in candidates:
-                queue.extend(_with_parent_packages(candidate))
+                queue.extend(_with_parent_packages(candidate, repo))
     return seen, violations
+
+
+def test_a_relative_import_is_followed() -> None:
+    """The handlers under `modules/*/application/**` reach each other only
+    through `from .handler import ...`; a walk that skips them scans a seventh
+    of the path less than it claims. Probe: this file reaches one of them."""
+    reached, _ = _reachable_files()
+    handlers = [p for p in reached if p.name == "handler.py"]
+    assert handlers, "no `handler.py` reached: relative imports are not followed"
+
+
+def test_a_relative_import_of_a_qt_importing_module_is_a_violation(
+    tmp_path: Path,
+) -> None:
+    """Mutation, kept as a test, on a throwaway tree named like the checkout: a
+    relative import resolves to the module it names, and that module's own
+    banned import is then reported with its file and line."""
+    package = tmp_path / _PACKAGE / "src" / "shell"
+    package.mkdir(parents=True)
+    importer = package / "importer.py"
+    importer.write_text("from .qt_module import X\n", encoding="utf-8")
+    (package / "qt_module.py").write_text("import PySide6\nX = 1\n", encoding="utf-8")
+
+    _, found = _walk([importer], tmp_path / _PACKAGE)
+
+    assert found == ["src/shell/qt_module.py:1 imports PySide6"], found
 
 
 def test_the_walk_has_a_subject() -> None:
