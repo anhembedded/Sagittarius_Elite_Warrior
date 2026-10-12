@@ -63,12 +63,19 @@ def _stream_says(app: BootedApp, state: UserStreamState, since_ago: int = 0) -> 
 
 
 def _the_watch(app: BootedApp) -> UserStreamWatch:
-    [handler] = app.engine.context.event_bus.subscriptions()[
+    # Other contexts listen to the same event (the health snapshot's trading
+    # section, `EPIC-038C`), so the watch is picked by what it is, and there
+    # must be exactly one of it.
+    handlers = app.engine.context.event_bus.subscriptions()[
         UserStreamHealthEvent.__name__
     ]
-    watch = handler.__self__
-    assert isinstance(watch, UserStreamWatch)
-    return watch
+    watches = [
+        handler.__self__
+        for handler in handlers
+        if isinstance(getattr(handler, "__self__", None), UserStreamWatch)
+    ]
+    assert len(watches) == 1, f"expected one UserStreamWatch among {handlers}"
+    return watches[0]
 
 
 def test_a_fill_missed_while_the_stream_was_down_places_its_counter_on_reconnect(
