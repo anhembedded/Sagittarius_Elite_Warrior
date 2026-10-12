@@ -213,7 +213,9 @@ def test_boot_schedules_each_venues_market_and_summary_refreshes() -> None:
     container.resolve(VenueSessionStates).session_state(_FUTURES).enable(set())
     container.resolve(VenueSessionStates).session_state(_SPOT).enable(set())
 
-    TradingModule().boot(SimpleNamespace(container=container))
+    TradingModule().boot(
+        SimpleNamespace(container=container, event_bus=container.resolve(IEventBus))
+    )
     for job in scheduler.jobs:
         job.fn()
 
@@ -233,7 +235,9 @@ def test_after_boot_a_fill_refreshes_its_own_venues_summary_on_a_worker() -> Non
     container.singleton(Scheduler, _RecordingScheduler())
     container.resolve(VenueSessionStates).session_state(_FUTURES).enable(set())
     container.resolve(VenueSessionStates).session_state(_SPOT).enable(set())
-    TradingModule().boot(SimpleNamespace(container=container))
+    TradingModule().boot(
+        SimpleNamespace(container=container, event_bus=container.resolve(IEventBus))
+    )
 
     container.resolve(IEventBus).emit(_spot_fill())
 

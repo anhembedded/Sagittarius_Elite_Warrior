@@ -47,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    IHealthContributorTable,
     IOperationsRegistry,
     PortResolver,
     PreflightCheckDescriptor,
@@ -70,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.python_floor_chec
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.system_operations_clock import (
     SystemOperationsClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.application.declared_health_contributors import (
+    DeclaredHealthContributors,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.application.health_publisher import (
     HealthPublisher,
     HostIdentity,
@@ -79,9 +83,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.health_publish
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.health_section_collector import (
     HealthSectionCollector,
-)
-from Sagittarius_Elite_Warrior.src.modules.operations.application.no_health_contributors import (
-    NoHealthContributors,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.queries.get_host_status import (
     GetHostStatusQuery,
@@ -136,7 +137,12 @@ class OperationsModule(BoundedContextModule):
         container.singleton(
             IHealthSnapshotSink, FileHealthSnapshotSink(_snapshot_path())
         )
-        container.singleton(IHealthContributors, NoHealthContributors())
+        container.singleton(
+            IHealthContributors,
+            lambda resolver: DeclaredHealthContributors(
+                resolver.resolve(IHealthContributorTable), resolver
+            ),
+        )
         container.bind(GetHostStatusQuery, GetHostStatusQueryHandler)
 
     def declare_cli(self, registry: ICliRegistry) -> None:

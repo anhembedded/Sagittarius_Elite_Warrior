@@ -13,8 +13,14 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
+    InstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
@@ -52,14 +58,20 @@ class BotQueryDispatcher(ICommandDispatcher):
     """Routes the three bot reads to their real handlers; records what was asked."""
 
     def __init__(
-        self, store: FakeBotStore, probe: IInstanceProbe | None = None
+        self,
+        store: FakeBotStore,
+        probe: IInstanceProbe | None = None,
+        instance: IInstanceAccess | None = None,
     ) -> None:
         self.asked: list[type] = []
         self._handlers: dict[type, IQueryHandler] = {
             ListBotsQuery: ListBotsQueryHandler(store),
             GetBotQuery: GetBotQueryHandler(store),
             GetBotStatusReportQuery: GetBotStatusReportQueryHandler(
-                self, BotsStateDirectory(BOTS_DIRECTORY), probe or HeldProbe()
+                self,
+                BotsStateDirectory(BOTS_DIRECTORY),
+                probe or HeldProbe(),
+                instance or InstanceAccess.declined("a reader"),
             ),
         }
 

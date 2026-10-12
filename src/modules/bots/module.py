@@ -81,11 +81,18 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    HealthContributorDescriptor,
+    IOperationsRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
@@ -101,6 +108,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_w
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bots_health_contributor import (
+    SECTION_NAME,
+    BotsHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
     RunningBotsObjection,
@@ -252,6 +263,18 @@ class BotsModule(BoundedContextModule):
         registry.declare(
             CliCommandDescriptor(
                 name="bot", handler=BotCliHandler, contributor_id=self.module_id
+            )
+        )
+
+    def declare_operations(self, registry: IOperationsRegistry) -> None:
+        """The bots' section of the health snapshot (`EPIC-038C`): counts by state."""
+        registry.declare_health(
+            HealthContributorDescriptor(
+                SECTION_NAME,
+                lambda resolver: BotsHealthContributor(
+                    resolver.resolve(ICommandDispatcher)  # type: ignore[type-abstract]
+                ),
+                self.module_id,
             )
         )
 

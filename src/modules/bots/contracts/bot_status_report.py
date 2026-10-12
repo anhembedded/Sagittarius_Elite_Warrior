@@ -110,7 +110,7 @@ class BotStatusReport:
     #: `state` of every bot is only what its file *recorded* when the last copy
     #: stopped (a bot may say `RUNNING` and be running nowhere); a reader that
     #: acts on `state` must read this first.
-    app_running: bool = True
+    app_running: bool = False
 
     @property
     def is_empty(self) -> bool:

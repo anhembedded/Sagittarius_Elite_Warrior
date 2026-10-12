@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.health_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_state import (
     HostState,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_health_snapshot_sink import (
+    IHealthSnapshotSink,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_health_snapshot_source import (
     HealthSnapshotUnreadableError,
     IHealthSnapshotSource,
@@ -93,6 +96,14 @@ class FixedContributor(IHealthContributor):
 
     def snapshot(self) -> Mapping[str, JsonValue]:
         return self._section
+
+
+class RecordingSink(IHealthSnapshotSink):
+    def __init__(self) -> None:
+        self.published: list[HealthSnapshot] = []
+
+    def publish(self, snapshot: HealthSnapshot) -> None:
+        self.published.append(snapshot)
 
 
 class FixedContributors(IHealthContributors):

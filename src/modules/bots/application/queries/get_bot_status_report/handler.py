@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
     IInstanceProbe,
 )
@@ -59,14 +62,23 @@ class GetBotStatusReportQueryHandler(
         dispatcher: ICommandDispatcher,
         directory: BotsStateDirectory,
         probe: IInstanceProbe,
+        instance: IInstanceAccess,
     ) -> None:
         self._dispatcher = dispatcher
         self._directory = directory
         self._probe = probe
+        self._instance = instance
 
     def execute(self, query: GetBotStatusReportQuery) -> BotStatusReport:
         report = self._report(query)
-        return replace(report, app_running=self._probe.is_held())
+        return replace(report, app_running=self._a_copy_is_running())
+
+    def _a_copy_is_running(self) -> bool:
+        """A writable copy holds the data root by definition - the process asking
+        is that copy, so it need not probe its own lock (and wait out the probe's
+        confirmations). A read-only copy (a second one, or a command that declined
+        the lock) asks the lock."""
+        return (not self._instance.read_only) or self._probe.is_held()
 
     def _report(self, query: GetBotStatusReportQuery) -> BotStatusReport:
         if query.bot_id is None:

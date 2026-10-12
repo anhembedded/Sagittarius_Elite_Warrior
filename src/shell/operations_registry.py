@@ -16,6 +16,8 @@ import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ContributionError
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    HealthContributorDescriptor,
+    IHealthContributorTable,
     IOperationsRegistry,
     IPreflightCheckTable,
     PreflightCheckDescriptor,
@@ -24,11 +26,14 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
 logger = logging.getLogger("App.Shell.OperationsRegistry")
 
 
-class OperationsRegistry(IOperationsRegistry, IPreflightCheckTable):
+class OperationsRegistry(
+    IOperationsRegistry, IPreflightCheckTable, IHealthContributorTable
+):
     """Collects what every module contributes, and hands `operations` a table."""
 
     def __init__(self) -> None:
         self._preflight: dict[str, PreflightCheckDescriptor] = {}
+        self._health: dict[str, HealthContributorDescriptor] = {}
 
     # -- the module-facing side (IOperationsRegistry) ----------------------
 
@@ -47,7 +52,25 @@ class OperationsRegistry(IOperationsRegistry, IPreflightCheckTable):
             descriptor.contributor_id,
         )
 
-    # -- the operations-facing side (IPreflightCheckTable) -----------------
+    def declare_health(self, descriptor: HealthContributorDescriptor) -> None:
+        claimed = self._health.get(descriptor.name)
+        if claimed is not None:
+            raise ContributionError(
+                f"{descriptor.contributor_id!r} declared the health section "
+                f"{descriptor.name!r}, which {claimed.contributor_id!r} already "
+                "owns. A section name is a key in health.json: rename one."
+            )
+        self._health[descriptor.name] = descriptor
+        logger.debug(
+            "[health] section %r declared by %r.",
+            descriptor.name,
+            descriptor.contributor_id,
+        )
+
+    # -- the operations-facing side (the two tables) -----------------------
+
+    def health_descriptors(self) -> tuple[HealthContributorDescriptor, ...]:
+        return tuple(self._health[name] for name in sorted(self._health))
 
     def descriptors(self) -> tuple[PreflightCheckDescriptor, ...]:
         return tuple(self._preflight[check_id] for check_id in sorted(self._preflight))

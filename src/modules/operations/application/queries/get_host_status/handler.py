@@ -7,6 +7,7 @@ nothing and takes no lock, so it works beside a running host and with none.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import cast
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -68,14 +69,20 @@ class GetHostStatusQueryHandler(IQueryHandler[GetHostStatusQuery, HostStatus]):
             lock_held=lock_held,
             snapshot=snapshot,
             snapshot_age_s=snapshot_age_s(snapshot, now),
-            bots=cast(
-                BotStatusReport,
-                self._dispatcher.dispatch(
-                    GetBotStatusReportQuery, GetBotStatusReportQuery()
-                ),
-            ),
+            bots=self._bots(lock_held),
             checked_at=now,
         )
+
+    def _bots(self, lock_held: bool) -> BotStatusReport:
+        """The bots, with `app_running` taken from the one lock probe this query
+        made, so `host.lock_held` and `app_running` cannot disagree in a report."""
+        report = cast(
+            BotStatusReport,
+            self._dispatcher.dispatch(
+                GetBotStatusReportQuery, GetBotStatusReportQuery()
+            ),
+        )
+        return replace(report, app_running=lock_held)
 
     def _snapshot(self) -> tuple[HealthSnapshot | None, str]:
         try:

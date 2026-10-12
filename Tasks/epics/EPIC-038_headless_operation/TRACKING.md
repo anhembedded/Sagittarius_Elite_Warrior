@@ -48,7 +48,7 @@ gantt
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-038A | [Qt-free boot and guard](completed/EPIC-038A_qt_free_boot_and_guard.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038B | [Exit codes and output formats](completed/EPIC-038B_exit_codes_and_output_formats.md) | `claude/epic-038b-exit-codes-reports` | 🟢 | ✅ Done 2026-10-12 | — |
-| EPIC-038C | [Bot status read model](incomplete/EPIC-038C_bot_status_read_model.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-038C | [Bot status read model](completed/EPIC-038C_bot_status_read_model.md) | `claude/epic-038c-status-read-model` | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038D | [The run host](incomplete/EPIC-038D_run_host.md) | — | 🔴 | 🔵 Planned; waits for O1, O2, O8 | — |
 | EPIC-038E | [Headless secret backends](incomplete/EPIC-038E_headless_secret_backends.md) | — | 🔴 | 🔵 Planned; waits for O3 | — |
 | EPIC-038F | [Preflight command](completed/EPIC-038F_preflight_command.md) | `claude/epic-038f-preflight` | 🟡 | ✅ Done 2026-10-12 | — |
@@ -63,6 +63,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-12 | 038C | Bot status read model, health snapshot (`state/health.json`), `status`, `bot list/show` delivered with the sections of bots, trading, market_data and the Engine's own check; D5 and D10 accepted as defaults. A read-only command must not be the writable copy (found, fixed). Clock skew stays `null` until 038D's host measures it (PR #470). |
 | 2026-10-12 | 038F | `preflight` delivered: eight isolated checks, exit 0/4/5/6, the `declare_operations` registry, a gate for `run`. The exchange cannot report the address it sees; a `-2015` reply is the only source. |
 | 2026-10-12 | 038B | Exit codes, the report renderers and the isolated CLI host (`support/cli_host`) delivered; a bare `main.py` prints help and exits 2. Four commands stopped exiting 0 on a failure; `--json` is pure stdout. |
 | 2026-10-09 | Spec | Headless boot proven impossible without PySide6 (three UI concerns in `create_app`); epic scaffolded with ten children, a design, a research record and a decision record (no TUI). Documentation only. |

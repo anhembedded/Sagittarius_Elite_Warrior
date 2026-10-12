@@ -11,14 +11,19 @@ test constructed them.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
+    IHealthContributors,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
@@ -43,13 +48,23 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
     FileHealthSnapshotSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_state import (
     HostState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+    UserStreamState,
+)
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -141,3 +156,70 @@ def test_the_status_report_and_the_bots_tab_list_agree_on_the_composed_graph(
     assert [r.name for r in screen.refused] == ["cccccc.json"]
     assert [Path(u.path).name for u in report.unreadable] == ["cccccc.json"]
     assert Path(report.unreadable[0].path).is_file()
+
+
+# -- the sections the modules declare (`EPIC-038C`) -----------------------------
+
+
+def _tick() -> MarketTickEvent:
+    moment = datetime(2026, 10, 7, tzinfo=UTC)
+    return MarketTickEvent(
+        market_data=MarketData(
+            symbol="BTCUSDT",
+            interval="1m",
+            open_time=moment,
+            open_price=1.0,
+            high_price=1.0,
+            low_price=1.0,
+            close_price=1.0,
+            volume=1.0,
+            close_time=moment,
+            quote_asset_volume=1.0,
+            number_of_trades=1,
+            taker_buy_base_asset_volume=0.0,
+            taker_buy_quote_asset_volume=0.0,
+        ),
+        market_type=MarketType.SPOT,
+        market_data_venue=MarketDataVenue.SPOT_TESTNET,
+    )
+
+
+def test_the_composed_app_publishes_the_four_sections_and_all_answer(
+    data_root: Path,
+) -> None:
+    app = create_app(ConfigManager())
+    app.boot()
+    try:
+        snapshot = FileHealthSnapshotSource(data_root / "state" / "health.json").read()
+    finally:
+        app.stop()
+
+    assert snapshot is not None
+    assert sorted(snapshot.sections) == ["bots", "engine", "market_data", "trading"]
+    assert snapshot.unavailable_sections == ()
+    assert snapshot.sections["bots"]["total"] == 2
+    assert snapshot.sections["bots"]["unreadable"] == 1
+    assert snapshot.sections["engine"]["verdict"] == "healthy"
+
+
+def test_the_events_on_the_real_bus_reach_the_sections(booted: App) -> None:
+    """The subscriptions are made by `boot()`: remove one and its section stays empty."""
+    bus = booted.context.event_bus
+    bus.emit(_tick())
+    bus.emit(
+        UserStreamHealthEvent(
+            state=UserStreamState.RECONNECTING,
+            since=datetime.now(UTC) - timedelta(seconds=40),
+            venue=TradingVenue.SPOT_TESTNET,
+        )
+    )
+
+    sections = {
+        c.name: c.snapshot()
+        for c in booted.container.resolve(IHealthContributors).contributors()
+    }
+
+    assert list(sections["market_data"]["feeds"]) == ["spot:BTCUSDT"]  # type: ignore[arg-type]
+    assert sections["market_data"]["tick_age_s"] == 0
+    assert sections["trading"]["stream_down_s"] >= 40  # type: ignore[operator]
+    assert sections["trading"]["user_stream"]["spot_testnet"]["state"] == "reconnecting"  # type: ignore[index]

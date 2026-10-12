@@ -59,6 +59,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    HealthContributorDescriptor,
+    IHealthContributorTable,
     IPreflightCheckTable,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
@@ -73,6 +75,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispat
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.config_reader_adapter import (
     EngineConfigReader,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_health_contributor import (
+    EngineHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
@@ -340,6 +345,17 @@ def create_app(
     for module in modules:
         module.declare_operations(operations_registry)
     container.singleton(IPreflightCheckTable, operations_registry)
+    # `EPIC-038C` — the health sections modules contribute to the snapshot, and
+    # the Engine's own check, which the shell (not a module) declares because it
+    # is the shell that composes the Engine's extensions.
+    operations_registry.declare_health(
+        HealthContributorDescriptor(
+            "engine",
+            lambda _resolver: EngineHealthContributor(container, app.context.event_bus),
+            "shell",
+        )
+    )
+    container.singleton(IHealthContributorTable, operations_registry)
 
     # `EPIC-038B` — the output formats a report command offers (`--json`,
     # `--format`). A new format is one `register` call on this object; no

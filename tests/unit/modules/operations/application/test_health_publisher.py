@@ -48,6 +48,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.operations.status_world import
     FixedClock,
     FixedContributor,
     FixedContributors,
+    RecordingSink,
 )
 
 _DEADLINE_S = 0.05
@@ -78,14 +79,6 @@ class BlockedContributor(IHealthContributor):
         self.asked += 1
         self.release.wait(timeout=30)
         return {"late": True}
-
-
-class RecordingSink(IHealthSnapshotSink):
-    def __init__(self) -> None:
-        self.published: list[HealthSnapshot] = []
-
-    def publish(self, snapshot: HealthSnapshot) -> None:
-        self.published.append(snapshot)
 
 
 def _publisher(
