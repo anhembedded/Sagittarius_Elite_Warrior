@@ -110,6 +110,11 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         # `domain` reaching for a `QAbstractListModel` that stays illegal, not
         # a module's `ui/` doing so.
         ("modules.trading.ui.market.x", "support.indicators.ui.runner", True),
+        # `EPIC-038F` — a module's command handler prints through the headless host.
+        ("modules.operations.cli.x", "support.cli_host.report_output", True),
+        ("modules.operations.application.x", "support.cli_host.report_output", True),
+        ("modules.operations.application.x", "support.ui_kit.page_shell", False),
+        ("support.cli_host.report_output", "modules.trading.contracts.x", False),
         ("modules.trading.application.x", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "modules.trading.contracts.order", False),

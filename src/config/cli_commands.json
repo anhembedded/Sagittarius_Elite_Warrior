@@ -68,6 +68,32 @@
         }
       ]
     },
+    "preflight": {
+      "help": "Check this machine before the first order: clock skew, credentials, key permissions, outbound address, disk, data root, Python. Read-only; exit 0 none failed, 4 a check failed, 5 credentials absent or refused, 6 exchange unreachable",
+      "args": [
+        {
+          "name": "--venue",
+          "type": "str",
+          "choices": ["futures_testnet", "spot_testnet", "futures_mainnet", "spot_mainnet"],
+          "help": "Check only this venue (default: every enabled venue)"
+        },
+        {
+          "name": "--skip",
+          "type": "str",
+          "help": "Comma-separated check ids to skip, e.g. disk-space,python-floor"
+        },
+        {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.preflight/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        }
+      ]
+    },
     "order-preview": {
       "help": "Preview a normalized live order (rounding + minNotional check) without sending it",
       "args": [

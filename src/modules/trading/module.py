@@ -65,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
+    IOperationsRegistry,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_options_section import (
     IOptionsSection,
 )
@@ -73,6 +76,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution impo
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.declarations import (
+    trading_preflight_checks,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -259,6 +265,12 @@ class TradingModule(BoundedContextModule):
             *trade_commands(TRADE_ROUTE, self._venues),
         ):
             registry.contribute_command(command)
+
+    def declare_operations(self, registry: IOperationsRegistry) -> None:
+        """The pre-flight checks about the key and the exchange's clock
+        (`EPIC-038F`): this context knows them, `operations` runs them."""
+        for descriptor in trading_preflight_checks(self.module_id):
+            registry.declare_preflight(descriptor)
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
