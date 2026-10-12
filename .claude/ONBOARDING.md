@@ -12,7 +12,7 @@ Path-scoped rules load automatically when touching matching files; unscoped rule
 | # | Rule / Document | Scope / Trigger | Enforces |
 | :- | :--- | :--- | :--- |
 | 1 | This File (`.claude/ONBOARDING.md`) | Every session (imported by `CLAUDE.md`) | Operational map, authority, lifecycles |
-| 2 | `.claude/rules/architecture-rule.md` · `.claude/rules/capabilities.md` | `src/**/*.py` · UI and application paths | Layers, ports, CQRS, seams, events; the reuse catalog |
+| 2 | `.claude/rules/architecture-rule.md` · `.claude/rules/capabilities.md` | `src/**/*.py` | Layers, ports, CQRS, seams, events; the reuse catalog |
 | 3 | `.claude/rules/code/quality.md` · `code/naming.md` · `code/errors.md` | `src/**/*.py`, `scripts/**/*.py` | Typing, naming, error handling, FSM lifecycle cohesion |
 | 4 | `.claude/rules/ci-rule.md` | Every session | Verification cadence, test tiers, gate protocol |
 | 5 | `.claude/rules/commit-rule.md` | Every session | Conventional Commits, trailers, atomic changes |
