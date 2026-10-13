@@ -19,7 +19,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     INotifier,
     failure_detail,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
     BOTS_ROUTE,
 )
@@ -97,7 +99,7 @@ class NewBotSymbols(QObject):
     def _read_catalog_off_thread(self) -> None:
         """Runs on a worker thread; reports only through signals."""
         try:
-            symbols = list(self._catalog.list_symbols(MarketType.SPOT))
+            symbols = list(self._catalog.list_symbols(BOT_MARKET))
         except Exception as exc:
             logger.exception("Could not read the Spot symbol list")
             self._asked = False

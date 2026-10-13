@@ -25,11 +25,13 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureNotice,
     INotifier,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     GridBacktestRefusal,
     RunGridBacktestQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestResult,
@@ -259,7 +261,7 @@ def _sync_request(
     return MarketDataSyncRequest(
         symbols=(symbol,),
         interval=interval,
-        market=MarketType.SPOT,
+        market=BOT_MARKET,
         start_time=start,
         end_time=end,
     )

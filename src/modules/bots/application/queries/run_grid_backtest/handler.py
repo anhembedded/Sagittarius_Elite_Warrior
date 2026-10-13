@@ -14,7 +14,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.query import (
     RunGridBacktestQuery,
@@ -27,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fi
     StreamedFineKlines,
     price_bar,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
@@ -66,8 +66,9 @@ class RunGridBacktestQueryHandler(
         # `BUG-172`: the candles stored from the market the bot's orders fill in.
         market_data = self._sources.ports_for(query.venue.market_data_venue)
         repository = market_data.repository
+        market = market_of(query.venue)
         count = repository.count_klines(
-            MarketType.SPOT, query.symbol, query.interval, query.start, query.end
+            market, query.symbol, query.interval, query.start, query.end
         )
         if count == 0:
             return GridBacktestRefusal(
@@ -83,7 +84,7 @@ class RunGridBacktestQueryHandler(
         bars = tuple(
             price_bar(candle)
             for candle in market_data.history.load(
-                MarketType.SPOT,
+                market,
                 query.symbol,
                 query.interval,
                 limit=count,
@@ -94,7 +95,7 @@ class RunGridBacktestQueryHandler(
         length = timedelta(seconds=query.interval.to_seconds())
         fine = StreamedFineKlines(
             repository.stream_klines(
-                MarketType.SPOT,
+                market,
                 query.symbol,
                 TimeFrame.ONE_SECOND,
                 start_time=query.start,

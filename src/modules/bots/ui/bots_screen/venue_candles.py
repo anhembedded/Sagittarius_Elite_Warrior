@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
     IMarketDataSources,
 )
@@ -56,9 +56,9 @@ def venue_candles(container: IContainer) -> Callable[[TradingVenue], VenueCandle
             ports = sources.ports_for(venue.market_data_venue)
             candles = VenueCandles(
                 ports.sync,
-                # A Grid is a Spot kind: Spot candles of the bot's own venue.
+                # The candles of the market the bot's own venue trades.
                 MarketDataCandleFeed(
-                    ports.sync, ports.history, ports.stream, MarketType.SPOT
+                    ports.sync, ports.history, ports.stream, market_of(venue)
                 ),
             )
             built[venue] = candles

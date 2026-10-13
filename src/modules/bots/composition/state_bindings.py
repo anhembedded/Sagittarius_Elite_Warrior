@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
     ReadOnlyBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+    VenueProfilesByMarket,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
     IAppliedPlanStore,
 )
@@ -60,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_plan import IBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_profiles import (
+    IVenueProfiles,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotIdGenerator
 from sagittarius_engine.interfaces.i_config import IConfig
@@ -85,6 +91,8 @@ def bind_state(container: IContainer) -> None:
     # `EPIC-038I` - what `bot apply` recorded; `run --start-planned` reads only this.
     container.singleton(IAppliedPlanStore, _build_applied_plan_store)
     container.singleton(IBotPlan, _build_bot_plan)
+    # `EPIC-039A` - what a venue allows; the answer `venue_profile_of` gives, injected.
+    container.singleton(IVenueProfiles, VenueProfilesByMarket())
 
 
 def _build_applied_plan_store(container: IContainer) -> IAppliedPlanStore:

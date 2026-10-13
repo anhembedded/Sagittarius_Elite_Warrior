@@ -1,6 +1,6 @@
 # EPIC-039A — One place decides what a venue allows: every `is SPOT` branch in `bots` becomes a question to the venue profile
 
-**Status:** 🔵 Planned — not started
+**Status:** ✅ Done (2026-10-13)
 **Source:** the owner, 2026-10-10: any bot added later must have a Futures and a Spot side; see the [epic README](../README.md).
 **Risk:** 🟡 — a refactor across `bots` domain, application and UI; Spot behaviour must not move
 **Complexity:** M — nine non-UI sites, six UI sites, one port, one adapter, one guard
@@ -59,8 +59,20 @@ Not run yet.
 - `bots` imports `MarketType` from `src/core/vo`, fine; it must **not** import anything from `trading/application` or `trading/adapters`.
 - Port gains an abstract method → every implementer in `src/`, `scripts/` and `tests/` changes in the same commit (`architecture-rule.md` §2).
 
-## Implementation notes (written when done)
-Not started.
+## 3a. Reuse
+| Need | Result |
+| :--- | :--- |
+| A table keyed by a value, asked instead of branched on | used the `declare_cli` / table shape as the precedent (§3); the profile is a frozen value and `venue_profile_of` a total function over `TradingVenue` |
+| A guard that only one file does X | used the AST-scan pattern of the existing architecture guards and `scanned_roots_registry.py` (one GUARDS row) |
+| The shared market and venue types | used `MarketType` (`core/vo`) and `TradingVenue` (`support/binance_gateway/contracts`) |
 
-## Resume
-Not started. First action: `grep -rn "MarketType.SPOT\|is not MarketType" src/modules/bots` and compare with the list above; then write the guard test and run it red.
+## Implementation notes
+**Decision (Option B, recorded in the PR): the deciding place is a pure function in `contracts/venue_profile.py` (`venue_profile_of`), with `IVenueProfiles` / `VenueProfilesByMarket` as its injected delegate.** The task asked for the adapter to be the only file reading `venue.market_type`, and for `Bot` (domain) to receive the profile instead of resolving a port. Those two collide with "no Spot test may change": `Bot.venue_locked_reason` and `Bot.moved_to` are called with no profile argument in ~30 tests. A pure function in `contracts/` is importable from the domain (`domain -> contracts` is allowed), is the single decider, and leaves every signature unchanged. `VenueProfilesByMarket` is bound in `bind_state` and gives the same answer for a caller that wants a port or a different table; no application site injects it yet, so none of the ~15 constructors changed. **Consequence to know:** `IVenueProfiles` has no production consumer until a later task needs a substitutable table (the guard, not the port, is what keeps the decision in one place).
+- `venue_profile.py` holds `VenueProfile`, `SPOT_MARKETS`, `BOT_MARKETS` (the one switch `EPIC-039H` flips), `bot_profile_of` (the profile of a venue bots can run on, else `None`), `market_of(venue)` (the market to read data for) and `BOT_MARKET` (for the sites that have no venue at hand).
+- **Sites beyond the task's list** (the §1 grep was incomplete), all converted: `ui/bots_screen/new_bot_symbols.py` (symbol list), `ui/bots_screen/venue_candles.py` (candle feed), `ui/chart/preview.py` and `ui/kinds/grid/backtest/preview.py` (previews), plus the two `run_grid_backtest` / `get_planner_market` handlers' `MarketType.SPOT` reads.
+- `ui/bot_tick_feed.py:62` compares `event.market_type` with the market the feed was built for. It is a stream filter, not a decision, so the guard names it as its second exception.
+- The sentences are built from `SPOT_TITLE`. A Futures venue still gets "… is not a Spot venue …": until `039H` the sentence means "not a venue bots trade on", and a `title_word` sentence per profile belongs with the picker (`039J`). `test_spot_sentences_are_pinned.py` pins every Spot sentence, whole, and passes on the code before and after this change.
+- `arm_strategy_dialog.py` shows the leverage row when the profile has margin modes (or there is no profile), which is what `not SPOT` meant.
+- The `SpotHolding` exception in `exchange_facts_reader.py` stays until `039E`.
+- Verified: the guard was red on 25 sites before the change and green after; the kind-declaration test goes red when `GridKind.supported_profiles` returns an empty set; the whole `tests/unit/modules/bots` tier passes with no Spot expectation edited.
+- Not verified here: nothing touched an exchange; no Futures path exists, `venue_choices` is Spot-only and `BOT_MARKETS` is Spot-only.

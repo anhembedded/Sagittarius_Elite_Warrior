@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QTimer
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
@@ -31,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
@@ -115,7 +117,7 @@ class BotsPresenter(CommandPresenter):
         )
         self._now = now
         self._catalog = deps.kinds
-        self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
+        self._ticks = BotTickFeed(self.event_bus, BOT_MARKET, parent=self)
         self._charts = BotChartHost(
             BotChartPorts(threads, deps.feeds, self._ticks, deps.notifier)
         )

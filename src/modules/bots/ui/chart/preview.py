@@ -15,8 +15,10 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
@@ -89,7 +91,7 @@ def build_preview() -> QWidget:
         feed=SampleCandleFeed(_START, _INTERVAL),
         stream_owner=bot_stream_owner(BotId("a3f9c1")),
         interval=_INTERVAL.value,
-        market=MarketType.SPOT,
+        market=BOT_MARKET,
         notifier=RecordingNotifier(),
         scope=BOTS_ROUTE,
     )

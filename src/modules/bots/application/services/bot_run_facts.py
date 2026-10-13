@@ -10,13 +10,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
     bot_owner_id,
     grid_budget_problem,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
     RunFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_TITLE,
+    bot_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -57,8 +60,10 @@ class BotRunFactsReader:
         )
 
     def _venue_problem(self, venue: TradingVenue) -> str:
-        if venue.market_type is not MarketType.SPOT:
-            return f"{venue.display_name} is not a Spot venue this app trades on"
+        if bot_profile_of(venue) is None:
+            return (
+                f"{venue.display_name} is not a {SPOT_TITLE} venue this app trades on"
+            )
         if venue not in self._ports.enabled():
             return f"{venue.display_name} is not enabled"
         return ""

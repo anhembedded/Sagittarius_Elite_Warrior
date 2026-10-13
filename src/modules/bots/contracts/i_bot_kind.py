@@ -4,6 +4,7 @@ A kind answers three questions about its parameters and supplies the one thing
 that runs it:
 
   · `kind_id` — the stable name the store writes into each definition;
+  · `supported_profiles()` — the markets it can run on (`EPIC-039A`);
   · `validate()` — a verdict per check (the user's rule: parameters are the
     user's; the kind computes and judges, it never fixes them);
   · `overlay()` — what the bot's chart draws;
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
 )
@@ -44,6 +46,12 @@ class IBotKind(ABC):
     @abstractmethod
     def kind_id(self) -> str:
         """The stable name written into every definition of this kind."""
+
+    @abstractmethod
+    def supported_profiles(self) -> frozenset[MarketType]:
+        """The markets this kind can run on (`EPIC-039A`): a kind runs on a venue only when
+        the venue's market is here *and* in `BOT_MARKETS`. Declared by the kind, never
+        inferred, so a new kind states its markets on purpose."""
 
     @abstractmethod
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:

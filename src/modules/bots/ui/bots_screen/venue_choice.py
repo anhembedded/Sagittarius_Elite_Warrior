@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    bot_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -45,7 +47,7 @@ def venue_choices(contexts: IVenueContexts) -> tuple[VenueChoice, ...]:
     choices = [
         VenueChoice(venue, _connection_of(contexts, venue, enabled))
         for venue in TradingVenue
-        if venue.market_type is MarketType.SPOT
+        if bot_profile_of(venue) is not None
     ]
     return tuple(sorted(choices, key=lambda choice: choice.connection != KEY_SAVED))
 

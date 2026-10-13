@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -77,7 +80,7 @@ class BotChartPorts:
     ticks: BotTickFeed
     #: Where the chart tells a failed load or stream (`BOT-169`).
     notifier: INotifier
-    market: MarketType = MarketType.SPOT
+    market: MarketType = BOT_MARKET
 
 
 class BotChartHost:

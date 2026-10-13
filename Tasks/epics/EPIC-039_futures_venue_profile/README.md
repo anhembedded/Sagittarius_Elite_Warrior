@@ -61,7 +61,7 @@ Do them in the order in §0 (dependencies), not in this table's order.
 | [EPIC-039H](incomplete/EPIC-039H_futures_grid_long.md) | Futures Grid executor, **Long** first: start, counters, reduce-only exits, stop, reconcile, restart recovery | Elite | 039B, 039D, 039E, 039F, 039G | 🔴 | Planned |
 | [EPIC-039I](incomplete/EPIC-039I_futures_grid_short_and_neutral.md) | Short and Neutral directions on the same executor | Elite | 039H | 🔴 | Planned |
 | [EPIC-039L](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | Exchange-side protective stop for a Futures bot, the mainnet gate and the Futures testnet soak | Elite | 039H, `EPIC-026K` | 🔴 | Planned |
-| [EPIC-039A](incomplete/EPIC-039A_venue_profile_seam.md) | The venue profile seam: replace every `is SPOT` branch with the profile; "only one" guard; Spot unchanged | Elite | None | 🟡 | Planned |
+| [EPIC-039A](completed/EPIC-039A_venue_profile_seam.md) | The venue profile seam: replace every `is SPOT` branch with the profile; "only one" guard; Spot unchanged | Elite | None | 🟡 | Done 2026-10-13 |
 | [EPIC-039B](incomplete/EPIC-039B_direction_aware_grid_planner.md) | Direction-aware Grid planner and simulator (pure domain); `BaseHandling` becomes `ExposureHandling`; Spot = Long oracle | Elite | 039A | 🟡 | Planned |
 | [EPIC-039C](incomplete/EPIC-039C_futures_fake_exchange_matching.md) | Futures fake exchange: LIMIT matching on a price cross, positions, funding, liquidation, user-stream events | Elite | None | 🟡 | Planned |
 | [EPIC-039E](incomplete/EPIC-039E_futures_settings_gate_and_readiness.md) | Futures settings gate (leverage, margin type, position mode), brackets, readiness facts, settings-drift halt | Elite | 039A | 🟡 | Planned |
@@ -87,4 +87,5 @@ Do them in the order in §0 (dependencies), not in this table's order.
 - Any code. This epic is documentation until a child task is started.
 
 ## Notes (newest first)
+- **2026-10-13** — `EPIC-039A` done. Findings the task text lacked: the deciding place is a pure function in `contracts/venue_profile.py`, not only an adapter, because `Bot` (domain) cannot resolve a port and its tests pass no profile; `IVenueProfiles` is bound as the injected form. The site list was short by five (`new_bot_symbols`, `venue_candles`, two previews, the tick feed's filter); the guard found them. Each Spot sentence is pinned by a test that passes before and after.
 - **2026-10-10** — Epic scaffolded from the owner's request, a code survey (`DESIGN §1`), and research on Futures grid bots (`RESEARCH`). `EPIC-029K` moved to `EPIC-029/cancelled/` as superseded. Documentation only; nothing started; decisions O1–O12 pending.
