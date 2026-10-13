@@ -6,7 +6,7 @@ inline queue (each task runs as it is posted) and a pacer that counts turns.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -299,6 +299,7 @@ def grid_world(
     settings_gate: IVenueSettingsGate | None = None,
     risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None,
     exposures: GridExposures | None = None,
+    config: Mapping[str, str] | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -326,7 +327,9 @@ def grid_world(
     venue_ports = FakeVenueTradingPorts(ports)
     store = FakeBotStore()
     clock = FakeBotClock()
-    definition = BotDefinition("grid one", "grid", VENUE, SYMBOL, CONFIG)
+    definition = BotDefinition(
+        "grid one", "grid", VENUE, SYMBOL, dict(config or CONFIG)
+    )
     lifecycle = BotLifecycle(state, RUN_STARTED, recovering_from)
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
     store.save(StoredBot(bot, encode_runtime(runtime) if runtime else {}))

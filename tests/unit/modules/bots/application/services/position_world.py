@@ -9,6 +9,7 @@ the facts it is judged with, as a test says them.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -38,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_flags
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
     VenueProfilesByMarket,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
+    IMarkSource,
+    MarkReadError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_guard import IRiskGuard
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
@@ -148,11 +153,28 @@ class Reads(FuturesStartReads):
         )
 
 
+class Marks(IMarkSource):
+    """The mark price a position venue judges its exits on, as the test says (or why it cannot)."""
+
+    def __init__(self, mark: str = "121") -> None:
+        self.mark = D(mark)
+        self.unreadable: str | None = None
+        self.reads = 0
+
+    def read(self) -> Decimal:
+        self.reads += 1
+        if self.unreadable is not None:
+            raise MarkReadError(self.unreadable)
+        return self.mark
+
+
 def a_position_world(
     gate: Gate | None = None,
     guard: Guard | None = None,
     unreadable: str | None = None,
+    marks: Marks | None = None,
     state: BotLifecycleState = BotLifecycleState.STARTING,
+    config: Mapping[str, str] | None = None,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -164,10 +186,11 @@ def a_position_world(
             PositionExposureCloser(context),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),
+            exit_marks=marks,
         )
 
     exposures = GridExposures(VenueProfilesByMarket(), {ExposureKind.INVENTORY: build})
-    world = grid_world(state=state, exposures=exposures)
+    world = grid_world(state=state, exposures=exposures, config=config)
     # A position venue's registration always answers a derived position; a bot that has done
     # nothing yet derives none.
     world.session.register_owner_budget_answers(a_registration("0"))

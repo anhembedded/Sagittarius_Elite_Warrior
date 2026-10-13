@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_pr
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
     GridLadderPlacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_mark_exit import (
+    GridMarkExit,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
     GridPriceReaction,
 )
@@ -126,6 +129,8 @@ class GridFactParts:
     #: A position venue's liquidation and divergence watch (`EPIC-039F`); `None` on Spot,
     #: which has neither.
     risk_watch: GridRiskWatch | None = None
+    #: A position venue's stop loss and take profit on the mark price; `None` on Spot.
+    mark_exit: GridMarkExit | None = None
 
 
 class GridFacts(IBotFacts):
@@ -161,6 +166,8 @@ class GridFacts(IBotFacts):
         self._post("price age check", self._parts.prices.check_age)
         self._post("key probe", self._parts.key_probe.check)
         self._post("terms refresh", self._parts.terms_watch.check)
+        if self._parts.mark_exit is not None:
+            self._post("mark exit check", self._parts.mark_exit.check)
         if self._parts.risk_watch is not None:
             self._post("risk check", self._parts.risk_watch.check)
 

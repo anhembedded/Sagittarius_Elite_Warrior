@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
+import pytest
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
     generate_client_order_id,
@@ -43,6 +46,15 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .futures_fake_exchange import FUTURES, SYMBOL, BootedFutures, booted_futures
 from .grid_fake_exchange import FakeExchange
+
+
+@pytest.fixture(autouse=True)
+def _own_data_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The file reuses one tag and one run start, and a position checkpoint (`EPIC-039H`)
+    belongs to a run of a tag: sharing the session's data root, a test would start from the
+    position the one before it left. A real run has a tag and a start of its own."""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path / "data"))
+
 
 _TAG = "f0a1b2"
 _OWNER = "bot-f0"

@@ -22,6 +22,10 @@ saved before they existed holds neither and is read as LONG at leverage 1 by
 without them, so a Spot definition on disk keeps its bytes. A definition that names one must
 name both, and one for a position venue must name both (`from_config_naming_exposure`).
 
+@par Out of range (`EPIC-039H`, O6)
+`on_range_exit` (`hold` | `close`): optional, `hold` when absent; `close` only on a position venue
+(`exposure_refusal`). Written back only when it is `close`.
+
 @par A bot created with no parameters (`BOT-150`)
 New bot asks only for the kind, venue and symbol; the parameters are set on
 the draft afterwards. `unset_parameters` names the ones the user must still
@@ -73,6 +77,16 @@ class ExitKind(str, Enum):
     PERCENT = "percent"
 
 
+class RangeExit(str, Enum):
+    """What a position venue's bot does when the mark price leaves the range (`EPIC-039H`, O6).
+
+    `HOLD` idles at the exposure it has (the default, and the only thing Spot does); `CLOSE`
+    stops with the position closed at market, recorded as `GridReason.RANGE_EXIT`."""
+
+    HOLD = "hold"
+    CLOSE = "close"
+
+
 class GridParamsError(ValueError):
     """The definition does not hold readable Grid parameters; the message names the key."""
 
@@ -122,6 +136,7 @@ class GridParams:
     take_profit: ExitLevel
     direction: TradeDirection = LEGACY_DIRECTION
     leverage: int = LEGACY_LEVERAGE
+    on_range_exit: RangeExit = RangeExit.HOLD
 
     def __post_init__(self) -> None:
         if self.lower <= 0:
@@ -151,6 +166,7 @@ class GridParams:
             take_profit=_exit(config, "take_profit"),
             direction=direction,
             leverage=leverage,
+            on_range_exit=_range_exit(config),
         )
 
     @classmethod
@@ -176,6 +192,8 @@ class GridParams:
         if (self.direction, self.leverage) != (LEGACY_DIRECTION, LEGACY_LEVERAGE):
             config[_DIRECTION_KEY] = self.direction.name
             config[_LEVERAGE_KEY] = str(self.leverage)
+        if self.on_range_exit is not RangeExit.HOLD:
+            config[_RANGE_EXIT_KEY] = self.on_range_exit.value
         return config
 
     @property
@@ -261,6 +279,19 @@ def _spacing(config: Mapping[str, str]) -> GridSpacing:
 
 _DIRECTION_KEY = "direction"
 _LEVERAGE_KEY = "leverage"
+_RANGE_EXIT_KEY = "on_range_exit"
+
+
+def _range_exit(config: Mapping[str, str]) -> RangeExit:
+    """`HOLD` when the key is absent: a definition saved before O6 held out of range, and a Spot
+    definition keeps its bytes (`to_config` writes the key only for `CLOSE`)."""
+    if _RANGE_EXIT_KEY not in config:
+        return RangeExit.HOLD
+    text = config[_RANGE_EXIT_KEY].strip().lower()
+    try:
+        return RangeExit(text)
+    except ValueError:
+        raise GridParamsError(f"on_range_exit is not hold or close: {text!r}") from None
 
 
 def _direction(config: Mapping[str, str]) -> TradeDirection:

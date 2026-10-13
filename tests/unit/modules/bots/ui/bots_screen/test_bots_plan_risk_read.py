@@ -88,8 +88,8 @@ class _SaysLeverage(IVenueFacts):
         return FuturesLoaded(_facts(self.leverage))
 
 
-def _a_futures_bot(bot_id: str) -> object:
-    stored_bot = stored(bot_id, S.DRAFT)
+def _a_futures_bot(bot_id: str, state: S = S.DRAFT) -> object:
+    stored_bot = stored(bot_id, state)
     definition = replace(stored_bot.bot.definition, venue=TradingVenue.FUTURES_TESTNET)
     return replace(stored_bot, bot=replace(stored_bot.bot, definition=definition))
 
@@ -136,6 +136,25 @@ def test_selecting_a_futures_draft_reads_its_brackets_and_keeps_them(
     # The exchange check and the risk read both ask the venue's facts since `EPIC-039H` bound
     # `GetExchangeFactsQuery` to `IVenueFacts`.
     assert venue.asked == ["a00001", "a00001"]
+
+
+def test_a_running_futures_bot_still_has_its_brackets_read_for_its_backtest(
+    open_bots_screen,
+) -> None:
+    """Review hand-off of `EPIC-039J`: the Backtest tab of a RUNNING Futures bot waited for
+    brackets that were only read for a bot at rest. The brackets are read in every state; the
+    exchange snapshot, which Start's readiness needs, stays a read for a bot at rest."""
+    screen = open_bots_screen([_a_futures_bot("a00001", S.RUNNING)])
+    venue = _SaysLeverage()
+    _venue_says(screen, venue)
+    screen.settle()
+
+    select(screen, "a00001")
+    screen.settle()
+
+    risk = screen.presenter._selected.risk
+    assert risk == PlanRiskFacts(_facts(3).symbol_setting, BRACKETS)
+    assert venue.asked == ["a00001"], "the risk read only: no exchange snapshot"
 
 
 def test_a_spot_draft_never_asks_for_position_risk(open_bots_screen) -> None:

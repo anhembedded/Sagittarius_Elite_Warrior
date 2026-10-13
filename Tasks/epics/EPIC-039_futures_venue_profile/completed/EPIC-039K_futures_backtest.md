@@ -85,3 +85,7 @@ Commit tier (`ci-local.ps1 -SkipTests`: ruff, format, mypy, reference check): PA
 
 ## Resume
 Done. Hand-offs: **039H** — replay or test against the executor (above); pass `EQUAL_QUANTITY` for a position profile as 039B said. **039J** — pass `brackets` (read them with `GetLeverageBracketsQuery`) and a `FundingRequirement` in `RunGridBacktestQuery`; fix `get_planner_market` for a Futures venue (it reads `market_of`, Spot's, for daily candles and terms); offer "run without funding" only on a refusal with `funding_unavailable`, and never hide `futures.funding_note`; show `FuturesOutcome` richly (the summary has the figures and notes). **Merge order (coordinator):** #486 (039F) merged first (`890b2e2`); master is merged in and `futures_liquidation.liquidation_price` now calls `estimated_liquidation_price_in_brackets`, so the repo keeps one bracket lookup. **039F** — its guard can read `futures_liquidation.liquidation_price` or the same `estimated_liquidation_price`; both are one formula.
+
+## Hand-off from 039H
+
+The replay does not model `on_range_exit=close`; the backtest handler refuses such a definition in words (`_RANGE_EXIT_NOT_REPLAYED`). A follow-up models the exit in `FuturesReplay`, then removes that refusal and its two tests.

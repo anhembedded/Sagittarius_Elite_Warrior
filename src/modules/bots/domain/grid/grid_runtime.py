@@ -110,6 +110,8 @@ class GridReason(str, Enum):
     POSITION_MISMATCH = "position_mismatch"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
+    #: The mark price left the range and the bot was asked to close there (`EPIC-039H`, O6).
+    RANGE_EXIT = "range_exit"
     USER_STOP = "user_stop"
     #: A restored bot's read-only boot report (`EPIC-035C`); the full
     #: reconcile replaces it when the order session opens.
