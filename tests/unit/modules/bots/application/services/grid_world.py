@@ -24,6 +24,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
     GridExecutorDeps,
     GridExecutorFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+    GridRiskWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
+    GridRunContext,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     decode_runtime,
     encode_runtime,
@@ -284,6 +290,7 @@ def grid_world(
     market_step: Decimal | None = None,
     store_view: Callable[[FakeBotStore], IBotStore] | None = None,
     settings_gate: IVenueSettingsGate | None = None,
+    risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -332,6 +339,7 @@ def grid_world(
             prices=VenueFreshPriceReader(venue_ports),
             events=events,
             settings_gate=settings_gate or SpotSettingsGate(),
+            risk_watch=risk_watch,
         )
     )
     executor = factory.create(bot)

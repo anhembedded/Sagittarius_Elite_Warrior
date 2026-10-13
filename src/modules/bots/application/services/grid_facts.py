@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
     GridReconciler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+    GridRiskWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -90,6 +93,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    PositionDivergence,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -117,6 +123,9 @@ class GridFactParts:
     interrupted_start: GridInterruptedStart
     key_probe: GridKeyProbe
     terms_watch: GridTermsWatch
+    #: A position venue's liquidation and divergence watch (`EPIC-039F`); `None` on Spot,
+    #: which has neither.
+    risk_watch: GridRiskWatch | None = None
 
 
 class GridFacts(IBotFacts):
@@ -152,6 +161,13 @@ class GridFacts(IBotFacts):
         self._post("price age check", self._parts.prices.check_age)
         self._post("key probe", self._parts.key_probe.check)
         self._post("terms refresh", self._parts.terms_watch.check)
+        if self._parts.risk_watch is not None:
+            self._post("risk check", self._parts.risk_watch.check)
+
+    def on_position_divergence(self, divergence: PositionDivergence) -> None:
+        watch = self._parts.risk_watch
+        if watch is not None:
+            self._post("position divergence", lambda: watch.on_divergence(divergence))
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))

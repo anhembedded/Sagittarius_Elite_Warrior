@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reference_price import (
     GridReferencePrice,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+    GridRiskWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
     LazyExchangeTerms,
@@ -123,6 +126,9 @@ class GridExecutorDeps:
     #: The venue's settings gate (`EPIC-039E`): a running bot asks it, read-only, whether the
     #: venue still holds its leverage and margin type. Spot's holds nothing to check.
     settings_gate: IVenueSettingsGate = field(default_factory=SpotSettingsGate)
+    #: Builds a position venue's liquidation and divergence watch for one bot's context
+    #: (`EPIC-039F`); `EPIC-039H` binds it for Futures. `None`: Spot has neither.
+    risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -175,4 +181,9 @@ class GridExecutorFactory(IBotExecutorFactory):
                 ),
             ),
         )
-        return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)
+        return GridExecutor(
+            context,
+            deps.queues(f"bot-{bot_id}"),
+            deps.retries,
+            deps.risk_watch(context) if deps.risk_watch is not None else None,
+        )
