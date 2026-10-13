@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     RefusedBotFile,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    restarts_into_recovering,
+)
 
 _FILE_SUFFIX = ".json"
 
@@ -130,4 +133,5 @@ def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
         reason=bot.progress.reason if bot.progress is not None else "",
         run_started_at=bot.run_started_at,
         resting_orders=bot.progress.open_orders if bot.progress is not None else None,
+        recovers_on_restart=restarts_into_recovering(bot.state),
     )

@@ -275,10 +275,25 @@ def test_a_recovering_mainnet_bot_refuses_the_whole_resume_unless_its_venue_was_
         assert "--resume-recovering" in message
 
 
-def test_a_mainnet_bot_that_is_not_recovering_needs_no_confirmation_to_resume() -> None:
+@pytest.mark.parametrize("state", ["RUNNING", "PAUSED", "RECOVERING"])
+def test_every_state_a_restart_makes_recovering_is_judged_before_the_boot_makes_it_so(
+    state: str,
+) -> None:
+    """The refusal runs before `app.boot()`, and the boot is what turns a RUNNING or
+    PAUSED bot on disk into RECOVERING: a bot left RUNNING by a crash is the common case."""
+    message = mainnet_resume_refusal((entry("aaaaaa", state, "spot_mainnet"),), None)
+
+    assert message is not None and "aaaaaa" in message
+    assert "--confirm-venue spot_mainnet" in message
+
+
+def test_a_mainnet_bot_a_restart_does_not_hold_back_needs_no_confirmation_to_resume() -> (
+    None
+):
     bots = (
-        entry("aaaaaa", "RUNNING", "spot_mainnet"),
-        entry("bbbbbb", "STOPPED", "futures_mainnet"),
+        entry("aaaaaa", "STOPPED", "spot_mainnet"),
+        entry("bbbbbb", "HALTED", "futures_mainnet"),
+        entry("dddddd", "DRAFT", "spot_mainnet"),
         entry("cccccc", "RECOVERING", "spot_testnet"),
     )
 

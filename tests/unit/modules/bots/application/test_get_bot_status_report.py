@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
     ListBotsQuery,
@@ -26,7 +27,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleEvent,
     BotLifecycleState,
+    is_declared,
+    next_target,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelState,
@@ -162,6 +166,44 @@ def test_the_report_counts_the_orders_each_bot_has_resting() -> None:
     assert resting["aaaaaa"] == 2
     assert resting["bbbbbb"] is None  # a draft has no run, so nothing is known
     assert [b["resting_orders"] for b in report.payload()["bots"]] == [2, None]  # type: ignore[index, union-attr]
+
+
+@pytest.mark.parametrize("state", list(BotLifecycleState), ids=lambda s: s.value)
+def test_the_report_says_which_bots_a_restart_makes_recovering_from_the_lifecycle_table(
+    state: BotLifecycleState,
+) -> None:
+    """`EPIC-038D`: the host refuses a mainnet resume for every bot the restart rule will
+    make RECOVERING, and the report is the only place that may say which those are - from
+    the lifecycle table itself, not from a second list."""
+    store = FakeBotStore()
+    seed(store, "aaaaaa", state)
+
+    entry = _report(BotQueryDispatcher(store)).bots[0]
+
+    restarts = (
+        is_declared(state, BotLifecycleEvent.APP_RESTART)
+        and next_target(state, BotLifecycleEvent.APP_RESTART)
+        is BotLifecycleState.RECOVERING
+    )
+    assert entry.recovers_on_restart is restarts
+    assert entry.payload()["recovers_on_restart"] is restarts
+
+
+def test_a_running_a_paused_and_a_recovering_bot_are_the_ones_a_restart_recovers() -> (
+    None
+):
+    """Pins the table's current answer, so a change to the restart rule is seen here too."""
+    store = FakeBotStore()
+    for index, state in enumerate(BotLifecycleState):
+        seed(store, f"{index:06d}", state)
+
+    recovers = {
+        entry.state
+        for entry in _report(BotQueryDispatcher(store)).bots
+        if entry.recovers_on_restart
+    }
+
+    assert recovers == {"RUNNING", "PAUSED", "RECOVERING"}
 
 
 def test_the_at_rest_states_are_the_lifecycles() -> None:

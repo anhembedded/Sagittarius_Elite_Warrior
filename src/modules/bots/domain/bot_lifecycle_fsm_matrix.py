@@ -196,3 +196,17 @@ def next_target(
 def is_declared(state: BotLifecycleState, event: BotLifecycleEvent) -> bool:
     """Whether the table has a cell for `(state, event)`; the UI enables a control on it."""
     return (state, event) in BOT_LIFECYCLE_TRANSITIONS
+
+
+def restarts_into_recovering(state: BotLifecycleState) -> bool:
+    """Whether a restart moves a bot in `state` to RECOVERING: the restart rule's own answer.
+
+    RUNNING and PAUSED do, and so does RECOVERING itself (a second restart before a
+    reconcile). Anything that must know which saved bots a restart will hold back asks
+    here, not a list of its own (`EPIC-038D`'s mainnet refusal for `--resume-recovering`).
+    """
+    return (
+        is_declared(state, BotLifecycleEvent.APP_RESTART)
+        and next_target(state, BotLifecycleEvent.APP_RESTART)
+        is BotLifecycleState.RECOVERING
+    )

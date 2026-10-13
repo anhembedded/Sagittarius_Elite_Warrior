@@ -23,7 +23,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_plan import IBotPlan
 
 
-def entry(bot_id: str, state: str, venue: str = "spot_testnet") -> BotStatusEntry:
+def entry(
+    bot_id: str,
+    state: str,
+    venue: str = "spot_testnet",
+    recovers_on_restart: bool | None = None,
+) -> BotStatusEntry:
+    """`recovers_on_restart` defaults to what the lifecycle table says of the three states
+    the tests use: RUNNING, PAUSED and RECOVERING."""
     return BotStatusEntry(
         bot_id=bot_id,
         name=f"bot {bot_id}",
@@ -33,6 +40,11 @@ def entry(bot_id: str, state: str, venue: str = "spot_testnet") -> BotStatusEntr
         state=state,
         reason="",
         run_started_at=None,
+        recovers_on_restart=(
+            state in {"RUNNING", "PAUSED", "RECOVERING"}
+            if recovers_on_restart is None
+            else recovers_on_restart
+        ),
     )
 
 

@@ -191,7 +191,9 @@ def test_a_host_signal_the_machine_cannot_give_is_refused_with_two_before_the_pr
     assert source.installed is False
 
 
-def _seed_recovering_mainnet_bot(data_root: Path, bot_id: str) -> None:
+def _seed_mainnet_bot_in(
+    data_root: Path, bot_id: str, state: BotLifecycleState
+) -> None:
     JsonBotStore(data_root / "bots").save(
         StoredBot(
             Bot(
@@ -203,19 +205,26 @@ def _seed_recovering_mainnet_bot(data_root: Path, bot_id: str) -> None:
                     "BTCUSDT",
                     {"lower": "1"},
                 ),
-                BotLifecycle(BotLifecycleState.RECOVERING),
+                BotLifecycle(state),
                 datetime(2026, 10, 1, tzinfo=UTC),
             )
         )
     )
 
 
+@pytest.mark.parametrize(
+    "state",
+    [BotLifecycleState.RUNNING, BotLifecycleState.PAUSED, BotLifecycleState.RECOVERING],
+    ids=lambda s: s.value,
+)
 def test_an_unconfirmed_mainnet_resume_recovering_is_refused_with_two_and_nothing_boots(
-    data_root: Path,
+    data_root: Path, state: BotLifecycleState
 ) -> None:
-    """Decision O8: not a quiet skip. The bot stays RECOVERING, the host does not serve,
-    and the message names the flag that would have allowed it."""
-    _seed_recovering_mainnet_bot(data_root, "aaaaaa")
+    """Decision O8: not a quiet skip. The refusal runs before the app boots, and it is the
+    boot that turns a bot left RUNNING or PAUSED on disk into RECOVERING - a crash leaves
+    exactly that - so all three states are judged. The bot stays as the file has it, the
+    host does not serve, and the message names the flag that would have allowed it."""
+    _seed_mainnet_bot_in(data_root, "aaaaaa", state)
     source = _Source()
 
     outcome = RunCommand(
@@ -231,7 +240,7 @@ def test_an_unconfirmed_mainnet_resume_recovering_is_refused_with_two_and_nothin
     assert "aaaaaa" in outcome.message
     assert source.installed is False, "no host was built, no signal was taken"
     stored = JsonBotStore(data_root / "bots").load(BotId("aaaaaa"))
-    assert stored.bot.state is BotLifecycleState.RECOVERING
+    assert stored.bot.state is state, "nothing booted, so nothing was restored"
 
 
 def test_a_stop_requested_before_serving_starts_and_resumes_nothing_on_the_composed_app(

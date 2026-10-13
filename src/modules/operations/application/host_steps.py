@@ -231,7 +231,10 @@ def mainnet_resume_refusal(
 
     Resuming a RECOVERING bot on a mainnet venue reconciles real orders and lets the bot
     trade again, so it is judged like a start: an unconfirmed mainnet venue refuses the
-    run with exit 2 and names the flag. It is not skipped with a warning - a host that
+    run with exit 2 and names the flag. It is judged **before the app boots**, when a bot
+    left RUNNING or PAUSED on disk is not yet RECOVERING - the boot makes it so - so the
+    test is the report's `recovers_on_restart`, the lifecycle table's own answer, not
+    the state name. It is not skipped with a warning - a host that
     serves while it quietly left a bot unresumed is the surprise O8 exists to prevent.
     """
     return _unconfirmed_mainnet_refusal(
@@ -239,7 +242,7 @@ def mainnet_resume_refusal(
         [
             bot
             for bot in bots
-            if bot.state == _RECOVERING
+            if bot.recovers_on_restart
             and TradingVenue(bot.venue).is_mainnet
             and bot.venue != confirmed_venue
         ],
