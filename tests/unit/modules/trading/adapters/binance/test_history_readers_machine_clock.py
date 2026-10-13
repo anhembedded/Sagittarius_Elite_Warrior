@@ -15,6 +15,10 @@ from datetime import timedelta
 from typing import Any
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_window import (
+    LAST_WINDOW_MARGIN_MS,
+)
+
 from .test_history_readers import _NOW, _futures, _spot
 
 #: `BUG-189` — the exchange's clock 90 s behind the machine's (a machine whose
@@ -70,7 +74,7 @@ def test_a_spot_read_asks_the_exchange_in_its_own_clock_and_answers_in_the_machi
     [trade] = reader.trade_history("BTCUSDT", _NOW - timedelta(hours=1))
 
     asked = client.get_all_orders.call_args.kwargs
-    assert asked["endTime"] == on_exchange
+    assert asked["endTime"] == on_exchange + LAST_WINDOW_MARGIN_MS
     assert asked["startTime"] == on_exchange - 3_600_000
     assert order.created_at == _NOW
     assert trade.time == _NOW
@@ -110,7 +114,7 @@ def test_a_futures_read_asks_the_exchange_in_its_own_clock_and_answers_in_the_ma
     [trade] = reader.trade_history("BTCUSDT", _NOW - timedelta(hours=1))
 
     asked = client.futures_get_all_orders.call_args.kwargs
-    assert asked["endTime"] == on_exchange
+    assert asked["endTime"] == on_exchange + LAST_WINDOW_MARGIN_MS
     assert asked["startTime"] == on_exchange - 3_600_000
     assert order.created_at == _NOW
     assert trade.time == _NOW
