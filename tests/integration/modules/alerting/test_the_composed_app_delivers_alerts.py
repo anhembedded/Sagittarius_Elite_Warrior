@@ -82,8 +82,22 @@ def _declare(monkeypatch: pytest.MonkeyPatch, channel: FakeAlertChannel) -> None
     )
 
 
+def _alerting_threads() -> frozenset[threading.Thread]:
+    return frozenset(t for t in threading.enumerate() if t.name.startswith("alerting-"))
+
+
 @pytest.fixture
-def booted(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[App, FakeAlertChannel]]:
+def threads_before() -> frozenset[threading.Thread]:
+    """The alerting threads of other apps still alive in this process (the
+    sanity tier keeps one booted for its whole session): a test asks what *its*
+    app left, not whether the process has none."""
+    return _alerting_threads()
+
+
+@pytest.fixture
+def booted(
+    monkeypatch: pytest.MonkeyPatch, threads_before: frozenset[threading.Thread]
+) -> Iterator[tuple[App, FakeAlertChannel]]:
     channel = FakeAlertChannel()
     _declare(monkeypatch, channel)
     app = create_app(ConfigManager())
@@ -133,12 +147,14 @@ def test_an_undelivered_alert_is_sent_after_a_restart(
 
 def test_stopping_the_app_leaves_no_alerting_thread(
     booted: tuple[App, FakeAlertChannel],
+    threads_before: frozenset[threading.Thread],
 ) -> None:
     app, _channel = booted
+    assert _alerting_threads() - threads_before  # it started some
 
     app.stop()
 
-    assert not [t for t in threading.enumerate() if t.name.startswith("alerting-")]
+    assert _alerting_threads() - threads_before == frozenset()
 
 
 def test_the_snapshot_carries_an_alerting_section(
@@ -152,7 +168,9 @@ def test_the_snapshot_carries_an_alerting_section(
 
 
 def test_a_read_only_copy_neither_writes_the_outbox_nor_starts_a_lane(
-    monkeypatch: pytest.MonkeyPatch, _data_root: Path
+    monkeypatch: pytest.MonkeyPatch,
+    _data_root: Path,
+    threads_before: frozenset[threading.Thread],
 ) -> None:
     channel = FakeAlertChannel()
     _declare(monkeypatch, channel)
@@ -165,7 +183,7 @@ def test_a_read_only_copy_neither_writes_the_outbox_nor_starts_a_lane(
     app.boot()
     try:
         app.container.resolve(IAlertPublisher).publish(_alert())  # type: ignore[type-abstract]
-        assert not [t for t in threading.enumerate() if t.name.startswith("alerting-")]
+        assert _alerting_threads() - threads_before == frozenset()
     finally:
         app.stop()
         first.release()
