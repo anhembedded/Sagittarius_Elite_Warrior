@@ -45,6 +45,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    SPOT_PROFILE,
+    ExposureLimits,
+    VenueProfile,
+    bot_profile_of,
+    exposure_limits_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
     BotLifecycleState,
@@ -107,8 +115,9 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     bot = inputs.bot
     config = inputs.edited if inputs.edited is not None else bot.config
     connection = inputs.connection or ConnectionRead(ConnectionState.READING, "")
+    profile, limits = _venue_of(inputs)
     judged = (
-        judge(inputs.kind, config, inputs.market, connection.account)
+        judge(inputs.kind, config, inputs.market, connection.account, limits)
         if inputs.kind is not None
         else JudgedPlan()
     )
@@ -123,6 +132,8 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
                 inputs.market,
                 inputs.run,
                 inputs.exchange,
+                profile,
+                limits,
             )
         )
         if bot.state in RUN_STARTING_STATES
@@ -146,6 +157,19 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     )
 
 
+def _venue_of(inputs: DetailInputs) -> tuple[VenueProfile, ExposureLimits]:
+    """The profile and the limits of the bot's venue for its kind (`EPIC-039H`): what the
+    plan is judged against, the same as a start will be. Spot's where no kind or venue speaks."""
+    if inputs.kind is None:
+        return SPOT_PROFILE, SPOT_LIMITS
+    supported = inputs.kind.supported_profiles()
+    profile = bot_profile_of(inputs.bot.venue, supported)
+    return (
+        profile if profile is not None else SPOT_PROFILE,
+        exposure_limits_of(inputs.bot.venue, supported),
+    )
+
+
 def _resume_blocked_by(inputs: DetailInputs) -> str:
     """What the exchange's facts leave in a HALTED bot's Resume's way (`BOT-174`):
     the same rules and words the Resume use case refuses with."""
@@ -158,6 +182,7 @@ def _resume_blocked_by(inputs: DetailInputs) -> str:
             market,
             _recorded_inventory(bot),
             inputs.exchange,
+            _venue_of(inputs)[0],
         )
     ).items
     return (

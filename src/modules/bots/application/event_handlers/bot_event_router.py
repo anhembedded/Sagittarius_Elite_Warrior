@@ -11,6 +11,8 @@ Nothing here touches a bot's record or sends an order.
     arrives right after trading is enabled is never dropped.
   · **A rejection** (`OrderRejectedEvent`) ends the order with the exchange's
     reason, which halts the bot.
+  · **A position divergence** (`OwnerPositionDivergedEvent`, `EPIC-039F`) names the bot by its
+    tag: it goes to that bot's risk watch.
   · **A funding fee** (`FundingChargedEvent`, `EPIC-039G`) names a symbol, not an order:
     it goes to the bot of that symbol on that venue.
   · **A tick** goes to every executor trading that symbol on that market.
@@ -61,6 +63,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_rejected_event import (
     OrderRejectedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.owner_position_diverged_event import (
+    OwnerPositionDivergedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
 )
@@ -109,6 +114,13 @@ class BotEventRouter:
                 and bot.state not in RUN_STARTING_STATES
             ):
                 self._executors.for_bot(bot).facts.on_funding(charge)
+
+    def on_position_diverged(self, event: OwnerPositionDivergedEvent) -> None:
+        """`EPIC-039F` — the exchange's position differs from the one derived from the
+        bot's fills: the bot's risk watch confirms it before halting. The tag is the bot's id."""
+        executor = self._executor_of_tag(event.divergence.tag, event.venue)
+        if executor is not None:
+            executor.facts.on_position_divergence(event.divergence)
 
     def on_end(self, event: OrderEndedEvent) -> None:
         executor = self._executor_for(event.order.client_order_id, event.venue)
@@ -162,8 +174,9 @@ class BotEventRouter:
         self, client_order_id: str, venue: TradingVenue
     ) -> GridExecutor | None:
         tag = tag_of(client_order_id)
-        if tag is None:
-            return None
+        return None if tag is None else self._executor_of_tag(tag, venue)
+
+    def _executor_of_tag(self, tag: str, venue: TradingVenue) -> GridExecutor | None:
         executor = self._executors.get(tag)
         if executor is None and self._store.exists(BotId(tag)):
             executor = self._executors.for_bot(self._store.load(BotId(tag)).bot)

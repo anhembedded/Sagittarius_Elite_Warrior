@@ -30,6 +30,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 class IExposureCloser(ABC):
     @abstractmethod
+    def closes_on_halt(self) -> bool:
+        """Whether a halt closes what the bot holds after taking its ladder off. Spot leaves
+        the base it bought; a position venue never leaves a leveraged position bare unless an
+        exchange-side stop stands (decision O8, `EPIC-039L`)."""
+
+    @abstractmethod
     def close(
         self, registration: OwnerBudgetRegistrationResult, price: Decimal
     ) -> StopProgress | None:

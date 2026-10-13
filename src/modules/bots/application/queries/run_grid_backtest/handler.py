@@ -27,11 +27,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fi
     price_bar,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
     exposure_limits_of,
     market_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
     exposure_refusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
@@ -53,6 +57,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 MAX_CANDLES = 20_000
 
 
+_POSITION_VENUE_BACKTEST = (
+    "The backtest of a Futures bot is not available yet: it would draw a profit that "
+    "ignores funding and liquidation"
+)
+
+
 class RunGridBacktestQueryHandler(
     IQueryHandler[RunGridBacktestQuery, GridBacktestAnswer]
 ):
@@ -69,13 +79,18 @@ class RunGridBacktestQueryHandler(
             params = GridParams.from_config(query.config)
         except GridParamsError as exc:
             return GridBacktestRefusal(f"The parameters cannot be read: {exc}")
-        refusal = exposure_refusal(params, exposure_limits_of(query.venue))
+        limits = exposure_limits_of(query.venue, GRID_MARKETS)
+        refusal = exposure_refusal(params, limits)
         if refusal is not None:
             return GridBacktestRefusal(refusal.reason)
+        if limits.exposure_kind is ExposureKind.POSITION:
+            # The replay is Spot's (inventory, base-asset fees): on a leveraged position it would
+            # draw a profit that ignores funding and liquidation (`EPIC-039K` builds the real one).
+            return GridBacktestRefusal(_POSITION_VENUE_BACKTEST)
         # `BUG-172`: the candles stored from the market the bot's orders fill in.
         market_data = self._sources.ports_for(query.venue.market_data_venue)
         repository = market_data.repository
-        market = market_of(query.venue)
+        market = market_of(query.venue, GRID_MARKETS)
         count = repository.count_klines(
             market, query.symbol, query.interval, query.start, query.end
         )

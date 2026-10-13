@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
     GridRuntime,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
 )
@@ -39,6 +42,14 @@ class IExposureCheck(ABC):
     def derives(self, registration: OwnerBudgetRegistrationResult) -> bool:
         """Whether `registration` carries the holding this venue derives. A registered budget
         without it cannot be reconciled; the reconcile waits for the next try."""
+
+    @abstractmethod
+    def held(
+        self, registration: OwnerBudgetRegistrationResult
+    ) -> OwnerInventory | None:
+        """What `registration` says the bot holds, as a quantity and what it cost: the figure a
+        resume sizes its ladder to. `None` when the registration carries none, or the venue's
+        holding cannot be sized that way (a short position)."""
 
     @abstractmethod
     def check(

@@ -27,9 +27,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_fac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
     failure_state,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
-    ExchangeFactsReader,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
     other_active_bot,
 )
@@ -51,7 +48,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     UnknownBotKindError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
+    IVenueFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+    bot_profile_of,
+    exposure_limits_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
     ConnectFailure,
 )
@@ -88,14 +96,14 @@ class BotReadinessReader:
         accounts: IVenueAccounts,
         ports: IVenueTradingPorts,
         caps: OwnerBudgetCaps,
-        exchange: ExchangeFactsReader,
+        facts: IVenueFacts,
     ) -> None:
         self._store = store
         self._kinds = kinds
         self._accounts = accounts
         self._ports = ports
         self._caps = caps
-        self._exchange = exchange
+        self._facts = facts
         self._run_facts = BotRunFactsReader(ports, caps)
 
     def read(self, bot: Bot, config: Mapping[str, str] | None = None) -> BotReadiness:
@@ -116,6 +124,7 @@ class BotReadinessReader:
                 (refused.name for refused in readings.refused),
             ),
         )
+        profile = bot_profile_of(definition.venue, GRID_MARKETS)
         readiness = assess_readiness(
             ReadinessInputs(
                 kind=self._kind(definition.kind),
@@ -125,7 +134,9 @@ class BotReadinessReader:
                 connection=connection,
                 market=self._market(bot) if account_ok else None,
                 run=run,
-                exchange=self._exchange.read(bot),
+                exchange=self._facts.read(bot),
+                profile=profile if profile is not None else SPOT_PROFILE,
+                limits=exposure_limits_of(definition.venue, GRID_MARKETS),
             )
         )
         logger.debug(

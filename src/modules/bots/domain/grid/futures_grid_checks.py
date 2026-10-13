@@ -26,6 +26,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_notional_cap import (
+    allowed_notional,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
     PlanRiskInputs,
 )
@@ -121,14 +124,7 @@ def _bracket_and_margin(inputs: PlanRiskInputs) -> list[Verdict]:
         return []
     leverage = inputs.params.leverage
     notional = max(position.notional for position in positions)
-    allowed = max(
-        (
-            b.notional_cap
-            for b in inputs.brackets.brackets
-            if b.initial_leverage >= leverage
-        ),
-        default=Decimal(0),
-    )
+    allowed = allowed_notional(inputs.brackets, leverage)
     found: list[Verdict] = []
     if notional > allowed:
         found.append(

@@ -24,12 +24,14 @@ from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
     bot_owner_id,
-    grid_budget,
     grid_registration,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
     BotRefusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     exposure_limits_of,
@@ -38,15 +40,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
     exposure_refusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
     refusal_words,
@@ -56,9 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words
 class GridStartPreconditions:
     """Answers `None` when a Grid may start, else the refusal."""
 
-    def __init__(self, ports: IVenueTradingPorts, caps: OwnerBudgetCaps) -> None:
+    def __init__(self, ports: IVenueTradingPorts, budgets: IGridBudgets) -> None:
         self._ports = ports
-        self._caps = caps
+        self._budgets = budgets
 
     def check(self, bot: Bot, now: datetime) -> BotCommandResult | None:
         bot_id = bot.bot_id.value
@@ -72,7 +74,9 @@ class GridStartPreconditions:
             return _refused(BotRefusal.PARAMETERS_REFUSED, str(exc), bot_id)
         # The venue's profile is the last word on what a definition may ask of it, whatever
         # readiness said a moment ago.
-        exposure = exposure_refusal(params, exposure_limits_of(bot.definition.venue))
+        exposure = exposure_refusal(
+            params, exposure_limits_of(bot.definition.venue, GRID_MARKETS)
+        )
         if exposure is not None:
             return _refused(BotRefusal.PARAMETERS_REFUSED, exposure.reason, bot_id)
         owner = bot_owner_id(bot_id)
@@ -90,7 +94,12 @@ class GridStartPreconditions:
             session.release_symbol(symbol, owner)
             return _refused(BotRefusal.VENUE_NOT_READY, refusal_words(opened), bot_id)
         registration = session.register_owner_budget(
-            grid_registration(bot_id, symbol, now, grid_budget(params, self._caps))
+            grid_registration(
+                bot_id,
+                symbol,
+                now,
+                self._budgets.budget_of(bot.definition.venue, symbol, params),
+            )
         )
         if not registration.registered:
             session.release_symbol(symbol, owner)

@@ -20,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_g
     OrderOutcomeKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
-    grid_budget,
     grid_registration,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
@@ -71,7 +70,7 @@ class GridHousekeeping:
                 bot.bot_id.value,
                 bot.definition.symbol,
                 run_started_at,
-                grid_budget(self._context.params, self._context.caps),
+                self._context.budget(),
             )
         )
 

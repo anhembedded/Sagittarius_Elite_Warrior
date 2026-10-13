@@ -44,16 +44,25 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.settings_ch
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import LevelSizing
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.level_sizing_rule import (
+    level_sizing_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudget,
     OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
@@ -110,6 +119,9 @@ class GridRunContext:
     #: third asset such as BNB (`EPIC-035M`).
     #: @raise FreshPriceUnavailableError The venue has no such market or no answer.
     asset_price: Callable[[str], Decimal]
+    #: The owner budget this bot registers with trading (`EPIC-039H`): Spot's is the capital
+    #: in BUY quote and inventory, a position venue's is judged in notional and margin.
+    budget: Callable[[], OwnerBudget]
     #: The run's orders no level holds whose fills still count.
     off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
     #: Set by `GridExecutor.stop` from the caller's thread the moment a Stop is
@@ -122,10 +134,18 @@ class GridRunContext:
     #: Whether the venue still holds the settings the bot asked for (`EPIC-039E`): the
     #: gate's read-only `verify` for the bot's request. Spot has none to hold.
     settings_check: SettingsCheck = no_settings_to_check
+    #: What the bot's venue allows and holds (`EPIC-039H`): the ladder is sized by its
+    #: exposure kind, so every place that plans one agrees with the plan judge.
+    limits: ExposureLimits = SPOT_LIMITS
 
     @property
     def terms(self) -> ExchangeTerms:
         return self.terms_source.get()
+
+    @property
+    def level_sizing(self) -> LevelSizing:
+        """How this bot's ladder is sized: by its venue's exposure kind."""
+        return level_sizing_for(self.limits.exposure_kind)
 
     @property
     def base_asset(self) -> str:

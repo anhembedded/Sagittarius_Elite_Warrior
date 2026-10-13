@@ -35,10 +35,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
     RuleOutcome,
     RunPurpose,
-    judge_exchange,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_needs import (
-    start_ladder_needs,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_needs import (
+    start_needs_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_rules import (
+    judge_venue,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
@@ -53,9 +55,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
-    ExchangeSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    SPOT_PROFILE,
+    ExposureLimits,
+    VenueProfile,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
     BotKindInputs,
@@ -112,7 +122,12 @@ class ReadinessInputs:
     market: PlannerMarket | None
     run: RunFacts
     #: `BOT-174` — what the exchange says; still being asked until it answers.
-    exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
+    exchange: VenueSnapshot = field(default_factory=ExchangeChecking)
+    #: The profile of the bot's venue (`EPIC-039H`): which rules judge the exchange's facts and
+    #: what the plan asks of the account. Spot's where no venue speaks, as the plan's limits are.
+    profile: VenueProfile = SPOT_PROFILE
+    #: What the venue lets the parameters ask for, for the kind's own judgement.
+    limits: ExposureLimits = SPOT_LIMITS
 
 
 def assess_readiness(inputs: ReadinessInputs) -> BotReadiness:
@@ -153,11 +168,13 @@ def _exchange_outcome(inputs: ReadinessInputs) -> RuleOutcome:
     """The exchange rules over the plan a Start would place."""
     market = inputs.market
     needs = (
-        start_ladder_needs(inputs.config, market.terms, market.market.last_price)
+        start_needs_of(
+            inputs.profile, inputs.config, market.terms, market.market.last_price
+        )
         if market is not None and market.terms and market.market
         else None
     )
-    return judge_exchange(inputs.exchange, needs, RunPurpose.START)
+    return judge_venue(inputs.profile, inputs.exchange, needs, RunPurpose.START)
 
 
 def _status(items: tuple[ReadinessItem, ...], *, waiting: bool) -> StepStatus:
@@ -222,7 +239,11 @@ def _design_items(inputs: ReadinessInputs) -> tuple[ReadinessItem, ...]:
         )
     verdicts = inputs.kind.validate(
         BotKindInputs(
-            inputs.config, market.terms, market.market, inputs.connection.account
+            inputs.config,
+            market.terms,
+            market.market,
+            inputs.connection.account,
+            inputs.limits,
         )
     )
     return tuple(

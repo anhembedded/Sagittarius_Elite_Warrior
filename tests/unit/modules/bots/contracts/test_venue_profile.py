@@ -18,15 +18,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     BOT_MARKETS,
+    FUTURES_MARKETS,
     SPOT_LIMITS,
     SPOT_MARKETS,
     ExposureKind,
     ExposureLimits,
+    bot_profile_of,
     exposure_limits_of,
     runs_bots_on,
     venue_profile_of,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+    GridKind,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
@@ -55,14 +60,16 @@ def test_the_spot_profile_allows_long_only_with_no_leverage(
 
 
 @pytest.mark.parametrize("venue", _FUTURES, ids=lambda v: v.value)
-def test_the_futures_profile_allows_all_directions_and_isolated_margin(
+def test_the_futures_profile_allows_long_for_now_and_isolated_margin(
     venue: TradingVenue,
 ) -> None:
     profile = venue_profile_of(venue)
 
     assert profile is not None
     assert profile.market_type is MarketType.FUTURES_USD_M
-    assert profile.directions == frozenset(TradeDirection)
+    # `EPIC-039I` adds SHORT and NEUTRAL with their openings; until then a plan naming one is
+    # refused by the one sentence every judge shares (`exposure_refusal`).
+    assert profile.directions == frozenset({TradeDirection.LONG})
     assert profile.margin_modes == frozenset({MarginMode.ISOLATED}), (
         "Cross is a later epic"
     )
@@ -96,15 +103,41 @@ def test_the_profile_is_a_value_nobody_can_change() -> None:
         profile.title_word = "Margin"  # type: ignore[misc]
 
 
-def test_bots_run_on_spot_today_and_not_yet_on_futures() -> None:
-    """Futures exists as a profile; no kind declares it until `EPIC-039H` flips this."""
+def test_bots_run_on_spot_and_on_futures_in_this_build() -> None:
+    """`EPIC-039H` flipped the build-wide ceiling together with the Grid's declaration."""
     spot = venue_profile_of(TradingVenue.SPOT_TESTNET)
     futures = venue_profile_of(TradingVenue.FUTURES_TESTNET)
 
     assert spot is not None and futures is not None
     assert runs_bots_on(spot) is True
-    assert runs_bots_on(futures) is False
-    assert BOT_MARKETS == SPOT_MARKETS == frozenset({MarketType.SPOT})
+    assert runs_bots_on(futures) is True
+    assert BOT_MARKETS == SPOT_MARKETS | FUTURES_MARKETS
+    assert frozenset({MarketType.FUTURES_USD_M}) == FUTURES_MARKETS
+
+
+def test_a_kind_declaring_spot_only_is_refused_a_futures_venue() -> None:
+    """The two switches are one rule: the market must be in the kind's set *and* in the
+    build's. A kind that declares Spot only never gets a Futures venue, whatever the build
+    allows; one that declares Futures gets it only while the build allows Futures."""
+    for venue in _FUTURES:
+        assert bot_profile_of(venue, SPOT_MARKETS) is None
+        assert bot_profile_of(venue, FUTURES_MARKETS) is not None
+        assert exposure_limits_of(venue, SPOT_MARKETS) == SPOT_LIMITS
+    for venue in _SPOT:
+        assert bot_profile_of(venue, FUTURES_MARKETS) is None
+        assert bot_profile_of(venue, SPOT_MARKETS) is not None
+    assert bot_profile_of(TradingVenue.DISABLED, GRID_MARKETS) is None
+
+
+def test_the_picker_offers_spot_venues_only_until_the_screen_can_make_a_futures_bot() -> (
+    None
+):
+    """`EPIC-039H` creates Futures bots through the application layer only; the profile's
+    `offered_in_picker` is what `EPIC-039J` flips with the screen's Futures fields."""
+    for venue in _SPOT:
+        assert venue_profile_of(venue).offered_in_picker is True  # type: ignore[union-attr]
+    for venue in _FUTURES:
+        assert venue_profile_of(venue).offered_in_picker is False  # type: ignore[union-attr]
 
 
 def test_the_injected_port_answers_what_the_function_does() -> None:
@@ -150,13 +183,19 @@ def test_the_profile_carries_the_highest_leverage_the_market_allows() -> None:
 def test_a_venue_bots_run_on_has_its_profiles_exposure_limits() -> None:
     for venue in _SPOT:
         assert (
-            exposure_limits_of(venue)
+            exposure_limits_of(venue, GRID_MARKETS)
             == SPOT_LIMITS
             == ExposureLimits(frozenset({TradeDirection.LONG}), 1)
         )
+    for venue in _FUTURES:
+        limits = exposure_limits_of(venue, GRID_MARKETS)
+        assert limits.exposure_kind is ExposureKind.POSITION
+        assert limits.max_leverage > 1
+        assert limits.directions == frozenset({TradeDirection.LONG})
 
 
-def test_a_venue_bots_do_not_run_on_is_limited_as_spot_is() -> None:
-    """Futures exists in the table but no bot runs on it until `EPIC-039H`: nothing wider."""
-    for venue in (*_FUTURES, TradingVenue.DISABLED):
-        assert exposure_limits_of(venue) == SPOT_LIMITS
+def test_a_venue_no_bot_runs_on_is_limited_as_spot_is() -> None:
+    """Nothing is ever wider than Spot's for a venue the kind does not run on."""
+    assert exposure_limits_of(TradingVenue.DISABLED, GRID_MARKETS) == SPOT_LIMITS
+    for venue in _FUTURES:
+        assert exposure_limits_of(venue, SPOT_MARKETS) == SPOT_LIMITS

@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -272,6 +275,7 @@ def booted(
             monotonic=container.resolve(IMonotonicClock),
             prices=container.resolve(IFreshPriceReader),
             events=container.resolve(IEventPublisher),
+            budgets=container.resolve(IGridBudgets),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

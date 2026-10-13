@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_num
     read_planner_numbers,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -69,7 +72,7 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
             return _unreadable(numbers)
         terms, view = numbers
         candles = self._klines.load(
-            market_of(query.venue),
+            market_of(query.venue, GRID_MARKETS),
             query.symbol,
             TimeFrame.ONE_DAY,
             limit=_DAILY_CANDLES,

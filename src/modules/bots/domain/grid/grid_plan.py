@@ -115,6 +115,14 @@ class GridPlan:
         return max(self.opening_quantity, Decimal(0))
 
     @property
+    def uniform_quantity(self) -> Decimal | None:
+        """The one base quantity every order of an `EQUAL_QUANTITY` plan has; `None` for an
+        equal-capital plan, whose quantities differ by price, or a plan with no order."""
+        if self.level_sizing is not LevelSizing.EQUAL_QUANTITY:
+            return None
+        return next((lv.quantity for lv in self.levels if lv.quantity > 0), None)
+
+    @property
     def order_levels(self) -> tuple[GridLevel, ...]:
         return tuple(
             level for level in self.levels if level.side is not LevelSide.EMPTY

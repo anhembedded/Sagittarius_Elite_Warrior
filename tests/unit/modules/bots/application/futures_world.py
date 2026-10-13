@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable impo
     NotApplicable,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    MANUAL_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
     OrderType,
@@ -166,6 +169,8 @@ class RememberingSettings(FakeFuturesSettingsControl):
         self.leverage_error: Exception | None = None
         #: Every method name called, so a test can assert what the gate never calls.
         self.calls: list[str] = []
+        #: Who asked for each change (`EPIC-039H`): the lease holder's id, or a human's.
+        self.owners: list[str] = []
 
     def move(self, **changes: object) -> None:
         """Someone changes the symbol in the Binance app: no gate call involved."""
@@ -174,22 +179,24 @@ class RememberingSettings(FakeFuturesSettingsControl):
 
     @override
     def change_leverage(
-        self, symbol: str, leverage: int
+        self, symbol: str, leverage: int, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[LeverageSetting]:
         self.calls.append("change_leverage")
+        self.owners.append(owner_id)
         if self.leverage_error is not None:
             raise self.leverage_error
-        answer = super().change_leverage(symbol, leverage)
+        answer = super().change_leverage(symbol, leverage, owner_id=owner_id)
         if answer.applied is not None and not self.silently_ignores_changes:
             self.move(leverage=leverage)
         return answer
 
     @override
     def change_margin_type(
-        self, symbol: str, margin_type: MarginType
+        self, symbol: str, margin_type: MarginType, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[MarginType]:
         self.calls.append("change_margin_type")
-        answer = super().change_margin_type(symbol, margin_type)
+        self.owners.append(owner_id)
+        answer = super().change_margin_type(symbol, margin_type, owner_id=owner_id)
         if answer.applied is not None and not self.silently_ignores_changes:
             self.move(margin_type=margin_type)
         return answer

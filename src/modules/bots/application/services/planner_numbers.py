@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
 )
@@ -62,9 +65,10 @@ def read_planner_numbers(
     symbol: str,
 ) -> PlannerNumbers | str:
     """The terms and the mid price, or the sentence that says why not."""
-    profile = bot_profile_of(venue)
+    profile = bot_profile_of(venue, GRID_MARKETS)
     if profile is None or venue not in ports.enabled():
-        return f"{venue.display_name} is not an enabled {SPOT_TITLE} venue"
+        word = profile.title_word if profile is not None else SPOT_TITLE
+        return f"{venue.display_name} is not an enabled {word} venue"
     entry_terms = ports.get(venue).order_entry_terms
     try:
         terms = exchange_terms_for(entry_terms, symbol, caps)

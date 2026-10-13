@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budgets import (
+    SpotGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
     GridExecutor,
 )
@@ -343,6 +346,7 @@ def grid_world(
             monotonic=monotonic,
             prices=VenueFreshPriceReader(venue_ports),
             events=events,
+            budgets=SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS),
             settings_gate=settings_gate or SpotSettingsGate(),
             risk_watch=risk_watch,
             exposures=exposures or spot_only_exposures(),

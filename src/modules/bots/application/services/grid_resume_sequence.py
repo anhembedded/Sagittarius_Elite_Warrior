@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_storag
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_status_gate import (
     SymbolStatusGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check import (
+    IExposureCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
@@ -84,20 +87,26 @@ class ResumeProposal:
     unplaced_inventory: Decimal
 
 
+@dataclass(frozen=True, slots=True)
+class ResumeParts:
+    """The collaborators a resume works through."""
+
+    start: GridStartSequence
+    status: SymbolStatusGate
+    storage: GridStorageWatch
+    #: What the bot holds, read from the registration in the venue profile's terms.
+    exposure: IExposureCheck
+
+
 class GridResumeSequence:
     """Proposes a fresh ladder for a HALTED Grid, and lays it once confirmed."""
 
-    def __init__(
-        self,
-        context: GridRunContext,
-        start: GridStartSequence,
-        status: SymbolStatusGate,
-        storage: GridStorageWatch,
-    ) -> None:
+    def __init__(self, context: GridRunContext, parts: ResumeParts) -> None:
         self._context = context
-        self._start = start
-        self._status = status
-        self._storage = storage
+        self._start = parts.start
+        self._status = parts.status
+        self._storage = parts.storage
+        self._exposure = parts.exposure
         self._housekeeping = GridHousekeeping(context)
         #: The detail before the resume's unplaced-base sentence, and with it.
         self._noted: tuple[str, str] | None = None
@@ -108,7 +117,8 @@ class GridResumeSequence:
         if not self._storage.admits_relaunch():
             return None
         registration = self._housekeeping.register()
-        if not registration.registered or registration.inventory is None:
+        held = self._exposure.held(registration)
+        if not registration.registered or held is None:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
             detail = (
                 f"resume waits: the budget was refused: {refusal_text(registration)}"
@@ -124,7 +134,7 @@ class GridResumeSequence:
             ):
                 fail_with(state, report.failed, f"cancel {report.client_order_id}")
             return None
-        proposal = self._proposal_for(price, registration.inventory)
+        proposal = self._proposal_for(price, held)
         self._name_unplaced(proposal.unplaced_inventory)
         logger.info(
             "Bot %s: resume proposes %d orders from %s with %s held; waiting for confirmation",
@@ -140,7 +150,13 @@ class GridResumeSequence:
     ) -> ResumeProposal:
         """The plan at `price` over `inventory` (`EPIC-035R`): SELLs sized to
         what is held, BUYs sized to the capital it leaves."""
-        sized = resume_plan(self._context.params, self._context.terms, price, inventory)
+        sized = resume_plan(
+            self._context.params,
+            self._context.terms,
+            price,
+            inventory,
+            self._context.level_sizing,
+        )
         return ResumeProposal(
             sized, inventory, unplaced_inventory(sized, inventory.quantity)
         )

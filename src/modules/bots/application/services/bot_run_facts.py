@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_TITLE,
     bot_profile_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
@@ -60,7 +63,7 @@ class BotRunFactsReader:
         )
 
     def _venue_problem(self, venue: TradingVenue) -> str:
-        if bot_profile_of(venue) is None:
+        if bot_profile_of(venue, GRID_MARKETS) is None:
             return (
                 f"{venue.display_name} is not a {SPOT_TITLE} venue this app trades on"
             )

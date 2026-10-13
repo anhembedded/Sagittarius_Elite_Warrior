@@ -41,6 +41,9 @@ class BotRefusal(str, Enum):
     #: `EPIC-035V` — a bot on a mainnet venue was started by a caller that did
     #: not carry the user's answer to the real-money question.
     REAL_MONEY_NOT_CONFIRMED = "REAL_MONEY_NOT_CONFIRMED"
+    #: `EPIC-039H` (decision O8) — a Stop that would keep a position on a position venue:
+    #: no exchange-side stop stands, so the bot closes it.
+    EXPOSURE_MUST_CLOSE = "EXPOSURE_MUST_CLOSE"
 
 
 @dataclass(frozen=True, slots=True)

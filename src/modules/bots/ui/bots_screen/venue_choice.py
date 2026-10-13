@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     bot_profile_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -47,9 +50,16 @@ def venue_choices(contexts: IVenueContexts) -> tuple[VenueChoice, ...]:
     choices = [
         VenueChoice(venue, _connection_of(contexts, venue, enabled))
         for venue in TradingVenue
-        if bot_profile_of(venue) is not None
+        if _offered(venue)
     ]
     return tuple(sorted(choices, key=lambda choice: choice.connection != KEY_SAVED))
+
+
+def _offered(venue: TradingVenue) -> bool:
+    """A Grid runs on the venue and the profile says the dialog lists it (`EPIC-039J`
+    flips that for Futures)."""
+    profile = bot_profile_of(venue, GRID_MARKETS)
+    return profile is not None and profile.offered_in_picker
 
 
 def _connection_of(

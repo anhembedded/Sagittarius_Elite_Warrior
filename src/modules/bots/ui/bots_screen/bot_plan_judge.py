@@ -22,6 +22,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
     BotKindInputs,
@@ -49,10 +53,13 @@ def judge(
     config: Mapping[str, str],
     market: PlannerMarket | None,
     account: AccountView | None = None,
+    limits: ExposureLimits = SPOT_LIMITS,
 ) -> JudgedPlan:
+    """@param limits What the bot's venue allows (`EPIC-039H`): the directions, the leverage
+    and how the levels are sized, so the verdicts shown are the ones a start would meet."""
     if market is None or market.terms is None or market.market is None:
         return JudgedPlan()
-    inputs = BotKindInputs(config, market.terms, market.market, account)
+    inputs = BotKindInputs(config, market.terms, market.market, account, limits)
     return JudgedPlan(verdicts=kind.validate(inputs), overlay=kind.overlay(inputs))
 
 

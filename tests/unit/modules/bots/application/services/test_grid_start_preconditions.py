@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
     BotRunner,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budgets import (
+    SpotGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
@@ -155,7 +158,9 @@ def _start_world(
     clock = FakeBotClock()
     definition = BotDefinition("grid one", "grid", venue, SYMBOL, CONFIG)
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
-    preconditions = GridStartPreconditions(ports, DEFAULT_OWNER_BUDGET_CAPS)
+    preconditions = GridStartPreconditions(
+        ports, SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS)
+    )
     queues: list[_ClosableInlineQueue] = []
 
     def queue(_name: str) -> _ClosableInlineQueue:
@@ -175,6 +180,7 @@ def _start_world(
                 FakeMonotonicClock(),
                 VenueFreshPriceReader(ports),
                 RecordingPublisher(),
+                SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS),
             )
         )
     )

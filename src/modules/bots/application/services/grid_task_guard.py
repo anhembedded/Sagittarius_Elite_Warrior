@@ -38,11 +38,11 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
-    GridHousekeeping,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fault_with,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_parking import (
+    GridParking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_rate_limit_pause import (
     GridRateLimitPause,
@@ -95,12 +95,12 @@ class GridTaskGuard:
     def __init__(
         self,
         context: GridRunContext,
-        housekeeping: GridHousekeeping,
+        parking: GridParking,
         pause: GridRateLimitPause,
         storage: GridStorageWatch,
     ) -> None:
         self._context = context
-        self._housekeeping = housekeeping
+        self._parking = parking
         self._pause = pause
         self._storage = storage
 
@@ -145,18 +145,15 @@ class GridTaskGuard:
 
     def _park(self) -> None:
         try:
-            report = self._housekeeping.cancel_tagged()
+            note = self._parking.park()
         except Exception as error:
             logger.exception(
                 "Bot %s: taking the ladder off failed", self._context.state.bot_id
             )
             self._note(f"its orders may still rest: {error}")
             return
-        if report.failed is not None:
-            self._note(
-                f"{report.client_order_id} and any after it may still rest: "
-                f"{report.failed.detail}"
-            )
+        if note is not None:
+            self._note(note)
 
     def _note(self, extra: str) -> None:
         state = self._context.state
