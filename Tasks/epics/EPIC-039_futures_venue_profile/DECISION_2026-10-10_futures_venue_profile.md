@@ -76,7 +76,7 @@ The Grid bot is Spot-only: nine hard-coded Spot places outside `ui/`, six inside
 | :--- | :--- | :--- | :--- |
 | D1 | 039A, 039M | Not started | Not yet verified |
 | D2 | 039B | Not started | the property test is the evidence |
-| D3 | 039E | Not started | Not yet verified |
+| D3 | 039E | Done 2026-10-13 | `test_the_gate_never_calls_a_position_mode_setter`, `test_hedge_mode_blocks_start`; the integration journey on the Futures fake sends no `positionSide/dual` request |
 | D4 | 039A | Not started | Not yet verified |
 | D5 | 039A, 039D | Not started | Not yet verified |
 | D6 | 039B | Not started | Not yet verified |

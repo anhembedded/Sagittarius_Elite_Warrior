@@ -9,8 +9,9 @@ its own work queue.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
+from functools import partial
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
@@ -45,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     decode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_spot import (
+    SpotSettingsGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
@@ -64,6 +68,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
+    IVenueSettingsGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import MarginMode
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
+    GateRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
@@ -105,6 +116,9 @@ class GridExecutorDeps:
     prices: IFreshPriceReader
     #: Where a bot announces its price leaving its range (`EPIC-035L`).
     events: IEventPublisher
+    #: The venue's settings gate (`EPIC-039E`): a running bot asks it, read-only, whether the
+    #: venue still holds its leverage and margin type. Spot's holds nothing to check.
+    settings_gate: IVenueSettingsGate = field(default_factory=SpotSettingsGate)
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -125,11 +139,12 @@ class GridExecutorFactory(IBotExecutorFactory):
             BotIdentity(bot_owner_id(bot_id), bot_id, symbol),
             deps.pacers(deps.caps.min_order_spacing),
         )
+        params = GridParams.from_config(bot.definition.config)
         context = GridRunContext(
             state=BotRunState(stored.bot, runtime, deps.store, deps.clock),
             gateway=gateway,
             session=ports.trading_session,
-            params=GridParams.from_config(bot.definition.config),
+            params=params,
             terms_source=LazyExchangeTerms(
                 lambda: exchange_terms_for(ports.order_entry_terms, symbol, deps.caps),
                 lambda: fresh_exchange_terms_for(
@@ -145,6 +160,15 @@ class GridExecutorFactory(IBotExecutorFactory):
             events=deps.events,
             asset_price=lambda asset: deps.prices.read(
                 bot.definition.venue, f"{asset}{BUDGET_QUOTE_ASSET}"
+            ),
+            settings_check=partial(
+                deps.settings_gate.verify,
+                GateRequest(
+                    bot.definition.venue,
+                    symbol,
+                    params.leverage,
+                    MarginMode.ISOLATED,
+                ),
             ),
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"), deps.retries)
