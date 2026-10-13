@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
     ExchangeFactsReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_facts_reader import (
+    FuturesFactsReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
@@ -70,6 +73,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_read
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
     SleepWatch,
     SleepWatchDeps,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_facts_by_profile import (
+    VenueFactsByProfile,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_futures import (
+    FuturesSettingsGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_spot import (
+    SpotSettingsGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gates import (
+    VenueSettingsGates,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
@@ -88,6 +103,18 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader i
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
+    IVenueFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_profiles import (
+    IVenueProfiles,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
+    IVenueSettingsGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
@@ -116,6 +143,9 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(IBotRunner, _build_runner)
     container.singleton(BotReadinessReader, _build_readiness_reader)
     container.singleton(ExchangeFactsReader, _build_exchange_facts_reader)
+    container.singleton(FuturesFactsReader, _build_futures_facts_reader)
+    container.singleton(IVenueFacts, _build_venue_facts)
+    container.singleton(IVenueSettingsGate, _build_venue_settings_gate)
     container.singleton(ResumeReadinessReader, _build_resume_readiness_reader)
     container.singleton(IBotKindCatalog, _build_kind_catalog)
     container.singleton(IBotTicker, _build_ticker)
@@ -178,6 +208,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
         retries=container.resolve(IBotRetryScheduler),
         prices=container.resolve(IFreshPriceReader),
         events=container.resolve(IEventPublisher),
+        settings_gate=container.resolve(IVenueSettingsGate),
     )
     return GridExecutorFactory(deps)
 
@@ -187,6 +218,37 @@ def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
     and the Start and Resume gates read it through this one reader."""
     return ExchangeFactsReader(
         container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
+    )
+
+
+def _build_futures_facts_reader(container: IContainer) -> FuturesFactsReader:
+    """What a Futures venue says about a bot's symbol (`EPIC-039E`)."""
+    return FuturesFactsReader(
+        container.resolve(IVenueTradingPorts), container.resolve(IBotClock)
+    )
+
+
+def _build_venue_facts(container: IContainer) -> IVenueFacts:
+    """The readiness facts of whichever venue a bot is on, by the venue's profile."""
+    return VenueFactsByProfile(
+        container.resolve(IVenueProfiles),
+        {
+            ExposureKind.INVENTORY: container.resolve(ExchangeFactsReader),
+            ExposureKind.POSITION: container.resolve(FuturesFactsReader),
+        },
+    )
+
+
+def _build_venue_settings_gate(container: IContainer) -> IVenueSettingsGate:
+    """The settings gate of whichever venue a bot is on, by the venue's profile."""
+    return VenueSettingsGates(
+        container.resolve(IVenueProfiles),
+        {
+            ExposureKind.INVENTORY: SpotSettingsGate(),
+            ExposureKind.POSITION: FuturesSettingsGate(
+                container.resolve(IVenueTradingPorts)
+            ),
+        },
     )
 
 
