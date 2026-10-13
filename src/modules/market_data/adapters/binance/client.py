@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_m
     BinanceMetadataKey,
     parse_binance_symbol_metadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.raw_kline_mapping import (
+    map_raw_klines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     CancellationCheck,
     ExchangeRequestCancelledError,
@@ -262,14 +265,14 @@ class PythonBinanceClient(IExchangeClient):
                     total_fetched += len(buffer)
                     if progress_callback:
                         progress_callback(total_fetched)
-                    yield self._map_to_market_data(buffer, symbol, interval)
+                    yield map_raw_klines(buffer, symbol, interval)
                     buffer = []
 
             if buffer:
                 total_fetched += len(buffer)
                 if progress_callback:
                     progress_callback(total_fetched)
-                yield self._map_to_market_data(buffer, symbol, interval)
+                yield map_raw_klines(buffer, symbol, interval)
 
             logger.info(f"Successfully streamed {total_fetched} klines for {symbol}.")
         except ExchangeRequestCancelledError:
@@ -284,30 +287,6 @@ class PythonBinanceClient(IExchangeClient):
     ) -> None:
         if cancellation_requested is not None and cancellation_requested():
             raise ExchangeRequestCancelledError("Historical kline request cancelled")
-
-    def _map_to_market_data(
-        self, raw_klines: list[list], symbol: str, interval: str
-    ) -> list[MarketData]:
-        market_data_list = []
-        for k in raw_klines:
-            market_data_list.append(
-                MarketData(
-                    symbol=symbol,
-                    interval=interval,
-                    open_time=datetime.fromtimestamp(k[0] / 1000.0, tz=UTC),
-                    open_price=float(k[1]),
-                    high_price=float(k[2]),
-                    low_price=float(k[3]),
-                    close_price=float(k[4]),
-                    volume=float(k[5]),
-                    close_time=datetime.fromtimestamp(k[6] / 1000.0, tz=UTC),
-                    quote_asset_volume=float(k[7]),
-                    number_of_trades=int(k[8]),
-                    taker_buy_base_asset_volume=float(k[9]),
-                    taker_buy_quote_asset_volume=float(k[10]),
-                )
-            )
-        return market_data_list
 
     def get_historical_klines(
         self,
@@ -339,7 +318,7 @@ class PythonBinanceClient(IExchangeClient):
             cancellation_requested,
         )
 
-        return self._map_to_market_data(raw_klines, symbol, interval.value)
+        return map_raw_klines(raw_klines, symbol, interval.value)
 
     def get_available_symbols(self, market: MarketType) -> list[str]:
         symbols_raw = self._exchange_info_entries(market)
