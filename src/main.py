@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cmd import (
     execute_stream,
 )
@@ -56,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     create_app,
     read_only_instance_access,
 )
+from Sagittarius_Elite_Warrior.src.shell.console_log_stream import console_log_to
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
 )
@@ -161,6 +165,16 @@ def _app_work_for(args: argparse.Namespace) -> Callable[[App], CliOutcome | None
     return lambda app: _run_headless_mode(app, args)
 
 
+def _build_app(
+    config_manager: ConfigManager, instance: IInstanceAccess, report_on_stdout: bool
+) -> App:
+    """The object graph; its console log leaves by stderr when stdout is a report."""
+    if report_on_stdout:
+        with console_log_to(sys.stderr):
+            return create_app(config_manager, instance)
+    return create_app(config_manager, instance)
+
+
 def main() -> int:
     """Parse the command line and run what it names; the return value is the exit status."""
     config_manager, banner = _load_configuration()
@@ -176,12 +190,12 @@ def main() -> int:
         return run_command(_run_gui)
 
     work = _app_work_for(args)
-    if wants_machine_output(args):
-        # `--json` / `--format <name>`: stdout is the report, nothing else. The
-        # Engine's console logger writes to stdout, so it is off for this run
-        # (the same key an operator sets in `user_config.json`); the traceback
-        # of a failure still reaches stderr, and a configured log file is kept.
-        config_manager.load_dict({ConfigKeys.LOG_CONSOLE_ENABLED.value: False})
+    # `--json` / `--format <name>`: stdout is the report, nothing else. The
+    # Engine's console logger writes to stdout, so for such a run the app is built
+    # with that logger on stderr (`EPIC-038D`): the log is kept, and so is the
+    # document. The traceback of a failure reaches stderr as before.
+    machine_output = wants_machine_output(args)
+    if machine_output:
         banner = None
     if banner is not None:
         print(banner)
@@ -196,7 +210,9 @@ def main() -> int:
         else acquire_instance_access()
     )
     try:
-        return run_command(lambda: work(create_app(config_manager, instance)))
+        return run_command(
+            lambda: work(_build_app(config_manager, instance, machine_output))
+        )
     finally:
         instance.release()
 

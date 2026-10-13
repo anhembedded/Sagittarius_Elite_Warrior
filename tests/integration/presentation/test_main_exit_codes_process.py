@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -29,12 +30,18 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "sanity"))
 from binance_fake_server import FakeServerUrls, run_binance_fake_server
+from fake_exchange.server import FaultAnswer
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PROCESS_BUDGET_SECONDS = 90
 
 _FAKE_KEY = "fake-api-key-for-a-test"
 _FAKE_SECRET = "SECRET-SENTINEL-4c1d9e7a-never-print-me"  # noqa: S105 - a marker, not a credential
+
+_FORMATTED_WARNING = re.compile(
+    r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - App\.\S+ - WARNING - .*\[exchange-retry\]",
+    re.MULTILINE,
+)
 
 _CHILD = """
 import os, sys
@@ -107,6 +114,28 @@ def test_exchange_status_json_is_the_only_thing_on_stdout(
     assert document["schema"] == "sew.exchange-status/1"
     assert document["data"]["reachable"] is True
     assert document["data"]["failure"] is None
+
+
+def test_an_adapter_warning_goes_to_stderr_and_stdout_stays_one_json_document(
+    tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`EPIC-038D`: a machine format owns stdout, so the log goes to stderr. The
+    first request of the connection check is dropped as a reset would drop it;
+    the call policy retries it and logs a WARNING (`[exchange-retry]`). With the
+    console log off (the old fix) that warning reached nowhere; on stdout it would
+    break the document."""
+    exchange.faults.queued.append(FaultAnswer(path_part="/", drop=True))
+
+    result = _run(tmp_path, exchange, "exchange-status", "--json")
+
+    assert result.returncode == int(ExitCode.SUCCESS), result.stderr
+    assert json.loads(result.stdout)["schema"] == "sew.exchange-status/1"
+    # The app's own formatted record, not Python's last-resort printer (which
+    # writes a bare message and only for WARNING and above).
+    assert _FORMATTED_WARNING.search(result.stderr), result.stderr
+    assert "[exchange-retry]" not in result.stdout
+    assert " - INFO - " in result.stderr
+    assert " - INFO - " not in result.stdout
 
 
 def test_no_secret_reaches_a_json_report(

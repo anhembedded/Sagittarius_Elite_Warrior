@@ -11,6 +11,8 @@ The application writes every record to **standard output** (`log.console.enabled
 | Linux, systemd | the journal | journald (`SystemMaxUse=`, `journalctl --vacuum-time`) |
 | Windows, NSSM | the wrapper's captured output | NSSM rotation (`AppRotateFiles`, `AppRotateBytes`, `AppRotateOnline`) |
 
+A command whose stdout carries a machine-readable report (`--json`, `--format <name>`) writes its log to **standard error** instead, so the report stays one document and the log is still kept (`EPIC-038D`; `src/shell/console_log_stream.py`). `run` takes no such flag: its stdout is the log.
+
 A service unit or wrapper therefore sets **no `log.file`** and passes neither `--dev` nor `--debug`: both write a full session log to `<data root>/logs/` (`logging-rule.md` §7), which is right for a developer reproducing a bug and wrong for a process that runs for months.
 
 ## 2. If you set `log.file` anyway
