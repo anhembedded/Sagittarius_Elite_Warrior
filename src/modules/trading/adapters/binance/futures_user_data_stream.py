@@ -63,6 +63,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     account_update_captured_at,
     account_update_changed_symbols,
     account_update_funding,
+    account_update_position_amounts,
     account_update_position_pnls,
     account_update_wallet_balance,
     is_funding_update,
@@ -78,6 +79,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
     EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_state_reconciler import (
+    cross_check_owner_positions,
     reconcile_position_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
@@ -201,6 +203,12 @@ class FuturesUserDataStream(ManagedUserDataStream):
             is_current,
         )
 
+    def use_client_of_a_connection(self, client: ITradingClient) -> None:
+        """@brief The client an `ACCOUNT_UPDATE` re-reads positions through:
+        each connection takes a fresh one (`BUG-096`), and a test world that
+        opens no websocket takes it here, which is all the socket gave it."""
+        self._trading_client = client
+
     async def _run_session(
         self,
         credentials: ExchangeCredentials,
@@ -216,8 +224,8 @@ class FuturesUserDataStream(ManagedUserDataStream):
         what revives the library's own reconnect budget (5 attempts) once
         `stream.recv()` raised `ReadLoopClosed`; a fresh client also covers an
         API error while creating it."""
-        self._trading_client = self._trading_client_factory.create(
-            OrderSubmissionMode.VALIDATE_ONLY
+        self.use_client_of_a_connection(
+            self._trading_client_factory.create(OrderSubmissionMode.VALIDATE_ONLY)
         )
         is_closing = False
         client: AsyncClient | None = None
@@ -318,6 +326,14 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 equity_sample.unrealized_pnl,
                 equity_sample.total,
             )
+
+        # `EPIC-039D` - a budgeted Futures owner's derived position is checked
+        # against the amount **this event** reports, not a later REST read.
+        for symbol, amount in account_update_position_amounts(payload).items():
+            for divergence in cross_check_owner_positions(
+                self._session_state, symbol, amount
+            ):
+                self._events.position_diverged(divergence)
 
         generation = self._generation
         for symbol in account_update_changed_symbols(payload):

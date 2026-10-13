@@ -49,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.owner_position_diverged_event import (
+    OwnerPositionDivergedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
     PositionChangedEvent,
 )
@@ -66,6 +69,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    PositionDivergence,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -157,6 +163,13 @@ class VenueEventEmitter(IOrderFillReporter):
 
     def equity_sampled(self, sample: EquitySample) -> None:
         self._event_bus.emit(EquitySampledEvent(sample=sample, venue=self._venue))
+
+    def position_diverged(self, divergence: PositionDivergence) -> None:
+        """`EPIC-039D` - a budgeted owner's derived position and `positionRisk`
+        disagree."""
+        self._event_bus.emit(
+            OwnerPositionDivergedEvent(divergence=divergence, venue=self._venue)
+        )
 
     def position_changed(self, position: LivePosition) -> None:
         self._event_bus.emit(PositionChangedEvent(position=position, venue=self._venue))

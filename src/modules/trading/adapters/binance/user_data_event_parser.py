@@ -163,6 +163,19 @@ def account_update_funding(payload: dict[str, Any]) -> FundingCharge | None:
     return FundingCharge(str(symbol), Decimal(str(balance["bc"])))
 
 
+def fill_trade_id(payload: dict[str, Any]) -> int | None:
+    """@brief The exchange's trade id of *this* fill (`"t"`), or `None` when
+    the payload carries none (Binance sends `0` on a report that is not a
+    trade). `EPIC-039D`: the key that lets a fill reported twice be counted
+    once, as `EPIC-035P` does for Spot.
+    @details Only `t` is read here; the commission and realized profit of the
+    same message are `EPIC-039G`'s."""
+    raw = payload["o"].get("t")
+    if raw is None or int(raw) <= 0:
+        return None
+    return int(raw)
+
+
 def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:
     """@brief Every symbol one `ACCOUNT_UPDATE` reports a position change
     for — including one that went flat (`positionAmt` now `0`), which is
@@ -176,6 +189,20 @@ def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:
     source of truth, not a partial streamed hint).
     """
     return [position["s"] for position in payload.get("a", {}).get("P", [])]
+
+
+def account_update_position_amounts(payload: dict[str, Any]) -> dict[str, Decimal]:
+    """@brief `{symbol: signed position amount}` (`"pa"`) for every position
+    `"a"."P"` reports on *this* `ACCOUNT_UPDATE` (`EPIC-039D`).
+    @details The amount the exchange had **at this event**, which is what the
+    owner's book is compared with: a REST read taken after the event can
+    already include a fill whose `ORDER_TRADE_UPDATE` the book has not yet
+    heard, and would read a burst of the bot's own fills as a disagreement.
+    A flat position reports `"0"`."""
+    return {
+        position["s"]: Decimal(str(position["pa"]))
+        for position in payload.get("a", {}).get("P", [])
+    }
 
 
 def account_update_position_pnls(payload: dict[str, Any]) -> dict[str, Decimal]:

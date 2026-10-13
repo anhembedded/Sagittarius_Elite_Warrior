@@ -58,6 +58,26 @@ def test_a_fill_reports_its_commission_and_the_closing_fill_its_realized_profit(
         assert closing.realized_profit == Decimal(10), "(64000 - 63000) x 0.010"
 
 
+def test_a_repeated_fill_report_pays_its_commission_once(
+    futures: FakeExchange,
+) -> None:
+    """`EPIC-039G` x `EPIC-039D`: the fake repeats every fill report; the trade id `t` 039D
+    parses is the key, so the fill - and the commission it carries - reaches the app once."""
+    futures.urls.futures_book.faults.duplicate_reports = True
+    with booted_futures(futures) as app:
+        fills: list[OrderFilledEvent] = []
+        app.engine.context.container.resolve(IEventBus).on(
+            OrderFilledEvent, fills.append
+        )
+        _limit(app, "SEW-c4", OrderSide.BUY, "63000.0", "0.010")
+
+        app.move_price(Decimal(63000))
+
+        (fill,) = fills
+        assert fill.trade_id is not None
+        assert fill.fee_amount == Decimal("0.010") * Decimal(63000) * Decimal("0.0002")
+
+
 def test_a_funding_settlement_reaches_the_app_as_a_charge_on_the_symbol(
     futures: FakeExchange,
 ) -> None:

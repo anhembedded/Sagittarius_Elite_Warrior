@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     fill_commission,
     fill_details,
     fill_realized_profit,
+    fill_trade_id,
     is_fill_execution,
     parse_order_trade_update,
 )
@@ -108,6 +109,7 @@ class FuturesOrderUpdates:
                 order,
                 (fill_price, fill_quantity),
                 fee=fill_commission(payload),
+                trade_id=fill_trade_id(payload),
                 realized_profit=fill_realized_profit(payload),
             )
         elif ended_without_filling(order.status):

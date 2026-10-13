@@ -28,16 +28,22 @@ from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
-    OwnerBook,
     nothing_counted,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_book import (
+    IOwnerBook,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetFacts,
     OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    OwnerPosition,
+    PositionDivergence,
 )
 
 
@@ -75,7 +81,7 @@ class OwnerEventBuffer:
         self._events.append(event)
 
     def replay_into(
-        self, book: OwnerBook, counted: Callable[[int | None], bool]
+        self, book: IOwnerBook, counted: Callable[[int | None], bool]
     ) -> None:
         """@brief Applies every held end, and every held fill `counted` does
         not report as already in the book's inventory, in arrival order."""
@@ -91,7 +97,7 @@ class OwnerBooks:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._by_tag: dict[str, OwnerBook] = {}
+        self._by_tag: dict[str, IOwnerBook] = {}
         self._buffers: list[OwnerEventBuffer] = []
 
     def open_buffer(self, tag: str, symbol: str) -> OwnerEventBuffer:
@@ -110,7 +116,7 @@ class OwnerBooks:
     def install(
         self,
         tag: str,
-        book: OwnerBook,
+        book: IOwnerBook,
         held: OwnerEventBuffer | None = None,
         counted: Callable[[int | None], bool] = nothing_counted,
     ) -> None:
@@ -150,7 +156,7 @@ class OwnerBooks:
             book = self._by_tag.get(tag)
             if book is None or book.owner_id != owner_id or book.symbol != order.symbol:
                 return None
-            return book.facts(order.side, order.quantity, now)
+            return book.facts_for(order, now)
 
     def record_sent(
         self, tag: str, order: Order, notional: Decimal, when: datetime
@@ -183,13 +189,54 @@ class OwnerBooks:
             if book is not None:
                 book.apply_end(order)
 
-    def shares(self) -> tuple[OwnerShare, ...]:
-        """@brief Every owner's inventory, frozen, sorted by tag."""
+    def position_of(self, tag: str, owner_id: str) -> OwnerPosition | None:
+        """@brief The signed position `owner_id` holds under `tag`, or `None`
+        when `tag` has no book, another owner holds it, or it is a Spot book.
+        @details The live read behind `IExposureBook` once `EPIC-039H`'s
+        executor needs one (today the bots side reads the registration's
+        answer); until then tests are its callers."""
         with self._lock:
-            return tuple(
-                OwnerShare(tag, book.symbol, book.inventory)
+            book = self._by_tag.get(tag)
+            if book is None or book.owner_id != owner_id:
+                return None
+            return book.held_position()
+
+    def shares(self) -> tuple[OwnerShare, ...]:
+        """@brief Every Spot owner's inventory, frozen, sorted by tag. A
+        Futures owner holds a position, not an inventory: it has no share in
+        Emergency Stop's Spot liquidation."""
+        with self._lock:
+            shares = (
+                (tag, book.symbol, book.held_inventory())
                 for tag, book in sorted(self._by_tag.items())
             )
+            return tuple(
+                OwnerShare(tag, symbol, inventory)
+                for tag, symbol, inventory in shares
+                if inventory is not None
+            )
+
+    def cross_check_owner(
+        self, tag: str, exchange_quantity: Decimal
+    ) -> PositionDivergence | None:
+        """@brief Compares `tag`'s position with `exchange_quantity`; `None`
+        when they agree, `tag` has no book, or it is no Futures book."""
+        with self._lock:
+            book = self._by_tag.get(tag)
+            return None if book is None else book.cross_check(exchange_quantity)
+
+    def cross_check(
+        self, symbol: str, exchange_quantity: Decimal
+    ) -> tuple[PositionDivergence, ...]:
+        """@brief Compares every Futures owner's position on `symbol` with
+        `exchange_quantity` (`positionRisk`), returning each new divergence."""
+        with self._lock:
+            checked = (
+                book.cross_check(exchange_quantity)
+                for book in self._by_tag.values()
+                if book.symbol == symbol
+            )
+            return tuple(found for found in checked if found is not None)
 
     def _hold(self, order: Order, event: _HeldFill | Order) -> None:
         tag = tag_of(str(order.client_order_id))
@@ -202,7 +249,7 @@ class OwnerBooks:
     def _drop(self, buffer: OwnerEventBuffer) -> None:
         self._buffers = [b for b in self._buffers if b is not buffer]
 
-    def _book_of(self, order: Order) -> OwnerBook | None:
+    def _book_of(self, order: Order) -> IOwnerBook | None:
         """The book of the owner whose tag `order` carries, on that book's
         symbol only: a tagged fill on another symbol moves no inventory."""
         tag = tag_of(str(order.client_order_id))

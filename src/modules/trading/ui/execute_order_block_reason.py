@@ -91,6 +91,12 @@ _LIMIT_VIOLATION_MESSAGES = EnumLabels(
         TradingLimitViolation.OWNER_BUDGET_RATE: (
             "The bot has sent as many orders as its budget allows in this window."
         ),
+        TradingLimitViolation.OWNER_BUDGET_POSITION_NOTIONAL: (
+            "This order would take the bot's position above what its capital and leverage allow."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_MARGIN: (
+            "This order would need more margin than the bot committed."
+        ),
         TradingLimitViolation.OWNER_BUDGET_MISSING: (
             "The order carries a bot's tag, but no budget is registered for it on this symbol."
         ),
