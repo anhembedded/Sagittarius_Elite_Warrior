@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_w
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.mark_source_futures import (
+    ExchangeMarkSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.opening_futures import (
     PositionOpening,
 )
@@ -117,6 +120,7 @@ def futures_exposure(
             PositionExposureCloser(context),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),
+            exit_marks=ExchangeMarkSource(context, ports),
         )
 
     return build

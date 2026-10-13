@@ -77,9 +77,14 @@ MARK_PRICE_SAVE_SECONDS: float = 30.0
 class GridPriceReaction:
     """Remembers the last price and reacts to a tick and to a quiet feed."""
 
-    def __init__(self, context: GridRunContext, stopper: GridStopper) -> None:
+    def __init__(
+        self, context: GridRunContext, stopper: GridStopper, *, exits_on_mark: bool
+    ) -> None:
+        """@param exits_on_mark A position venue's stop loss and take profit are judged on the
+        mark (`on_mark`); the streamed last price then only keeps the price and its age."""
         self._context = context
         self._stopper = stopper
+        self._exits_on_mark = exits_on_mark
         self._extremes = GridTickExtremes()
         self._mark_saved_at: float | None = None
         state = context.state
@@ -100,18 +105,29 @@ class GridPriceReaction:
         self._save_mark_price(tick.last)
         self._range.note(tick)
         low, high = self._extremes.observed(tick)
+        if not self._exits_on_mark:
+            self._exit_if_crossed(tick, low, high, "price")
+
+    def on_mark(self, tick: PriceTick) -> None:
+        """The mark price of a position venue's symbol: the price its exits are judged on."""
+        if self._context.state.state in _WATCHES_EXITS:
+            self._exit_if_crossed(tick, tick.low, tick.high, "mark price")
+
+    def _exit_if_crossed(
+        self, tick: PriceTick, low: Decimal, high: Decimal, what: str
+    ) -> None:
         params = self._context.params
         stop, take = params.stop_loss_price, params.take_profit_price
         reason = crossed_exit_in_range(low, high, stop, take)
         if reason is None:
             return
-        detail = f"price {tick.last}"
+        detail = f"{what} {tick.last}"
         if crossed_exit(tick.last, stop, take) is not reason:
             # Once: the Stop this starts leaves every state that watches exits.
             extreme, threshold = (
                 (low, stop) if reason is GridReason.STOP_LOSS else (high, take)
             )
-            detail = f"price {tick.last}, traded to {extreme}"
+            detail = f"{what} {tick.last}, traded to {extreme}"
             logger.info(
                 "Bot %s: %s fires on a wick, not on the close: close %s, %s %s, "
                 "threshold %s [exit-on-extreme]",

@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_closer import (
     IExposureCloser,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
+    IMarkSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy import (
     IOpeningStrategy,
 )
@@ -69,6 +72,9 @@ class GridExposure:
     flags: IOrderFlags
     #: A position venue's liquidation and divergence watch (`EPIC-039F`); `None`: Spot has neither.
     risk_watch: GridRiskWatch | None = None
+    #: Where a position venue's stop loss and take profit are judged: the mark price. `None`:
+    #: the streamed last price and its range are (Spot).
+    exit_marks: IMarkSource | None = None
 
 
 class ExposureKindNotBuiltError(LookupError):

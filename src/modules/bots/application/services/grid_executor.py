@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_pr
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
     GridLadderPlacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_mark_exit import (
+    GridMarkExit,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_parking import (
     GridParking,
 )
@@ -160,7 +163,9 @@ class GridExecutor(IBotExecutor):
             GridRateLimitPause(context, retries, self._post, self._resume, self._price),
             self._storage,
         )
-        self._prices = GridPriceReaction(context, self._stop)
+        self._prices = GridPriceReaction(
+            context, self._stop, exits_on_mark=exposure.exit_marks is not None
+        )
         self._proposal: ResumeProposal | None = None
         self._facts = GridFacts(
             context,
@@ -174,6 +179,9 @@ class GridExecutor(IBotExecutor):
                 GridKeyProbe(context),
                 GridTermsWatch(context),
                 exposure.risk_watch,
+                GridMarkExit(exposure.exit_marks, self._prices, self.bot_id)
+                if exposure.exit_marks is not None
+                else None,
             ),
             self._post,
             self._forget_proposal,
