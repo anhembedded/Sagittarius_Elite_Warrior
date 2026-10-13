@@ -17,12 +17,8 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
-    OwnerInventoryDeriver,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
-    RegisterOwnerBudgetCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.trading_session_service import (
     TradingSessionService,
@@ -35,7 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.earlier_runs_invent
     EarlierRunsRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
     EMPTY_INVENTORY,
     OwnerInventory,
 )
@@ -47,14 +42,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_tr
     OwnerBudgetContract,
     contract_registration,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_inventory_checkpoints import (
-    FakeOwnerInventoryCheckpoints,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.owner_budget_handlers import (
+    registration_handler,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -78,11 +73,7 @@ def _real_service(state: TradingSessionState) -> TradingSessionService:
     scopes = single_venue_scopes(venue_context(_SPOT), state)
     dispatcher = _RoutingDispatcher(
         {
-            RegisterOwnerBudgetCommand: RegisterOwnerBudgetCommandHandler(
-                scopes,
-                OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
-                DEFAULT_OWNER_BUDGET_CAPS,
-            ),
+            RegisterOwnerBudgetCommand: registration_handler(scopes),
         }
     )
     return TradingSessionService(dispatcher, state, _SPOT)

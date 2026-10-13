@@ -52,7 +52,7 @@ gantt
 | EPIC-039A | [Venue profile seam](completed/EPIC-039A_venue_profile_seam.md) | `claude/epic-039a-venue-profile` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039B | [Direction-aware planner](completed/EPIC-039B_direction_aware_grid_planner.md) | `claude/epic-039b-direction-planner` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039C | [Futures fake exchange matching](completed/EPIC-039C_futures_fake_exchange_matching.md) | `claude/epic-039c-futures-fake-exchange` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-039D | [Exposure book for positions](incomplete/EPIC-039D_exposure_book_for_positions.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-039D | [Exposure book for positions](completed/EPIC-039D_exposure_book_for_positions.md) | `claude/epic-039d-exposure-book` | 🔴 | ✅ Done 2026-10-13 | — |
 | EPIC-039E | [Settings gate and readiness](completed/EPIC-039E_futures_settings_gate_and_readiness.md) | `claude/epic-039e-settings-gate` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039F | [Risk guard and liquidation](incomplete/EPIC-039F_risk_guard_and_liquidation.md) | — | 🔴 | 🔵 Planned; asks O3, O4 | — |
 | EPIC-039G | [Costs, funding and PnL](incomplete/EPIC-039G_futures_costs_funding_and_pnl.md) | — | 🟡 | 🔵 Planned | — |
@@ -69,6 +69,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-13 | 039D | A Futures owner's signed position is derived from its tagged fills, judged in notional and margin, cross-checked with `positionRisk` (a foreign position refuses the registration; a mismatch or a change with no tagged fill is reported, never overwritten), and a Futures fill carries its trade id so a repeated report counts once. Spot unchanged. No Futures bot is startable yet. |
 | 2026-10-13 | 039C | The Futures fake matches resting orders on a price cross, with positions, funding, liquidation, user-data events, faults and the settings refusals; a `futures` fixture boots the composed app on the Futures testnet. Findings handed to 039D/039E/039G. |
 | 2026-10-13 | 039A | The venue profile seam delivered: one deciding place for what a venue allows, a guard that fails on a second, `IBotKind.supported_profiles`; Spot sentences pinned and unchanged. No Futures path exists. |
 | 2026-10-13 | 039B | The planner knows LONG, SHORT and NEUTRAL (signed opening quantity, reduce-only marks, `LevelSizing`), a pure position model proves the position function for equal-quantity ladders, `BaseHandling` is `ExposureHandling`, `GridParams` carry direction and leverage, and a direction the venue does not allow is refused. Spot unchanged (recorded oracle). No Short or Neutral grid is startable. |

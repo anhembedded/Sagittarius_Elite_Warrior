@@ -32,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
     TradingLimits,
     TradingLimitViolation,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.owner_exposure_policy import (
+    margin_within_limits,
+    notional_within_limits,
+)
 
 
 class TradingLimitPolicy:
@@ -131,24 +135,21 @@ def _owner_budget_checks(
     facts: OwnerBudgetFacts, order_notional: Decimal
 ) -> tuple[TradingLimitCheck, ...]:
     """@brief ADR D6's five checks. Each counts the order being sent, so a
-    figure exactly at its ceiling passes and the next order is refused."""
+    figure exactly at its ceiling passes and the next order is refused. The
+    middle two are Spot's exposure and inventory checks, or, for a Futures
+    owner (`EPIC-039D`), the position's notional and margin."""
     budget = facts.budget
-    buying = facts.order_side is OrderSide.BUY
-    exposure = facts.open_buy_quote + facts.inventory.cost + order_notional
-    committed_sell = facts.open_sell_quantity + facts.order_quantity
+    exposure_checks = (
+        _position_checks(facts, order_notional)
+        if facts.position is not None
+        else _inventory_checks(facts, order_notional)
+    )
     return (
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_OPEN_ORDERS,
             passed=facts.open_order_count + 1 <= budget.max_open_orders,
         ),
-        TradingLimitCheck(
-            TradingLimitViolation.OWNER_BUDGET_EXPOSURE,
-            passed=not buying or exposure <= budget.max_exposure_quote,
-        ),
-        TradingLimitCheck(
-            TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY,
-            passed=buying or committed_sell <= facts.inventory.quantity,
-        ),
+        *exposure_checks,
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_SPACING,
             passed=facts.time_since_last_order is None
@@ -157,5 +158,38 @@ def _owner_budget_checks(
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_RATE,
             passed=facts.orders_in_window + 1 <= budget.max_orders_per_window,
+        ),
+    )
+
+
+def _inventory_checks(
+    facts: OwnerBudgetFacts, order_notional: Decimal
+) -> tuple[TradingLimitCheck, TradingLimitCheck]:
+    buying = facts.order_side is OrderSide.BUY
+    exposure = facts.open_buy_quote + facts.inventory.cost + order_notional
+    committed_sell = facts.open_sell_quantity + facts.order_quantity
+    return (
+        TradingLimitCheck(
+            TradingLimitViolation.OWNER_BUDGET_EXPOSURE,
+            passed=not buying or exposure <= facts.budget.max_exposure_quote,
+        ),
+        TradingLimitCheck(
+            TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY,
+            passed=buying or committed_sell <= facts.inventory.quantity,
+        ),
+    )
+
+
+def _position_checks(
+    facts: OwnerBudgetFacts, order_notional: Decimal
+) -> tuple[TradingLimitCheck, TradingLimitCheck]:
+    return (
+        TradingLimitCheck(
+            TradingLimitViolation.OWNER_BUDGET_POSITION_NOTIONAL,
+            passed=notional_within_limits(facts, order_notional),
+        ),
+        TradingLimitCheck(
+            TradingLimitViolation.OWNER_BUDGET_MARGIN,
+            passed=margin_within_limits(facts, order_notional),
         ),
     )

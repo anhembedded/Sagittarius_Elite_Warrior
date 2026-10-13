@@ -117,3 +117,22 @@ def test_a_liquidation_reaches_the_app_as_a_fill_it_did_not_order(
         (forced,) = fills
         assert str(forced.order.client_order_id).startswith("autoclose-")
         assert (forced.order.side, forced.fill_quantity) == (OrderSide.SELL, Decimal(1))
+
+
+def test_a_fill_the_exchange_reports_twice_is_one_event_with_its_trade_id(
+    futures: FakeExchange,
+) -> None:
+    """`EPIC-039D` - the fault `EPIC-039C` handed over: the app counted the repeat."""
+    futures.urls.futures_book.faults.duplicate_reports = True
+    with booted_futures(futures) as app:
+        fills: list[OrderFilledEvent] = []
+        app.engine.context.container.resolve(IEventBus).on(
+            OrderFilledEvent, fills.append
+        )
+        _limit(app, "SEW-f5", OrderSide.BUY, "63000.0", "0.010")
+
+        app.move_price(Decimal(63000))
+
+        (fill,) = fills
+        assert fill.trade_id is not None
+        assert fill.fill_quantity == Decimal("0.010")

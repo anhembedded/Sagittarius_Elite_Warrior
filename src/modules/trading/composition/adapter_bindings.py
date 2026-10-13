@@ -45,6 +45,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_own
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
     OwnerInventoryDeriver,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_deriver import (
+    OwnerPositionDeriver,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_registrar import (
+    OwnerPositionRegistrar,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -154,6 +160,12 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(
         OwnerInventoryDeriver,
         lambda c: OwnerInventoryDeriver(c.resolve(IOwnerInventoryCheckpoints)),
+    )
+    # `EPIC-039D` - a Futures owner's position, derived from the same evidence.
+    container.singleton(OwnerPositionDeriver, lambda _c: OwnerPositionDeriver())
+    container.singleton(
+        OwnerPositionRegistrar,
+        lambda c: OwnerPositionRegistrar(c.resolve(OwnerPositionDeriver)),
     )
 
 
