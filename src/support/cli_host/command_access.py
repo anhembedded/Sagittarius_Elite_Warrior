@@ -24,6 +24,9 @@ existed before this field keeps.
     must check the machine *before* the bots are restored and wait *between* boot and
     stop), so the entry point hands it the built, unbooted app and does neither.
 
+@par A verb that reads only with a flag (`EPIC-038I`)
+  · `"read_only_when": "dry_run"` - `bot apply --dry-run` is read-only, `bot apply` is not.
+
 @par Extension cases
   · a new read-only command or verb - `"read_only": true` on its entry; this
     function and the entry point do not change;
@@ -38,31 +41,46 @@ from typing import Any
 
 #: The keys in a command's (or sub-command's) `cli_commands.json` entry.
 READ_ONLY_KEY = "read_only"
+READ_ONLY_WHEN_KEY = "read_only_when"
 REQUIRES_WRITABLE_KEY = "requires_writable"
 OWNS_LIFECYCLE_KEY = "owns_lifecycle"
 
 
-def _declared(commands: Mapping[str, Any], args: argparse.Namespace, key: str) -> bool:
-    """The value of `key` for the parsed command; absent means `False`.
+def _declared_value(
+    commands: Mapping[str, Any], args: argparse.Namespace, key: str
+) -> object:
+    """The raw value of `key` for the parsed command, or `None` when it is not declared.
 
     The sub-command's own entry wins over its parent's: `bot` may hold both a
     reading verb and, later, a writing one.
     """
     entry = commands.get(args.command)
     if not isinstance(entry, Mapping):
-        return False
+        return None
     subparsers = entry.get("subparsers")
     if isinstance(subparsers, Mapping):
         chosen = getattr(args, str(subparsers.get("dest", "subcommand")), None)
         sub_entry = subparsers.get("commands", {}).get(chosen)
         if isinstance(sub_entry, Mapping) and key in sub_entry:
-            return bool(sub_entry[key])
-    return bool(entry.get(key, False))
+            return sub_entry[key]
+    return entry.get(key)
+
+
+def _declared(commands: Mapping[str, Any], args: argparse.Namespace, key: str) -> bool:
+    """The truth of `key` for the parsed command; absent means `False`."""
+    return bool(_declared_value(commands, args, key))
 
 
 def command_is_read_only(commands: Mapping[str, Any], args: argparse.Namespace) -> bool:
-    """True when the entry for the parsed command, or for its sub-command, says so."""
-    return _declared(commands, args, READ_ONLY_KEY)
+    """True when the entry for the parsed command, or for its sub-command, says so.
+
+    `"read_only_when": "<flag>"` (`EPIC-038I`) says so only when that parsed flag is on:
+    `bot apply --dry-run` reads and prints a diff, `bot apply` changes bots, and the
+    entry point must know which before it takes the lock."""
+    if _declared(commands, args, READ_ONLY_KEY):
+        return True
+    flag = _declared_value(commands, args, READ_ONLY_WHEN_KEY)
+    return isinstance(flag, str) and bool(getattr(args, flag, False))
 
 
 def command_requires_writable_instance(

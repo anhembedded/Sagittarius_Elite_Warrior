@@ -199,24 +199,24 @@ Read the `[preflight]` lines after the start. **`bot-files-readable` WARN** mean
 
 **Rollback**: stop, `git checkout` the previous release, reinstall its dependencies (step 4), and put the state back from step 3 **if the newer build has written bot files** (an older build refuses a newer file and leaves it; restoring the copy returns the bots as they were). Start and check as above.
 
-### Bot plan files (`bot export`, `bot apply`, `run --start-planned`)
+### Plan files and version control (`bot export`, `bot apply`, `run --start-planned`)
 
-*Written against the command line `EPIC-038I` defines in PR #476. If this section and the merged code disagree, the code is right; `main.py bot apply --help` is the check.*
-
-A plan is a JSON file (`sew.bot-plan/1`) that holds no key, secret or account identifier. It is how a server's bots are defined without the desktop app.
+A plan is a JSON file (`sew.bot-plan/1`) that names each bot by name and venue and holds **no key, secret or account identifier**, so it is safe to keep in version control and to review as a diff. It is how a server's bots are defined without the desktop app. The procedure, each step run as in §5 (`M` is the `sudo -u sew env ... main.py` prefix there):
 
 ```bash
 M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
-$M bot export --all --output /var/lib/sew/plan.json     # read-only; never overwrites a file
-$M bot apply /var/lib/sew/plan.json --dry-run           # prints what would change; changes nothing; works beside a running host
+$M bot export --all --output /var/lib/sew/plan.json   # once; read-only; never overwrites a file
+# edit plan.json (or keep it in git and copy it over), then:
+$M bot apply /var/lib/sew/plan.json --dry-run         # prints what would change; changes nothing; works beside a running host
 sudo systemctl stop sew-run
-$M bot apply /var/lib/sew/plan.json [--prune]           # creates, edits (and with --prune deletes at-rest) bots; starts and stops nothing
+$M bot apply /var/lib/sew/plan.json [--prune]         # creates and edits bots (with --prune deletes the ones the plan omits, if at rest); starts and stops nothing
 sudo systemctl start sew-run
 ```
 
-`bot apply` changes bots, so it needs the data root's lock: with the host running it exits `3` and changes nothing (control of a running host is `EPIC-038J`). A second apply of the same plan changes nothing. `apply` also records each entry's `desired_state`; **only that applied record, never the file you edit, is what the host reads**.
-
-To have the host start the planned bots at every start, add `--start-planned` through a drop-in (`sudo systemctl edit sew-run`): write `[Service]`, an empty `ExecStart=`, then `ExecStart=` followed by the unit's own line with ` --start-planned` appended. It starts only bots that are at rest and that the plan says are running. If no plan was ever applied, or the record cannot be read, it exits `5` before anything boots, which the unit does not restart. A bot on a mainnet venue is started only with `--confirm-venue <venue>` in the same line; without it the host exits `2` and starts nothing.
+- `bot apply` changes bots, so it needs the data root's lock: with the host running it exits `3` and changes nothing (control of a running host is `EPIC-038J`, decision O4). A second apply of the same plan changes nothing. An entry that would edit a bot in a state the lifecycle forbids (it must be stopped first) is reported, not applied, and the command exits `2`; the other entries are applied.
+- `apply` records what the plan wants in **`state/bot_plan.json`** (beside the bots' files, keyed by bot id). **Only that applied record is what the host reads**, never the file you edit, so an edit counts once it has been applied.
+- **`run --start-planned`** starts the bots the applied plan says are running and that are at rest. It is not in the unit by default. With no applied plan, or a record that cannot be read, it exits **`5`** before anything boots, which the unit does not restart; so add it to the unit only after a plan has been applied. To add it, use a drop-in (`sudo systemctl edit sew-run`): write `[Service]`, an empty `ExecStart=`, then `ExecStart=` followed by the unit's own line with ` --start-planned` appended.
+- A bot on a **mainnet** venue is started only with `--confirm-venue <venue>` in the same line; without it the host exits `2` and starts nothing. One `--confirm-venue` names one venue.
 
 ## 9. Install on Windows (NSSM)
 

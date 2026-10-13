@@ -23,6 +23,7 @@ _COMMANDS = {
                 "list": {"read_only": True},
                 "show": {"read_only": True},
                 "start": {},
+                "apply": {"read_only_when": "dry_run"},
             },
         }
     },
@@ -46,6 +47,9 @@ def _args(**values: object) -> argparse.Namespace:
         (_args(command="bot", action="list"), True),
         (_args(command="bot", action="show"), True),
         (_args(command="bot", action="start"), False),
+        (_args(command="bot", action="apply", dry_run=True), True),
+        (_args(command="bot", action="apply", dry_run=False), False),
+        (_args(command="bot", action="apply"), False),
         (_args(command="mixed", verb="write"), False),
         (_args(command="mixed", verb="other"), True),
     ],
@@ -58,6 +62,8 @@ _READ_ONLY = {
     ("status", None),
     ("bot", "list"),
     ("bot", "show"),
+    # Reads the bots and writes a file the operator named; touches no bot.
+    ("bot", "export"),
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),
@@ -71,6 +77,8 @@ _WRITABLE = {
     ("stream", "start"),
     ("stream", "stop"),
     ("trade-once", None),
+    # Read-only with `--dry-run` (`read_only_when`), the writable copy otherwise.
+    ("bot", "apply"),
     # The writable copy by definition: it trades, and refuses to start without the lock.
     ("run", None),
 }
@@ -160,3 +168,14 @@ def test_only_run_requires_the_lock_and_owns_its_lifecycle_in_the_shipped_table(
 
     assert requiring == {("run", None)}
     assert owning == {("run", None)}
+
+
+def test_apply_is_read_only_exactly_when_it_is_a_dry_run_in_the_shipped_table() -> None:
+    shipped = _shipped()
+
+    assert command_is_read_only(
+        shipped, _args(command="bot", action="apply", dry_run=True)
+    )
+    assert not command_is_read_only(
+        shipped, _args(command="bot", action="apply", dry_run=False)
+    )

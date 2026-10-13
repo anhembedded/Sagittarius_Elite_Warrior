@@ -18,15 +18,25 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_printer import (
     IReportPrinter,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import BOT_VERBS
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
+    IAppliedPlanStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
 from sagittarius_engine import App
 
 
 class BotCliHandler(ICliCommandHandler):
-    """`bot list`, `bot show <id>`."""
+    """`bot list`, `bot show <id>`, `bot apply <plan>`, `bot export`."""
 
     @staticmethod
     def handle(args: argparse.Namespace, app: App) -> CliOutcome | None:
@@ -36,8 +46,14 @@ class BotCliHandler(ICliCommandHandler):
             return CliOutcome(
                 ExitCode.USAGE, f"bot needs one of: {', '.join(sorted(verbs))}"
             )
+        container = app.container
         return verb.run(
             args,
-            app.container.resolve(ICommandDispatcher),
-            app.container.resolve(IReportPrinter),
+            BotVerbWorld(
+                dispatcher=container.resolve(ICommandDispatcher),
+                printer=container.resolve(IReportPrinter),
+                kinds=container.resolve(IBotKindCatalog),
+                plans=container.resolve(IAppliedPlanStore),
+                instance=container.resolve(IInstanceAccess),
+            ),
         )

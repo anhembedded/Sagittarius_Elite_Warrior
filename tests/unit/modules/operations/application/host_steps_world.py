@@ -49,9 +49,15 @@ def entry(
 
 
 class FixedPlan(IBotPlan):
-    def __init__(self, wants: frozenset[str] | None) -> None:
-        """`None` is "there is no plan"."""
+    def __init__(
+        self, wants: frozenset[str] | None, problem: str | None = None
+    ) -> None:
+        """`None` is "there is no plan"; `problem` is a plan the host cannot read."""
         self._wants = wants
+        self._problem = problem
+
+    def problem(self) -> str | None:
+        return self._problem
 
     def exists(self) -> bool:
         return self._wants is not None

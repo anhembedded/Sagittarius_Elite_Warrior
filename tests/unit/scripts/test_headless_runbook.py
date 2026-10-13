@@ -97,3 +97,19 @@ def test_the_runbook_links_the_logging_guide_instead_of_restating_it() -> None:
 def test_the_runbook_has_the_container_note_and_the_signed_checklist() -> None:
     assert "does not work inside Docker" in _TEXT
     assert "Signed:" in _TEXT
+
+
+def test_the_plan_file_section_names_the_applied_record_and_the_exit_a_missing_plan_gets() -> (
+    None
+):
+    section = _TEXT.split("### Plan files and version control")[1].split("\n## ")[0]
+    assert "state/bot_plan.json" in section
+    assert "exits **`5`**" in section
+    for verb in (
+        "bot export",
+        "bot apply",
+        "--dry-run",
+        "--start-planned",
+        "--confirm-venue",
+    ):
+        assert verb in section, verb
