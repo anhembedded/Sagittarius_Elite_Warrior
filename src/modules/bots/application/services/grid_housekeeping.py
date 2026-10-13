@@ -123,4 +123,6 @@ def refusal_text(registration: OwnerBudgetRegistrationResult) -> str:
     refusal = registration.refusal
     if refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF:
         return "the order session is not open"
+    if refusal is OwnerBudgetRefusal.FOREIGN_POSITION and registration.foreign_position:
+        return registration.foreign_position.describe()
     return refusal.value if refusal else ""
