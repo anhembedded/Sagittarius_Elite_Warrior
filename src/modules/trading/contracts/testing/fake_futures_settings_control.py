@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_settings_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    MANUAL_OWNER,
+)
 
 
 class FakeFuturesSettingsControl(IFuturesSettingsControl):
@@ -40,7 +43,7 @@ class FakeFuturesSettingsControl(IFuturesSettingsControl):
         self._refusal = (refusal, detail)
 
     def change_leverage(
-        self, symbol: str, leverage: int
+        self, symbol: str, leverage: int, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[LeverageSetting]:
         self.leverage_changes.append((symbol, leverage))
         if self._refusal is not None:
@@ -50,7 +53,7 @@ class FakeFuturesSettingsControl(IFuturesSettingsControl):
         )
 
     def change_margin_type(
-        self, symbol: str, margin_type: MarginType
+        self, symbol: str, margin_type: MarginType, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[MarginType]:
         self.margin_changes.append((symbol, margin_type))
         if self._refusal is not None:

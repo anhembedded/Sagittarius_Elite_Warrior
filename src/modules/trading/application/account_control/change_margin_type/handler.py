@@ -52,7 +52,9 @@ class ChangeMarginTypeCommandHandler(
             command.margin_type.value,
             command.venue.value,
         )
-        cleared = clear_account_control(self._scopes, command.venue, command.symbol)
+        cleared = clear_account_control(
+            self._scopes, command.venue, command.symbol, command.owner_id
+        )
         if isinstance(cleared, AccountControlRefused):
             logger.info(
                 "[account-control] margin-mode change on %s %s refused: %s",
