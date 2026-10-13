@@ -203,8 +203,10 @@ dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not
    halt's own (decision O8). Restart, a stream gap and a position that differs from the bot's own
    fills are reconciled against `positionRisk` (`POSITION_MISMATCH`), never traded over.
 
-What it does not do yet: Short and Neutral (`EPIC-039I`), the stop and take profit on the **mark** price
-and the range exit (`EPIC-039H` stage 3), the exchange-side protective stop (`EPIC-039L`). Futures
+What it does not do yet: Short and Neutral (`EPIC-039I`), the screen's *On range exit* row (`EPIC-039J`), the
+exchange-side protective stop (`EPIC-039L`). The stop loss and take profit of a Futures bot follow the **mark**
+price, read once per beat of the price watch (up to one beat late); `on_range_exit` (`hold` by default, `close`
+stops with the position closed and the reason *range exit*, Futures only) is a plan-file key until the screen has its row. Futures
 mainnet is **closed to bots on every path** (create, start, resume, the headless host) until
 `EPIC-039L` opens it. A halt or a Stop with close closes **only the bot's own position**, derived from
 its fills; a position the owner opened by hand on the symbol stays open and is said so.
@@ -349,6 +351,11 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | The close is reduce-only, cut under the cap and confirmed flat; the opening is never traded over a divergence; the plan's risk and the venue's settings are settled before any order | `tests/unit/modules/bots/application/services/test_position_close.py` · `test_position_opening.py` · `test_position_venue_collaborators.py` | unit |
 | The four exposure joints are ports the sequences reach, and a halt stops with the close where the venue closes on halt | `tests/unit/modules/bots/application/services/test_grid_executor_exposure_seams.py` | unit |
 | A Futures bot is judged by the Futures rules against the margin of its ladder's worst case; its levels are sized by one quantity; the lease holder may change its own symbol's settings | `tests/unit/modules/bots/application/test_futures_readiness_path.py` · `tests/unit/modules/bots/domain/grid/test_position_venue_sizing.py` · `tests/unit/modules/trading/application/account_control/test_account_control_lease_holder.py` | unit |
+| A Futures bot's stop loss and take profit follow the mark price, a crossing is seen at the next read, and an unreadable mark judges nothing and is said once | `tests/unit/modules/bots/application/services/test_position_mark_exit.py` · `tests/integration/modules/bots/test_a_futures_grid_exits_on_the_mark_price_on_the_fake_exchange.py` | unit · integration |
+| A Futures bot out of range holds (default) or closes with the reason range exit; Spot refuses close | `tests/unit/modules/bots/application/services/test_position_range_exit.py` | unit |
+| A halt closes whatever the cancel did, only the bot's own position, and says what happened; Futures mainnet is refused on every path | `tests/unit/modules/bots/application/services/test_position_halt_close.py` · `tests/unit/modules/bots/application/services/test_position_close_scope.py` · `tests/integration/modules/bots/test_futures_mainnet_is_closed_on_every_path.py` | unit · integration |
+| A Futures owner's position survives the venue's 30-day history through a checkpoint | `tests/unit/modules/trading/application/test_owner_position_checkpoint.py` · `tests/unit/modules/trading/adapters/persistence/test_json_owner_position_checkpoints.py` | unit |
+| The position model and the Futures executor hold the same position and profit along one path; the Spot and Futures Long executors agree on a scenario table; the plan is judged on the setting the gate will make | `tests/integration/modules/bots/test_the_position_model_agrees_with_the_futures_executor.py` · `tests/integration/modules/bots/test_spot_and_futures_long_grids_agree_on_the_same_scenarios.py` · `tests/unit/modules/bots/domain/grid/test_plan_is_judged_on_the_intended_setting.py` | integration · unit |
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
