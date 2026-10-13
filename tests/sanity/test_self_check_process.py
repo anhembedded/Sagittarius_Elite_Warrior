@@ -52,6 +52,8 @@ import sys
 import time
 from pathlib import Path
 
+from fake_exchange.child_process import child_environment, refused_by_child
+from fake_exchange.server import FakeServerUrls
 from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.tests.instance_holder import start_holder, stop_holder
 
@@ -73,10 +75,16 @@ _ALLOWED_STDERR_SUBSTRINGS = (
 )
 
 
-def _run_self_check(data_root: Path) -> subprocess.CompletedProcess[str]:
+def _run_self_check(
+    data_root: Path, urls: FakeServerUrls
+) -> subprocess.CompletedProcess[str]:
     """The real entry point on its own data root, so it never meets another
-    process's instance lock (`EPIC-035H`) unless the test puts it there."""
-    return subprocess.run(
+    process's instance lock (`EPIC-035H`) unless the test puts it there.
+
+    `BUG-199`: the child talks to the fake exchange or to nothing, and a child
+    that tried to leave the machine fails the test that launched it."""
+    boundary = data_root / "child-boundary"
+    result = subprocess.run(
         [
             sys.executable,
             "-m",
@@ -88,11 +96,21 @@ def _run_self_check(data_root: Path) -> subprocess.CompletedProcess[str]:
         text=True,
         timeout=_PROCESS_BUDGET_SECONDS,
         check=False,
-        env={**os.environ, DATA_ROOT_ENV: str(data_root)},
+        env=child_environment(
+            boundary, urls, {**os.environ, DATA_ROOT_ENV: str(data_root)}
+        ),
     )
+    refused = refused_by_child(boundary)
+    assert refused == [], (
+        f"--self-check tried to reach {refused}; the sanity tier points every "
+        "Binance client at the fake exchange (fake_exchange/child_process.py)"
+    )
+    return result
 
 
-def test_the_real_process_starts_and_stops_cleanly(tmp_path: Path) -> None:
+def test_the_real_process_starts_and_stops_cleanly(
+    tmp_path: Path, fake_exchange: FakeServerUrls
+) -> None:
     """Modes 7, 9, 10 — the one thing no in-process test can prove.
 
     A hang here surfaces as `subprocess.TimeoutExpired`, a real pytest
@@ -102,7 +120,7 @@ def test_the_real_process_starts_and_stops_cleanly(tmp_path: Path) -> None:
     real window fail to close).
     """
     started = time.monotonic()
-    result = _run_self_check(tmp_path)
+    result = _run_self_check(tmp_path, fake_exchange)
     elapsed = time.monotonic() - started
 
     assert result.returncode == 0, (
@@ -119,12 +137,12 @@ def test_the_real_process_starts_and_stops_cleanly(tmp_path: Path) -> None:
 
 
 def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence(
-    tmp_path: Path,
+    tmp_path: Path, fake_exchange: FakeServerUrls
 ) -> None:
     """The log itself is evidence, not just the exit code — an exit code of 0
     from a process that silently swallowed an exception during shutdown would
     still look like success by the test above alone."""
-    result = _run_self_check(tmp_path)
+    result = _run_self_check(tmp_path, fake_exchange)
     combined = result.stdout + result.stderr
 
     assert "App booted successfully" in combined, (
@@ -147,13 +165,15 @@ def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence(
         )
 
 
-def test_the_real_process_stderr_is_clean(tmp_path: Path) -> None:
+def test_the_real_process_stderr_is_clean(
+    tmp_path: Path, fake_exchange: FakeServerUrls
+) -> None:
     """Mode 8/10's process-boundary form — the diagnostic channels
     `conftest.py`'s `diagnostic_guard` observes in-process (Qt messages,
     Python logging, warnings) do not exist as such once the app is a separate
     process; stderr is what is left to inspect, and it must stay just as
     narrow an allowlist as the in-process guard's."""
-    result = _run_self_check(tmp_path)
+    result = _run_self_check(tmp_path, fake_exchange)
 
     unexpected = [
         line
@@ -169,14 +189,14 @@ def test_the_real_process_stderr_is_clean(tmp_path: Path) -> None:
 
 
 def test_a_second_real_process_on_the_same_data_root_boots_read_only(
-    tmp_path: Path,
+    tmp_path: Path, fake_exchange: FakeServerUrls
 ) -> None:
     """`EPIC-035H` — the process boundary: another copy holds the data root's
     lock, and the real entry point still starts, says it is read-only and stops
     cleanly (it must not hang on the lock, and must not refuse silently)."""
     holder = start_holder(tmp_path / "state" / "instance.lock")
     try:
-        result = _run_self_check(tmp_path)
+        result = _run_self_check(tmp_path, fake_exchange)
     finally:
         stop_holder(holder)
     combined = result.stdout + result.stderr
@@ -198,9 +218,23 @@ def test_a_second_real_process_on_the_same_data_root_boots_read_only(
     assert unexpected == [], "\n".join(unexpected)
 
 
-def test_the_first_real_process_on_a_data_root_is_writable(tmp_path: Path) -> None:
-    result = _run_self_check(tmp_path)
+def test_the_first_real_process_on_a_data_root_is_writable(
+    tmp_path: Path, fake_exchange: FakeServerUrls
+) -> None:
+    result = _run_self_check(tmp_path, fake_exchange)
     combined = result.stdout + result.stderr
 
     assert "[instance] writable" in combined, combined
     assert "[instance] read-only" not in combined, combined
+
+
+def test_the_real_process_reaches_no_real_host(
+    tmp_path: Path, fake_exchange: FakeServerUrls
+) -> None:
+    """`BUG-199` — the child's charts sync an empty store on open; every venue
+    they ask for is answered by the fake exchange. `_run_self_check` fails on a
+    refusal, so this test is the one place the behaviour is named."""
+    result = _run_self_check(tmp_path, fake_exchange)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert refused_by_child(tmp_path / "child-boundary") == []
