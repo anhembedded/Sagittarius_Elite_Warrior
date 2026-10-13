@@ -8,6 +8,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
     ExchangeTerms,
+    FundingView,
     MarketView,
 )
 
@@ -40,10 +41,11 @@ def inputs(
     last_price: Decimal = LAST_PRICE,
     daily_atr: Decimal | None = None,
     foreign_open_orders: int | None = None,
+    funding: FundingView | None = None,
     **changes: str,
 ) -> BotKindInputs:
     return BotKindInputs(
         {**CONFIG, **changes},
         terms,
-        MarketView(last_price, daily_atr, foreign_open_orders),
+        MarketView(last_price, daily_atr, foreign_open_orders, funding),
     )

@@ -14,6 +14,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
     exchange_terms_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.funding_view import (
+    funding_view_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_TITLE,
     bot_profile_of,
@@ -59,7 +62,8 @@ def read_planner_numbers(
     symbol: str,
 ) -> PlannerNumbers | str:
     """The terms and the mid price, or the sentence that says why not."""
-    if bot_profile_of(venue) is None or venue not in ports.enabled():
+    profile = bot_profile_of(venue)
+    if profile is None or venue not in ports.enabled():
         return f"{venue.display_name} is not an enabled {SPOT_TITLE} venue"
     entry_terms = ports.get(venue).order_entry_terms
     try:
@@ -75,6 +79,7 @@ def read_planner_numbers(
     return terms, MarketView(
         price,
         foreign_open_orders=_open_orders_on(ports.get(venue).account_activity, symbol),
+        funding=funding_view_of(entry_terms, symbol) if profile.has_funding else None,
     )
 
 

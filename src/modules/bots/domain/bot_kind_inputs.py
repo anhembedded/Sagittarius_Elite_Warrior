@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from types import MappingProxyType
 
@@ -100,6 +101,21 @@ class ExchangeTerms:
             raise ValueError("max_open_orders must be at least 1")
 
 
+#: How often a Futures venue settles funding: the 8 hours Binance's USD-M perpetuals
+#: use by default (`EPIC-039G`). A symbol's schedule can differ; the next settlement time
+#: the exchange reports is the exact one.
+FUNDING_INTERVAL = timedelta(hours=8)
+
+
+@dataclass(frozen=True, slots=True)
+class FundingView:
+    """`EPIC-039G` — the funding rate a venue charges now, as the bots module's own value."""
+
+    #: A fraction of the position's notional per `FUNDING_INTERVAL`; positive means longs
+    #: pay shorts. `None` when the rate could not be read: unknown, never zero.
+    rate: Decimal | None
+
+
 @dataclass(frozen=True, slots=True)
 class MarketView:
     """What the market looks like when the parameters are judged."""
@@ -111,6 +127,10 @@ class MarketView:
     #: Orders already open on the symbol that the plan did not place (`EPIC-035V`,
     #: L7); `None` when they were not read, and the check then says it did not run.
     foreign_open_orders: int | None = None
+    #: `EPIC-039G` — the funding the venue charges; `None` on a venue with none (Spot),
+    #: a `FundingView` whose rate is `None` where the venue charges it and it could not
+    #: be read. The two are different facts, so neither is a zero.
+    funding: FundingView | None = None
 
     def __post_init__(self) -> None:
         if self.last_price <= 0:

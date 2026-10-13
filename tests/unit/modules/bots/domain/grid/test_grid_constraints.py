@@ -17,6 +17,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
     BotKindInputs,
+    FundingView,
     PriceBand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
@@ -100,6 +101,7 @@ _PROVOKING: dict[str, dict[str, object]] = {
         "upper": "90000",
         "terms": replace(TERMS, max_notional_per_order=Decimal(10**6)),
     },
+    "FUNDING_ADVERSE": {"funding": FundingView(Decimal("0.01"))},
     "PRICE_BELOW_RANGE": {"last_price": Decimal(59000)},
     "PRICE_ABOVE_RANGE": {"last_price": Decimal(71000)},
     "LEVELS_ROUND_TO_ONE_PRICE": {
@@ -176,6 +178,7 @@ def test_advice_never_blocks() -> None:
         "TAKE_PROFIT_DISTANCE",
         "ARITHMETIC_ON_WIDE_RANGE",
         "FOREIGN_OPEN_ORDERS",
+        "FUNDING_ADVERSE",
         "PRICE_ABOVE_RANGE",
     }
 

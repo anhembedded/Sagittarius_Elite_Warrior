@@ -69,6 +69,7 @@ NO_FIELD: Mapping[str, str] = MappingProxyType(
     {
         "KEY_CANNOT_TRADE": "it is about the API key, not a parameter",
         "FOREIGN_OPEN_ORDERS": "it is about orders already open, not a parameter",
+        "FUNDING_ADVERSE": "it is about the venue's funding rate and the direction, not one field",
         "PARAMETERS_NOT_SET": "its sentence names every parameter still unset",
         "PARAMETERS_UNREADABLE": "its sentence names the parameter it cannot read",
     }

@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
     check_stop_loss,
     check_take_profit,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_funding_check import (
+    check_funding_adverse,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_checks import (
     check_distinct_levels,
 )
@@ -135,6 +138,11 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
         "spacing_suits_range",
         check_spacing_for_range,
         {"ARITHMETIC_ON_WIDE_RANGE": False},
+    ),
+    GridConstraint(
+        "funding_leaves_the_cycle_profit",
+        check_funding_adverse,
+        {"FUNDING_ADVERSE": False},
     ),
 )
 
