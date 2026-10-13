@@ -1,6 +1,7 @@
 """`EPIC-029D` — replay a Grid on stored candles, against buy-and-hold (ADR D14, D18).
 
-`simulate_grid` walks the candles oldest first. A candle no resting order or
+`simulate_grid` walks the candles oldest first through a `ReplayEngine` (the Spot one unless
+the inputs name another, `EPIC-039K`). A candle no resting order or
 exit could react to is skipped, 1-second klines and all; one that could is
 replayed through its 1-second klines, or, without klines spanning its low and
 high, as one coarse step, listed in `coarse_periods`. After each candle the grid's equity and the
@@ -25,9 +26,6 @@ from datetime import datetime, timedelta
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.buy_and_hold import (
-    buy_and_hold,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
     FineKlines,
     NoFineKlines,
@@ -38,7 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result
     EquityPoint,
     GridBacktestCancelled,
     GridBacktestResult,
-    StopReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     FILL_RULE,
@@ -49,8 +46,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_replay import (
-    GridReplay,
     ReplaySetup,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.replay_engine import (
+    EngineFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.spot_replay_engine import (
+    SpotReplayEngine,
 )
 
 
@@ -69,6 +71,9 @@ class GridBacktestInputs:
     #: `start <= open_time <= end`): the result says how many of its candles
     #: were stored. `None` for bars chosen by the caller.
     window: tuple[datetime, datetime] | None = None
+    #: What replays the ladder; `None` is the Spot engine. A position venue passes its own
+    #: (`EPIC-039K`): the walk over candles, the equity curve and the result are shared.
+    engine: EngineFactory | None = None
 
     def __post_init__(self) -> None:
         if not self.bars:
@@ -87,13 +92,7 @@ def simulate_grid(
     """@brief The replay of `inputs`, or the point it was cancelled at."""
     bars = inputs.bars
     first = bars[0]
-    replay = GridReplay(ReplaySetup(inputs.params, inputs.terms), first)
-    hold = buy_and_hold(
-        inputs.params.capital_quote,
-        first.open,
-        inputs.terms.taker_fee,
-        inputs.terms.step_size,
-    )
+    engine = _engine_for(inputs)(first)
     equity: list[EquityPoint] = []
     coarse: list[datetime] = []
     last = first
@@ -101,22 +100,25 @@ def simulate_grid(
         if cancelled():
             return GridBacktestCancelled(replayed, len(bars))
         last = bar
-        if replay.may_trade_in(bar.low, bar.high):
+        if engine.may_trade_in(bar.low, bar.high):
             steps = steps_for(
                 bar, inputs.fine.within(bar.time, bar.time + inputs.bar_length)
             )
             if steps[0].coarse:
                 coarse.append(bar.time)
             for step in steps:
-                replay.run_step(step)
-                if replay.stop is not None:
+                engine.run_step(step)
+                if engine.stopped:
                     break
+        engine.close_bar(bar, bar.time + inputs.bar_length)
         equity.append(
-            EquityPoint(bar.time, replay.value_at(bar.close), hold.value_at(bar.close))
+            EquityPoint(
+                bar.time, engine.value_at(bar.close), engine.benchmark_at(bar.close)
+            )
         )
-        if replay.stop is not None:
+        if engine.stopped:
             break
-    runtime = replay.runtime
+    outcome = engine.outcome(last.close)
     return GridBacktestResult(
         provenance=BacktestProvenance(
             config=tuple(sorted(inputs.params.to_config().items())),
@@ -127,21 +129,30 @@ def simulate_grid(
             fill_rule=FILL_RULE,
             window=_data_window(inputs),
         ),
-        plan=replay.plan,
+        plan=engine.plan,
         bars=bars[: len(equity)],
         equity=tuple(equity),
-        fills=tuple(replay.fills),
-        grid_profit=runtime.realised_profit,
-        unrealised=runtime.inventory * last.close - runtime.cost,
-        completed_cycles=runtime.completed_cycles,
-        stop_reason=replay.stop or StopReason.END_OF_DATA,
-        maker_fees=replay.maker_fees,
-        taker_fees=replay.taker_fees,
+        fills=outcome.fills,
+        grid_profit=outcome.grid_profit,
+        unrealised=outcome.unrealised,
+        completed_cycles=outcome.completed_cycles,
+        stop_reason=outcome.stop_reason,
+        maker_fees=outcome.maker_fees,
+        taker_fees=outcome.taker_fees,
         coarse_periods=tuple(coarse),
-        final_states=replay.drawn_states(),
-        average_cost=runtime.average_cost,
-        stop_detail=replay.stop_detail,
+        final_states=outcome.final_states,
+        average_cost=outcome.average_cost,
+        stop_detail=outcome.stop_detail,
+        futures=outcome.futures,
     )
+
+
+def _engine_for(inputs: GridBacktestInputs) -> EngineFactory:
+    """The engine the caller chose, or the Spot one: an inventory venue is the default."""
+    if inputs.engine is not None:
+        return inputs.engine
+    setup = ReplaySetup(inputs.params, inputs.terms)
+    return lambda first: SpotReplayEngine(setup, first)
 
 
 def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:

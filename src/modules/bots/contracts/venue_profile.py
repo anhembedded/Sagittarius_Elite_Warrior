@@ -98,6 +98,9 @@ _FUTURES = VenueProfile(
 #: The markets of the Spot profile: what a kind that supports Spot declares.
 SPOT_MARKETS: frozenset[MarketType] = frozenset({MarketType.SPOT})
 
+#: Every market a profile exists for: what a kind that supports both declares.
+PROFILE_MARKETS: frozenset[MarketType] = SPOT_MARKETS | {MarketType.FUTURES_USD_M}
+
 #: The markets a bot may run on **today**, the build-wide ceiling `EPIC-039H` raises to add
 #: Futures together with the Grid kind's `supported_profiles` (the per-kind half of the rule). A venue whose profile is outside it is "not a venue bots trade
 #: on yet", whatever its profile allows.
@@ -165,6 +168,27 @@ CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET
 def is_offered(venue: TradingVenue) -> bool:
     """Whether the New bot and Venue pickers list `venue`: a venue bots run on, not closed."""
     return bot_profile_of(venue) is not None and venue not in CLOSED_VENUES
+
+
+def plan_limits_of(venue: TradingVenue) -> ExposureLimits:
+    """The limits of `venue`'s market whether or not a bot may run there yet; Spot's for a venue
+    that trades no market.
+
+    @details A backtest replays a plan, it starts nothing, so it is judged against what the
+    market allows (`EPIC-039K`), where `exposure_limits_of` answers what a bot may start with
+    in this build. For a Spot venue the two are the same value."""
+    profile = venue_profile_of(venue)
+    if profile is None:
+        return SPOT_LIMITS
+    return ExposureLimits(profile.directions, profile.max_leverage)
+
+
+def plan_market_of(venue: TradingVenue) -> MarketType:
+    """The market a plan on `venue` is read and replayed on, whether or not a bot may run
+    there yet (`EPIC-039K`); `market_of` is the market a running bot trades, which today is
+    Spot's for any venue."""
+    profile = venue_profile_of(venue)
+    return profile.market_type if profile is not None else BOT_MARKET
 
 
 def bot_profile_of(venue: TradingVenue) -> VenueProfile | None:

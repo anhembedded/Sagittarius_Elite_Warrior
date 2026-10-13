@@ -19,6 +19,9 @@ import threading
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.funding_history_reader import (
+    ExchangeFundingHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     RangeCoverageService,
 )
@@ -76,4 +79,5 @@ class MarketDataSources(IMarketDataSources):
             stream=MarketStreamService(self._dispatcher, venue),
             coverage=RangeCoverageService(repository),
             repository=repository,
+            funding=ExchangeFundingHistory(lambda: self._venues.exchange_client(venue)),
         )

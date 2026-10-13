@@ -46,6 +46,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_needs import (
     FuturesNeeds,
+    bracket_below_leverage,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     PositionMode,
@@ -118,8 +119,10 @@ def leverage_above_bracket(context: FuturesRuleContext) -> RuleOutcome:
     needs, facts = context.needs, context.facts
     if needs is None:
         return RuleOutcome()
-    bracket = facts.bracket_for(needs.worst_case_notional)
-    if needs.leverage <= bracket.initial_leverage:
+    bracket = bracket_below_leverage(
+        facts.brackets, needs.worst_case_notional, needs.leverage
+    )
+    if bracket is None:
         return RuleOutcome()
     return RuleOutcome(
         (

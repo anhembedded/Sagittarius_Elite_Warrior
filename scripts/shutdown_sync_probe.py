@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.funding_event import (
+    FundingEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -104,6 +107,17 @@ class _BlockingExchangeClient(IExchangeClient):
         ABC and a probe that skipped a method would fail to construct
         (`ONBOARDING` §8 trap 11, which is `BUG-026`)."""
         return []
+
+    def get_funding_rate_history(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        cancellation_requested: Callable[[], bool] | None = None,
+    ) -> list[FundingEvent]:
+        """`EPIC-039K` added this to the port; this probe's subject is a sync that
+        hangs on shutdown and never reads funding, so reaching here is a mistake."""
+        raise AssertionError("this probe must not read the funding history")
 
 
 def main() -> None:
