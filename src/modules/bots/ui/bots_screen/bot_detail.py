@@ -45,6 +45,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    plan_limits_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
     BotLifecycleState,
@@ -63,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
     JudgedPlan,
+    PlanWorld,
     judge,
     verdict_line,
 )
@@ -86,6 +93,8 @@ class DetailInputs:
     run: RunFacts = field(default_factory=RunFacts)
     #: What the exchange says (`BOT-174`); still being asked until it answers.
     exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
+    #: The symbol's liquidation facts on a position venue (`EPIC-039J`); `None` until read.
+    risk: PlanRiskFacts | None = None
 
 
 @dataclass(frozen=True)
@@ -108,7 +117,12 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     config = inputs.edited if inputs.edited is not None else bot.config
     connection = inputs.connection or ConnectionRead(ConnectionState.READING, "")
     judged = (
-        judge(inputs.kind, config, inputs.market, connection.account)
+        judge(
+            inputs.kind,
+            config,
+            inputs.market,
+            PlanWorld(connection.account, plan_limits_of(bot.venue), inputs.risk),
+        )
         if inputs.kind is not None
         else JudgedPlan()
     )

@@ -8,6 +8,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
     CAPITAL_FIELD,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (
+    FUTURES_PLAN_CODES,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_constraints import (
     GRID_CONSTRAINTS,
 )
@@ -35,6 +38,8 @@ _CONFIG_KEYS = {
     "capital_quote",
     "stop_loss",
     "take_profit",
+    "direction",
+    "leverage",
 }
 
 
@@ -48,6 +53,8 @@ def test_every_violation_code_either_has_a_field_or_says_why_not() -> None:
     # The balance is judged on the exchange's snapshot (`BOT-174`) and speaks
     # on the Capital field through `field_verdicts`.
     codes |= {CAPITAL_FIELD}
+    # A position venue's plan (`EPIC-039F`): the same rule, one more table to hold to.
+    codes |= FUTURES_PLAN_CODES
     assert codes == set(FIELDS_OF_CODE) | set(NO_FIELD)
     assert not set(FIELDS_OF_CODE) & set(NO_FIELD)
 

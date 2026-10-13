@@ -94,3 +94,14 @@ def test_the_market_still_decides_beside_the_venue(qapp) -> None:
     feed = BotTickFeed(bus, MarketType.SPOT, _TESTNET)
 
     assert _heard(feed, bus, _tick(_TESTNET, MarketType.FUTURES_USD_M)) == 0
+
+
+def test_listening_in_another_market_moves_the_market_with_the_venue(qapp) -> None:
+    """`EPIC-039J`: both mainnet venues read the public mainnet, so a Futures bot's chart
+    hears Futures candles and no longer the Spot ones the feed was built for."""
+    bus = MemoryEventBus()
+    feed = BotTickFeed(bus, MarketType.SPOT)
+    feed.listen_to(_MAINNET, MarketType.FUTURES_USD_M)
+
+    assert _heard(feed, bus, _tick(_MAINNET, MarketType.SPOT)) == 0
+    assert _heard(feed, bus, _tick(_MAINNET, MarketType.FUTURES_USD_M)) == 1

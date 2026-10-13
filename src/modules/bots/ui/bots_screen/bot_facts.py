@@ -19,6 +19,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -79,6 +82,12 @@ class BotFacts:
     hodl: str = NO_VALUE
     #: `BUG-196` — base earlier runs left that this run does not trade.
     earlier_runs: str = NO_VALUE
+    #: `EPIC-039J` — what trading cost, beside the profit and not inside it: the
+    #: commissions the run's fills paid, and the funding the position settled (earned
+    #: positive). Shown only on a venue with funding, so the Spot figures are unchanged.
+    commissions: str = NO_VALUE
+    funding: str = NO_VALUE
+    shows_costs: bool = False
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -97,6 +106,9 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         total_pnl=_total(bot),
         hodl=_money(progress.pnl.hodl if progress and progress.pnl else None),
         earlier_runs=_earlier_runs(bot),
+        commissions=_cost(bot, "commissions"),
+        funding=_cost(bot, "funding"),
+        shows_costs=_has_funding(bot),
     )
 
 
@@ -132,6 +144,20 @@ def _total(bot: BotSnapshot) -> str:
         else ""
     )
     return f"{_money(pnl.total)}{note}"
+
+
+def _has_funding(bot: BotSnapshot) -> bool:
+    profile = venue_profile_of(bot.venue)
+    return profile is not None and profile.has_funding
+
+
+def _cost(bot: BotSnapshot, name: str) -> str:
+    """A cost of the run as the formatter writes a quantity: a fee or a funding payment is
+    often far below a cent, and money's two decimals would print it as nothing."""
+    progress = bot.progress
+    if progress is None or progress.pnl is None:
+        return NO_VALUE
+    return _quantity(getattr(progress.pnl, name))
 
 
 def _inventory(bot: BotSnapshot) -> str:

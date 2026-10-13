@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureLimits,
     exposure_limits_of,
     runs_bots_on,
+    title_word_of,
     venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
@@ -160,3 +161,12 @@ def test_a_venue_bots_do_not_run_on_is_limited_as_spot_is() -> None:
     """Futures exists in the table but no bot runs on it until `EPIC-039H`: nothing wider."""
     for venue in (*_FUTURES, TradingVenue.DISABLED):
         assert exposure_limits_of(venue) == SPOT_LIMITS
+
+
+def test_a_sentence_names_the_market_of_the_venue_it_is_about() -> None:
+    """`EPIC-039J`: Spot's word is "Spot" as every sentence had it; a venue that trades no
+    market is still described as Spot, so no existing sentence changed."""
+    assert title_word_of(TradingVenue.SPOT_TESTNET) == "Spot"
+    assert title_word_of(TradingVenue.SPOT_MAINNET) == "Spot"
+    assert title_word_of(TradingVenue.FUTURES_TESTNET) == "Futures"
+    assert title_word_of(TradingVenue.DISABLED) == "Spot"

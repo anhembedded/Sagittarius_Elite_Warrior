@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
     FencedReads,
     ReadKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_risk_check import (
+    PlanRiskCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
@@ -49,7 +52,8 @@ CHECKED_STATES = RUN_STARTING_STATES | {BotLifecycleState.HALTED}
 
 
 class ExchangeCheck:
-    """@brief Keeps the selected bot's exchange snapshot current."""
+    """@brief Keeps the selected bot's exchange snapshot current, and with it the liquidation
+    facts of a bot on a position venue."""
 
     def __init__(
         self,
@@ -58,6 +62,7 @@ class ExchangeCheck:
         selected: SelectedBot,
         refresh_detail: Callable[[], None],
     ) -> None:
+        self._risk = PlanRiskCheck(queries, reads, selected, refresh_detail)
         self._queries = queries
         self._reads = reads
         self._selected = selected
@@ -68,13 +73,14 @@ class ExchangeCheck:
     def follow(self, bot: BotSnapshot | None) -> None:
         """`bot` was selected, or its state changed: ask again, or cancel the
         ask when nothing is left to check."""
+        self._selected.take_exchange(ExchangeChecking())
         if bot is None or bot.state not in CHECKED_STATES:
             self._reads.abandon(ReadKind.EXCHANGE)
-            self._selected.take_exchange(ExchangeChecking())
+            self._risk.follow(None)
             return
         logger.debug("Exchange check: asking for %s (%s)", bot.name, bot.state.value)
-        self._selected.take_exchange(ExchangeChecking())
         self._queries.exchange(bot)
+        self._risk.follow(bot)
 
     def follow_a_change(self, shown: BotSnapshot, fresh: BotSnapshot) -> None:
         """A list read brought `fresh` for the bot `shown`: asked again when its

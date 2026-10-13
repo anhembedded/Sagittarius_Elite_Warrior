@@ -35,6 +35,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     IBotKindCatalog,
     UnknownBotKindError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.plan_risk_read import (
+    PlanRiskRead,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
@@ -79,13 +88,20 @@ class SelectedBot:
         #: asked from the moment a bot is selected, so one bot's facts are never
         #: judged for another.
         self.exchange: ExchangeSnapshot = ExchangeChecking()
+        #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
+        #: read, and none for a bot whose venue carries no such risk.
+        self.risk: PlanRiskFacts | None = None
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
         self.bot, self.market, self.edited = bot, None, None
         self.exchange = ExchangeChecking()
+        self.risk = None
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
+            profile = venue_profile_of(bot.venue)
+            if profile is not None:
+                self.panel.set_profile(profile)
             self.panel.set_config(bot.config)
         return self.panel
 
@@ -100,6 +116,11 @@ class SelectedBot:
 
     def take_exchange(self, exchange: ExchangeSnapshot) -> None:
         self.exchange = exchange
+
+    def take_risk(self, read: PlanRiskRead | None) -> None:
+        """The liquidation facts the venue gave; what it could not give, or `None`, leaves
+        none."""
+        self.risk = read if isinstance(read, PlanRiskFacts) else None
 
     def take_market(self, market: PlannerMarket) -> None:
         self.market = market
@@ -162,6 +183,7 @@ class SelectedBot:
                 self.connection,
                 run,
                 self.exchange,
+                self.risk,
             )
         )
 

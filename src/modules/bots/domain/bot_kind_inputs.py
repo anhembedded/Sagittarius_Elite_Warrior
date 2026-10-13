@@ -27,6 +27,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_LIMITS,
     ExposureLimits,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +185,16 @@ class MarginView:
 
 
 @dataclass(frozen=True, slots=True)
+class PlanRiskFacts:
+    """`EPIC-039J` — what a position venue says about the symbol that a plan's liquidation is
+    estimated from: the account's setting for it and the leverage brackets. A venue with no
+    such risk (Spot) supplies none, and no risk verdict is asked for."""
+
+    setting: FuturesSymbolSetting
+    brackets: LeverageBrackets
+
+
+@dataclass(frozen=True, slots=True)
 class BotKindInputs:
     """One kind's whole input: the user's parameters and the world they meet."""
 
@@ -191,6 +207,9 @@ class BotKindInputs:
     #: The directions and leverage the bot's venue allows (the venue profile's, `EPIC-039B`).
     #: Without the venue's word it is the Spot profile's: long, at 1.
     limits: ExposureLimits = SPOT_LIMITS
+    #: The symbol's risk facts on a position venue (`EPIC-039J`); `None` until they are read,
+    #: and on Spot, where the plan has no liquidation to judge.
+    risk: PlanRiskFacts | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))

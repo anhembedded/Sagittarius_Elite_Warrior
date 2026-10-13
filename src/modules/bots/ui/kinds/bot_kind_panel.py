@@ -20,6 +20,9 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    VenueProfile,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 
@@ -36,6 +39,11 @@ class BotKindPanel(QWidget):
     def config(self) -> dict[str, str]:
         """The parameters as the fields now read, as strings."""
         raise NotImplementedError(f"{type(self).__name__}.config")
+
+    def set_profile(self, profile: VenueProfile) -> None:
+        """Offers the fields `profile` lists (`EPIC-039J`): a direction the profile allows, a
+        leverage where it has one. Called once, before `set_config`. A kind whose parameters
+        do not depend on the venue keeps this default."""
 
     def set_planner_market(self, market: PlannerMarket | None) -> None:
         """The planner's numbers; suggestions are offered only when present."""

@@ -18,12 +18,11 @@ from functools import partial
 
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    BOT_MARKET,
+    market_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -74,13 +73,12 @@ class BotChartPorts:
     """What every bot chart is built from."""
 
     thread_manager: IThreadManager
-    #: The Spot candles of a bot's own venue (a Grid is a Spot kind): the
-    #: chart shows the market the bot's orders fill in (`BUG-172`).
+    #: The candles of a bot's own venue, in the market its profile names: the chart shows
+    #: the market the bot's orders fill in (`BUG-172`, `EPIC-039J`).
     feeds: Callable[[TradingVenue], ICandleFeed]
     ticks: BotTickFeed
     #: Where the chart tells a failed load or stream (`BOT-169`).
     notifier: INotifier
-    market: MarketType = BOT_MARKET
 
 
 class BotChartHost:
@@ -125,13 +123,13 @@ class BotChartHost:
                 feed=self._ports.feeds(bot.venue),
                 stream_owner=bot_stream_owner(BotId(bot.bot_id)),
                 interval=BOT_CHART_INTERVAL,
-                market=self._ports.market,
+                market=market_of(bot.venue),
                 notifier=self._ports.notifier,
                 scope=BOTS_ROUTE,
             ),
             parent=card,
         )
-        self._ports.ticks.listen_to(bot.venue.market_data_venue)
+        self._ports.ticks.listen_to(bot.venue.market_data_venue, market_of(bot.venue))
         chart.attach_ticks(self._ports.ticks)
         chart.logged.connect(partial(self._on_chart_said, bot.bot_id))
         chart.show_symbol(bot.symbol)
