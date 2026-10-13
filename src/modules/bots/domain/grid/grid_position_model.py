@@ -3,13 +3,14 @@
 **This is a model, not a replay of live behaviour.** It applies the fill rule below to a plan;
 it does not run the executor. Once the Futures executor exists (`EPIC-039H`), a Futures
 backtest must either replay that executor, as `grid_replay.py` does for Spot, or be backed by a
-test that checks this model against the executor on the same fills (`EPIC-039K`).
+test that checks this model against the executor on the same fills (`futures_replay.py` says the
+same, `EPIC-039K`).
 
 `model_position_along` is the small, pure model a position venue's Grid rests on: it moves a price
 along a path, fills the plan's resting orders the way the live ladder does, and keeps the
 signed position and the profit that closing it earned. It is not the Spot replay
 (`grid_replay.py` runs the live executor's own reactions, base fees and paired buy prices, and
-stays the Spot oracle); it is the model that `EPIC-039K` extends with funding and liquidation,
+stays the Spot oracle); it is the model that `futures_replay.py` (`EPIC-039K`) extends with costs, funding and liquidation,
 and that `EPIC-039F`'s liquidation estimate reads the position range from.
 
 @par The fill rule
@@ -36,7 +37,8 @@ for LONG, SHORT and NEUTRAL.
 The position is carried at an average entry price. A fill that shrinks it realises
 `closed * (price - entry)` for a long and `closed * (entry - price)` for a short; one that
 crosses zero closes the old side and opens the new at the fill price. The opening trade is
-priced at the plan's last price. No fees, funding or liquidation (`EPIC-039G`, `039K`).
+priced at the plan's last price. No fees, funding or liquidation: `futures_replay.py` (`EPIC-039K`) books
+its fills with this module's `PositionBook` and adds them.
 """
 
 from __future__ import annotations
