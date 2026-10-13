@@ -26,6 +26,10 @@ import warnings
 from pathlib import Path
 
 import pytest
+from binance_fake_server import run_binance_fake_server
+from fake_exchange.binance_endpoints import binance_clients_pointed_at
+from fake_exchange.stream_transport import fake_websocket_transport
+from Sagittarius_Elite_Warrior.tests.unit import network_block
 
 # Must precede any Qt import. `offscreen` is the one accepted realism gap in
 # this tier, and it is precisely why the Desktop E2E tier exists.
@@ -89,7 +93,51 @@ def qapp():
 
 
 @pytest.fixture(scope="session")
-def booted_app(qapp, tmp_path_factory):
+def refused_destinations():
+    """Every non-loopback destination the process tried to reach, for the session.
+
+    The block is installed for the whole session, not per test, because the
+    booted application keeps worker threads alive across tests: a chart opened
+    in one test syncs after the next has begun. A per-test patch would let those
+    requests through between tests.
+    """
+    patcher = pytest.MonkeyPatch()
+    refused = network_block.install(patcher)
+    yield refused
+    patcher.undo()
+
+
+@pytest.fixture(scope="session")
+def fake_exchange(refused_destinations):
+    """The one Binance-protocol server of the tier (`binance_fake_server.py`)."""
+    with run_binance_fake_server() as fake_urls:
+        yield fake_urls
+
+
+@pytest.fixture(scope="session")
+def stream_transport(refused_destinations):
+    """The websocket half of the fake exchange (`stream_transport.py`)."""
+    with fake_websocket_transport() as transport:
+        yield transport
+
+
+@pytest.fixture(autouse=True)
+def reaches_no_real_host(refused_destinations):
+    """A sanity test fails when the process tried to leave the machine.
+
+    Cumulative on purpose: a request refused on a worker thread is recorded when
+    it is made, so whichever test is running next sees it, however late the
+    thread was.
+    """
+    yield
+    assert not refused_destinations, (
+        f"the process tried to reach {sorted(set(refused_destinations))}; the sanity "
+        "tier points every Binance client at the fake exchange (conftest.py)"
+    )
+
+
+@pytest.fixture(scope="session")
+def booted_app(qapp, tmp_path_factory, fake_exchange, stream_transport):
     """The real composition root, booted once, exactly as production loads it.
 
     Mirrors `app_bootstrapper.main()`'s configuration step (`app_config.json`,
@@ -98,26 +146,26 @@ def booted_app(qapp, tmp_path_factory):
     writable flag is faithful without being dangerous.
 
     Only the network boundary is substituted, and D6 draws that boundary at
-    the transport, not at the application's own code: the REST side points
-    the real `python-binance` `Client` at `binance_fake_server.py` — a local
-    server speaking Binance's protocol — by overriding its `API_URL` class
-    attribute, a configuration value, not a code path. `PythonBinanceClient`,
-    its kline mapping, its pagination, all of `python-binance`'s own HTTP
-    behavior still run unchanged; only the endpoint moves. No hand-written
-    substitute for `IExchangeClient` exists to fall behind its port, which is
-    the class `BUG-026` and `BUG-027` came from. `BUG-045` — the DI graph
-    reaching `api.binance.com` merely by being resolved, since `Client()`
-    pings on construction by default — is closed by this alone.
+    the transport, not at the application's own code. The REST side points
+    every endpoint of the real `python-binance` clients — `Client` and the
+    `AsyncClient` behind the websocket service, Spot and Futures, mainnet and
+    both testnets — at `binance_fake_server.py`, a local server speaking
+    Binance's protocol (`binance_endpoints.py`). The websocket side keeps the
+    library's own socket manager and replaces only the two methods that touch a
+    socket (`stream_transport.py`). `PythonBinanceClient`, its kline mapping,
+    its pagination and all of `python-binance`'s own HTTP behaviour run
+    unchanged. No hand-written substitute for `IExchangeClient` exists to fall
+    behind its port, which is the class `BUG-026` and `BUG-027` came from.
+    `BUG-045` — the DI graph reaching `api.binance.com` merely by being
+    resolved, since `Client()` pings on construction by default — is closed
+    by this.
 
-    The websocket side is not yet covered by a fake server (a real websocket
-    protocol is a materially larger undertaking than a REST GET handler); it
-    stays mocked at its two entry points, `AsyncClient`/`BinanceSocketManager`,
-    same as before.
+    `BUG-199`: a boundary that moves one endpoint is a leak for every other, so
+    two things hold it shut. The redirect covers every URL the library declares,
+    and enters before the application is composed. And `refused_destinations`
+    blocks and records every non-loopback connection for the whole session, so
+    a path that still gets out fails the test running at the time, by host name.
     """
-    from unittest.mock import patch
-
-    from binance.client import Client
-    from binance_fake_server import run_binance_fake_server
     from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
     from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -132,39 +180,20 @@ def booted_app(qapp, tmp_path_factory):
         {"bots.state_dir": str(tmp_path_factory.mktemp("bots_state"))}
     )
 
-    # `EPIC-038A` — the graph the GUI entry point boots (`create_app` plus the
-    # GUI's additions): this tier proves the application the GUI runs, and its
-    # window tests need them. The shared composition alone is booted, with
-    # PySide6 blocked, by `test_the_app_boots_without_pyside6.py`.
-    app = create_gui_app(config_manager)
-
-    real_client_api_url = Client.API_URL
-    with (
-        run_binance_fake_server() as fake_urls,
-        patch(
-            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance."
-            "binance_websocket_service.AsyncClient"
-        ),
-        patch(
-            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance."
-            "binance_websocket_service.BinanceSocketManager"
-        ),
-    ):
-        # A class attribute on a third-party class, not an instance patch —
-        # every `Client(...)` constructed anywhere in the app for the rest of
-        # this fixture's scope picks it up, restored in `finally` so no other
-        # test module (or a human reading `Client.API_URL` mid-session) is
-        # left thinking real network access is disabled process-wide.
-        # `EPIC-021A`: only the spot URL — this tier's default config venue
-        # is `MarketDataVenue.MAINNET_PUBLIC` (`app_config.json`), which
-        # never resolves a futures-shaped call in the first place.
-        Client.API_URL = fake_urls.spot
-        try:
-            app.boot()
-            yield app
-            app.stop()
-        finally:
-            Client.API_URL = real_client_api_url
+    # Class attributes on a third-party class, not instance patches: every
+    # client built anywhere in the app for the rest of this fixture's scope
+    # picks them up, and the block restores the library's own on exit so no
+    # other test module is left thinking real network access is disabled
+    # process-wide.
+    with binance_clients_pointed_at(fake_exchange):
+        # `EPIC-038A` — the graph the GUI entry point boots (`create_app` plus the
+        # GUI's additions): this tier proves the application the GUI runs, and its
+        # window tests need them. The shared composition alone is booted, with
+        # PySide6 blocked, by `test_the_app_boots_without_pyside6.py`.
+        app = create_gui_app(config_manager)
+        app.boot()
+        yield app
+        app.stop()
 
 
 @pytest.fixture(autouse=True)
