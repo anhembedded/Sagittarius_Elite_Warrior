@@ -9,7 +9,7 @@
 ## 1. A restart policy is not a health check: the process lives while the bot is dead
 - A VPS vendor's guide lists the usual causes of a bot that stops while the server stays up: an unhandled exception, "a websocket that never reconnects", and the kernel's out-of-memory killer. `systemctl status` can read *running* while the bot sits in a retry loop. Its fix is a heartbeat sent **after a real work step** (a market-data read), with the expected interval about twice the loop time, to a monitor on **another machine** ("a monitor that dies with the thing it watches reports nothing").
 - It also says `StartLimitIntervalSec=0` is the setting people forget: without it systemd stops restarting after a few quick failures and the unit stays `failed`; `systemctl show … -p NRestarts` reveals a bot that crashes and recovers all night.
-- **Meaning here:** the `run` host needs a *progress*-based health line (last tick seen, last user-stream event, bots by state), not an uptime line; the unit file sets a restart delay and no start limit; the dead man's switch (`EPIC-036E`, N7) is how an absent owner learns the host itself is gone. → [038D](completed/EPIC-038D_run_host.md), [038H](incomplete/EPIC-038H_service_units_and_runbook.md)
+- **Meaning here:** the `run` host needs a *progress*-based health line (last tick seen, last user-stream event, bots by state), not an uptime line; the unit file sets a restart delay and no start limit; the dead man's switch (`EPIC-036E`, N7) is how an absent owner learns the host itself is gone. → [038D](completed/EPIC-038D_run_host.md), [038H](completed/EPIC-038H_service_units_and_runbook.md)
 - Source (vendor guide): https://www.ssdnodes.com/learn/vps-for-trading-bots
 
 ## 2. Freqtrade ships systemd watchdog support, and says it does not work in Docker
@@ -52,7 +52,7 @@
 
 ## 8. A network problem becomes a memory problem, and the OOM killer takes the biggest process
 - Freqtrade issue #10933 (Debian 12, Python 3.11.2): after websocket "Abnormal closure" and timeouts the process grew from the usual 60–70% of RAM to 97–98% and was killed by the OS; the reporter suspected a leak. The maintainers: the root cause was a prolonged network problem, "systems will always kill the biggest consumer first", they run bots for months without issue, and the likely Python-specific cause was an aiohttp bug in Python 3.11.1–3.11.3; fixed by moving to Python 3.12. Closed as a question on an outdated version.
-- **Meaning here:** a retry loop that queues unboundedly during an outage is the danger, not slow leaks. The health line includes the process's resident memory; the unit sets a memory ceiling so a runaway is killed *by us* and restarted rather than starving the host; the repository's Python floor is recorded in the runbook. A multi-week soak (memory over 14 days on the fake exchange with injected outages) is an exit criterion, not a hope. → [038D](completed/EPIC-038D_run_host.md), [038H](incomplete/EPIC-038H_service_units_and_runbook.md)
+- **Meaning here:** a retry loop that queues unboundedly during an outage is the danger, not slow leaks. The health line includes the process's resident memory; the unit sets a memory ceiling so a runaway is killed *by us* and restarted rather than starving the host; the repository's Python floor is recorded in the runbook. A multi-week soak (memory over 14 days on the fake exchange with injected outages) is an exit criterion, not a hope. → [038D](completed/EPIC-038D_run_host.md), [038H](completed/EPIC-038H_service_units_and_runbook.md)
 - Source: https://github.com/freqtrade/freqtrade/issues/10933
 
 ## 9. Logs fill the disk, and a full disk looks like something else
@@ -65,7 +65,7 @@
 - NSSM's own usage page: to stop, it tries in order **Control-C** to the console, **WM_CLOSE** to windows, **WM_QUIT** to threads, then **TerminateProcess**, waiting **1500 ms** at each step by default (tunable); "it is highly recommended not to disable" the last. It restarts an application that exits (`AppExit` default `Restart`), with a throttle that doubles from 2 s up to 256 s; rotation of captured output is built in.
 - A search summary also reported a user whose NSSM stopped restarting a crashed process when output rotation, timestamps and redirected hooks were enabled together (a single anecdote from a third-party blog; not opened, so **not** relied on).
 - **(general knowledge)** Python on Windows receives Ctrl-C as `SIGINT` and Ctrl-Break as `SIGBREAK`, a separate signal.
-- **Meaning here:** on a Windows server the first stop signal is Ctrl-C, so the host handles **both** `SIGINT` and `SIGBREAK`, and the runbook raises NSSM's console stop wait above the host's shutdown budget. Task Scheduler is a weaker supervisor (coarse restart settings, no stop-signal control) — kept as a documented fallback. Pending owner decision O5. → [038D](completed/EPIC-038D_run_host.md), [038H](incomplete/EPIC-038H_service_units_and_runbook.md)
+- **Meaning here:** on a Windows server the first stop signal is Ctrl-C, so the host handles **both** `SIGINT` and `SIGBREAK`, and the runbook raises NSSM's console stop wait above the host's shutdown budget. Task Scheduler is a weaker supervisor (coarse restart settings, no stop-signal control) — kept as a documented fallback. Pending owner decision O5. → [038D](completed/EPIC-038D_run_host.md), [038H](completed/EPIC-038H_service_units_and_runbook.md)
 - Source: https://nssm.cc/usage
 
 ## 11. Remote control: the security mistakes are documented, and the fix is "do not expose it"
@@ -93,7 +93,7 @@
 
 ## 15. Upgrades: the sources say little, so this app must say it for itself
 - Freqtrade's "updating" page covers `git pull` / `pip install -U` / `docker compose pull`, tells the user to read the changelog for breaking changes, and says **nothing** about database migration or backing up state before an update; its configuration page says to start production on a fresh database.
-- **Meaning here:** the runbook includes a stop-copy-upgrade-start procedure; the host writes the app version into its snapshot, and `status` and `preflight` warn when the bots' files carry a version this build cannot read (the restore service already refuses a file it cannot read and leaves it untouched — `bot_restore_service.py`). → [038H](incomplete/EPIC-038H_service_units_and_runbook.md), [038C](incomplete/EPIC-038C_bot_status_read_model.md)
+- **Meaning here:** the runbook includes a stop-copy-upgrade-start procedure; the host writes the app version into its snapshot, and `status` and `preflight` warn when the bots' files carry a version this build cannot read (the restore service already refuses a file it cannot read and leaves it untouched — `bot_restore_service.py`). → [038H](completed/EPIC-038H_service_units_and_runbook.md), [038C](incomplete/EPIC-038C_bot_status_read_model.md)
 - Source: https://www.freqtrade.io/en/stable/updating/
 
 ## 16. Headless mode is also a resource saving, and a Qt install on a server has its own cost

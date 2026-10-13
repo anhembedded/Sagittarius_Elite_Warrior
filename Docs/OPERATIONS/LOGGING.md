@@ -1,6 +1,6 @@
 # Logging for an unattended run
 
-The log guide of the headless operation (`EPIC-038`, task `038G`). The runbook (`EPIC-038H`) links here for log placement, rotation and the health line. Design: [`DESIGN_2026-10-09_headless_operation.md` §6, §12](../../Tasks/epics/EPIC-038_headless_operation/DESIGN_2026-10-09_headless_operation.md) · evidence: [`RESEARCH` §9](../../Tasks/epics/EPIC-038_headless_operation/RESEARCH_2026-10-09_headless_operation.md) · decision: O7.
+The log guide of the headless operation (`EPIC-038`, task `038G`). The runbook ([`headless_runbook.md`](headless_runbook.md), `EPIC-038H`) links here for log placement, rotation and the health line. Design: [`DESIGN_2026-10-09_headless_operation.md` §6, §12](../../Tasks/epics/EPIC-038_headless_operation/DESIGN_2026-10-09_headless_operation.md) · evidence: [`RESEARCH` §9](../../Tasks/epics/EPIC-038_headless_operation/RESEARCH_2026-10-09_headless_operation.md) · decision: O7.
 
 ## 1. Where the log goes
 
@@ -41,7 +41,7 @@ Until then, rotate the file from outside. The handler keeps its file open, so `c
 Every record is `%(asctime)s - %(name)s - %(levelname)s - %(message)s`. The order and the ` - ` separator are fixed: the CI run-log scan reads `- (WARNING|ERROR|CRITICAL) -`, and so should an operator's filter:
 
 ```bash
-# The unit name is the one EPIC-038H will ship.
+# The unit name is the one deploy/linux/sew-run.service ships.
 journalctl -u sew-run -o cat | grep -E ' - (WARNING|ERROR|CRITICAL) - '
 ```
 

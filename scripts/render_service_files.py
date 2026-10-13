@@ -1,0 +1,312 @@
+"""Regenerate the service files of `EPIC-038H` from the constants of the code they supervise.
+
+    python3 scripts/render_service_files.py            # print both files
+    python3 scripts/render_service_files.py --write    # rewrite them
+
+`deploy/linux/sew-run.service` and `deploy/windows/nssm-install.ps1` are renderings, like
+`Docs/OPERATIONS/exit_codes.md`: the exit codes a supervisor must not restart on, the
+stop budget and the credential names are read from the code, never typed here, and
+`tests/unit/scripts/test_service_files.py` fails when a file differs from its render.
+Change a number in the host and the guard names the file to regenerate.
+"""
+
+from __future__ import annotations
+
+import math
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
+from Sagittarius_Elite_Warrior.src.modules.operations.application.run_host_parts import (
+    LEAVE_PUBLISH_SECONDS,
+    STOP_GRACE_SECONDS,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
+    DEFAULT_HEALTH_INTERVAL_SECONDS,
+    DEFAULT_STOP_TIMEOUT_SECONDS,
+    HostSignalName,
+    StopPolicyName,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
+    SECRET_FILES_DIRECTORY_ENV,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
+    non_restarting_codes,
+)
+
+ROOT = Path(__file__).resolve().parents[1]
+UNIT_FILE = ROOT / "deploy" / "linux" / "sew-run.service"
+NSSM_FILE = ROOT / "deploy" / "windows" / "nssm-install.ps1"
+
+#: What the unit and the wrapper wait beyond the host's own worst case, so that a stop
+#: that uses all of its budget still ends by the host's leaving, not by a kill.
+STOP_MARGIN_SECONDS = 5
+#: Long enough for a pre-flight (each check is bound at 20 s) and a restore of many bots.
+START_TIMEOUT_SECONDS = 300
+MEMORY_MAX = "1G"
+SERVICE_NAME = "sew-run"
+
+
+def host_stop_budget_seconds(stop_timeout_s: float) -> float:
+    """The longest the host takes to leave after the first signal.
+
+    The stop policy gets `--stop-timeout`; the rest of the stop (probes, module shutdowns,
+    each worker's close) gets `STOP_GRACE_SECONDS`; a stop that outlasts both is cut off by
+    the host's watchdog, which writes the `STOPPED` snapshot for at most
+    `LEAVE_PUBLISH_SECONDS` and leaves (`run_host.py`, `run_host_parts.py`).
+    """
+    return stop_timeout_s + STOP_GRACE_SECONDS + LEAVE_PUBLISH_SECONDS
+
+
+def supervisor_stop_wait_seconds(stop_timeout_s: float) -> int:
+    """`TimeoutStopSec` of the unit, and the NSSM console wait in seconds."""
+    return math.ceil(host_stop_budget_seconds(stop_timeout_s)) + STOP_MARGIN_SECONDS
+
+
+def codes_on_which_the_service_ends() -> tuple[int, ...]:
+    """The statuses NSSM ends the service on: a clean exit and every code a restart cannot fix.
+
+    The unit's `Restart=on-failure` does not restart after exit 0 either; NSSM restarts on
+    every status unless told otherwise, so exit 0 must be named here to match.
+    """
+    return (int(ExitCode.SUCCESS), *non_restarting_codes())
+
+
+def mainnet_credential_names() -> tuple[str, ...]:
+    """The names `SystemdCredentialStore` reads: `<venue>_api_key` and `<venue>_api_secret`."""
+    return tuple(
+        f"{venue.value}_{part}"
+        for venue in (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET)
+        for part in ("api_key", "api_secret")
+    )
+
+
+def host_arguments(stop_timeout_s: float) -> str:
+    """Everything after `main.py`: the same words for the unit and the wrapper."""
+    return (
+        f"run --stop-timeout {stop_timeout_s:g} "
+        f"--health-interval {DEFAULT_HEALTH_INTERVAL_SECONDS} "
+        f"--on-stop {StopPolicyName.LEAVE_ORDERS.value}"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class UnitPaths:
+    """Where a Linux install puts things; the runbook's layout."""
+
+    checkout: str = "/opt/sew/Sagittarius_Elite_Warrior"
+    python: str = "/opt/sew/venv/bin/python"
+    #: Added to `PYTHONPATH`: the directory holding the checkout (the import scheme).
+    import_root: str = "/opt/sew"
+    config_dir: str = "/etc/sew"
+    #: `StateDirectory=` name: systemd creates `/var/lib/<name>` owned by `User=`.
+    state_name: str = "sew"
+    user: str = "sew"
+
+
+DEFAULT_PATHS = UnitPaths()
+
+
+def render_unit(
+    paths: UnitPaths = DEFAULT_PATHS,
+    stop_timeout_s: float = DEFAULT_STOP_TIMEOUT_SECONDS,
+) -> str:
+    prevent = " ".join(str(code) for code in non_restarting_codes())
+    budget = host_stop_budget_seconds(stop_timeout_s)
+    timeout_stop = supervisor_stop_wait_seconds(stop_timeout_s)
+    credentials = "\n".join(
+        f"LoadCredential={name}:{paths.config_dir}/credentials/{name}"
+        for name in mainnet_credential_names()
+    )
+    return f"""\
+# GENERATED by scripts/render_service_files.py - do not edit; a guard compares this file
+# with the generator. The runbook is Docs/OPERATIONS/headless_runbook.md.
+#
+# NOT supported for unattended money until EPIC-036B, 036C and 036E have merged: until then
+# a halted bot reaches nobody.
+#
+# TimeoutStopSec = ceil(--stop-timeout + STOP_GRACE_SECONDS + LEAVE_PUBLISH_SECONDS) + margin
+#               = ceil({stop_timeout_s:g} + {STOP_GRACE_SECONDS:g} + {LEAVE_PUBLISH_SECONDS:g}) + {STOP_MARGIN_SECONDS} = {timeout_stop} s
+# The host leaves by itself after {budget:g} s at the latest (the stop policy under --stop-timeout,
+# the rest of the stop under STOP_GRACE_SECONDS, then at most LEAVE_PUBLISH_SECONDS for the last
+# snapshot); systemd must not send SIGKILL before that. If you change --stop-timeout, regenerate.
+#
+# RestartPreventExitStatus is every code Docs/OPERATIONS/exit_codes.md marks "not restarted":
+# a configuration or lock failure that a restart would only repeat (a rejected key repeated is
+# an IP ban waiting to happen).
+
+[Unit]
+Description=Sagittarius Elite Warrior - run the bots with no window
+Documentation=https://github.com/anhembedded/Sagittarius_Elite_Warrior/blob/master-warrior/Docs/OPERATIONS/headless_runbook.md
+After=network-online.target
+Wants=network-online.target
+# Restart as often as it takes: the exit codes, not a start limit, decide what is not retried.
+StartLimitIntervalSec=0
+
+[Service]
+# `--host-signal sdnotify` sends READY=1 once the host serves (after the pre-flight and the
+# restore), so a start that dies in the pre-flight is a failed start, not an active unit.
+# Does not work in a container that does not mount systemd's notify socket.
+Type=notify
+User={paths.user}
+Group={paths.user}
+WorkingDirectory=/var/lib/{paths.state_name}
+Environment=PYTHONPATH={paths.import_root}
+Environment=SEW_DATA_ROOT=/var/lib/{paths.state_name}
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+# Optional testnet keys (BINANCE_*_TESTNET_API_KEY / _SECRET), root:{paths.user} mode 0640.
+EnvironmentFile=-{paths.config_dir}/sew.env
+# Mainnet keys: files under {paths.config_dir}/credentials/, read as $CREDENTIALS_DIRECTORY/<name>.
+# A venue you do not use gets an empty file: a blank credential reads as "no key".
+{credentials}
+# No log.file, no --dev, no --debug: the log is stdout, and the journal bounds it.
+ExecStart={paths.python} {paths.checkout}/src/main.py {host_arguments(stop_timeout_s)} --host-signal {HostSignalName.SDNOTIFY.value}
+Restart=on-failure
+RestartSec=10
+RestartPreventExitStatus={prevent}
+TimeoutStartSec={START_TIMEOUT_SECONDS}
+TimeoutStopSec={timeout_stop}
+MemoryMax={MEMORY_MAX}
+
+# The host writes only its data root (state/, logs/, the bots' files). StateDirectory= creates
+# it, owned by User=, and stays writable under ProtectSystem=strict; everything else is read-only.
+StateDirectory={paths.state_name}
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+# AF_UNIX is the notify socket; the exchange needs AF_INET and AF_INET6.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def render_nssm_script(stop_timeout_s: float = DEFAULT_STOP_TIMEOUT_SECONDS) -> str:
+    wait_ms = supervisor_stop_wait_seconds(stop_timeout_s) * 1000
+    exits = "\n".join(
+        f"Set-Nssm AppExit {code} Exit" for code in codes_on_which_the_service_ends()
+    )
+    return f"""\
+# GENERATED by scripts/render_service_files.py - do not edit; a guard compares this file
+# with the generator. The runbook is Docs/OPERATIONS/headless_runbook.md.
+#
+# Installs (or updates: every setting is a `nssm set`, so a second run changes nothing) the
+# `{SERVICE_NAME}` Windows service around `main.py run`, with NSSM (https://nssm.cc) as the
+# supervisor. NSSM is an external tool, not a dependency of the app.
+#
+# Not run on a Windows machine by its author: the checklist in the runbook is the proof.
+# NOT supported for unattended money until EPIC-036B, 036C and 036E have merged.
+#
+# Stop: NSSM sends Ctrl-C to the console first, which the host handles as SIGINT (a drain,
+# then exit 0). AppStopMethodConsole is how long NSSM waits for that before it tries
+# WM_CLOSE and then TerminateProcess; its default is 1500 ms, far below the host's drain.
+#   AppStopMethodConsole = (ceil(--stop-timeout + STOP_GRACE_SECONDS + LEAVE_PUBLISH_SECONDS) + {STOP_MARGIN_SECONDS}) s
+#                        = ceil({stop_timeout_s:g} + {STOP_GRACE_SECONDS:g} + {LEAVE_PUBLISH_SECONDS:g}) + {STOP_MARGIN_SECONDS} = {wait_ms} ms
+# NSSM restarts on every exit status unless told otherwise. Exit 0 (a requested stop or a second
+# signal) and the statuses the host returns for a fault a restart cannot fix are told to NSSM to
+# end the service on (`AppExit <code> Exit`), as the unit's Restart=on-failure and
+# RestartPreventExitStatus do; every other status restarts after AppRestartDelay.
+#
+# Run from an elevated PowerShell:
+#   .\\nssm-install.ps1 -Nssm C:\\tools\\nssm.exe -Python C:\\sew\\venv\\Scripts\\python.exe `
+#       -Checkout C:\\sew\\Sagittarius_Elite_Warrior -DataRoot C:\\ProgramData\\sew `
+#       [-SecretFilesDir C:\\ProgramData\\sew\\secrets]
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)][string]$Nssm,
+    [Parameter(Mandatory = $true)][string]$Python,
+    [Parameter(Mandatory = $true)][string]$Checkout,
+    [Parameter(Mandatory = $true)][string]$DataRoot,
+    # The directory of mainnet secret files (one file per secret); empty means none.
+    [string]$SecretFilesDir = '',
+    [string]$ServiceName = '{SERVICE_NAME}',
+    # A virtual service account needs no password and exists only for this service.
+    [string]$Account = "NT SERVICE\\$ServiceName"
+)
+
+$ErrorActionPreference = 'Stop'
+$ImportRoot = Split-Path -Parent $Checkout
+$LogDir = Join-Path $DataRoot 'service-logs'
+
+function Set-Nssm {{
+    & $Nssm set $ServiceName @args | Out-Null
+    if ($LASTEXITCODE -ne 0) {{ throw "nssm set $ServiceName $args failed with $LASTEXITCODE" }}
+}}
+
+New-Item -ItemType Directory -Force -Path $DataRoot, $LogDir | Out-Null
+
+& $Nssm status $ServiceName 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {{
+    & $Nssm install $ServiceName $Python | Out-Null
+    if ($LASTEXITCODE -ne 0) {{ throw "nssm install $ServiceName failed with $LASTEXITCODE" }}
+}}
+
+Set-Nssm Application $Python
+# No log.file, no --dev, no --debug: the log is stdout, and NSSM rotates what it captures.
+Set-Nssm AppParameters "`"$Checkout\\src\\main.py`" {host_arguments(stop_timeout_s)}"
+Set-Nssm AppDirectory $DataRoot
+# Replaces the whole list: a variable added by hand with `nssm set ... +NAME=value` is lost
+# when this runs again, so add anything else to the call below, not by hand.
+$Environment = @("PYTHONPATH=$ImportRoot", "SEW_DATA_ROOT=$DataRoot", 'PYTHONUNBUFFERED=1', 'PYTHONDONTWRITEBYTECODE=1')
+if ($SecretFilesDir) {{ $Environment += "{SECRET_FILES_DIRECTORY_ENV}=$SecretFilesDir" }}
+Set-Nssm AppEnvironmentExtra @Environment
+Set-Nssm Start SERVICE_AUTO_START
+Set-Nssm ObjectName $Account
+
+Set-Nssm AppExit Default Restart
+{exits}
+Set-Nssm AppRestartDelay 10000
+
+Set-Nssm AppStopMethodConsole {wait_ms}
+
+Set-Nssm AppStdout (Join-Path $LogDir 'sew-run.log')
+Set-Nssm AppStderr (Join-Path $LogDir 'sew-run.log')
+Set-Nssm AppRotateFiles 1
+Set-Nssm AppRotateOnline 1
+Set-Nssm AppRotateBytes 10485760
+
+# The service account writes the data root and nothing else.
+& icacls $DataRoot /grant "${{Account}}:(OI)(CI)M" | Out-Null
+if ($LASTEXITCODE -ne 0) {{ throw "icacls on $DataRoot failed with $LASTEXITCODE" }}
+
+Write-Output "$ServiceName installed. Start it with: nssm start $ServiceName"
+"""
+
+
+def main(argv: list[str]) -> int:
+    rendered = {UNIT_FILE: render_unit(), NSSM_FILE: render_nssm_script()}
+    for target, text in rendered.items():
+        if "--write" in argv:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8", newline="\n")
+            sys.stdout.write(f"wrote {target}\n")
+        else:
+            sys.stdout.write(f"===== {target}\n{text}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
