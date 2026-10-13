@@ -68,6 +68,8 @@ _PROBLEM_RECORD = re.compile(
 )
 #: The one WARNING a healthy `run` writes (`EPIC-038D`); `EPIC-036B` removes it.
 _EXPECTED_WARNING = "[alerts] no alert channel is configured for bot events"
+#: The WARNING `--skip-preflight` writes; only the provisioned run (no key in the environment) skips.
+_SKIPPED_PREFLIGHT_WARNING = "[preflight] --skip-preflight: no check ran"
 _HEALTH_RECORD = re.compile(
     r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - App\.Operations - INFO - \[health\] state=",
     re.MULTILINE,
@@ -279,5 +281,6 @@ def test_no_credential_provisioned_by_systemd_or_a_secret_file_reaches_the_log(
         record.group(0)
         for record in _PROBLEM_RECORD.finditer(provisioned_run.log)
         if _EXPECTED_WARNING not in record.group(0)
+        and _SKIPPED_PREFLIGHT_WARNING not in record.group(0)
     ]
     assert not problems, provisioned_run.evidence
