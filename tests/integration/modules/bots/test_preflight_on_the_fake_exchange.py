@@ -46,6 +46,7 @@ from sagittarius_engine import App
 from .grid_fake_exchange import FakeExchange, app_config
 
 EXPECTED_IDS = {
+    "bot-files-readable",
     "clock-skew",
     "credentials-present",
     "data-root-writable",
@@ -109,6 +110,15 @@ def test_every_declared_check_is_in_the_report_and_nothing_is_placed(
         outcome, document = _run(app)
 
     assert declared == EXPECTED_IDS
+    runbook = (
+        Path(__file__).resolve().parents[4]
+        / "Docs"
+        / "OPERATIONS"
+        / "headless_runbook.md"
+    ).read_text(encoding="utf-8")
+    assert [c for c in sorted(declared) if f"| `{c}` |" not in runbook] == [], (
+        "every pre-flight check has a row in the runbook's table of what to do"
+    )
     assert set(_statuses(document)) == EXPECTED_IDS
     assert document["schema"] == "sew.preflight/1"
     assert not [r for r in exchange.urls.requests if r[0] in _PLACING]

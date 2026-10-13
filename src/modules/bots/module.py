@@ -93,6 +93,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     HealthContributorDescriptor,
     IOperationsRegistry,
+    PreflightCheckDescriptor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
@@ -102,6 +103,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_boot_re
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_files_readable_check import (
+    CHECK_ID as BOT_FILES_CHECK_ID,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_files_readable_check import (
+    BotFilesReadableCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
     BotPriceWatch,
@@ -267,7 +274,17 @@ class BotsModule(BoundedContextModule):
         )
 
     def declare_operations(self, registry: IOperationsRegistry) -> None:
-        """The bots' section of the health snapshot (`EPIC-038C`): counts by state."""
+        """The bots' section of the health snapshot (`EPIC-038C`) and the pre-flight check
+        that every bot file can be read by this build (`EPIC-038H`)."""
+        registry.declare_preflight(
+            PreflightCheckDescriptor(
+                BOT_FILES_CHECK_ID,
+                lambda resolver: BotFilesReadableCheck(
+                    resolver.resolve(IBotStore)  # type: ignore[type-abstract]
+                ),
+                self.module_id,
+            )
+        )
         registry.declare_health(
             HealthContributorDescriptor(
                 SECTION_NAME,
