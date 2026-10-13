@@ -61,6 +61,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     HealthContributorDescriptor,
     IHealthContributorTable,
+    IHealthProbeTable,
     IPreflightCheckTable,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_formats import (
@@ -356,6 +357,8 @@ def create_app(
         )
     )
     container.singleton(IHealthContributorTable, operations_registry)
+    # `EPIC-038D` - the measurements the `run` host takes before each snapshot.
+    container.singleton(IHealthProbeTable, operations_registry)
 
     # `EPIC-038B` — the output formats a report command offers (`--json`,
     # `--format`). A new format is one `register` call on this object; no
