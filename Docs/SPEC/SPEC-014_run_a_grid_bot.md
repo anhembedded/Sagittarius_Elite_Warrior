@@ -177,6 +177,37 @@ available while it runs.
 
 On a server with no window the Bots mode's steps are a **plan file**: a JSON file (`sew.bot-plan/1`) that lists bots by `name`, `kind`, `venue`, `symbol`, `params` (the Grid's parameters as text, exactly what the Plan panel's fields hold) and `desired_state` (`running` | `stopped`). It has no field for a key, a secret or an account identifier, and a file that names one is refused. `main.py bot apply <plan> --dry-run` prints the diff (create, edit, delete, leave, and what `desired_state` will mean); `bot apply <plan>` creates and edits through `CreateBotCommand` and `EditBotCommand` (a bot is saved as a DRAFT; nothing is placed), deletes with `--prune` only a bot at rest, and records each entry's `desired_state`. An edit the lifecycle table refuses for the bot's state (a RUNNING Grid's range) is reported as "needs stop first" and exits `2`; the other entries are still applied. A real apply is a writable boot, so the restart rule runs first (a RUNNING or PAUSED bot on disk is RECOVERING when the diff is read); `--dry-run` boots read-only and shows the states as the files record them, and says "will not start it" for a bot that is not at rest. `main.py run --start-planned` then starts, through the `StartBotCommand` the Start button dispatches, the bots the record says are running and that are at rest. See [`SPEC-015`](SPEC-015_run_the_bots_headless.md).
 
+### 3.2 A Futures Long Grid (`EPIC-039H`, application layer only until the screen offers it)
+
+A Grid on a USDⓈ-M Futures venue is the same bot with a position instead of an inventory. It exists
+through the application layer (`CreateBotCommand` / `StartBotCommand` on a Futures venue); the New bot
+dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not offered before
+`EPIC-039L` (decision O7). Its direction is LONG; its `capital_quote` is the margin it commits and
+`leverage` multiplies it (decision O2); with leverage above 1 it needs a stop loss (O3).
+
+1. **Start** is refused, before any order, for what stands in its way, each in the exchange's words
+   and its own: the account in Hedge Mode, a position the bot did not open, too little margin, a
+   leverage the symbol's bracket does not allow, a venue whose leverage or margin type cannot be made
+   the bot's (the symbol keeps an order of the user's), a plan liquidated inside its range or with no
+   exit on its losing side.
+2. **The opening** is one market BUY, in base quantity, of the SELL levels' quantity (cut under the
+   per-order cap); trading counts it from the exchange's record, and the ladder is laid only when that
+   position covers its SELLs and `positionRisk` agrees with it. Every level has the same quantity.
+3. **The ladder**: BUYs below the price, SELLs above it as **reduce-only** orders (decision O10);
+   a filled BUY owes a reduce-only SELL one level up, a filled SELL a BUY one level down.
+4. **Stop** closes the position with reduce-only market orders and is STOPPED only when the exchange
+   reports it flat and no order carrying the tag rests. The choice "keep the position" is refused
+   in words: no exchange-side stop stands yet, and a leveraged position with none can be liquidated.
+5. **A halt** (a silent price feed, a user stream down, a refused counter, a mismatch, a liquidation
+   risk) takes the ladder off and **stops with the same close**, so the bot ends flat; its reason is the
+   halt's own (decision O8). Restart, a stream gap and a position that differs from the bot's own
+   fills are reconciled against `positionRisk` (`POSITION_MISMATCH`), never traded over.
+
+What it does not do yet: Short and Neutral (`EPIC-039I`), the Futures screen (`EPIC-039J`), a backtest
+(`EPIC-039K`, which refuses a Futures bot in words meanwhile), the stop and take profit on the **mark**
+price and the range exit (`EPIC-039H` stage 3), the exchange-side protective stop and mainnet
+(`EPIC-039L`).
+
 ## 4. What must be true afterwards
 
 - A created bot is still listed after a restart, in the state it was saved in; a bot that was
@@ -271,7 +302,8 @@ On a server with no window the Bots mode's steps are a **plan file**: a JSON fil
 
 ## 6. What this use case does NOT promise
 
-- Futures grids (`EPIC-039`), trailing grids, DCA and signal bots (`EPIC-029L`): Spot Grid is the only kind.
+- Futures grids on the screen, Short and Neutral directions, a Futures backtest and Futures mainnet
+  (`EPIC-039`, §3.2 says what exists), trailing grids, DCA and signal bots (`EPIC-029L`).
 - A backtest that fills like the exchange: it fills a level only when the price trades a tick
   through it (never on touch), orders levels inside a candle by its 1-second klines and, without
   them, takes the adverse side first and says so. It models no slippage, no queue position and no
@@ -311,6 +343,11 @@ On a server with no window the Bots mode's steps are a **plan file**: a JSON fil
 
 | Evidence | Where | Tier |
 | :--- | :--- | :--- |
+| A Futures Long opens its position, lays reduce-only SELLs, owes a reduce-only counter for each fill, books a cycle that agrees with the exchange's own realised profit, counts a repeated fill report once, books funding whole, stops flat, and refuses a "keep" stop | `tests/integration/modules/bots/test_a_futures_long_grid_on_the_fake_exchange.py` | integration (Futures fake) |
+| A halt ends flat with no orders; a restart in the middle of the ladder and a stream gap are reconciled against the position; a position added by hand halts the recovery; a start is refused for a foreign position, settings the venue will not make the bot's, and a refused liquidation risk | `tests/integration/modules/bots/test_a_futures_grid_halts_and_recovers_on_the_fake_exchange.py` | integration (Futures fake) |
+| The close is reduce-only, cut under the cap and confirmed flat; the opening is never traded over a divergence; the plan's risk and the venue's settings are settled before any order | `tests/unit/modules/bots/application/services/test_position_close.py` · `test_position_opening.py` · `test_position_venue_collaborators.py` | unit |
+| The four exposure joints are ports the sequences reach, and a halt stops with the close where the venue closes on halt | `tests/unit/modules/bots/application/services/test_grid_executor_exposure_seams.py` | unit |
+| A Futures bot is judged by the Futures rules against the margin of its ladder's worst case; its levels are sized by one quantity; the lease holder may change its own symbol's settings | `tests/unit/modules/bots/application/test_futures_readiness_path.py` · `tests/unit/modules/bots/domain/grid/test_position_venue_sizing.py` · `tests/unit/modules/trading/application/account_control/test_account_control_lease_holder.py` | unit |
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
