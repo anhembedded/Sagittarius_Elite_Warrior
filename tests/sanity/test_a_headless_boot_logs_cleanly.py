@@ -8,7 +8,8 @@ fresh interpreter with **PySide6 blocked**, on the **real logging
 configuration** (`StdLogger` from the shipped config, never `basicConfig`), with
 canary credentials in the environment, and reads what came out.
 
-Four facts:
+Four facts (and, from `EPIC-038E`, a fifth at the end of this file: the same canary
+provisioned as a systemd credential and as a permission-checked file):
 
 1. no WARNING/ERROR/CRITICAL record and no "uncollectable objects" line, so the
    scan stays quiet on a healthy headless run;
@@ -78,7 +79,7 @@ _EXPECTED_HEALTH = HealthLine(
     rss_mb=250,
 )
 
-_HEADLESS_BOOT = """
+_BOOT_AND_HEALTH_LINE = """
 import logging, sys
 for _name in ("PySide6", "shiboken6", "pyqtgraph"):
     sys.modules[_name] = None
@@ -102,6 +103,9 @@ log_health_line(
     ),
 )
 
+"""
+
+_READ_THE_ENVIRONMENT_CANARY = """
 # `create_app/boot/stop` resolves no credential on an empty data root, so the
 # canary has to be read on purpose: through the same provider classes the venues
 # use (`venue_assembly.credentials_provider`), over the same environment.
@@ -110,6 +114,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import SecretsFileSource
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import TradingVenue
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import OrderedSecretStores
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 
 read = 0
@@ -117,29 +122,56 @@ for venue in TradingVenue:
     if venue is TradingVenue.DISABLED:
         continue
     provider = (
-        MainnetCredentialsProvider(InMemorySecretStore(), venue) if venue.is_mainnet
+        MainnetCredentialsProvider(OrderedSecretStores.single(InMemorySecretStore()), venue)
+        if venue.is_mainnet
         else EnvFirstCredentialsProvider(SecretsFileSource("no-such-secrets-file.json"), venue)
     )
     credentials = provider.resolve().credentials
     if credentials is not None and credentials.api_key.startswith("CANARY-KEY-"):
         read += 1
 print(f"CREDENTIALS_READ={read}")
+"""
+
+#: `EPIC-038E` - the same boot, but the canary is provisioned the way a server gets it:
+#: one venue's pair as a systemd credential, the other's as a permission-checked
+#: file, read through the production order (`build_secret_stores`), never the environment.
+_READ_THE_PROVISIONED_CANARY = """
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import build_secret_stores
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import MainnetCredentialsProvider
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import TradingVenue
+
+stores = build_secret_stores()
+for venue in (TradingVenue.FUTURES_MAINNET, TradingVenue.SPOT_MAINNET):
+    resolved = MainnetCredentialsProvider(stores, venue).resolve()
+    key = resolved.credentials.api_key if resolved.credentials is not None else ""
+    print(f"RESOLVED {venue.value} via {resolved.source.value} canary={key.startswith('CANARY-KEY-')}")
+"""
+
+_BOOT_DONE = """
 app.stop()
 print("HEADLESS_BOOT_DONE")
 """
 
 
-def _run_headless_boot(data_root: Path) -> subprocess.CompletedProcess[str]:
+def _run_headless_boot(
+    data_root: Path,
+    reads_the_canary: str = _READ_THE_ENVIRONMENT_CANARY,
+    *,
+    environment_canary: bool = True,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("BINANCE_", "SEW_"))
+        if not key.startswith(("BINANCE_", "SEW_", "CREDENTIALS_DIRECTORY"))
     }
     env.update({DATA_ROOT_ENV: str(data_root), "QT_QPA_PLATFORM": "offscreen"})
-    for name in _CREDENTIAL_VARIABLES:
-        env[name] = _CANARY_KEY if name.endswith("_KEY") else _CANARY_SECRET
+    if environment_canary:
+        for name in _CREDENTIAL_VARIABLES:
+            env[name] = _CANARY_KEY if name.endswith("_KEY") else _CANARY_SECRET
+    env.update(extra_env or {})
     return subprocess.run(
-        [sys.executable, "-c", _HEADLESS_BOOT],
+        [sys.executable, "-c", _BOOT_AND_HEALTH_LINE + reads_the_canary + _BOOT_DONE],
         cwd=str(_REPO_ROOT.parent),
         capture_output=True,
         text=True,
@@ -198,8 +230,79 @@ def test_no_credential_reaches_the_log(boot: _Boot) -> None:
     assert _CANARY_SECRET not in boot.log, "an API secret reached the log"
 
 
+def test_no_credential_reaches_a_file_the_run_wrote(boot: _Boot) -> None:
+    assert boot.result.returncode == 0, boot.evidence
+    _assert_no_canary_in_any_file_the_run_wrote(boot.data_root)
+
+
 def test_a_plain_headless_run_writes_no_log_file(boot: _Boot) -> None:
     assert boot.result.returncode == 0, boot.evidence
     logs_dir = boot.data_root / "logs"
     written = sorted(os.listdir(logs_dir)) if logs_dir.exists() else []
     assert written == [], f"a plain run wrote log files: {written}"
+
+
+def _assert_no_canary_in_any_file_the_run_wrote(data_root: Path) -> None:
+    """The log is one place a secret could leak; the health snapshot
+    (`state/health.json`) and every other file under the data root are the rest."""
+    written = [
+        Path(folder) / name for folder, _, names in os.walk(data_root) for name in names
+    ]
+    # The scan must cover the snapshot, or its silence proves nothing about it.
+    assert data_root / "state" / "health.json" in written, [str(p) for p in written]
+    for path in written:
+        content = path.read_bytes()
+        assert _CANARY_KEY.encode() not in content, f"an API key reached {path}"
+        assert _CANARY_SECRET.encode() not in content, f"an API secret reached {path}"
+
+
+def _provision(directory: Path, venue: str) -> None:
+    """One venue's pair as owner-only files, the way an operator leaves them."""
+    directory.mkdir(parents=True, exist_ok=True)
+    for part, value in (("key", _CANARY_KEY), ("secret", _CANARY_SECRET)):
+        path = directory / f"{venue}_api_{part}"
+        path.write_text(f"{value}\n", encoding="utf-8")
+        path.chmod(0o600)
+
+
+@pytest.fixture(scope="module")
+def provisioned_boot(tmp_path_factory: pytest.TempPathFactory) -> Iterator[_Boot]:
+    """`EPIC-038E` - one headless boot whose canary arrives as a systemd credential
+    (futures mainnet) and as a permission-checked file (spot mainnet), not as
+    environment variables."""
+    data_root = tmp_path_factory.mktemp("headless_data_root")
+    credentials = tmp_path_factory.mktemp("systemd_credentials")
+    secret_files = tmp_path_factory.mktemp("secret_files")
+    _provision(credentials, "futures_mainnet")
+    _provision(secret_files, "spot_mainnet")
+    yield _Boot(
+        _run_headless_boot(
+            data_root,
+            _READ_THE_PROVISIONED_CANARY,
+            environment_canary=False,
+            extra_env={
+                "CREDENTIALS_DIRECTORY": str(credentials),
+                "SEW_SECRET_FILES_DIR": str(secret_files),
+            },
+        ),
+        data_root,
+    )
+
+
+def test_no_credential_provisioned_by_systemd_or_a_secret_file_reaches_the_log(
+    provisioned_boot: _Boot,
+) -> None:
+    assert provisioned_boot.result.returncode == 0, provisioned_boot.evidence
+    # Positive proof first: each canary was resolved through the backend named, so
+    # the absence below is not just "nothing touched it".
+    out = provisioned_boot.result.stdout
+    assert "RESOLVED futures_mainnet via systemd-credential canary=True" in out, (
+        provisioned_boot.evidence
+    )
+    assert "RESOLVED spot_mainnet via secret-file canary=True" in out, (
+        provisioned_boot.evidence
+    )
+    _assert_no_canary_in_any_file_the_run_wrote(provisioned_boot.data_root)
+    assert _CANARY_KEY not in provisioned_boot.log, "an API key reached the log"
+    assert _CANARY_SECRET not in provisioned_boot.log, "an API secret reached the log"
+    assert not _PROBLEM_RECORD.findall(provisioned_boot.log), provisioned_boot.evidence

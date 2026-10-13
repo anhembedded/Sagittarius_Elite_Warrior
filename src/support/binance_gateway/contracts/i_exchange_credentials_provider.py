@@ -27,7 +27,28 @@ class CredentialsSource(str, Enum):
     FILE = "file"
     #: `EPIC-034E` — the operating system's keyring (a mainnet venue's key, D10).
     KEYRING = "keyring"
+    #: `EPIC-038E` — a file the service manager put under `$CREDENTIALS_DIRECTORY`
+    #: (`LoadCredential=`); provisioned by the unit file, never written by the app.
+    SYSTEMD_CREDENTIAL = "systemd-credential"
+    #: `EPIC-038E` — a file in a directory the operator named, read only while it
+    #: is owner-only and outside the repository; provisioned, never written by the app.
+    SECRET_FILE = "secret-file"  # noqa: S105 - the name of a source, not a secret
     NONE = "none"
+
+    @property
+    def is_provisioned_outside_the_app(self) -> bool:
+        """The operator put this key there and the app neither writes nor removes it,
+        so an edit or a removal offered for it would be silently ignored."""
+        return self in _PROVISIONED_OUTSIDE_THE_APP
+
+
+_PROVISIONED_OUTSIDE_THE_APP = frozenset(
+    {
+        CredentialsSource.ENV,
+        CredentialsSource.SYSTEMD_CREDENTIAL,
+        CredentialsSource.SECRET_FILE,
+    }
+)
 
 
 @dataclass(frozen=True)

@@ -9,6 +9,8 @@
 **Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §2, §3, §9 (and §1, §2 for the per-channel queue).
 **Depends on:** None. Decision record: [`DECISION_2026-10-08_alerting_module.md`](../DECISION_2026-10-08_alerting_module.md).
 
+> **Note, 2026-10-13 — N3 is delivered by `EPIC-038E`.** The owner decided that `EPIC-038E` moves `ISecretStore` and `SecretStoreUnavailableError` to `src/core/contracts/i_secret_store.py` as its first commit, so this task does not move the port: it imports it from `core/contracts` once that PR merges, and the criterion "`ISecretStore` lifted" and the matching row of §4 are satisfied by that commit (recorded as D11 in [`EPIC-038`'s decision](../../EPIC-038_headless_operation/DECISION_2026-10-09_headless_operation.md)). Where the keyring adapter lives (O2) is still decided here.
+
 ---
 
 ## 1. Context and problem

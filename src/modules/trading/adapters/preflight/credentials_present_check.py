@@ -27,7 +27,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context impor
 
 _PROVIDE = (
     "Provide the key: set the venue's API key and secret environment variables, "
-    "or save them in the app's credentials page (a mainnet key goes to the keyring)."
+    "or, on a server, give them to the service as systemd credentials "
+    "(LoadCredential=) or as owner-only files in the SEW_SECRET_FILES_DIR "
+    "directory; on a desktop, save them in the app's credentials page "
+    "(a mainnet key goes to the keyring)."
 )
 
 

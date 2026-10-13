@@ -15,6 +15,9 @@ its venue.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
@@ -98,6 +101,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
     MainnetCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
     IExchangeCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -302,3 +306,31 @@ def test_a_mainnet_venues_key_comes_from_the_environment_or_the_keyring_never_a_
     assert isinstance(
         contexts.get(testnet).credentials_provider, EnvFirstCredentialsProvider
     )
+
+
+@pytest.mark.parametrize(("testnet", "mainnet"), _TWINS)
+def test_a_systemd_credential_reaches_the_mainnet_venue_the_module_assembles(
+    testnet: TradingVenue,
+    mainnet: TradingVenue,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`EPIC-038E` — the order of the secret stores is wired, not only unit-tested:
+    a credential file the service manager provides is found by the provider the
+    real module builds, and the testnet twin never reads it."""
+    for name in os.environ:
+        if name.startswith("BINANCE_"):
+            monkeypatch.delenv(name)
+    (tmp_path / f"{mainnet.value}_api_key").write_text("fake-key\n", encoding="utf-8")
+    (tmp_path / f"{mainnet.value}_api_secret").write_text(
+        "fake-secret\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("CREDENTIALS_DIRECTORY", str(tmp_path))
+
+    contexts = both_venues().resolve(IVenueContexts)
+    resolved = contexts.get(mainnet).credentials_provider.resolve()
+
+    assert resolved.source is CredentialsSource.SYSTEMD_CREDENTIAL
+    assert resolved.credentials is not None
+    assert resolved.credentials.api_secret == "fake-secret"  # noqa: S105 - a fake, written by this test
+    assert contexts.get(testnet).credentials_provider.resolve().credentials is None

@@ -10,12 +10,12 @@ import pytest
 from keyring.backend import KeyringBackend
 from keyring.backends.fail import Keyring as FailingKeyring
 from keyring.errors import PasswordDeleteError
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
     SERVICE,
     KeyringSecretStore,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    SecretStoreUnavailableError,
 )
 
 

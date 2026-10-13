@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstance
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_account_control import (
     ReadOnlyAccountControl,
 )
@@ -84,7 +87,7 @@ def _assembly(instance: InstanceAccess, venue: TradingVenue) -> VenueAssembly:
             container=Mock(),
             secrets_file_path="unused",
             session_states=VenueSessionStates(),
-            secret_store=InMemorySecretStore(),
+            secret_store=OrderedSecretStores.single(InMemorySecretStore()),
             instance=instance,
         ),
     )

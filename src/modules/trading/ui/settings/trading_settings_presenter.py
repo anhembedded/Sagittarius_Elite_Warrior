@@ -109,6 +109,8 @@ _SOURCE_WORDS = {
     CredentialsSource.ENV: "environment variable",
     CredentialsSource.FILE: "secrets.local.json",
     CredentialsSource.KEYRING: "OS keyring",
+    CredentialsSource.SYSTEMD_CREDENTIAL: "systemd credential",
+    CredentialsSource.SECRET_FILE: "secret file",
     CredentialsSource.NONE: "",
 }
 _ADD_HINT = (
@@ -202,7 +204,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             state=state,
             state_is_error=is_error,
             has_key=has_key,
-            editable=key.source is not CredentialsSource.ENV,
+            editable=not key.source.is_provisioned_outside_the_app,
         )
 
     # -- user requests ------------------------------------------------------

@@ -1,6 +1,9 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.remove_key.command import (
     RemoveKeyCommand,
 )
@@ -12,9 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_enrolment impor
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    SecretStoreUnavailableError,
 )
 
 logger = logging.getLogger("App.KeyEnrolment")
@@ -30,7 +30,7 @@ class RemoveKeyCommandHandler(ICommandHandler[RemoveKeyCommand, KeyRemoval]):
     def execute(self, command: RemoveKeyCommand) -> KeyRemoval:
         provider = self._contexts.get(command.venue).credentials_provider
         source = provider.resolve().source
-        if source is CredentialsSource.ENV:
+        if source.is_provisioned_outside_the_app:
             return KeyRemoval.FROM_ENVIRONMENT
         if source is CredentialsSource.NONE:
             return KeyRemoval.NOTHING_STORED
