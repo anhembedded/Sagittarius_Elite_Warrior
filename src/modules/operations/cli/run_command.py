@@ -137,6 +137,9 @@ class RunCommand:
         refusal = self._refusal_before_preflight()
         if refusal is not None:
             return refusal
+        host_signal = self._host_signal()
+        if isinstance(host_signal, CliOutcome):
+            return host_signal
         policy = (
             PreflightPolicy.SKIP
             if self._options.skip_preflight
@@ -145,9 +148,6 @@ class RunCommand:
         refusal = self._preflight_gate().admit(PreflightScope(), policy)
         if refusal is not None:
             return refusal
-        host_signal = self._host_signal()
-        if isinstance(host_signal, CliOutcome):
-            return host_signal
         self._serve(self._build_host(host_signal))
         return None
 
@@ -238,7 +238,10 @@ class RunCommand:
         return tuple(steps)
 
     def _serve(self, host: RunHost) -> None:
-        """Listen, boot, wait, drain, stop. The signals and the app are given back whatever happens."""
+        """Listen, boot, wait, drain, stop. The app is stopped and the signals given back whatever happens.
+
+        The signals are held until the app has stopped: a second Ctrl-C while the workers close
+        is absorbed rather than left to kill the process half-way through."""
         self._app.context.hosted_services.register(HostedRunHost(host))
         host.listen()
         try:
@@ -251,3 +254,4 @@ class RunCommand:
         finally:
             host.end()
             self._app.stop()
+            host.release()

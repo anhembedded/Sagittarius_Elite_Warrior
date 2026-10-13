@@ -126,6 +126,7 @@ class RunHost:
             self.fail(f"step failed: {type(failure).__name__}")
             # The Engine stops only the services that started, and this one did not.
             self.end()
+            self.release()
             raise
         self._machine.move_to(HostState.SERVING)
         self._health.set_state(HostState.SERVING)
@@ -182,15 +183,24 @@ class RunHost:
         self._health.publish_now()
 
     def end(self) -> None:
-        """The app is closing: hand the signals back and say `STOPPED`. Harmless twice."""
+        """The app is closing: say `STOPPED`. Harmless twice.
+
+        The signals stay with the host: the workers are about to close, and an impatient
+        second Ctrl-C then must be absorbed, not allowed to kill the process half-way
+        through `app.stop()`. `release` gives them back once the app has stopped.
+        """
         if self._ended:
             return
         self._ended = True
-        if self._listening:
-            self._signals.restore()
         if self._machine.state is HostState.DRAINING:
             self._machine.move_to(HostState.STOPPED)
             self._health.set_state(HostState.STOPPED)
+
+    def release(self) -> None:
+        """Hand the process's own signal handling back. Harmless twice, and before `listen`."""
+        if self._listening:
+            self._listening = False
+            self._signals.restore()
 
     # --- internals ------------------------------------------------------------
 

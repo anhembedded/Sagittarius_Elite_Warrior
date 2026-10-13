@@ -99,7 +99,7 @@ def test_a_signal_heard_while_the_app_boots_is_honoured_once_the_host_serves() -
 def test_listening_twice_installs_once_and_ending_unheard_restores_nothing() -> None:
     rig = _Rig()
 
-    rig.host.end()  # never listened: nothing of the process's to give back
+    rig.host.release()  # never listened: nothing of the process's to give back
     rig.host.listen()
     rig.host.listen()
     rig.host.begin()
@@ -148,6 +148,7 @@ def test_the_first_signal_ends_the_wait_and_a_drain_runs_the_policy_then_stops(
     rig.host.wait_for_stop()
     rig.host.drain()
     rig.host.end()
+    rig.host.release()
 
     assert rig.policy.applied == 1
     assert rig.host.state is HostState.STOPPED
@@ -244,13 +245,18 @@ def test_a_host_that_failed_stays_failed_and_ends_without_a_stop() -> None:
 
     rig.host.fail("the snapshot sink is gone")
     rig.host.end()
+    rig.host.release()
 
     assert rig.host.state is HostState.FAILED
     assert rig.policy.applied == 0
     assert rig.signals.restored == 1
 
 
-def test_ending_twice_restores_the_signals_once_and_changes_nothing() -> None:
+def test_ending_twice_changes_nothing_and_the_signals_stay_with_the_host_until_released() -> (
+    None
+):
+    """`app.stop()` closes the workers after the host has ended; a second Ctrl-C then must
+    be absorbed, not left to the default action that would kill the process half-way."""
     rig = _Rig()
     rig.host.begin()
     rig.signals.fire()
@@ -260,6 +266,11 @@ def test_ending_twice_restores_the_signals_once_and_changes_nothing() -> None:
     rig.host.end()
 
     assert rig.host.state is HostState.STOPPED
+    assert rig.signals.installed and rig.signals.restored == 0
+
+    rig.host.release()
+    rig.host.release()
+
     assert rig.signals.restored == 1
 
 

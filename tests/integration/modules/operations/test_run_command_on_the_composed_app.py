@@ -44,6 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_command import (
     RunCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
+    HostSignalName,
     RunOptions,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_state import (
@@ -172,6 +173,21 @@ def test_resume_recovering_without_an_alert_channel_or_the_acknowledgement_is_re
 
     assert outcome is not None and outcome.code is ExitCode.CONFIGURATION
     assert "--i-accept-silent-failures" in outcome.message
+    assert source.installed is False
+
+
+def test_a_host_signal_the_machine_cannot_give_is_refused_with_two_before_the_preflight(
+    data_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("NOTIFY_SOCKET", raising=False)
+    source = _Source()
+
+    outcome = RunCommand(
+        _app(data_root), RunOptions(host_signal=HostSignalName.SDNOTIFY), source
+    ).execute()
+
+    assert outcome is not None and outcome.code is ExitCode.USAGE
+    assert "NOTIFY_SOCKET" in outcome.message
     assert source.installed is False
 
 
