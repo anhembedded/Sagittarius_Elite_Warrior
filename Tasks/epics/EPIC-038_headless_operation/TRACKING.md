@@ -49,7 +49,7 @@ gantt
 | EPIC-038A | [Qt-free boot and guard](completed/EPIC-038A_qt_free_boot_and_guard.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038B | [Exit codes and output formats](completed/EPIC-038B_exit_codes_and_output_formats.md) | `claude/epic-038b-exit-codes-reports` | 🟢 | ✅ Done 2026-10-12 | — |
 | EPIC-038C | [Bot status read model](completed/EPIC-038C_bot_status_read_model.md) | `claude/epic-038c-status-read-model` | 🟡 | ✅ Done 2026-10-12 | — |
-| EPIC-038D | [The run host](incomplete/EPIC-038D_run_host.md) | — | 🔴 | 🔵 Planned; waits for O1, O2, O8 | — |
+| EPIC-038D | [The run host](completed/EPIC-038D_run_host.md) | `claude/epic-038d-run-host` | 🔴 | ✅ Done 2026-10-13 | — |
 | EPIC-038E | [Headless secret backends](completed/EPIC-038E_headless_secret_backends.md) | `claude/epic-038e-secret-backends` | 🔴 | ✅ Done 2026-10-13 | — |
 | EPIC-038F | [Preflight command](completed/EPIC-038F_preflight_command.md) | `claude/epic-038f-preflight` | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038G | [Logging for unattended runs](completed/EPIC-038G_logging_for_unattended_runs.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
@@ -63,6 +63,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-13 | 038D | The `run` host delivered: signals, both stop policies (leave orders by default), the lock refusal (3), the pre-flight before the restore (4/5/6), the health line with a measured clock skew, `--start-planned` (waits for 038I's plan) and `--resume-recovering`. The log of a machine report moved to stderr; `stream_age_s` became `stream_down_s`. |
 | 2026-10-13 | 038E | Systemd credentials and permission-checked files behind `ISecretStore`, read in one order with the source named; `ISecretStore` moved to `core/contracts`. The Windows ACL check and the Credential Manager are untested on a real server. |
 | 2026-10-12 | 038C | Bot status read model, health snapshot (`state/health.json`), `status`, `bot list/show` delivered with the sections of bots, trading, market_data and the Engine's own check; D5 and D10 accepted as defaults. A read-only command must not be the writable copy (found, fixed). Clock skew stays `null` until 038D's host measures it (PR #470). |
 | 2026-10-12 | 038F | `preflight` delivered: eight isolated checks, exit 0/4/5/6, the `declare_operations` registry, a gate for `run`. The exchange cannot report the address it sees; a `-2015` reply is the only source. |

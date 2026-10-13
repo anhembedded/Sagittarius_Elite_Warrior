@@ -108,6 +108,20 @@ When developing/debugging the engine alongside the app, install the local versio
 pip install -e ../Sagittarius_Engine        # run from parent workspace directory
 ```
 
+### Running the bots with no window (`main.py run`)
+
+```bash
+pip install -r requirements-headless.txt -c requirements.lock   # no Qt, no display
+python scripts/engine_pin.py install
+python src/main.py preflight          # the machine, the key, the clock, the exchange
+python src/main.py run                # serves until SIGTERM / Ctrl-C (Ctrl-Break on Windows)
+python src/main.py status             # from another shell: running? what does it hold?
+```
+
+`run` takes the data root's lock (exit `3` if another copy holds it), runs the pre-flight before it restores any bot (exit `4`, `5` or `6` on a failure), writes a health line and `state/health.json` every 60 s, and on a signal stops cleanly and exits `0`. By default a stop **leaves resting orders on the exchange** (`--on-stop stop-bots` cancels them first), and a bot a restart left RECOVERING **stays so until a person resumes it**. The exit codes are in [`Docs/OPERATIONS/exit_codes.md`](Docs/OPERATIONS/exit_codes.md), the log in [`Docs/OPERATIONS/LOGGING.md`](Docs/OPERATIONS/LOGGING.md), the journey in [`SPEC-015`](Docs/SPEC/SPEC-015_run_the_bots_headless.md).
+
+> **Not supported for unattended money yet.** No alert channel carries a bot's halt to you (`EPIC-036B`, `036C`) and nothing watches the host from outside (`EPIC-036E`); until all three have merged a halt at 3 a.m. is silent, and `run` says so in its log when it starts. Use it on a testnet, or watch it.
+
 Linux additionally requires `pwsh` to run the **mandatory verification gate**, and several system libraries for Qt running `offscreen` (`libegl1`, `libgl1`, `libxkbcommon0`, `libfontconfig1`, `libdbus-1-3` on a clean container — let `ImportError` identify missing `.so` files). Full instructions: [`.claude/rules/install-rule.md`](.claude/rules/install-rule.md) §2b, §3.
 
 ### Futures Testnet API Key Configuration

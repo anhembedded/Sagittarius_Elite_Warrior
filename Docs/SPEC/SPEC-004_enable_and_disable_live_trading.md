@@ -11,7 +11,8 @@
 - **Surfaces:** none of its own. It runs inside **Bots → Start**, **Bots → Arm strategy…** and the
   Trade mode's **order panel** (SPEC-014, SPEC-005); **Emergency stop** (Trade menu, `F8`, every
   mode's toolbar) is the only thing that closes it. There is no Enable/Disable trading command,
-  toolbar button, title or banner state.
+  toolbar button, title or banner state. Headless, `main.py run --resume-recovering` opens the same
+  session for a venue that holds a RECOVERING bot ([SPEC-015](SPEC-015_run_the_bots_headless.md)).
 
 ## 1. Trigger
 

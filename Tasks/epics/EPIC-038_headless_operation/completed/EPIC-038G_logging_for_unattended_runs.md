@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** none.
 **Design:** [DESIGN §6, §12](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§9](../RESEARCH_2026-10-09_headless_operation.md) · **Decision:** [O7](../DECISION_2026-10-09_headless_operation.md)
-**Depends on:** [038A](EPIC-038A_qt_free_boot_and_guard.md). The log line itself is produced by the host in [038D](../incomplete/EPIC-038D_run_host.md).
+**Depends on:** [038A](EPIC-038A_qt_free_boot_and_guard.md). The log line itself is produced by the host in [038D](EPIC-038D_run_host.md).
 
 ---
 

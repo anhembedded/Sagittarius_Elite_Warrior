@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) is updated for the plan-driven journey.
 **Design:** [DESIGN §5.3, §6](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§14](../RESEARCH_2026-10-09_headless_operation.md)
-**Depends on:** [038B](EPIC-038B_exit_codes_and_output_formats.md), [038C](../completed/EPIC-038C_bot_status_read_model.md); `--start-planned` is consumed by [038D](EPIC-038D_run_host.md).
+**Depends on:** [038B](EPIC-038B_exit_codes_and_output_formats.md), [038C](../completed/EPIC-038C_bot_status_read_model.md); `--start-planned` is consumed by [038D](../completed/EPIC-038D_run_host.md).
 
 ---
 
@@ -22,7 +22,7 @@ On the desktop a bot is built through the Bots screen's steps; on a server there
 - [ ] The identity of a plan entry is its `name` + `venue`; renaming is a delete and a create, and the diff says so.
 - [ ] `bot export <id|--all>` writes a plan from the stored bots (round trip: `export` then `apply --dry-run` is "no changes").
 - [ ] A test greps a plan produced by `export` and the dry-run output for the fake secrets in the environment: none.
-- [ ] `run --start-planned` (038D) reads the same file's `desired_state`.
+- [ ] `run --start-planned` (038D) reads the same file's `desired_state`. **Handed over by [038D](../completed/EPIC-038D_run_host.md) (2026-10-13):** 038D built the host side and left the plan unwritten: `IBotPlan` (`bots/contracts/i_bot_plan.py`: `exists()` and `wants_running()`) is bound to `NoBotPlan` in `bots/composition/state_bindings.py`. This task binds an adapter that reads the `desired_state` `bot apply` recorded, in place of `NoBotPlan`; the start step and the mainnet confirmation (`--confirm-venue`, decision O8) need no change. A test starts a real `run` with a plan and a stopped planned bot and finds it RUNNING on the fake exchange.
 
 ## 3. Design
 Declarative desired state with an idempotent apply (the Kubernetes/Terraform shape), expressed as a thin driver over the existing commands, so the plan path and the screen path are one path (D2). Bot kinds supply their own parameter schema through the existing kind catalog (`IBotKindCatalog`), so a new bot kind needs no change here (open/closed). Alternatives: editing the bots' store files directly (bypasses the lifecycle table — the sibling-path failure class), a plan in the user config (mixes secrets-adjacent settings with reviewable data).

@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** none.
 **Design:** [DESIGN §12](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§1, §2, §8, §9, §10, §15](../RESEARCH_2026-10-09_headless_operation.md) · **Decision:** [O5](../DECISION_2026-10-09_headless_operation.md)
-**Depends on:** [038D](EPIC-038D_run_host.md), [038E](EPIC-038E_headless_secret_backends.md), [038F](EPIC-038F_preflight_command.md), [038G](EPIC-038G_logging_for_unattended_runs.md); owner decision O5.
+**Depends on:** [038D](../completed/EPIC-038D_run_host.md), [038E](EPIC-038E_headless_secret_backends.md), [038F](EPIC-038F_preflight_command.md), [038G](EPIC-038G_logging_for_unattended_runs.md); owner decision O5.
 
 ---
 
