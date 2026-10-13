@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** [SPEC-003](../../../../Docs/SPEC/SPEC-003_check_the_exchange_connection.md) (the credentials step) is read; no journey changes for the GUI.
 **Design:** [DESIGN §10](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§4, §6](../RESEARCH_2026-10-09_headless_operation.md) · **Decision:** [O3](../DECISION_2026-10-09_headless_operation.md)
-**Depends on:** owner decision O3 (decided 2026-10-12, [§4a](../DECISION_2026-10-09_headless_operation.md)). The move of `ISecretStore` to `core/contracts` (N3 of [`EPIC-036A`](../../EPIC-036_alerting_module/incomplete/EPIC-036A_alerting_core.md)) was decided for this task by the owner on 2026-10-13 (decision D11) and is its first commit; `EPIC-036A` imports the port from there.
+**Depends on:** owner decision O3 (decided 2026-10-12, [§4a](../DECISION_2026-10-09_headless_operation.md)). The move of `ISecretStore` to `core/contracts` (N3 of [`EPIC-036A`](../../EPIC-036_alerting_module/completed/EPIC-036A_alerting_core.md)) was decided for this task by the owner on 2026-10-13 (decision D11) and is its first commit; `EPIC-036A` imports the port from there.
 
 ---
 

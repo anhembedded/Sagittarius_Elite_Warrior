@@ -184,7 +184,7 @@ def _tick() -> MarketTickEvent:
     )
 
 
-def test_the_composed_app_publishes_the_four_sections_and_all_answer(
+def test_the_composed_app_publishes_its_sections_and_all_answer(
     data_root: Path,
 ) -> None:
     app = create_app(ConfigManager())
@@ -195,7 +195,13 @@ def test_the_composed_app_publishes_the_four_sections_and_all_answer(
         app.stop()
 
     assert snapshot is not None
-    assert sorted(snapshot.sections) == ["bots", "engine", "market_data", "trading"]
+    assert sorted(snapshot.sections) == [
+        "alerting",
+        "bots",
+        "engine",
+        "market_data",
+        "trading",
+    ]
     assert snapshot.unavailable_sections == ()
     assert snapshot.sections["bots"]["total"] == 2
     assert snapshot.sections["bots"]["unreadable"] == 1

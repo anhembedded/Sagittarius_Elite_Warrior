@@ -1,6 +1,6 @@
 # EPIC-036 — An alerting module: alerts reach the owner on more than one channel, and the owner can see what was sent
 
-- **Status:** 🔵 Planned — scaffolded 2026-10-08; **not started** (the owner said: create it and leave it)
+- **Status:** 🟡 In progress (1/6) — scaffolded 2026-10-08; `036A` done 2026-10-13
 - **Repositories:** Elite. No Engine change is expected; a need for one gets its own confirmation (`ONBOARDING.md` §2).
 - **Origin:** the owner's approval of the alerting design on 2026-10-08, relayed by the coordinator session: *"a bot that has trouble must reach me even when I am away from the machine; Discord first, Telegram exists, other channels later; many bots and many kinds of bot; leave room to control bots from Discord"* (paraphrased from the design page). It rewrites [`EPIC-035K`](../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md), which asked for one Discord adapter behind a bots-owned port.
 - **North star:** [`DESIGN_2026-10-08_alerting_module.md`](DESIGN_2026-10-08_alerting_module.md), the full English transcription of the owner-approved design (components, classes, four sequences, the many-bots table, the UI wireframes, N1–N8, the task split). The owner's page (Vietnamese, https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1, `master-warrior` `1f890e0`) is a private artifact and a secondary reference only. Research behind it: [`RESEARCH_2026-10-08_alerting_lessons.md`](RESEARCH_2026-10-08_alerting_lessons.md). The points every task must carry are in §1b.
@@ -49,7 +49,7 @@ Each child is one PR, done in the order the dependencies allow. `EPIC-036F` is P
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-036F](incomplete/EPIC-036F_remote_control_from_discord.md) | Remote control from Discord: `IRemoteCommandSource`, `RemoteCommandGate`, allowlist, command tiers, idempotency, audit (Phase 4) | Elite | 036A, 036C, 035X; library approved by the owner | 🔴 | Planned |
-| [EPIC-036A](incomplete/EPIC-036A_alerting_core.md) | Alerting core: module skeleton, `Alert`, `IAlertChannel`, `AlertHub`, SQLite outbox, `DeliveryWorker`, `ISecretStore` lifted to core | Elite | None | 🟡 | Planned |
+| [EPIC-036A](completed/EPIC-036A_alerting_core.md) | Alerting core: module skeleton, `Alert`, `IAlertChannel`, `AlertHub`, SQLite outbox, per-channel `DeliveryWorker` lanes (`ISecretStore` lift delivered by `EPIC-038E`) | Elite | None | 🟡 | Done 2026-10-13 |
 | [EPIC-036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | Discord channel and Telegram migration: embeds, keyring, token migration, no-secret-in-logs, rate-limit tests | Elite | 036A | 🟡 | Planned |
 | [EPIC-036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | Heartbeat, dead man's switch and daily summary | Elite | 036A, 036C, 035W | 🟡 | Planned |
 | [EPIC-036B](incomplete/EPIC-036B_alert_sources.md) | Alert sources: `BotAlertSource`, `StreamAlertSource`, `SystemAlertSource` replacing `NotificationEventHandler` | Elite | 036A | 🟢 | Planned |
@@ -72,4 +72,5 @@ Each child is one PR, done in the order the dependencies allow. `EPIC-036F` is P
 - Any code. This epic is documentation until a child task is started.
 
 ## Notes (newest first)
+- **2026-10-13** — `EPIC-036A` done: the `alerting` module with the typed `Alert`, `IAlertChannel`, `AlertHub`, the SQLite outbox and a lane per channel. Owner decision the same day: `ISecretStore` is not lifted here; `EPIC-038E` delivers N3's lift.
 - **2026-10-08** — Epic scaffolded from the owner-approved design (N1–N8). `EPIC-035K` moved to `EPIC-035/cancelled/` as superseded. Documentation only; nothing started.

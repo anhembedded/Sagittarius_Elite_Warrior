@@ -1,7 +1,7 @@
 # EPIC-036 — Tracking
 
 - **Epic:** [EPIC-036](README.md)
-- **Status:** 🔵 Planned — not started (the owner said: create it and leave it)
+- **Status:** 🟡 In progress (1/6) — `036A` done 2026-10-13
 - **Target Completion:** not set; each task is one pull request
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -19,7 +19,7 @@ gantt
     Design approved, epic scaffolded      :done, s1, 2026-10-08, 1d
 
     section Phase 1 - Core and sources
-    036A Alerting core                    :a, after s1, 5d
+    036A Alerting core                    :done, a, after s1, 5d
     036B Alert sources                    :b, after a, 3d
 
     section Phase 2 - Real channels
@@ -39,7 +39,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-036A | [Alerting core](incomplete/EPIC-036A_alerting_core.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-036A | [Alerting core](completed/EPIC-036A_alerting_core.md) | `claude/epic-036a-alerting-core` | 🟡 | ✅ Done (2026-10-13), awaiting merge | — |
 | EPIC-036B | [Alert sources](incomplete/EPIC-036B_alert_sources.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D | [UI](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🔵 Planned | — |

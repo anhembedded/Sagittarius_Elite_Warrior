@@ -9,7 +9,7 @@
 ## 1. Discord: a 429 counts as an invalid request, and too many get the IP blocked
 - The docs say: do not hard-code limits; read the rate-limit headers and `retry_after`. Too many invalid requests (a 429 is one) get the whole IP temporarily blocked from the Discord API, so **every** message is lost.
 - Webhook limits are reported inconsistently: about 5 messages per 2 s per webhook, 30 requests per 5 s, about 30 messages per minute per channel (to verify).
-- **Design consequence:** a queue per channel; never retry before `retry_after`; a bounded number of retries (5), then `CHANNEL_FAILING`; a test that asserts no request is sent before `retry_after`. → [036A](incomplete/EPIC-036A_alerting_core.md), [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md)
+- **Design consequence:** a queue per channel; never retry before `retry_after`; a bounded number of retries (5), then `CHANNEL_FAILING`; a test that asserts no request is sent before `retry_after`. → [036A](completed/EPIC-036A_alerting_core.md), [036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md)
 - Sources: https://docs.discord.com/developers/topics/rate-limits · https://space-node.net/blog/discord-webhook-rate-limits-official-2026 · https://help.squarecloud.app/en-us/article/how-to-handle-rate-limits-in-the-discord-api-mkkz7n/ · https://client.falixnodes.net/guides/troubleshooting/discord-rate-limits
 
 ## 2. Telegram: tight per-chat limits and waits that can last hours
