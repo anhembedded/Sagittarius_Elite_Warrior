@@ -29,7 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
-    ExchangeSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
@@ -87,7 +89,7 @@ class SelectedBot:
         #: What the exchange says about the selection (`BOT-174`): still being
         #: asked from the moment a bot is selected, so one bot's facts are never
         #: judged for another.
-        self.exchange: ExchangeSnapshot = ExchangeChecking()
+        self.exchange: VenueSnapshot = ExchangeChecking()
         #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
         #: read, and none for a bot whose venue carries no such risk.
         self.risk: PlanRiskFacts | None = None
@@ -114,7 +116,7 @@ class SelectedBot:
         """The same bot, re-read: its state and progress may have moved."""
         self.bot = bot
 
-    def take_exchange(self, exchange: ExchangeSnapshot) -> None:
+    def take_exchange(self, exchange: VenueSnapshot) -> None:
         self.exchange = exchange
 
     def take_risk(self, read: PlanRiskRead | None) -> None:

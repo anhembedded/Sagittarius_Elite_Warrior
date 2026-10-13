@@ -4,7 +4,9 @@
 fills first, adopt) and one question that depends on what the bot holds: does the ladder's own
 count of its holding agree with what trading derived from the exchange, and does the account
 hold at least that? On Spot that is `INVENTORY_MISMATCH` and `HOLDING_BELOW_INVENTORY`; on a
-position venue it is `POSITION_MISMATCH` (derived against `positionRisk`, to within one step).
+position venue it is `POSITION_MISMATCH` (the saved position against the one derived from the bot's
+fills, to within one step) and the `FOREIGN_FILL` of a position that moved with no order of the
+bot's, read from the registration's divergence (`exposure_check_futures.py`).
 The reconciler (`GridReconciler`) holds one check and never names a market.
 
 Plausible extensions, each a local change: a Cross-margin check that also reads the other

@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeLoaded,
     ExchangeUnavailable,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    FuturesLoaded,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
     BotLifecycleState,
@@ -99,7 +102,8 @@ class ExchangeCheck:
         if kind is not ReadKind.EXCHANGE or bot is None or bot.bot_id != label:
             return
         if not isinstance(
-            answer, ExchangeChecking | ExchangeUnavailable | ExchangeLoaded
+            answer,
+            ExchangeChecking | ExchangeUnavailable | ExchangeLoaded | FuturesLoaded,
         ):
             raise TypeError(
                 f"an exchange read answers a snapshot, not {type(answer).__name__}"

@@ -24,8 +24,10 @@ ADR's order:
      inventory equals the derived one to within one step (`INVENTORY_MISMATCH`), and the
      account holds **at least** the derived inventory (`HOLDING_BELOW_INVENTORY`) — never an
      equality with the holding, which includes the user's own coins; on a position venue the
-     saved position equals the one derived from the bot's fills and checked against
-     `positionRisk` (`POSITION_MISMATCH`, `EPIC-039H`).
+     saved position equals the one derived from the bot's fills (`POSITION_MISMATCH`), and a
+     registration whose `positionRisk` disagrees with that derivation is never traded on
+     (`FOREIGN_FILL` when the position moved with no order of the bot's, `POSITION_MISMATCH`
+     otherwise; `EPIC-039H`, `exposure_check_futures.py`).
   7. **Persist, then transition**: `reconcile_ok` back to RUNNING or PAUSED,
      or `reconcile_mismatch` to HALTED, naming why.
 

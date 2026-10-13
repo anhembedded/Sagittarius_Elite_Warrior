@@ -71,7 +71,7 @@ def test_keeping_a_futures_position_is_refused_in_words_and_queues_nothing() -> 
     )
 
     assert result.refusal is BotRefusal.EXPOSURE_MUST_CLOSE
-    assert "Stop and close the position" in result.message
+    assert result.message.endswith("Stop and close the position.")
     assert runner.sent == []
 
 

@@ -42,10 +42,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
-    ExchangeSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+    bot_profile_of,
+    exposure_limits_of,
     plan_limits_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -56,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     ActionAvailability,
@@ -92,7 +100,7 @@ class DetailInputs:
     #: The Run step's facts (`EPIC-034H`).
     run: RunFacts = field(default_factory=RunFacts)
     #: What the exchange says (`BOT-174`); still being asked until it answers.
-    exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
+    exchange: VenueSnapshot = field(default_factory=ExchangeChecking)
     #: The symbol's liquidation facts on a position venue (`EPIC-039J`); `None` until read.
     risk: PlanRiskFacts | None = None
 
@@ -137,6 +145,8 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
                 inputs.market,
                 inputs.run,
                 inputs.exchange,
+                profile=bot_profile_of(bot.venue, GRID_MARKETS) or SPOT_PROFILE,
+                limits=exposure_limits_of(bot.venue, GRID_MARKETS),
             )
         )
         if bot.state in RUN_STARTING_STATES

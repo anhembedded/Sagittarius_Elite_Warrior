@@ -83,6 +83,8 @@ class _SaysLeverage(IVenueFacts):
 
     def read(self, bot: Bot) -> VenueSnapshot:
         self.asked.append(bot.bot_id.value)
+        if bot.definition.venue is not TradingVenue.FUTURES_TESTNET:
+            return ExchangeUnavailable("this fake answers for the Futures venue only")
         return FuturesLoaded(_facts(self.leverage))
 
 
@@ -131,7 +133,9 @@ def test_selecting_a_futures_draft_reads_its_brackets_and_keeps_them(
 
     risk = screen.presenter._selected.risk
     assert risk == PlanRiskFacts(_facts(3).symbol_setting, BRACKETS)
-    assert venue.asked == ["a00001"]
+    # The exchange check and the risk read both ask the venue's facts since `EPIC-039H` bound
+    # `GetExchangeFactsQuery` to `IVenueFacts`.
+    assert venue.asked == ["a00001", "a00001"]
 
 
 def test_a_spot_draft_never_asks_for_position_risk(open_bots_screen) -> None:
@@ -143,7 +147,10 @@ def test_a_spot_draft_never_asks_for_position_risk(open_bots_screen) -> None:
     select(screen, "a00001")
     screen.settle()
 
-    assert venue.asked == []
+    assert _risk_reads(screen) == []
+    assert venue.asked == ["a00001"], (
+        "only the exchange check asked: no position risk read"
+    )
     assert screen.presenter._selected.risk is None
 
 

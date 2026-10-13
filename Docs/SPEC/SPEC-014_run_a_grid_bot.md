@@ -203,10 +203,11 @@ dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not
    halt's own (decision O8). Restart, a stream gap and a position that differs from the bot's own
    fills are reconciled against `positionRisk` (`POSITION_MISMATCH`), never traded over.
 
-What it does not do yet: Short and Neutral (`EPIC-039I`), the Futures screen (`EPIC-039J`), a backtest
-(`EPIC-039K`, which refuses a Futures bot in words meanwhile), the stop and take profit on the **mark**
-price and the range exit (`EPIC-039H` stage 3), the exchange-side protective stop and mainnet
-(`EPIC-039L`).
+What it does not do yet: Short and Neutral (`EPIC-039I`), the stop and take profit on the **mark** price
+and the range exit (`EPIC-039H` stage 3), the exchange-side protective stop (`EPIC-039L`). Futures
+mainnet is **closed to bots on every path** (create, start, resume, the headless host) until
+`EPIC-039L` opens it. A halt or a Stop with close closes **only the bot's own position**, derived from
+its fills; a position the owner opened by hand on the symbol stays open and is said so.
 
 ## 4. What must be true afterwards
 

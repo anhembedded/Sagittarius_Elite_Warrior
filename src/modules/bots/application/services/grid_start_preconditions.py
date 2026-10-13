@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
     bot_owner_id,
     grid_registration,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_brackets import (
+    BracketsUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
     BotRefusal,
@@ -46,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_unavailable_error import (
+    AccountControlUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -79,6 +85,15 @@ class GridStartPreconditions:
         )
         if exposure is not None:
             return _refused(BotRefusal.PARAMETERS_REFUSED, exposure.reason, bot_id)
+        # Read before the symbol is claimed: a read that fails then leaves no lease behind.
+        try:
+            budget = self._budgets.budget_of(bot.definition.venue, symbol, params)
+        except (BracketsUnavailableError, AccountControlUnavailableError) as exc:
+            return _refused(
+                BotRefusal.VENUE_NOT_READY,
+                f"The venue's limits for {symbol} could not be read: {exc}",
+                bot_id,
+            )
         owner = bot_owner_id(bot_id)
         if not session.claim_symbol(symbol, owner):
             return _refused(
@@ -94,12 +109,7 @@ class GridStartPreconditions:
             session.release_symbol(symbol, owner)
             return _refused(BotRefusal.VENUE_NOT_READY, refusal_words(opened), bot_id)
         registration = session.register_owner_budget(
-            grid_registration(
-                bot_id,
-                symbol,
-                now,
-                self._budgets.budget_of(bot.definition.venue, symbol, params),
-            )
+            grid_registration(bot_id, symbol, now, budget)
         )
         if not registration.registered:
             session.release_symbol(symbol, owner)

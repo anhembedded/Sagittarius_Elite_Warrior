@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     KEY_SAVED,
     NO_KEY,
+    NOT_ENABLED,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -179,7 +180,7 @@ def test_a_stopped_bot_has_run_and_keeps_its_venue(open_bots_screen) -> None:
     assert not screen.view.plan.venue.isEnabled()
 
 
-def test_new_bot_offers_every_spot_venue_with_its_connection_state(
+def test_new_bot_offers_every_venue_bots_run_on_with_its_connection_state(
     open_bots_screen,
 ) -> None:
     from .bots_screen_fixtures import Answers
@@ -194,6 +195,7 @@ def test_new_bot_offers_every_spot_venue_with_its_connection_state(
     assert answers.offered == [
         f"Spot Testnet — {KEY_SAVED}",
         f"Spot Mainnet — {KEY_SAVED}",
+        f"Futures Testnet — {NOT_ENABLED}",
     ]
     assert NO_KEY not in " ".join(answers.offered)
 
