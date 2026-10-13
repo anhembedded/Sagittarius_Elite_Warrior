@@ -2,8 +2,8 @@
 
 @details Everything in the start is shared except this: Spot buys the base the SELL levels
 will sell, in slices, and sizes those SELLs net of the fee the buy took from the base; a
-position venue sends the plan's signed opening quantity as market orders and sizes nothing
-net, because a position's fee is paid in the quote asset. The strategy also has trading count
+position venue (`EPIC-039H` stage 2) sends the plan's signed opening quantity as market
+orders and sizes nothing net, because a position's fee is paid in the quote asset. The strategy also has trading count
 what it did from the exchange's own record (ADR D6) before the ladder is laid, so a ladder is
 never laid over an opening the exchange does not show.
 
@@ -29,10 +29,6 @@ class OpeningResult:
     already carries the reason."""
 
     ladder: GridPlan | None
-
-    @property
-    def proceeds(self) -> bool:
-        return self.ladder is not None
 
 
 class IOpeningStrategy(ABC):
