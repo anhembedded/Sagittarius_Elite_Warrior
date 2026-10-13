@@ -61,12 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
-    GetOpenPositionsQuery,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.list_venue_keys import (
-    ListVenueKeysQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
 )
@@ -77,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.shell.gui_wiring import create_gui_app
 from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     SEEDED_SYMBOLS,
+)
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.typed_query_answers import (
+    TYPED_QUERY_ANSWERS,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -221,13 +218,8 @@ def app_engine(
                 engine.context.container.resolve(SessionReadiness),
             )
             return handler.execute(command_obj)
-        if command_type in (GetOpenPositionsQuery, ListVenueKeysQuery):
-            # Both real handlers reach outside this offscreen suite: open positions
-            # build a real `FuturesTradingClient` and hit the network; the key list
-            # (`BUG-176`, the Options page) reads the machine's own
-            # `secrets.local.json` and keyring. Callers want a real tuple back, not a
-            # round trip, so "no open position / no venue has a key" is the answer.
-            return ()
+        if command_type in TYPED_QUERY_ANSWERS:
+            return TYPED_QUERY_ANSWERS[command_type]
 
         response = _FakeResponse()
         # `EPIC-025` PR 1.1 removed this stub's largest branch. The klines read
