@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (
+    FUTURES_PLAN_CODES,
     judge_futures_plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
@@ -311,3 +312,42 @@ def test_the_exit_is_judged_against_the_full_positions_liquidation_not_an_earlie
     assert not any(v.refuses for v in verdicts)
     (ok,) = verdicts
     assert ok.numbers["liquidation_price"] == _binding_liquidation(inputs)[-1]
+
+
+def test_a_side_verdict_names_its_side_so_a_neutral_plan_can_tell_two_estimates_apart() -> (
+    None
+):
+    verdicts = judge_futures_plan(_inputs("NEUTRAL", 3))
+
+    estimates = {v.subject for v in verdicts if v.code == "LIQUIDATION_ESTIMATE"}
+    assert estimates == {"long", "short"}
+
+
+def test_the_estimate_carries_the_exit_and_its_distance_when_the_plan_has_one() -> None:
+    (verdict,) = judge_futures_plan(_inputs("LONG", 5))
+
+    assert verdict.numbers["exit_price"] == D(57000)
+    assert verdict.numbers["gap"] == D(57000) - verdict.numbers["liquidation_price"]
+
+
+def test_a_stop_close_to_liquidation_carries_the_price_it_measured_against() -> None:
+    near = judge_futures_plan(_inputs("LONG", 5, atr=D(9000)))
+
+    (warning,) = [v for v in near if v.code == "STOP_LOSS_NEAR_LIQUIDATION"]
+    assert warning.numbers["liquidation_price"] < warning.numbers["exit_price"]
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        _inputs("LONG", 5),
+        _inputs("SHORT", 5, take_profit="off"),
+        _inputs("NEUTRAL", 80, thresholds=_WIDE),
+        _inputs("LONG", 30),
+        _inputs(margin_type=MarginType.CROSSED),
+    ],
+)
+def test_every_code_the_guard_returns_is_one_the_screen_has_placed(
+    plan: PlanRiskInputs,
+) -> None:
+    assert {v.code for v in judge_futures_plan(plan)} <= FUTURES_PLAN_CODES

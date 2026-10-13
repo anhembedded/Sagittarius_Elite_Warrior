@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     IBotKindCatalog,
     UnknownBotKindError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
@@ -86,6 +89,9 @@ class SelectedBot:
         self.exchange = ExchangeChecking()
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
+            profile = venue_profile_of(bot.venue)
+            if profile is not None:
+                self.panel.set_profile(profile)
             self.panel.set_config(bot.config)
         return self.panel
 
