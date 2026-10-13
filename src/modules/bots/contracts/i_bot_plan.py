@@ -1,14 +1,18 @@
-"""Which bots the operator wants running (`EPIC-038D`; the file arrives with `EPIC-038I`).
+"""Which bots the operator wants running (`EPIC-038D`; the plan arrives with `EPIC-038I`).
 
 `run --start-planned` starts the bots whose plan says "running" and that are at
-rest (DESIGN §5.3). The plan is a file `bot apply` writes into the bots' state
-(`EPIC-038I`); until that task is done there is no such file, and the binding is
-`NoBotPlan`, which wants nothing running. The host then says so at start instead
-of silently starting nothing.
+rest (DESIGN §5.3). The plan is the record `bot apply` writes into the data root's
+state (`AppliedBotPlan`): the host never reads the plan file the operator edits,
+only what was applied.
+
+Three answers, and the host treats each differently: **no plan** (`exists()` is
+false) and **a plan it cannot read** (`problem()` is a sentence) both refuse
+`--start-planned` before anything boots, because starting nothing silently is the
+wrong thing; a plan that wants no bot running is a plan, and says so.
 
 @par Extension cases
-  · the plan file (`EPIC-038I`) - one `IBotPlan` that reads the desired state `bot apply`
-    recorded, bound in place of `NoBotPlan`; the host and the start step do not change.
+  · a second source of desired states (a file the host watches) - another `IBotPlan`; the
+    host and the start step do not change.
 """
 
 from __future__ import annotations
@@ -23,5 +27,14 @@ class IBotPlan(ABC):
         wants no bot running)."""
 
     @abstractmethod
+    def problem(self) -> str | None:
+        """Why the plan cannot be read, in a sentence that repeats none of its content,
+        or `None` when it can be (or when there is none)."""
+
+    @abstractmethod
     def wants_running(self) -> frozenset[str]:
-        """The ids of the bots the plan wants running."""
+        """The ids of the bots the plan wants running.
+
+        @raise AppliedPlanUnreadableError `problem()` is not `None`: an unreadable plan is
+            never read as one that wants nothing.
+        """

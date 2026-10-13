@@ -2,10 +2,10 @@
 
 **Seam now, variant later.** A verb is a class registered in `BOT_VERBS`; the
 handler (`bot_cli_handler.py`) looks one up by the word the operator typed and
-knows none by name. `start`, `stop`, `pause`, `resume` and `apply` (`EPIC-038D`,
-`EPIC-038I`) are further classes and further entries, plus their rows in
-`cli_commands.json`; they dispatch the command the Bots tab dispatches, through
-the same `ICommandDispatcher`.
+knows none by name. `start`, `stop`, `pause` and `resume` are further classes and
+further entries, plus their rows in `cli_commands.json`; they dispatch the command the
+Bots tab dispatches, through the same `ICommandDispatcher`. `apply` and `export`
+(`EPIC-038I`, `bot_plan_verbs.py`) are such entries already.
 
 Reads dispatch `GetBotStatusReportQuery`, whose handler is built from the Bots
 tab's own queries, so the tab and these verbs read one world.
@@ -20,7 +20,6 @@ tab's own queries, so the tab and these verbs read one world.
 from __future__ import annotations
 
 import argparse
-from abc import ABC, abstractmethod
 from typing import cast
 
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
@@ -30,33 +29,20 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_report_printer import (
-    IReportPrinter,
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
+    ApplyBotPlanVerb,
+    ExportBotPlanVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_status_reports import (
     bot_list_report,
     bot_show_report,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.i_bot_verb import IBotVerb
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusReport,
     GetBotStatusReportQuery,
 )
-
-
-class IBotVerb(ABC):
-    """One word after `bot`."""
-
-    #: The word, exactly as `cli_commands.json` spells it.
-    name: str
-
-    @abstractmethod
-    def run(
-        self,
-        args: argparse.Namespace,
-        dispatcher: ICommandDispatcher,
-        printer: IReportPrinter,
-    ) -> CliOutcome | None:
-        """Do the verb; the outcome is its exit code (`None` is success)."""
 
 
 def _status_of(dispatcher: ICommandDispatcher, bot_id: str | None) -> BotStatusReport:
@@ -72,10 +58,11 @@ class ListBotsVerb(IBotVerb):
     def run(
         self,
         args: argparse.Namespace,
-        dispatcher: ICommandDispatcher,
-        printer: IReportPrinter,
+        world: BotVerbWorld,
     ) -> CliOutcome | None:
-        return printer.print_report(bot_list_report(_status_of(dispatcher, None)), args)
+        return world.printer.print_report(
+            bot_list_report(_status_of(world.dispatcher, None)), args
+        )
 
 
 class ShowBotVerb(IBotVerb):
@@ -84,13 +71,17 @@ class ShowBotVerb(IBotVerb):
     def run(
         self,
         args: argparse.Namespace,
-        dispatcher: ICommandDispatcher,
-        printer: IReportPrinter,
+        world: BotVerbWorld,
     ) -> CliOutcome | None:
-        status = _status_of(dispatcher, args.bot_id)
+        status = _status_of(world.dispatcher, args.bot_id)
         if status.is_empty:
             return CliOutcome(ExitCode.USAGE, f"No bot has the id {args.bot_id!r}.")
-        return printer.print_report(bot_show_report(status), args)
+        return world.printer.print_report(bot_show_report(status), args)
 
 
-BOT_VERBS: tuple[IBotVerb, ...] = (ListBotsVerb(), ShowBotVerb())
+BOT_VERBS: tuple[IBotVerb, ...] = (
+    ListBotsVerb(),
+    ShowBotVerb(),
+    ApplyBotPlanVerb(),
+    ExportBotPlanVerb(),
+)

@@ -25,7 +25,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
-from Sagittarius_Elite_Warrior.src.modules.bots.adapters.no_bot_plan import NoBotPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.file_applied_plan_store import (
+    FileAppliedPlanStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -34,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_monotonic_clock import (
     SystemMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.applied_bot_plan import (
+    AppliedBotPlan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report import (
     BotsStateDirectory,
@@ -46,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_b
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
     ReadOnlyBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
+    IAppliedPlanStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_plan import IBotPlan
@@ -74,8 +82,20 @@ def bind_state(container: IContainer) -> None:
     container.singleton(BotIdGenerator, BotIdGenerator())
     container.singleton(BotRestoreService, _build_restore_service)
     container.singleton(BotsStateDirectory, _build_state_directory)
-    # `EPIC-038D` - no plan file exists until `bot apply` (`EPIC-038I`) writes one.
-    container.singleton(IBotPlan, NoBotPlan())
+    # `EPIC-038I` - what `bot apply` recorded; `run --start-planned` reads only this.
+    container.singleton(IAppliedPlanStore, _build_applied_plan_store)
+    container.singleton(IBotPlan, _build_bot_plan)
+
+
+def _build_applied_plan_store(container: IContainer) -> IAppliedPlanStore:
+    """Beside the bots folder, not in it: a file there would be read as a bot."""
+    return FileAppliedPlanStore(
+        bots_directory(container.resolve(IConfig)).parent / "bot_plan.json"
+    )
+
+
+def _build_bot_plan(container: IContainer) -> IBotPlan:
+    return AppliedBotPlan(container.resolve(IAppliedPlanStore))
 
 
 def _build_store(container: IContainer) -> IBotStore:

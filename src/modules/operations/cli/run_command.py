@@ -118,6 +118,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger("App.Operations.Host")
 
 #: Why a silent resume needs a typed acknowledgement (DESIGN §3, decision O2).
+_NO_PLAN_APPLIED = (
+    "--start-planned starts the bots a plan wants running, and no plan was ever applied. "
+    "Nothing was started. Write a plan file and run `bot apply <plan.json>` (with the host "
+    "stopped), or leave --start-planned off."
+)
+
 _NO_ALERT_FOR_RESUME = (
     "--resume-recovering resumes bots with nobody watching, and no alert channel carries "
     "bot events yet (EPIC-036B). Nothing was started. Use it once bot events reach you, "
@@ -165,8 +171,28 @@ class RunCommand:
             and not self._alerts.carries_bot_events()
         ):
             return CliOutcome(ExitCode.CONFIGURATION, _NO_ALERT_FOR_RESUME)
+        if options.start_planned:
+            unreadable = self._plan_refusal()
+            if unreadable is not None:
+                return unreadable
         message = self._unconfirmed_mainnet_refusal()
         return None if message is None else CliOutcome(ExitCode.USAGE, message)
+
+    def _plan_refusal(self) -> CliOutcome | None:
+        """`--start-planned` with no plan, or one the host cannot read, starts nothing: exit 5.
+
+        Both are the operator's to fix and a restart cannot (decision D9), so the unit does
+        not restart it; and the host must not serve while saying nothing about it."""
+        problem = self._plan.problem()
+        if problem is not None:
+            return CliOutcome(
+                ExitCode.CONFIGURATION,
+                f"--start-planned cannot read the applied plan: {problem}. Nothing was "
+                "started. Run `bot apply <plan.json>` again (with the host stopped).",
+            )
+        if not self._plan.exists():
+            return CliOutcome(ExitCode.CONFIGURATION, _NO_PLAN_APPLIED)
+        return None
 
     def _unconfirmed_mainnet_refusal(self) -> str | None:
         """Decision O8: real money is started or resumed only for the venue the operator typed."""

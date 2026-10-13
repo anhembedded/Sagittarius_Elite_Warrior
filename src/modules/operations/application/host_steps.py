@@ -164,7 +164,12 @@ class StartPlannedBots(IHostStep):
             )
             return
         bots = {bot.bot_id: bot for bot in read_bot_status(self._dispatcher).bots}
-        for bot_id in sorted(self._plan.wants_running()):
+        wanted = self._plan.wants_running()
+        if not wanted:
+            logger.info(
+                "[start-planned] the plan wants no bot running, so nothing was started"
+            )
+        for bot_id in sorted(wanted):
             bot = bots.get(bot_id)
             if bot is None:
                 logger.warning(

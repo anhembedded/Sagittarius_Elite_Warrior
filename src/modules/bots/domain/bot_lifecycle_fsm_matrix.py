@@ -210,3 +210,16 @@ def restarts_into_recovering(state: BotLifecycleState) -> bool:
         and next_target(state, BotLifecycleEvent.APP_RESTART)
         is BotLifecycleState.RECOVERING
     )
+
+
+def permits_edit(state: BotLifecycleState) -> bool:
+    """Whether a bot in `state` may be edited (DRAFT and STOPPED): the table's own answer."""
+    return is_declared(state, BotLifecycleEvent.EDIT)
+
+
+def permits_delete(state: BotLifecycleState) -> bool:
+    """Whether a bot in `state` may be deleted (DRAFT and STOPPED): the table's own answer."""
+    return (
+        is_declared(state, BotLifecycleEvent.DELETE)
+        and next_target(state, BotLifecycleEvent.DELETE) is BotLifecycleTarget.REMOVED
+    )

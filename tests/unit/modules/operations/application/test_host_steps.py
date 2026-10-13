@@ -313,3 +313,15 @@ def test_recovering_bots_on_two_mainnet_venues_name_both_and_say_one_run_confirm
     assert message is not None
     assert "aaaaaa" in message and "bbbbbb" in message
     assert "2 venues" in message
+
+
+def test_a_plan_that_wants_nothing_running_says_so_instead_of_starting_nothing_silently(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    world = StepsWorld(entry("aaaaaa", "STOPPED"))
+
+    with caplog.at_level(logging.INFO, logger=_LOGGER):
+        StartPlannedBots(FixedPlan(frozenset()), world, None).run()
+
+    assert world.starts == []
+    assert any("wants no bot running" in r.getMessage() for r in caplog.records)
