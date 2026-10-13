@@ -18,6 +18,10 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    plan_market_of,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -26,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests im
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
     BacktestPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
+    backtest_supports,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
     MarketDataCandleFeed,
@@ -50,7 +57,7 @@ def _bot(bot_id: str, venue: TradingVenue) -> SimpleNamespace:
     snapshot = replace(
         BotSnapshot.of(stored(bot_id, BotLifecycleState.DRAFT).bot, None), venue=venue
     )
-    return SimpleNamespace(bot=snapshot, edited=None, market=None)
+    return SimpleNamespace(bot=snapshot, edited=None, market=None, risk=None)
 
 
 def test_a_page_is_built_per_venue_and_kept_for_the_same_venue(qapp) -> None:
@@ -84,3 +91,41 @@ def test_a_page_is_built_per_venue_and_kept_for_the_same_venue(qapp) -> None:
     assert len(pages) == 2 and pages[0] is not pages[1]
 
     backtests.close()
+
+
+def test_a_futures_bot_gets_a_backtest_page_in_its_own_market(qapp) -> None:
+    """`EPIC-039J` - the Futures backtest exists (`EPIC-039K`), so the tab is built for a Futures
+    bot on the ports of its venue, whose market is the Futures one."""
+    futures = TradingVenue.FUTURES_TESTNET
+    sources = FakeMarketDataSources()
+    sources.serving(FakeMarketDataSources.ports(futures.market_data_venue))
+    built: list[BacktestPorts] = []
+
+    def ports_for(venue: TradingVenue) -> BacktestPorts:
+        ports = sources.ports_for(venue.market_data_venue)
+        made = BacktestPorts(
+            InlineThreadManager(),
+            SimpleNamespace(dispatch=lambda *_a, **_k: None),  # type: ignore[arg-type]
+            ports.sync,
+            MarketDataCandleFeed(
+                ports.sync, ports.history, ports.stream, MarketType.FUTURES_USD_M
+            ),
+            RecordingNotifier(),
+            plan_market_of(venue),
+        )
+        built.append(made)
+        return made
+
+    pages: list[object] = []
+    KindBacktests(ports_for, pages.append).follow(_bot("a00005", futures))  # type: ignore[arg-type]
+
+    assert [made.market for made in built] == [MarketType.FUTURES_USD_M]
+    assert pages and pages[0] is not None
+
+
+def test_a_kind_with_no_backtest_of_a_market_does_not_replay_it() -> None:
+    """The tab stays hidden rather than showing another market's replay as the bot's."""
+    futures = venue_profile_of(TradingVenue.FUTURES_TESTNET)
+
+    assert not backtest_supports("a_kind_without_a_backtest", futures)
+    assert backtest_supports("grid", futures)

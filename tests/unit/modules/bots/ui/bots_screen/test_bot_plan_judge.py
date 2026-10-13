@@ -7,10 +7,17 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
     ExchangeTerms,
     MarketView,
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
@@ -21,8 +28,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     VerdictSeverity,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
+    PlanWorld,
     judge,
     verdict_line,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBracket,
+    LeverageBrackets,
 )
 
 from .bots_screen_fixtures import GOOD_CONFIG, REFUSED_CONFIG
@@ -74,7 +92,7 @@ def test_a_refused_plan_has_its_refusing_check_among_the_verdicts() -> None:
 def test_the_account_is_judged_beside_the_plan() -> None:
     cannot_trade = AccountView(Decimal(1), "USDT", False, "Spot Testnet")
 
-    judged = judge(_KIND, GOOD_CONFIG, _MARKET, cannot_trade)
+    judged = judge(_KIND, GOOD_CONFIG, _MARKET, PlanWorld(cannot_trade))
 
     refusing = [v.code for v in judged.verdicts if v.refuses]
     assert refusing == ["KEY_CANNOT_TRADE"]
@@ -95,3 +113,48 @@ def test_a_verdict_line_names_its_severity_and_its_numbers() -> None:
         "Warning: The range is narrow (measured range 10,000, threshold 11,400)"
     )
     assert verdict_line(Verdict(VerdictSeverity.OK, "X", "Fine")) == "OK: Fine"
+
+
+def test_a_position_venues_plan_is_judged_for_liquidation_in_the_same_list() -> None:
+    """`EPIC-039J` — the Futures verdicts come through the kind and reach the same list of
+    lines a Spot plan's do, each with its code's words and its numbers."""
+    facts = PlanRiskFacts(
+        FuturesSymbolSetting("BTCUSDT", 3, MarginType.ISOLATED, Decimal(10**9)),
+        LeverageBrackets(
+            "BTCUSDT",
+            (
+                LeverageBracket(
+                    1, 125, Decimal(0), Decimal(10**7), Decimal("0.004"), Decimal(0)
+                ),
+            ),
+        ),
+    )
+    exposure = PlanWorld(
+        limits=ExposureLimits(frozenset(TradeDirection), 20), risk=facts
+    )
+    config = {
+        **GOOD_CONFIG,
+        "direction": "LONG",
+        "leverage": "3",
+        "stop_loss": "percent:5",
+    }
+
+    judged = judge(_KIND, config, _MARKET, exposure)
+
+    estimate = next(v for v in judged.verdicts if v.code == "LIQUIDATION_ESTIMATE")
+    assert estimate.subject == "long"
+    line = verdict_line(estimate)
+    assert line.startswith("OK: Estimated liquidation price of the long")
+    assert "an estimate, not a guarantee" in line
+    assert "liquidation price" in line.split("(")[-1]
+
+
+def test_the_same_plan_on_a_venue_with_no_word_is_refused_for_its_leverage() -> None:
+    """Without the venue's limits a leveraged plan is the Spot profile's to judge: refused,
+    never silently accepted."""
+    config = {**GOOD_CONFIG, "direction": "LONG", "leverage": "3"}
+
+    judged = judge(_KIND, config, _MARKET)
+
+    assert any(v.refuses for v in judged.verdicts)
+    assert not any(v.code == "LIQUIDATION_ESTIMATE" for v in judged.verdicts)

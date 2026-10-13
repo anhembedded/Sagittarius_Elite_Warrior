@@ -20,6 +20,12 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (
+    judge_futures_plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
+    PlanRiskInputs,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
@@ -98,10 +104,36 @@ def evaluate_grid(
             thresholds,
             inputs.account,
         )
-        verdicts = run_checks(check_inputs)
+        verdicts = run_checks(check_inputs) + _risk_verdicts(
+            inputs, thresholds, params, grid_plan
+        )
     except ArithmeticError as exc:
         return _unreadable(f"a value is out of range ({type(exc).__name__})")
     return GridEvaluation(verdicts, params, grid_plan, derived)
+
+
+def _risk_verdicts(
+    inputs: BotKindInputs,
+    thresholds: GridThresholds,
+    params: GridParams,
+    plan: GridPlan,
+) -> tuple[Verdict, ...]:
+    """The liquidation verdicts of a plan on a position venue, once its facts are read
+    (`EPIC-039F`, shown by `EPIC-039J`); nothing for a venue that supplies none."""
+    risk = inputs.risk
+    if risk is None:
+        return ()
+    return judge_futures_plan(
+        PlanRiskInputs(
+            params,
+            plan,
+            risk.setting,
+            risk.brackets,
+            inputs.market.last_price,
+            thresholds.futures,
+            inputs.market.daily_atr,
+        )
+    )
 
 
 def _not_set(labels: tuple[str, ...]) -> GridEvaluation:

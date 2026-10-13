@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     bot_profile_of,
     exposure_limits_of,
     runs_bots_on,
+    title_word_of,
     venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
@@ -129,17 +130,6 @@ def test_a_kind_declaring_spot_only_is_refused_a_futures_venue() -> None:
     assert bot_profile_of(TradingVenue.DISABLED, GRID_MARKETS) is None
 
 
-def test_the_picker_offers_spot_venues_only_until_the_screen_can_make_a_futures_bot() -> (
-    None
-):
-    """`EPIC-039H` creates Futures bots through the application layer only; the profile's
-    `offered_in_picker` is what `EPIC-039J` flips with the screen's Futures fields."""
-    for venue in _SPOT:
-        assert venue_profile_of(venue).offered_in_picker is True  # type: ignore[union-attr]
-    for venue in _FUTURES:
-        assert venue_profile_of(venue).offered_in_picker is False  # type: ignore[union-attr]
-
-
 def test_the_injected_port_answers_what_the_function_does() -> None:
     profiles: IVenueProfiles = VenueProfilesByMarket()
 
@@ -199,3 +189,12 @@ def test_a_venue_no_bot_runs_on_is_limited_as_spot_is() -> None:
     assert exposure_limits_of(TradingVenue.DISABLED, GRID_MARKETS) == SPOT_LIMITS
     for venue in _FUTURES:
         assert exposure_limits_of(venue, SPOT_MARKETS) == SPOT_LIMITS
+
+
+def test_a_sentence_names_the_market_of_the_venue_it_is_about() -> None:
+    """`EPIC-039J`: Spot's word is "Spot" as every sentence had it; a venue that trades no
+    market is still described as Spot, so no existing sentence changed."""
+    assert title_word_of(TradingVenue.SPOT_TESTNET) == "Spot"
+    assert title_word_of(TradingVenue.SPOT_MAINNET) == "Spot"
+    assert title_word_of(TradingVenue.FUTURES_TESTNET) == "Futures"
+    assert title_word_of(TradingVenue.DISABLED) == "Spot"

@@ -5,6 +5,9 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.funding_event import (
+    FundingEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
 )
@@ -121,4 +124,23 @@ class IExchangeClient(ABC):
         @return One entry per symbol the exchange reports, in the exchange's own
         order. Filtering by status is the caller's, exactly as it already is for
         names.
+        """
+
+    @abstractmethod
+    def get_funding_rate_history(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        cancellation_requested: CancellationCheck | None = None,
+    ) -> list[FundingEvent]:
+        """
+        @brief The funding settlements of a USD-M perpetual with
+        `start <= time <= end`, oldest first (`EPIC-039K`).
+        @details `GET /fapi/v1/fundingRate`, public and unsigned; paged until the
+        period is covered. Only the Futures market has funding, so there is no
+        `market` argument: a caller asks it for a Futures symbol or not at all.
+        @raise FundingHistoryUnavailableError the exchange refused or could not be
+        reached; the reason is a sentence for the screen.
+        @raise ExchangeRequestCancelledError `cancellation_requested` answered `True`.
         """

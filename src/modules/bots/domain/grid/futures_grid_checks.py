@@ -24,6 +24,7 @@ The guard never says "safe" and never changes a parameter.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_notional_cap import (
@@ -50,6 +51,23 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.liquidation_estimat
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+
+#: Every code `judge_futures_plan` can return: the screen's field map is held to it
+#: (`test_grid_field_errors.py`), so a new check cannot be added without deciding where it shows.
+FUTURES_PLAN_CODES = frozenset(
+    {
+        "CROSS_MARGIN_UNSUPPORTED",
+        "LEVERAGE_ABOVE_CEILING",
+        "LEVERAGE_HIGH",
+        "NOTIONAL_ABOVE_BRACKET",
+        "MARGIN_TOO_SMALL",
+        "LIQUIDATION_INSIDE_RANGE",
+        "STOP_LOSS_NEEDED",
+        "STOP_LOSS_AFTER_LIQUIDATION",
+        "STOP_LOSS_NEAR_LIQUIDATION",
+        "LIQUIDATION_ESTIMATE",
+    }
 )
 
 _OK, _WARNING, _REFUSED = (
@@ -164,7 +182,9 @@ def _side(
         *_inside_range(side, estimates),
         *_stop(inputs, side, full_position, exit_price),
     ]
-    return found or [_ok(inputs, side, full_position, exit_price)]
+    said = found or [_ok(inputs, side, full_position, exit_price)]
+    # A Neutral plan has two sides and the same code can speak for each: the verdict says which.
+    return [replace(verdict, subject=side.name.lower()) for verdict in said]
 
 
 def _estimate(inputs: PlanRiskInputs, step: LadderStep) -> Decimal | None:
@@ -265,7 +285,13 @@ def _stop(
                 "STOP_LOSS_NEAR_LIQUIDATION",
                 f"The exit at {exit_price} is {gap:.2f} before the estimated liquidation "
                 f"price {liquidation:.2f}, less than {buffer} daily ATR ({atr:.2f})",
-                {"gap": gap, "daily_atr": atr, "min_buffer_atr": buffer},
+                {
+                    "gap": gap,
+                    "liquidation_price": liquidation,
+                    "exit_price": exit_price,
+                    "daily_atr": atr,
+                    "min_buffer_atr": buffer,
+                },
             )
         ]
     return []
@@ -299,6 +325,8 @@ def _ok(
     gap = _before_liquidation(side, exit_price, liquidation) if exit_price else None
     where = f", {gap:.2f} before the exit at {exit_price}" if gap is not None else ""
     numbers = {"liquidation_price": liquidation, "mark": inputs.mark}
+    if exit_price is not None and gap is not None:
+        numbers |= {"exit_price": exit_price, "gap": gap}
     return Verdict(
         _OK,
         "LIQUIDATION_ESTIMATE",

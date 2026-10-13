@@ -17,6 +17,8 @@ with the same activity draw the same chart.
   (`grid_checks.check_range_against_atr`); centring is this drawing's own
   suggestion. A zone never reaches below zero.
 · **Bollinger** (when the caller computed the bands): the band between them.
+· **Liquidation** (`EPIC-039J`, a position venue's plan once the guard judged it): one dashed
+  line per exposed side at the guard's estimated liquidation price, labelled an estimate.
 
 Lines sort by price, then role, then label, so equal prices draw in one
 stable order everywhere.
@@ -24,7 +26,7 @@ stable order everywhere.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
@@ -49,6 +51,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 _TWO = Decimal(2)
 
@@ -111,6 +114,9 @@ class GridOverlaySource:
     activity: GridActivity | None = None
     daily_atr: Decimal | None = None
     bollinger: BollingerBands | None = None
+    #: The estimated liquidation price per exposed side, as `liquidation_marks` reads them
+    #: from the guard's verdicts; empty on Spot and before the facts are read.
+    liquidations: tuple[tuple[str, Decimal], ...] = ()
 
 
 def grid_overlay(source: GridOverlaySource) -> BotOverlay:
@@ -119,6 +125,7 @@ def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     lines = [_level_line(level, activity) for level in source.plan.levels]
     lines += _edge_lines(source.params)
     lines += _exit_lines(source.params)
+    lines += _liquidation_lines(source.liquidations)
     if activity.average_cost is not None:
         lines.append(
             OverlayLine(activity.average_cost, OverlayRole.AVERAGE_COST, "Avg")
@@ -153,6 +160,27 @@ def _exit_lines(params: GridParams) -> list[OverlayLine]:
             OverlayLine(params.take_profit_price, OverlayRole.TAKE_PROFIT, "TP")
         )
     return lines
+
+
+def _liquidation_lines(
+    liquidations: tuple[tuple[str, Decimal], ...],
+) -> list[OverlayLine]:
+    return [
+        OverlayLine(price, OverlayRole.LIQUIDATION, f"Liq {side} (est.)")
+        for side, price in liquidations
+    ]
+
+
+def liquidation_marks(verdicts: Iterable[Verdict]) -> tuple[tuple[str, Decimal], ...]:
+    """The liquidation price the guard estimated for each exposed side, `long` first: the
+    first verdict of the side that carries one, so the chart draws what the Liquidation row
+    says."""
+    found: dict[str, Decimal] = {}
+    for verdict in verdicts:
+        price = verdict.numbers.get("liquidation_price")
+        if verdict.subject and price is not None and verdict.subject not in found:
+            found[verdict.subject] = price
+    return tuple((side, found[side]) for side in ("long", "short") if side in found)
 
 
 def _atr_zones(source: GridOverlaySource) -> list[OverlayBand]:

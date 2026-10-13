@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands import (
     PendingAction,
 )
@@ -49,21 +52,23 @@ class BotVenues:
     def __init__(
         self,
         contexts: IVenueContexts,
+        catalog: IBotKindCatalog,
         model: BotsViewModel,
         selected: SelectedBot,
         account: ConnectStep,
         select: Callable[[BotSnapshot], None],
     ) -> None:
         self._contexts = contexts
+        self._catalog = catalog
         self._model = model
         self._selected = selected
         self._account = account
         self._select = select
 
     def choices(self) -> tuple[VenueChoice, ...]:
-        """Every Spot venue with its connection state, read now and shown by the
-        Plan's Venue field and by New bot."""
-        choices = venue_choices(self._contexts)
+        """Every offered venue a kind runs on, with its connection state, read now and
+        shown by the Plan's Venue field and by New bot."""
+        choices = venue_choices(self._contexts, self._catalog.kinds())
         self._model.set_venue_choices(choices)
         return choices
 

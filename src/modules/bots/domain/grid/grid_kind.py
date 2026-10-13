@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import (
     GridOverlaySource,
     grid_overlay,
+    liquidation_marks,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
@@ -71,6 +72,7 @@ class GridKind(IBotKind):
                 evaluation.plan,
                 self._thresholds,
                 daily_atr=inputs.market.daily_atr,
+                liquidations=liquidation_marks(evaluation.verdicts),
             )
         )
 

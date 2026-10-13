@@ -30,9 +30,8 @@ one a kind's bots run on only when its market is in the kind's set *and* in `BOT
 (`bot_profile_of(venue, supported)`), so a kind that declares Spot only is never given a
 Futures venue, whatever the build allows.
 
-A third, smaller switch belongs to the screen: `VenueProfile.offered_in_picker` says whether
-the New bot dialog lists the market's venues. A Futures Grid exists in the application layer
-from `EPIC-039H`; the user is offered it when `EPIC-039J` brings the screen's Futures fields.
+A third gate closes a venue, not a market: `CLOSED_VENUES` (Futures mainnet until `EPIC-039L`)
+is judged wherever a bot would be created, started or resumed, not only where the picker lists.
 """
 
 from __future__ import annotations
@@ -73,10 +72,6 @@ class VenueProfile:
     #: The highest leverage a bot may name on this market: 1 where there is none. A symbol's
     #: bracket narrows it further (`EPIC-039E`).
     max_leverage: int = 1
-    #: Whether the New bot dialog lists this market's venues. The one thing `EPIC-039J` flips
-    #: when the screen can create a Futures bot; until then a Futures bot can only be made
-    #: through the application layer (`EPIC-039H`).
-    offered_in_picker: bool = True
 
 
 #: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
@@ -103,7 +98,6 @@ _FUTURES = VenueProfile(
     needs_reduce_only_exits=True,
     title_word=FUTURES_TITLE,
     max_leverage=_FUTURES_MAX_LEVERAGE,
-    offered_in_picker=False,
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.
@@ -111,6 +105,9 @@ SPOT_MARKETS: frozenset[MarketType] = frozenset({MarketType.SPOT})
 
 #: The markets of the USDⓈ-M Futures profile (decision D4): what a kind that supports Futures declares.
 FUTURES_MARKETS: frozenset[MarketType] = frozenset({MarketType.FUTURES_USD_M})
+
+#: Every market a profile exists for: what a kind that supports both declares.
+PROFILE_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
 
 #: The markets a bot may run on in this build, the build-wide ceiling (`EPIC-039H` raised it to
 #: Futures together with the Grid kind's `supported_profiles`, the per-kind half of the rule).
@@ -131,9 +128,22 @@ def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
     return None
 
 
+def title_word_of(venue: TradingVenue) -> str:
+    """The word the user reads for `venue`'s market in a sentence: "Spot" or "Futures". A
+    venue that trades no market is described as Spot, as every sentence did before Futures."""
+    profile = venue_profile_of(venue)
+    return profile.title_word if profile is not None else SPOT_TITLE
+
+
+def is_in_markets(profile: VenueProfile, markets: frozenset[MarketType]) -> bool:
+    """Whether the profile's market is one of `markets`: a kind's declared set, or its
+    backtest's."""
+    return profile.market_type in markets
+
+
 def runs_bots_on(profile: VenueProfile) -> bool:
     """Whether a bot can run on this profile's market in this build."""
-    return profile.market_type in BOT_MARKETS
+    return is_in_markets(profile, BOT_MARKETS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,13 +188,63 @@ def bot_profile_of(
     return profile if runs_bots_on(profile) else None
 
 
+#: Venues a bot runs on in this build but that stay closed to it until the owner opens them: a
+#: protective stop for every position and the owner's 14-day Futures-testnet soak come first
+#: (`EPIC-039` decision O7, delivered by `EPIC-039L`, which replaces this set by the gate it
+#: builds). `bot_closed_reason` is the sentence every path that would create, start or resume a
+#: bot on one gives; the picker (`is_offered`) simply does not list it.
+CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET})
+
+
+def is_offered(venue: TradingVenue) -> bool:
+    """Whether the New bot and Venue pickers list `venue`: a venue bots run on, not closed."""
+    profile = venue_profile_of(venue)
+    return profile is not None and runs_bots_on(profile) and venue not in CLOSED_VENUES
+
+
+def bot_closed_reason(venue: TradingVenue) -> str | None:
+    """Why no bot may be created, started or resumed on `venue` yet, or `None` when it may."""
+    if venue not in CLOSED_VENUES:
+        return None
+    return (
+        f"{venue.display_name} is closed to bots until a stop stands on the exchange "
+        "for every position they open and the Futures testnet soak is done "
+        "(EPIC-039L); use Futures Testnet."
+    )
+
+
+def plan_limits_of(venue: TradingVenue) -> ExposureLimits:
+    """The limits of `venue`'s market whether or not a bot may run there yet; Spot's for a venue
+    that trades no market.
+
+    @details A backtest replays a plan, it starts nothing, so it is judged against what the
+    market allows (`EPIC-039K`), where `exposure_limits_of` answers what a bot may start with
+    in this build."""
+    profile = venue_profile_of(venue)
+    if profile is None:
+        return SPOT_LIMITS
+    return ExposureLimits(
+        profile.directions, profile.max_leverage, profile.exposure_kind
+    )
+
+
+def plan_market_of(venue: TradingVenue) -> MarketType:
+    """The market a plan on `venue` is read and replayed on, whether or not a bot may run
+    there yet (`EPIC-039K`); `market_of` is the market a running bot trades."""
+    profile = venue_profile_of(venue)
+    return profile.market_type if profile is not None else BOT_MARKET
+
+
 #: The market a bot reads data for where no venue is at hand (a symbol list, a tick feed, a
 #: chart default). It is the Grid's market today; `EPIC-039H` makes those sites ask a venue.
 BOT_MARKET: MarketType = MarketType.SPOT
 
 
-def market_of(venue: TradingVenue, supported: frozenset[MarketType]) -> MarketType:
-    """The market to read data for on behalf of a bot of a kind declaring `supported` on `venue`.
+def market_of(
+    venue: TradingVenue, supported: frozenset[MarketType] = PROFILE_MARKETS
+) -> MarketType:
+    """The market to read data for on behalf of a bot of a kind declaring `supported` on `venue`
+    (any kind, for a screen that has none in hand).
 
     Callers refuse a venue bots do not run on before they read, so the fallback to
     `BOT_MARKET` is only the unreachable branch, not a decision.

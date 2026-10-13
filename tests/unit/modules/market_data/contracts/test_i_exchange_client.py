@@ -1,10 +1,13 @@
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.funding_event import (
+    FundingEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
@@ -19,6 +22,9 @@ def test_cannot_instantiate_interface():
     """
     with pytest.raises(TypeError, match="Can't instantiate abstract class"):
         IExchangeClient()
+
+
+_MOMENT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def test_valid_implementation():
@@ -61,6 +67,12 @@ def test_valid_implementation():
             # just gained is exactly the one it must now name.
             return []
 
+        def get_funding_rate_history(
+            self, symbol, start, end, cancellation_requested=None
+        ) -> list[FundingEvent]:
+            # `EPIC-039K` added this to the port.
+            return []
+
     client = MockExchangeClient()
     result = client.get_historical_klines(
         MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
@@ -73,3 +85,4 @@ def test_valid_implementation():
     ) == [[]]
     assert client.get_available_symbols(MarketType.SPOT) == []
     assert client.get_symbol_metadata(MarketType.SPOT) == []
+    assert client.get_funding_rate_history("BTCUSDT", _MOMENT, _MOMENT) == []
