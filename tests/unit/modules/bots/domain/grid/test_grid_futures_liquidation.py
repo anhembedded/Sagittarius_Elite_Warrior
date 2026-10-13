@@ -8,6 +8,7 @@ and compare, so a second formula inside the replay would be caught.
 from __future__ import annotations
 
 import random
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -31,7 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
     BRACKETS,
+    START,
     bar,
+    kline,
     position_config,
     replay,
     schedule,
@@ -304,3 +307,39 @@ def test_a_short_that_gaps_through_its_liquidation_price_is_closed_where_the_can
         OrderSide.BUY,
         D(90000),
     )
+
+
+def test_a_short_gapping_through_its_limit_on_a_coarse_candle_loses_only_its_margin() -> (
+    None
+):
+    """The coarse step walks DOWN then UP; the DOWN leg moves away from a short's limit and must
+    not fill the ladder into the position before the UP leg liquidates it."""
+    gap = bar(1, "90000", "90100", "60000", "90000")
+
+    result = replay([_QUIET, gap], position_config("SHORT", leverage=10))
+
+    before = _position_before_the_end(result)
+    assert result.stop_reason is StopReason.LIQUIDATED
+    assert result.fills[-1].price == D(90000)
+    assert result.futures is not None
+    assert result.futures.margin_lost == abs(before.position) * before.entry / 10
+
+
+def test_a_long_gapping_through_its_limit_on_a_bearish_kline_loses_only_its_margin() -> (
+    None
+):
+    """A 1-second kline that closes down walks UP then DOWN: the UP leg moves away from a
+    long's limit and must not fill SELLs before the DOWN leg liquidates it."""
+    candle = bar(1, "40000", "66000", "39900", "40000")
+    fine = {
+        START + timedelta(minutes=1): (kline(1, 0, "40000", "66000", "39900", "40000"),)
+    }
+
+    result = replay([_QUIET, candle], position_config("LONG", leverage=10), fine=fine)
+
+    before = _position_before_the_end(result)
+    assert result.stop_reason is StopReason.LIQUIDATED
+    assert result.fills[-1].price == D(40000)
+    assert result.futures is not None
+    assert result.futures.margin_lost == abs(before.position) * before.entry / 10
+    assert {f.label for f in result.fills} == {"Open", "Liquidation"}

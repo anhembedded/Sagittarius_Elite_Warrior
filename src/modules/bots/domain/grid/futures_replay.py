@@ -197,6 +197,7 @@ class FuturesReplay(ReplayEngine):
     def run_step(self, step: PriceStep) -> None:
         self._ran_in_bar = True
         self._settle(step.time, step.open)
+        self._liquidate_if_opened_beyond_the_limit(step)
         self._ladder.start_step()
         for leg in step.legs:
             if self._stop is not None:
@@ -205,6 +206,18 @@ class FuturesReplay(ReplayEngine):
                 self._walk(step, falling=True)
             else:
                 self._walk(step, falling=False)
+
+    def _liquidate_if_opened_beyond_the_limit(self, step: PriceStep) -> None:
+        """A step that opens past the liquidation price (a gap, or the last step's move) ends
+        the run where it opened, before any leg runs: the exchange could not have closed it at a
+        price the market never traded, and a leg moving away must not fill into the position."""
+        limit = self._liquidation_limit()
+        if (
+            self._stop is None
+            and limit is not None
+            and is_liquidated_at(step.open, self._held(), limit)
+        ):
+            self._liquidate(step.open, step.time)
 
     def close_bar(self, bar: PriceBar, end: datetime) -> None:
         if self._stop is not None:
