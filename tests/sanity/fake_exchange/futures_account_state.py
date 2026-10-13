@@ -17,8 +17,14 @@ margin. In Multi-Assets mode Binance reports the account-wide `total*`
 figures and `availableBalance` in USD across every margin asset: the account
 then also holds a fixed BNB margin balance worth `_BNB_MARGIN_USD`, in its own
 asset row and in the totals, so a reader that took the USDT row instead of the
-totals is told apart (PR #304 review, finding 4). There is no liquidation, no
-funding and no maintenance check.
+totals is told apart (PR #304 review, finding 4).
+
+`EPIC-039C` — a resting order that fills pays the maker fee (0.02 %, what
+`commissionRate` answers), a market fill the taker fee. What is held, and the margin
+behind it, is `positions` (`futures_positions.py`); this class owns the wallet. `apply_funding`
+charges a settlement (to the position's isolated margin too, under isolated margin, so it
+moves the liquidation price as on Binance) and `liquidate` closes a position by force,
+losing its whole isolated margin.
 """
 
 from __future__ import annotations
@@ -27,20 +33,18 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from . import futures_market
+from . import futures_liquidation
+from .futures_funding import FuturesFunding
+from .futures_market import FuturesMarket
+from .futures_positions import FuturesPositions
 from .futures_symbol_config import FuturesSymbolConfig
 
-_TAKER_FEE_RATE = Decimal("0.0005")
+TAKER_FEE_RATE = Decimal("0.0005")
+MAKER_FEE_RATE = Decimal("0.0002")
 _STARTING_WALLET = Decimal(15000)
 #: The BNB margin a Multi-Assets account also counts, in USD.
 _BNB_MARGIN_USD = Decimal(600)
 _SIDE_BUY = "BUY"
-
-
-@dataclass
-class _Position:
-    amount: Decimal
-    entry_price: Decimal
 
 
 @dataclass(frozen=True)
@@ -52,45 +56,110 @@ class FuturesFill:
     commission: Decimal
     realized_pnl: Decimal
 
+    def as_trade_row(
+        self, order: dict[str, Any], trade_id: int, maker: bool, at_ms: int
+    ) -> dict[str, Any]:
+        """The row `GET /fapi/v1/userTrades` reports for this fill of `order`."""
+        return {
+            "symbol": order["symbol"],
+            "id": trade_id,
+            "orderId": order["orderId"],
+            "side": order["side"],
+            "price": str(self.price),
+            "qty": str(self.quantity),
+            "realizedPnl": f"{self.realized_pnl:.8f}",
+            "quoteQty": str(self.price * self.quantity),
+            "commission": f"{self.commission:.8f}",
+            "commissionAsset": "USDT",
+            "time": at_ms,
+            "positionSide": "BOTH",
+            "buyer": order["side"] == "BUY",
+            "maker": maker,
+        }
+
 
 class FuturesAccountState:
     """One instance per fake server."""
 
-    def __init__(self, symbol_config: FuturesSymbolConfig) -> None:
-        #: The leverage each position's initial margin is computed at.
-        self._symbol_config = symbol_config
+    def __init__(
+        self, symbol_config: FuturesSymbolConfig, market: FuturesMarket | None = None
+    ) -> None:
+        self._market = market or FuturesMarket(FuturesFunding())
+        #: What is held, and the margin behind it.
+        self.positions = FuturesPositions(symbol_config, self._market)
         self._wallet = _STARTING_WALLET
-        self._positions: dict[str, _Position] = {}
         self.multi_assets = False
 
     def fill_market(self, symbol: str, side: str, quantity: Decimal) -> FuturesFill:
         """@brief Fills a market order at the book and moves the account."""
-        bid, ask = futures_market.best_bid_ask(symbol)
+        bid, ask = self._market.best_bid_ask(symbol)
         return self.fill_at(symbol, side, quantity, ask if side == _SIDE_BUY else bid)
 
     def fill_at(
-        self, symbol: str, side: str, quantity: Decimal, price: Decimal
+        self,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        price: Decimal,
+        fee_rate: Decimal = TAKER_FEE_RATE,
     ) -> FuturesFill:
         """@brief Fills at `price`: the account rule `fill_market` applies,
-        open to a test that needs fills at different prices."""
+        open to a test that needs fills at different prices. A resting order that
+        traded pays `MAKER_FEE_RATE`."""
         signed = quantity if side == _SIDE_BUY else -quantity
-        commission = quantity * price * _TAKER_FEE_RATE
-        realized = self._move_position(symbol, signed, price)
+        commission = quantity * price * fee_rate
+        realized = self.positions.move(symbol, signed, price)
         self._wallet += realized - commission
         return FuturesFill(price, quantity, commission, realized)
 
-    def position_amount(self, symbol: str) -> Decimal:
-        position = self._positions.get(symbol)
-        return position.amount if position else Decimal(0)
+    @property
+    def wallet_balance(self) -> Decimal:
+        return self._wallet
+
+    @property
+    def cross_wallet(self) -> Decimal:
+        """The wallet less every isolated margin: what the cross positions share."""
+        return self._wallet - self.positions.total_isolated_margin()
+
+    @property
+    def available_balance(self) -> Decimal:
+        margin = self._wallet + self.positions.total_unrealized()
+        return margin - self.positions.total_initial_margin()
+
+    def apply_funding(self, symbol: str, rate: Decimal) -> Decimal | None:
+        """Charges one settlement at the mark: a long pays a positive rate, a short
+        receives it. Under isolated margin the payment comes out of (or goes into) the
+        position's own margin as well as the wallet, so the liquidation price moves.
+        @return the signed wallet change, `None` for a flat symbol."""
+        held = self.positions.amount(symbol)
+        if held == 0:
+            return None
+        payment = -held * self._market.mark_price(symbol) * rate
+        self._wallet += payment
+        if self.positions.isolated(symbol):
+            self.positions.add_margin(symbol, payment)
+        return payment
+
+    def liquidate(self, symbol: str, price: Decimal) -> FuturesFill:
+        """Closes `symbol`'s whole position by force at `price`. Under isolated margin
+        the whole margin behind it is lost (the worst case: no insurance fund and no
+        clearance-fee schedule is modelled); under cross the loss is the realised PnL."""
+        held = self.positions.amount(symbol)
+        entry = self.positions.entry_price(symbol)
+        isolated = self.positions.isolated(symbol)
+        margin = self.positions.close(symbol)
+        direction = 1 if held > 0 else -1
+        realized = (price - entry) * abs(held) * direction
+        if isolated:
+            self._wallet -= margin
+        else:
+            self._wallet += realized
+        return FuturesFill(price, abs(held), Decimal(0), realized)
 
     def account(self) -> dict[str, Any]:
         """`GET /fapi/v2/account`."""
-        unrealized = sum(
-            (self._unrealized(symbol) for symbol in self._positions), Decimal(0)
-        )
-        initial = sum(
-            (self._initial_margin(symbol) for symbol in self._positions), Decimal(0)
-        )
+        unrealized = self.positions.total_unrealized()
+        initial = self.positions.total_initial_margin()
         margin = self._wallet + unrealized
         available = margin - initial
         other = _BNB_MARGIN_USD if self.multi_assets else Decimal(0)
@@ -128,13 +197,13 @@ class FuturesAccountState:
             "positions": [
                 {
                     "symbol": symbol,
-                    "positionAmt": _q(position.amount),
-                    "entryPrice": _q(position.entry_price),
-                    "unrealizedProfit": _q(self._unrealized(symbol)),
-                    "isolated": False,
+                    "positionAmt": _q(self.positions.amount(symbol)),
+                    "entryPrice": _q(self.positions.entry_price(symbol)),
+                    "unrealizedProfit": _q(self.positions.unrealized(symbol)),
+                    "isolated": self.positions.isolated(symbol),
                     "positionSide": "BOTH",
                 }
-                for symbol, position in self._positions.items()
+                for symbol in self.positions.symbols()
             ],
         }
 
@@ -143,28 +212,35 @@ class FuturesAccountState:
         shape (no `leverage` or `marginType` field, `BUG-114`); `notional`
         is signed, negative for a short, as Binance sends it."""
         rows = []
-        for held, position in self._positions.items():
+        for held in self.positions.symbols():
             if symbol is not None and held != symbol:
                 continue
-            mark = futures_market.mark_price(held)
-            notional = position.amount * mark
+            amount = self.positions.amount(held)
+            entry = self.positions.entry_price(held)
+            mark = self._market.mark_price(held)
+            notional = amount * mark
+            liquidation = self.positions.liquidation_price(held, self._wallet)
+            isolated = self.positions.isolated_margin(held)
+            initial = self.positions.initial_margin(held)
             rows.append(
                 {
                     "symbol": held,
                     "positionSide": "BOTH",
-                    "positionAmt": _q(position.amount),
-                    "entryPrice": _q(position.entry_price),
-                    "breakEvenPrice": _q(position.entry_price),
+                    "positionAmt": _q(amount),
+                    "entryPrice": _q(entry),
+                    "breakEvenPrice": _q(entry),
                     "markPrice": _q(mark),
-                    "unRealizedProfit": _q(self._unrealized(held)),
-                    "liquidationPrice": "0",
-                    "isolatedMargin": "0",
+                    "unRealizedProfit": _q(self.positions.unrealized(held)),
+                    "liquidationPrice": _q(liquidation) if liquidation else "0",
+                    "isolatedMargin": _q(isolated) if isolated is not None else "0",
                     "notional": _q(notional),
                     "marginAsset": "USDT",
-                    "isolatedWallet": "0",
-                    "initialMargin": _q(self._initial_margin(held)),
-                    "maintMargin": "0",
-                    "positionInitialMargin": _q(self._initial_margin(held)),
+                    "isolatedWallet": _q(isolated) if isolated is not None else "0",
+                    "initialMargin": _q(initial),
+                    "maintMargin": _q(
+                        futures_liquidation.maintenance_margin(abs(notional))
+                    ),
+                    "positionInitialMargin": _q(initial),
                     "openOrderInitialMargin": "0",
                     "adl": 1,
                     "bidNotional": "0",
@@ -173,41 +249,6 @@ class FuturesAccountState:
                 }
             )
         return rows
-
-    def _move_position(self, symbol: str, signed: Decimal, price: Decimal) -> Decimal:
-        """Applies a signed fill; returns the PnL it realizes."""
-        position = self._positions.get(symbol)
-        if position is None or position.amount == 0:
-            self._positions[symbol] = _Position(signed, price)
-            return Decimal(0)
-        if (position.amount > 0) == (signed > 0):
-            total = position.amount + signed
-            position.entry_price = (
-                position.entry_price * position.amount + price * signed
-            ) / total
-            position.amount = total
-            return Decimal(0)
-        closed = min(abs(signed), abs(position.amount))
-        direction = 1 if position.amount > 0 else -1
-        realized = (price - position.entry_price) * closed * direction
-        remainder = position.amount + signed
-        if remainder == 0:
-            del self._positions[symbol]
-        elif (remainder > 0) == (position.amount > 0):
-            position.amount = remainder
-        else:
-            self._positions[symbol] = _Position(remainder, price)
-        return realized
-
-    def _unrealized(self, symbol: str) -> Decimal:
-        position = self._positions[symbol]
-        mark = futures_market.mark_price(symbol)
-        return (mark - position.entry_price) * position.amount
-
-    def _initial_margin(self, symbol: str) -> Decimal:
-        position = self._positions[symbol]
-        notional = abs(position.amount) * futures_market.mark_price(symbol)
-        return notional / self._symbol_config.leverage(symbol)
 
 
 def _q(value: Decimal) -> str:

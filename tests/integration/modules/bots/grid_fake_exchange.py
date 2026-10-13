@@ -219,7 +219,7 @@ class BootedApp:
         self.deliver()
 
 
-def app_config(tmp_path: Path) -> ConfigManager:
+def app_config(tmp_path: Path, venue: TradingVenue = SPOT) -> ConfigManager:
     user_json = tmp_path / "user_config.json"
     user_json.write_text(json.dumps({}))
     config = ConfigManager()
@@ -227,7 +227,7 @@ def app_config(tmp_path: Path) -> ConfigManager:
     config.load_json(str(user_json), writable=True)
     config.load_dict(
         {
-            "exchange.trading_venues": [SPOT.value],
+            "exchange.trading_venues": [venue.value],
             "bots.state_dir": str(tmp_path / "bots"),
             "trading.bot_limits.min_order_spacing_ms": 0,
         }

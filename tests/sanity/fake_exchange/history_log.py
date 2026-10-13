@@ -78,6 +78,8 @@ class HistoryLog:
     def __init__(self) -> None:
         self._orders: dict[str, dict[str, Any]] = {}
         self._trades: list[dict[str, Any]] = []
+        #: `EPIC-039C` — income rows that are not a commission (a funding fee).
+        self._incomes: list[dict[str, Any]] = []
 
     def remember_order(self, order: dict[str, Any]) -> None:
         self._orders[order["clientOrderId"]] = order
@@ -102,8 +104,18 @@ class HistoryLog:
                 updateTime=now_ms(),
             )
 
+    def update_order(self, client_order_id: str, **fields: Any) -> None:
+        """`EPIC-039C` — a resting order that traded, partly or wholly, or that the
+        exchange ended: its status and fill totals move with it."""
+        order = self._orders.get(client_order_id)
+        if order is not None:
+            order.update(fields, updateTime=now_ms())
+
     def remember_trade(self, trade: dict[str, Any]) -> None:
         self._trades.append(trade)
+
+    def remember_income(self, row: dict[str, Any]) -> None:
+        self._incomes.append(row)
 
     def find(self, symbol: str, client_order_id: str) -> dict[str, Any] | None:
         """`EPIC-035D` — `GET /api/v3/order`: one remembered order by its client
@@ -128,7 +140,7 @@ class HistoryLog:
 
     def income(self, start_ms: int, end_ms: int, limit: int) -> list[dict[str, Any]]:
         """`EPIC-028Q` — `GET /fapi/v1/income`: one COMMISSION row per fill in
-        the span, every symbol, the shape Binance documents."""
+        the span, every symbol, the shape Binance documents. Since `EPIC-039C` a funding fee is a row too."""
         rows = [
             {
                 "symbol": trade["symbol"],
@@ -141,6 +153,8 @@ class HistoryLog:
             for trade in self._trades
             if start_ms <= trade["time"] <= end_ms
         ]
+        rows += [row for row in self._incomes if start_ms <= row["time"] <= end_ms]
+        rows.sort(key=lambda row: row["time"])
         return rows[: min(limit, _MAX_LIMIT)]
 
     def trades(self, query: HistoryQuery) -> list[dict[str, Any]]:
