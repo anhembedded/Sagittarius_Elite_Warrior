@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
     FundingRequirement,
 )
@@ -24,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_backtest_terms import (
     futures_run_terms,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    plan_market_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding import (
     FundingSchedule,
@@ -76,7 +78,7 @@ def funding_run_terms(
     """
     try:
         events = history.funding_between(
-            MarketType.FUTURES_USD_M,
+            plan_market_of(query.venue),
             query.symbol,
             query.start,
             query.end,

@@ -9,45 +9,40 @@ replay that executor the way `grid_replay.py` does, or be tested against it on t
 (position, average entry and realised profit after each fill). Until then every Futures result
 carries `futures` and the fill rule below, and nothing here is evidence about live behaviour.
 
-@par What it shares with the Spot walk
-`simulate_grid` orders each candle's steps from the 1-second klines and records the equity
-curve; this engine only answers it (`replay_engine.py`). The fill test is `grid_fill_rule`'s:
-no fill on touch, one fill per level per step, a counter rests from the next step. The extreme
-comes first: a step is walked leg by leg, and on each leg whatever the price reaches first
-(a level, the liquidation price, an exit) happens first, so a candle holding both a
-liquidating wick and the recovery liquidates.
-
-@par The books
-· The position is `PositionBook` (shared with the model): a fill that shrinks it realises
-  `closed × (price − entry)` for a long and the mirror for a short, at the average entry.
-· **Commissions** are the maker fee on every ladder fill and the taker fee on the opening
-  trade and an exit, charged in the quote asset on the fill's notional.
-· **Funding** is charged at the recorded settlements on the position held then
-  (`futures_funding.py`), and comes out of the position's isolated margin.
-· **Liquidation** (`futures_liquidation.py`) ends the run at the liquidation price with the
-  margin forfeited and the orders cancelled.
-· **Equity** is the capital plus realised profit, less commissions and funding, plus the
-  unrealised profit of the open position.
-
-An exit (the stop loss below the range, the take profit above it) closes the position at market
-whatever its direction, as the Spot replay sells its inventory: the parameters name range edges,
-not a side.
+@par How it walks
+`simulate_grid` orders each candle's steps from the 1-second klines; this engine answers it
+(`replay_engine.py`) under the Spot fill rule (no fill on touch, one fill per level per step, a
+counter rests from the next step). A step is walked leg by leg and on each leg whatever the
+price reaches first happens first (a level, the liquidation price, an exit), so a candle holding
+a liquidating wick and the recovery liquidates. Fills book on `PositionBook` (shared with the
+model); commissions are maker on ladder fills and taker on the opening trade and exits; funding
+(`futures_funding.py`) comes out of the isolated margin; liquidation (`futures_liquidation.py`)
+forfeits it and cancels the orders. An exit closes the position at market whatever its
+direction: the parameters name range edges, not a side.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_benchmark import (
+    HoldBenchmark,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding import (
     FundingSettlement,
+    SettlementCursor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_ladder import Ladder
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_leg_events import (
+    LegActions,
+    LegEvent,
+    LegSituation,
+    leg_events,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_liquidation import (
     HeldPosition,
     Leveraged,
@@ -92,14 +87,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 _ZERO = Decimal(0)
 
 
-@dataclass(frozen=True, slots=True)
-class _Event:
-    """Something the price reaches on a leg: the price it happens at, and what it does."""
-
-    trigger: Decimal
-    run: Callable[[], None]
-
-
 class FuturesReplay(ReplayEngine):
     """@brief A position grid's ladder, its books and its fills, advanced one step at a time."""
 
@@ -125,12 +112,8 @@ class FuturesReplay(ReplayEngine):
         self._funding_paid = _ZERO
         self._funding_on_position = _ZERO
         self._charged = 0
-        self._settlements = [s for s in run.funding.settlements if s.time > first.time]
-        self._next_settlement = 0
-        self._hold_funding = _ZERO
-        self._hold_quantity = self._plan.opening_quantity
-        self._hold_fee = _ZERO
-        self._start_price = first.open
+        self._due = SettlementCursor(run.funding, after=first.time)
+        self._hold = HoldBenchmark(self._plan.opening_quantity, first.open)
         self._stop: StopReason | None = None
         self._stop_detail = ""
         self._liquidation_price: Decimal | None = None
@@ -176,12 +159,7 @@ class FuturesReplay(ReplayEngine):
         )
 
     def benchmark_at(self, price: Decimal) -> Decimal:
-        return (
-            self._params.capital_quote
-            + self._hold_quantity * (price - self._start_price)
-            - self._hold_fee
-            - self._hold_funding
-        )
+        return self._hold.value_at(self._params.capital_quote, price)
 
     def outcome(self, last_close: Decimal) -> ReplayOutcome:
         liquidated = self._stop is StopReason.LIQUIDATED
@@ -242,10 +220,10 @@ class FuturesReplay(ReplayEngine):
         quantity = self._plan.opening_quantity
         if quantity != 0:
             side = OrderSide.BUY if quantity > 0 else OrderSide.SELL
-            self._hold_fee = abs(quantity) * first.open * self._run.taker_fee
-            self._taker_fees += self._hold_fee
+            self._hold.fee = abs(quantity) * first.open * self._run.taker_fee
+            self._taker_fees += self._hold.fee
             self._record(
-                first.time, side, first.open, abs(quantity), "Open", fee=self._hold_fee
+                first.time, side, first.open, abs(quantity), "Open", fee=self._hold.fee
             )
 
     # -- one leg ----------------------------------------------------------- #
@@ -267,57 +245,20 @@ class FuturesReplay(ReplayEngine):
         if self._stop is None:
             self._note_distance(step.low if falling else step.high)
 
-    def _events(self, step: PriceStep, falling: bool) -> list[_Event]:
-        """What the price can reach on this leg from here, in no particular order."""
-        events = [self._liquidation_event(step, falling)]
-        events.append(self._exit_event(step, falling))
-        events.append(self._fill_event(step, falling))
-        return [event for event in events if event is not None]
-
-    def _liquidation_event(self, step: PriceStep, falling: bool) -> _Event | None:
-        limit = self._liquidation_limit()
-        if limit is None:
-            return None
-        quantity = self._book.position
-        reached = (
-            quantity > 0 and step.low <= limit
-            if falling
-            else quantity < 0 and step.high >= limit
+    def _events(self, step: PriceStep, falling: bool) -> list[LegEvent]:
+        return leg_events(
+            LegSituation(
+                step=step,
+                falling=falling,
+                liquidation_limit=self._liquidation_limit(),
+                position=self._book.position,
+                stop_loss=self._params.stop_loss_price,
+                take_profit=self._params.take_profit_price,
+                tick=self._terms.tick_size,
+            ),
+            self._ladder,
+            LegActions(self._liquidate, self._exit, self._fill),
         )
-        if not reached:
-            return None
-        return _Event(limit, lambda: self._liquidate(limit, step.time))
-
-    def _exit_event(self, step: PriceStep, falling: bool) -> _Event | None:
-        if falling:
-            stop = self._params.stop_loss_price
-            if stop is None or step.low > stop:
-                return None
-            price = min(stop, step.open)
-            return _Event(
-                stop,
-                lambda: self._exit(StopReason.STOP_LOSS, price, step.time),
-            )
-        take = self._params.take_profit_price
-        if take is None or step.high < take:
-            return None
-        price = max(take, step.open)
-        return _Event(
-            take,
-            lambda: self._exit(StopReason.TAKE_PROFIT, price, step.time),
-        )
-
-    def _fill_event(self, step: PriceStep, falling: bool) -> _Event | None:
-        tick = self._terms.tick_size
-        index = (
-            self._ladder.next_buy(step.low)
-            if falling
-            else self._ladder.next_sell(step.high)
-        )
-        if index is None:
-            return None
-        trigger = self._ladder.price_of(index) + (-tick if falling else tick)
-        return _Event(trigger, lambda: self._fill(index, step.time))
 
     # -- what happens ------------------------------------------------------ #
 
@@ -371,18 +312,15 @@ class FuturesReplay(ReplayEngine):
     def _settle(self, until: datetime, price: Decimal) -> None:
         """Charge the settlements due by `until` on what is held, `price` standing in for a
         record without a mark price."""
-        while (
-            self._stop is None
-            and self._next_settlement < len(self._settlements)
-            and self._settlements[self._next_settlement].time <= until
-        ):
-            settlement = self._settlements[self._next_settlement]
-            self._next_settlement += 1
+        while self._stop is None:
+            settlement = self._due.next_due(until)
+            if settlement is None:
+                return
             self._charge(settlement, settlement.mark_price or price)
 
     def _charge(self, settlement: FundingSettlement, mark: Decimal) -> None:
         charge = self._run.charge
-        self._hold_funding += charge(self._hold_quantity, mark, settlement.rate)
+        self._hold.funding += charge(self._hold.quantity, mark, settlement.rate)
         position = self._book.position
         if position == 0:
             return

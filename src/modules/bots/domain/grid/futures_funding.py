@@ -77,3 +77,18 @@ type FundingCharger = Callable[[Decimal, Decimal, Decimal], Decimal]
 def no_funding(note: str) -> FundingSchedule:
     """A schedule for a replay that runs without funding, saying why."""
     return FundingSchedule((), False, note)
+
+
+class SettlementCursor:
+    """The settlements of a schedule, handed out once each as they fall due."""
+
+    def __init__(self, schedule: FundingSchedule, after: datetime) -> None:
+        self._pending = [s for s in schedule.settlements if s.time > after]
+        self._next = 0
+
+    def next_due(self, until: datetime) -> FundingSettlement | None:
+        """The next settlement at or before `until`, consumed; `None` when none is due."""
+        if self._next < len(self._pending) and self._pending[self._next].time <= until:
+            self._next += 1
+            return self._pending[self._next - 1]
+        return None

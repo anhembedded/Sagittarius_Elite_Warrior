@@ -117,17 +117,9 @@ class RunGridBacktestQueryHandler(
         count = repository.count_klines(
             market, query.symbol, query.interval, query.start, query.end
         )
-        if count == 0:
-            return GridBacktestRefusal(
-                f"No {query.interval.value} candles of {query.symbol} are stored "
-                f"between {query.start:%Y-%m-%d %H:%M} and {query.end:%Y-%m-%d %H:%M}.",
-                missing_candles=True,
-            )
-        if count > MAX_CANDLES:
-            return GridBacktestRefusal(
-                f"{count} {query.interval.value} candles is more than one backtest "
-                f"draws ({MAX_CANDLES}); choose a shorter period or a longer interval."
-            )
+        refused = _candles_refusal(query, count)
+        if refused is not None:
+            return refused
         engine: EngineFactory | None = None
         if brackets is not None:
             try:
@@ -175,3 +167,21 @@ def _futures_engine(
 ) -> EngineFactory:
     """A position venue's ladder, replayed by `FuturesReplay` (`EPIC-039K`)."""
     return lambda first: FuturesReplay(params, terms, run, first)
+
+
+def _candles_refusal(
+    query: RunGridBacktestQuery, count: int
+) -> GridBacktestRefusal | None:
+    """Why `count` stored candles cannot be replayed, in words, or `None` when they can."""
+    if count == 0:
+        return GridBacktestRefusal(
+            f"No {query.interval.value} candles of {query.symbol} are stored "
+            f"between {query.start:%Y-%m-%d %H:%M} and {query.end:%Y-%m-%d %H:%M}.",
+            missing_candles=True,
+        )
+    if count > MAX_CANDLES:
+        return GridBacktestRefusal(
+            f"{count} {query.interval.value} candles is more than one backtest "
+            f"draws ({MAX_CANDLES}); choose a shorter period or a longer interval."
+        )
+    return None
