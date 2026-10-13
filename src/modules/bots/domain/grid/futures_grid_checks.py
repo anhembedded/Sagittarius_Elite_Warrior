@@ -159,20 +159,16 @@ def _side(
     inputs: PlanRiskInputs, side: PositionSide, steps: list[LadderStep]
 ) -> list[Verdict]:
     estimates = [(step, _estimate(inputs, step)) for step in steps]
-    liquidations = [price for _, price in estimates if price is not None]
-    binding = (
-        None
-        if not liquidations
-        else max(liquidations)
-        if side is PositionSide.LONG
-        else min(liquidations)
-    )
+    # The price reaches the exit only after every level has filled, so the exit is judged
+    # against the full position's liquidation; the earlier, smaller positions matter only
+    # for being liquidated before the next level fills (`_inside_range`).
+    full_position = estimates[-1][1]
     exit_price = _loss_exit(inputs, side)
     found = [
         *_inside_range(side, estimates),
-        *_stop(inputs, side, binding, exit_price),
+        *_stop(inputs, side, full_position, exit_price),
     ]
-    return found or [_ok(inputs, side, binding, exit_price)]
+    return found or [_ok(inputs, side, full_position, exit_price)]
 
 
 def _estimate(inputs: PlanRiskInputs, step: LadderStep) -> Decimal | None:

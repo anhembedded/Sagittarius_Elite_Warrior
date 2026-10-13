@@ -135,6 +135,27 @@ def test_the_worst_case_is_the_far_edge_with_the_plans_average_entry() -> None:
     assert D(70000) > short[0].average_entry > LAST_PRICE
 
 
+def _binding_liquidation(
+    inputs: PlanRiskInputs, brackets: LeverageBrackets = _BRACKETS
+) -> list[Decimal]:
+    """Each ladder step's liquidation price, in fill order."""
+    prices = []
+    for step in ladder_steps(inputs.plan, D(60000), D(70000)):
+        position = step.position
+        estimate = estimated_liquidation_price_in_brackets(
+            BracketedPosition(
+                position.side,
+                position.quantity,
+                position.average_entry,
+                position.notional / inputs.params.leverage,
+            ),
+            brackets,
+        ).price
+        assert estimate is not None
+        prices.append(estimate)
+    return prices
+
+
 def test_the_bracket_for_each_steps_own_notional_is_used_not_the_first() -> None:
     inputs = _inputs("LONG", 5, capital_quote="100000")
     ok = next(v for v in judge_futures_plan(inputs) if v.code == "LIQUIDATION_ESTIMATE")
@@ -142,27 +163,11 @@ def test_the_bracket_for_each_steps_own_notional_is_used_not_the_first() -> None
         "BTCUSDT", (replace(_BRACKETS.brackets[0], notional_cap=D(10**9)),)
     )
 
-    def binding(brackets: LeverageBrackets) -> Decimal:
-        prices = []
-        for step in ladder_steps(inputs.plan, D(60000), D(70000)):
-            position = step.position
-            estimate = estimated_liquidation_price_in_brackets(
-                BracketedPosition(
-                    position.side,
-                    position.quantity,
-                    position.average_entry,
-                    position.notional / 5,
-                ),
-                brackets,
-            ).price
-            assert estimate is not None
-            prices.append(estimate)
-        return max(prices)
-
     worst = worst_case_positions(inputs.plan)[0]
     assert worst.notional > _BRACKETS.brackets[0].notional_cap
-    assert ok.numbers["liquidation_price"] == binding(_BRACKETS)
-    assert binding(_BRACKETS) != binding(first_bracket_only)
+    right = _binding_liquidation(inputs)[-1]
+    assert ok.numbers["liquidation_price"] == right
+    assert right != _binding_liquidation(inputs, first_bracket_only)[-1]
 
 
 def test_a_stop_loss_closer_than_one_atr_to_liquidation_warns() -> None:
@@ -291,3 +296,18 @@ def test_every_step_of_the_ladder_is_estimated_with_its_own_position_and_entry()
     assert steps[0].next_price == D(
         64000
     )  # the opening position waits for the first BUY
+
+
+def test_the_exit_is_judged_against_the_full_positions_liquidation_not_an_earlier_step() -> (
+    None
+):
+    """Review of PR #486, round two: the price reaches the exit only after every level has
+    filled, so the exit is compared with the last step's liquidation (51,004 at 5x), not with
+    the smaller opening position's (52,209), which a sound exit at 51,304 sits below."""
+    inputs = _inputs("LONG", 5, stop_loss="price:51304", atr=None)
+
+    verdicts = judge_futures_plan(inputs)
+
+    assert not any(v.refuses for v in verdicts)
+    (ok,) = verdicts
+    assert ok.numbers["liquidation_price"] == _binding_liquidation(inputs)[-1]
