@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     HealthContributorDescriptor,
+    HealthProbeDescriptor,
     IOperationsRegistry,
     PreflightCheckDescriptor,
 )
@@ -19,6 +20,9 @@ class _Recorder(IOperationsRegistry):
 
     def declare_health(self, descriptor: HealthContributorDescriptor) -> None:
         self.health.append(descriptor)
+
+    def declare_probe(self, descriptor: HealthProbeDescriptor) -> None:
+        raise AssertionError("alerting declares no health probe")
 
 
 def test_the_module_listens_and_depends_on_nothing_yet() -> None:
