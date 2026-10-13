@@ -123,7 +123,8 @@ def _risk_verdicts(
 ) -> tuple[Verdict, ...]:
     """The liquidation verdicts of a plan on a position venue, once its facts are read
     (`EPIC-039F`, shown by `EPIC-039J`); nothing for a venue that supplies none. The symbol is
-    judged on the setting the gate will make (`intended_setting`), as Start's guard does."""
+    judged on the setting the gate will make (`intended_setting`), which is what Start's guard
+    reads back after the gate (locked by a test)."""
     risk = inputs.risk
     if risk is None:
         return ()

@@ -4,8 +4,12 @@
 Start, before the first order; a plan is therefore judged on that setting, not on the account's
 current one. A symbol that sits on Cross, or at another leverage, is not a reason to refuse a plan
 the gate will make right (and where the gate cannot, because a position or an order stands, Start
-refuses in the gate's own words). One function, so the screen's judgement and the plan-time guard
-read the same setting and cannot disagree.
+refuses in the gate's own words).
+
+The screen's judgement (`evaluate_grid`) is this function's only caller: it *predicts* the setting
+that Start's plan-time guard then reads back from the venue after the gate. The two are different
+code, so the agreement is locked by a test that drives the real gate over the fake venue from a
+Cross account and compares the verdicts (`test_plan_is_judged_on_the_intended_setting.py`).
 """
 
 from __future__ import annotations
