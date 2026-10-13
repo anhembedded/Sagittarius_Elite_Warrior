@@ -13,7 +13,8 @@ class InMemorySecretStore(ISecretStore):
         self.secrets = dict(secrets)
 
     def read(self, name: str) -> str | None:
-        return self.secrets.get(name)
+        value = self.secrets.get(name)
+        return value if value is not None and value.strip() else None
 
     def write(self, name: str, value: str) -> None:
         self.secrets[name] = value

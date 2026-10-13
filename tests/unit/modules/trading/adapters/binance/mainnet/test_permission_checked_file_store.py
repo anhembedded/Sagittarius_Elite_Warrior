@@ -1,0 +1,129 @@
+"""`EPIC-038E` — the permission-checked file store: a file per secret under one
+directory, read only when every check accepts it, refused once in the log."""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.permission_checked_file_store import (
+    PermissionCheckedFileStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
+    ISecretFileCheck,
+    SecretFileVerdict,
+)
+
+FAKE = "fake-file-secret-5678"
+
+
+class _Says(ISecretFileCheck):
+    def __init__(self, verdict: SecretFileVerdict) -> None:
+        self._verdict = verdict
+        self.inspected: list[Path] = []
+
+    def inspect(self, path: Path) -> SecretFileVerdict:
+        self.inspected.append(path)
+        return self._verdict
+
+
+ACCEPT = SecretFileVerdict()
+REFUSE = SecretFileVerdict(
+    problem="group and other users can read it", fix="chmod 600 THE-PATH"
+)
+
+
+def test_a_file_every_check_accepts_is_read(tmp_path: Path) -> None:
+    (tmp_path / "name").write_text(f"{FAKE}\n", encoding="utf-8")
+
+    assert PermissionCheckedFileStore(tmp_path, (_Says(ACCEPT),)).read("name") == FAKE
+
+
+def test_a_missing_file_reads_none_without_asking_the_checks(tmp_path: Path) -> None:
+    check = _Says(REFUSE)
+
+    assert PermissionCheckedFileStore(tmp_path, (check,)).read("name") is None
+    assert check.inspected == []
+
+
+def test_a_group_readable_secret_file_is_refused_without_logging_its_value(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "name").write_text(FAKE, encoding="utf-8")
+    store = PermissionCheckedFileStore(tmp_path, (_Says(REFUSE),))
+
+    with caplog.at_level(logging.DEBUG):
+        assert store.read("name") is None
+
+    refusals = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(refusals) == 1
+    assert "chmod 600" in refusals[0].getMessage()  # the command that fixes it
+    assert "group and other users can read it" in refusals[0].getMessage()
+    assert FAKE not in caplog.text
+
+
+def test_a_refusal_is_logged_once_per_file_however_often_it_is_read(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "a").write_text(FAKE, encoding="utf-8")
+    (tmp_path / "b").write_text(FAKE, encoding="utf-8")
+    store = PermissionCheckedFileStore(tmp_path, (_Says(REFUSE),))
+
+    with caplog.at_level(logging.DEBUG):
+        for _ in range(3):
+            store.read("a")
+            store.read("b")
+
+    assert len([r for r in caplog.records if r.levelno == logging.WARNING]) == 2
+
+
+def test_the_first_refusing_check_decides_and_later_ones_are_not_asked(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "name").write_text(FAKE, encoding="utf-8")
+    later = _Says(ACCEPT)
+
+    store = PermissionCheckedFileStore(tmp_path, (_Says(REFUSE), later))
+
+    assert store.read("name") is None
+    assert later.inspected == []
+
+
+def test_a_file_is_checked_at_each_read_not_once(tmp_path: Path) -> None:
+    (tmp_path / "name").write_text(FAKE, encoding="utf-8")
+    check = _Says(ACCEPT)
+    store = PermissionCheckedFileStore(tmp_path, (check,))
+
+    store.read("name")
+    store.read("name")
+
+    assert len(check.inspected) == 2
+
+
+def test_write_and_delete_refuse_because_the_operator_provisions_the_file(
+    tmp_path: Path,
+) -> None:
+    store = PermissionCheckedFileStore(tmp_path, (_Says(ACCEPT),))
+
+    with pytest.raises(SecretStoreUnavailableError, match="provisioned"):
+        store.write("name", FAKE)
+    with pytest.raises(SecretStoreUnavailableError, match="provisioned"):
+        store.delete("name")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_file_that_is_not_text_reads_none_without_its_bytes_in_the_log(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    (tmp_path / "name").write_bytes(b"\xff\xfeCANARY-BYTES\xff")
+
+    with caplog.at_level(logging.DEBUG):
+        assert (
+            PermissionCheckedFileStore(tmp_path, (_Says(ACCEPT),)).read("name") is None
+        )
+
+    assert "CANARY-BYTES" not in caplog.text
