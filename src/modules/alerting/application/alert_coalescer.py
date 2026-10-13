@@ -49,8 +49,11 @@ class AlertCoalescer:
     @staticmethod
     def wants(alert: Alert) -> bool:
         subject = alert.subject
+        # A recovery is never grouped: a group is built as a new outage, so a
+        # recovery inside it would be reported as the thing it says is over.
         return (
-            alert.kind in COALESCED_KINDS
+            not alert.recovery
+            and alert.kind in COALESCED_KINDS
             and subject.scope is SubjectScope.BOT
             and bool(subject.venue)
         )
