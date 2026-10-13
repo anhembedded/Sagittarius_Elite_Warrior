@@ -183,6 +183,7 @@ class GridRiskWatch:
         self._read()
         snapshot = self._snapshot
         if snapshot is None:
+            self._report_no_reading()
             self._note_blindness(None)
             return
         state = self._parts.guard.watch(snapshot, self._parts.clock.now(), self._level)
@@ -194,6 +195,18 @@ class GridRiskWatch:
                     self._context.state, GridReason.LIQUIDATION_RISK, state.reason
                 )
         self._note_blindness(state)
+
+    def _report_no_reading(self) -> None:
+        """No reading has ever arrived: the level is UNKNOWN, said once."""
+        if self._level is RiskLevel.UNKNOWN:
+            return
+        self._level = RiskLevel.UNKNOWN
+        self._announce(
+            RiskState(
+                RiskLevel.UNKNOWN, "The exchange's position has not been read yet"
+            ),
+            None,
+        )
 
     def _note_blindness(self, state: RiskState | None) -> None:
         """Halt once the bot has been unable to judge for longer than the limit."""
@@ -233,7 +246,7 @@ class GridRiskWatch:
             return
         self._read_failing = False
 
-    def _announce(self, state: RiskState, snapshot: RiskSnapshot) -> None:
+    def _announce(self, state: RiskState, snapshot: RiskSnapshot | None) -> None:
         log = logger.info if state.level is RiskLevel.SAFE else logger.warning
         log(
             "Bot %s: liquidation risk is %s: %s [liquidation-risk]",
@@ -249,7 +262,9 @@ class GridRiskWatch:
                 level=state.level,
                 reason=state.reason,
                 distance=state.distance,
-                mark_price=snapshot.mark_price,
-                liquidation_price=snapshot.liquidation_price,
+                mark_price=None if snapshot is None else snapshot.mark_price,
+                liquidation_price=None
+                if snapshot is None
+                else snapshot.liquidation_price,
             )
         )

@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_in
     PlanRiskInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_worst_case import (
+    ladder_steps,
     worst_case_positions,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
@@ -116,7 +117,7 @@ def test_a_neutral_plan_is_judged_on_both_sides() -> None:
 
     inside = [v for v in verdicts if v.code == "LIQUIDATION_INSIDE_RANGE"]
     assert len(inside) == 2
-    assert {v.numbers["range_edge"] for v in inside} == {D(60000), D(70000)}
+    assert {v.numbers["next_price"] > LAST_PRICE for v in inside} == {True, False}
     assert len(worst_case_positions(_inputs("NEUTRAL").plan)) == 2
 
 
@@ -134,26 +135,34 @@ def test_the_worst_case_is_the_far_edge_with_the_plans_average_entry() -> None:
     assert D(70000) > short[0].average_entry > LAST_PRICE
 
 
-def test_the_bracket_for_the_worst_case_notional_is_used_not_the_first() -> None:
+def test_the_bracket_for_each_steps_own_notional_is_used_not_the_first() -> None:
     inputs = _inputs("LONG", 5, capital_quote="100000")
     ok = next(v for v in judge_futures_plan(inputs) if v.code == "LIQUIDATION_ESTIMATE")
+    first_bracket_only = LeverageBrackets(
+        "BTCUSDT", (replace(_BRACKETS.brackets[0], notional_cap=D(10**9)),)
+    )
+
+    def binding(brackets: LeverageBrackets) -> Decimal:
+        prices = []
+        for step in ladder_steps(inputs.plan, D(60000), D(70000)):
+            position = step.position
+            estimate = estimated_liquidation_price_in_brackets(
+                BracketedPosition(
+                    position.side,
+                    position.quantity,
+                    position.average_entry,
+                    position.notional / 5,
+                ),
+                brackets,
+            ).price
+            assert estimate is not None
+            prices.append(estimate)
+        return max(prices)
+
     worst = worst_case_positions(inputs.plan)[0]
-    margin = worst.notional / 5
-
-    right = estimated_liquidation_price_in_brackets(
-        BracketedPosition(worst.side, worst.quantity, worst.average_entry, margin),
-        _BRACKETS,
-    ).price
-    first_only = estimated_liquidation_price_in_brackets(
-        BracketedPosition(worst.side, worst.quantity, worst.average_entry, margin),
-        LeverageBrackets(
-            "BTCUSDT", (replace(_BRACKETS.brackets[0], notional_cap=D(10**9)),)
-        ),
-    ).price
-
     assert worst.notional > _BRACKETS.brackets[0].notional_cap
-    assert ok.numbers["liquidation_price"] == right
-    assert right != first_only
+    assert ok.numbers["liquidation_price"] == binding(_BRACKETS)
+    assert binding(_BRACKETS) != binding(first_bracket_only)
 
 
 def test_a_stop_loss_closer_than_one_atr_to_liquidation_warns() -> None:
@@ -254,3 +263,31 @@ def test_the_thresholds_refuse_inverted_liquidation_distances() -> None:
         FuturesGridThresholds(
             liq_warn_distance=D("0.02"), liq_critical_distance=D("0.05")
         )
+
+
+@pytest.mark.parametrize("direction", ["LONG", "SHORT"])
+def test_a_plan_liquidated_between_two_levels_is_refused_though_the_far_edge_looks_fine(
+    direction: str,
+) -> None:
+    """Review of PR #486: at 16x a long holding the levels down to 61,000 is liquidated at
+    about 60,172, before the 60,000 level fills; judging only the far edge missed it."""
+    inputs = _inputs(direction, 16, stop_loss="price:59990", take_profit="price:70010")
+
+    verdicts = judge_futures_plan(inputs)
+
+    inside = next(v for v in verdicts if v.code == "LIQUIDATION_INSIDE_RANGE")
+    assert inside.severity is VerdictSeverity.REFUSED
+    assert "between" in inside.reason
+
+
+def test_every_step_of_the_ladder_is_estimated_with_its_own_position_and_entry() -> (
+    None
+):
+    steps = ladder_steps(_inputs("LONG").plan, D(60000), D(70000))
+
+    quantities = [s.position.quantity for s in steps]
+    assert quantities == sorted(quantities)  # the position only grows on the way down
+    assert [s.next_price for s in steps][-1] == D(60000)  # after the last BUY: the edge
+    assert steps[0].next_price == D(
+        64000
+    )  # the opening position waits for the first BUY

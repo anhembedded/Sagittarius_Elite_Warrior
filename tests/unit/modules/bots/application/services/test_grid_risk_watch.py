@@ -349,3 +349,15 @@ def test_a_bot_that_never_got_a_reading_halts_after_the_limit() -> None:
     rig.beat()
 
     assert rig.world.runtime().reason is GridReason.POSITION_UNOBSERVABLE
+
+
+def test_a_bot_that_never_got_a_reading_reports_unknown_not_safe() -> None:
+    """Review of PR #486: with no reading at all the level used to stay SAFE, silently."""
+    rig = _Rig()
+    rig.exchange.unreadable = True
+
+    rig.beat()
+    rig.beat()
+
+    assert rig.events() == [RiskLevel.UNKNOWN]
+    assert rig.watch.level is RiskLevel.UNKNOWN

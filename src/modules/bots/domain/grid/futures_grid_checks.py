@@ -30,7 +30,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_in
     PlanRiskInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_worst_case import (
-    WorstCasePosition,
+    LadderStep,
+    ladder_steps,
     worst_case_positions,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
@@ -63,8 +64,11 @@ def judge_futures_plan(inputs: PlanRiskInputs) -> tuple[Verdict, ...]:
         *_leverage(inputs),
         *_bracket_and_margin(inputs),
     ]
-    for position in worst_case_positions(inputs.plan):
-        found.extend(_side(inputs, position))
+    steps = ladder_steps(inputs.plan, inputs.params.lower, inputs.params.upper)
+    for side in (PositionSide.LONG, PositionSide.SHORT):
+        side_steps = [step for step in steps if step.position.side is side]
+        if side_steps:
+            found.extend(_side(inputs, side, side_steps))
     return tuple(found)
 
 
@@ -151,8 +155,29 @@ def _bracket_and_margin(inputs: PlanRiskInputs) -> list[Verdict]:
     return found
 
 
-def _side(inputs: PlanRiskInputs, position: WorstCasePosition) -> list[Verdict]:
-    estimate = estimated_liquidation_price_in_brackets(
+def _side(
+    inputs: PlanRiskInputs, side: PositionSide, steps: list[LadderStep]
+) -> list[Verdict]:
+    estimates = [(step, _estimate(inputs, step)) for step in steps]
+    liquidations = [price for _, price in estimates if price is not None]
+    binding = (
+        None
+        if not liquidations
+        else max(liquidations)
+        if side is PositionSide.LONG
+        else min(liquidations)
+    )
+    exit_price = _loss_exit(inputs, side)
+    found = [
+        *_inside_range(side, estimates),
+        *_stop(inputs, side, binding, exit_price),
+    ]
+    return found or [_ok(inputs, side, binding, exit_price)]
+
+
+def _estimate(inputs: PlanRiskInputs, step: LadderStep) -> Decimal | None:
+    position = step.position
+    return estimated_liquidation_price_in_brackets(
         BracketedPosition(
             position.side,
             position.quantity,
@@ -160,14 +185,7 @@ def _side(inputs: PlanRiskInputs, position: WorstCasePosition) -> list[Verdict]:
             position.notional / inputs.params.leverage,
         ),
         inputs.brackets,
-    )
-    liquidation = estimate.price
-    exit_price = _loss_exit(inputs, position.side)
-    found = [
-        *_inside_range(inputs, position.side, liquidation),
-        *_stop(inputs, position.side, liquidation, exit_price),
-    ]
-    return found or [_ok(inputs, position.side, liquidation, exit_price)]
+    ).price
 
 
 def _loss_exit(inputs: PlanRiskInputs, side: PositionSide) -> Decimal | None:
@@ -180,25 +198,40 @@ def _loss_exit(inputs: PlanRiskInputs, side: PositionSide) -> Decimal | None:
 
 
 def _inside_range(
-    inputs: PlanRiskInputs, side: PositionSide, liquidation: Decimal | None
+    side: PositionSide, estimates: list[tuple[LadderStep, Decimal | None]]
 ) -> list[Verdict]:
-    if liquidation is None:
-        return []
-    lower, upper = inputs.params.lower, inputs.params.upper
-    inside = liquidation >= lower if side is PositionSide.LONG else liquidation <= upper
-    if not inside:
-        return []
-    edge = lower if side is PositionSide.LONG else upper
-    return [
-        Verdict(
-            _REFUSED,
-            "LIQUIDATION_INSIDE_RANGE",
-            f"A {side.name.lower()} filled to the range's far edge ({edge}) would be "
-            f"liquidated near {liquidation:.2f} (an estimate), inside the range: the "
-            "bot can be liquidated before its ladder is used",
-            {"liquidation_price": liquidation, "range_edge": edge},
+    """The first step whose liquidation price is reached before the next level fills."""
+    for step, liquidation in estimates:
+        if liquidation is None:
+            continue
+        next_price = step.next_price
+        reached = (
+            liquidation >= next_price
+            if side is PositionSide.LONG
+            else liquidation <= next_price
         )
-    ]
+        if reached:
+            return [_liquidated_first(side, step, liquidation)]
+    return []
+
+
+def _liquidated_first(
+    side: PositionSide, step: LadderStep, liquidation: Decimal
+) -> Verdict:
+    held = step.position.quantity
+    return Verdict(
+        _REFUSED,
+        "LIQUIDATION_INSIDE_RANGE",
+        f"A {side.name.lower()} of {held} (average entry {step.position.average_entry:.2f}) "
+        f"would be liquidated near {liquidation:.2f} (an estimate) between this fill and "
+        f"the next price the ladder waits at ({step.next_price}), inside the range: the "
+        "bot can be liquidated before its ladder is used",
+        {
+            "liquidation_price": liquidation,
+            "next_price": step.next_price,
+            "position": held,
+        },
+    )
 
 
 def _stop(
