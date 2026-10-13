@@ -92,9 +92,11 @@ class ApplyBotPlanVerb(IBotVerb):
         args: argparse.Namespace,
         world: BotVerbWorld,
     ) -> CliOutcome | None:
-        diff = applier.diff(plan, prune)
-        printed = world.printer.print_report(apply_report(diff, None, ()), args)
-        return printed if printed is not None else _needs_attention(diff)
+        preview = applier.preview(plan, prune)
+        printed = world.printer.print_report(
+            apply_report(preview.diff, None, preview.notes), args
+        )
+        return printed if printed is not None else _needs_attention(preview.diff)
 
 
 class ExportBotPlanVerb(IBotVerb):

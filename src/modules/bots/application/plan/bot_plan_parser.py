@@ -3,7 +3,9 @@
 Every problem is collected, with where it is (`bots[2].venue`), so an operator fixes the
 file once and not once per run. A field the plan does not define is refused, never
 ignored: the commonest mistake that matters is a `api_key` pasted into it. **A refusal
-never repeats the value it refused** - that value may be the secret.
+names the path and what was expected, never what the file supplied** - not a value, and not
+a field or parameter name either: either may be the secret itself (a key pasted as a field
+name is as likely as one pasted as a value).
 
 The kind catalog supplies the known kinds, so a new kind needs no change here. Whether a
 kind's *parameter values* are acceptable is judged when the bot starts, by the kind
@@ -14,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_document import (
@@ -32,7 +34,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
-_TOP_FIELDS = frozenset({"schema", "bots"})
+_TOP_FIELDS = ("schema", "bots")
 _BOT_FIELDS = ("name", "kind", "venue", "symbol", "params", "desired_state")
 
 #: Names that say "credential". Used only to explain a refusal and to refuse a parameter
@@ -65,39 +67,45 @@ def parse_plan(text: str, kinds: IBotKindCatalog) -> BotPlanDocument:
     problems: list[str] = []
     _check_top(raw, problems)
     entries = raw.get("bots")
-    bots: list[PlannedBot] = []
+    parsed: list[tuple[int, PlannedBot]] = []
     if isinstance(entries, list):
         known_kinds = tuple(kind.kind_id for kind in kinds.kinds())
         for index, entry in enumerate(entries):
             bot = _parse_bot(entry, f"bots[{index}]", known_kinds, problems)
             if bot is not None:
-                bots.append(bot)
-        _check_identities(bots, problems)
+                parsed.append((index, bot))
+        _check_identities(parsed, problems)
     if problems:
         raise InvalidBotPlanError(tuple(problems))
-    return BotPlanDocument(tuple(bots))
+    return BotPlanDocument(tuple(bot for _, bot in parsed))
 
 
 def _check_top(raw: dict[str, Any], problems: list[str]) -> None:
-    for name in raw:
-        if name not in _TOP_FIELDS:
-            problems.append(_unknown_field("", name))
+    _unknown_fields(raw, _TOP_FIELDS, "the file", problems)
     if "schema" not in raw:
         problems.append(f"the file has no schema; expected {SCHEMA!r}")
     elif raw["schema"] != SCHEMA:
-        problems.append(
-            f"schema {raw['schema']!r} is not one this build reads; expected {SCHEMA!r}"
-            if isinstance(raw["schema"], str)
-            else f"schema must be the text {SCHEMA!r}"
-        )
+        problems.append(f"schema is not one this build reads; expected {SCHEMA!r}")
     if not isinstance(raw.get("bots"), list):
         problems.append("bots must be a list (an empty plan is [])")
 
 
-def _unknown_field(where: str, name: str) -> str:
-    prefix = f"{where}." if where else ""
-    hint = f"; {_NO_SECRETS}" if _SECRET_NAME.search(name) else ""
-    return f"{prefix}{name}: unknown field{hint}"
+def _unknown_fields(
+    entry: Mapping[Any, Any], allowed: Sequence[str], where: str, problems: list[str]
+) -> None:
+    """One problem per object, however many fields are unknown, naming none of them."""
+    unknown = [name for name in entry if name not in allowed]
+    if not unknown:
+        return
+    hint = (
+        f"; {_NO_SECRETS}"
+        if any(_SECRET_NAME.search(str(name)) for name in unknown)
+        else ""
+    )
+    problems.append(
+        f"{where}: {len(unknown)} unknown field(s); the allowed fields are "
+        f"{', '.join(allowed)}{hint}"
+    )
 
 
 def _parse_bot(
@@ -107,9 +115,7 @@ def _parse_bot(
         problems.append(f"{where}: each bot must be a JSON object")
         return None
     before = len(problems)
-    for name in entry:
-        if name not in _BOT_FIELDS:
-            problems.append(_unknown_field(where, str(name)))
+    _unknown_fields(entry, _BOT_FIELDS, where, problems)
     for name in _BOT_FIELDS:
         if name not in entry:
             problems.append(f"{where}.{name}: missing")
@@ -121,14 +127,14 @@ def _parse_bot(
     kind = text["kind"]
     if kind is not None and kind not in known_kinds:
         problems.append(
-            f"{where}.kind: {kind!r} is not a kind of bot here; known: {', '.join(known_kinds)}"
+            f"{where}.kind: not a kind of bot here; one of: {', '.join(known_kinds)}"
         )
     venue = _venue(text["venue"], f"{where}.venue", problems)
     desired = _desired(text["desired_state"], f"{where}.desired_state", problems)
-    name, symbol = text["name"], text["symbol"]
+    bot_name, symbol = text["name"], text["symbol"]
     if (
         len(problems) > before  # a problem was recorded above
-        or name is None
+        or bot_name is None
         or symbol is None
         or kind is None
         or venue is None
@@ -137,7 +143,7 @@ def _parse_bot(
     ):
         return None
     return PlannedBot(
-        name=name.strip(),
+        name=bot_name.strip(),
         kind=kind,
         venue=venue,
         symbol=symbol.strip().upper(),
@@ -166,18 +172,19 @@ def _params(raw: object, where: str, problems: list[str]) -> dict[str, str] | No
         return None
     params: dict[str, str] = {}
     ok = True
-    for name, value in raw.items():
+    for position, (name, value) in enumerate(raw.items(), start=1):
+        here = f"{where}: parameter {position} (in file order)"
         if not isinstance(name, str) or not name.strip():
-            problems.append(f"{where}: a parameter needs a name")
+            problems.append(f"{here} needs a name")
             ok = False
         elif _SECRET_NAME.search(name):
             problems.append(
-                f"{where}.{name}: a parameter named like a secret is refused; {_NO_SECRETS}"
+                f"{here} is named like a secret and is refused; {_NO_SECRETS}"
             )
             ok = False
         elif not isinstance(value, str):
             problems.append(
-                f"{where}.{name}: must be text (write the number in quotes, so no float touches a price)"
+                f"{here} must be text (write the number in quotes, so no float touches a price)"
             )
             ok = False
         else:
@@ -195,9 +202,7 @@ def _venue(value: str | None, where: str, problems: list[str]) -> TradingVenue |
     }
     venue = allowed.get(value)
     if venue is None:
-        problems.append(
-            f"{where}: {value!r} is not a venue; one of: {', '.join(allowed)}"
-        )
+        problems.append(f"{where}: not a venue; one of: {', '.join(allowed)}")
     return venue
 
 
@@ -211,12 +216,15 @@ def _desired(value: str | None, where: str, problems: list[str]) -> DesiredState
         return None
 
 
-def _check_identities(bots: list[PlannedBot], problems: list[str]) -> None:
-    seen: set[tuple[str, TradingVenue]] = set()
-    for bot in bots:
-        if bot.identity in seen:
+def _check_identities(
+    entries: list[tuple[int, PlannedBot]], problems: list[str]
+) -> None:
+    """A bot is identified by its name and venue; say which entry repeats which, by position."""
+    first_seen: dict[tuple[str, TradingVenue], int] = {}
+    for index, bot in entries:
+        earlier = first_seen.setdefault(bot.identity, index)
+        if earlier != index:
             problems.append(
-                f"bot {bot.name!r} on {bot.venue.value} is listed twice; "
-                "a bot is identified by its name and venue"
+                f"bots[{index}] repeats the name and venue of bots[{earlier}]; "
+                "a bot is identified by them"
             )
-        seen.add(bot.identity)

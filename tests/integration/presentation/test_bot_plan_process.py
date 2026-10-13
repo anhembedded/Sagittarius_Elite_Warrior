@@ -113,7 +113,8 @@ def test_a_plan_with_a_key_field_exits_two_and_the_value_is_nowhere(
     )
 
     assert code == int(ExitCode.USAGE)
-    assert "api_key" in err and "unknown field" in err
+    assert "bots[0]" in err and "unknown field" in err
+    assert "api_key" not in out + err, "not even the field's name is repeated"
     assert FAKE_SECRET not in out + err
     assert not (tmp_path / "data" / "state" / "bot_plan.json").exists()
 

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    AT_REST_STATES,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
     permits_delete,
@@ -225,15 +228,22 @@ def _differing_params(
 
 
 def _meaning(desired: DesiredState, state: BotLifecycleState) -> str:
+    """What `desired_state` will mean for a bot in `state`, by the host's own rule.
+
+    `run --start-planned` starts a bot that is at rest (`AT_REST_STATES`, the report's
+    constant that the host asks), so a promise to start is made only for those; a bot
+    that is HALTED, in ERROR, STARTING or STOPPING is not started, and the diff says so."""
+    at_rest = state.value in AT_REST_STATES
     active = restarts_into_recovering(state)
     if desired is DesiredState.RUNNING:
+        if at_rest:
+            return "desired running: run --start-planned will start it"
+        if active:
+            return "desired running: already running, nothing to start"
         return (
-            "desired running: already running, nothing to start"
-            if active
-            else "desired running: run --start-planned will start it"
+            f"desired running: but the bot is {state.value}, so run --start-planned "
+            "will not start it (only a bot at rest is started)"
         )
-    return (
-        f"desired stopped: apply does not stop a bot (it is {state.value})"
-        if active
-        else "desired stopped: run --start-planned leaves it"
-    )
+    if active:
+        return f"desired stopped: apply does not stop a bot (it is {state.value})"
+    return "desired stopped: run --start-planned leaves it"

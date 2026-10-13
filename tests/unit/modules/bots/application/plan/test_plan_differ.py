@@ -22,10 +22,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    AT_REST_STATES,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
     permits_delete,
     permits_edit,
+    restarts_into_recovering,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -229,3 +233,33 @@ def test_blocked_entries_are_reported_and_do_not_hide_the_others() -> None:
         ChangeAction.CREATE,
     ]
     assert result.blocked
+
+
+@pytest.mark.parametrize("state", list(BotLifecycleState), ids=lambda s: s.value)
+def test_the_diff_promises_a_start_only_for_a_bot_the_host_would_start(
+    state: BotLifecycleState,
+) -> None:
+    """`run --start-planned` starts a bot that is *at rest*: the report's `AT_REST_STATES`,
+    the rule the host asks. HALTED, ERROR and STOPPING are not at rest and are not started."""
+    recorded = AppliedPlan(
+        (AppliedBot("aaaaaa", "BTC grid", "spot_testnet", DesiredState.RUNNING),)
+    )
+
+    change = only(diff((planned(),), (stored("aaaaaa", state),), recorded))
+
+    starts = "will start it" in change.detail
+    assert starts is (state.value in AT_REST_STATES), (state, change.detail)
+    if not starts and not restarts_into_recovering(state):
+        assert "will not start" in change.detail and state.value in change.detail
+
+
+def test_a_new_bot_and_an_edited_one_are_drafts_so_the_host_will_start_them() -> None:
+    created = only(diff((planned(),)))
+    edited = only(
+        diff(
+            (planned(params={"lower": "1", "upper": "2"}),),
+            (stored("aaaaaa", BotLifecycleState.STOPPED),),
+        )
+    )
+
+    assert "will start it" in created.detail and "will start it" in edited.detail

@@ -90,6 +90,14 @@ class ApplyResult:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PlanPreview:
+    """What an apply would do, and what the operator must be told about the comparison."""
+
+    diff: PlanDiff
+    notes: tuple[str, ...] = ()
+
+
 class PlanApplier:
     def __init__(
         self, dispatcher: ICommandDispatcher, store: IAppliedPlanStore
@@ -97,10 +105,11 @@ class PlanApplier:
         self._dispatcher = dispatcher
         self._store = store
 
-    def diff(self, plan: BotPlanDocument, prune: PrunePolicy) -> PlanDiff:
-        """What `apply` would do; nothing is dispatched and nothing is written."""
-        diff, _ = self._compare(plan, prune)
-        return diff
+    def preview(self, plan: BotPlanDocument, prune: PrunePolicy) -> PlanPreview:
+        """What `apply` would do, with the same notes an apply carries (an unreadable bot
+        file or record changes what the diff can see); nothing is dispatched or written."""
+        diff, notes = self._compare(plan, prune)
+        return PlanPreview(diff, notes)
 
     def apply(self, plan: BotPlanDocument, prune: PrunePolicy) -> ApplyResult:
         diff, notes = self._compare(plan, prune)
@@ -127,7 +136,7 @@ class PlanApplier:
             recorded = None
             notes.append(
                 f"the previous record of the applied plan could not be read ({unreadable}); "
-                "it is replaced by this one"
+                "applying replaces it"
             )
         if listing.refused:
             names = ", ".join(file.name for file in listing.refused)

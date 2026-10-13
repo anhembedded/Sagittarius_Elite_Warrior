@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
     AppliedPlan,
     DesiredState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -104,7 +105,7 @@ def test_a_changed_parameter_edits_a_stopped_bot_through_the_edit_command() -> N
 
     (command,) = world.commands()
     assert isinstance(command, EditBotCommand) and command.bot_id == "aaaaaa"
-    stored = world.store.load_all().bots[0].bot
+    stored = world.store.load(BotId("aaaaaa")).bot
     assert dict(stored.definition.config) == {"lower": "5", "upper": "9"}
     assert stored.state is BotLifecycleState.DRAFT
 
@@ -128,7 +129,8 @@ def test_a_running_bots_range_edit_is_refused_by_the_table_and_the_other_entries
     assert "stop" in actions["grid one"].message.lower()
     assert actions["fresh one"].done, "each bot is applied independently"
     assert state_of(world.store, "aaaaaa") is BotLifecycleState.RUNNING
-    assert dict(world.store.load_all().bots[0].bot.definition.config) == {
+    untouched = world.store.load(BotId("aaaaaa")).bot
+    assert dict(untouched.definition.config) == {
         "lower": "1",
         "upper": "2",
     }, "nothing half-applied"
@@ -176,7 +178,7 @@ def test_a_dry_run_dispatches_nothing_and_writes_nothing() -> None:
     world, store = CommandWorld(), MemoryAppliedPlanStore()
     seed(world.store, "aaaaaa", BotLifecycleState.STOPPED, {"lower": "1", "upper": "2"})
 
-    diff = _applier(world, store).diff(
+    preview = _applier(world, store).preview(
         BotPlanDocument(
             (
                 planned(name="grid one", params={"lower": "5", "upper": "9"}),
@@ -186,7 +188,7 @@ def test_a_dry_run_dispatches_nothing_and_writes_nothing() -> None:
         PrunePolicy.PRUNE,
     )
 
-    assert diff.has_changes
+    assert preview.diff.has_changes
     assert world.commands() == [] and store.writes == 0
 
 
@@ -217,7 +219,7 @@ def test_an_unreadable_record_is_replaced_and_the_result_says_so() -> None:
 
     result = _apply(world, store, planned())
 
-    assert any("record" in n and "replaced" in n for n in result.notes), result.notes
+    assert any("record" in n and "replaces" in n for n in result.notes), result.notes
     assert store.plan is not None and len(store.plan.bots) == 1
 
 

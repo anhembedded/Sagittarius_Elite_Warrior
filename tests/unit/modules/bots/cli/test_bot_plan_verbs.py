@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
     AppliedPlan,
     DesiredState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -121,7 +122,8 @@ def test_apply_creates_the_bot_then_a_second_apply_says_no_changes(
     assert first is None and second is None
     assert first_document["data"]["summary"]["create"] == 1
     assert first_document["data"]["changes"][0]["done"] is True
-    created = world.store.load_all().bots[0].bot.bot_id.value
+    (only_bot,) = world.store.load_all().bots
+    created = only_bot.bot.bot_id.value
     assert first_document["data"]["changes"][0]["bot_id"] == created, (
         "a script learns the id of the bot that was created"
     )
@@ -218,7 +220,8 @@ def test_a_plan_with_a_key_field_exits_two_and_repeats_no_secret(
 
     captured = capsys.readouterr()
     assert outcome is not None and outcome.code is ExitCode.USAGE
-    assert "api_key" in outcome.message and "unknown field" in outcome.message
+    assert "bots[0]" in outcome.message and "unknown field" in outcome.message
+    assert "api_key" not in outcome.message + captured.out + captured.err
     assert _SECRET not in outcome.message + captured.out + captured.err
     assert world.commands() == []
 
@@ -330,3 +333,40 @@ def test_the_desired_state_an_exported_bot_gets_follows_the_record(
 
     (bot,) = json.loads(out.read_text(encoding="utf-8"))["bots"]
     assert bot["desired_state"] == "running"
+
+
+def test_a_dry_run_carries_the_same_notes_as_a_real_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An unreadable bot file and an unreadable record change what the diff can see; the
+    operator must be told in a dry run exactly as in the apply that follows it."""
+
+    def notes(*, dry_run: bool) -> list[str]:
+        world, store = CommandWorld(), MemoryAppliedPlanStore()
+        world.store.refuse_file(BotId("dddddd"), "not valid JSON")
+        store.unreadable = True
+        ApplyBotPlanVerb().run(
+            _apply_args(_plan_file(tmp_path, _bot()), dry_run=dry_run),
+            verb_world(world, _PRINTER, plans=store),
+        )
+        return _document(capsys)["data"]["notes"]  # type: ignore[no-any-return, index]
+
+    dry, real = notes(dry_run=True), notes(dry_run=False)
+
+    assert dry == real
+    assert any("bot file" in n and "dddddd" in n for n in dry), dry
+    assert any("record" in n and "applied plan" in n for n in dry), dry
+
+
+def test_the_text_report_of_a_dry_run_prints_the_notes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    world = CommandWorld()
+    world.store.refuse_file(BotId("dddddd"), "not valid JSON")
+
+    ApplyBotPlanVerb().run(
+        _apply_args(_plan_file(tmp_path, _bot()), dry_run=True, json=False),
+        verb_world(world, _PRINTER),
+    )
+
+    assert "dddddd" in capsys.readouterr().out
