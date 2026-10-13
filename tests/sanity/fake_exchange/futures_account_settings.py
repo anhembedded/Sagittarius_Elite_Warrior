@@ -48,8 +48,8 @@ class AccountSettings:
         if (
             1 <= leverage <= _MAX_LEVERAGE
             and reducing
-            and self._account.position_amount(symbol) != 0
-            and self._account.isolated(symbol)
+            and self._account.positions.amount(symbol) != 0
+            and self._account.positions.isolated(symbol)
         ):
             return _refusal(
                 -4161,
@@ -67,7 +67,7 @@ class AccountSettings:
                 return _refusal(
                     -4047, "Margin type cannot be changed if there exists open orders."
                 )
-            if self._account.position_amount(symbol) != 0:
+            if self._account.positions.amount(symbol) != 0:
                 return _refusal(
                     -4048, "Margin type cannot be changed if there exists position."
                 )
@@ -84,7 +84,7 @@ class AccountSettings:
             return _refusal(
                 -4067, "Position side cannot be changed if there exists open orders."
             )
-        if self._account.open_symbols():
+        if self._account.positions.symbols():
             return _refusal(
                 -4068, "Position side cannot be changed if there exists position."
             )

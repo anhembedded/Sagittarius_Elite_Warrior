@@ -48,7 +48,7 @@ class OrderChecks:
         self._symbol_config = symbol_config
 
     def refused(self, order: dict[str, Any]) -> tuple[int, dict[str, Any]] | None:
-        held = self._account.position_amount(order["symbol"])
+        held = self._account.positions.amount(order["symbol"])
         if order["reduceOnly"]:
             if not reduces(held, order["side"]) or self._reduce_only_excess(
                 order, held
@@ -63,7 +63,7 @@ class OrderChecks:
         asked = Decimal(order["origQty"])
         if not order["reduceOnly"]:
             return asked
-        return min(asked, abs(self._account.position_amount(order["symbol"])))
+        return min(asked, abs(self._account.positions.amount(order["symbol"])))
 
     def _reduce_only_excess(self, order: dict[str, Any], held: Decimal) -> bool:
         """A market order is capped instead, not refused."""
@@ -100,7 +100,7 @@ class OrderChecks:
             return _refusal(
                 -2027, "Exceeded the maximum allowable position at current leverage."
             )
-        needed = notional / leverage - self._account.initial_margin(symbol)
+        needed = notional / leverage - self._account.positions.initial_margin(symbol)
         if needed > self._account.available_balance:
             return _refusal(-2019, "Margin is insufficient.")
         return None

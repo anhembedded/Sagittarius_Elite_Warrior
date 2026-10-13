@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))
+from fake_exchange import futures_liquidation
 from fake_exchange.history_log import HistoryQuery
 from fake_exchange.order_book_state import OrderBookState
 
@@ -116,3 +117,17 @@ def isolated_at(state: OrderBookState, leverage: int) -> None:
     assert (
         state.change_leverage({"symbol": SYMBOL, "leverage": str(leverage)})[0] == 200
     )
+
+
+def liquidation_price_of(amount: str, entry: str, margin: str) -> Decimal:
+    """The exact (unrounded) price that liquidates the position, by the fake's formula."""
+    price = futures_liquidation.liquidation_price(
+        Decimal(amount), Decimal(entry), Decimal(margin)
+    )
+    assert price is not None
+    return price
+
+
+def risk_row(state: OrderBookState) -> dict[str, Any]:
+    (row,) = state.account.position_risk(SYMBOL)
+    return row

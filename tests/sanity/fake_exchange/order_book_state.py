@@ -111,10 +111,15 @@ class OrderBookState:
 
     def advance_clock(self, milliseconds: int) -> None:
         """Moves the funding clock; every settlement it passes charges (or credits)
-        each open position at the mark and queues the `ACCOUNT_UPDATE` Binance pushes."""
+        each open position at the mark and queues the `ACCOUNT_UPDATE` Binance pushes; a
+        position that funding leaves past its liquidation price is liquidated."""
         for _settled_at in self.funding.advance(milliseconds):
-            for symbol in self.account.open_symbols():
+            for symbol in self.account.positions.symbols():
                 self._settle_funding(symbol)
+        # Funding paid out of an isolated margin can carry the position past its
+        # liquidation price at the mark it already stands at.
+        for symbol in self.account.positions.symbols():
+            self._liquidate_if_crossed(symbol)
 
     def drain_user_data_events(self) -> list[dict[str, Any]]:
         """Returns and clears every user-data event queued since the last drain."""
@@ -236,7 +241,7 @@ class OrderBookState:
         if fill_at_most is not None:
             quantity = min(quantity, fill_at_most)
         if order["reduceOnly"]:
-            held = self.account.position_amount(symbol)
+            held = self.account.positions.amount(symbol)
             if not reduces(held, order["side"]):
                 self._expire(order, futures_user_data.EXPIRED_REDUCE_ONLY)
                 return
@@ -248,14 +253,14 @@ class OrderBookState:
         if (
             order["reduceOnly"]
             and order["status"] != _STATUS_FILLED
-            and self.account.position_amount(symbol) == 0
+            and self.account.positions.amount(symbol) == 0
         ):
             self._expire(order, futures_user_data.EXPIRED_REDUCE_ONLY)
         self._after_position_change(symbol)
 
     def _after_position_change(self, symbol: str) -> None:
         """A reduce-only order that can no longer reduce is knocked out (reason 4)."""
-        held = self.account.position_amount(symbol)
+        held = self.account.positions.amount(symbol)
         for order in list(self._orders.values()):
             if (
                 order["symbol"] == symbol
@@ -325,8 +330,10 @@ class OrderBookState:
     # -- liquidation and funding ---------------------------------------------
 
     def _liquidate_if_crossed(self, symbol: str) -> None:
-        held = self.account.position_amount(symbol)
-        price = self.account.liquidation_price(symbol)
+        held = self.account.positions.amount(symbol)
+        price = self.account.positions.liquidation_price(
+            symbol, self.account.wallet_balance
+        )
         if held == 0 or price is None:
             return
         if not futures_liquidation.is_liquidated(
@@ -360,7 +367,7 @@ class OrderBookState:
                 "tradeId": "",
             }
         )
-        isolated = self.account.isolated(symbol)
+        isolated = self.account.positions.isolated(symbol)
         self._events.publish_account_update(
             "FUNDING_FEE", symbol, payment, with_position=isolated
         )

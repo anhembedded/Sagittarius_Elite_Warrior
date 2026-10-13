@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.tests.unit.fake_exchange.futures_world import (
     incomes,
     isolated_at,
     limit,
+    risk_row,
     wallet,
 )
 
@@ -140,4 +141,60 @@ def test_an_isolated_position_gets_its_own_row_in_the_account_update() -> None:
     (update,) = events_of(state, "ACCOUNT_UPDATE")
     (row,) = update["a"]["P"]
     assert (row["s"], row["pa"], row["mt"]) == (SYMBOL, "1.00000000", "isolated")
+    assert row["iw"] == "6393.60000000"  # 6 400 less the 6.4 just paid
     assert holding(state) == (Decimal(1), Decimal(64000))
+
+
+def _isolated_long(leverage: int = 10) -> OrderBookState:
+    state = OrderBookState()
+    isolated_at(state, leverage)
+    limit(state, "BUY", "64000", "1")
+    state.move_price(SYMBOL, Decimal(64000))
+    state.drain_user_data_events()
+    return state
+
+
+def test_funding_on_an_isolated_position_comes_out_of_its_margin() -> None:
+    """Binance takes an isolated position's funding from that position's margin, so it
+    moves the liquidation price; a fake that took it from the wallet would liquidate
+    later than the exchange does."""
+    state = _isolated_long()
+    before = risk_row(state)
+    state.set_funding_rate(SYMBOL, Decimal("0.0001"))
+
+    state.advance_clock(_EIGHT_HOURS_MS)
+
+    after = risk_row(state)
+    assert Decimal(after["isolatedMargin"]) == Decimal(
+        before["isolatedMargin"]
+    ) - Decimal("6.4")
+    assert Decimal(after["liquidationPrice"]) > Decimal(before["liquidationPrice"])
+    assert wallet(state) == STARTING_WALLET - _OPEN_FEE - Decimal("6.4")
+
+
+def test_funding_received_on_an_isolated_position_adds_to_its_margin() -> None:
+    state = _isolated_long()
+    before = risk_row(state)
+    state.set_funding_rate(SYMBOL, Decimal("-0.0001"))
+
+    state.advance_clock(_EIGHT_HOURS_MS)
+
+    after = risk_row(state)
+    assert Decimal(after["isolatedMargin"]) == Decimal(
+        before["isolatedMargin"]
+    ) + Decimal("6.4")
+    assert Decimal(after["liquidationPrice"]) < Decimal(before["liquidationPrice"])
+
+
+def test_paid_funding_brings_liquidation_earlier() -> None:
+    """A price the position survives on its own is one it does not survive after paying."""
+    state = _isolated_long()
+    survived_at = Decimal(58000)  # above the 57 839.20 that liquidates 6 400 of margin
+    state.move_price(SYMBOL, survived_at)
+    assert holding(state) is not None
+    state.set_funding_rate(SYMBOL, Decimal("0.01"))  # 580 at that mark: 6 400 -> 5 820
+
+    state.advance_clock(_EIGHT_HOURS_MS)
+
+    assert holding(state) is None
+    assert wallet(state) == STARTING_WALLET - _OPEN_FEE - Decimal(6400)

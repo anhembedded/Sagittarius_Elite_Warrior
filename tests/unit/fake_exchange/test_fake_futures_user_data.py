@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.tests.unit.fake_exchange.futures_world import (
     SYMBOL,
     OrderBookState,
     limit,
+    trades,
     wallet,
 )
 
@@ -117,3 +118,25 @@ def test_draining_empties_the_queue_and_events_carry_their_times() -> None:
 
     assert state.drain_user_data_events() == []
     assert event["E"] >= event["T"] > 0
+
+
+def test_a_fills_trade_id_is_the_id_user_trades_reports() -> None:
+    """`039D` de-duplicates a fill report by `t`, so the stream's `t` is exactly the
+    `id` of the `userTrades` row, and it differs from fill to fill."""
+    state = OrderBookState()
+    limit(state, "BUY", "63000", "1.0")
+    state.drain_user_data_events()
+
+    state.move_price(SYMBOL, Decimal(63000), fill_at_most=Decimal("0.4"))
+    first = [
+        e for e in state.drain_user_data_events() if e["e"] == "ORDER_TRADE_UPDATE"
+    ]
+    state.move_price(SYMBOL, Decimal(63000))
+    second = [
+        e for e in state.drain_user_data_events() if e["e"] == "ORDER_TRADE_UPDATE"
+    ]
+
+    rows = trades(state)
+    assert [e["o"]["t"] for e in first + second] == [r["id"] for r in rows]
+    assert rows[0]["id"] != rows[1]["id"]
+    assert all(r["id"] > 0 for r in rows)

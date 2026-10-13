@@ -162,14 +162,14 @@ class UserDataQueue:
     ) -> None:
         positions = []
         if with_position:
-            held = self._account.position_amount(symbol)
+            held = self._account.positions.amount(symbol)
             positions = [
                 position_row(
                     symbol,
                     held,
-                    self._account.entry_price(symbol) if held else Decimal(0),
-                    self._account.unrealized_pnl(symbol),
-                    self._account.isolated_wallet(symbol),
+                    self._account.positions.entry_price(symbol) if held else Decimal(0),
+                    self._account.positions.unrealized(symbol),
+                    self._account.positions.isolated_margin(symbol),
                 )
             ]
         self.publish(

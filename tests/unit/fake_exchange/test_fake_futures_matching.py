@@ -4,6 +4,12 @@ crosses it, and moves the position, the wallet and every report with the fill.
 Written before the matcher (each was red: a resting order never filled). The Spot
 twin is `spot_order_book.py`; the rules are the same ones, with the Futures parts
 (signed position, maker fee, reduce-only) on top.
+
+**Stated guesses** (not on the Binance pages read; each is checked only by a Futures
+testnet run, which is the owner's): a resting order fills at its own limit price, never a
+better one; the fees are 0.02 % maker and 0.05 % taker (the fake's own `commissionRate`
+answer, not a measured account); a limit placed already marketable rests until the next
+price move instead of filling at once.
 """
 
 from __future__ import annotations
@@ -185,3 +191,16 @@ def test_moving_the_price_moves_the_book_and_the_position_mark(
 
     assert Decimal(row["markPrice"]) == Decimal(price)
     assert Decimal(bid_ask["bidPrice"]) < Decimal(price) < Decimal(bid_ask["askPrice"])
+
+
+def test_an_orders_quote_total_accumulates_over_its_partial_fills() -> None:
+    state = OrderBookState()
+    order = limit(state, "BUY", "63000", "1.0")
+
+    state.move_price(SYMBOL, Decimal(63000), fill_at_most=Decimal("0.4"))
+    assert Decimal(history(state)[order["clientOrderId"]]["cumQuote"]) == Decimal(25200)
+    state.move_price(SYMBOL, Decimal(63000))
+
+    row = history(state)[order["clientOrderId"]]
+    assert Decimal(row["cumQuote"]) == Decimal(63000)
+    assert (row["executedQty"], row["avgPrice"]) == ("1.0", "63000")

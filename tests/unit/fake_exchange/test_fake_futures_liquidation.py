@@ -1,11 +1,15 @@
 """`EPIC-039C` — the fake Futures exchange liquidates a position its mark price crosses.
 
-Binance's order-update page (read 2026-10-13): a liquidated user's order has client order
-id `autoclose-...` (an auto-deleveraging close is `adl_autoclose`), order type
-`LIQUIDATION`, execution type `CALCULATED`; orders expire with reason 5 "when the account
-was liquidated". Not in the pages read, and chosen here (worst case): the forced fill is
-at the liquidation price and the position's **whole isolated margin** is lost, no insurance
-fund and no clearance-fee schedule. The price formula is the production estimate's
+Binance's order-update page (read 2026-10-13) says: a liquidated user's order has client
+order id `autoclose-...` (an auto-deleveraging close is `adl_autoclose`) and status `NEW`;
+the order type list has `LIQUIDATION` and the execution types `CALCULATED` ("Liquidation
+Execution"); orders expire with reason 5 "when the account was liquidated".
+
+**Stated guesses** (not on the pages read): the sequence `CALCULATED`/`NEW` and then a
+`TRADE`/`FILLED` report for the same `autoclose-` order (the page documents the liquidation
+order's creation, not how its fill is reported); the forced fill is at the liquidation
+price; the position's **whole isolated margin** is lost, with no insurance fund and no
+clearance-fee schedule. The price formula is the production estimate's
 (`liquidation_estimate.py`), re-implemented in the fake so a defect there cannot hide here;
 `test_the_fakes_liquidation_price_is_the_production_estimate` compares the two.
 """
@@ -31,6 +35,7 @@ from Sagittarius_Elite_Warrior.tests.unit.fake_exchange.futures_world import (
     holding,
     isolated_at,
     limit,
+    liquidation_price_of,
     trades,
     wallet,
 )
@@ -162,3 +167,28 @@ def test_a_position_without_a_cross_to_its_liquidation_price_is_left_alone() -> 
     state.move_price(SYMBOL, Decimal(60000))
 
     assert holding(state) == (Decimal(1), Decimal(64000))
+
+
+def test_a_mark_exactly_at_the_liquidation_price_liquidates_a_long() -> None:
+    state = _isolated_long()
+    exact = liquidation_price_of("1", "64000", "6400")
+
+    state.move_price(SYMBOL, exact + Decimal("1e-8"))
+    assert holding(state) is not None
+    state.move_price(SYMBOL, exact)
+
+    assert holding(state) is None
+
+
+def test_a_mark_exactly_at_the_liquidation_price_liquidates_a_short() -> None:
+    state = OrderBookState()
+    isolated_at(state, 10)
+    limit(state, "SELL", "64000", "1")
+    state.move_price(SYMBOL, Decimal(64000))
+    exact = liquidation_price_of("-1", "64000", "6400")
+
+    state.move_price(SYMBOL, exact - Decimal("1e-8"))
+    assert holding(state) is not None
+    state.move_price(SYMBOL, exact)
+
+    assert holding(state) is None

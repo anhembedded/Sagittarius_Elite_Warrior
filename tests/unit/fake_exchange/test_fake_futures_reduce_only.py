@@ -135,3 +135,19 @@ def test_a_reduce_only_market_order_keeps_its_old_rules(order_type: str) -> None
 
     assert (filled["origQty"], filled["executedQty"]) == ("1", "0.3")
     assert holding(state) is None
+
+
+def test_resting_reduce_only_orders_that_add_up_to_exactly_the_position_are_accepted() -> (
+    None
+):
+    state = OrderBookState()
+    _long(state, "1")
+    limit(state, "SELL", "65000", "0.6", reduce_only=True)
+
+    limit(state, "SELL", "66000", "0.4", reduce_only=True)
+
+    status, body = _refusal(
+        state, side="SELL", price="67000", quantity="0.001", reduce_only=True
+    )
+    assert (status, body["code"]) == (400, -2022)  # type: ignore[index]
+    assert len(state.open_orders(SYMBOL)) == 2
