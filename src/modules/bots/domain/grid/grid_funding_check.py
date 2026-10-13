@@ -29,10 +29,18 @@ _OK, _WARNING = VerdictSeverity.OK, VerdictSeverity.WARNING
 _HOURS = FUNDING_INTERVAL.total_seconds() / 3600
 
 
+def venue_charges_funding(inputs: GridCheckInputs) -> bool:
+    """Whether the plan's venue has funding at all (`MarketView.funding` is set from the
+    venue profile's `has_funding`); a venue without it is not judged and shows no line."""
+    return inputs.market.funding is not None
+
+
 def check_funding_adverse(inputs: GridCheckInputs) -> Verdict:
     funding = inputs.market.funding
     if funding is None:
-        return Verdict(_OK, "NO_FUNDING", "This venue charges no funding")
+        raise ValueError(
+            "a venue without funding is not judged; see `venue_charges_funding`"
+        )
     if funding.rate is None:
         return Verdict(
             _OK,

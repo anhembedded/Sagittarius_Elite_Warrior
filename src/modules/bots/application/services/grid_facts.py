@@ -182,7 +182,9 @@ class GridFacts(IBotFacts):
                 state.update(
                     book_market_fill(
                         state.runtime, fill.side, level_fill
-                    ).with_commission(level_fill.quote_fee)
+                    ).with_fill_commission(
+                        level_fill.base_fee, level_fill.quote_fee, level_fill.price
+                    )
                 )
             else:
                 logger.info(
@@ -198,7 +200,11 @@ class GridFacts(IBotFacts):
             self._context.terms.step_size,
             hold=state.state is not _S.RUNNING,
         )
-        state.update(reaction.runtime.with_commission(level_fill.quote_fee))
+        state.update(
+            reaction.runtime.with_fill_commission(
+                level_fill.base_fee, level_fill.quote_fee, level_fill.price
+            )
+        )
         self._parts.placer.act(reaction.actions)
 
     def _apply_funding(self, charge: BotFundingCharge) -> None:

@@ -196,5 +196,7 @@ def test_run_checks_answers_one_verdict_per_constraint_in_the_tables_order() -> 
         GridThresholds(),
     )
     verdicts = run_checks(check_inputs)
-    assert verdicts == tuple(c.check(check_inputs) for c in GRID_CONSTRAINTS)
+    assert verdicts == tuple(
+        c.check(check_inputs) for c in GRID_CONSTRAINTS if c.applies(check_inputs)
+    )
     assert verdicts == evaluation.verdicts

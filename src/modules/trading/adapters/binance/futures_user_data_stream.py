@@ -65,6 +65,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     account_update_funding,
     account_update_position_pnls,
     account_update_wallet_balance,
+    is_funding_update,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_stream_supervisor import (
     DEFAULT_RECONNECT_POLICY,
@@ -276,6 +277,12 @@ class FuturesUserDataStream(ManagedUserDataStream):
             self._events.funding_charged(funding.symbol, funding.amount)
             logger.debug(
                 "ACCOUNT_UPDATE  %s  funding %s", funding.symbol, funding.amount
+            )
+        elif is_funding_update(payload):
+            logger.warning(
+                "[funding-unbooked] a FUNDING_FEE ACCOUNT_UPDATE named no symbol or carried "
+                "no USDT balance change, so its funding is in no bot's account: %s",
+                payload.get("a"),
             )
 
         if self._trading_client is None:

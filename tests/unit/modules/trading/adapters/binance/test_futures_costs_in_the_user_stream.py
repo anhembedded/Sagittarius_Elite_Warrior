@@ -138,6 +138,36 @@ def test_a_funding_update_names_its_symbol_by_its_one_position_when_s_is_absent(
     assert charge is not None and charge.symbol == "ETHUSDT"
 
 
+async def test_a_funding_update_that_cannot_be_booked_is_said_not_dropped(
+    caplog,
+) -> None:
+    """No `a.S` and two positions, or no USDT balance change (Multi-Assets mode): the money
+    fact is in no bot's account, so the stream logs a tagged warning."""
+    bus = MemoryEventBus()
+    seen: list[FundingChargedEvent] = []
+    bus.on(FundingChargedEvent, seen.append)
+    stream = FuturesUserDataStream(
+        venue_emitter(bus, TradingVenue.FUTURES_TESTNET),
+        Mock(),
+        Mock(),
+        Mock(),
+        TradingSessionState(),
+        EquityCurveRecorder(),
+    )
+    stream._trading_client = Mock(get_positions=Mock(return_value=[]))
+    ambiguous = _funding(
+        "-1", P=[{"s": "A", "pa": "1", "up": "0"}, {"s": "B", "pa": "1", "up": "0"}]
+    )
+    del ambiguous["a"]["S"]
+    other_asset = _funding("-1", B=[{"a": "BNFCR", "wb": "1", "cw": "1", "bc": "-1"}])
+
+    await stream._handle_message(ambiguous)
+    await stream._handle_message(other_asset)
+
+    assert seen == []
+    assert caplog.text.count("[funding-unbooked]") == 2
+
+
 async def test_the_stream_publishes_a_funding_charge_once_per_account_update() -> None:
     bus = MemoryEventBus()
     seen: list[FundingChargedEvent] = []

@@ -134,6 +134,12 @@ class FundingCharge:
     amount: Decimal
 
 
+def is_funding_update(payload: dict[str, Any]) -> bool:
+    """@brief Whether this `ACCOUNT_UPDATE` is a funding settlement, by its reason `"m"`
+    alone: whether or not `account_update_funding` could book it."""
+    return bool(payload.get("a", {}).get("m") == _FUNDING_REASON)
+
+
 def account_update_funding(payload: dict[str, Any]) -> FundingCharge | None:
     """@brief The funding fee this `ACCOUNT_UPDATE` reports, or `None` when its
     reason `"m"` is not `FUNDING_FEE`, it has no quote-asset balance change, or the

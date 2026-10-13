@@ -205,6 +205,27 @@ def test_the_costs_survive_a_save_and_a_load() -> None:
     assert (again.commissions, again.funding_total) == (Decimal("0.7"), Decimal("-0.3"))
 
 
+def test_a_spot_fee_paid_in_the_base_asset_is_priced_at_the_fill_into_commissions() -> (
+    None
+):
+    world = running()
+    order = _resting_buy_at_110(world)
+
+    world.executor.facts.on_fill(
+        BotOrderFill(
+            order.client_order_id,
+            order.side,
+            Decimal(110),
+            _QUANTITY,
+            Decimal("0.0001"),
+            "BTC",
+            trade_id=21,
+        )
+    )
+
+    assert world.runtime().commissions == Decimal("0.0001") * Decimal(110)
+
+
 def test_spot_pnl_is_unchanged_for_the_oracle_inputs() -> None:
     """The Spot ladder's figures are what they were: no funding exists, so the total is
     still realised plus unrealised, and the new cost lines add information, not change it."""

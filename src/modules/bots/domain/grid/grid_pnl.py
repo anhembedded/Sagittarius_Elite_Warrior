@@ -39,8 +39,8 @@ class PnlSummary:
     hodl: Decimal | None
     #: Fills whose fee could not be priced: the figures are short by them.
     unpriced_fees: int
-    #: `EPIC-039G` — what the run's fills paid in commission, quote asset; already inside
-    #: `realised`, shown so trading's cost is visible.
+    #: `EPIC-039G` — what the run's fills paid in commission, in the quote asset; shown so
+    #: trading's cost is visible (see `GridRuntime.commissions` for how each fee is valued).
     commissions: Decimal = _ZERO
     #: `EPIC-039G` — funding settled on the position, signed (earned positive). Part of
     #: the `total`, never of `grid_profit` ("funding is separate", Pionex's split).

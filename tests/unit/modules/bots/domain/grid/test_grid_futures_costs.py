@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     FundingView,
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_constraints import (
+    GRID_CONSTRAINTS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
     evaluate_grid,
 )
@@ -165,10 +168,16 @@ def test_a_venue_without_funding_is_no_funding_not_a_zero_rate() -> None:
 
     assert funding_view_of(spot, SYMBOL) is None
     judged = evaluate_grid(inputs(), GridThresholds())
-    assert (
-        next(v for v in judged.verdicts if v.code == "NO_FUNDING").severity
-        is VerdictSeverity.OK
-    )
+    assert not [v for v in judged.verdicts if "FUNDING" in v.code]
+
+
+def test_a_spot_plan_gets_no_funding_line_at_all() -> None:
+    """Spot's readiness list is what it was: the funding constraint is not run, so it adds no
+    verdict, not even an OK one (`bot_detail` shows every verdict)."""
+    judged = evaluate_grid(inputs(), GridThresholds())
+
+    assert len(judged.verdicts) == len(GRID_CONSTRAINTS) - 1
+    assert "funding_leaves_the_cycle_profit" in {c.name for c in GRID_CONSTRAINTS}
 
 
 def test_the_funding_view_carries_the_rate_the_exchange_reports() -> None:

@@ -1,9 +1,16 @@
 """`EPIC-039G` — what trading costs a bot on one venue, in one place.
 
-@details The planner's break-even, the readiness text and the PnL read the same numbers
-(the `EPIC-037` lesson), so they ask one port rather than each re-deriving "two fees" from
-the venue's terms. Spot's answer is the maker and taker rate with no funding; Futures'
-is the account's rates and the funding rate the exchange reports now.
+@details The one statement of what trading costs on a venue: Spot's answer is the maker and
+taker rate with no funding; Futures' is the account's rates and the funding rate the exchange
+reports now.
+
+@par Today this is a seam, not yet a shared source
+The Grid's checks still read the same fees from `ExchangeTerms`, and a test
+(`test_futures_fees_come_from_the_account_and_set_the_break_even_step`) pins the two equal. The
+port exists for the consumers that need funding over a horizon and cannot take it from the
+terms: the Futures executor (`EPIC-039H`) and the Futures backtest (`EPIC-039K`). When one of
+them reads it, the checks should move to it so that a fee has one reader (the `EPIC-037`
+lesson).
 
 @par Unknown is a value
 A funding rate that could not be read is `None` from `funding_estimate`, never `0`
