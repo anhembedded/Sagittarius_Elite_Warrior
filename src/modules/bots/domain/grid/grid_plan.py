@@ -17,14 +17,33 @@
   quantity is its capital's worth at the last price — the report's start-up,
   where half the capital buys the base for the levels above.
 · **The opening purchase** is the total quantity of the SELL levels.
+
+@par Direction and sizing (`EPIC-039B`)
+The levels are the same for every `TradeDirection`; the direction decides only the opening
+trade and which counters only reduce. LONG opens with a market buy of the SELL levels'
+quantity (the Spot case above), SHORT with a market sell of the BUY levels' quantity, NEUTRAL
+with none; `opening_quantity` is signed (`+` buy, `-` sell). LONG's SELLs and SHORT's BUYs
+are `reduce_only`: they can only shrink the position the opening built. The flag means
+something on a position venue; the Spot executor never reads it.
+
+`LevelSizing` says how a level's quantity is found. `EQUAL_CAPITAL` is Spot's rule above and
+the default. `EQUAL_QUANTITY` gives every order the same base quantity, sized so that every
+order filled at once is worth at most the capital times the leverage (decision O2): only then
+is the position a function of price (`grid_position_walk.py`), which a Futures ladder, its
+liquidation estimate and its Neutral mode rely on. Leverage multiplies the capital the
+ladder may reach; at 1 it is the capital itself.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
@@ -51,6 +70,16 @@ class LevelSide(str, Enum):
     EMPTY = "EMPTY"
 
 
+class LevelSizing(str, Enum):
+    """How each level's quantity is found (`EPIC-039B`)."""
+
+    #: Capital shared evenly, a BUY buying its share at its own price: a Spot inventory grid.
+    EQUAL_CAPITAL = "equal_capital"
+    #: The same base quantity at every level: a position grid, where the position is a
+    #: function of price.
+    EQUAL_QUANTITY = "equal_quantity"
+
+
 @dataclass(frozen=True, slots=True)
 class GridLevel:
     """One rung of the ladder."""
@@ -59,6 +88,8 @@ class GridLevel:
     price: Decimal
     side: LevelSide
     quantity: Decimal
+    #: The order can only shrink the position (`EPIC-039B`); meaningful on a position venue.
+    reduce_only: bool = False
 
     @property
     def notional(self) -> Decimal:
@@ -67,12 +98,19 @@ class GridLevel:
 
 @dataclass(frozen=True, slots=True)
 class GridPlan:
-    """The whole ladder, lowest price first, and the purchase that opens it."""
+    """The whole ladder, lowest price first, and the trade that opens it."""
 
     levels: tuple[GridLevel, ...]
     last_price: Decimal
     capital_per_level: Decimal
-    opening_buy_quantity: Decimal
+    #: The opening trade, signed: `+` a market buy, `-` a market sell, `0` none.
+    opening_quantity: Decimal
+    direction: TradeDirection = TradeDirection.LONG
+
+    @property
+    def opening_buy_quantity(self) -> Decimal:
+        """What the opening market buy buys: the LONG reading of `opening_quantity`."""
+        return max(self.opening_quantity, Decimal(0))
 
     @property
     def order_levels(self) -> tuple[GridLevel, ...]:
@@ -93,7 +131,12 @@ class GridPlan:
         return tuple(level.price for level in self.levels)
 
 
-def plan(params: GridParams, terms: ExchangeTerms, last_price: Decimal) -> GridPlan:
+def plan(
+    params: GridParams,
+    terms: ExchangeTerms,
+    last_price: Decimal,
+    level_sizing: LevelSizing = LevelSizing.EQUAL_CAPITAL,
+) -> GridPlan:
     """The ladder for `params` when the market is at `last_price`."""
     raw = raw_levels(params.lower, params.upper, params.grid_count, params.spacing)
     empty_index = _empty_index(raw, last_price)
@@ -101,15 +144,38 @@ def plan(params: GridParams, terms: ExchangeTerms, last_price: Decimal) -> GridP
         _side(index, price, last_price, empty_index) for index, price in enumerate(raw)
     ]
     order_count = sum(1 for side in sides if side is not LevelSide.EMPTY)
-    sizing = _Sizing(params.capital_quote / order_count, terms, last_price)
+    sizing = _Sizing(_capital_reached(params) / order_count, terms, last_price)
+    quantity_of = _quantity_rule(level_sizing, raw, sizing)
     levels = tuple(
-        _level(index, price, side, sizing)
+        _level(index, price, side, sizing, quantity_of, params.direction)
         for index, (price, side) in enumerate(zip(raw, sides, strict=True))
     )
-    opening = sum(
-        (level.quantity for level in levels if level.side is LevelSide.SELL), Decimal(0)
+    return GridPlan(
+        levels,
+        last_price,
+        sizing.capital_per_level,
+        _opening_quantity(params.direction, levels),
+        params.direction,
     )
-    return GridPlan(levels, last_price, sizing.capital_per_level, opening)
+
+
+def _capital_reached(params: GridParams) -> Decimal:
+    """The capital the ladder may reach: the capital itself at leverage 1 (decision O2)."""
+    if params.leverage == 1:
+        return params.capital_quote
+    return params.capital_quote * params.leverage
+
+
+def _opening_quantity(
+    direction: TradeDirection, levels: tuple[GridLevel, ...]
+) -> Decimal:
+    sell = sum((lv.quantity for lv in levels if lv.side is LevelSide.SELL), Decimal(0))
+    buy = sum((lv.quantity for lv in levels if lv.side is LevelSide.BUY), Decimal(0))
+    return {
+        TradeDirection.LONG: sell,
+        TradeDirection.SHORT: -buy,
+        TradeDirection.NEUTRAL: Decimal(0),
+    }[direction]
 
 
 def _empty_index(raw: tuple[Decimal, ...], last_price: Decimal) -> int | None:
@@ -148,15 +214,55 @@ class _Sizing:
     last_price: Decimal
 
 
+type _QuantityRule = Callable[[LevelSide, Decimal], Decimal]
+
+
+def _quantity_rule(
+    level_sizing: LevelSizing, raw: tuple[Decimal, ...], sizing: _Sizing
+) -> _QuantityRule:
+    """The quantity of a level of the given side at the given (rounded) price."""
+    if level_sizing is LevelSizing.EQUAL_QUANTITY:
+        # Sized at the highest level, so every order filled at once is worth at most the
+        # capital reached.
+        same = _ROUNDING.round_quantity_down(
+            sizing.capital_per_level / _highest(raw, sizing), sizing.terms.step_size
+        )
+        return lambda _side, _price: same
+
+    def equal_capital(side: LevelSide, price: Decimal) -> Decimal:
+        bought_at = price if side is LevelSide.BUY else sizing.last_price
+        return _ROUNDING.round_quantity_down(
+            sizing.capital_per_level / bought_at, sizing.terms.step_size
+        )
+
+    return equal_capital
+
+
+def _highest(raw: tuple[Decimal, ...], sizing: _Sizing) -> Decimal:
+    return _ROUNDING.round_price_to_tick(
+        max(raw), sizing.terms.tick_size, OrderSide.SELL
+    )
+
+
 def _level(
-    index: int, raw_price: Decimal, side: LevelSide, sizing: _Sizing
+    index: int,
+    raw_price: Decimal,
+    side: LevelSide,
+    sizing: _Sizing,
+    quantity_of: _QuantityRule,
+    direction: TradeDirection,
 ) -> GridLevel:
     order_side = OrderSide.SELL if side is LevelSide.SELL else OrderSide.BUY
     price = _ROUNDING.round_price_to_tick(raw_price, sizing.terms.tick_size, order_side)
     if side is LevelSide.EMPTY:
         return GridLevel(index, price, side, Decimal(0))
-    bought_at = price if side is LevelSide.BUY else sizing.last_price
-    quantity = _ROUNDING.round_quantity_down(
-        sizing.capital_per_level / bought_at, sizing.terms.step_size
+    return GridLevel(
+        index, price, side, quantity_of(side, price), _only_reduces(direction, side)
     )
-    return GridLevel(index, price, side, quantity)
+
+
+def _only_reduces(direction: TradeDirection, side: LevelSide) -> bool:
+    """LONG's SELLs shrink a long and SHORT's BUYs shrink a short; NEUTRAL's can open."""
+    return (direction is TradeDirection.LONG and side is LevelSide.SELL) or (
+        direction is TradeDirection.SHORT and side is LevelSide.BUY
+    )

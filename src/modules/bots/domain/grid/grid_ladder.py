@@ -96,7 +96,7 @@ def resized_for_inventory(
         side = LevelSide.SELL if quantity > 0 else LevelSide.EMPTY
         resized[level.index] = replace(level, side=side, quantity=quantity)
     levels = tuple(resized.get(level.index, level) for level in plan.levels)
-    return replace(plan, levels=levels, opening_buy_quantity=_ZERO)
+    return replace(plan, levels=levels, opening_quantity=_ZERO)
 
 
 def buys_within_capital(plan: GridPlan, left: Decimal, rules: LadderRules) -> GridPlan:
