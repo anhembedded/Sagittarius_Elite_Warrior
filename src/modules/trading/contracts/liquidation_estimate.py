@@ -25,8 +25,12 @@ because the app does not yet read `GET /fapi/v1/leverageBracket`. Until it
 does, a caller passes the first bracket's figures, which is what the task
 names.
 
-Plausible extensions: the brackets read per symbol (`IFuturesAccountControl`
-lists it); the other positions' terms for a cross account; hedge mode.
+`estimated_liquidation_price_in_brackets` (`EPIC-039F`) is the same formula with the
+bracket looked up for the position's own notional, which is what a plan's worst case
+needs: the position a ladder can reach is not the first bracket's. It builds a
+`LiquidationTerms` and calls `estimated_liquidation_price`; there is one formula.
+
+Plausible extensions: the other positions' terms for a cross account; hedge mode.
 """
 
 from __future__ import annotations
@@ -38,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.estimate_inputs imp
     require_finite,
     require_not_negative,
     require_positive,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -97,3 +104,32 @@ def estimated_liquidation_price(terms: LiquidationTerms) -> LiquidationPriceEsti
     denominator = terms.quantity * terms.maintenance_margin_rate - side * terms.quantity
     price = numerator / denominator
     return LiquidationPriceEstimate(price if price > 0 else None)
+
+
+@dataclass(frozen=True)
+class BracketedPosition:
+    """`EPIC-039F` - one position whose bracket is not yet known: the caller names
+    the position and the margin behind it, the brackets say the rest."""
+
+    side: PositionSide
+    quantity: Decimal
+    entry_price: Decimal
+    margin: Decimal
+
+
+def estimated_liquidation_price_in_brackets(
+    position: BracketedPosition, brackets: LeverageBrackets
+) -> LiquidationPriceEstimate:
+    """@return The price at which `position` would be liquidated, with the maintenance
+    rate and amount of the bracket its notional (`quantity x entry_price`) falls in."""
+    bracket = brackets.bracket_for(position.quantity * position.entry_price)
+    return estimated_liquidation_price(
+        LiquidationTerms(
+            position.side,
+            position.quantity,
+            position.entry_price,
+            position.margin,
+            bracket.maintenance_margin_rate,
+            bracket.maintenance_amount,
+        )
+    )
