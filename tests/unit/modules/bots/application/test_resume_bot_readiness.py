@@ -64,6 +64,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
+    SessionBlockReason,
+    SessionReadyResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -145,6 +149,7 @@ def _handler(world: ReadinessWorld, runner: _Runner) -> ResumeBotCommandHandler:
         world.store,
         runner,
         ResumeReadinessReader(world.facts, world.ports, world.caps),
+        world.ports,
     )
 
 
@@ -254,6 +259,46 @@ def test_a_paused_bots_resume_lays_no_ladder_and_is_not_gated(
     assert result.accepted
     assert runner.resumed == [BOT]
     assert world.session.earlier_runs_requests == []
+    assert world.session.ready_requests == 0
+
+
+def test_a_resume_from_halted_opens_the_order_session_before_it_is_queued(
+    world: ReadinessWorld,
+) -> None:
+    """`BUG-202`: Resume is a deliberate action, so it opens a closed session."""
+    _hold(world, "4.132")
+    world.session.set_enabled(enabled=False)
+    runner = _Runner()
+
+    result = _resume(world, runner)
+
+    assert result.accepted, result.message
+    assert world.session.snapshot().enabled
+    assert runner.resumed == [BOT]
+
+
+def test_a_resume_whose_session_will_not_open_is_refused_not_reported_done(
+    world: ReadinessWorld,
+) -> None:
+    """`BUG-202`: a session that stays closed leaves the bot HALTED, so the
+    command is refused in the session's own words and nothing is queued."""
+    _hold(world, "4.132")
+    world.session.ready_answers(
+        SessionReadyResult(
+            ready=False,
+            block_reason=SessionBlockReason.EMERGENCY_STOP_IN_PROGRESS,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
+    runner = _Runner()
+
+    result = _resume(world, runner)
+
+    assert not result.accepted
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert "Emergency stop is still running" in result.message
+    assert runner.resumed == []
 
 
 # --- fail closed: a ladder that cannot be drawn is a named item, as in Start ----

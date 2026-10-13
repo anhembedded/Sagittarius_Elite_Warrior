@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import
     DetailInputs,
     detail_for,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.queued_action_words import (
+    accepted_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
@@ -143,6 +146,11 @@ class SelectedBot:
 
     def saved(self) -> None:
         self.edited = None
+
+    def accepted_status(self, label: str, action: BotAction | None) -> str:
+        """The status line for an accepted command: what it did, or was sent to
+        do (`BUG-202`), and what a Save leaves undone."""
+        return f"{accepted_words(label, action)}{self.still_blocked(action)}"
 
     def still_blocked(self, action: BotAction | None) -> str:
         """What a Save leaves undone (`EPIC-035N`): the parameters were stored as

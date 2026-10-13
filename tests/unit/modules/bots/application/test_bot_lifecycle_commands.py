@@ -295,7 +295,10 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
             PauseBotCommand("abc123")
         ),
         "resume": lambda: ResumeBotCommandHandler(
-            store, runner, ResumeReadinessReader(world.facts, world.ports, world.caps)
+            store,
+            runner,
+            ResumeReadinessReader(world.facts, world.ports, world.caps),
+            world.ports,
         ).execute(ResumeBotCommand("abc123")),
         "stop": lambda: StopBotCommandHandler(store, runner).execute(
             StopBotCommand("abc123", ExposureHandling.KEEP)

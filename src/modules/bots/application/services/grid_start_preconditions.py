@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
     bot_owner_id,
     grid_registration,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_session_opening import (
+    order_session_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_brackets import (
     BracketsUnavailableError,
 )
@@ -55,9 +58,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_una
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words import (
-    refusal_words,
 )
 
 
@@ -104,10 +104,10 @@ class GridStartPreconditions:
         # refuses with the switch's own words on a foreign position. After the
         # refusals that cost nothing (the verdict, the lease), so a refused
         # start opens nothing; a refusal gives the lease back.
-        opened = session.ensure_ready()
-        if not opened.ready:
+        not_opened = order_session_refusal(session, bot_id)
+        if not_opened is not None:
             session.release_symbol(symbol, owner)
-            return _refused(BotRefusal.VENUE_NOT_READY, refusal_words(opened), bot_id)
+            return not_opened
         registration = session.register_owner_budget(
             grid_registration(bot_id, symbol, now, budget)
         )
