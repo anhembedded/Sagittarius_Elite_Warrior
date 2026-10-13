@@ -67,6 +67,8 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
         params = GridParams.from_config(inputs.config)
     except GridParamsError as exc:
         return _unreadable(str(exc))
+    if params.direction not in inputs.allowed_directions:
+        return GridEvaluation((_direction_not_allowed(params, inputs),), params)
     if params.grid_count > inputs.terms.max_open_orders:
         return GridEvaluation((_too_many_levels(params, inputs),), params)
     try:
@@ -108,6 +110,17 @@ def _unreadable(reason: str) -> GridEvaluation:
                 f"The Grid parameters cannot be read: {reason}",
             ),
         )
+    )
+
+
+def _direction_not_allowed(params: GridParams, inputs: BotKindInputs) -> Verdict:
+    allowed = ", ".join(
+        sorted(direction.value for direction in inputs.allowed_directions)
+    )
+    return Verdict(
+        VerdictSeverity.REFUSED,
+        "DIRECTION_NOT_ALLOWED",
+        f"A {params.direction.value} grid cannot run on this venue; it allows: {allowed}",
     )
 
 
