@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
+    IMarkSource,
+    MarkReadError,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_reads import (
     IPositionRecheck,
     IRiskSnapshotSource,
@@ -32,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_risk_reads import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import RiskSnapshot
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.not_applicable import (
-    NotApplicable,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
@@ -46,9 +47,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
 
 
 class PositionRiskSnapshots(IRiskSnapshotSource):
-    def __init__(self, context: GridRunContext, ports: IVenueTradingPorts) -> None:
+    """The position and the mark one beat of the risk watch judges. The mark is read through
+    the same `IMarkSource` the stop loss and take profit use, so the two read the one price from
+    the one place (and a bot that cannot read it is blind to both)."""
+
+    def __init__(
+        self, context: GridRunContext, ports: IVenueTradingPorts, marks: IMarkSource
+    ) -> None:
         self._context = context
         self._ports = ports
+        self._marks = marks
 
     def read(self) -> RiskSnapshot:
         definition = self._context.state.bot.definition
@@ -56,18 +64,19 @@ class PositionRiskSnapshots(IRiskSnapshotSource):
         venue = self._ports.get(definition.venue)
         try:
             positions = venue.account_snapshot.open_positions()
-            mark = venue.order_entry_terms.mark_price_for(symbol)
         except Exception as exc:
             raise RiskReadError(f"{symbol}: {exc}") from exc
-        if isinstance(mark, NotApplicable):
-            raise RiskReadError(f"{symbol}: the venue reports no mark price")
+        try:
+            mark = self._marks.read()
+        except MarkReadError as exc:
+            raise RiskReadError(str(exc)) from exc
         mine = tuple(p for p in positions if p.symbol == symbol)
         liquidation = next(
             (p.liquidation_price for p in mine if p.liquidation_price is not None), None
         )
         return RiskSnapshot(
             sum((p.position_amt for p in mine), Decimal(0)),
-            mark.mark_price,
+            mark,
             liquidation,
             self._context.state.now(),
         )

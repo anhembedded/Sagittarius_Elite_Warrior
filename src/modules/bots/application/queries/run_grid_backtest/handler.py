@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
+    RangeExit,
     unset_parameters,
     unset_parameters_reason,
 )
@@ -82,6 +83,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets i
 MAX_CANDLES = 20_000
 
 
+#: The replay has no range exit (`EPIC-039H` stage 3 added the parameter; the Futures replay of
+#: `EPIC-039K` has no event for it), so a definition that closes out of range is not replayed as
+#: if it held: the result would show an outcome the bot will not produce.
+_RANGE_EXIT_NOT_REPLAYED = (
+    "This plan closes when the price leaves the range, which the backtest does not model yet; "
+    "it would replay a bot that holds. Set it to hold to see the replay."
+)
+
+
 class RunGridBacktestQueryHandler(
     IQueryHandler[RunGridBacktestQuery, GridBacktestAnswer]
 ):
@@ -89,20 +99,9 @@ class RunGridBacktestQueryHandler(
         self._sources = sources
 
     def execute(self, query: RunGridBacktestQuery) -> GridBacktestAnswer:
-        unset = unset_parameters(query.config)
-        if unset:
-            # `BOT-150`: a draft created with the minimum asks for what to
-            # set, in the planner's words, not "lower is missing".
-            return GridBacktestRefusal(unset_parameters_reason(unset))
-        try:
-            params = GridParams.from_config(query.config)
-        except GridParamsError as exc:
-            return GridBacktestRefusal(f"The parameters cannot be read: {exc}")
-        # A backtest starts nothing, so it is judged against what the venue's market
-        # allows, not against the markets a bot may run on in this build (`EPIC-039K`).
-        refusal = exposure_refusal(params, plan_limits_of(query.venue))
-        if refusal is not None:
-            return GridBacktestRefusal(refusal.reason)
+        params = _params_of(query)
+        if isinstance(params, GridBacktestRefusal):
+            return params
         profile = venue_profile_of(query.venue)
         brackets: LeverageBrackets | None = None
         if profile is not None and profile.exposure_kind is ExposureKind.POSITION:
@@ -160,6 +159,27 @@ class RunGridBacktestQueryHandler(
             engine=engine,
         )
         return simulate_grid(inputs, query.cancelled)
+
+
+def _params_of(query: RunGridBacktestQuery) -> GridParams | GridBacktestRefusal:
+    """The definition to replay, or why it cannot be replayed."""
+    unset = unset_parameters(query.config)
+    if unset:
+        # `BOT-150`: a draft created with the minimum asks for what to
+        # set, in the planner's words, not "lower is missing".
+        return GridBacktestRefusal(unset_parameters_reason(unset))
+    try:
+        params = GridParams.from_config(query.config)
+    except GridParamsError as exc:
+        return GridBacktestRefusal(f"The parameters cannot be read: {exc}")
+    # A backtest starts nothing, so it is judged against what the venue's market
+    # allows, not against the markets a bot may run on in this build (`EPIC-039K`).
+    refusal = exposure_refusal(params, plan_limits_of(query.venue))
+    if refusal is not None:
+        return GridBacktestRefusal(refusal.reason)
+    if params.on_range_exit is RangeExit.CLOSE:
+        return GridBacktestRefusal(_RANGE_EXIT_NOT_REPLAYED)
+    return params
 
 
 def _futures_engine(

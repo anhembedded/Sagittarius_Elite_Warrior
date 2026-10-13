@@ -151,7 +151,9 @@ def risk_watches(
             context,
             RiskWatchParts(
                 guard,
-                PositionRiskSnapshots(context, ports),
+                PositionRiskSnapshots(
+                    context, ports, ExchangeMarkSource(context, ports)
+                ),
                 PositionRechecks(context),
                 clock,
                 thresholds,

@@ -32,6 +32,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import VerdictSeverity
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -41,6 +43,8 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.position_world import (
     Marks,
     a_position_world,
+    a_registration,
+    exchange_holds_less_after_each_sale,
 )
 
 S = BotLifecycleState
@@ -88,11 +92,13 @@ def test_spot_refuses_to_close_out_of_range_and_a_position_venue_allows_it() -> 
 @pytest.mark.parametrize(
     "mark", [_BELOW_RANGE_ABOVE_STOP, _ABOVE_RANGE_BELOW_TAKE_PROFIT]
 )
-def test_close_stops_the_bot_when_the_mark_leaves_the_range_on_either_side(
-    mark: str,
+def test_close_stops_the_bot_with_its_position_closed_when_the_mark_leaves_the_range(
+    mark: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     marks = Marks("121")
     world, _ = a_position_world(marks=marks, state=S.RUNNING, config=_CLOSE)
+    exchange_holds_less_after_each_sale(world, monkeypatch, "0.03")
+    world.session.register_owner_budget_answers(a_registration("0.03"))
     marks.mark = D(mark)
 
     world.executor.facts.on_price_age_check()
@@ -101,6 +107,13 @@ def test_close_stops_the_bot_when_the_mark_leaves_the_range_on_either_side(
     assert world.runtime().reason is GridReason.RANGE_EXIT
     assert world.book.open == {}
     assert mark in world.runtime().reason_detail
+    # The promise is "with the position closed at market": the reduce-only close was sent and
+    # the exchange is flat; a stop handed `KEEP` would pass everything above.
+    closes = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
+    assert [(r.side, r.quantity, r.reduce_only) for r in closes] == [
+        (OrderSide.SELL, D("0.03"), True)
+    ]
+    assert world.snapshot.open_positions() == ()
 
 
 @pytest.mark.parametrize(

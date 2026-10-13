@@ -201,6 +201,29 @@ def test_a_position_venue_allows_a_short_and_a_leverage_a_spot_plan_would_be_ref
     assert result.futures.final_position < 0
 
 
+# -- the range exit --------------------------------------------------------------- #
+
+
+def test_a_definition_that_closes_out_of_range_is_refused_not_replayed_as_a_hold() -> (
+    None
+):
+    """Review of #491: the replay has no range exit, so a `close` definition would show an
+    outcome the bot will not produce once the price leaves the range. It is refused in words until
+    the Futures replay models it (a hand-off recorded in `EPIC-039H`)."""
+    config = {**position_config("LONG"), "on_range_exit": "close"}
+
+    refusal = _refusal(config=config)
+
+    assert "closes when the price leaves the range" in refusal.reason
+    assert "holds" in refusal.reason
+
+
+def test_a_definition_that_holds_out_of_range_is_replayed() -> None:
+    config = {**position_config("LONG"), "on_range_exit": "hold"}
+
+    assert _run(config=config).futures is not None
+
+
 # -- brackets -------------------------------------------------------------------- #
 
 

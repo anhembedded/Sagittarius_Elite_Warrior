@@ -10,6 +10,11 @@ The mark is read, not streamed: it is a smoothed index, so a wick between two re
 what liquidates is the mark of the moment. The price paid is the read's cadence (the price watch's
 beat, `CHECK_EVERY_SECONDS`): an exit fires up to one beat after the mark crossed.
 
+Two readers use it each beat, on purpose: the exit watch (`GridMarkExit`, states that may still
+hold a position) and the risk watch (`PositionRiskSnapshots`, states that may still hold orders)
+run in different states and fail independently, and a `premiumIndex` read is public and cheap
+(weight 1, two per bot per beat). One implementation serves both, so they cannot read two prices.
+
 Plausible extensions, each a local change: a reader fed by the `@markPrice` stream is one more
 implementation of `IMarkSource` that answers its last frame; a Coin-M venue is the same port with
 its own reader.
