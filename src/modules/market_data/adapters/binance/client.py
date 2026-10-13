@@ -9,6 +9,9 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.funding_rate_pages import (
+    fetch_funding_events,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.kline_refusal import (
     reraise_as_refusal,
 )
@@ -19,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_m
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.raw_kline_mapping import (
     map_raw_klines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.funding_event import (
+    FundingEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     CancellationCheck,
@@ -348,6 +354,17 @@ class PythonBinanceClient(IExchangeClient):
             for entry in self._exchange_info_entries(market)
             if isinstance(entry, dict)
         ]
+
+    def get_funding_rate_history(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        cancellation_requested: CancellationCheck | None = None,
+    ) -> list[FundingEvent]:
+        return fetch_funding_events(
+            self.client, symbol, start, end, cancellation_requested or (lambda: False)
+        )
 
     def _exchange_info_entries(self, market: MarketType) -> list[dict]:
         """The raw per-symbol entries of one market's `exchangeInfo`:
