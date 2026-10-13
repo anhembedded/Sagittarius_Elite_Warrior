@@ -135,14 +135,23 @@ def test_the_run_facts_name_a_venue_the_app_does_not_trade_on() -> None:
     )
 
 
-@pytest.mark.parametrize("venue", _NOT_SPOT)
-def test_a_futures_venue_that_is_off_says_not_enabled(venue: TradingVenue) -> None:
+def test_a_futures_venue_that_is_off_says_not_enabled() -> None:
     """`EPIC-039H`: a Futures venue is one bots trade on, so only being off is its problem."""
+    venue = TradingVenue.FUTURES_TESTNET
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
         "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
     )
 
     assert facts.venue_problem == f"{venue.display_name} is not enabled"
+
+
+def test_futures_mainnet_says_it_is_closed_to_bots_not_that_it_is_off() -> None:
+    venue = TradingVenue.FUTURES_MAINNET
+    facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+    )
+
+    assert "closed to bots" in facts.venue_problem
 
 
 def test_a_spot_venue_that_is_off_says_not_enabled() -> None:

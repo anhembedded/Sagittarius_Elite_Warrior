@@ -73,6 +73,6 @@ class StopBotCommandHandler(ICommandHandler[StopBotCommand, BotCommandResult]):
             BotRefusal.EXPOSURE_MUST_CLOSE,
             f"{profile.title_word} positions are not kept when a bot stops: this app places "
             "no stop on the exchange yet, and a leveraged position with no stop can be "
-            "liquidated. Stop and close the position",
+            "liquidated. Stop and close the position.",
             command.bot_id,
         )

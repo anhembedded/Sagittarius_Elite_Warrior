@@ -72,6 +72,11 @@ class VenueProfile:
     #: The highest leverage a bot may name on this market: 1 where there is none. A symbol's
     #: bracket narrows it further (`EPIC-039E`).
     max_leverage: int = 1
+    #: The directions a bot may **run** today, a subset of `directions` (what the market supports,
+    #: which a plan and a backtest may name). Futures runs LONG only until `EPIC-039I` builds the
+    #: short and neutral openings; the start's preconditions and the readiness refuse the other
+    #: two in one sentence meanwhile (`exposure_refusal`).
+    bot_directions: frozenset[TradeDirection] = frozenset({TradeDirection.LONG})
 
 
 #: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
@@ -89,9 +94,7 @@ SPOT_PROFILE = VenueProfile(
 
 _FUTURES = VenueProfile(
     market_type=MarketType.FUTURES_USD_M,
-    #: LONG only until `EPIC-039I` builds the short and neutral openings; the plan judge, the
-    #: readiness and the start's preconditions refuse the other two in one sentence meanwhile.
-    directions=frozenset({TradeDirection.LONG}),
+    directions=frozenset(TradeDirection),
     margin_modes=frozenset({MarginMode.ISOLATED}),
     has_funding=True,
     exposure_kind=ExposureKind.POSITION,
@@ -173,7 +176,7 @@ def exposure_limits_of(
     if profile is None:
         return SPOT_LIMITS
     return ExposureLimits(
-        profile.directions, profile.max_leverage, profile.exposure_kind
+        profile.bot_directions, profile.max_leverage, profile.exposure_kind
     )
 
 
