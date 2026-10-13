@@ -25,9 +25,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.key_environment imp
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    CredentialsSource,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -122,7 +119,7 @@ class EnrolKeyCommandHandler(ICommandHandler[EnrolKeyCommand, KeyEnrolment]):
         from_environment = tuple(
             v
             for v, p in providers.items()
-            if p.resolve().source is CredentialsSource.ENV
+            if p.resolve().source.is_provisioned_outside_the_app
         )
         if from_environment:
             return KeyEnrolment(

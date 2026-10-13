@@ -23,9 +23,6 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
-    ISecretStore,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -161,6 +158,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_sourced_secret_store import (
+    ISourcedSecretStore,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -180,7 +180,7 @@ class SharedVenueInputs:
     secrets_file_path: str
     session_states: VenueSessionStates
     #: Where a mainnet venue's key is kept (`EPIC-034` D10).
-    secret_store: ISecretStore
+    secret_store: ISourcedSecretStore
     #: A copy of the app that may not trade gets read-only clients (`EPIC-035H`).
     instance: IInstanceAccess
 
@@ -217,7 +217,8 @@ class VenueAssembly:
         """The venue's stored key, as it is: what Options saves to and what the
         desk asks "is there a key" of. Adapters resolve `order_credentials`."""
         if self._venue.is_mainnet:
-            # `EPIC-034` D10/D11 — a real-money secret lives in the keyring.
+            # `EPIC-034` D10/D11 — a real-money secret is never in a file the app
+            # owns; `EPIC-038E` — it comes from the stores in their one order.
             return MainnetCredentialsProvider(self._shared.secret_store, self._venue)
         return EnvFirstCredentialsProvider(
             SecretsFileSource(self._shared.secrets_file_path), self._venue

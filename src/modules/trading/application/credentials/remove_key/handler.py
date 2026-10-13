@@ -30,7 +30,7 @@ class RemoveKeyCommandHandler(ICommandHandler[RemoveKeyCommand, KeyRemoval]):
     def execute(self, command: RemoveKeyCommand) -> KeyRemoval:
         provider = self._contexts.get(command.venue).credentials_provider
         source = provider.resolve().source
-        if source is CredentialsSource.ENV:
+        if source.is_provisioned_outside_the_app:
             return KeyRemoval.FROM_ENVIRONMENT
         if source is CredentialsSource.NONE:
             return KeyRemoval.NOTHING_STORED

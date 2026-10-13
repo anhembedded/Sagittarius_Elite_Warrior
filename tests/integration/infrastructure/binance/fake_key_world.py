@@ -19,6 +19,9 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environment_probe import (
     BinanceKeyEnvironmentProbe,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
     EnrolKeyCommand,
     EnrolKeyCommandHandler,
@@ -115,8 +118,12 @@ def build_world(tmp_path: Path, keyring: InMemorySecretStore) -> Iterator[World]
         providers: dict[TradingVenue, IExchangeCredentialsProvider] = {
             FUTURES_TESTNET: EnvFirstCredentialsProvider(file_source, FUTURES_TESTNET),
             SPOT_TESTNET: EnvFirstCredentialsProvider(file_source, SPOT_TESTNET),
-            FUTURES_MAINNET: MainnetCredentialsProvider(keyring, FUTURES_MAINNET),
-            SPOT_MAINNET: MainnetCredentialsProvider(keyring, SPOT_MAINNET),
+            FUTURES_MAINNET: MainnetCredentialsProvider(
+                OrderedSecretStores.single(keyring), FUTURES_MAINNET
+            ),
+            SPOT_MAINNET: MainnetCredentialsProvider(
+                OrderedSecretStores.single(keyring), SPOT_MAINNET
+            ),
         }
         yield World(
             mainnet, spot_testnet, futures_testnet, providers, keyring, secrets_file

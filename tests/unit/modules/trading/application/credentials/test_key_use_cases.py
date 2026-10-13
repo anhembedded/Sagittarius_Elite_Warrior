@@ -9,6 +9,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+    SecretBackend,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
     EnrolKeyCommand,
     EnrolKeyCommandHandler,
@@ -82,7 +86,7 @@ def _contexts(tmp_path: Path, keyring=None):
     store = keyring if keyring is not None else InMemorySecretStore()
     providers = {
         v: (
-            MainnetCredentialsProvider(store, v)
+            MainnetCredentialsProvider(OrderedSecretStores.single(store), v)
             if v.is_mainnet
             else EnvFirstCredentialsProvider(file_source, v)
         )
@@ -214,7 +218,9 @@ def test_a_locked_keyring_cannot_remove_a_key_and_says_so() -> None:
     contexts = FakeVenueContexts(
         fake_venue_context(
             _SPOT_MAINNET,
-            credentials_provider=MainnetCredentialsProvider(keyring, _SPOT_MAINNET),
+            credentials_provider=MainnetCredentialsProvider(
+                OrderedSecretStores.single(keyring), _SPOT_MAINNET
+            ),
         )
     )
 
@@ -224,6 +230,50 @@ def test_a_locked_keyring_cannot_remove_a_key_and_says_so() -> None:
 
     assert removal is KeyRemoval.KEYRING_UNAVAILABLE
     assert keyring.secrets["spot_mainnet_api_key"] == KEY
+
+
+def _provisioned_by_the_unit_file() -> tuple[FakeVenueContexts, InMemorySecretStore]:
+    keyring = InMemorySecretStore()
+    stores = OrderedSecretStores(
+        (
+            SecretBackend(
+                CredentialsSource.SYSTEMD_CREDENTIAL,
+                InMemorySecretStore(
+                    spot_mainnet_api_key=KEY, spot_mainnet_api_secret=SECRET
+                ),
+            ),
+            SecretBackend(CredentialsSource.KEYRING, keyring, writable=True),
+        )
+    )
+    provider = MainnetCredentialsProvider(stores, _SPOT_MAINNET)
+    contexts = FakeVenueContexts(
+        fake_venue_context(_SPOT_MAINNET, credentials_provider=provider)
+    )
+    assert provider.resolve().source is CredentialsSource.SYSTEMD_CREDENTIAL
+    return contexts, keyring
+
+
+def test_a_key_the_unit_file_provisions_is_not_removed_by_the_app() -> None:
+    contexts, keyring = _provisioned_by_the_unit_file()
+
+    removal = RemoveKeyCommandHandler(contexts).execute(
+        RemoveKeyCommand(venue=_SPOT_MAINNET)
+    )
+
+    assert removal is KeyRemoval.FROM_ENVIRONMENT
+    assert keyring.secrets == {}
+
+
+def test_a_key_the_unit_file_provisions_is_not_replaced_by_the_app() -> None:
+    contexts, keyring = _provisioned_by_the_unit_file()
+
+    probe = ScriptedKeyProbe()
+    probe.verdicts = mainnet_accepts(spot=True)
+
+    result = _enrol(probe, contexts, only_for=_SPOT_MAINNET)
+
+    assert result.refusal is EnrolmentRefusal.FROM_ENVIRONMENT
+    assert keyring.secrets == {}
 
 
 def test_the_list_holds_a_fingerprint_and_a_source_per_venue_and_never_the_secret(

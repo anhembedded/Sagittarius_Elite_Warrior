@@ -39,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environment_probe import (
     BinanceKeyEnvironmentProbe,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
-    KeyringSecretStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
     JsonOwnerInventoryCheckpoints,
 )
@@ -50,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_d
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
+    build_secret_stores,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
     SharedVenueInputs,
@@ -122,7 +122,7 @@ def bind_adapters(container: IContainer) -> None:
                 container=c,
                 secrets_file_path=secrets_file_path,
                 session_states=c.resolve(VenueSessionStates),
-                secret_store=KeyringSecretStore(),
+                secret_store=build_secret_stores(),
                 instance=c.resolve(IInstanceAccess),
             ),
         ),
