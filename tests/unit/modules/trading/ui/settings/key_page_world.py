@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier imp
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     describe_failure,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
     EnrolKeyCommand,
     EnrolKeyCommandHandler,
@@ -283,10 +286,10 @@ def build_page(tmp_path: Path, request: Any) -> KeyPage:
             file_source, TradingVenue.SPOT_TESTNET
         ),
         TradingVenue.FUTURES_MAINNET: MainnetCredentialsProvider(
-            keyring, TradingVenue.FUTURES_MAINNET
+            OrderedSecretStores.single(keyring), TradingVenue.FUTURES_MAINNET
         ),
         TradingVenue.SPOT_MAINNET: MainnetCredentialsProvider(
-            keyring, TradingVenue.SPOT_MAINNET
+            OrderedSecretStores.single(keyring), TradingVenue.SPOT_MAINNET
         ),
     }
     contexts = FakeVenueContexts(

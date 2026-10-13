@@ -1,4 +1,5 @@
-"""The registry rows of the guards that keep every order on its one path.
+"""The registry rows of the guards that keep every order on its one path (and, from
+`EPIC-038E`, the secret stores in one suite).
 
 Split from `scanned_roots_registry.py` when that file reached the 400-line
 ceiling (`EPIC-034I`); the registry spreads `ORDER_PATH_GUARDS` into `GUARDS`,
@@ -9,6 +10,10 @@ the directories a guard *scans*.
 from __future__ import annotations
 
 ORDER_PATH_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "tests/unit/architecture/test_every_secret_store_is_in_the_contract_suite.py",
+        (("src", "*.py"),),
+    ),
     (
         "tests/unit/architecture/test_only_the_session_factory_constructs_binance_client.py",
         (("src", "*.py"), ("scripts", "*.py")),

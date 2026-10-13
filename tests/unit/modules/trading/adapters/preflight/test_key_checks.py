@@ -188,7 +188,7 @@ def test_with_no_key_the_permissions_are_a_warning_and_the_exchange_is_not_asked
 
 
 @pytest.mark.parametrize(
-    "source", [CredentialsSource.ENV, CredentialsSource.FILE, CredentialsSource.KEYRING]
+    "source", [s for s in CredentialsSource if s is not CredentialsSource.NONE]
 )
 def test_the_credentials_check_names_the_source_and_never_the_value(
     source: CredentialsSource,

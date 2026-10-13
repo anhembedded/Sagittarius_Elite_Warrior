@@ -5,6 +5,12 @@ pair, never another mainnet venue's, never `secrets.local.json`."""
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     FUTURES_ENV_API_KEY,
     FUTURES_ENV_API_SECRET,
@@ -25,9 +31,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -79,7 +82,9 @@ def test_both_variables_make_the_key_and_say_it_came_from_the_environment(
     monkeypatch.setenv(key_name, " key\n")
     monkeypatch.setenv(secret_name, "secret ")
 
-    resolved = MainnetCredentialsProvider(InMemorySecretStore(), venue).resolve()
+    resolved = MainnetCredentialsProvider(
+        OrderedSecretStores.single(InMemorySecretStore()), venue
+    ).resolve()
 
     assert resolved.source is CredentialsSource.ENV
     assert resolved.credentials == ExchangeCredentials("key", "secret")
@@ -92,7 +97,9 @@ def test_half_a_pair_is_no_key(
 ) -> None:
     monkeypatch.setenv(_NAMES[venue][which], "value")
 
-    resolved = MainnetCredentialsProvider(InMemorySecretStore(), venue).resolve()
+    resolved = MainnetCredentialsProvider(
+        OrderedSecretStores.single(InMemorySecretStore()), venue
+    ).resolve()
 
     assert resolved.credentials is None
 
@@ -105,7 +112,9 @@ def test_a_whitespace_only_value_is_no_key(
     monkeypatch.setenv(key_name, "   ")
     monkeypatch.setenv(secret_name, "secret")
 
-    resolved = MainnetCredentialsProvider(InMemorySecretStore(), venue).resolve()
+    resolved = MainnetCredentialsProvider(
+        OrderedSecretStores.single(InMemorySecretStore()), venue
+    ).resolve()
 
     assert resolved.source is CredentialsSource.NONE
 
@@ -123,7 +132,11 @@ def test_a_testnet_key_is_never_a_mainnet_key(
         monkeypatch.setenv(name, "testnet")
 
     assert (
-        MainnetCredentialsProvider(InMemorySecretStore(), venue).resolve().credentials
+        MainnetCredentialsProvider(
+            OrderedSecretStores.single(InMemorySecretStore()), venue
+        )
+        .resolve()
+        .credentials
         is None
     )
 
@@ -135,7 +148,9 @@ def test_a_spot_mainnet_key_is_never_the_futures_mainnet_key(
     monkeypatch.setenv(_NAMES[_SPOT][1], "spot")
 
     assert (
-        MainnetCredentialsProvider(InMemorySecretStore(), _FUTURES)
+        MainnetCredentialsProvider(
+            OrderedSecretStores.single(InMemorySecretStore()), _FUTURES
+        )
         .resolve()
         .credentials
         is None
@@ -164,9 +179,13 @@ def test_a_mainnet_pair_is_never_a_testnet_venues_key(
 @_BOTH
 def test_a_saved_pair_is_read_from_the_store_and_says_so(venue: TradingVenue) -> None:
     store = InMemorySecretStore()
-    MainnetCredentialsProvider(store, venue).save_to_file("saved-key", "saved-secret")
+    MainnetCredentialsProvider(OrderedSecretStores.single(store), venue).save_to_file(
+        "saved-key", "saved-secret"
+    )
 
-    resolved = MainnetCredentialsProvider(store, venue).resolve()
+    resolved = MainnetCredentialsProvider(
+        OrderedSecretStores.single(store), venue
+    ).resolve()
 
     assert resolved.source is CredentialsSource.KEYRING
     assert resolved.credentials == ExchangeCredentials("saved-key", "saved-secret")
@@ -174,9 +193,16 @@ def test_a_saved_pair_is_read_from_the_store_and_says_so(venue: TradingVenue) ->
 
 def test_a_pair_saved_for_one_venue_is_not_the_other_venues() -> None:
     store = InMemorySecretStore()
-    MainnetCredentialsProvider(store, _SPOT).save_to_file("k", "s")
+    MainnetCredentialsProvider(OrderedSecretStores.single(store), _SPOT).save_to_file(
+        "k", "s"
+    )
 
-    assert MainnetCredentialsProvider(store, _FUTURES).resolve().credentials is None
+    assert (
+        MainnetCredentialsProvider(OrderedSecretStores.single(store), _FUTURES)
+        .resolve()
+        .credentials
+        is None
+    )
 
 
 @_BOTH
@@ -184,11 +210,15 @@ def test_the_environment_wins_over_the_store(
     monkeypatch: pytest.MonkeyPatch, venue: TradingVenue
 ) -> None:
     store = InMemorySecretStore()
-    MainnetCredentialsProvider(store, venue).save_to_file("saved", "saved")
+    MainnetCredentialsProvider(OrderedSecretStores.single(store), venue).save_to_file(
+        "saved", "saved"
+    )
     monkeypatch.setenv(_NAMES[venue][0], "env-key")
     monkeypatch.setenv(_NAMES[venue][1], "env-secret")
 
-    resolved = MainnetCredentialsProvider(store, venue).resolve()
+    resolved = MainnetCredentialsProvider(
+        OrderedSecretStores.single(store), venue
+    ).resolve()
 
     assert resolved.source is CredentialsSource.ENV
     assert resolved.credentials == ExchangeCredentials("env-key", "env-secret")
@@ -197,14 +227,21 @@ def test_the_environment_wins_over_the_store(
 def test_half_a_stored_pair_is_no_key() -> None:
     store = InMemorySecretStore(spot_mainnet_api_key="only-the-key")
 
-    assert MainnetCredentialsProvider(store, _SPOT).resolve().credentials is None
+    assert (
+        MainnetCredentialsProvider(OrderedSecretStores.single(store), _SPOT)
+        .resolve()
+        .credentials
+        is None
+    )
 
 
 @_BOTH
 def test_a_machine_without_a_keyring_reads_nothing_and_refuses_to_save(
     venue: TradingVenue,
 ) -> None:
-    provider = MainnetCredentialsProvider(UnavailableSecretStore(), venue)
+    provider = MainnetCredentialsProvider(
+        OrderedSecretStores.single(UnavailableSecretStore()), venue
+    )
 
     assert provider.resolve().source is CredentialsSource.NONE
     with pytest.raises(SecretStoreUnavailableError):
@@ -216,7 +253,9 @@ def test_the_secret_is_never_written_to_a_file(tmp_path, venue: TradingVenue) ->
     store = InMemorySecretStore()
     secrets_file = tmp_path / "secrets.local.json"
 
-    MainnetCredentialsProvider(store, venue).save_to_file("k", "s")
+    MainnetCredentialsProvider(OrderedSecretStores.single(store), venue).save_to_file(
+        "k", "s"
+    )
 
     assert not secrets_file.exists()
     assert set(store.secrets) == {f"{venue.value}_api_key", f"{venue.value}_api_secret"}
@@ -230,7 +269,9 @@ def test_the_store_is_read_once_not_on_every_resolve() -> None:
             reads.append(name)
             return super().read(name)
 
-    provider = MainnetCredentialsProvider(_Counting(), _SPOT)
+    provider = MainnetCredentialsProvider(
+        OrderedSecretStores.single(_Counting()), _SPOT
+    )
 
     for _ in range(5):
         provider.resolve()
@@ -239,7 +280,9 @@ def test_the_store_is_read_once_not_on_every_resolve() -> None:
 
 
 def test_a_pair_saved_while_running_is_used_at_once() -> None:
-    provider = MainnetCredentialsProvider(InMemorySecretStore(), _SPOT)
+    provider = MainnetCredentialsProvider(
+        OrderedSecretStores.single(InMemorySecretStore()), _SPOT
+    )
     assert provider.resolve().credentials is None
 
     provider.save_to_file("k", "s")
@@ -253,8 +296,8 @@ def test_remove_stored_forgets_this_venues_key_and_not_the_other_mainnet_venue(
 ) -> None:
     """`BUG-176` — Remove on a venue deletes its two names from the keyring."""
     store = InMemorySecretStore()
-    spot = MainnetCredentialsProvider(store, _SPOT)
-    futures = MainnetCredentialsProvider(store, _FUTURES)
+    spot = MainnetCredentialsProvider(OrderedSecretStores.single(store), _SPOT)
+    futures = MainnetCredentialsProvider(OrderedSecretStores.single(store), _FUTURES)
     spot.save_to_file("spot-key", "spot-secret")
     futures.save_to_file("futures-key", "futures-secret")
     removed, kept = (spot, futures) if venue is _SPOT else (futures, spot)
@@ -276,7 +319,7 @@ def test_a_failed_save_leaves_no_half_pair_in_the_keyring() -> None:
             super().write(name, value)
 
     store = _FailsOnTheSecret()
-    provider = MainnetCredentialsProvider(store, _SPOT)
+    provider = MainnetCredentialsProvider(OrderedSecretStores.single(store), _SPOT)
 
     with pytest.raises(SecretStoreUnavailableError):
         provider.save_to_file("key", "secret")
@@ -298,7 +341,7 @@ def test_a_failed_replace_puts_the_previous_pair_back() -> None:
             super().write(name, value)
 
     store = _FailsOnTheSecret()
-    provider = MainnetCredentialsProvider(store, _SPOT)
+    provider = MainnetCredentialsProvider(OrderedSecretStores.single(store), _SPOT)
     provider.save_to_file("old-key", "old-secret")
     store.armed = True
 

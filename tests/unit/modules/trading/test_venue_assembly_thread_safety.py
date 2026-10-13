@@ -19,6 +19,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -64,7 +67,7 @@ def test_two_threads_asking_first_share_one_metadata_cache(
             container=Mock(),
             secrets_file_path="unused",
             session_states=VenueSessionStates(),
-            secret_store=InMemorySecretStore(),
+            secret_store=OrderedSecretStores.single(InMemorySecretStore()),
             instance=InstanceAccess.unguarded(),
         ),
     )

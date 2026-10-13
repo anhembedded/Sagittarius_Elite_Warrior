@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     ISecretStore,
     SecretStoreUnavailableError,
 )
@@ -13,7 +13,8 @@ class InMemorySecretStore(ISecretStore):
         self.secrets = dict(secrets)
 
     def read(self, name: str) -> str | None:
-        return self.secrets.get(name)
+        value = self.secrets.get(name)
+        return value if value is not None and value.strip() else None
 
     def write(self, name: str, value: str) -> None:
         self.secrets[name] = value

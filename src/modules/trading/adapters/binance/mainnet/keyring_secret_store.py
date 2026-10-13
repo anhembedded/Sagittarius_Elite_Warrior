@@ -19,7 +19,7 @@ import logging
 import keyring
 from keyring.backend import KeyringBackend
 from keyring.errors import KeyringError, PasswordDeleteError
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     ISecretStore,
     SecretStoreUnavailableError,
 )
@@ -36,10 +36,12 @@ class KeyringSecretStore(ISecretStore):
 
     def read(self, name: str) -> str | None:
         try:
-            return self._keyring().get_password(SERVICE, name)
+            value = self._keyring().get_password(SERVICE, name)
         except KeyringError as exc:
             self._log_unavailable(exc)
             return None
+        # A blank entry is no secret (the port's contract, the same for every store).
+        return value if value is not None and value.strip() else None
 
     def write(self, name: str, value: str) -> None:
         try:

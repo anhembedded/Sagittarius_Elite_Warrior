@@ -9,6 +9,9 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_trading_client_factory import (
     ReadOnlyTradingClientFactory,
 )
@@ -30,7 +33,7 @@ def _assembly(instance: InstanceAccess | None) -> VenueAssembly:
         container=Mock(),
         secrets_file_path="unused",
         session_states=VenueSessionStates(),
-        secret_store=InMemorySecretStore(),
+        secret_store=OrderedSecretStores.single(InMemorySecretStore()),
         instance=InstanceAccess.unguarded() if instance is None else instance,
     )
     return VenueAssembly(TradingVenue.SPOT_TESTNET, shared)

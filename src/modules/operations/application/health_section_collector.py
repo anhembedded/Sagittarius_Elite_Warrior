@@ -43,6 +43,7 @@ FORBIDDEN_KEY_PARTS = (
     "apikey",
     "private_key",
     "token",
+    "credential",
     "balance",
     "equity",
     "profit",

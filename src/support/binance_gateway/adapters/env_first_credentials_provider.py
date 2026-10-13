@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import os
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
@@ -19,9 +22,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    ISecretStore,
-    SecretStoreUnavailableError,
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_sourced_secret_store import (
+    ISourcedSecretStore,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -116,8 +118,10 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
 
 
 class MainnetCredentialsProvider(IExchangeCredentialsProvider):
-    """@brief A mainnet venue's key: the environment first, then the operating
-    system's keyring, and no file (`EPIC-034` D10, D11).
+    """@brief A mainnet venue's key: the environment first, then the secret
+    stores in their one order (systemd credentials, a permission-checked file, the
+    operating system's keyring), and never `secrets.local.json` (`EPIC-034` D10,
+    D11; `EPIC-038E`).
 
     @details Its own class rather than a flag on `EnvFirstCredentialsProvider`:
     that one falls back to `secrets.local.json`, and a real-money secret must
@@ -127,18 +131,26 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
     the keyring can be a round trip to the desktop's secret service and this is
     asked every few seconds by the refresh services; a key saved while the app
     runs through `save_to_file` is picked up at once, one saved by the
-    enrolment script at the next start.
+    enrolment script at the next start. **The pair is cached for the life of the
+    process**, so a file whose permission is loosened after the app started keeps
+    serving the key it already read until the next start; the stores check at each
+    read, and this class asks them once.
+    `resolve()` names the store that served
+    the key (`CredentialsSource`), never its value.
 
     `save_to_file` keeps the port's name, which predates mainnet; for a mainnet
-    venue the durable store it writes to is the keyring, never a file.
+    venue the durable store it writes to is the keyring, never a file. A key
+    provisioned by the unit file or a secret file is not written or removed here.
     """
 
-    def __init__(self, store: ISecretStore, trading_venue: TradingVenue) -> None:
-        self._store = store
+    def __init__(
+        self, stores: ISourcedSecretStore, trading_venue: TradingVenue
+    ) -> None:
+        self._store = stores
         self._venue = trading_venue
         self._key_name = f"{trading_venue.value}_api_key"
         self._secret_name = f"{trading_venue.value}_api_secret"
-        self._stored: ExchangeCredentials | None = None
+        self._stored: ResolvedCredentials | None = None
         self._stored_read = False
 
     def resolve(self) -> ResolvedCredentials:
@@ -147,14 +159,14 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
             return ResolvedCredentials(from_env, CredentialsSource.ENV)
         stored = self._stored_pair()
         if stored is not None:
-            return ResolvedCredentials(stored, CredentialsSource.KEYRING)
+            return stored
         return ResolvedCredentials(None, CredentialsSource.NONE)
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         """@raise SecretStoreUnavailableError The keyring cannot be used here."""
         previous = (
-            self._store.read(self._key_name),
-            self._store.read(self._secret_name),
+            self._store.read_from_writer(self._key_name),
+            self._store.read_from_writer(self._secret_name),
         )
         try:
             self._store.write(self._key_name, api_key)
@@ -171,7 +183,9 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
             self._stored = None
             self._stored_read = False
             raise
-        self._stored = ExchangeCredentials(api_key, api_secret)
+        self._stored = ResolvedCredentials(
+            ExchangeCredentials(api_key, api_secret), CredentialsSource.KEYRING
+        )
         self._stored_read = True
 
     def remove_stored(self) -> None:
@@ -181,10 +195,15 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
         self._stored = None
         self._stored_read = True
 
-    def _stored_pair(self) -> ExchangeCredentials | None:
+    def _stored_pair(self) -> ResolvedCredentials | None:
         if not self._stored_read:
-            key = self._store.read(self._key_name)
-            secret = self._store.read(self._secret_name)
-            self._stored = ExchangeCredentials(key, secret) if key and secret else None
+            pair = self._store.read_pair(self._key_name, self._secret_name)
+            self._stored = (
+                ResolvedCredentials(
+                    ExchangeCredentials(pair.first, pair.second), pair.source
+                )
+                if pair is not None
+                else None
+            )
             self._stored_read = True
         return self._stored

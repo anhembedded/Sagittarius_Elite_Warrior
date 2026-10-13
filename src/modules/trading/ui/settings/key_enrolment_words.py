@@ -97,8 +97,9 @@ def refusal_headline(enrolment: KeyEnrolment, target: TradingVenue | None) -> st
     if refusal is EnrolmentRefusal.FROM_ENVIRONMENT:
         return (
             f"The key was not saved: {venues_in_words(enrolment.venues)} takes its "
-            "key from an environment variable, which this page cannot change. "
-            "Remove the variable and add the key again."
+            "key from outside the app (an environment variable, a systemd credential "
+            "or a secret file), which this page cannot change. Remove it there and "
+            "add the key again."
         )
     return _SIMPLE[refusal]
 
@@ -114,8 +115,9 @@ def refusal_detail(enrolment: KeyEnrolment) -> str:
 
 _REMOVAL = {
     KeyRemoval.FROM_ENVIRONMENT: (
-        "The key comes from an environment variable, which this page cannot "
-        "remove. Unset the variable instead."
+        "The key comes from outside the app (an environment variable, a systemd "
+        "credential or a secret file), which this page cannot remove. Remove it "
+        "there instead."
     ),
     KeyRemoval.KEYRING_UNAVAILABLE: (
         "The key was not removed: the operating system's keyring cannot be used here."
