@@ -38,11 +38,11 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
-    GridHousekeeping,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fault_with,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_parking import (
+    GridParking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_rate_limit_pause import (
     GridRateLimitPause,
@@ -85,6 +85,14 @@ _NOT_PARKED: frozenset[GridReason] = frozenset(
 )
 
 
+#: What a halt says when its own cancel failed and the stop that closed the position then took
+#: the ladder off (`GridParking`): a stopped bot has no order left.
+_CANCEL_FAILED_STOP_TOOK_IT_OFF = (
+    "the halt's own cancel did not go through, and the stop that closed the position "
+    "took the ladder off"
+)
+
+
 #: How a parked bot says its file is behind; also what keeps the note single.
 _STORAGE_NOTE = "its state could not be saved"
 
@@ -95,12 +103,12 @@ class GridTaskGuard:
     def __init__(
         self,
         context: GridRunContext,
-        housekeeping: GridHousekeeping,
+        parking: GridParking,
         pause: GridRateLimitPause,
         storage: GridStorageWatch,
     ) -> None:
         self._context = context
-        self._housekeeping = housekeeping
+        self._parking = parking
         self._pause = pause
         self._storage = storage
 
@@ -121,6 +129,8 @@ class GridTaskGuard:
         sent = self._context.gateway.submissions > sent_before
         if self._orders_may_rest(before, sent):
             self._park()
+        elif self._halted_unable_to_park(before, sent):
+            self._say_position_stays_open()
         if self._unsaved_and_parked():
             self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
         self._pause.after_task()
@@ -134,6 +144,20 @@ class GridTaskGuard:
             and state.runtime.reason not in _NOT_PARKED
         )
 
+    def _halted_unable_to_park(self, before: BotLifecycleState, sent: bool) -> bool:
+        """A halt just made, for a reason that sends no cancel (`_NOT_PARKED`)."""
+        state = self._context.state
+        return (
+            state.state in _PARKED
+            and (before not in _PARKED or sent)
+            and state.runtime.reason in _NOT_PARKED
+        )
+
+    def _say_position_stays_open(self) -> None:
+        words = self._parking.left_open_words()
+        if words is not None and words not in self._context.state.runtime.reason_detail:
+            self._note(words)
+
     def _unsaved_and_parked(self) -> bool:
         """A parked bot whose file is behind, and which does not say so yet."""
         state = self._context.state
@@ -145,18 +169,20 @@ class GridTaskGuard:
 
     def _park(self) -> None:
         try:
-            report = self._housekeeping.cancel_tagged()
+            note = self._parking.park()
         except Exception as error:
             logger.exception(
                 "Bot %s: taking the ladder off failed", self._context.state.bot_id
             )
-            self._note(f"its orders may still rest: {error}")
+            note = f"its orders may still rest: {error}"
+        if note is None:
             return
-        if report.failed is not None:
-            self._note(
-                f"{report.client_order_id} and any after it may still rest: "
-                f"{report.failed.detail}"
-            )
+        if self._context.state.state is BotLifecycleState.STOPPED:
+            # A venue that closes on a halt ran the stop after the failed cancel, and a stop
+            # is only STOPPED once it read zero orders of the bot's: say what happened, not
+            # what might have.
+            note = _CANCEL_FAILED_STOP_TOOK_IT_OFF
+        self._note(note)
 
     def _note(self, extra: str) -> None:
         state = self._context.state

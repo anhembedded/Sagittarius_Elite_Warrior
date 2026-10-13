@@ -13,6 +13,7 @@ joint end to end and a test per joint there goes red when the joint is bypassed.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -77,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
 )
@@ -107,11 +111,19 @@ class _ClosesNothing(IExposureCloser):
     def __init__(self) -> None:
         self.closed: list[tuple[OwnerBudgetRegistrationResult, Decimal]] = []
 
+    def closes_on_halt(self) -> bool:
+        return False
+
     def close(
         self, registration: OwnerBudgetRegistrationResult, price: Decimal
     ) -> StopProgress | None:
         self.closed.append((registration, price))
         return None
+
+
+class _ClosesOnHalt(_ClosesNothing):
+    def closes_on_halt(self) -> bool:
+        return True
 
 
 class _SellsAreReduceOnly(IOrderFlags):
@@ -122,6 +134,11 @@ class _SellsAreReduceOnly(IOrderFlags):
 class _FindsADifference(IExposureCheck):
     def derives(self, registration: OwnerBudgetRegistrationResult) -> bool:
         return True
+
+    def held(
+        self, registration: OwnerBudgetRegistrationResult
+    ) -> OwnerInventory | None:
+        return registration.inventory
 
     def check(
         self, runtime: GridRuntime, registration: OwnerBudgetRegistrationResult
@@ -248,3 +265,35 @@ def test_a_reconcile_halts_with_the_reason_the_exposure_check_names() -> None:
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.POSITION_MISMATCH
     assert "the exchange holds 3" in world.runtime().reason_detail
+
+
+def test_a_halt_takes_the_ladder_off_and_then_stops_with_the_close_when_the_venue_closes_on_halt() -> (
+    None
+):
+    """`EPIC-039H` (O8): a halt on a venue whose exposure is a leveraged position ends in the
+    same stop the user's Stop runs, so one tested close serves both; the halt's reason is kept."""
+    closer = _ClosesOnHalt()
+    world = grid_world(exposures=_exposures(opening=_OpensNothing(), closer=closer))
+    world.executor.start()
+    world.derive("2")
+
+    world.executor.facts.halt_user_stream_down(timedelta(seconds=130))
+
+    assert world.state() is S.STOPPED
+    assert world.runtime().reason is GridReason.USER_STREAM_DOWN
+    assert "never left bare" in world.runtime().reason_detail
+    assert world.book.open == {}
+    ((registration, _price),) = closer.closed
+    assert registration.inventory is not None and registration.inventory.quantity == 2
+
+
+def test_a_halt_on_a_venue_that_does_not_close_on_halt_leaves_what_it_holds() -> None:
+    closer = _ClosesNothing()
+    world = grid_world(exposures=_exposures(opening=_OpensNothing(), closer=closer))
+    world.executor.start()
+
+    world.executor.facts.halt_user_stream_down(timedelta(seconds=130))
+
+    assert world.state() is S.HALTED
+    assert closer.closed == []
+    assert world.book.open == {}, "the ladder is off, the exposure is the user's"

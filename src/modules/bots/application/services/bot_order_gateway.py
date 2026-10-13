@@ -39,6 +39,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_history import (
+    BotOrderHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_outcome import (
     SWITCH_OFF_GATES,
     OrderOutcome,
@@ -62,12 +65,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
-    HISTORY_PAGE_SIZE,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_request import (
-    HistoryRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
@@ -121,6 +118,7 @@ class BotOrderGateway:
         self._ports = ports
         self._identity = identity
         self._pacer = pacer
+        self._history = BotOrderHistory(ports.account_activity, identity.symbol)
         self._submissions = 0
         self._rate_limit: timedelta | None = None
 
@@ -177,10 +175,31 @@ class BotOrderGateway:
         )
         return self._submit(request)
 
+    def market_buy_base(
+        self, quantity: Decimal, reference_price: Decimal
+    ) -> OrderOutcome:
+        """A market BUY of `quantity` base: what a position venue sends, where there is no
+        quote-sized order (`EPIC-039H`)."""
+        return self._submit(
+            self._request(OrderSide.BUY, OrderType.MARKET, quantity, reference_price)
+        )
+
     def market_sell(self, quantity: Decimal, reference_price: Decimal) -> OrderOutcome:
         """A market SELL of `quantity` base."""
         return self._submit(
             self._request(OrderSide.SELL, OrderType.MARKET, quantity, reference_price)
+        )
+
+    def market_reduce_only(
+        self, side: OrderSide, quantity: Decimal, reference_price: Decimal
+    ) -> OrderOutcome:
+        """A market order of `quantity` base on `side` that may only shrink the position:
+        the exchange refuses it when it would grow or flip one (`EPIC-039H`), which is what
+        makes a close safe to send twice."""
+        return self._submit(
+            self._request(
+                side, OrderType.MARKET, quantity, reference_price, reduce_only=True
+            )
         )
 
     def cancel(self, client_order_id: str) -> OrderOutcome:
@@ -218,50 +237,22 @@ class BotOrderGateway:
         """The venue's history of one of the bot's orders, or `None` when
         the history since `since` does not hold it.
         @raise AccountHistoryUnavailableError The venue did not answer."""
-        activity = self._ports.account_activity
-        request = HistoryRequest(self._identity.symbol, since)
-        while True:
-            page = activity.order_history(request)
-            for record in page.rows:
-                if record.order.client_order_id == client_order_id:
-                    return record
-            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
-                return None
-            request = request.at_page(request.page + 1)
+        return self._history.order_record(client_order_id, since)
 
     def order_records(
         self, client_order_ids: frozenset[str], since: datetime
     ) -> dict[str, OrderRecord]:
         """The venue's history of each of the named orders that `since` holds,
-        read in one pass over the history (a ladder is many orders: one read
-        per order would multiply the rate-limit weight by the ladder's size).
+        read in one pass (`BotOrderHistory`).
         @raise AccountHistoryUnavailableError The venue did not answer."""
-        activity = self._ports.account_activity
-        request = HistoryRequest(self._identity.symbol, since)
-        found: dict[str, OrderRecord] = {}
-        while True:
-            page = activity.order_history(request)
-            for record in page.rows:
-                if record.order.client_order_id in client_order_ids:
-                    found[record.order.client_order_id] = record
-            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
-                return found
-            request = request.at_page(request.page + 1)
+        return self._history.order_records(client_order_ids, since)
 
     def order_trades(
         self, exchange_order_id: int, since: datetime
     ) -> tuple[TradeRecord, ...]:
         """Every fill of one of the bot's orders since `since`, with its fee.
         @raise AccountHistoryUnavailableError The venue did not answer."""
-        activity = self._ports.account_activity
-        request = HistoryRequest(self._identity.symbol, since)
-        found: list[TradeRecord] = []
-        while True:
-            page = activity.trade_history(request)
-            found.extend(row for row in page.rows if row.order_id == exchange_order_id)
-            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
-                return tuple(found)
-            request = request.at_page(request.page + 1)
+        return self._history.order_trades(exchange_order_id, since)
 
     def holding(self, asset: str) -> Decimal | None:
         """The account's whole holding of `asset` (free and locked), or
@@ -273,6 +264,26 @@ class BotOrderGateway:
             if held.asset == asset:
                 return held.free + held.locked
         return Decimal(0)
+
+    def position(self) -> Decimal | None:
+        """The account's signed position on the bot's symbol (positive long, negative short,
+        zero flat), as the exchange reports it now; `None` when the read failed, which is not
+        a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else)."""
+        try:
+            held = self._ports.account_snapshot.open_positions()
+        except (
+            Exception
+        ):  # converted at this seam: an unread position is `None`, never flat
+            logger.exception(
+                "Bot %s: the position of %s could not be read",
+                self._identity.tag,
+                self._identity.symbol,
+            )
+            return None
+        return sum(
+            (p.position_amt for p in held if p.symbol == self._identity.symbol),
+            Decimal(0),
+        )
 
     def key_rejected(self) -> bool:
         """Whether the exchange rejects the account's API key right now: a

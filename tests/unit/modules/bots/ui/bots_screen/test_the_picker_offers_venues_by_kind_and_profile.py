@@ -114,6 +114,13 @@ def test_a_kind_that_declares_only_spot_is_never_offered_a_futures_venue(
     assert TradingVenue.SPOT_TESTNET in listed
 
 
-def test_a_futures_venue_waits_for_the_build_to_let_bots_run_there() -> None:
-    """Until `EPIC-039H` raises the ceiling a kind's declaration alone lists nothing new."""
-    assert _listed(_BOTH) == [TradingVenue.SPOT_TESTNET, TradingVenue.SPOT_MAINNET]
+def test_the_build_lets_bots_run_on_futures_so_a_kind_declaring_it_lists_its_testnet() -> (
+    None
+):
+    """`EPIC-039H` raised the ceiling: a kind's declaration alone lists Futures testnet, and
+    Futures mainnet stays closed (`CLOSED_VENUES`)."""
+    assert set(_listed(_BOTH)) == {
+        TradingVenue.SPOT_TESTNET,
+        TradingVenue.SPOT_MAINNET,
+        TradingVenue.FUTURES_TESTNET,
+    }

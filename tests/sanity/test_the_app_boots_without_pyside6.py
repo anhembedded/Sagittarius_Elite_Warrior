@@ -43,7 +43,7 @@ _PROCESS_BUDGET_SECONDS = 60
 #: proof the bots module booted, not merely that nothing raised.
 _BOTS_BOOT_LINES = (
     "Bots restored after start-up",
-    "Bots subscribed to fills, ends, rejections, funding, ticks and the switch",
+    "Bots subscribed to fills, ends, rejections, funding, position divergences, ticks and the switch",
     "Bots watch the user-data stream's health",
     "Bots watch for the machine's sleep",
 )

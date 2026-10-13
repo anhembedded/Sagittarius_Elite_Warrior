@@ -165,7 +165,9 @@ class FuturesSettingsGate(IVenueSettingsGate):
         margin_changed = False
         try:
             if before.margin_type is not wanted:
-                changed = control.change_margin_type(request.symbol, wanted)
+                changed = control.change_margin_type(
+                    request.symbol, wanted, owner_id=request.owner_id
+                )
                 refusal = _refusal(changed.blocked_by, changed.detail, "margin type")
                 if refusal is not None:
                     return refusal
@@ -174,7 +176,9 @@ class FuturesSettingsGate(IVenueSettingsGate):
                     request, "margin type", before.margin_type.value, wanted.value
                 )
             if before.leverage != request.leverage:
-                leveraged = control.change_leverage(request.symbol, request.leverage)
+                leveraged = control.change_leverage(
+                    request.symbol, request.leverage, owner_id=request.owner_id
+                )
                 refusal = _refusal(leveraged.blocked_by, leveraged.detail, "leverage")
                 if refusal is not None:
                     return _after_margin_change(

@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closed_venue import (
+    closed_venue_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot.command import (
     CreateBotCommand,
 )
@@ -53,6 +56,9 @@ class CreateBotCommandHandler(ICommandHandler[CreateBotCommand, BotCommandResult
             )
         except ValueError as exc:
             return BotCommandResult.refused(BotRefusal.INVALID_DEFINITION, str(exc))
+        closed = closed_venue_refusal(definition.venue)
+        if closed is not None:
+            return closed
         bot = Bot.draft(self._free_id(), definition, self._clock.now())
         self._store.save(StoredBot(bot))
         logger.info(

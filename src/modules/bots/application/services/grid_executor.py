@@ -21,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_facts 
     GridFactParts,
     GridFacts,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
-    GridHousekeeping,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_interrupted_start import (
     GridInterruptedStart,
 )
@@ -32,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_pr
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_ladder_placer import (
     GridLadderPlacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_parking import (
+    GridParking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
     GridPriceReaction,
@@ -47,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_recove
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_resume_sequence import (
     GridResumeSequence,
+    ResumeParts,
     ResumeProposal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
@@ -143,7 +144,8 @@ class GridExecutor(IBotExecutor):
         self._status = SymbolStatusGate(context)
         self._storage = GridStorageWatch(context)
         self._resume = GridResumeSequence(
-            context, self._start, self._status, self._storage
+            context,
+            ResumeParts(self._start, self._status, self._storage, exposure.check),
         )
         self._reconciler = GridReconciler(context, exposure.check)
         self._placer = GridLadderPlacer(context, exposure.flags)
@@ -154,7 +156,7 @@ class GridExecutor(IBotExecutor):
         )
         self._guard = GridTaskGuard(
             context,
-            GridHousekeeping(context),
+            GridParking(context, exposure.closer, self._stop),
             GridRateLimitPause(context, retries, self._post, self._resume, self._price),
             self._storage,
         )
@@ -251,7 +253,14 @@ class GridExecutor(IBotExecutor):
         if not self._status.admits():
             return
         price = self._price()
-        self._start.run(plan(self._context.params, self._context.terms, price))
+        self._start.run(
+            plan(
+                self._context.params,
+                self._context.terms,
+                price,
+                self._context.level_sizing,
+            )
+        )
 
     def _run_stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.clear()

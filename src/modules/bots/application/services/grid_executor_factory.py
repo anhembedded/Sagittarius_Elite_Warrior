@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposu
     GridExposures,
     spot_only_exposures,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_margin_mode import (
+    GRID_MARGIN_MODE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_age import (
     GridPriceAge,
 )
@@ -70,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -79,11 +85,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import MarginMode
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    exposure_limits_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     GateRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
@@ -99,10 +110,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
 )
-
-#: The margin mode a Grid bot asks of its venue: Isolated only (decision O5, `EPIC-039`).
-#: A bot that may ask for Cross reads it from its params instead, and this goes.
-GRID_MARGIN_MODE = MarginMode.ISOLATED
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,12 +134,14 @@ class GridExecutorDeps:
     prices: IFreshPriceReader
     #: Where a bot announces its price leaving its range (`EPIC-035L`).
     events: IEventPublisher
+    #: The owner budget a bot registers, chosen by its venue's profile (`EPIC-039H`).
+    budgets: IGridBudgets
     #: The venue's settings gate (`EPIC-039E`): a running bot asks it, read-only, whether the
     #: venue still holds its leverage and margin type. Spot's holds nothing to check.
     settings_gate: IVenueSettingsGate = field(default_factory=SpotSettingsGate)
     #: Builds a position venue's liquidation and divergence watch for one bot's context
     #: (`EPIC-039F`); `EPIC-039H` binds it for Futures. `None`: Spot has neither.
-    risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None
+    risk_watch: Callable[[GridRunContext], GridRiskWatch | None] | None = None
     #: The exposure-shaped collaborators, chosen by the bot's venue profile (`EPIC-039H`).
     exposures: GridExposures = field(default_factory=spot_only_exposures)
 
@@ -177,6 +186,8 @@ class GridExecutorFactory(IBotExecutorFactory):
             asset_price=lambda asset: deps.prices.read(
                 bot.definition.venue, f"{asset}{BUDGET_QUOTE_ASSET}"
             ),
+            budget=lambda: deps.budgets.budget_of(bot.definition.venue, symbol, params),
+            limits=exposure_limits_of(bot.definition.venue, GRID_MARKETS),
             settings_check=partial(
                 deps.settings_gate.verify,
                 GateRequest(
@@ -184,6 +195,7 @@ class GridExecutorFactory(IBotExecutorFactory):
                     symbol,
                     params.leverage,
                     GRID_MARGIN_MODE,
+                    bot_owner_id(bot_id),
                 ),
             ),
         )

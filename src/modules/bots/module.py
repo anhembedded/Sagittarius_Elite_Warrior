@@ -25,9 +25,9 @@ the lock that makes the D20 check and a start one step.
 @par `boot()` applies the restart rule (ADR D12), then subscribes the bots
 `BotRestoreService.restore_all()` moves RUNNING and PAUSED bots to RECOVERING
 and STARTING bots to HALTED, saving each changed file, and places nothing.
-Then `BotEventRouter` is subscribed to the six events a bot hears: fills,
-ends and rejections of its orders, its symbol's funding fees, its symbol's ticks, and
-the trading switch.
+Then `BotEventRouter` is subscribed to the seven events a bot hears: fills,
+ends and rejections of its orders, its symbol's funding fees, a divergence of its position
+from the exchange's (`EPIC-039F`), its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
@@ -176,6 +176,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_rejected_event import (
     OrderRejectedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.owner_position_diverged_event import (
+    OwnerPositionDivergedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
 )
@@ -231,11 +234,13 @@ class BotsModule(BoundedContextModule):
         bus.on(OrderEndedEvent, router.on_end)
         bus.on(OrderRejectedEvent, router.on_rejected)
         bus.on(FundingChargedEvent, router.on_funding)
+        bus.on(OwnerPositionDivergedEvent, router.on_position_diverged)
         bus.on(MarketTickEvent, router.on_tick)
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info(
-            "Bots subscribed to fills, ends, rejections, funding, ticks and the switch"
+            "Bots subscribed to fills, ends, rejections, funding, position divergences, "
+            "ticks and the switch"
         )
         price_watch = container.resolve(BotPriceWatch)
         bus.on(BotChangedEvent, price_watch.on_bot_changed)

@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.level_sizing_rule import (
+    level_sizing_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
@@ -72,8 +75,10 @@ class GridEvaluation:
 def evaluate_grid(
     inputs: BotKindInputs,
     thresholds: GridThresholds,
-    level_sizing: LevelSizing = LevelSizing.EQUAL_CAPITAL,
+    level_sizing: LevelSizing | None = None,
 ) -> GridEvaluation:
+    """@param level_sizing How the levels are sized; by default the venue's: a position
+    venue's levels all have one quantity (`level_sizing_for` its exposure kind)."""
     unset = unset_parameters(inputs.config)
     if unset:
         return _not_set(unset)
@@ -87,7 +92,8 @@ def evaluate_grid(
     if params.grid_count > inputs.terms.max_open_orders:
         return GridEvaluation((_too_many_levels(params, inputs),), params)
     try:
-        grid_plan = plan(params, inputs.terms, inputs.market.last_price, level_sizing)
+        sizing = level_sizing or level_sizing_for(inputs.limits.exposure_kind)
+        grid_plan = plan(params, inputs.terms, inputs.market.last_price, sizing)
         derived = derive(params, inputs.terms, grid_plan)
         check_inputs = GridCheckInputs(
             params,

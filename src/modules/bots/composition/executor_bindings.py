@@ -11,6 +11,9 @@ wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import timedelta
+
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -61,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
     GridExecutorDeps,
     GridExecutorFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+    GridExposures,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
     GridStartPreconditions,
 )
@@ -74,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch
     SleepWatch,
     SleepWatchDeps,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_brackets import (
+    SymbolBrackets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_facts_by_profile import (
     VenueFactsByProfile,
 )
@@ -85,6 +94,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_setti
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gates import (
     VenueSettingsGates,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.futures_wiring import (
+    futures_exposure,
+    grid_budgets,
+    grid_exposures,
+    risk_watches,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
@@ -98,11 +113,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
+    IBotWorkQueue,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
+    IOrderPacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
     IVenueFacts,
@@ -118,6 +142,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    FuturesGridThresholds,
     GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
@@ -134,6 +159,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
+#: The numbers a position venue's plan guard and risk watch judge with (`EPIC-039F`).
+_FUTURES_THRESHOLDS = FuturesGridThresholds()
+
 
 def bind_executors(container: IContainer) -> None:
     """Lazy factories: `register()` may only bind, never resolve."""
@@ -146,6 +174,8 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(FuturesFactsReader, _build_futures_facts_reader)
     container.singleton(IVenueFacts, _build_venue_facts)
     container.singleton(IVenueSettingsGate, _build_venue_settings_gate)
+    container.singleton(SymbolBrackets, _build_symbol_brackets)
+    container.singleton(IGridBudgets, _build_grid_budgets)
     container.singleton(ResumeReadinessReader, _build_resume_readiness_reader)
     container.singleton(IBotKindCatalog, _build_kind_catalog)
     container.singleton(IBotTicker, _build_ticker)
@@ -197,20 +227,63 @@ def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
 
 
 def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
-    deps = GridExecutorDeps(
+    return GridExecutorFactory(grid_executor_deps(container))
+
+
+def grid_executor_deps(
+    container: IContainer,
+    queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
+    pacers: Callable[[timedelta], IOrderPacer] = MonotonicOrderPacer,
+) -> GridExecutorDeps:
+    """What every Grid executor is built from, as production wires it. A journey that needs its
+    bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
+    the exposure collaborators and the risk watch are the production ones)."""
+    return GridExecutorDeps(
         ports=container.resolve(IVenueTradingPorts),
         store=container.resolve(IBotStore),
         clock=container.resolve(IBotClock),
         caps=container.resolve(OwnerBudgetCaps),
-        queues=ThreadBotWorkQueue,
-        pacers=MonotonicOrderPacer,
+        queues=queues,
+        pacers=pacers,
         monotonic=container.resolve(IMonotonicClock),
         retries=container.resolve(IBotRetryScheduler),
         prices=container.resolve(IFreshPriceReader),
         events=container.resolve(IEventPublisher),
         settings_gate=container.resolve(IVenueSettingsGate),
+        budgets=container.resolve(IGridBudgets),
+        exposures=_grid_exposures(container),
+        risk_watch=risk_watches(
+            container.resolve(IVenueTradingPorts),
+            container.resolve(IBotClock),
+            _FUTURES_THRESHOLDS,
+        ),
     )
-    return GridExecutorFactory(deps)
+
+
+def _grid_exposures(container: IContainer) -> GridExposures:
+    """The exposure collaborators of each venue profile (`EPIC-039H`)."""
+    return grid_exposures(
+        container.resolve(IVenueProfiles),
+        futures_exposure(
+            container.resolve(IVenueTradingPorts),
+            container.resolve(IVenueSettingsGate),
+            container.resolve(SymbolBrackets),
+            _FUTURES_THRESHOLDS,
+        ),
+    )
+
+
+def _build_symbol_brackets(container: IContainer) -> SymbolBrackets:
+    return SymbolBrackets(container.resolve(IVenueTradingPorts))
+
+
+def _build_grid_budgets(container: IContainer) -> IGridBudgets:
+    """The owner budget of whichever venue a bot is on, by the venue's profile."""
+    return grid_budgets(
+        container.resolve(IVenueProfiles),
+        container.resolve(OwnerBudgetCaps),
+        container.resolve(SymbolBrackets),
+    )
 
 
 def _build_exchange_facts_reader(container: IContainer) -> ExchangeFactsReader:
@@ -255,7 +328,7 @@ def _build_venue_settings_gate(container: IContainer) -> IVenueSettingsGate:
 def _build_resume_readiness_reader(container: IContainer) -> ResumeReadinessReader:
     """What the Resume use case asks before it queues the resume (`BOT-174`)."""
     return ResumeReadinessReader(
-        container.resolve(ExchangeFactsReader),
+        container.resolve(IVenueFacts),
         container.resolve(IVenueTradingPorts),
         container.resolve(OwnerBudgetCaps),
     )
@@ -269,7 +342,7 @@ def _build_readiness_reader(container: IContainer) -> BotReadinessReader:
         container.resolve(IVenueAccounts),
         container.resolve(IVenueTradingPorts),
         container.resolve(OwnerBudgetCaps),
-        container.resolve(ExchangeFactsReader),
+        container.resolve(IVenueFacts),
     )
 
 
@@ -284,8 +357,7 @@ def _build_executing_runner(container: IContainer) -> IBotRunner:
         container.resolve(IBotStore),
         container.resolve(IBotClock),
         GridStartPreconditions(
-            container.resolve(IVenueTradingPorts),
-            container.resolve(OwnerBudgetCaps),
+            container.resolve(IVenueTradingPorts), container.resolve(IGridBudgets)
         ),
         container.resolve(BotExecutors),
     )

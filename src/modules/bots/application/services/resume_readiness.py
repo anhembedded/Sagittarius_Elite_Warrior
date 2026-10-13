@@ -25,26 +25,26 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
-    ExchangeFactsReader,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
     RuleOutcome,
     RunPurpose,
-    judge_exchange,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     GridRuntimeCodecError,
     decode_runtime,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_needs import (
-    resume_ladder_needs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_numbers import (
     read_planner_numbers,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
     MARKET_NOT_READ,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_needs import (
+    resume_needs_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_rules import (
+    VenueNeeds,
+    judge_venue,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
@@ -54,12 +54,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     ReadinessItem,
     ReadinessStep,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
-    ExchangeSnapshot,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_needs import (
-    LadderNeeds,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
+    IVenueFacts,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+    VenueProfile,
+    bot_profile_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -86,7 +94,9 @@ class ResumeInputs:
     #: `None` while the market numbers are being read.
     market: PlannerMarket | None
     inventory: OwnerInventory
-    exchange: ExchangeSnapshot
+    exchange: VenueSnapshot
+    #: The profile of the bot's venue (`EPIC-039H`); Spot's where none is given.
+    profile: VenueProfile = SPOT_PROFILE
 
 
 def assess_resume(inputs: ResumeInputs) -> RuleOutcome:
@@ -94,13 +104,13 @@ def assess_resume(inputs: ResumeInputs) -> RuleOutcome:
     cannot be drawn (the market numbers still being read, unreadable, or
     parameters that do not parse) is one named item, never a silent pass."""
     needs, unplanned = _needs_of(inputs)
-    outcome = judge_exchange(inputs.exchange, needs, RunPurpose.RESUME)
+    outcome = judge_venue(inputs.profile, inputs.exchange, needs, RunPurpose.RESUME)
     return RuleOutcome(unplanned + outcome.items, outcome.advisories)
 
 
 def _needs_of(
     inputs: ResumeInputs,
-) -> tuple[LadderNeeds | None, tuple[ReadinessItem, ...]]:
+) -> tuple[VenueNeeds | None, tuple[ReadinessItem, ...]]:
     market = inputs.market
     if market is None:
         return None, (
@@ -114,8 +124,12 @@ def _needs_of(
                 ReadinessFix.NONE,
             ),
         )
-    needs = resume_ladder_needs(
-        inputs.config, market.terms, market.market.last_price, inputs.inventory
+    needs = resume_needs_of(
+        inputs.profile,
+        inputs.config,
+        market.terms,
+        market.market.last_price,
+        inputs.inventory,
     )
     if needs is None:
         return None, (
@@ -139,7 +153,7 @@ class ResumeReadinessReader:
 
     def __init__(
         self,
-        facts: ExchangeFactsReader,
+        facts: IVenueFacts,
         ports: IVenueTradingPorts,
         caps: OwnerBudgetCaps,
     ) -> None:
@@ -161,8 +175,15 @@ class ResumeReadinessReader:
             if isinstance(numbers, str)
             else PlannerMarket(numbers[0], numbers[1], None, None)
         )
+        profile = bot_profile_of(definition.venue, GRID_MARKETS)
         outcome = assess_resume(
-            ResumeInputs(definition.config, market, inventory, self._facts.read(bot))
+            ResumeInputs(
+                definition.config,
+                market,
+                inventory,
+                self._facts.read(bot),
+                profile if profile is not None else SPOT_PROFILE,
+            )
         )
         logger.debug(
             "Bot %s resume readiness: %d thing(s) left (%s)",

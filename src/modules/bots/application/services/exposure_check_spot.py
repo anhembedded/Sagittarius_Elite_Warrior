@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridReason,
     GridRuntime,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
 )
@@ -30,6 +33,11 @@ class SpotExposureCheck(IExposureCheck):
 
     def derives(self, registration: OwnerBudgetRegistrationResult) -> bool:
         return registration.inventory is not None
+
+    def held(
+        self, registration: OwnerBudgetRegistrationResult
+    ) -> OwnerInventory | None:
+        return registration.inventory
 
     def check(
         self, runtime: GridRuntime, registration: OwnerBudgetRegistrationResult

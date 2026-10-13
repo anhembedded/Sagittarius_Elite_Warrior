@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     is_offered,
-    market_of,
+    plan_market_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -56,7 +56,7 @@ def venue_choices(
     choices = [
         VenueChoice(venue, _connection_of(contexts, venue, enabled))
         for venue in TradingVenue
-        if is_offered(venue) and market_of(venue) in markets
+        if is_offered(venue) and plan_market_of(venue) in markets
     ]
     return tuple(sorted(choices, key=lambda choice: choice.connection != KEY_SAVED))
 

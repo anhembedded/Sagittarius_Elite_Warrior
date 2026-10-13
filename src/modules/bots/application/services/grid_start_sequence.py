@@ -2,7 +2,7 @@
 
   1. **The opening** is the venue profile's (`IOpeningStrategy`): Spot buys the base the SELL
      levels will sell and sizes them net of the fee (`opening_spot.py`); a position venue
-     opens its signed quantity (a later `EPIC-039H` stage). Either way the exchange's own record of
+     opens its signed quantity (`opening_futures.py`). Either way the exchange's own record of
      it is counted before the ladder, and the sequence lays nothing when it is not there.
   2. **The ladder**, outward from the last price; the level nearest the price stays EMPTY.
      Each order carries the venue's flags (`IOrderFlags`: reduce-only counters on a position

@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
     BotLookup,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closed_venue import (
+    closed_venue_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
     ResumeReadinessReader,
 )
@@ -56,6 +59,9 @@ class ResumeBotCommandHandler(ICommandHandler[ResumeBotCommand, BotCommandResult
         found = self._lookup.find(command.bot_id)
         if isinstance(found, BotCommandResult):
             return found
+        closed = closed_venue_refusal(found.bot.definition.venue, command.bot_id)
+        if closed is not None:
+            return closed
         # A paused bot's resume lays no ladder: its orders still rest.
         halted = found.bot.state is BotLifecycleState.HALTED
         left = self._readiness.read(found).items if halted else ()

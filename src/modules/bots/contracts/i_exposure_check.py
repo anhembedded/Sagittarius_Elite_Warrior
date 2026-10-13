@@ -4,7 +4,9 @@
 fills first, adopt) and one question that depends on what the bot holds: does the ladder's own
 count of its holding agree with what trading derived from the exchange, and does the account
 hold at least that? On Spot that is `INVENTORY_MISMATCH` and `HOLDING_BELOW_INVENTORY`; on a
-position venue it is `POSITION_MISMATCH` (derived against `positionRisk`, to within one step).
+position venue it is `POSITION_MISMATCH` (the saved position against the one derived from the bot's
+fills, to within one step) and the `FOREIGN_FILL` of a position that moved with no order of the
+bot's, read from the registration's divergence (`exposure_check_futures.py`).
 The reconciler (`GridReconciler`) holds one check and never names a market.
 
 Plausible extensions, each a local change: a Cross-margin check that also reads the other
@@ -20,6 +22,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
     GridRuntime,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistrationResult,
@@ -39,6 +44,14 @@ class IExposureCheck(ABC):
     def derives(self, registration: OwnerBudgetRegistrationResult) -> bool:
         """Whether `registration` carries the holding this venue derives. A registered budget
         without it cannot be reconciled; the reconcile waits for the next try."""
+
+    @abstractmethod
+    def held(
+        self, registration: OwnerBudgetRegistrationResult
+    ) -> OwnerInventory | None:
+        """What `registration` says the bot holds, as a quantity and what it cost: the figure a
+        resume sizes its ladder to. `None` when the registration carries none, or the venue's
+        holding cannot be sized that way (a short position)."""
 
     @abstractmethod
     def check(

@@ -3,7 +3,7 @@
 Kind-neutral: the backtest comes from `kind_panels.backtest_for`, built once
 per kind and kept while bots of that kind are selected (selecting another bot
 of the same kind cancels its run and clears its result, `BotBacktest.follow`).
-A kind with no backtest, a venue whose market it does not replay (Futures until `EPIC-039K`),
+A kind with no backtest, a venue whose market it does not replay,
 or no selection hides the Backtest tab.
 """
 

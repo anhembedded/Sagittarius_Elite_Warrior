@@ -95,13 +95,24 @@ def test_a_spot_draft_refuses_a_venue_that_is_not_spot_in_the_old_words(
     assert str(refused.value) == f"{target.display_name} is not a Spot venue."
 
 
-@pytest.mark.parametrize("venue", [*_NOT_SPOT, TradingVenue.DISABLED])
-def test_the_planner_numbers_name_a_venue_that_is_not_an_enabled_spot_venue(
-    venue: TradingVenue,
-) -> None:
+def test_the_planner_numbers_name_a_venue_that_trades_no_market_as_not_an_enabled_spot_venue() -> (
+    None
+):
+    venue = TradingVenue.DISABLED
+
     said = read_planner_numbers(_NoVenueEnabled(), _CAPS, venue, "BTCUSDT")
 
     assert said == f"{venue.display_name} is not an enabled Spot venue"
+
+
+@pytest.mark.parametrize("venue", _NOT_SPOT)
+def test_the_planner_numbers_name_a_futures_venue_that_is_off_in_its_own_word(
+    venue: TradingVenue,
+) -> None:
+    """`EPIC-039H`: bots run on Futures, so a Futures venue that is off is not called Spot."""
+    said = read_planner_numbers(_NoVenueEnabled(), _CAPS, venue, "BTCUSDT")
+
+    assert said == f"{venue.display_name} is not an enabled Futures venue"
 
 
 def test_a_spot_venue_that_is_not_enabled_is_not_called_a_non_spot_venue() -> None:
@@ -112,10 +123,9 @@ def test_a_spot_venue_that_is_not_enabled_is_not_called_a_non_spot_venue() -> No
     assert said == f"{venue.display_name} is not an enabled Spot venue"
 
 
-@pytest.mark.parametrize("venue", _NOT_SPOT)
-def test_the_run_facts_name_a_venue_the_app_does_not_trade_on(
-    venue: TradingVenue,
-) -> None:
+def test_the_run_facts_name_a_venue_the_app_does_not_trade_on() -> None:
+    venue = TradingVenue.DISABLED
+
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
         "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
     )
@@ -123,6 +133,25 @@ def test_the_run_facts_name_a_venue_the_app_does_not_trade_on(
     assert facts.venue_problem == (
         f"{venue.display_name} is not a Spot venue this app trades on"
     )
+
+
+def test_a_futures_venue_that_is_off_says_not_enabled() -> None:
+    """`EPIC-039H`: a Futures venue is one bots trade on, so only being off is its problem."""
+    venue = TradingVenue.FUTURES_TESTNET
+    facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+    )
+
+    assert facts.venue_problem == f"{venue.display_name} is not enabled"
+
+
+def test_futures_mainnet_says_it_is_closed_to_bots_not_that_it_is_off() -> None:
+    venue = TradingVenue.FUTURES_MAINNET
+    facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+    )
+
+    assert "closed to bots" in facts.venue_problem
 
 
 def test_a_spot_venue_that_is_off_says_not_enabled() -> None:
