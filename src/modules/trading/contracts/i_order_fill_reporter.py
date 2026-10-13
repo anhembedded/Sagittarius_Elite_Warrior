@@ -32,7 +32,8 @@ class IOrderFillReporter(ABC):
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None = None,
         trade_id: int | None = None,
+        realized_profit: Decimal | None = None,
     ) -> None:
         """@brief `fill` is `(price, quantity)` of this one fill, `fee` its
         `(amount, asset)` where the record carries one, `trade_id` the
-        exchange's id of it. A trade already reported is not counted again."""
+        exchange's id of it, `realized_profit` Futures' profit of the trade. A trade already reported is not counted again."""

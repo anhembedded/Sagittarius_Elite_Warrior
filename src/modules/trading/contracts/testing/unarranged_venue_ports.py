@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.funding_rate import (
+    FundingRate,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
     FuturesSymbolSetting,
 )
@@ -43,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_funding_reader import (
+    IFundingReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
@@ -186,6 +192,11 @@ class UnarrangedAccountControl(IFuturesAccountControl):
 class UnarrangedBookTickerReader(IBookTickerReader):
     def best_bid_ask(self, symbol: str) -> BestBidAsk:
         _not_arranged("IBookTickerReader")
+
+
+class UnarrangedFundingReader(IFundingReader):
+    def funding_rate(self, symbol: str) -> FundingRate:
+        _not_arranged("IFundingReader")
 
 
 class UnarrangedMarkPriceReader(IMarkPriceReader):

@@ -13,6 +13,7 @@ payload shapes.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -40,6 +41,9 @@ ACCOUNT_UPDATE = "ACCOUNT_UPDATE"
 #: actual trade/fill, not merely a status transition (e.g. a plain `NEW`
 #: acknowledgement carries `x="NEW"`, not `"TRADE"`).
 _TRADE_EXECUTION_TYPE = "TRADE"
+
+#: `ACCOUNT_UPDATE` reason (`"m"`) of a funding settlement.
+_FUNDING_REASON = "FUNDING_FEE"
 
 #: The asset this app ever trades in — the only entry
 #: `account_update_wallet_balance` reads out of a potentially multi-asset
@@ -101,6 +105,56 @@ def fill_details(payload: dict[str, Any]) -> tuple[Decimal, Decimal]:
     """
     o = payload["o"]
     return Decimal(str(o["L"])), Decimal(str(o["l"]))
+
+
+def fill_commission(payload: dict[str, Any]) -> tuple[Decimal, str] | None:
+    """@brief `(amount, asset)` of *this* fill's commission (`"n"`/`"N"`), or `None`
+    when the payload carries neither (`EPIC-039G`: Binance does not push `n` when
+    there is no commission) — never a fabricated `Decimal(0)` (`code/errors.md` §6)."""
+    o = payload["o"]
+    amount, asset = o.get("n"), o.get("N")
+    if amount is None or asset is None:
+        return None
+    return Decimal(str(amount)), str(asset)
+
+
+def fill_realized_profit(payload: dict[str, Any]) -> Decimal | None:
+    """@brief The realized profit of the trade (`"rp"`), or `None` when absent
+    (`EPIC-039G`). Zero is a real value: a trade that only opens realizes nothing."""
+    raw = payload["o"].get("rp")
+    return None if raw is None else Decimal(str(raw))
+
+
+@dataclass(frozen=True, slots=True)
+class FundingCharge:
+    """One funding settlement read from an `ACCOUNT_UPDATE` (`EPIC-039G`)."""
+
+    symbol: str
+    #: The wallet's signed change in the quote asset: negative is paid.
+    amount: Decimal
+
+
+def account_update_funding(payload: dict[str, Any]) -> FundingCharge | None:
+    """@brief The funding fee this `ACCOUNT_UPDATE` reports, or `None` when its
+    reason `"m"` is not `FUNDING_FEE`, it has no quote-asset balance change, or the
+    symbol cannot be told.
+    @details The amount is the quote entry's `"bc"`, "the balance change except for
+    PnL and commission". The symbol is `"a"."S"` (pushed for this reason since
+    2026-08-07), else the one position the update lists; with neither the charge is
+    unattributed and not guessed."""
+    body = payload.get("a", {})
+    if body.get("m") != _FUNDING_REASON:
+        return None
+    balance = next((b for b in body.get("B", []) if b.get("a") == _QUOTE_ASSET), None)
+    if balance is None or balance.get("bc") is None:
+        return None
+    symbol = body.get("S")
+    if symbol is None:
+        symbols = account_update_changed_symbols(payload)
+        symbol = symbols[0] if len(symbols) == 1 else None
+    if symbol is None:
+        return None
+    return FundingCharge(str(symbol), Decimal(str(balance["bc"])))
 
 
 def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:

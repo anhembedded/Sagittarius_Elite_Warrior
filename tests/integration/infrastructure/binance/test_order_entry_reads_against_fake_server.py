@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_book_ticker_reader import (
     FuturesBookTickerReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_funding_reader import (
+    FuturesFundingReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_mark_price_reader import (
     FuturesMarkPriceReader,
 )
@@ -172,6 +175,15 @@ def test_the_futures_mark_price_is_read_for_a_flat_symbol() -> None:
 
     assert (mark.symbol, mark.mark_price) == ("BTCUSDT", Decimal("64000.0"))
     assert mark.as_of.year == 2023
+
+
+def test_the_funding_rate_and_next_funding_time_are_read_from_the_fake() -> None:
+    """`EPIC-039G` — the same `premiumIndex` answer the mark price reads."""
+    with _fake_exchange():
+        funding = FuturesFundingReader(FuturesSessionFactory()).funding_rate("BTCUSDT")
+
+    assert (funding.symbol, funding.rate) == ("BTCUSDT", Decimal("0.0001"))
+    assert funding.next_funding_at > funding.as_of
 
 
 def test_each_venue_reads_its_own_book() -> None:

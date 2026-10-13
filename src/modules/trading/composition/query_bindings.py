@@ -31,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_excha
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_funding_rate import (
+    GetFundingRateQuery,
+    GetFundingRateQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_futures_symbol_setting import (
     GetFuturesSymbolSettingQuery,
     GetFuturesSymbolSettingQueryHandler,
@@ -97,6 +101,7 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetFuturesSymbolSettingQuery, GetFuturesSymbolSettingQueryHandler)
     container.bind(GetLeverageBracketsQuery, GetLeverageBracketsQueryHandler)
     container.bind(GetMarkPriceQuery, GetMarkPriceQueryHandler)
+    container.bind(GetFundingRateQuery, GetFundingRateQueryHandler)  # EPIC-039G
     container.bind(GetBestBidAskQuery, GetBestBidAskQueryHandler)
     container.bind(GetOrderNotionalLimitQuery, GetOrderNotionalLimitQueryHandler)
     # BUG-176: the Options page lists each venue's key as a fingerprint.

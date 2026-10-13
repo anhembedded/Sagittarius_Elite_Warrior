@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_funding_reader import (
+    IFundingReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
 )
@@ -98,6 +101,9 @@ def venue_context(
         book_ticker_reader=book_ticker_reader or Mock(spec=IBookTickerReader),
         mark_price_reader=(
             None if venue is TradingVenue.SPOT_TESTNET else Mock(spec=IMarkPriceReader)
+        ),
+        funding_reader=(
+            None if venue is TradingVenue.SPOT_TESTNET else Mock(spec=IFundingReader)
         ),
     )
 

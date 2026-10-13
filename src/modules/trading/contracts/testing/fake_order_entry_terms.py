@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_una
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.funding_rate import (
+    FundingRate,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
     FuturesSymbolSetting,
 )
@@ -60,7 +63,7 @@ DEFAULT_ORDER_NOTIONAL_LIMIT = DEFAULT_TRADING_LIMITS.max_notional_per_order
 
 @dataclass(frozen=True)
 class FuturesReads:
-    """What the three Futures-only reads answer, per symbol."""
+    """What the four Futures-only reads answer, per symbol."""
 
     settings: Mapping[str, FuturesSymbolSetting | NotApplicable] = field(
         default_factory=dict
@@ -69,6 +72,7 @@ class FuturesReads:
         default_factory=dict
     )
     marks: Mapping[str, MarkPrice | NotApplicable] = field(default_factory=dict)
+    funding: Mapping[str, FundingRate | NotApplicable] = field(default_factory=dict)
 
     @classmethod
     def not_applicable(cls, *symbols: str) -> FuturesReads:
@@ -78,6 +82,7 @@ class FuturesReads:
             settings=dict.fromkeys(symbols, none),
             brackets=dict.fromkeys(symbols, none),
             marks=dict.fromkeys(symbols, none),
+            funding=dict.fromkeys(symbols, none),
         )
 
 
@@ -152,6 +157,12 @@ class FakeOrderEntryTerms(IOrderEntryTerms):
         answer = self._futures.marks.get(symbol)
         if answer is None:
             raise MarketPriceUnavailableError(f"no mark price seeded for {symbol}")
+        return answer
+
+    def funding_rate_for(self, symbol: str) -> FundingRate | NotApplicable:
+        answer = self._futures.funding.get(symbol)
+        if answer is None:
+            raise MarketPriceUnavailableError(f"no funding rate seeded for {symbol}")
         return answer
 
     def quote(self, book: BestBidAsk) -> None:

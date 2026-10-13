@@ -62,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     ORDER_TRADE_UPDATE,
     account_update_captured_at,
     account_update_changed_symbols,
+    account_update_funding,
     account_update_position_pnls,
     account_update_wallet_balance,
 )
@@ -300,6 +301,13 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 equity_sample.wallet_balance,
                 equity_sample.unrealized_pnl,
                 equity_sample.total,
+            )
+
+        funding = account_update_funding(payload)
+        if funding is not None:
+            self._events.funding_charged(funding.symbol, funding.amount)
+            logger.debug(
+                "ACCOUNT_UPDATE  %s  funding %s", funding.symbol, funding.amount
             )
 
         generation = self._generation

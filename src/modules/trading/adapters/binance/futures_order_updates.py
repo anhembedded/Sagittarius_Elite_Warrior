@@ -28,7 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.algo_update_
     parse_algo_update,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_event_parser import (
+    fill_commission,
     fill_details,
+    fill_realized_profit,
     is_fill_execution,
     parse_order_trade_update,
 )
@@ -102,6 +104,11 @@ class FuturesOrderUpdates:
 
         if is_fill_execution(payload):
             fill_price, fill_quantity = fill_details(payload)
-            self._events.order_filled(order, (fill_price, fill_quantity))
+            self._events.order_filled(
+                order,
+                (fill_price, fill_quantity),
+                fee=fill_commission(payload),
+                realized_profit=fill_realized_profit(payload),
+            )
         elif ended_without_filling(order.status):
             self._events.order_ended(order)

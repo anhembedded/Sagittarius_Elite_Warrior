@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_book
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_commission_rate_reader import (
     FuturesCommissionRateReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_funding_reader import (
+    FuturesFundingReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
 )
@@ -120,6 +123,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_funding_reader import (
+    IFundingReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
@@ -329,6 +335,12 @@ class VenueAssembly:
             return None
         return FuturesMarkPriceReader(self._futures_sessions)
 
+    @LockedCachedProperty
+    def funding_reader(self) -> IFundingReader | None:
+        if self._is_spot:
+            return None
+        return FuturesFundingReader(self._futures_sessions)
+
     @property
     def session_state(self) -> TradingSessionState:
         """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
@@ -384,4 +396,5 @@ class VenueAssembly:
             account_control=self.account_control,
             book_ticker_reader=self.book_ticker_reader,
             mark_price_reader=self.mark_price_reader,
+            funding_reader=self.funding_reader,
         )
