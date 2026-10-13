@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_deriver import (
+    OwnerPositionDeriver,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommandHandler,
 )
@@ -39,10 +42,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_c
     IOwnerInventoryCheckpoints,
     OwnerInventoryCheckpoint,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_checkpoints import (
+    IOwnerPositionCheckpoints,
+    OwnerPositionCheckpoint,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudgetCaps,
     OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    EMPTY_POSITION,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -106,3 +116,32 @@ def test_the_checkpoints_are_written_under_the_data_root(
 
     written = list((tmp_path / "state" / "trading" / "owner_inventory").iterdir())
     assert [path.name for path in written] == ["a3f9c1.json"]
+
+
+def test_the_position_checkpoints_are_written_under_the_data_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-039H` - the Futures twin of the inventory checkpoint: under the data root, in its own
+    directory, never beside Spot's."""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+    checkpoints = _container({}).resolve(IOwnerPositionCheckpoints)
+
+    checkpoints.save(
+        OwnerPositionCheckpoint(
+            tag="f0a1b2",
+            run_started_at=datetime(2026, 10, 1, tzinfo=UTC),
+            position=EMPTY_POSITION,
+            last_trade_id=None,
+            open_order_ids=frozenset(),
+            read_from=datetime(2026, 10, 1, tzinfo=UTC),
+        )
+    )
+
+    written = list((tmp_path / "state" / "trading" / "owner_position").iterdir())
+    assert [path.name for path in written] == ["f0a1b2.json"]
+
+
+def test_the_position_deriver_resolves_with_its_checkpoints() -> None:
+    assert isinstance(
+        _container({}).resolve(OwnerPositionDeriver), OwnerPositionDeriver
+    )

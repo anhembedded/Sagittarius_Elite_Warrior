@@ -156,7 +156,7 @@ class OwnerInventoryDeriver:
                 run_started_at=registration.run_started_at,
                 inventory=inventory,
                 last_trade_id=last_trade_id,
-                open_order_ids=_still_open(orders, carried_open),
+                open_order_ids=still_open_orders(orders, carried_open),
                 read_from=max(read_from, now - _READ_OVERLAP),
             )
         )
@@ -194,7 +194,7 @@ def owner_fill_of(trade: TradeRecord, base_asset: str) -> OwnerFill:
     return OwnerFill(trade.side, trade.quantity, trade.quote_quantity, base_fee)
 
 
-def _still_open(
+def still_open_orders(
     orders: tuple[OrderRecord, ...], carried_open: frozenset[int]
 ) -> frozenset[int]:
     """The owner's orders that may still fill: those read and not over, and
