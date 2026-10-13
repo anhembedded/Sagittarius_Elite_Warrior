@@ -3,7 +3,7 @@
 @details The stop is the same sequence on every venue — register, cancel the tagged orders,
 close the exposure when asked, confirm nothing of the bot's still rests — and only the close
 differs. Spot sells the base the bot bought, in slices under the per-order cap; a position
-venue (`EPIC-039H` stage 2) sends reduce-only market orders for the position and confirms it flat. The sequence
+venue (`closer_futures.py`) sends reduce-only market orders for the position and confirms it flat. The sequence
 (`GridStopSequence`) holds one closer and never asks what market it is on.
 
 A closer answers `None` when the exposure is closed (or was dust), and otherwise how the stop
