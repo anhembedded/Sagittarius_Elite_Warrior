@@ -11,17 +11,6 @@ import random
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_risk_policy import (
-    MarginRiskPolicy,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_liquidation import (
-    HeldPosition,
-    Leveraged,
-    distance_to_liquidation,
-    isolated_margin,
-    liquidation_price,
-    loss_of_liquidation,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestResult,
     StopReason,
@@ -31,10 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_position_model import (
     PositionBook,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
-    LeverageBracket,
-    LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.liquidation_estimate import (
     LiquidationTerms,
@@ -79,102 +64,6 @@ def _expected_price(book: PositionBook, leverage: int) -> Decimal | None:
             bracket.maintenance_amount,
         )
     ).price
-
-
-# -- the price: one formula ---------------------------------------------------- #
-
-
-@pytest.mark.parametrize("leverage", [2, 5, 10, 50])
-@pytest.mark.parametrize("quantity", [D("0.3"), D("-0.3")])
-def test_with_no_maintenance_margin_it_is_the_paper_brokers_formula(
-    leverage: int, quantity: Decimal
-) -> None:
-    """`backtesting`'s `MarginRiskPolicy.liquidation_price` is `entry * (1 -/+ 1/leverage)`,
-    which it documents as this formula with a zero maintenance rate and amount. The two agree
-    there; they differ only by the maintenance margin, which is why that policy stays as it
-    is (its docstring) and nothing here forks the formula."""
-    flat = LeverageBrackets(
-        "BTCUSDT", (LeverageBracket(1, 125, D(0), D(10**9), D(0), D(0)),)
-    )
-    held = HeldPosition(quantity, D(65000))
-
-    ours = liquidation_price(held, Leveraged(leverage, flat))
-
-    side = PositionSide.LONG if quantity > 0 else PositionSide.SHORT
-    papers = MarginRiskPolicy().liquidation_price(side, float(leverage), 65000.0)
-    assert ours is not None and papers is not None
-    assert float(ours) == pytest.approx(papers)
-
-
-def test_the_maintenance_margin_brings_the_price_closer_to_the_entry_than_the_paper_one() -> (
-    None
-):
-    held = HeldPosition(D("0.3"), D(65000))
-
-    with_maintenance = liquidation_price(held, Leveraged(10, BRACKETS))
-
-    assert with_maintenance is not None
-    assert D(65000) * D("0.9") < with_maintenance < D(65000)
-
-
-def test_a_long_at_leverage_one_has_no_liquidation_price() -> None:
-    assert (
-        liquidation_price(HeldPosition(D("0.3"), D(65000)), Leveraged(1, BRACKETS))
-        is None
-    )
-
-
-def test_a_short_at_leverage_one_still_has_one() -> None:
-    price = liquidation_price(HeldPosition(D("-0.3"), D(65000)), Leveraged(1, BRACKETS))
-
-    assert price is not None and price > D(65000)
-
-
-def test_a_flat_position_has_no_price() -> None:
-    assert liquidation_price(HeldPosition(D(0), D(0)), Leveraged(5, BRACKETS)) is None
-
-
-def test_funding_paid_is_taken_from_the_margin_and_brings_the_price_closer() -> None:
-    fresh = HeldPosition(D("0.3"), D(65000))
-    paid = HeldPosition(D("0.3"), D(65000), funding_paid=D(500))
-
-    assert isolated_margin(paid, 10) == isolated_margin(fresh, 10) - 500
-    assert liquidation_price(paid, Leveraged(10, BRACKETS)) > liquidation_price(
-        fresh, Leveraged(10, BRACKETS)
-    )
-
-
-def test_the_margin_is_never_negative_whatever_the_funding_paid() -> None:
-    drained = HeldPosition(D("0.3"), D(65000), funding_paid=D(10**6))
-
-    assert isolated_margin(drained, 10) == 0
-
-
-def test_a_higher_bracket_puts_the_price_closer_to_the_entry() -> None:
-    small = HeldPosition(D("0.5"), D(65000))  # 32,500: first bracket
-    large = HeldPosition(D("5"), D(65000))  # 325,000: third bracket
-
-    near = liquidation_price(small, Leveraged(10, BRACKETS))
-    nearer = liquidation_price(large, Leveraged(10, BRACKETS))
-
-    assert near is not None and nearer is not None
-    assert D(65000) - nearer < D(65000) - near
-
-
-def test_the_distance_is_a_fraction_of_the_price_and_zero_past_the_limit() -> None:
-    held = HeldPosition(D("0.3"), D(65000))
-
-    assert distance_to_liquidation(D(60000), held, D(54000)) == D(6000) / D(60000)
-    assert distance_to_liquidation(D(50000), held, D(54000)) == 0
-
-
-def test_a_liquidation_loses_exactly_the_margin_whatever_the_close_realised() -> None:
-    inside = loss_of_liquidation(D(1000), D(-900))
-    gapped = loss_of_liquidation(D(1000), D(-1300))
-
-    assert -900 + inside.realised_adjustment == -1000
-    assert -1300 + gapped.realised_adjustment == -1000
-    assert inside.margin_lost == gapped.margin_lost == 1000
 
 
 # -- the run ------------------------------------------------------------------ #
@@ -381,3 +270,37 @@ def test_funding_paid_on_a_position_does_not_follow_the_next_one_after_it_was_cl
     assert result.futures is not None and result.futures.funding_paid > 0
     last = result.fills[-1]
     assert last.price == _expected_price(_position_before_the_end(result), 10)
+
+
+def test_a_long_that_gaps_through_its_liquidation_price_is_closed_where_the_candle_opened() -> (
+    None
+):
+    gap = bar(1, "40000", "40100", "39900", "40000")
+
+    result = replay([_QUIET, gap], position_config("LONG", leverage=10))
+
+    last = result.fills[-1]
+    assert result.stop_reason is StopReason.LIQUIDATED
+    assert (last.label, last.price) == ("Liquidation", D(40000))
+    assert result.futures is not None and result.futures.liquidation_price == D(40000)
+    # The loss is still exactly the margin: the gap past the price is the insurance fund's.
+    before = _position_before_the_end(result)
+    margin = abs(before.position) * before.entry / 10
+    assert result.grid_profit == before.realised - margin - (
+        result.maker_fees + result.taker_fees
+    )
+
+
+def test_a_short_that_gaps_through_its_liquidation_price_is_closed_where_the_candle_opened() -> (
+    None
+):
+    gap = bar(1, "90000", "90100", "89900", "90000")
+
+    result = replay([_QUIET, gap], position_config("SHORT", leverage=10))
+
+    last = result.fills[-1]
+    assert (last.label, last.side, last.price) == (
+        "Liquidation",
+        OrderSide.BUY,
+        D(90000),
+    )

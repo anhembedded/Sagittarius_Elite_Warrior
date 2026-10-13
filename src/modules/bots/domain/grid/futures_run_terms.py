@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_funding impo
     FundingCharger,
     FundingSchedule,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_needs import (
+    bracket_below_leverage,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
@@ -41,12 +44,12 @@ def bracket_refusal(params: GridParams, brackets: LeverageBrackets) -> str | Non
     notional (`capital × leverage`, decision O2), or `None` when they do.
 
     @details The exchange would refuse the orders; a replay that placed them anyway would
-    show a profit the venue never allows. The same comparison `futures_rules.py` makes for
-    the Start gate (`leverage_above_bracket`).
+    show a profit the venue never allows. The same comparison (`bracket_below_leverage`) the Start gate
+    makes (`futures_rules.leverage_above_bracket`).
     """
     worst_case = params.capital_quote * params.leverage
-    bracket = brackets.bracket_for(worst_case)
-    if params.leverage <= bracket.initial_leverage:
+    bracket = bracket_below_leverage(brackets, worst_case, params.leverage)
+    if bracket is None:
         return None
     return (
         f"{brackets.symbol} allows {bracket.initial_leverage}x at a notional of "

@@ -77,7 +77,10 @@ def _liquidation(situation: LegSituation, actions: LegActions) -> LegEvent | Non
         reached = situation.position < 0 and step.high >= limit
     if not reached:
         return None
-    return LegEvent(limit, lambda: actions.liquidate(limit, step.time))
+    # A step that opens beyond the limit (a gap) is closed where it opened: the exchange could
+    # not have closed it at a price the market never traded.
+    price = min(limit, step.open) if situation.falling else max(limit, step.open)
+    return LegEvent(limit, lambda: actions.liquidate(price, step.time))
 
 
 def _exit(situation: LegSituation, actions: LegActions) -> LegEvent | None:
