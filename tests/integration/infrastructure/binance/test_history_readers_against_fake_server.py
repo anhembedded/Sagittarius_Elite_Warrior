@@ -87,6 +87,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "sanity"))
 from binance_fake_server import FakeServerUrls, run_binance_fake_server
+from fake_exchange.history_log import exchange_clock_skewed_by
 
 
 class _Credentials(IExchangeCredentialsProvider):
@@ -130,8 +131,17 @@ def _week_ago() -> datetime:
     return datetime.now(UTC) - timedelta(days=7)
 
 
+def _credentials() -> ExchangeCredentials:
+    return ExchangeCredentials(api_key="fake-key", api_secret="fake-secret")
+
+
 def _spot() -> tuple[SpotTradingClient, SpotHistoryReader]:
-    sessions = SpotSessionFactory()
+    return _spot_on(SpotSessionFactory())
+
+
+def _spot_on(
+    sessions: SpotSessionFactory,
+) -> tuple[SpotTradingClient, SpotHistoryReader]:
     cache = InMemorySymbolOrderMetadataCache()
     metadata = SpotMetadataProvider(sessions, cache)
     trading = SpotTradingClient(
@@ -252,3 +262,60 @@ def test_a_futures_week_read_is_not_refused_for_a_start_older_than_seven_days() 
 
     assert orders == ()
     assert fills == ()
+
+
+#: How far the clock offset a session measured is from the truth: the midpoint
+#: of a round trip is exact only when both legs took the same time, and a
+#: loaded machine makes them differ by tens of milliseconds (28 ms was seen).
+#: A second is far more than any gap between placing an order and reading it
+#: back here, so the order is outside an unpadded window for certain.
+_OFFSET_ERROR_MS = 1_000
+#: What measuring the offset itself may be off by on a quiet machine.
+_MEASUREMENT_TOLERANCE_MS = 250
+
+
+def test_a_spot_order_placed_a_moment_ago_is_in_the_read_whatever_the_clock_error() -> (
+    None
+):
+    """`BUG-200` — the end of a read is "now" on the exchange's clock, which is
+    the machine's plus a one-off estimate. An estimate that is low puts the end
+    before an order the exchange stamped after it, so the Grid's opening buy was
+    found short by its last slice and the start halted (`start_refused`)."""
+    with _fake_exchange():
+        sessions = SpotSessionFactory()
+        trading, history = _spot_on(sessions)
+        with exchange_clock_skewed_by(-_OFFSET_ERROR_MS):
+            measured = sessions.create_account_client(_credentials()).timestamp_offset
+        assert abs(measured + _OFFSET_ERROR_MS) < _MEASUREMENT_TOLERANCE_MS
+        trading.place_order(_order("SEW-hist-fresh-spot", OrderType.MARKET))
+
+        rows = history.order_history("BTCUSDT", _week_ago())
+        fills = history.trade_history("BTCUSDT", _week_ago())
+
+    assert [row.order.client_order_id for row in rows] == [
+        ClientOrderId("SEW-hist-fresh-spot")
+    ]
+    assert len(fills) == 1
+
+
+def test_a_futures_order_placed_a_moment_ago_is_in_the_read_whatever_the_clock_error() -> (
+    None
+):
+    """`BUG-200` — the same window end, on the Futures reader."""
+    with _fake_exchange():
+        sessions = FuturesSessionFactory()
+        metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
+        trading = FuturesTradingClient(
+            sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
+        )
+        history = FuturesHistoryReader(sessions, _Credentials())
+        with exchange_clock_skewed_by(-_OFFSET_ERROR_MS):
+            measured = sessions.create_trading_client(_credentials()).timestamp_offset
+        assert abs(measured + _OFFSET_ERROR_MS) < _MEASUREMENT_TOLERANCE_MS
+        trading.place_order(_order("SEW-hist-fresh-fut01", OrderType.LIMIT))
+
+        rows = history.order_history("BTCUSDT", _week_ago())
+
+    assert [row.order.client_order_id for row in rows] == [
+        ClientOrderId("SEW-hist-fresh-fut01")
+    ]

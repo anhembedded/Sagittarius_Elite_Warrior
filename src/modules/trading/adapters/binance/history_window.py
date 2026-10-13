@@ -42,6 +42,17 @@ class HistoryWindowTooDenseError(AccountHistoryUnavailableError):
     `AccountHistoryUnavailableError`, so a caller catches one type."""
 
 
+#: How far past `until_ms` the last window of a read asks (`BUG-200`). `until_ms`
+#: is the machine's "now" moved onto the exchange's clock by an offset measured
+#: once, from the midpoint of one round trip, so it is wrong by up to half that
+#: trip: tens of milliseconds on a loaded machine. A window that ends at it can
+#: end before an order the exchange stamped a moment ago, and an inventory
+#: derived from that read is short by the last fill. The exchange holds no row
+#: stamped in the future, so asking past `until_ms` costs nothing; the margin
+#: only has to exceed any trip the request timeout lets through.
+LAST_WINDOW_MARGIN_MS = 5_000
+
+
 @dataclass(frozen=True)
 class HistoryWindowRules:
     """What one endpoint accepts per request."""
@@ -52,19 +63,26 @@ class HistoryWindowRules:
     #: own limit by a margin for the request's travel time; `None` when the
     #: endpoint has no such limit (Spot).
     max_age_ms: int | None = None
+    #: How far past `until_ms` the last window ends (`LAST_WINDOW_MARGIN_MS`).
+    #: The start of the read is not moved by it.
+    last_window_margin_ms: int = LAST_WINDOW_MARGIN_MS
 
 
 def fetch_span[T](
     fetch: WindowFetch[T], since_ms: int, until_ms: int, rules: HistoryWindowRules
 ) -> list[T]:
-    """@return Every row from `since_ms` to `until_ms`, oldest window first.
+    """@return Every row from `since_ms` to `until_ms`, oldest window first; the
+    last window asks `rules.last_window_margin_ms` past `until_ms` (`BUG-200`).
     @throws HistoryWindowTooDenseError See the module docstring."""
     rows: list[T] = []
     start = since_ms
     if rules.max_age_ms is not None:
         start = max(start, until_ms - rules.max_age_ms)
-    while start <= until_ms:
-        end = min(start + rules.max_span_ms - 1, until_ms)
+    if start > until_ms:
+        return rows
+    reach_ms = until_ms + rules.last_window_margin_ms
+    while start <= reach_ms:
+        end = min(start + rules.max_span_ms - 1, reach_ms)
         rows.extend(_fetch_window(fetch, start, end, rules.limit))
         start = end + 1
     return rows

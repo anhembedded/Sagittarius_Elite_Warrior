@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_window import (
+    LAST_WINDOW_MARGIN_MS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
     ListedSymbols,
 )
@@ -247,7 +250,7 @@ def test_a_read_asks_from_since_up_to_the_clock() -> None:
 
     kwargs = client.futures_get_all_orders.call_args.kwargs
     assert kwargs["symbol"] == "BTCUSDT"
-    assert kwargs["endTime"] == int(_NOW.timestamp() * 1000)
+    assert kwargs["endTime"] == int(_NOW.timestamp() * 1000) + LAST_WINDOW_MARGIN_MS
     assert kwargs["startTime"] == int(_NOW.timestamp() * 1000) - 3_600_000
 
 
