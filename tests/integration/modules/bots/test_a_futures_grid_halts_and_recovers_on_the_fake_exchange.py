@@ -211,7 +211,7 @@ def test_a_stream_gap_reconciles_the_position_and_places_the_missed_counter(
         assert ("SELL", D(64000), True) in app.resting().values(), "the counter"
 
 
-def test_a_position_added_by_hand_while_the_app_is_closed_halts_the_recovery_and_ends_flat(
+def test_a_position_added_by_hand_halts_the_recovery_and_only_the_bots_own_is_closed(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as first:
@@ -226,8 +226,12 @@ def test_a_position_added_by_hand_while_the_app_is_closed_halts_the_recovery_and
         runtime = second.runtime(bot_id)
         assert runtime.reason is GridReason.POSITION_MISMATCH
         assert second.bot(bot_id).state is S.STOPPED
-        assert second.position() == 0
+        # The owner's decision (2026-10-13): the halt closes the position the bot built from its
+        # own fills and leaves the one opened by hand, which it reports in words.
+        assert second.position() == D("0.003")
         assert second.resting() == {}
+        assert "was left open" in runtime.reason_detail
+        assert "not this bot's" in runtime.reason_detail
 
 
 def test_a_start_is_refused_for_a_position_the_bot_did_not_open(

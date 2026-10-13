@@ -9,8 +9,9 @@ The bot is STOPPING. In this order:
   3. **Keep the exposure, or close it** (the user's choice, O3; forced to *close* by a
      stop loss or take profit): by the venue profile's `IExposureCloser` — Spot sells the
      base in slices under the per-order cap (D21), a position venue sends reduce-only market
-     orders and confirms it flat. A refused or failed slice halts the bot, naming the
-     unsold remainder.
+     orders for the bot's own derived position only (a position the owner opened by hand is
+     left open and said so) and confirms it shrank by what it sold. A refused or failed slice
+     halts the bot, naming the unsold remainder.
   4. **Read the open orders again.** Only zero orders carrying the tag raise
      `stop_confirmed` (STOPPED); then the bot clears its budget and releases the
      lease. Anything else leaves it STOPPING — it is never reported stopped
