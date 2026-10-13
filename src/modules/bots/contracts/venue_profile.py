@@ -66,7 +66,13 @@ class VenueProfile:
     needs_reduce_only_exits: bool
     #: The word the user reads for this market ("Spot", "Futures").
     title_word: str
+    #: The highest leverage a bot may name on this market: 1 where there is none. A symbol's
+    #: bracket narrows it further (`EPIC-039E`).
+    max_leverage: int = 1
 
+
+#: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
+_FUTURES_MAX_LEVERAGE = 125
 
 _SPOT = VenueProfile(
     market_type=MarketType.SPOT,
@@ -86,6 +92,7 @@ _FUTURES = VenueProfile(
     exposure_kind=ExposureKind.POSITION,
     needs_reduce_only_exits=True,
     title_word=FUTURES_TITLE,
+    max_leverage=_FUTURES_MAX_LEVERAGE,
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.
@@ -113,6 +120,26 @@ def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
 def runs_bots_on(profile: VenueProfile) -> bool:
     """Whether a bot can run on this profile's market in this build."""
     return profile.market_type in BOT_MARKETS
+
+
+@dataclass(frozen=True, slots=True)
+class ExposureLimits:
+    """What a bot's parameters may ask of its venue: the directions and the leverage."""
+
+    directions: frozenset[TradeDirection]
+    max_leverage: int
+
+
+#: The Spot profile's limits: LONG at 1. What a kind judges against when no venue speaks.
+SPOT_LIMITS = ExposureLimits(_SPOT.directions, _SPOT.max_leverage)
+
+
+def exposure_limits_of(venue: TradingVenue) -> ExposureLimits:
+    """The limits of a venue bots run on; Spot's for any other, so nothing is ever wider."""
+    profile = bot_profile_of(venue)
+    if profile is None:
+        return SPOT_LIMITS
+    return ExposureLimits(profile.directions, profile.max_leverage)
 
 
 def bot_profile_of(venue: TradingVenue) -> VenueProfile | None:

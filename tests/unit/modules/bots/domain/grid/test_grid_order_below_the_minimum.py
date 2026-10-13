@@ -16,6 +16,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
 )
@@ -33,7 +36,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_exampl
     inputs,
 )
 
-_ALL = frozenset(TradeDirection)
+_FUTURES_LIKE = ExposureLimits(frozenset(TradeDirection), 20)
 
 
 def _for(capital: str, step: str = "0.001", **changes: str) -> BotKindInputs:
@@ -42,7 +45,7 @@ def _for(capital: str, step: str = "0.001", **changes: str) -> BotKindInputs:
         base.config,
         replace(base.terms, step_size=Decimal(step)),
         base.market,
-        allowed_directions=_ALL,
+        limits=_FUTURES_LIKE,
     )
 
 

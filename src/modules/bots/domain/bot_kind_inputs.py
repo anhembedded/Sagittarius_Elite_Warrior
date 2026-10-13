@@ -22,8 +22,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
 
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    ExposureLimits,
 )
 
 
@@ -148,9 +149,9 @@ class BotKindInputs:
     #: The Connect step's read of the account; `None` until it was read, and
     #: the constraints that need it then say they did not run.
     account: AccountView | None = None
-    #: The directions the bot's venue allows (the venue profile's, `EPIC-039B`). Without the
-    #: venue's word it is the Spot profile's: long only.
-    allowed_directions: frozenset[TradeDirection] = frozenset({TradeDirection.LONG})
+    #: The directions and leverage the bot's venue allows (the venue profile's, `EPIC-039B`).
+    #: Without the venue's word it is the Spot profile's: long, at 1.
+    limits: ExposureLimits = SPOT_LIMITS
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))

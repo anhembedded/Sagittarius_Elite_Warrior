@@ -231,3 +231,19 @@ def test_the_replay_reads_the_store_of_the_bots_own_venue() -> None:
     assert isinstance(on_testnet, GridBacktestResult)
     assert isinstance(on_mainnet, GridBacktestRefusal)
     assert on_mainnet.missing_candles
+
+
+def test_a_backtest_refuses_an_exposure_the_venue_does_not_allow() -> None:
+    """`EPIC-039B` review: the replay is Spot's; a leverage or a direction a Spot venue does
+    not allow is refused in words, not replayed at the multiplied capital or without the
+    opening buy."""
+    for key, value, word in (
+        ("leverage", "3", "leverage"),
+        ("direction", "SHORT", "short"),
+    ):
+        config = {**CONFIG, "direction": "LONG", "leverage": "1", key: value}
+
+        refused = _handler(_stored()).execute(_query(config=config))
+
+        assert isinstance(refused, GridBacktestRefusal)
+        assert word in refused.reason.lower()

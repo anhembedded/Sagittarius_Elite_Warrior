@@ -31,7 +31,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    exposure_limits_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
+    exposure_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
@@ -64,6 +70,11 @@ class GridStartPreconditions:
             # Readiness judged these parameters moments ago; an edit in between
             # is the race, and it is refused in the Design step's words.
             return _refused(BotRefusal.PARAMETERS_REFUSED, str(exc), bot_id)
+        # The venue's profile is the last word on what a definition may ask of it, whatever
+        # readiness said a moment ago.
+        exposure = exposure_refusal(params, exposure_limits_of(bot.definition.venue))
+        if exposure is not None:
+            return _refused(BotRefusal.PARAMETERS_REFUSED, exposure.reason, bot_id)
         owner = bot_owner_id(bot_id)
         if not session.claim_symbol(symbol, owner):
             return _refused(
