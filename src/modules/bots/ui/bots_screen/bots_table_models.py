@@ -26,11 +26,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
-    KIND_TITLES,
+    kind_title,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
@@ -68,7 +71,7 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
     def _value(self, row: BotSnapshot, column: int) -> DisplayValue:
         values: tuple[DisplayValue, ...] = (
             row.name,
-            KIND_TITLES.get(row.kind, row.kind),
+            kind_title(row.kind, venue_profile_of(row.venue)),
             row.venue.display_name,
             row.symbol,
             state_text(row.state),

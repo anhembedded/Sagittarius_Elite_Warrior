@@ -145,6 +145,7 @@ class BotsPresenter(CommandPresenter):
         self._selected = SelectedBot(self._catalog, now, deps.run_facts)
         self._venues = BotVenues(
             deps.contexts,
+            self._catalog,
             self._model,
             self._selected,
             self._account,

@@ -117,9 +117,22 @@ def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
     return None
 
 
+def title_word_of(venue: TradingVenue) -> str:
+    """The word the user reads for `venue`'s market in a sentence: "Spot" or "Futures". A
+    venue that trades no market is described as Spot, as every sentence did before Futures."""
+    profile = venue_profile_of(venue)
+    return profile.title_word if profile is not None else SPOT_TITLE
+
+
+def is_in_markets(profile: VenueProfile, markets: frozenset[MarketType]) -> bool:
+    """Whether the profile's market is one of `markets`: a kind's declared set, or its
+    backtest's."""
+    return profile.market_type in markets
+
+
 def runs_bots_on(profile: VenueProfile) -> bool:
     """Whether a bot can run on this profile's market in this build."""
-    return profile.market_type in BOT_MARKETS
+    return is_in_markets(profile, BOT_MARKETS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +153,18 @@ def exposure_limits_of(venue: TradingVenue) -> ExposureLimits:
     if profile is None:
         return SPOT_LIMITS
     return ExposureLimits(profile.directions, profile.max_leverage)
+
+
+#: Venues a bot runs on in this build but that the picker does not offer yet. Futures mainnet
+#: is closed until the owner opens it: a protective stop for every position and the owner's
+#: 14-day Futures-testnet soak come first (`EPIC-039` decision O7, delivered by `EPIC-039L`,
+#: which replaces this set by the gate it builds). A bot already on such a venue is not moved.
+CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET})
+
+
+def is_offered(venue: TradingVenue) -> bool:
+    """Whether the New bot and Venue pickers list `venue`: a venue bots run on, not closed."""
+    return bot_profile_of(venue) is not None and venue not in CLOSED_VENUES
 
 
 def bot_profile_of(venue: TradingVenue) -> VenueProfile | None:

@@ -24,6 +24,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    title_word_of,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
 )
@@ -207,16 +211,18 @@ class BotPlanPanel(QStackedWidget):
         return (bot.bot_id, bot.venue, bot.venue_locked, self._model.venue_choices)
 
     def _show_venue(self) -> None:
-        """The bot's venue among the Spot venues, changeable only while the bot
-        is a draft that never ran (`BOT-171`); a locked field says why."""
+        """The bot's venue among the venues of its own market, changeable only while the
+        bot is a draft that never ran (`BOT-171`); a locked field says why."""
         bot = self._model.selected
         combo = self.venue
         self._venue_shown = self._venue_key()
         combo.clear()
         if bot is None:
             return
+        profile = venue_profile_of(bot.venue)
         for choice in self._model.venue_choices:
-            combo.addItem(choice.option_text, choice.venue)
+            if venue_profile_of(choice.venue) == profile:
+                combo.addItem(choice.option_text, choice.venue)
         index = combo.findData(bot.venue)
         if index < 0:
             combo.addItem(bot.venue.display_name, bot.venue)
@@ -225,7 +231,7 @@ class BotPlanPanel(QStackedWidget):
         combo.setEnabled(not bot.venue_locked)
         combo.setToolTip(
             bot.venue_locked
-            or "Move this draft to another Spot venue: its account is read again."
+            or f"Move this draft to another {title_word_of(bot.venue)} venue: its account is read again."
         )
 
     def _on_venue_picked(self, index: int) -> None:

@@ -84,3 +84,18 @@ def test_a_page_is_built_per_venue_and_kept_for_the_same_venue(qapp) -> None:
     assert len(pages) == 2 and pages[0] is not pages[1]
 
     backtests.close()
+
+
+def test_a_futures_bot_has_no_backtest_tab_until_the_futures_backtest_exists(
+    qapp,
+) -> None:
+    """`EPIC-039J` — a Spot replay is never shown as a Futures bot's: the page is not built
+    for a market the kind's backtest does not replay (`EPIC-039K` adds Futures)."""
+    built: list[TradingVenue] = []
+    pages: list[object] = []
+    backtests = KindBacktests(lambda venue: built.append(venue), pages.append)  # type: ignore[arg-type,func-returns-value]
+
+    backtests.follow(_bot("a00005", TradingVenue.FUTURES_TESTNET))  # type: ignore[arg-type]
+
+    assert built == []
+    assert pages == [None]
