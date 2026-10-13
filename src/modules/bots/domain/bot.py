@@ -29,7 +29,11 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from types import MappingProxyType
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_TITLE,
+    ExposureKind,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RECOVERABLE_STATES,
@@ -117,8 +121,9 @@ class Bot:
     @property
     def venue_locked_reason(self) -> str:
         """Why the venue cannot change now, or `""` when it can."""
-        if self.definition.venue.market_type is not MarketType.SPOT:
-            return "Only a Spot bot can change its venue."
+        profile = venue_profile_of(self.definition.venue)
+        if profile is None or profile.exposure_kind is not ExposureKind.INVENTORY:
+            return f"Only a {SPOT_TITLE} bot can change its venue."
         if self.state is not BotLifecycleState.DRAFT:
             return f"A bot's venue is fixed once it has run; this one is {self.state.value.lower()}."
         if self.lifecycle.run_started_at is not None:
@@ -133,8 +138,14 @@ class Bot:
         """
         if reason := self.venue_locked_reason:
             raise BotVenueFixedError(reason)
-        if venue.market_type is not MarketType.SPOT:
-            raise BotVenueFixedError(f"{venue.display_name} is not a Spot venue.")
+        current, target = (
+            venue_profile_of(self.definition.venue),
+            venue_profile_of(venue),
+        )
+        if target is None or target != current:
+            raise BotVenueFixedError(
+                f"{venue.display_name} is not a {SPOT_TITLE} venue."
+            )
         return replace(self, definition=replace(self.definition, venue=venue))
 
     def restored(self, at: datetime) -> Bot:

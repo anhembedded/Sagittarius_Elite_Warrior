@@ -9,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import (
     ICommandHandler,
     IQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_document import (
     PlannedBot,
 )
@@ -57,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
     BotDefinition,
@@ -88,6 +92,9 @@ class StubKind(IBotKind):
     @property
     def kind_id(self) -> str:
         return self._kind_id
+
+    def supported_profiles(self) -> frozenset[MarketType]:
+        return SPOT_MARKETS
 
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:
         raise AssertionError("the plan code does not judge parameters")

@@ -29,7 +29,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     MAX_LEVERAGE,
     MAX_SIZING_PERCENT,
@@ -91,7 +93,10 @@ class ArmStrategyDialog(QDialog):
         fields.addRow("Ti&meframe:", self.interval)
         fields.addRow("% of &capital per trade:", self.sizing)
         fields.addRow("&Leverage:", self.leverage)
-        fields.setRowVisible(self.leverage, venue.market_type is not MarketType.SPOT)
+        profile = venue_profile_of(venue)
+        fields.setRowVisible(
+            self.leverage, profile is None or bool(profile.margin_modes)
+        )
         fields.addRow(self.params)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)

@@ -11,9 +11,12 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
     exchange_terms_for,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_TITLE,
+    bot_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
@@ -56,8 +59,8 @@ def read_planner_numbers(
     symbol: str,
 ) -> PlannerNumbers | str:
     """The terms and the mid price, or the sentence that says why not."""
-    if venue.market_type is not MarketType.SPOT or venue not in ports.enabled():
-        return f"{venue.display_name} is not an enabled Spot venue"
+    if bot_profile_of(venue) is None or venue not in ports.enabled():
+        return f"{venue.display_name} is not an enabled {SPOT_TITLE} venue"
     entry_terms = ports.get(venue).order_entry_terms
     try:
         terms = exchange_terms_for(entry_terms, symbol, caps)

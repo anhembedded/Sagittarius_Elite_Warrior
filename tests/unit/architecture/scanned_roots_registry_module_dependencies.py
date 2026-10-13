@@ -18,4 +18,9 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_cli_host_imports_no_domain_or_module_code.py",
         (("src/support/cli_host", "*.py"),),
     ),
+    # `EPIC-039A` - bots decides the market in one place, the venue profile.
+    (
+        "tests/unit/architecture/test_bots_decide_the_market_in_one_place.py",
+        (("src/modules/bots", "*.py"),),
+    ),
 )

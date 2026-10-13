@@ -49,7 +49,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-039A | [Venue profile seam](incomplete/EPIC-039A_venue_profile_seam.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-039A | [Venue profile seam](completed/EPIC-039A_venue_profile_seam.md) | `claude/epic-039a-venue-profile` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039B | [Direction-aware planner](incomplete/EPIC-039B_direction_aware_grid_planner.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-039C | [Futures fake exchange matching](incomplete/EPIC-039C_futures_fake_exchange_matching.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-039D | [Exposure book for positions](incomplete/EPIC-039D_exposure_book_for_positions.md) | — | 🔴 | 🔵 Planned | — |
@@ -69,6 +69,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-13 | 039A | The venue profile seam delivered: one deciding place for what a venue allows, a guard that fails on a second, `IBotKind.supported_profiles`; Spot sentences pinned and unchanged. No Futures path exists. |
 | 2026-10-10 | Spec | Evaluation accepted by the owner; epic scaffolded with thirteen children, a design, a research record and a decision record; `EPIC-029K` superseded. Documentation only. |
 
 ---

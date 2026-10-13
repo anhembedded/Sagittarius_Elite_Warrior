@@ -8,10 +8,14 @@ The executor factory is given to the kind, not built by it: the executor is
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
 )
@@ -43,6 +47,9 @@ class GridKind(IBotKind):
     @property
     def kind_id(self) -> str:
         return GRID_KIND_ID
+
+    def supported_profiles(self) -> frozenset[MarketType]:
+        return SPOT_MARKETS
 
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:
         return evaluate_grid(inputs, self._thresholds).verdicts
