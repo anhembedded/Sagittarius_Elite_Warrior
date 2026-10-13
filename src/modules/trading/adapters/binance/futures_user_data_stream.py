@@ -269,6 +269,15 @@ class FuturesUserDataStream(ManagedUserDataStream):
             )
 
     async def _handle_account_update(self, payload: dict[str, Any]) -> None:
+        # `EPIC-039G` - funding is a wallet fact the payload carries whole: it needs no
+        # position read, so it is reported before anything that does.
+        funding = account_update_funding(payload)
+        if funding is not None:
+            self._events.funding_charged(funding.symbol, funding.amount)
+            logger.debug(
+                "ACCOUNT_UPDATE  %s  funding %s", funding.symbol, funding.amount
+            )
+
         if self._trading_client is None:
             # Only a direct `_handle_message` call before `_run_stream` gets here.
             logger.error("ACCOUNT_UPDATE received before the stream was ready.")
@@ -301,13 +310,6 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 equity_sample.wallet_balance,
                 equity_sample.unrealized_pnl,
                 equity_sample.total,
-            )
-
-        funding = account_update_funding(payload)
-        if funding is not None:
-            self._events.funding_charged(funding.symbol, funding.amount)
-            logger.debug(
-                "ACCOUNT_UPDATE  %s  funding %s", funding.symbol, funding.amount
             )
 
         generation = self._generation
