@@ -7,13 +7,16 @@ answer.
 the notional, and each `cum` is the previous one plus the floor times the
 rate step, so the table is internally consistent. Leverage 10 allows up to
 10 000 000 USDT, the figure `POST /fapi/v1/leverage` has always answered for
-it. Prices are fixed per symbol; the book is one tick either side of the
-mark, and a market order fills against it (`futures_account_state.py`). Shapes per Binance's documented USD-M API.
+it. Prices start fixed per symbol and a test moves them (`FuturesMarket`, `EPIC-039C`);
+the book is one tick either side of the mark, and a market order fills against it
+(`futures_account_state.py`). Shapes per Binance's documented USD-M API.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
+
+from .futures_funding import FuturesFunding
 
 #: `(bracket, initialLeverage, notionalFloor, notionalCap, maintMarginRatio,
 #: cum)`.
@@ -36,21 +39,6 @@ LISTED_SYMBOLS = frozenset(_MARKS)
 
 #: Binance's answer for a symbol it does not list.
 INVALID_SYMBOL = (400, {"code": -1121, "msg": "Invalid symbol."})
-
-#: A fixed `time` field, so an answer is the same on every call.
-_TIME_MS = 1_700_000_000_000
-
-
-def mark_price(symbol: str) -> Decimal:
-    """@return `symbol`'s fixed mark price."""
-    return _MARKS[symbol][0]
-
-
-def best_bid_ask(symbol: str) -> tuple[Decimal, Decimal]:
-    """@return `(bid, ask)`: one tick either side of the mark, what a market
-    sell and buy fill at."""
-    mark, tick = _MARKS[symbol]
-    return mark - tick, mark + tick
 
 
 def max_notional(leverage: int) -> Decimal:
@@ -79,31 +67,57 @@ def leverage_bracket(symbol: str) -> tuple[int, object]:
     }
 
 
-def premium_index(symbol: str) -> tuple[int, object]:
-    if symbol not in _MARKS:
-        return INVALID_SYMBOL
-    mark, _ = _MARKS[symbol]
-    return 200, {
-        "symbol": symbol,
-        "markPrice": str(mark),
-        "indexPrice": str(mark),
-        "estimatedSettlePrice": str(mark),
-        "lastFundingRate": "0.00010000",
-        "interestRate": "0.00010000",
-        "nextFundingTime": _TIME_MS + 8 * 60 * 60 * 1000,
-        "time": _TIME_MS,
-    }
+class FuturesMarket:
+    """`EPIC-039C` — the fake market's prices, which a test can move.
 
+    @details Every listed symbol starts at its fixed mark, the book one tick either
+    side of it, so a fake nobody moved answers what it always answered.
+    `set_mark_price` moves the one price the mark, the index and the book are made of
+    (the fake has a mark price and no separate last price).
+    """
 
-def book_ticker(symbol: str) -> tuple[int, object]:
-    if symbol not in _MARKS:
-        return INVALID_SYMBOL
-    bid, ask = best_bid_ask(symbol)
-    return 200, {
-        "symbol": symbol,
-        "bidPrice": str(bid),
-        "bidQty": "2.500",
-        "askPrice": str(ask),
-        "askQty": "1.750",
-        "time": _TIME_MS,
-    }
+    def __init__(self, funding: FuturesFunding) -> None:
+        self._marks = {symbol: mark for symbol, (mark, _) in _MARKS.items()}
+        self._funding = funding
+
+    def mark_price(self, symbol: str) -> Decimal:
+        return self._marks[symbol]
+
+    def set_mark_price(self, symbol: str, price: Decimal) -> None:
+        if symbol in self._marks:
+            self._marks[symbol] = price
+
+    def best_bid_ask(self, symbol: str) -> tuple[Decimal, Decimal]:
+        """`(bid, ask)`: one tick either side of the mark, what a market sell and
+        buy fill at."""
+        tick = _MARKS[symbol][1]
+        mark = self._marks[symbol]
+        return mark - tick, mark + tick
+
+    def premium_index(self, symbol: str) -> tuple[int, object]:
+        if symbol not in _MARKS:
+            return INVALID_SYMBOL
+        mark = self._marks[symbol]
+        return 200, {
+            "symbol": symbol,
+            "markPrice": str(mark),
+            "indexPrice": str(mark),
+            "estimatedSettlePrice": str(mark),
+            "lastFundingRate": f"{self._funding.rate(symbol):.8f}",
+            "interestRate": "0.00010000",
+            "nextFundingTime": self._funding.next_time_ms,
+            "time": self._funding.now_ms,
+        }
+
+    def book_ticker(self, symbol: str) -> tuple[int, object]:
+        if symbol not in _MARKS:
+            return INVALID_SYMBOL
+        bid, ask = self.best_bid_ask(symbol)
+        return 200, {
+            "symbol": symbol,
+            "bidPrice": str(bid),
+            "bidQty": "2.500",
+            "askPrice": str(ask),
+            "askQty": "1.750",
+            "time": self._funding.now_ms,
+        }

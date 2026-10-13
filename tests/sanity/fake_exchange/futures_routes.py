@@ -10,6 +10,7 @@ not always match a given library version's exact path/version number):
                                     is Binance's -1120, Futures has no 1s klines
     GET    /fapi/v2/account         `futures_account()` — version 2
     GET    /fapi/v1/positionSide/dual  hedge-mode check (`EPIC-021D`)
+    POST   /fapi/v1/positionSide/dual  change position mode (`EPIC-039C`)
     POST   /fapi/v1/order/test      `futures_create_test_order()` (`EPIC-021F`)
     POST   /fapi/v1/order           `futures_create_order()` (`EPIC-021G`)
     DELETE /fapi/v1/order           `futures_cancel_order()`
@@ -141,7 +142,6 @@ GET_ROUTES: dict[str, object] = {
     "/fapi/v1/ping": {},
     "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
     "/fapi/v1/klines": [_FUTURES_KLINE_ROW],
-    "/fapi/v1/positionSide/dual": {"dualSidePosition": False},
 }
 
 
@@ -181,6 +181,8 @@ def _handle_get(
         return 200, state.account.account()
     if path == "/fapi/v3/positionRisk":
         return 200, state.account.position_risk(params.get("symbol"))
+    if path == "/fapi/v1/positionSide/dual":
+        return state.position_mode(params)
     if path == "/fapi/v1/multiAssetsMargin":
         return 200, {"multiAssetsMargin": state.account.multi_assets}
     if path in {
@@ -205,9 +207,9 @@ def _handle_get(
     if path == "/fapi/v1/leverageBracket":
         return futures_market.leverage_bracket(params.get("symbol", ""))
     if path == "/fapi/v1/premiumIndex":
-        return futures_market.premium_index(params.get("symbol", ""))
+        return state.market.premium_index(params.get("symbol", ""))
     if path == "/fapi/v1/ticker/bookTicker":
-        return futures_market.book_ticker(params.get("symbol", ""))
+        return state.market.book_ticker(params.get("symbol", ""))
     return None
 
 
@@ -268,9 +270,11 @@ def _handle_post(
     if path == "/fapi/v1/listenKey":
         return 200, {"listenKey": _FAKE_LISTEN_KEY}
     if path == "/fapi/v1/leverage":
-        return state.symbol_config.change_leverage(params)
+        return state.change_leverage(params)
     if path == "/fapi/v1/marginType":
-        return state.symbol_config.change_margin_type(params)
+        return state.change_margin_type(params)
+    if path == "/fapi/v1/positionSide/dual":
+        return state.set_position_mode(params)
     return None
 
 
