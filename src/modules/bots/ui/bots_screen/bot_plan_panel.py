@@ -58,6 +58,8 @@ EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
 #: sentence `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
 #: application's formatter, so those rows are text; the running time is a
 #: duration the formatter writes itself.
+#: The rows only a venue with funding shows (`EPIC-039J`): costs apart from the profit.
+COST_KEYS = ("commissions", "funding")
 FACT_SPECS = (
     *(
         ColumnSpec(key, title, ColumnKind.TEXT)
@@ -71,6 +73,8 @@ FACT_SPECS = (
             ("hodl", "HODL benchmark"),
             ("inventory", "Held"),
             ("earlier_runs", "Left from earlier runs"),
+            ("commissions", "Commissions paid"),
+            ("funding", "Funding (earned +, paid −)"),
         )
     ),
     ColumnSpec("running_time", "Running time", ColumnKind.DURATION),
@@ -110,6 +114,7 @@ class BotPlanPanel(QStackedWidget):
         self._panel_slot = QVBoxLayout()
         self._build()
         self._connect()
+        self._show_costs(False)
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
@@ -247,6 +252,16 @@ class BotPlanPanel(QStackedWidget):
         self.facts.set_values(
             {spec.key: getattr(facts, spec.key) if facts else "" for spec in FACT_SPECS}
         )
+        self._show_costs(facts is not None and facts.shows_costs)
+
+    def _show_costs(self, shown: bool) -> None:
+        """The cost rows belong to a venue with funding; Spot's figures keep their rows."""
+        form = self.facts.layout()
+        if not isinstance(form, QFormLayout):
+            raise TypeError(f"the figures lay out as a form, not {type(form).__name__}")
+        for spec_index, spec in enumerate(FACT_SPECS):
+            if spec.key in COST_KEYS:
+                form.setRowVisible(spec_index, shown)
 
     def _show_readiness(self) -> None:
         """How far the bot is and what is left before Start (`EPIC-034H`): the

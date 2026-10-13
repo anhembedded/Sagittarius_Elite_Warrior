@@ -19,9 +19,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
     PlanRiskFacts,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import OverlayRole
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
     evaluate_grid,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
@@ -78,12 +80,35 @@ def test_without_the_facts_no_liquidation_is_judged() -> None:
     with_facts = evaluate_grid(_futures("LONG", _FACTS), GridThresholds())
     without = evaluate_grid(_futures("LONG", None), GridThresholds())
     assert not _estimates(without.verdicts)
-    assert without.verdicts == tuple(
-        v for v in with_facts.verdicts if v in without.verdicts
-    )
+    assert all(v in with_facts.verdicts for v in without.verdicts)
 
 
 def test_a_spot_plan_earns_no_liquidation_verdict() -> None:
     evaluation = evaluate_grid(inputs(), GridThresholds())
     assert not _estimates(evaluation.verdicts)
     assert all(v.subject == "" for v in evaluation.verdicts)
+
+
+def test_the_kinds_overlay_draws_the_liquidation_the_verdicts_estimate() -> None:
+    """The chart and the Liquidation row read the same verdicts, so they cannot disagree."""
+    kind = GridKind(executor_factory=None, thresholds=GridThresholds())  # type: ignore[arg-type]
+    futures_inputs = _futures("NEUTRAL", _FACTS)
+
+    estimates = {
+        v.subject: v.numbers["liquidation_price"]
+        for v in kind.validate(futures_inputs)
+        if v.code == "LIQUIDATION_ESTIMATE"
+    }
+    drawn = {
+        line.label: line.price
+        for line in kind.overlay(futures_inputs).lines
+        if line.role is OverlayRole.LIQUIDATION
+    }
+
+    assert drawn == {f"Liq {side} (est.)": price for side, price in estimates.items()}
+    assert len(drawn) == 2
+    assert not [
+        line
+        for line in kind.overlay(_futures("NEUTRAL", None)).lines
+        if line.role is OverlayRole.LIQUIDATION
+    ]

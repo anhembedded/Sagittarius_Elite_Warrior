@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_a
     ConnectionRead,
     ConnectionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm_matrix import (
     ReadinessState,
 )
@@ -87,8 +90,16 @@ def connected_view(snapshot: VenueAccountSnapshot) -> ConnectView:
         ReadinessState.DESIGNING,
         snapshot.source.venue_title,
         CONNECTED,
-        f"{available} {snapshot.quote_asset} available · {_key_words(snapshot)}",
+        f"{available} {snapshot.quote_asset} {_what_available(snapshot)} · "
+        f"{_key_words(snapshot)}",
     )
+
+
+def _what_available(snapshot: VenueAccountSnapshot) -> str:
+    """What the balance is for: a venue with margin modes lends it to positions as margin
+    (`EPIC-039J`); Spot's balance is spent, and its words are what they were."""
+    profile = venue_profile_of(snapshot.source.trading_venue)
+    return "available as margin" if profile and profile.margin_modes else "available"
 
 
 def failed_view(failure: ConnectFailure) -> ConnectView:

@@ -143,3 +143,23 @@ def test_an_atr_zone_never_reaches_below_zero() -> None:
 
     assert lower_zone.lower == Decimal(0)
     assert lower_zone.upper == Decimal(25000)
+
+
+def test_a_position_plans_liquidation_is_drawn_as_an_estimate_per_side() -> None:
+    """`EPIC-039J`: the chart draws what the Liquidation row says, labelled an estimate."""
+    source = _source(liquidations=(("long", Decimal(52000)), ("short", Decimal(81000))))
+
+    lines = [
+        line
+        for line in grid_overlay(source).lines
+        if line.role is OverlayRole.LIQUIDATION
+    ]
+
+    assert [(line.price, line.label) for line in lines] == [
+        (Decimal(52000), "Liq long (est.)"),
+        (Decimal(81000), "Liq short (est.)"),
+    ]
+
+
+def test_a_plan_without_liquidation_draws_none() -> None:
+    assert _by_role(_source(), OverlayRole.LIQUIDATION) == []
