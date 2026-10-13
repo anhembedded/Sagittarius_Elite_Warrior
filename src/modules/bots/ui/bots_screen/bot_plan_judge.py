@@ -22,9 +22,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_LIMITS,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
     BotKindInputs,
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
@@ -44,15 +49,29 @@ class JudgedPlan:
     overlay: BotOverlay | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class VenueExposure:
+    """What the bot's venue lets a plan ask for and says about its liquidation (`EPIC-039J`):
+    the directions and leverage its profile allows, and the symbol's risk facts once read.
+    Spot's answer is the default: long at 1, nothing to liquidate."""
+
+    limits: ExposureLimits = SPOT_LIMITS
+    risk: PlanRiskFacts | None = None
+
+
 def judge(
     kind: IBotKind,
     config: Mapping[str, str],
     market: PlannerMarket | None,
     account: AccountView | None = None,
+    *,
+    venue: VenueExposure = VenueExposure(),  # noqa: B008
 ) -> JudgedPlan:
     if market is None or market.terms is None or market.market is None:
         return JudgedPlan()
-    inputs = BotKindInputs(config, market.terms, market.market, account)
+    inputs = BotKindInputs(
+        config, market.terms, market.market, account, venue.limits, venue.risk
+    )
     return JudgedPlan(verdicts=kind.validate(inputs), overlay=kind.overlay(inputs))
 
 

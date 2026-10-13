@@ -86,6 +86,9 @@ class BotsFailures:
         if kind is ReadKind.EXCHANGE:
             # Told by the snapshot itself: the Run step names it unavailable.
             return
+        if kind is ReadKind.RISK:
+            # The Liquidation row says "not estimated"; the exchange check tells the account.
+            return
         if kind is ReadKind.FILLS:
             self._show_fills(BotFills(problem=FILLS_PROBLEM))
         self._notifier.report_failure(
