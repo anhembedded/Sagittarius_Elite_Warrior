@@ -80,8 +80,12 @@ class PositionModelRun:
 
 
 @dataclass(slots=True)
-class _Book:
-    """The signed position and its average entry, advanced fill by fill."""
+class PositionBook:
+    """The signed position and its average entry, advanced fill by fill.
+
+    @details Public since `EPIC-039K`: the Futures replay (`futures_replay.py`) books its
+    fills with this very class, so the model and the replay cannot disagree on what a fill
+    does to the position and its profit."""
 
     position: Decimal
     entry: Decimal
@@ -117,7 +121,7 @@ def model_position_along(plan: GridPlan, path: Sequence[Decimal]) -> PositionMod
     sides = [level.side for level in plan.levels]
     quantities = [level.quantity for level in plan.levels]
     prices = [level.price for level in plan.levels]
-    book = _Book(plan.opening_quantity, plan.last_price)
+    book = PositionBook(plan.opening_quantity, plan.last_price)
     fills: list[PositionFill] = []
     for point in path:
         while (index := _next_fill(sides, prices, point)) is not None:
@@ -128,7 +132,7 @@ def model_position_along(plan: GridPlan, path: Sequence[Decimal]) -> PositionMod
                 PositionFill(index, side, prices[index], quantity, book.position)
             )
             sides[index] = LevelSide.EMPTY
-            _place_counter(sides, quantities, index, side, quantity)
+            place_counter(sides, quantities, index, side, quantity)
     return PositionModelRun(
         plan.opening_quantity,
         tuple(fills),
@@ -161,7 +165,7 @@ def _next_fill(
     return min(sells, key=lambda index: prices[index]) if sells else None
 
 
-def _place_counter(
+def place_counter(
     sides: list[LevelSide],
     quantities: list[Decimal],
     index: int,
