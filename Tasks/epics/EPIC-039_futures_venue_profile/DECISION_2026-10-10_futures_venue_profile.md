@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-039](README.md)
 **Date:** 2026-10-10
-**Status:** Accepted for D1–D4 (the owner accepted the evaluation that contains them); Proposed for D5–D6; **O1–O12 are open and pending the owner**, each with a recommendation
-**Decided by:** D1–D4 the owner, 2026-10-10: after the evaluation in chat (venue profile, one-way mode, Long first) the owner answered *"ok, sau đó mở epic cho cái này, chính bạn sẽ viết design, task, v.v... sau đó push. đảm bảo khi sonet đọc epic sẽ nắm hết được thông tin"* (translated: ok, then open an epic for this; you write the design, tasks etc. and push; make sure that when Sonnet reads the epic it has all the information). D5–D6 are the epic author's proposals. O1–O12: Pending.
+**Status:** Accepted for D1–D4 (the owner accepted the evaluation that contains them); Proposed for D5–D6; **O1–O12 accepted by the owner on 2026-10-13**, each as its recommendation (§4a)
+**Decided by:** D1–D4 the owner, 2026-10-10: after the evaluation in chat (venue profile, one-way mode, Long first) the owner answered *"ok, sau đó mở epic cho cái này, chính bạn sẽ viết design, task, v.v... sau đó push. đảm bảo khi sonet đọc epic sẽ nắm hết được thông tin"* (translated: ok, then open an epic for this; you write the design, tasks etc. and push; make sure that when Sonnet reads the epic it has all the information). D5–D6 are the epic author's proposals. O1–O12: the owner, 2026-10-13, in the coordinator session: *"đồng ý hết khuyến nghị O1–O12"* (translated: agree with all the recommendations O1–O12); each answer is its row's recommendation (§4a).
 
 | Label | Meaning |
 | :--- | :--- |
@@ -52,6 +52,24 @@ The Grid bot is Spot-only: nine hard-coded Spot places outside `ui/`, six inside
 | O10 | Order flags for ladder orders | `reduceOnly` on Long/Short counters · post-only (`GTX`) | **`reduceOnly` on counters yes (safe by §5); post-only no until Binance's `GTX` semantics are confirmed (RESEARCH §4).** | 039H |
 | O11 | Where does the position derivation read from? | the owner's tagged fills (like Spot, ADR D6) cross-checked with `positionRisk` · `positionRisk` alone | **Tagged fills, cross-checked** — consistent with "never supplied by the owner"; `positionRisk` alone cannot tell the bot's position from a foreign one. | 039D |
 | O12 | Does a headless `run` host (EPIC-038) stop a Futures bot differently? | one policy for all · per profile | **Per profile:** "leave orders resting" is not acceptable for a Futures bot without a protective stop (DESIGN §12). Record the answer in both epics. | 039L, `EPIC-038D` |
+
+## 4a. Answers, 2026-10-13
+🟢 User decision. The owner, asked in the coordinator session with each option and recommendation listed, answered *"đồng ý hết khuyến nghị O1–O12"* (translated: agree with all the recommendations O1–O12). Each question is therefore decided as its recommendation in §4, unchanged; §4 stays as the record of the options that were weighed. Each answer is reversible by a later decision record. The task a row blocks implements it and cites this section.
+
+| # | Decided |
+| :-- | :--- |
+| O1 | Long first, then Short, then Neutral. |
+| O2 | `capital_quote` is the margin the user commits, with a `leverage` key; worst-case notional ≤ `capital × leverage` and ≤ the bracket cap; a Spot bot is leverage 1. |
+| O3 | REFUSED when leverage > 1 and no stop loss; WARNING at leverage 1. The bot refuses; it never adds a stop itself. |
+| O4 | UI starts at 2×; WARNING above 10×; REFUSED above the bracket and above a configurable ceiling, default 20× (`FuturesGridThresholds`). |
+| O5 | Isolated margin only in this epic. |
+| O6 | `hold` by default, `close` as an option, with a `RANGE_EXIT` alert; both stated on the Plan. |
+| O7 | No Futures mainnet bot before `039L`: a protective stop for every position and the owner's 14-day unattended soak on Futures testnet; until then Futures mainnet is not offered in the bot venue picker. |
+| O8 | A halt closes the position reduce-only unless an exchange-side stop stands; with one standing, it is left. A leveraged position is never left bare. |
+| O9 | The Futures backtest includes funding and liquidation. |
+| O10 | `reduceOnly` on Long/Short counter orders; no post-only until Binance's `GTX` semantics are confirmed. |
+| O11 | The position is derived from the owner's tagged fills, cross-checked with `positionRisk`. |
+| O12 | The headless `run` host's stop policy is per venue profile: "leave orders resting" is not acceptable for a Futures bot without a protective stop. Recorded in EPIC-038's decision record too (its §4a). |
 
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |

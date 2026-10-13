@@ -94,6 +94,8 @@ The owner asked *"bạn tự quyết theo hiến pháp được ko"* (can you de
 | D10 | ✅ `test_the_composed_app_publishes_the_four_sections_and_all_answer` and four mutation checks (each declaration or bus subscription removed turns it red) | ✅ the section is the Engine's own result, not a copy | ✅ `HealthCheckQuery` is not re-measured | ✅ the composed app is booted and its file read | ✅ the Engine's extension reused as it is | ✅ one declaration table for every section | ✅ a section is one class and one declaration | ✅ no baseline grew | ✅ decided here, owner may veto | ✅ verdict and one-word states, no counts invented | ✅ criteria are tests | ✅ drop the declaration |
 | D11 | ✅ the port sits where every module may import it; one definition, no shim | ✅ every importer is moved, none keeps the old path | ✅ one definition, not two | ✅ the existing keyring, credentials and enrolment tests run unchanged against the new path | ✅ the lift the alerting design already planned, done once | ✅ moved, not wrapped | ✅ a second module can now reuse the port | ✅ no baseline grew | ✅ the owner's decision | ✅ no behaviour changes | ✅ criteria are tests | ✅ a file move |
 
+**Cross-epic note, 2026-10-13 (EPIC-039 O12).** The owner accepted EPIC-039's O12 (see [its decision record §4a](../EPIC-039_futures_venue_profile/DECISION_2026-10-10_futures_venue_profile.md)): the `run` host's stop policy is chosen per venue profile, and `LeaveOrdersResting` (O1 above, the default) is not acceptable for a Futures bot without an exchange-side protective stop. Today every bot is Spot, so O1 is unchanged; `EPIC-039L` implements the per-profile policy.
+
 ## 5. Implementation evidence
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
