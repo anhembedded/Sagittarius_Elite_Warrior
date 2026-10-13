@@ -74,7 +74,7 @@ _EXPECTED_HEALTH = HealthLine(
     up_s=7,
     bots=(BotCount("running", 2), BotCount("paused", 0)),
     tick_age_s=1,
-    stream_age_s=None,
+    stream_down_s=None,
     skew_ms=-3,
     rss_mb=250,
 )
@@ -99,7 +99,7 @@ log_health_line(
     HealthLine(
         state=HostState.SERVING, up_s=7,
         bots=(BotCount("running", 2), BotCount("paused", 0)),
-        tick_age_s=1, stream_age_s=None, skew_ms=-3, rss_mb=250,
+        tick_age_s=1, stream_down_s=None, skew_ms=-3, rss_mb=250,
     ),
 )
 
