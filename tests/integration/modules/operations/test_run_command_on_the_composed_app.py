@@ -1,4 +1,4 @@
-"""`RunCommand` on the graph `create_app()` builds (`EPIC-038D`).
+"""`RunCommand` on the graph `createapp_on()` builds (`EPIC-038D`).
 
 The unit tests construct the host from doubles, and so prove nothing about wiring
 (`CS-002`): this builds the real application - the bots module with its store, the
@@ -11,15 +11,12 @@ Nothing here reaches an exchange: no key, no bot to start.
 
 from __future__ import annotations
 
-import logging
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
-from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -50,78 +47,15 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_state import (
     HostState,
 )
-from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_shutdown_signal_source import (
-    IShutdownSignalSource,
-)
-from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine import App
-
-from ..bots.grid_fake_exchange import app_config
-
-
-class _Source(IShutdownSignalSource):
-    """A signal source the test fires by hand."""
-
-    def __init__(self) -> None:
-        self.installed = False
-        self.restored = 0
-        self._on_signal: Callable[[], None] | None = None
-
-    def install(self, on_signal: Callable[[], None]) -> None:
-        self.installed = True
-        self._on_signal = on_signal
-
-    def restore(self) -> None:
-        self.restored += 1
-
-    def fire(self) -> None:
-        assert self._on_signal is not None
-        self._on_signal()
-
-
-class _Plan(IBotPlan):
-    def __init__(self, *bot_ids: str) -> None:
-        self._ids = frozenset(bot_ids)
-
-    def exists(self) -> bool:
-        return True
-
-    def wants_running(self) -> frozenset[str]:
-        return self._ids
-
-
-class _Lines(logging.Handler):
-    def __init__(self) -> None:
-        super().__init__(logging.INFO)
-        self.lines: list[str] = []
-
-    def emit(self, record: logging.LogRecord) -> None:
-        self.lines.append(f"{record.name} - {record.levelname} - {record.getMessage()}")
-
-
-@contextmanager
-def _heard() -> Iterator[list[str]]:
-    """What `App.Operations` said; the composed app turns propagation off, so `caplog` sees none."""
-    handler = _Lines()
-    logger = logging.getLogger("App.Operations")
-    logger.addHandler(handler)
-    try:
-        yield handler.lines
-    finally:
-        logger.removeHandler(handler)
-
-
-@pytest.fixture
-def data_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
-    return tmp_path
-
-
-def _app(data_root: Path) -> App:
-    return create_app(app_config(data_root))
+from Sagittarius_Elite_Warrior.tests.integration.modules.operations.run_command_support import (
+    Plan,
+    Source,
+    app_on,
+    heard,
+)
 
 
 def _seed_mainnet_bot(data_root: Path, bot_id: str) -> None:
@@ -147,9 +81,9 @@ def test_an_unconfirmed_mainnet_start_planned_is_refused_with_two_and_nothing_bo
     data_root: Path,
 ) -> None:
     _seed_mainnet_bot(data_root, "aaaaaa")
-    app = _app(data_root)
-    app.container.singleton(IBotPlan, _Plan("aaaaaa"))  # type: ignore[type-abstract]
-    source = _Source()
+    app = app_on(data_root)
+    app.container.singleton(IBotPlan, Plan("aaaaaa"))  # type: ignore[type-abstract]
+    source = Source()
 
     outcome = RunCommand(
         app, RunOptions(start_planned=True, skip_preflight=True), source
@@ -165,10 +99,12 @@ def test_an_unconfirmed_mainnet_start_planned_is_refused_with_two_and_nothing_bo
 def test_resume_recovering_without_an_alert_channel_or_the_acknowledgement_is_refused_with_five(
     data_root: Path,
 ) -> None:
-    source = _Source()
+    source = Source()
 
     outcome = RunCommand(
-        _app(data_root), RunOptions(resume_recovering=True, skip_preflight=True), source
+        app_on(data_root),
+        RunOptions(resume_recovering=True, skip_preflight=True),
+        source,
     ).execute()
 
     assert outcome is not None and outcome.code is ExitCode.CONFIGURATION
@@ -180,10 +116,10 @@ def test_a_host_signal_the_machine_cannot_give_is_refused_with_two_before_the_pr
     data_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("NOTIFY_SOCKET", raising=False)
-    source = _Source()
+    source = Source()
 
     outcome = RunCommand(
-        _app(data_root), RunOptions(host_signal=HostSignalName.SDNOTIFY), source
+        app_on(data_root), RunOptions(host_signal=HostSignalName.SDNOTIFY), source
     ).execute()
 
     assert outcome is not None and outcome.code is ExitCode.USAGE
@@ -225,10 +161,10 @@ def test_an_unconfirmed_mainnet_resume_recovering_is_refused_with_two_and_nothin
     exactly that - so all three states are judged. The bot stays as the file has it, the
     host does not serve, and the message names the flag that would have allowed it."""
     _seed_mainnet_bot_in(data_root, "aaaaaa", state)
-    source = _Source()
+    source = Source()
 
     outcome = RunCommand(
-        _app(data_root),
+        app_on(data_root),
         RunOptions(
             resume_recovering=True, accept_silent_failures=True, skip_preflight=True
         ),
@@ -264,9 +200,9 @@ def test_a_stop_requested_before_serving_starts_and_resumes_nothing_on_the_compo
             )
         )
     )
-    source = _Source()
-    app = _app(data_root)
-    app.container.singleton(IBotPlan, _Plan("aaaaaa"))  # type: ignore[type-abstract]
+    source = Source()
+    app = app_on(data_root)
+    app.container.singleton(IBotPlan, Plan("aaaaaa"))  # type: ignore[type-abstract]
     command = RunCommand(
         app, RunOptions(start_planned=True, skip_preflight=True), source
     )
@@ -277,7 +213,7 @@ def test_a_stop_requested_before_serving_starts_and_resumes_nothing_on_the_compo
         source.fire()
 
     source.install = install_then_fire  # type: ignore[method-assign]
-    with _heard() as lines:
+    with heard() as lines:
         outcome = command.execute()
 
     assert outcome is None
@@ -293,8 +229,8 @@ def test_a_stop_requested_while_the_app_boots_is_honoured_and_every_state_is_pub
 ) -> None:
     """The entry point listens before `app.boot()`: a SIGTERM during the restore is a
     request to stop, honoured the moment the host serves - not a kill."""
-    source = _Source()
-    app = _app(data_root)
+    source = Source()
+    app = app_on(data_root)
     command = RunCommand(
         app,
         RunOptions(
@@ -303,7 +239,7 @@ def test_a_stop_requested_while_the_app_boots_is_honoured_and_every_state_is_pub
         source,
     )
 
-    with _heard() as lines:
+    with heard() as lines:
         original_install = source.install
 
         def install_then_fire(on_signal: Callable[[], None]) -> None:

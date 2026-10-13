@@ -56,6 +56,9 @@ class _Plan(IBotPlan):
     def exists(self) -> bool:
         return True
 
+    def problem(self) -> str | None:
+        return None
+
     def wants_running(self) -> frozenset[str]:
         return self._ids
 

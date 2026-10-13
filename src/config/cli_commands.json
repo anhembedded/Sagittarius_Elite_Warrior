@@ -249,7 +249,7 @@
         {
           "name": "--start-planned",
           "action": "store_true",
-          "help": "Start the bots whose plan says running and that are at rest (needs a bot plan: EPIC-038I)"
+          "help": "Start the bots whose applied plan (bot apply) says running and that are at rest. Refused with exit 5, before anything boots, when no plan was applied or the record cannot be read"
         },
         {
           "name": "--resume-recovering",
@@ -268,7 +268,7 @@
             "spot_mainnet",
             "futures_mainnet"
           ],
-          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering). Without it --start-planned is refused (exit 2) and --resume-recovering skips that venue"
+          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering). Without it --start-planned and --resume-recovering are refused (exit 2) when they would touch a mainnet venue"
         },
         {
           "name": "--skip-preflight",
@@ -315,7 +315,7 @@
       ]
     },
     "bot": {
-      "help": "List and show bots, read from their files; nothing is changed",
+      "help": "List, show, export and apply bots: list, show and export change no bot; apply makes the bots match a plan file",
       "subparsers": {
         "dest": "action",
         "required": true,
@@ -355,6 +355,69 @@
           "type": "str",
           "help": "Output format: text (default), json, or any other registered format"
         }
+            ]
+          },
+          "apply": {
+            "help": "Make the bots match a plan file: create, edit and (with --prune) delete bots through the commands the Bots tab uses, and record each entry's desired_state for run --start-planned. Applying starts and stops nothing. A second apply of the same plan changes nothing",
+            "read_only_when": "dry_run",
+            "args": [
+              {
+                "name": "plan",
+                "type": "str",
+                "help": "The plan file (JSON, schema sew.bot-plan/1); it holds no key, secret or account identifier"
+              },
+              {
+                "name": "--dry-run",
+                "action": "store_true",
+                "help": "Print what would change and change nothing; works beside a running host"
+              },
+              {
+                "name": "--prune",
+                "action": "store_true",
+                "help": "Also delete the stored bots the plan does not name, if they are at rest (DRAFT or STOPPED); a rename is a delete and a create"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-apply/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "export": {
+            "help": "Write a plan file from the stored bots (never overwrites a file); apply --dry-run of it then reports no changes",
+            "read_only": true,
+            "args": [
+              {
+                "name": "--all",
+                "action": "store_true",
+                "help": "Export every bot"
+              },
+              {
+                "name": "--bot-id",
+                "type": "str",
+                "help": "Export one bot (see bot list)"
+              },
+              {
+                "name": "--output",
+                "type": "str",
+                "required": true,
+                "help": "The plan file to create; it must not exist yet"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-export/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
             ]
           }
         }

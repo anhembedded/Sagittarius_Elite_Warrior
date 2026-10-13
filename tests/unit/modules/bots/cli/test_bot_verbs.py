@@ -35,6 +35,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world 
     BotQueryDispatcher,
     HeldProbe,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.cli.verb_world import verb_world
 
 _PRINTER = ReportPrinter(ReportFormats.default())
 _LIST_KEYS = {"app_running", "bots", "unreadable", "counts"}
@@ -60,7 +61,7 @@ def _args(**values: object) -> argparse.Namespace:
 def _run(
     verb: IBotVerb, capsys: pytest.CaptureFixture[str], **values: object
 ) -> tuple[object, str]:
-    outcome = verb.run(_args(**values), _world(), _PRINTER)
+    outcome = verb.run(_args(**values), verb_world(_world(), _PRINTER))
     return outcome, capsys.readouterr().out
 
 
@@ -71,7 +72,7 @@ def test_bot_list_json_agrees_with_the_bots_tab_list_on_every_bot(
     screen = dispatcher.dispatch(ListBotsQuery, ListBotsQuery())
     assert isinstance(screen, BotList)
 
-    outcome = ListBotsVerb().run(_args(), dispatcher, _PRINTER)
+    outcome = ListBotsVerb().run(_args(), verb_world(dispatcher, _PRINTER))
 
     document = json.loads(capsys.readouterr().out)
     assert outcome is None
@@ -134,13 +135,13 @@ def test_an_unknown_id_exits_two_with_a_plain_message(
 
 
 def test_the_verbs_are_a_table_not_a_chain() -> None:
-    assert [verb.name for verb in BOT_VERBS] == ["list", "show"]
+    assert [verb.name for verb in BOT_VERBS] == ["list", "show", "apply", "export"]
 
 
 def test_with_no_copy_running_the_text_says_the_states_are_only_recorded(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    ListBotsVerb().run(_args(json=False), _world(held=False), _PRINTER)
+    ListBotsVerb().run(_args(json=False), verb_world(_world(held=False), _PRINTER))
 
     out = capsys.readouterr().out
     assert RECORDED_STATES_NOTE in out
@@ -150,7 +151,7 @@ def test_with_no_copy_running_the_text_says_the_states_are_only_recorded(
 def test_with_no_copy_running_the_json_carries_the_same_fact(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    ShowBotVerb().run(_args(bot_id="aaaaaa"), _world(held=False), _PRINTER)
+    ShowBotVerb().run(_args(bot_id="aaaaaa"), verb_world(_world(held=False), _PRINTER))
 
     assert json.loads(capsys.readouterr().out)["data"]["app_running"] is False
 
@@ -158,6 +159,6 @@ def test_with_no_copy_running_the_json_carries_the_same_fact(
 def test_with_a_copy_running_the_states_are_not_qualified(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    ListBotsVerb().run(_args(json=False), _world(held=True), _PRINTER)
+    ListBotsVerb().run(_args(json=False), verb_world(_world(held=True), _PRINTER))
 
     assert RECORDED_STATES_NOTE not in capsys.readouterr().out
