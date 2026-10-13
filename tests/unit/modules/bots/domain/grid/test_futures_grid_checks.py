@@ -1,0 +1,256 @@
+"""`EPIC-039F` - the plan-time risk verdicts of a Futures Grid.
+
+@details The business promise: a plan that can be liquidated before its ladder is used is
+refused, the estimate is built on the worst-case position per direction with the bracket of
+*that* notional, a leveraged plan needs an exit, and nothing is ever called safe."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from decimal import Decimal
+
+import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (
+    judge_futures_plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
+    PlanRiskInputs,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_worst_case import (
+    worst_case_positions,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    GridParams,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
+    LevelSizing,
+    plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    FuturesGridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
+    Verdict,
+    VerdictSeverity,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBracket,
+    LeverageBrackets,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.liquidation_estimate import (
+    BracketedPosition,
+    estimated_liquidation_price_in_brackets,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
+    CONFIG,
+    LAST_PRICE,
+    TERMS,
+)
+
+D = Decimal
+_BRACKETS = LeverageBrackets(
+    "BTCUSDT",
+    (
+        LeverageBracket(1, 125, D(0), D(50_000), D("0.004"), D(0)),
+        LeverageBracket(2, 100, D(50_000), D(250_000), D("0.005"), D(50)),
+        LeverageBracket(3, 50, D(250_000), D(1_000_000), D("0.01"), D(1_300)),
+    ),
+)
+_WIDE = FuturesGridThresholds(leverage_ceiling=125)
+_ATR = D(2000)
+
+
+def _inputs(
+    direction: str = "LONG",
+    leverage: int = 5,
+    *,
+    thresholds: FuturesGridThresholds = FuturesGridThresholds(),  # noqa: B008
+    brackets: LeverageBrackets = _BRACKETS,
+    margin_type: MarginType = MarginType.ISOLATED,
+    atr: Decimal | None = _ATR,
+    **changes: str,
+) -> PlanRiskInputs:
+    config = {
+        **CONFIG,
+        "direction": direction,
+        "leverage": str(leverage),
+        **changes,
+    }
+    params = GridParams.from_config(config)
+    return PlanRiskInputs(
+        params,
+        plan(params, TERMS, LAST_PRICE, LevelSizing.EQUAL_QUANTITY),
+        FuturesSymbolSetting("BTCUSDT", leverage, margin_type, D(10**9)),
+        brackets,
+        LAST_PRICE,
+        thresholds,
+        atr,
+    )
+
+
+def _codes(verdicts: tuple[Verdict, ...]) -> list[str]:
+    return [v.code for v in verdicts]
+
+
+def _severity(verdicts: tuple[Verdict, ...], code: str) -> VerdictSeverity:
+    return next(v.severity for v in verdicts if v.code == code)
+
+
+@pytest.mark.parametrize("direction", ["LONG", "SHORT"])
+def test_a_plan_whose_liquidation_is_inside_the_range_is_refused(
+    direction: str,
+) -> None:
+    verdicts = judge_futures_plan(_inputs(direction, 25, thresholds=_WIDE))
+
+    assert _severity(verdicts, "LIQUIDATION_INSIDE_RANGE") is VerdictSeverity.REFUSED
+
+
+def test_a_neutral_plan_is_judged_on_both_sides() -> None:
+    verdicts = judge_futures_plan(_inputs("NEUTRAL", 80, thresholds=_WIDE))
+
+    inside = [v for v in verdicts if v.code == "LIQUIDATION_INSIDE_RANGE"]
+    assert len(inside) == 2
+    assert {v.numbers["range_edge"] for v in inside} == {D(60000), D(70000)}
+    assert len(worst_case_positions(_inputs("NEUTRAL").plan)) == 2
+
+
+def test_the_worst_case_is_the_far_edge_with_the_plans_average_entry() -> None:
+    long_ = worst_case_positions(_inputs("LONG").plan)
+    short = worst_case_positions(_inputs("SHORT").plan)
+
+    assert len(long_) == len(short) == 1
+    levels = _inputs("LONG").plan
+    # LONG holds the opening quantity plus every BUY level at the lowest level.
+    assert long_[0].quantity == levels.opening_quantity + sum(
+        (lv.quantity for lv in levels.buy_levels), D(0)
+    )
+    assert LAST_PRICE > long_[0].average_entry > D(60000)
+    assert D(70000) > short[0].average_entry > LAST_PRICE
+
+
+def test_the_bracket_for_the_worst_case_notional_is_used_not_the_first() -> None:
+    inputs = _inputs("LONG", 5, capital_quote="100000")
+    ok = next(v for v in judge_futures_plan(inputs) if v.code == "LIQUIDATION_ESTIMATE")
+    worst = worst_case_positions(inputs.plan)[0]
+    margin = worst.notional / 5
+
+    right = estimated_liquidation_price_in_brackets(
+        BracketedPosition(worst.side, worst.quantity, worst.average_entry, margin),
+        _BRACKETS,
+    ).price
+    first_only = estimated_liquidation_price_in_brackets(
+        BracketedPosition(worst.side, worst.quantity, worst.average_entry, margin),
+        LeverageBrackets(
+            "BTCUSDT", (replace(_BRACKETS.brackets[0], notional_cap=D(10**9)),)
+        ),
+    ).price
+
+    assert worst.notional > _BRACKETS.brackets[0].notional_cap
+    assert ok.numbers["liquidation_price"] == right
+    assert right != first_only
+
+
+def test_a_stop_loss_closer_than_one_atr_to_liquidation_warns() -> None:
+    near = judge_futures_plan(_inputs("LONG", 5, atr=D(9000)))
+    far = judge_futures_plan(_inputs("LONG", 5, atr=D(2000)))
+
+    assert _severity(near, "STOP_LOSS_NEAR_LIQUIDATION") is VerdictSeverity.WARNING
+    assert "STOP_LOSS_NEAR_LIQUIDATION" not in _codes(far)
+
+
+def test_a_stop_loss_beyond_liquidation_is_refused() -> None:
+    verdicts = judge_futures_plan(_inputs("LONG", 10))
+
+    assert _severity(verdicts, "STOP_LOSS_AFTER_LIQUIDATION") is VerdictSeverity.REFUSED
+
+
+def test_no_stop_loss_above_leverage_one_is_refused() -> None:
+    verdicts = judge_futures_plan(_inputs("LONG", 5, stop_loss="off"))
+
+    assert _severity(verdicts, "STOP_LOSS_NEEDED") is VerdictSeverity.REFUSED
+
+
+def test_no_stop_loss_at_leverage_one_only_warns() -> None:
+    verdicts = judge_futures_plan(_inputs("LONG", 1, stop_loss="off"))
+
+    assert _severity(verdicts, "STOP_LOSS_NEEDED") is VerdictSeverity.WARNING
+
+
+def test_a_short_is_judged_against_the_exit_above_the_range() -> None:
+    verdicts = judge_futures_plan(_inputs("SHORT", 5, take_profit="off"))
+
+    assert _severity(verdicts, "STOP_LOSS_NEEDED") is VerdictSeverity.REFUSED
+
+
+def test_the_ok_verdict_says_estimate() -> None:
+    (verdict,) = judge_futures_plan(_inputs("LONG", 5))
+
+    assert verdict.severity is VerdictSeverity.OK
+    assert "estimate" in verdict.reason
+    assert "safe" not in verdict.reason.lower()
+    assert verdict.numbers["liquidation_price"] < D(57000)
+
+
+def test_a_cross_margin_symbol_is_refused() -> None:
+    verdicts = judge_futures_plan(_inputs(margin_type=MarginType.CROSSED))
+
+    assert _severity(verdicts, "CROSS_MARGIN_UNSUPPORTED") is VerdictSeverity.REFUSED
+
+
+def test_leverage_above_the_warning_warns_and_above_the_ceiling_is_refused() -> None:
+    thresholds = FuturesGridThresholds(leverage_warn=4, leverage_ceiling=6)
+
+    assert (
+        _severity(
+            judge_futures_plan(_inputs(leverage=5, thresholds=thresholds)),
+            "LEVERAGE_HIGH",
+        )
+        is VerdictSeverity.WARNING
+    )
+    assert (
+        _severity(
+            judge_futures_plan(_inputs(leverage=7, thresholds=thresholds)),
+            "LEVERAGE_ABOVE_CEILING",
+        )
+        is VerdictSeverity.REFUSED
+    )
+
+
+def test_a_notional_above_what_the_symbol_allows_at_that_leverage_is_refused() -> None:
+    small = LeverageBrackets(
+        "BTCUSDT", (LeverageBracket(1, 125, D(0), D(20_000), D("0.004"), D(0)),)
+    )
+
+    verdicts = judge_futures_plan(_inputs("LONG", 5, brackets=small))
+
+    assert _severity(verdicts, "NOTIONAL_ABOVE_BRACKET") is VerdictSeverity.REFUSED
+
+
+def test_more_initial_margin_than_the_bot_commits_is_refused() -> None:
+    inputs = _inputs("LONG", 5)
+    starved = replace(inputs, params=replace(inputs.params, capital_quote=D(100)))
+
+    assert (
+        _severity(judge_futures_plan(starved), "MARGIN_TOO_SMALL")
+        is VerdictSeverity.REFUSED
+    )
+
+
+def test_a_plan_with_a_sound_stop_and_margin_is_only_estimated() -> None:
+    verdicts = judge_futures_plan(_inputs("LONG", 5))
+
+    assert not any(v.refuses for v in verdicts)
+    assert _codes(verdicts) == ["LIQUIDATION_ESTIMATE"]
+
+
+def test_the_thresholds_refuse_inverted_liquidation_distances() -> None:
+    with pytest.raises(ValueError, match="critical < warn"):
+        FuturesGridThresholds(
+            liq_warn_distance=D("0.02"), liq_critical_distance=D("0.05")
+        )

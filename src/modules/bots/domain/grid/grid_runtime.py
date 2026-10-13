@@ -96,6 +96,15 @@ class GridReason(str, Enum):
     #: (`EPIC-039E`): someone changed it in the exchange. The detail names both values; the
     #: bot halts, it never sets them again by itself.
     SETTINGS_DRIFT = "settings_drift"
+    #: The mark price came within the critical distance of the liquidation price the
+    #: exchange reports (`EPIC-039F`); the detail names both prices and the distance.
+    LIQUIDATION_RISK = "liquidation_risk"
+    #: The exchange's position moved with no order of the bot's behind it (`EPIC-039F`): a
+    #: forced close, an auto-deleveraging, or a trade by hand, still there when re-read.
+    FOREIGN_FILL = "foreign_fill"
+    #: The exchange's position and the one the bot's fills add up to disagree, still there
+    #: when re-read (`EPIC-039F`).
+    POSITION_MISMATCH = "position_mismatch"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    PositionDivergence,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     inputs,
 )
@@ -78,6 +81,8 @@ class _Facts(IBotFacts):
     def reconcile_after_gap(self) -> None: ...
 
     def halt_user_stream_down(self, down_for: timedelta) -> None: ...
+
+    def on_position_divergence(self, divergence: PositionDivergence) -> None: ...
 
 
 class _Factory(IBotExecutorFactory):

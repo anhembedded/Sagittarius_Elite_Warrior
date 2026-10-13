@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_resume
     GridResumeSequence,
     ResumeProposal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+    GridRiskWatch,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -117,7 +120,10 @@ class GridExecutor(IBotExecutor):
         context: GridRunContext,
         queue: IBotWorkQueue,
         retries: IBotRetryScheduler,
+        risk_watch: GridRiskWatch | None = None,
     ) -> None:
+        """@param risk_watch A position venue's liquidation and divergence watch
+        (`EPIC-039F`, bound by `EPIC-039H`'s factory); `None` on Spot."""
         self._context = context
         self._queue = queue
         self._start = GridStartSequence(context)
@@ -153,6 +159,7 @@ class GridExecutor(IBotExecutor):
                 self._interrupted_start,
                 GridKeyProbe(context),
                 GridTermsWatch(context),
+                risk_watch,
             ),
             self._post,
             self._forget_proposal,
