@@ -9,10 +9,12 @@ fix them) and the Grid is never planned at a capital the venue would not let it 
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
     ExposureLimits,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
+    RangeExit,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
@@ -21,9 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
 
 
 def exposure_refusal(params: GridParams, limits: ExposureLimits) -> Verdict | None:
-    """The refusal for a direction or leverage outside `limits`, else `None`.
+    """The refusal for a direction, leverage or range exit outside `limits`, else `None`.
 
-    A direction is judged before a leverage: one sentence per definition.
+    A direction is judged before a leverage, and both before the range exit: one sentence per
+    definition.
     """
     if params.direction not in limits.directions:
         allowed = ", ".join(sorted(d.value for d in limits.directions))
@@ -38,5 +41,15 @@ def exposure_refusal(params: GridParams, limits: ExposureLimits) -> Verdict | No
             "LEVERAGE_NOT_ALLOWED",
             f"A leverage of {params.leverage} is not available on this venue; "
             f"the most it allows is {limits.max_leverage}",
+        )
+    if (
+        params.on_range_exit is RangeExit.CLOSE
+        and limits.exposure_kind is not ExposureKind.POSITION
+    ):
+        return Verdict(
+            VerdictSeverity.REFUSED,
+            "RANGE_EXIT_NOT_ALLOWED",
+            "Closing when the price leaves the range is for a position venue; "
+            "a Spot grid holds what it bought out of range",
         )
     return None

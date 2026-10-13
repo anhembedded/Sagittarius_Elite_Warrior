@@ -9,6 +9,7 @@ the facts it is judged with, as a test says them.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -173,6 +174,7 @@ def a_position_world(
     unreadable: str | None = None,
     marks: Marks | None = None,
     state: BotLifecycleState = BotLifecycleState.STARTING,
+    config: Mapping[str, str] | None = None,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -193,6 +195,7 @@ def a_position_world(
     # nothing yet derives none.
     world.session.register_owner_budget_answers(a_registration("0"))
     return world, gate
+    return grid_world(state=state, exposures=exposures, config=config), gate
 
 
 def a_long_position(quantity: str) -> LivePosition:
