@@ -106,6 +106,8 @@ class GridPlan:
     #: The opening trade, signed: `+` a market buy, `-` a market sell, `0` none.
     opening_quantity: Decimal
     direction: TradeDirection = TradeDirection.LONG
+    #: How the quantities were found; the position model reads only an equal-quantity plan.
+    level_sizing: LevelSizing = LevelSizing.EQUAL_CAPITAL
 
     @property
     def opening_buy_quantity(self) -> Decimal:
@@ -156,13 +158,12 @@ def plan(
         sizing.capital_per_level,
         _opening_quantity(params.direction, levels),
         params.direction,
+        level_sizing,
     )
 
 
 def _capital_reached(params: GridParams) -> Decimal:
     """The capital the ladder may reach: the capital itself at leverage 1 (decision O2)."""
-    if params.leverage == 1:
-        return params.capital_quote
     return params.capital_quote * params.leverage
 
 

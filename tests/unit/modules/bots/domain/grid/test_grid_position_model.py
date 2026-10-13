@@ -157,22 +157,20 @@ def test_a_long_is_paid_exit_minus_entry() -> None:
     assert walk.realised > 0
 
 
-def test_equal_capital_levels_do_not_share_a_quantity() -> None:
-    """Why `EQUAL_CAPITAL` is no position function: what a SELL sells is not what its
-    counter BUY rebuys.
+def test_the_model_refuses_a_plan_sized_for_spot() -> None:
+    """Equal-capital counters are not the model's: it would show no drift where Spot has some."""
+    grid_plan = _plan("LONG", LevelSizing.EQUAL_CAPITAL)
 
-    From 65,000 the price rises through 66,000 and 67,000 (two SELLs of the opening base),
-    then falls back to 66,000, where the counter BUY is sized by its own level (capital /
-    66,000 = 0.01515151) and not by the 0.01538461 the SELL sold; the position at 66,000 then
-    differs from the first time the price was there. Equal quantity has one `q`, so it cannot.
-    """
-    capital = _plan("LONG", LevelSizing.EQUAL_CAPITAL, last_price=D(65000))
-    equal = _plan("LONG", LevelSizing.EQUAL_QUANTITY, last_price=D(65000))
+    with pytest.raises(ValueError, match="EQUAL_QUANTITY"):
+        model_position_along(grid_plan, [])
 
-    sold_above = capital.levels[7].quantity
-    rebought_below = capital.levels[6].quantity
-    assert capital.levels[6].side is LevelSide.SELL
-    assert rebought_below == sold_above  # both SELL levels are sized at the last price
-    rebuy = D(CONFIG["capital_quote"]) * 2 / 10 / capital.levels[6].price
-    assert abs(rebuy - sold_above) > D("0.0000001")
-    assert len({lv.quantity for lv in equal.order_levels}) == 1
+
+def test_a_plan_says_how_it_was_sized() -> None:
+    assert (
+        _plan("LONG", LevelSizing.EQUAL_CAPITAL).level_sizing
+        is LevelSizing.EQUAL_CAPITAL
+    )
+    assert (
+        _plan("LONG", LevelSizing.EQUAL_QUANTITY).level_sizing
+        is LevelSizing.EQUAL_QUANTITY
+    )

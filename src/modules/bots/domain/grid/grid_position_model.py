@@ -15,8 +15,16 @@ and that `EPIC-039F`'s liquidation estimate reads the position range from.
 @par The fill rule
 A BUY fills when the price reaches it from above (`price <= level`), a SELL when it reaches it
 from below (`price >= level`). The filled level becomes EMPTY and its **counter** goes to the
-next level (up after a BUY, down after a SELL) with the quantity just filled, which is the
-live ladder's rule. A counter that has nowhere to go (past the range edge) is not placed.
+next level (up after a BUY, down after a SELL) with the quantity just filled. A counter that
+has nowhere to go (past the range edge) is not placed.
+
+**This is not the live Spot ladder's counter rule.** The live ladder (`grid_reactions.py`)
+sizes the counter BUY by its own level's buy quantity and nets the counter SELL of the base
+fee; the model gives every counter the quantity just filled. The two agree only when every
+level has the same quantity and no fee is paid in base, which is `LevelSizing.EQUAL_QUANTITY`
+on a position venue. So the model refuses a plan sized any other way: read a Spot-shaped
+position off it and it would show no drift where the live ladder has some
+(`test_grid_equal_capital_drift.py` runs that drift on the real replay).
 
 @par What it shows
 With the same quantity `q` at every level (`LevelSizing.EQUAL_QUANTITY`) the position after a
@@ -40,6 +48,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
     LevelSide,
+    LevelSizing,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
@@ -97,7 +106,14 @@ class _Book:
 
 
 def model_position_along(plan: GridPlan, path: Sequence[Decimal]) -> PositionModelRun:
-    """The ladder of `plan` modelled along `path`, a price after price."""
+    """The ladder of `plan` modelled along `path`, a price after price.
+
+    @raise ValueError `plan` was not sized with `LevelSizing.EQUAL_QUANTITY`.
+    """
+    if plan.level_sizing is not LevelSizing.EQUAL_QUANTITY:
+        raise ValueError(
+            "the position model reads only a plan sized with LevelSizing.EQUAL_QUANTITY"
+        )
     sides = [level.side for level in plan.levels]
     quantities = [level.quantity for level in plan.levels]
     prices = [level.price for level in plan.levels]
