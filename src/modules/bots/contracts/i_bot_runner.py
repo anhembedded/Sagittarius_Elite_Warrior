@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 
 
@@ -43,7 +43,7 @@ class IBotRunner(ABC):
         """Queue `resume` on the bot's executor."""
 
     @abstractmethod
-    def stop(self, bot_id: str, base: BaseHandling) -> None:
+    def stop(self, bot_id: str, base: ExposureHandling) -> None:
         """Queue `stop` on the bot's executor."""
 
     @abstractmethod

@@ -63,7 +63,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
@@ -182,7 +182,7 @@ def test_a_grid_rests_its_levels_replaces_an_outside_cancel_and_stops_clean(
             ),
         )
 
-        _command(app, StopBotCommand(bot_id, BaseHandling.SELL_AT_MARKET))
+        _command(app, StopBotCommand(bot_id, ExposureHandling.CLOSE_AT_MARKET))
         wait_for_state(app, bot_id, S.STOPPED)
         wait_until("no tagged order open", lambda: app.tagged_open(bot_id) == {})
     finally:

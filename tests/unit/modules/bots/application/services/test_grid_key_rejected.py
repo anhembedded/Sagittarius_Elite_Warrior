@@ -20,7 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -133,7 +133,7 @@ def test_a_stop_the_exchange_refuses_for_the_key_halts_by_name_instead_of_waitin
     world = _running()
     world.book.cancel_refusals = [_KEY_REJECTED]
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.HALTED
     assert world.runtime().reason is GridReason.KEY_REJECTED
@@ -147,7 +147,7 @@ def test_an_exit_slice_the_exchange_refuses_for_the_key_halts_by_name() -> None:
     world.book.cancels.clear()
     world.book.refuse_next = [_KEY_REJECTED]
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.state() is S.HALTED
     runtime = world.runtime()

@@ -51,7 +51,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
@@ -254,7 +254,7 @@ def clean_up(app: GridTestnetApp, bot_id: str) -> None:
     (a bot that never started) is not waited on."""
     if app.state(bot_id) is not S.STOPPED:
         stopped = app.engine.dispatch(
-            StopBotCommand, StopBotCommand(bot_id, BaseHandling.SELL_AT_MARKET)
+            StopBotCommand, StopBotCommand(bot_id, ExposureHandling.CLOSE_AT_MARKET)
         )
         if isinstance(stopped, BotCommandResult) and stopped.accepted:
             wait_until(

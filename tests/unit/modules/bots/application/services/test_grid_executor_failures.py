@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -54,12 +54,12 @@ def test_a_start_that_cannot_read_a_price_is_an_error_naming_it() -> None:
 def test_a_stop_that_cannot_read_a_price_is_an_error_and_stop_runs_again() -> None:
     world = grid_world(state=S.RUNNING, book_readable=False)
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.state() is S.ERROR
     assert world.runtime().reason is GridReason.TASK_FAILED
     world.executor.facts.on_tick(PriceTick.at(Decimal(121)))
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     assert world.state() is S.STOPPED
 
 

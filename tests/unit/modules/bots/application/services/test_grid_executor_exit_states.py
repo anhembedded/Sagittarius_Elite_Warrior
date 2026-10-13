@@ -15,7 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -73,7 +73,7 @@ def test_a_tick_beyond_the_stop_loss_does_not_turn_a_keep_base_stop_into_a_sell(
     world = grid_world()
     world.executor.start()
     world.session.set_enabled(enabled=False)  # the stop waits in STOPPING
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     assert world.state() is S.STOPPING
     assert world.runtime().sell_base_on_stop is False
 

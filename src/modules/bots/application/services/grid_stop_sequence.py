@@ -44,7 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
     GridRunContext,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
@@ -101,7 +101,7 @@ class GridStopSequence:
         self._context = context
         self._housekeeping = GridHousekeeping(context)
 
-    def run(self, base: BaseHandling, price: Decimal) -> StopProgress:
+    def run(self, base: ExposureHandling, price: Decimal) -> StopProgress:
         """Run the stop; the bot is STOPPING. `price` references the exits."""
         registration = self._housekeeping.register()
         if not registration.registered:
@@ -109,7 +109,7 @@ class GridStopSequence:
         ended = self._cancel_tagged()
         if ended is not None:
             return ended
-        if base is BaseHandling.SELL_AT_MARKET:
+        if base is ExposureHandling.CLOSE_AT_MARKET:
             # A fill that landed while cancelling changed what the bot holds:
             # derive the inventory again before selling it (ADR D6).
             registration = self._housekeeping.register()

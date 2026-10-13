@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -71,7 +71,7 @@ def test_a_stop_that_waited_on_a_refused_cancel_retries_without_a_session_event(
     world = _running()
     world.book.cancel_refusals = [_REFUSED, _REFUSED]
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPING
     detail = world.runtime().reason_detail
@@ -100,7 +100,7 @@ def test_stopped_still_requires_zero_open_tagged_orders() -> None:
     world = _running()
     _stuck_open(world)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     while world.retries.pending:
         assert world.state() is S.STOPPING
         world.retries.run_next()
@@ -116,7 +116,7 @@ def test_exhausted_retries_leave_the_bot_stopping_with_a_named_reason(
     _stuck_open(world)
 
     with caplog.at_level(logging.ERROR, logger="App.Bots.GridExecutor"):
-        world.executor.stop(BaseHandling.KEEP)
+        world.executor.stop(ExposureHandling.KEEP)
         runs = 0
         while world.retries.pending:
             world.retries.run_next()
@@ -137,12 +137,12 @@ def test_exhausted_retries_leave_the_bot_stopping_with_a_named_reason(
 def test_a_stop_asked_again_in_stopping_starts_a_fresh_round_of_retries() -> None:
     world = _running()
     _stuck_open(world)
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     while world.retries.pending:
         world.retries.run_next()
     world.book.sticky = set()
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
     assert world.book.open == {}
@@ -151,8 +151,8 @@ def test_a_stop_asked_again_in_stopping_starts_a_fresh_round_of_retries() -> Non
 def test_a_stale_retry_does_nothing_once_the_user_asked_again() -> None:
     world = _running()
     _stuck_open(world)
-    world.executor.stop(BaseHandling.KEEP)
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     cancels = len(world.book.cancels)
     assert len(world.retries.pending) == 2
 
@@ -176,7 +176,7 @@ def test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell() -> None:
     assert world.state() is S.STOPPING
     assert world.runtime().reason is GridReason.STOP_LOSS
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.runtime().reason is GridReason.STOP_LOSS
     assert world.state() is S.STOPPED
@@ -187,10 +187,10 @@ def test_a_stop_asked_again_keeps_the_reason_and_the_forced_sell() -> None:
 def test_a_stop_asked_again_can_add_a_sell_the_first_did_not_ask_for() -> None:
     world = _running()
     world.book.cancel_refusals = [_REFUSED]
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     assert not world.runtime().sell_base_on_stop
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.runtime().sell_base_on_stop
 
@@ -201,7 +201,7 @@ def test_no_retry_is_scheduled_while_trading_is_off() -> None:
     world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPING
     assert world.retries.pending == []

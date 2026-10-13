@@ -15,7 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
     decode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -76,7 +76,7 @@ def test_stop_keeping_the_base_cancels_every_tagged_order_and_ends_stopped() -> 
     world.session.claim_symbol(SYMBOL, world.owner)
     ladder = set(world.book.open)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
     assert set(world.book.cancels) == ladder
@@ -94,7 +94,7 @@ def test_stop_registers_the_budget_again_before_any_cancel() -> None:
     seen: list[bool] = []
     world.book.cancel_probe = lambda: seen.append(world.owner in world.session.budgets)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert seen
     assert all(seen)
@@ -108,7 +108,7 @@ def test_stop_selling_the_base_sells_the_derived_inventory_in_slices() -> None:
     world = _running()
     _derived(world, "4.9")
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
     assert [r.quantity for r in sells] == [Decimal("2.450"), Decimal("2.450")]
@@ -128,7 +128,7 @@ def test_exit_slices_follow_the_market_lot_size_step() -> None:
     world.book.requests.clear()
     _derived(world, "4.905")
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     sells = [
         r.quantity for r in world.book.requests if r.order_type is OrderType.MARKET
@@ -144,7 +144,7 @@ def test_a_refused_exit_slice_halts_naming_the_unsold_remainder() -> None:
         TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY,
     ]
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.state() is S.HALTED
     runtime = _runtime(world)
@@ -159,7 +159,7 @@ def test_an_inventory_worth_less_than_the_exchange_minimum_is_kept_as_dust() -> 
     world = _running()
     _derived(world, "0.01")
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert [r for r in world.book.requests if r.order_type is OrderType.MARKET] == []
     assert world.state() is S.STOPPED
@@ -172,7 +172,7 @@ def test_an_order_that_filled_just_before_its_cancel_does_not_fault_the_stop() -
     world = _running()
     world.book.filled_before_cancel = {next(iter(world.book.open))}
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
 
@@ -181,7 +181,7 @@ def test_a_cancel_that_raises_while_the_order_is_still_open_is_a_fault() -> None
     world = _running()
     world.book.cancel_raises = [ConnectionError("read timed out")]
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.ERROR
     assert _runtime(world).reason is GridReason.ORDER_FAILED
@@ -195,7 +195,7 @@ def test_the_exit_sells_the_inventory_derived_after_the_cancels() -> None:
     _derived(world, "4.9")
     world.book.cancel_probe = lambda: _derived(world, "5.0")
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
     assert sum(r.quantity for r in sells) == Decimal("5.0")
@@ -209,7 +209,7 @@ def test_an_exit_slice_that_raised_is_reported_as_possibly_unsold() -> None:
     _derived(world, "4.9")
     world.book.raise_next = [ConnectionError("read timed out")]
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     runtime = _runtime(world)
     assert runtime.reason is GridReason.EXIT_SLICE_FAILED
@@ -221,7 +221,7 @@ def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() ->
     world.executor.facts.on_switch(False, TradingSwitchCause.EMERGENCY_STOP)
     world.session.set_enabled(enabled=False)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPING
     assert "waiting" in _runtime(world).reason_detail
@@ -236,7 +236,7 @@ def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() ->
 def test_a_waiting_stop_keeps_the_users_choice_to_sell() -> None:
     world = _running()
     world.session.set_enabled(enabled=False)
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
     assert _runtime(world).sell_base_on_stop
 
     world.session.set_enabled(enabled=True)
@@ -253,7 +253,7 @@ def test_stopped_only_when_no_tagged_order_is_left_open() -> None:
     world = _running()
     world.book.sticky = {next(iter(world.book.open))}
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPING
     assert "still open" in _runtime(world).reason_detail
@@ -263,7 +263,7 @@ def test_error_is_left_through_the_same_stop() -> None:
     world = grid_world(state=S.ERROR)
     world.session.budgets.clear()
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
     stored = world.store.load(BotId(BOT)).bot
@@ -273,7 +273,7 @@ def test_error_is_left_through_the_same_stop() -> None:
 def test_a_stop_ignored_where_the_table_has_none() -> None:
     world = grid_world(state=S.STOPPED)
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
     assert world.book.cancels == []

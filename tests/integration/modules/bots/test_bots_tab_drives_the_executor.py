@@ -28,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -104,9 +104,9 @@ class _Screen:
             self.view, bots_commands(BOTS_ROUTE), self.presenter.bind_commands
         )
 
-    def _ask_stop(self, bot: BotSnapshot) -> BaseHandling:
+    def _ask_stop(self, bot: BotSnapshot) -> ExposureHandling:
         self.stops.append(bot.bot_id)
-        return BaseHandling.SELL_AT_MARKET
+        return ExposureHandling.CLOSE_AT_MARKET
 
     def select(self, bot_id: str) -> None:
         model = self.view.model

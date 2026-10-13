@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import 
     GridDerived,
     derive,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
+    exposure_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
@@ -38,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
+    LevelSizing,
     plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
@@ -59,7 +63,11 @@ class GridEvaluation:
     derived: GridDerived | None = None
 
 
-def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEvaluation:
+def evaluate_grid(
+    inputs: BotKindInputs,
+    thresholds: GridThresholds,
+    level_sizing: LevelSizing = LevelSizing.EQUAL_CAPITAL,
+) -> GridEvaluation:
     unset = unset_parameters(inputs.config)
     if unset:
         return _not_set(unset)
@@ -67,10 +75,13 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
         params = GridParams.from_config(inputs.config)
     except GridParamsError as exc:
         return _unreadable(str(exc))
+    refusal = exposure_refusal(params, inputs.limits)
+    if refusal is not None:
+        return GridEvaluation((refusal,), params)
     if params.grid_count > inputs.terms.max_open_orders:
         return GridEvaluation((_too_many_levels(params, inputs),), params)
     try:
-        grid_plan = plan(params, inputs.terms, inputs.market.last_price)
+        grid_plan = plan(params, inputs.terms, inputs.market.last_price, level_sizing)
         derived = derive(params, inputs.terms, grid_plan)
         check_inputs = GridCheckInputs(
             params,

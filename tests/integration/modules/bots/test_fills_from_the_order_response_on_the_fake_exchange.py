@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot i
     StopBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
@@ -80,7 +80,7 @@ def test_a_market_sell_at_stop_is_counted_from_its_response_with_the_stream_down
         assert held > 0
 
         stopped = app.engine.dispatch(
-            StopBotCommand, StopBotCommand(bot_id, BaseHandling.SELL_AT_MARKET)
+            StopBotCommand, StopBotCommand(bot_id, ExposureHandling.CLOSE_AT_MARKET)
         )
 
         assert stopped.accepted, stopped.message  # type: ignore[attr-defined]

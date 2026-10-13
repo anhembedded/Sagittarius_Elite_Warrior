@@ -45,7 +45,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     PRICE_STALENESS_HALTS,
@@ -122,7 +122,7 @@ class GridPriceReaction:
                 extreme,
                 threshold,
             )
-        self._stopper.run(BaseHandling.SELL_AT_MARKET, reason, detail)
+        self._stopper.run(ExposureHandling.CLOSE_AT_MARKET, reason, detail)
 
     def _save_mark_price(self, price: Decimal) -> None:
         now = self._context.monotonic.seconds()

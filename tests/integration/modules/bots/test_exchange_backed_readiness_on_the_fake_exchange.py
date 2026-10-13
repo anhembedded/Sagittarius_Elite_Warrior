@@ -39,7 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
@@ -123,7 +123,7 @@ def test_a_stopped_bot_is_warned_before_start_of_the_base_its_run_kept(
     with booted(exchange) as app:
         bot_id = _started(app)
         stopped = app.engine.dispatch(
-            StopBotCommand, StopBotCommand(bot_id, BaseHandling.KEEP)
+            StopBotCommand, StopBotCommand(bot_id, ExposureHandling.KEEP)
         )
         assert isinstance(stopped, BotCommandResult) and stopped.accepted
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 
 
@@ -19,4 +19,4 @@ class StopBotCommand:
     """
 
     bot_id: str
-    base: BaseHandling
+    base: ExposureHandling

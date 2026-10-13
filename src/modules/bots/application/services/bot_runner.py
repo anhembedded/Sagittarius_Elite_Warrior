@@ -20,7 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
@@ -81,7 +81,7 @@ class BotRunner(IBotRunner):
     def resume(self, bot_id: str) -> None:
         self._executor(bot_id).resume()
 
-    def stop(self, bot_id: str, base: BaseHandling) -> None:
+    def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self._executor(bot_id).stop(base)
 
     def confirm_resume(self, bot_id: str) -> None:

@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -114,7 +114,7 @@ def test_a_stop_sells_at_a_refreshed_price_not_an_hours_old_tick() -> None:
     quote_at(world, Decimal(125))
     world.book.requests.clear()
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
     assert sells, "the stop must have sold the base at market"

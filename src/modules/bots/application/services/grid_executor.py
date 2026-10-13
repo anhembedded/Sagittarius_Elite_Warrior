@@ -71,7 +71,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_stat
     SymbolStatusGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
     IBotExecutor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
@@ -196,7 +196,7 @@ class GridExecutor(IBotExecutor):
     def resume(self) -> None:
         self._post("resume", self._run_resume)
 
-    def stop(self, base: BaseHandling) -> None:
+    def stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.set()
         self._post("stop", lambda: self._run_stop(base))
 
@@ -234,7 +234,7 @@ class GridExecutor(IBotExecutor):
         price = self._price()
         self._start.run(plan(self._context.params, self._context.terms, price))
 
-    def _run_stop(self, base: BaseHandling) -> None:
+    def _run_stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.clear()
         self._stop.run(base, GridReason.USER_STOP)
 

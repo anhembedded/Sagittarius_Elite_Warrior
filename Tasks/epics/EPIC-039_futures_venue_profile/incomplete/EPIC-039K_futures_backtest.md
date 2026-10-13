@@ -29,6 +29,8 @@ The Grid backtest reads **Spot** candles and Spot filters (`application/queries/
 - [ ] The three directions are covered, and a property test shows: raising leverage never reduces the chance of liquidation on the same path.
 
 ## 3. Design
+**Model or replay (condition from `039B`).** `grid_position_model.py` is a pure model of a position grid; `GridReplay` replays the real Spot executor. The Futures backtest must either replay the Futures executor (`039H`) the way `GridReplay` does, or have a test that runs the same fills through the executor and this model and compares positions, so the two cannot drift apart unnoticed.
+
 Extend the one simulator with *ports for what differs* (funding schedule, liquidation rule) injected by the profile, the same way costs and risk are; not a Futures copy of the simulator. The simulator stays pure domain (no I/O): funding and candles are passed in.
 
 ## 4. Changes, per file

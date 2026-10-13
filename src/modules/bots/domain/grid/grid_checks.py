@@ -92,6 +92,15 @@ def check_min_notional(inputs: GridCheckInputs) -> Verdict:
         "smallest_after_fee": net,
         "min_notional": minimum,
     }
+    if net <= 0:
+        # A quantity rounded to nothing: no capital is "about" enough, so none is named.
+        return Verdict(
+            REFUSED,
+            "LEVEL_BELOW_MIN_NOTIONAL",
+            f"A level's order rounds to nothing at the exchange's quantity step; the "
+            f"exchange minimum is {minimum}. Raise the capital or use fewer grids",
+            numbers,
+        )
     if net < minimum:
         # Orders scale with the capital, so the capital that lifts the
         # smallest one to the minimum is a proportion; the exchange's

@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -34,7 +34,7 @@ from .test_a_start_with_the_user_stream_down_on_the_fake_exchange import _held, 
 
 def _stop_keeping_the_base(app, bot_id: str) -> None:
     stopped = app.engine.dispatch(
-        StopBotCommand, StopBotCommand(bot_id, BaseHandling.KEEP)
+        StopBotCommand, StopBotCommand(bot_id, ExposureHandling.KEEP)
     )
     assert isinstance(stopped, BotCommandResult)
     assert stopped.accepted, stopped.message

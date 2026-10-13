@@ -16,7 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
@@ -37,7 +37,7 @@ class Answers:
     """What the screen's questions answer; each records that it was asked."""
 
     new_bot: CreateBotCommand | None = None
-    stop: BaseHandling | None = None
+    stop: ExposureHandling | None = None
     delete: bool = False
     #: Bots → Arm strategy…: `True` arms what the form holds.
     arm_strategy: bool = False
@@ -73,7 +73,7 @@ class Answers:
         self.offered = [venue.option_text for venue in venues]
         return self.new_bot
 
-    def _ask_stop(self, bot: BotSnapshot) -> BaseHandling | None:
+    def _ask_stop(self, bot: BotSnapshot) -> ExposureHandling | None:
         self.asked.append(f"stop {bot.bot_id}")
         return self.stop
 

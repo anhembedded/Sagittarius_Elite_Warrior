@@ -35,7 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
@@ -277,7 +277,7 @@ def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
 def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
     world = _start_world()
     world.runner.start(BOT)
-    world.runner.stop(BOT, BaseHandling.KEEP)
+    world.runner.stop(BOT, ExposureHandling.KEEP)
     assert _bot(world).state is S.STOPPED
 
     world.runner.start(BOT)
@@ -320,3 +320,28 @@ def test_starting_an_active_bot_is_an_invalid_transition(
     )
 
     assert world.runner.start(BOT).refusal is BotRefusal.INVALID_TRANSITION
+
+
+def test_a_definition_with_a_leverage_the_venue_does_not_allow_is_refused_before_anything_is_claimed() -> (
+    None
+):
+    """`EPIC-039B` review: the check Start repeats refuses a Spot leverage above 1 itself,
+    whatever readiness said a moment ago, and neither claims the symbol nor registers a
+    budget at the multiplied capital."""
+    world = _start_world()
+    refused_config = {**CONFIG, "direction": "LONG", "leverage": "3"}
+    bot = Bot.draft(
+        BotId(BOT),
+        BotDefinition(
+            "grid one", "grid", TradingVenue.SPOT_TESTNET, SYMBOL, refused_config
+        ),
+        world.clock.now(),
+    )
+
+    result = world.preconditions.check(bot, world.clock.now())
+
+    assert result is not None
+    assert result.refusal is BotRefusal.PARAMETERS_REFUSED
+    assert "leverage" in result.message.lower()
+    assert world.session.budgets == {}
+    assert world.session.claim_symbol(SYMBOL, "someone else")

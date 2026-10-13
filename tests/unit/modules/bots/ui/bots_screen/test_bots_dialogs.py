@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
@@ -80,10 +80,10 @@ def test_stop_preselects_keeping_the_base_and_says_orders_are_cancelled(qtbot) -
     dialog = StopBotDialog(_RUNNING)
     qtbot.addWidget(dialog)
 
-    assert dialog.choice() is BaseHandling.KEEP
+    assert dialog.choice() is ExposureHandling.KEEP
     assert "cancelled at the exchange" in stop_question(_RUNNING)
     dialog.sell.setChecked(True)
-    assert dialog.choice() is BaseHandling.SELL_AT_MARKET
+    assert dialog.choice() is ExposureHandling.CLOSE_AT_MARKET
     assert dialog.findChild(QPushButton, "btnConfirmStop").text() == STOP_BUTTON_TEXT
 
 

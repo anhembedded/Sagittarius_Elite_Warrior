@@ -26,7 +26,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fi
     StreamedFineKlines,
     price_bar,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    exposure_limits_of,
+    market_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exposure_check import (
+    exposure_refusal,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
@@ -63,6 +69,9 @@ class RunGridBacktestQueryHandler(
             params = GridParams.from_config(query.config)
         except GridParamsError as exc:
             return GridBacktestRefusal(f"The parameters cannot be read: {exc}")
+        refusal = exposure_refusal(params, exposure_limits_of(query.venue))
+        if refusal is not None:
+            return GridBacktestRefusal(refusal.reason)
         # `BUG-172`: the candles stored from the market the bot's orders fill in.
         market_data = self._sources.ports_for(query.venue.market_data_venue)
         repository = market_data.repository

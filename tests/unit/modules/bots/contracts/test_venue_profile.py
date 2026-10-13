@@ -18,8 +18,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     BOT_MARKETS,
+    SPOT_LIMITS,
     SPOT_MARKETS,
     ExposureKind,
+    ExposureLimits,
+    exposure_limits_of,
     runs_bots_on,
     venue_profile_of,
 )
@@ -134,3 +137,26 @@ def test_every_kind_declares_the_markets_it_runs_on() -> None:
         supported = kind.supported_profiles()
         assert supported, kind.kind_id
         assert supported <= described, kind.kind_id
+
+
+def test_the_profile_carries_the_highest_leverage_the_market_allows() -> None:
+    """Spot has no leverage; Futures does (the symbol's bracket narrows it, `EPIC-039E`)."""
+    for venue in _SPOT:
+        assert venue_profile_of(venue).max_leverage == 1  # type: ignore[union-attr]
+    for venue in _FUTURES:
+        assert venue_profile_of(venue).max_leverage > 1  # type: ignore[union-attr]
+
+
+def test_a_venue_bots_run_on_has_its_profiles_exposure_limits() -> None:
+    for venue in _SPOT:
+        assert (
+            exposure_limits_of(venue)
+            == SPOT_LIMITS
+            == ExposureLimits(frozenset({TradeDirection.LONG}), 1)
+        )
+
+
+def test_a_venue_bots_do_not_run_on_is_limited_as_spot_is() -> None:
+    """Futures exists in the table but no bot runs on it until `EPIC-039H`: nothing wider."""
+    for venue in (*_FUTURES, TradingVenue.DISABLED):
+        assert exposure_limits_of(venue) == SPOT_LIMITS
