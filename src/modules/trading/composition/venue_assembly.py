@@ -23,6 +23,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    ISecretStore,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -157,9 +160,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    ISecretStore,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,

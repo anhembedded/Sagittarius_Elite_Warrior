@@ -19,7 +19,7 @@ import logging
 import keyring
 from keyring.backend import KeyringBackend
 from keyring.errors import KeyringError, PasswordDeleteError
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     ISecretStore,
     SecretStoreUnavailableError,
 )

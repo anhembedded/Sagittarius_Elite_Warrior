@@ -5,6 +5,9 @@ pair, never another mainnet venue's, never `secrets.local.json`."""
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     FUTURES_ENV_API_KEY,
     FUTURES_ENV_API_SECRET,
@@ -25,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,

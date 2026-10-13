@@ -1,6 +1,9 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key.command import (
     EnrolKeyCommand,
 )
@@ -24,9 +27,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,

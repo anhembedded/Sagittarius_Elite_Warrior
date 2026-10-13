@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import os
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
+    ISecretStore,
+    SecretStoreUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
@@ -18,10 +22,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     CredentialsSource,
     IExchangeCredentialsProvider,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_secret_store import (
-    ISecretStore,
-    SecretStoreUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
