@@ -131,7 +131,11 @@ class MainnetCredentialsProvider(IExchangeCredentialsProvider):
     the keyring can be a round trip to the desktop's secret service and this is
     asked every few seconds by the refresh services; a key saved while the app
     runs through `save_to_file` is picked up at once, one saved by the
-    enrolment script at the next start. `resolve()` names the store that served
+    enrolment script at the next start. **The pair is cached for the life of the
+    process**, so a file whose permission is loosened after the app started keeps
+    serving the key it already read until the next start; the stores check at each
+    read, and this class asks them once.
+    `resolve()` names the store that served
     the key (`CredentialsSource`), never its value.
 
     `save_to_file` keeps the port's name, which predates mainnet; for a mainnet

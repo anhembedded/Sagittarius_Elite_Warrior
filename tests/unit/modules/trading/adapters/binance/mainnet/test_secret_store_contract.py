@@ -155,7 +155,8 @@ def test_every_secret_store_passes_the_same_contract_a_blank_value_reads_absent(
 
 
 @pytest.mark.parametrize(
-    "name", ["../escape", "a/b", "a\\b", "", ".", "..", "nul\x00byte"]
+    "name",
+    ["../escape", "a/b", "a\\b", "", ".", "..", "nul\x00byte", "C:key", "key:stream"],
 )
 def test_every_secret_store_passes_the_same_contract_a_name_that_is_not_a_name_reads_none(
     backend: _Backend, name: str
@@ -197,3 +198,16 @@ def test_every_secret_store_passes_the_same_contract_a_refusal_never_holds_the_v
     assert "distinctive-secret-value" not in str(raised.value)
     assert "distinctive-secret-value" not in repr(raised.value)
     assert not provisioned_elsewhere.app_can_write
+
+
+def covered_store_classes(tmp_path: Path) -> set[str]:
+    """The concrete store classes this suite runs, read from `_BACKENDS` itself."""
+    covered: set[str] = set()
+    for index, build in enumerate(_BACKENDS.values()):
+        directory = tmp_path / str(index)
+        directory.mkdir()
+        store = build(directory).store
+        covered.add(type(store).__name__)
+        if isinstance(store, OrderedSecretStores):
+            covered.update(type(b.store).__name__ for b in store.backends)
+    return covered

@@ -111,3 +111,9 @@ def test_the_store_reads_the_directory_at_each_read(tmp_path: Path) -> None:
     (tmp_path / "name").write_text(FAKE, encoding="utf-8")
 
     assert store.read("name") == FAKE
+
+
+def test_a_byte_order_mark_is_not_part_of_the_secret(tmp_path: Path) -> None:
+    (tmp_path / "name").write_bytes(b"\xef\xbb\xbf" + f"{FAKE}\r\n".encode())
+
+    assert _store(tmp_path).read("name") == FAKE

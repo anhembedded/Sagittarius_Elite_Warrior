@@ -5,6 +5,10 @@ from public (`RESEARCH` §14). So a file is refused when it lies inside this
 repository (ignored or not: a mainnet key has no business in the checkout), and
 when it lies inside any other git work tree that does not ignore it. If git cannot
 be asked, the file is refused rather than trusted.
+
+**Not detected:** a work tree kept outside its directory (a bare repository with
+`--git-dir` and `--work-tree`, as some dotfiles setups do) leaves no `.git` beside
+the files, so a secret file inside one is not seen as under version control.
 """
 
 from __future__ import annotations

@@ -184,3 +184,10 @@ def test_the_checks_are_given_the_open_descriptor_of_the_file(tmp_path: Path) ->
 
     assert len(seen) == 1
     assert seen[0] >= 0
+
+
+def test_a_byte_order_mark_is_not_part_of_the_secret(tmp_path: Path) -> None:
+    """Notepad saves UTF-8 with a mark; left in, it is the first character of the key."""
+    (tmp_path / "name").write_bytes(b"\xef\xbb\xbf" + f"{FAKE}\r\n".encode())
+
+    assert PermissionCheckedFileStore(tmp_path, (_Says(ACCEPT),)).read("name") == FAKE
