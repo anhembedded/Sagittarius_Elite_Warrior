@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sources import (
     MarketDataPorts,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_funding_history import (
+    FakeFundingHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
@@ -153,6 +156,7 @@ def market_data_sources(
                 stream=market_stream,
                 coverage=range_coverage,
                 repository=FakeMarketDataRepository(),
+                funding=FakeFundingHistory(),
             )
         )
     return sources

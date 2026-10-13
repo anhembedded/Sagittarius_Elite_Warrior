@@ -96,6 +96,10 @@ class _FakeExchangeClient:
         """`BUG-172` gave the port a `close()` (default: nothing held)."""
         return
 
+    def get_funding_rate_history(self, *args: object, **kwargs: object) -> list:
+        """`EPIC-039K` added this to the port; this flow never reads funding."""
+        return []
+
     def get_symbol_metadata(self) -> list:
         """`BUG-127` added this to the port, and
         `test_the_fake_client_still_covers_every_method_the_port_declares`
