@@ -103,6 +103,19 @@ def fill_details(payload: dict[str, Any]) -> tuple[Decimal, Decimal]:
     return Decimal(str(o["L"])), Decimal(str(o["l"]))
 
 
+def fill_trade_id(payload: dict[str, Any]) -> int | None:
+    """@brief The exchange's trade id of *this* fill (`"t"`), or `None` when
+    the payload carries none (Binance sends `0` on a report that is not a
+    trade). `EPIC-039D`: the key that lets a fill reported twice be counted
+    once, as `EPIC-035P` does for Spot.
+    @details Only `t` is read here; the commission and realized profit of the
+    same message are `EPIC-039G`'s."""
+    raw = payload["o"].get("t")
+    if raw is None or int(raw) <= 0:
+        return None
+    return int(raw)
+
+
 def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:
     """@brief Every symbol one `ACCOUNT_UPDATE` reports a position change
     for — including one that went flat (`positionAmt` now `0`), which is
