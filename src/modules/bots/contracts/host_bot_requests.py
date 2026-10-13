@@ -36,3 +36,36 @@ class StartBotForHostCommand:
 
     bot_id: str
     confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeRecoveringForHostCommand:
+    """Open the order session of every venue that holds a RECOVERING bot (decision O2).
+
+    A restart leaves RUNNING and PAUSED bots RECOVERING until a deliberate action
+    opens the venue's order session, which reconciles each bot against the exchange.
+    On the screen that action is the first Start, Arm or order; here it is this
+    command, and nothing else - it starts no bot and places no order. A mainnet
+    venue is opened only when `confirmed_venue` names it (decision O8).
+    """
+
+    confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class VenueResumeOutcome:
+    """What opening one venue's session came to."""
+
+    venue: str
+    #: The RECOVERING bots on this venue that the open reconciles.
+    bot_ids: tuple[str, ...]
+    opened: bool
+    #: Why it did not open, in the words the session gave; empty when it did.
+    note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeRecoveringResult:
+    """One outcome per venue that held a RECOVERING bot; empty when none did."""
+
+    venues: tuple[VenueResumeOutcome, ...] = ()

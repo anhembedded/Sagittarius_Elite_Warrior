@@ -31,11 +31,13 @@ class HandFiredSignalSource(IShutdownSignalSource):
 
     def __init__(self) -> None:
         self.installed = False
+        self.install_count = 0
         self.restored = 0
         self._on_signal: Callable[[], None] | None = None
 
     def install(self, on_signal: Callable[[], None]) -> None:
         self.installed = True
+        self.install_count += 1
         self._on_signal = on_signal
 
     def restore(self) -> None:

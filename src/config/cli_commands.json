@@ -219,6 +219,74 @@
         }
       ]
     },
+    "run": {
+      "help": "Run the bots with no window until told to stop (SIGTERM, Ctrl-C; Ctrl-Break on Windows). Refuses with exit 3 if another copy holds the data root; runs the pre-flight first (exit 4, 5 or 6 on a failure). Writes a health line and state/health.json every --health-interval. Not supported for unattended money until EPIC-036B, 036C and 036E have shipped",
+      "requires_writable": true,
+      "owns_lifecycle": true,
+      "args": [
+        {
+          "name": "--stop-timeout",
+          "type": "float",
+          "default": 25,
+          "help": "Seconds the stop policy may take after the first signal (a second signal does not wait). A service unit's TimeoutStopSec must be larger"
+        },
+        {
+          "name": "--health-interval",
+          "type": "int",
+          "default": 60,
+          "help": "Seconds between health lines and snapshots"
+        },
+        {
+          "name": "--on-stop",
+          "type": "str",
+          "default": "leave-orders",
+          "choices": [
+            "leave-orders",
+            "stop-bots"
+          ],
+          "help": "What stopping does to the bots: leave-orders (default) closes the workers and leaves resting orders on the exchange; stop-bots stops each active bot first (cancels its orders), for maintenance"
+        },
+        {
+          "name": "--start-planned",
+          "action": "store_true",
+          "help": "Start the bots whose plan says running and that are at rest (needs a bot plan: EPIC-038I)"
+        },
+        {
+          "name": "--resume-recovering",
+          "action": "store_true",
+          "help": "Open the order session of each venue holding a RECOVERING bot, which reconciles it with the exchange. Refused (exit 5) unless an alert channel carries bot events or --i-accept-silent-failures is given"
+        },
+        {
+          "name": "--i-accept-silent-failures",
+          "action": "store_true",
+          "help": "Acknowledge that no alert channel tells you if a bot halts, so --resume-recovering may be used anyway"
+        },
+        {
+          "name": "--confirm-venue",
+          "type": "str",
+          "choices": [
+            "spot_mainnet",
+            "futures_mainnet"
+          ],
+          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering). Without it --start-planned is refused (exit 2) and --resume-recovering skips that venue"
+        },
+        {
+          "name": "--skip-preflight",
+          "action": "store_true",
+          "help": "Do not run the pre-flight before serving. Logged as a WARNING; the key, the clock and the exchange are then not checked"
+        },
+        {
+          "name": "--host-signal",
+          "type": "str",
+          "default": "none",
+          "choices": [
+            "none",
+            "sdnotify"
+          ],
+          "help": "Tell a service manager the host is ready, alive and stopping. sdnotify is for a systemd Type=notify unit on Linux and does not work in a container without its NOTIFY_SOCKET"
+        }
+      ]
+    },
     "status": {
       "help": "Say whether a host is running and what it holds. Exit 0 running, 10 not running, 11 running but unhealthy",
       "read_only": true,

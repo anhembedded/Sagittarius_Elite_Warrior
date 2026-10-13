@@ -116,6 +116,9 @@ class FuturesAccountState:
                 }
             )
         return {
+            # Binance's `GET /fapi/v2/account` carries the account's trading switch; the
+            # pre-flight WARNs ("may trade was not reported") when an answer lacks it.
+            "canTrade": True,
             "totalWalletBalance": _q(self._wallet + other),
             "totalUnrealizedProfit": _q(unrealized),
             "totalMarginBalance": _q(margin + other),

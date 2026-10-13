@@ -30,7 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     StopBotForHostCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.operations.adapters.bots_status_read import (
+from Sagittarius_Elite_Warrior.src.modules.operations.application.bots_status_read import (
     active_bots,
     read_bot_status,
 )

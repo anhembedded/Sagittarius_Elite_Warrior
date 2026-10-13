@@ -94,16 +94,30 @@ class RunHost:
         self._stop_requested = threading.Event()
         self._hurry = threading.Event()
         self._signals_heard = 0
+        self._listening = False
         self._ended = False
 
     @property
     def state(self) -> HostState:
         return self._machine.state
 
+    def listen(self) -> None:
+        """Start hearing requests to stop. Idempotent.
+
+        The entry point calls this before the app boots: a SIGTERM that arrives while
+        the bots are being restored is a request to stop, not a reason to be killed
+        with the workers half-started. It is remembered and honoured the moment the
+        host serves.
+        """
+        if self._listening:
+            return
+        self._listening = True
+        self._signals.install(self._on_signal)
+
     def begin(self) -> None:
         """Run the steps, then serve. A step that raises fails the host and the error goes on."""
         self._health.set_state(HostState.BOOTING)
-        self._signals.install(self._on_signal)
+        self.listen()
         try:
             for step in self._steps:
                 logger.info("[host] step %s", step.name)
@@ -172,7 +186,8 @@ class RunHost:
         if self._ended:
             return
         self._ended = True
-        self._signals.restore()
+        if self._listening:
+            self._signals.restore()
         if self._machine.state is HostState.DRAINING:
             self._machine.move_to(HostState.STOPPED)
             self._health.set_state(HostState.STOPPED)

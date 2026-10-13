@@ -81,6 +81,34 @@ def test_a_started_host_is_serving_and_says_so_to_everyone(
     assert _transitions(caplog) == ["[host] BOOTING -> SERVING"]
 
 
+def test_a_signal_heard_while_the_app_boots_is_honoured_once_the_host_serves() -> None:
+    """The entry point listens before `app.boot()`; a SIGTERM during the restore of the
+    bots must not kill the process with workers half-started."""
+    rig = _Rig()
+    rig.host.listen()
+
+    rig.signals.fire()  # the operator stops the service while it boots
+    rig.host.begin()
+
+    assert rig.host.state is HostState.SERVING
+    assert rig.host.wait_for_stop(timeout_s=_BRIEF_S) is True
+    rig.host.drain()
+    assert rig.host.state is HostState.DRAINING
+
+
+def test_listening_twice_installs_once_and_ending_unheard_restores_nothing() -> None:
+    rig = _Rig()
+
+    rig.host.end()  # never listened: nothing of the process's to give back
+    rig.host.listen()
+    rig.host.listen()
+    rig.host.begin()
+
+    assert rig.signals.installed
+    assert rig.signals.install_count == 1
+    assert rig.signals.restored == 0
+
+
 def test_the_steps_run_in_order_before_the_host_serves() -> None:
     log: list[str] = []
     rig = _Rig(steps=(RecordingStep("first", log), RecordingStep("second", log)))

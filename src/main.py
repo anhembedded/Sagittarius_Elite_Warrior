@@ -16,7 +16,7 @@ status 1 with the traceback in the log.
 
 import argparse
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
@@ -62,6 +62,8 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
 from Sagittarius_Elite_Warrior.src.shell.console_log_stream import console_log_to
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
+    command_owns_its_lifecycle,
+    command_requires_writable_instance,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_status import run_command
 from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
@@ -158,10 +160,16 @@ _LAUNCHER_VERBS = (
 )
 
 
-def _app_work_for(args: argparse.Namespace) -> Callable[[App], CliOutcome | None]:
+def _app_work_for(
+    args: argparse.Namespace, commands: Mapping[str, object]
+) -> Callable[[App], CliOutcome | None]:
     """What a word that runs against the built app does with it."""
     if args.command == "shell":
         return _run_interactive_mode
+    if command_owns_its_lifecycle(commands, args):
+        # `run` (`EPIC-038D`) boots and stops the app itself: it checks the machine
+        # before the bots are restored and waits between boot and stop.
+        return lambda app: _dispatch(app, args)
     return lambda app: _run_headless_mode(app, args)
 
 
@@ -173,6 +181,14 @@ def _build_app(
         with console_log_to(sys.stderr):
             return create_app(config_manager, instance)
     return create_app(config_manager, instance)
+
+
+def _lock_held(command: str, instance: IInstanceAccess) -> CliOutcome:
+    return CliOutcome(
+        ExitCode.LOCK_HELD,
+        f"{instance.reason} `{command}` needs to be the writable copy and starts nothing "
+        "on a read-only one.",
+    )
 
 
 def main() -> int:
@@ -189,7 +205,8 @@ def main() -> int:
     if args.command == "gui":
         return run_command(_run_gui)
 
-    work = _app_work_for(args)
+    commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
+    work = _app_work_for(args, commands)
     # `--json` / `--format <name>`: stdout is the report, nothing else. The
     # Engine's console logger writes to stdout, so for such a run the app is built
     # with that logger on stderr (`EPIC-038D`): the log is kept, and so is the
@@ -203,13 +220,16 @@ def main() -> int:
     # `EPIC-038C` — a command that only reads (`"read_only": true` in
     # `cli_commands.json`) is never the writable copy: its boot would apply the
     # restart rule to the bots, and it would hold the lock `status` asks about.
-    commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
     instance = (
         read_only_instance_access()
         if command_is_read_only(commands, args)
         else acquire_instance_access()
     )
     try:
+        if instance.read_only and command_requires_writable_instance(commands, args):
+            # `EPIC-038D` - a host that is not the writable copy would look alive to its
+            # supervisor while trading nothing; refuse, start nothing, and say why.
+            return run_command(lambda: _lock_held(args.command, instance))
         return run_command(
             lambda: work(_build_app(config_manager, instance, machine_output))
         )

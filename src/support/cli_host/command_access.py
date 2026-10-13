@@ -2,7 +2,7 @@
 
 Capability: Decide before the app boots whether a command needs the writable copy of the data root
     Also: read-only command, status, bot list, take the lock, writable instance, command changes nothing, read_only in cli_commands.json
-    Use: command_is_read_only
+    Use: command_is_read_only, command_requires_writable_instance, command_owns_its_lifecycle
     User: src/main.py
     Status: stable
 
@@ -16,6 +16,14 @@ sub-command that reads, and the entry point asks here **before** it takes the
 lock. Absent means writable: the safe direction, and the one every command that
 existed before this field keeps.
 
+@par Two more declarations (`EPIC-038D`)
+  · `"requires_writable": true` - a command that is only meaningful as the copy that
+    trades (`run`): when another copy holds the data root the entry point prints why,
+    exits `3` and builds nothing, where every other writable command boots read-only;
+  · `"owns_lifecycle": true` - a command that boots and stops the app itself (`run`
+    must check the machine *before* the bots are restored and wait *between* boot and
+    stop), so the entry point hands it the built, unbooted app and does neither.
+
 @par Extension cases
   · a new read-only command or verb - `"read_only": true` on its entry; this
     function and the entry point do not change;
@@ -28,12 +36,14 @@ import argparse
 from collections.abc import Mapping
 from typing import Any
 
-#: The key in a command's (or sub-command's) `cli_commands.json` entry.
+#: The keys in a command's (or sub-command's) `cli_commands.json` entry.
 READ_ONLY_KEY = "read_only"
+REQUIRES_WRITABLE_KEY = "requires_writable"
+OWNS_LIFECYCLE_KEY = "owns_lifecycle"
 
 
-def command_is_read_only(commands: Mapping[str, Any], args: argparse.Namespace) -> bool:
-    """True when the entry for the parsed command, or for its sub-command, says so.
+def _declared(commands: Mapping[str, Any], args: argparse.Namespace, key: str) -> bool:
+    """The value of `key` for the parsed command; absent means `False`.
 
     The sub-command's own entry wins over its parent's: `bot` may hold both a
     reading verb and, later, a writing one.
@@ -45,6 +55,25 @@ def command_is_read_only(commands: Mapping[str, Any], args: argparse.Namespace) 
     if isinstance(subparsers, Mapping):
         chosen = getattr(args, str(subparsers.get("dest", "subcommand")), None)
         sub_entry = subparsers.get("commands", {}).get(chosen)
-        if isinstance(sub_entry, Mapping) and READ_ONLY_KEY in sub_entry:
-            return bool(sub_entry[READ_ONLY_KEY])
-    return bool(entry.get(READ_ONLY_KEY, False))
+        if isinstance(sub_entry, Mapping) and key in sub_entry:
+            return bool(sub_entry[key])
+    return bool(entry.get(key, False))
+
+
+def command_is_read_only(commands: Mapping[str, Any], args: argparse.Namespace) -> bool:
+    """True when the entry for the parsed command, or for its sub-command, says so."""
+    return _declared(commands, args, READ_ONLY_KEY)
+
+
+def command_requires_writable_instance(
+    commands: Mapping[str, Any], args: argparse.Namespace
+) -> bool:
+    """True for a command that must not run as a read-only copy (it exits 3 instead)."""
+    return _declared(commands, args, REQUIRES_WRITABLE_KEY)
+
+
+def command_owns_its_lifecycle(
+    commands: Mapping[str, Any], args: argparse.Namespace
+) -> bool:
+    """True for a command that boots and stops the application itself."""
+    return _declared(commands, args, OWNS_LIFECYCLE_KEY)
