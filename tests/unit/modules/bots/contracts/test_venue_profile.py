@@ -7,6 +7,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_profiles import (
     IVenueProfiles,
     VenueTradesNoMarketError,
@@ -21,6 +22,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     ExposureKind,
     runs_bots_on,
     venue_profile_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -111,14 +116,6 @@ def test_the_injected_port_answers_what_the_function_does() -> None:
 def test_every_kind_declares_the_markets_it_runs_on() -> None:
     """A kind states its markets on purpose (`IBotKind.supported_profiles`); one that says
     nothing, or a market no profile describes, fails here rather than in a venue picker."""
-    from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
-    from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
-        GridKind,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
-        GridThresholds,
-    )
-
     kinds = [GridKind(None, GridThresholds())]  # type: ignore[arg-type]
     described = {
         profile.market_type

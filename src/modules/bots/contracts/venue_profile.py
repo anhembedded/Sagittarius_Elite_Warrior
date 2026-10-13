@@ -24,8 +24,11 @@ inventory or a position, and the word to show the user.
     and its markets in the kinds that support it;
   · a second exchange - the profile becomes keyed by venue instead of market; the sites do
     not change, because they ask for the profile.
-Futures becomes available to bots when a kind declares it (`IBotKind.supported_profiles`) and
-`BOT_MARKETS` gains it (`EPIC-039H`); until then Futures *exists* here and no bot runs on it.
+Two switches, one rule. `BOT_MARKETS` is the build-wide ceiling and the only one read today:
+a venue is one bots run on only when its market is in it. `IBotKind.supported_profiles` is
+each kind's own declaration and is read from `EPIC-039H`, which makes the rule "the market is
+in the kind's set *and* in `BOT_MARKETS`". Until `039H` flips both for the Grid, Futures
+*exists* here and no bot runs on it.
 """
 
 from __future__ import annotations
@@ -88,8 +91,8 @@ _FUTURES = VenueProfile(
 #: The markets of the Spot profile: what a kind that supports Spot declares.
 SPOT_MARKETS: frozenset[MarketType] = frozenset({MarketType.SPOT})
 
-#: The markets a bot may run on **today**: the one switch `EPIC-039H` flips to add Futures,
-#: after a kind declares it. A venue whose profile is outside it is "not a venue bots trade
+#: The markets a bot may run on **today**, the build-wide ceiling `EPIC-039H` raises to add
+#: Futures together with the Grid kind's `supported_profiles` (the per-kind half of the rule). A venue whose profile is outside it is "not a venue bots trade
 #: on yet", whatever its profile allows.
 BOT_MARKETS: frozenset[MarketType] = SPOT_MARKETS
 

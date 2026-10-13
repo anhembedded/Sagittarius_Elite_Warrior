@@ -73,6 +73,8 @@ Not run yet.
 - `ui/bot_tick_feed.py:62` compares `event.market_type` with the market the feed was built for. It is a stream filter, not a decision, so the guard names it as its second exception.
 - The sentences are built from `SPOT_TITLE`. A Futures venue still gets "… is not a Spot venue …": until `039H` the sentence means "not a venue bots trade on", and a `title_word` sentence per profile belongs with the picker (`039J`). `test_spot_sentences_are_pinned.py` pins every Spot sentence, whole, and passes on the code before and after this change.
 - `arm_strategy_dialog.py` shows the leverage row when the profile has margin modes (or there is no profile), which is what `not SPOT` meant.
+- **Two switches:** `BOT_MARKETS` (build-wide ceiling) is the only one read today; `IBotKind.supported_profiles` is declared and tested but read from `039H`, whose task now says to flip both and to make `bot_profile_of` take the kind. The docstrings say so.
+- The guard also fails on a comparison with `BOT_MARKET`, `BOT_MARKETS` or `SPOT_MARKETS` (review of #479), so a market read into a name cannot bring the old branch back.
 - The `SpotHolding` exception in `exchange_facts_reader.py` stays until `039E`.
 - Verified: the guard was red on 25 sites before the change and green after; the kind-declaration test goes red when `GridKind.supported_profiles` returns an empty set; the whole `tests/unit/modules/bots` tier passes with no Spot expectation edited.
 - Not verified here: nothing touched an exchange; no Futures path exists, `venue_choices` is Spot-only and `BOT_MARKETS` is Spot-only.

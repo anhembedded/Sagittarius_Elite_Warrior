@@ -49,9 +49,13 @@ class IBotKind(ABC):
 
     @abstractmethod
     def supported_profiles(self) -> frozenset[MarketType]:
-        """The markets this kind can run on (`EPIC-039A`): a kind runs on a venue only when
-        the venue's market is here *and* in `BOT_MARKETS`. Declared by the kind, never
-        inferred, so a new kind states its markets on purpose."""
+        """The markets this kind can run on, declared by the kind and never inferred, so a
+        new kind states its markets on purpose (`EPIC-039A`).
+
+        Declared and tested now, **not yet read** by the code that decides whether a bot may
+        run on a venue: that is `bot_profile_of`, which consults `BOT_MARKETS` alone, the
+        build-wide ceiling. `EPIC-039H` makes `bot_profile_of` take the kind, so a venue
+        qualifies only when its market is here *and* in `BOT_MARKETS`."""
 
     @abstractmethod
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:

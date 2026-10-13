@@ -8,7 +8,7 @@ specific market anywhere else in `src/modules/bots/` turns this red.
 
 The guard reads each file with `ast`, so a word in a docstring does not count. It flags:
 a reference to `MarketType.<member>`, a comparison of a `.market_type` attribute with anything
-that names a market, and the `SpotHolding` type (the readiness snapshot's Spot balances).
+that names a market, a comparison with `BOT_MARKET`, `BOT_MARKETS` or `SPOT_MARKETS`, and the `SpotHolding` type (the readiness snapshot's Spot balances).
 `bot_price_watch.py` and `bot_event_router.py` use `market_type` to *match* an event to an
 executor (two attributes compared with each other), which is generic and stays.
 
@@ -38,6 +38,10 @@ _SPOT_HOLDING_UNTIL_039E = (
 _TICK_FILTER = _BOTS / "ui" / "bot_tick_feed.py"
 
 
+#: The profile module's market constants; comparing with one is the old `is SPOT` again.
+_MARKET_CONSTANTS = frozenset({"BOT_MARKET", "BOT_MARKETS", "SPOT_MARKETS"})
+
+
 def offences(source: str) -> list[tuple[int, str]]:
     """(line, what) for each hard-coded market decision in `source`."""
     tree = ast.parse(source)
@@ -51,6 +55,8 @@ def offences(source: str) -> list[tuple[int, str]]:
             found.append((node.lineno, f"MarketType.{node.attr}"))
         elif isinstance(node, ast.Compare) and _compares_market_type_to_a_market(node):
             found.append((node.lineno, "a .market_type comparison"))
+        elif isinstance(node, ast.Compare) and _compares_a_market_constant(node):
+            found.append((node.lineno, "a comparison with a market constant"))
         elif isinstance(node, ast.Name) and node.id == "SpotHolding":
             found.append((node.lineno, "SpotHolding"))
     return found
@@ -64,6 +70,13 @@ def _compares_market_type_to_a_market(node: ast.Compare) -> bool:
     # `a.market_type is b.market_type` matches two things; `x.market_type is <anything else>`
     # decides on a market.
     return any(reads_market_type) and not all(reads_market_type)
+
+
+def _compares_a_market_constant(node: ast.Compare) -> bool:
+    """`market_of(v) is BOT_MARKET`, `m not in BOT_MARKETS`: the profile's constants are for
+    passing a market on, not for branching on one - a branch asks the profile."""
+    operands = [node.left, *node.comparators]
+    return any(isinstance(o, ast.Name) and o.id in _MARKET_CONSTANTS for o in operands)
 
 
 def _bots_files() -> list[Path]:
@@ -95,6 +108,10 @@ def test_the_guard_sees_each_kind_of_branch_it_exists_to_forbid() -> None:
     assert offences("load(MarketType.FUTURES_USD_M, symbol)") != []
     assert offences("if venue.market_type == market: pass") != []
     assert offences("def f(h: tuple[SpotHolding, ...]): ...") != []
+    # The old branch in new clothes: a market read into a name, or the market constants.
+    assert offences("market = v.market_type\nif market not in BOT_MARKETS: pass") != []
+    assert offences("if market_of(v) is not BOT_MARKET: pass") != []
+    assert offences("if m == SPOT_MARKETS: pass") != []
 
 
 def test_the_guard_leaves_alone_what_it_must() -> None:
