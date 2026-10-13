@@ -26,18 +26,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
-    InventoryBeyondLookbackError,
-    still_open_orders,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    tag_of,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.checkpointed_replay import (
+    ReplayStart,
+    replay_owner_fills,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
-    MAX_HISTORY_LOOKBACK,
     IAccountHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_checkpoints import (
@@ -61,10 +57,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.owner_positio
 )
 
 logger = logging.getLogger("App.Trading.OwnerPosition")
-
-#: The next read starts this far before the derivation, so a fill the venue lists a moment late is
-#: still read; `last_trade_id` keeps it from being counted twice.
-_READ_OVERLAP = timedelta(minutes=1)
 
 
 @dataclass(frozen=True)
@@ -111,54 +103,35 @@ class OwnerPositionDeriver:
         history reaches, and no checkpoint covers the gap.
         @throws AccountHistoryUnavailableError The venue did not answer."""
         checkpoint = self._checkpoint_for(registration)
-        read_from = (
-            checkpoint.read_from
-            if checkpoint is not None
-            else registration.run_started_at
+        found = replay_owner_fills(
+            registration,
+            history,
+            now,
+            _start_of(registration, checkpoint),
+            lambda position, trade: position_after(position, position_fill_of(trade)),
         )
-        if now - read_from > MAX_HISTORY_LOOKBACK:
-            raise InventoryBeyondLookbackError(read_from)
-        orders = tuple(
-            record
-            for record in history.order_history(registration.symbol, read_from)
-            if tag_of(str(record.order.client_order_id)) == registration.tag
-        )
-        carried_open = (
-            checkpoint.open_order_ids if checkpoint is not None else frozenset()
-        )
-        owned = {record.exchange_order_id for record in orders} | carried_open
-        position = checkpoint.position if checkpoint is not None else EMPTY_POSITION
-        last_trade_id = checkpoint.last_trade_id if checkpoint is not None else None
-        counted_through = last_trade_id
-        replayed: set[int] = set()
-        for trade in history.trade_history(registration.symbol, read_from):
-            if trade.order_id not in owned or (
-                last_trade_id is not None and trade.trade_id <= last_trade_id
-            ):
-                continue
-            position = position_after(position, position_fill_of(trade))
-            replayed.add(trade.trade_id)
-            last_trade_id = trade.trade_id
         self._checkpoints.save(
             OwnerPositionCheckpoint(
                 tag=registration.tag,
                 run_started_at=registration.run_started_at,
-                position=position,
-                last_trade_id=last_trade_id,
-                open_order_ids=still_open_orders(orders, carried_open),
-                read_from=max(read_from, now - _READ_OVERLAP),
+                position=found.state,
+                last_trade_id=found.last_trade_id,
+                open_order_ids=found.open_order_ids,
+                read_from=found.next_read_from,
             )
         )
         logger.info(
             "Derived position for %s on %s: %s at %s (%d fill(s) from %s).",
             registration.tag,
             registration.symbol,
-            position.quantity,
-            position.average_entry,
-            len(replayed),
+            found.state.quantity,
+            found.state.average_entry,
+            len(found.counted_trade_ids),
             "a checkpoint" if checkpoint is not None else "the run start",
         )
-        return OwnerPositionDerivation(position, frozenset(replayed), counted_through)
+        return OwnerPositionDerivation(
+            found.state, found.counted_trade_ids, found.counted_through
+        )
 
     def _checkpoint_for(
         self, registration: OwnerBudgetRegistration
@@ -173,6 +146,19 @@ class OwnerPositionDeriver:
             )
             return None
         return checkpoint
+
+
+def _start_of(
+    registration: OwnerBudgetRegistration, checkpoint: OwnerPositionCheckpoint | None
+) -> ReplayStart[OwnerPosition]:
+    if checkpoint is None:
+        return ReplayStart(EMPTY_POSITION, registration.run_started_at)
+    return ReplayStart(
+        checkpoint.position,
+        checkpoint.read_from,
+        checkpoint.last_trade_id,
+        checkpoint.open_order_ids,
+    )
 
 
 def position_fill_of(trade: TradeRecord) -> PositionFill:

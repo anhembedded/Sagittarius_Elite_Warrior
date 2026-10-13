@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.atomic_json_file import (
+    write_json_atomically,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_checkpoints import (
     IOwnerPositionCheckpoints,
     OwnerPositionCheckpoint,
@@ -28,7 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
 logger = logging.getLogger("App.Trading.PositionCheckpoints")
 
 _SUFFIX = ".json"
-_TEMP_SUFFIX = ".json.tmp"
 
 
 class JsonOwnerPositionCheckpoints(IOwnerPositionCheckpoints):
@@ -52,18 +53,7 @@ class JsonOwnerPositionCheckpoints(IOwnerPositionCheckpoints):
             return None
 
     def save(self, checkpoint: OwnerPositionCheckpoint) -> None:
-        text = json.dumps(_encode(checkpoint), indent=2, sort_keys=True)
-        self._directory.mkdir(parents=True, exist_ok=True)
-        target = self._path(checkpoint.tag)
-        temp_path = target.with_suffix(_TEMP_SUFFIX)
-        try:
-            with temp_path.open("w", encoding="utf-8") as handle:
-                handle.write(text)
-                handle.flush()
-                os.fsync(handle.fileno())
-            temp_path.replace(target)
-        finally:
-            temp_path.unlink(missing_ok=True)
+        write_json_atomically(self._path(checkpoint.tag), _encode(checkpoint))
         logger.debug("Saved position checkpoint for %s", checkpoint.tag)
 
     def _path(self, tag: str) -> Path:
