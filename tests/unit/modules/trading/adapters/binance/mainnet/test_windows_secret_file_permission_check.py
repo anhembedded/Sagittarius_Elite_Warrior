@@ -4,6 +4,7 @@ every platform. The parser fails closed on any line it does not understand."""
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -110,12 +111,43 @@ def test_a_line_the_parser_does_not_understand_refuses_the_whole_listing(
     assert "icacls" in verdict.fix
 
 
-def test_a_listing_that_says_a_file_failed_to_process_is_refused() -> None:
-    listing = (
-        f"{PATH} {ACCOUNT}:(R)\n\n"
-        "Successfully processed 0 files; Failed processing 1 files\n"
-    )
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "Successfully processed 1 files; Failed processing 0 files",
+        "1 fichiers traités avec succès ; échec du traitement de 0 fichiers",
+        "Đã xử lý thành công 1 tệp; xử lý không thành công 0 tệp",
+        "",
+    ],
+    ids=["english", "french", "vietnamese", "none"],
+)
+def test_the_summary_line_is_skipped_whatever_language_it_is_in(summary: str) -> None:
+    """The summary's words are localised; the exit code, not the words, says whether
+    the run worked. A non-English Windows must not refuse every file."""
+    listing = f"{PATH} {ACCOUNT}:(R)\n\n{summary}\n"
+
     check = WindowsSecretFilePermissionCheck(lambda _: listing, lambda: ACCOUNT)
+
+    assert check.inspect(PATH, 0).problem == ""
+
+
+def test_a_line_hidden_behind_the_blank_line_is_not_a_summary() -> None:
+    """Only one line may follow the blank: a second could be an entry the parser
+    would otherwise never read."""
+    listing = f"{PATH} {ACCOUNT}:(R)\n\nSummary\nEveryone:(F)\n"
+    check = WindowsSecretFilePermissionCheck(lambda _: listing, lambda: ACCOUNT)
+
+    assert check.inspect(PATH, 0).problem
+
+
+def test_a_run_that_exits_non_zero_is_refused_by_the_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def failing(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        raise subprocess.CalledProcessError(5, "icacls")
+
+    monkeypatch.setattr(subprocess, "run", failing)
+    check = WindowsSecretFilePermissionCheck(account=lambda: ACCOUNT)  # real runner
 
     assert check.inspect(PATH, 0).problem
 

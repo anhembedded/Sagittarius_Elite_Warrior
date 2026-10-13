@@ -44,7 +44,15 @@ logger = logging.getLogger("App.Credentials")
 #: Never follow a symbolic link: a link to any file the service can read would make
 #: that file a secret file. `O_NOFOLLOW` is absent on Windows, where a link needs a
 #: privilege to create and the ACL check reads the link's target.
-_OPEN_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+_OPEN_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_BINARY", 0)
+    # A named pipe opened for reading blocks until a writer appears, before any check
+    # could refuse it; without blocking it opens at once and is refused as "not a
+    # regular file". Harmless on a regular file.
+    | getattr(os, "O_NONBLOCK", 0)
+)
 
 _PROVISIONED_BY_THE_OPERATOR = (
     "secret files are provisioned by the operator, not by the app: put the file "

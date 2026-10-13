@@ -4,7 +4,10 @@ directory, read only when every check accepts it, refused once in the log."""
 from __future__ import annotations
 
 import logging
+import os
+import stat
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -191,3 +194,35 @@ def test_a_byte_order_mark_is_not_part_of_the_secret(tmp_path: Path) -> None:
     (tmp_path / "name").write_bytes(b"\xef\xbb\xbf" + f"{FAKE}\r\n".encode())
 
     assert PermissionCheckedFileStore(tmp_path, (_Says(ACCEPT),)).read("name") == FAKE
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="named pipes")
+def test_a_named_pipe_is_refused_at_once_and_never_blocks_the_open(
+    tmp_path: Path,
+) -> None:
+    """Opened for reading, a FIFO blocks until a writer appears - before any check
+    could refuse it - and the service would hang at start."""
+    os.mkfifo(tmp_path / "name")
+    answers: list[str | None] = []
+    store = PermissionCheckedFileStore(tmp_path, (_RefusesWhatIsNotAFile(),))
+
+    reader = threading.Thread(
+        target=lambda: answers.append(store.read("name")), daemon=True
+    )
+    reader.start()
+    reader.join(timeout=5)
+    try:
+        assert not reader.is_alive(), "reading a named pipe blocked"
+        assert answers == [None]
+    finally:
+        if reader.is_alive():  # free the blocked open so the suite can end
+            release = os.open(tmp_path / "name", os.O_WRONLY | os.O_NONBLOCK)
+            os.close(release)
+            reader.join(timeout=5)
+
+
+class _RefusesWhatIsNotAFile(ISecretFileCheck):
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
+        if stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return SecretFileVerdict()
+        return SecretFileVerdict(problem="it is not a regular file", fix="remove it")

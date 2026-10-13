@@ -8,6 +8,9 @@ writable by group or other, and owned by the running user or root, because whoev
 can write the directory can replace the file with their own (a `0600` file in a
 `0777` directory is not private). Each refusal comes with the one command that
 repairs it. Symbolic links are refused earlier, at the open (`O_NOFOLLOW`).
+
+**Known limit:** only the file's immediate directory is checked, not its ancestors
+(`/home` or `/srv` writable by others would let someone rename the directory itself).
 """
 
 from __future__ import annotations

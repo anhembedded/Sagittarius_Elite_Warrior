@@ -8,9 +8,16 @@ or a tool that cannot run is refused, never trusted: this check stands between a
 key and every other account on the machine.
 
 **Unverified on a real Windows server** (`EPIC-038E`, manual criterion). The parsing
-is covered with `icacls` output as documented; names are compared as printed, so a
-localised Windows that prints `Administrateurs` refuses the file until the account
-is the service account itself (the fix grants exactly that).
+is covered with `icacls` output as documented. Two things are localised on a
+non-English Windows: the summary line, which is never parsed (the exit code decides
+whether the run worked), and the names of the built-in groups, which are compared as
+printed - a Windows that prints `Administrateurs` refuses the file until the ACL
+names the service account alone, which is exactly what the printed fix produces.
+
+**Two known limits.** The check judges the *path* (`icacls` takes one), not an open
+handle: Windows has no `O_NOFOLLOW` equivalent here, so a path swapped between the
+check and the read is not caught as it is on POSIX. And only the file's own ACL is
+read, not its directories'.
 """
 
 from __future__ import annotations
@@ -30,9 +37,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check
 _ALWAYS_ALLOWED = ("nt authority\\system", "builtin\\administrators")
 #: `principal:(F)`, `principal:(I)(R)`, `principal:(DENY)(W)` - rights are parenthesised groups.
 _ACE = re.compile(r"^(?P<who>.+?):(?P<rights>(?:\([^()]*\))+)$")
-_PROCESSED = re.compile(
-    r"^Successfully processed \d+ files; Failed processing (?P<failed>\d+) files$"
-)
 
 
 def icacls_output(path: Path) -> str:
@@ -101,26 +105,38 @@ def _fix(path: Path, account: str, strangers: Sequence[str]) -> str:
 
 
 def _principals(listing: str, path: Path) -> list[str] | None:
-    """The principal of every entry, or `None` when any line is not understood.
+    """The principal of every entry, or `None` when the listing is not understood.
 
-    Fails closed: this check stands between a key and every other account, so a line
-    it cannot read is a reason to refuse the whole listing, never a line to skip
-    (a stranger's entry in a shape the parser does not know would be accepted).
+    `icacls` prints the entries, a blank line, then one summary line. The summary's
+    words are localised, so they are **not parsed**: whether the run succeeded is the
+    exit code's business (`icacls_output` raises on a non-zero one). The block after
+    the first blank line must be exactly one line; a second line there could be an
+    entry hidden behind the blank, so it refuses the listing.
+
+    Fails closed: this check stands between a key and every other account, so an
+    entry line it cannot read is a reason to refuse the whole listing, never a line
+    to skip (a stranger's entry in a shape the parser does not know would be accepted).
     """
+    entries, _, summary = _split_at_first_blank_line(listing)
+    if len([line for line in summary if line.strip()]) > 1:
+        return None
     found: list[str] = []
-    for line in listing.splitlines():
+    for line in entries:
         text = line.strip()
-        if not text:
-            continue
         if text.startswith(str(path)):
             text = text[len(str(path)) :].strip()
-        summary = _PROCESSED.match(text)
-        if summary is not None:
-            if summary.group("failed") != "0":
-                return None
-            continue
         matched = _ACE.match(text)
         if matched is None:
             return None
         found.append(matched.group("who").strip())
     return found
+
+
+def _split_at_first_blank_line(
+    listing: str,
+) -> tuple[list[str], bool, list[str]]:
+    lines = listing.splitlines()
+    for position, line in enumerate(lines):
+        if not line.strip():
+            return lines[:position], True, lines[position + 1 :]
+    return lines, False, []
