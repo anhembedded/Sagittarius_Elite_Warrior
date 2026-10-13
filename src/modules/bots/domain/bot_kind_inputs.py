@@ -160,6 +160,25 @@ class AccountView:
 
 
 @dataclass(frozen=True, slots=True)
+class MarginView:
+    """`EPIC-039E` — `AccountView`'s Futures counterpart: what the venue's account lets a
+    new order reserve as **margin**, as the Connect step reads it. A Spot venue keeps
+    `AccountView.available_quote` and its words unchanged; a Futures venue is shown this.
+    """
+
+    #: What a new order can reserve as margin, in `quote_asset`.
+    available_margin: Decimal
+    quote_asset: str
+    can_trade: bool | None
+    #: The venue's title, for a sentence that names where the money is.
+    venue_title: str
+
+    def __post_init__(self) -> None:
+        if self.available_margin < 0:
+            raise ValueError("available_margin must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
 class BotKindInputs:
     """One kind's whole input: the user's parameters and the world they meet."""
 

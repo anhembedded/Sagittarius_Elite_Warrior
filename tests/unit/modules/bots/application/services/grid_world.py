@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
     decode_runtime,
     encode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_spot import (
+    SpotSettingsGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderFill,
 )
@@ -40,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
+    IVenueSettingsGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
@@ -277,6 +283,7 @@ def grid_world(
     queues: Callable[[str], IBotWorkQueue] | None = None,
     market_step: Decimal | None = None,
     store_view: Callable[[FakeBotStore], IBotStore] | None = None,
+    settings_gate: IVenueSettingsGate | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -324,6 +331,7 @@ def grid_world(
             monotonic=monotonic,
             prices=VenueFreshPriceReader(venue_ports),
             events=events,
+            settings_gate=settings_gate or SpotSettingsGate(),
         )
     )
     executor = factory.create(bot)

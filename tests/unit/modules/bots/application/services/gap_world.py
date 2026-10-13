@@ -15,6 +15,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
+    IVenueSettingsGate,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -57,9 +60,9 @@ class ManualWorkQueue(IBotWorkQueue):
             self._tasks.popleft()()
 
 
-def running() -> GridWorld:
+def running(settings_gate: IVenueSettingsGate | None = None) -> GridWorld:
     """A bot that ran its start: RUNNING, four ladder orders resting."""
-    world = grid_world()
+    world = grid_world(settings_gate=settings_gate)
     world.executor.start()
     assert world.state() is BotLifecycleState.RUNNING
     world.derive(str(world.runtime().inventory))

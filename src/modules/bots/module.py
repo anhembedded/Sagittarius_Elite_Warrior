@@ -234,7 +234,9 @@ class BotsModule(BoundedContextModule):
         bus.on(MarketTickEvent, router.on_tick)
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
-        logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+        logger.info(
+            "Bots subscribed to fills, ends, rejections, funding, ticks and the switch"
+        )
         price_watch = container.resolve(BotPriceWatch)
         bus.on(BotChangedEvent, price_watch.on_bot_changed)
         self._price_watch = price_watch

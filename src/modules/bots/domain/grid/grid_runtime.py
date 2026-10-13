@@ -92,6 +92,10 @@ class GridReason(str, Enum):
     #: stays EMPTY and the rest of the ladder goes on. The same rung refused
     #: again within a minute halts as `LEVEL_KEEPS_ENDING`.
     COUNTER_ORDER_REJECTED = "counter_order_rejected"
+    #: The venue's leverage or margin type no longer matches what the bot asked for
+    #: (`EPIC-039E`): someone changed it in the exchange. The detail names both values; the
+    #: bot halts, it never sets them again by itself.
+    SETTINGS_DRIFT = "settings_drift"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     USER_STOP = "user_stop"

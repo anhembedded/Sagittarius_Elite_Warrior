@@ -12,11 +12,11 @@ that names a market, a comparison with `BOT_MARKET`, `BOT_MARKETS` or `SPOT_MARK
 `bot_price_watch.py` and `bot_event_router.py` use `market_type` to *match* an event to an
 executor (two attributes compared with each other), which is generic and stays.
 
-`SpotHolding` has one named exception, `exchange_facts_reader.py`, until `EPIC-039E` moves the
-readiness read behind `IVenueFacts`; the test fixes that list by name so it can only shrink.
+`SpotHolding` had one named exception, `exchange_facts_reader.py`, until `EPIC-039E` moved the
+readiness read behind `IVenueFacts`; that adapter now reads the balances into its own row type,
+so the exception is gone and the type is forbidden everywhere in `bots`.
 
-Retire when: `EPIC-039E` has removed the `SpotHolding` exception and nothing else in this
-guard's reasoning is left, or `bots` is split so the profile is a shared kernel contract.
+Retire when: `bots` is split so the profile is a shared kernel contract.
 """
 
 from __future__ import annotations
@@ -29,10 +29,6 @@ _BOTS = _REPO_ROOT / "src" / "modules" / "bots"
 
 #: The one file that decides, by name. A directory here would let a second decider hide.
 _PROFILE = _BOTS / "contracts" / "venue_profile.py"
-#: `EPIC-039E` removes this: the readiness snapshot reads Spot balances until `IVenueFacts`.
-_SPOT_HOLDING_UNTIL_039E = (
-    _BOTS / "application" / "services" / "exchange_facts_reader.py",
-)
 #: A stream filter, not a decision: it forwards the ticks whose market equals the market the
 #: feed was built for. The market arrives from `BOT_MARKET`; nothing here names one.
 _TICK_FILTER = _BOTS / "ui" / "bot_tick_feed.py"
@@ -91,8 +87,6 @@ def test_only_the_venue_profile_decides_the_market() -> None:
         if path == _PROFILE:
             continue
         for line, what in offences(path.read_text(encoding="utf-8")):
-            if what == "SpotHolding" and path in _SPOT_HOLDING_UNTIL_039E:
-                continue
             if what == "a .market_type comparison" and path == _TICK_FILTER:
                 continue
             stray.append(f"{path.relative_to(_REPO_ROOT)}:{line} {what}")
@@ -121,5 +115,5 @@ def test_the_guard_leaves_alone_what_it_must() -> None:
 
 
 def test_the_named_exceptions_exist_and_are_exact() -> None:
-    for path in (_PROFILE, _TICK_FILTER, *_SPOT_HOLDING_UNTIL_039E):
+    for path in (_PROFILE, _TICK_FILTER):
         assert path.is_file() and path.suffix == ".py", path

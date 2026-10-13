@@ -45,6 +45,7 @@ class FakeAccountSnapshot(IAccountSnapshot):
     ) -> None:
         self._status = status
         self._positions = tuple(positions)
+        self._positions_error: Exception | None = None
         #: Both are network round trips on the real adapter, so a caller doing
         #: either per candle is a defect a test should be able to see.
         self.connection_checks = 0
@@ -63,6 +64,14 @@ class FakeAccountSnapshot(IAccountSnapshot):
         self.connection_checks += 1
         return self._status
 
+    def positions_raise(self, error: Exception | None) -> None:
+        """From now on the position read raises `error` (the venue did not answer);
+        `None` lets it answer again. The real adapter answers empty instead, so this is
+        for a caller that must not trust either."""
+        self._positions_error = error
+
     def open_positions(self) -> tuple[LivePosition, ...]:
         self.position_reads += 1
+        if self._positions_error is not None:
+            raise self._positions_error
         return self._positions

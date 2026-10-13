@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
+    MarginView,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
     VenueAccountSnapshot,
@@ -20,6 +21,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snaps
 def account_view_of(snapshot: VenueAccountSnapshot) -> AccountView:
     return AccountView(
         available_quote=snapshot.available,
+        quote_asset=snapshot.quote_asset,
+        can_trade=snapshot.can_trade,
+        venue_title=snapshot.source.venue_title,
+    )
+
+
+def margin_view_of(snapshot: VenueAccountSnapshot) -> MarginView:
+    """The same snapshot, in a Futures venue's words: what a new order can reserve as
+    margin (`EPIC-039E`). Beside `account_view_of`, which Spot keeps as it was."""
+    return MarginView(
+        available_margin=snapshot.available,
         quote_asset=snapshot.quote_asset,
         can_trade=snapshot.can_trade,
         venue_title=snapshot.source.venue_title,
