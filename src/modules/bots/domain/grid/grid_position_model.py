@@ -1,6 +1,11 @@
-"""`EPIC-039B` - a grid's signed position along a price path (DESIGN §5).
+"""`EPIC-039B` - a MODEL of a position grid's signed position along a price path (DESIGN §5).
 
-`walk_position` is the small, pure model a position venue's Grid rests on: it moves a price
+**This is a model, not a replay of live behaviour.** It applies the fill rule below to a plan;
+it does not run the executor. Once the Futures executor exists (`EPIC-039H`), a Futures
+backtest must either replay that executor, as `grid_replay.py` does for Spot, or be backed by a
+test that checks this model against the executor on the same fills (`EPIC-039K`).
+
+`model_position_along` is the small, pure model a position venue's Grid rests on: it moves a price
 along a path, fills the plan's resting orders the way the live ladder does, and keeps the
 signed position and the profit that closing it earned. It is not the Spot replay
 (`grid_replay.py` runs the live executor's own reactions, base fees and paired buy prices, and
@@ -16,7 +21,7 @@ live ladder's rule. A counter that has nowhere to go (past the range edge) is no
 @par What it shows
 With the same quantity `q` at every level (`LevelSizing.EQUAL_QUANTITY`) the position after a
 fill at level `i` is `q * (N - i - c)`: it depends on where the fill was and on the direction
-alone, never on the way the price took. `test_grid_position_walk.py` shows it on random paths
+alone, never on the way the price took. `test_grid_position_model.py` shows it on random paths
 for LONG, SHORT and NEUTRAL.
 
 @par Profit
@@ -43,7 +48,7 @@ _ZERO = Decimal(0)
 
 @dataclass(frozen=True, slots=True)
 class PositionFill:
-    """One fill of the walk and the position it left."""
+    """One fill of the model and the position it left."""
 
     level_index: int
     side: OrderSide
@@ -53,7 +58,7 @@ class PositionFill:
 
 
 @dataclass(frozen=True, slots=True)
-class PositionWalk:
+class PositionModelRun:
     """Everything a path did to the ladder."""
 
     opening_position: Decimal
@@ -91,8 +96,8 @@ class _Book:
             self.entry = _ZERO
 
 
-def walk_position(plan: GridPlan, path: Sequence[Decimal]) -> PositionWalk:
-    """The ladder of `plan` walked along `path`, a price after price."""
+def model_position_along(plan: GridPlan, path: Sequence[Decimal]) -> PositionModelRun:
+    """The ladder of `plan` modelled along `path`, a price after price."""
     sides = [level.side for level in plan.levels]
     quantities = [level.quantity for level in plan.levels]
     prices = [level.price for level in plan.levels]
@@ -108,7 +113,7 @@ def walk_position(plan: GridPlan, path: Sequence[Decimal]) -> PositionWalk:
             )
             sides[index] = LevelSide.EMPTY
             _place_counter(sides, quantities, index, side, quantity)
-    return PositionWalk(
+    return PositionModelRun(
         plan.opening_quantity,
         tuple(fills),
         book.position,

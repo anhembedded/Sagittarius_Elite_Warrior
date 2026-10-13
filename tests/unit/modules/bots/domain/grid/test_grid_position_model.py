@@ -1,6 +1,6 @@
 """`EPIC-039B` - a grid is a position function of price (DESIGN §5), shown on random paths.
 
-`walk_position` moves a price along a path and fills the plan's resting orders the way the
+`model_position_along` moves a price along a path and fills the plan's resting orders the way the
 live ladder does (a BUY or SELL fills when the price reaches it; its counter goes to the next
 level up or down, with the same quantity). With the same base quantity at every level
 (`LevelSizing.EQUAL_QUANTITY`) the position after a fill at level i is exactly
@@ -27,8 +27,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     LevelSizing,
     plan,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_position_walk import (
-    walk_position,
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_position_model import (
+    model_position_along,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
@@ -87,7 +87,7 @@ def test_position_equals_q_times_n_minus_i_minus_c_after_every_fill(
     q = next(lv.quantity for lv in grid_plan.order_levels)
     top = len(grid_plan.levels) - 1
 
-    walk = walk_position(grid_plan, _path(seed, grid_plan))
+    walk = model_position_along(grid_plan, _path(seed, grid_plan))
 
     assert walk.fills, "the path must fill something or the test proves nothing"
     for fill in walk.fills:
@@ -104,7 +104,7 @@ def test_the_position_stays_inside_the_range_the_direction_allows(
     lowest, highest = q * (-_offset(grid_plan)), q * (top - _offset(grid_plan))
 
     for seed in range(20):
-        walk = walk_position(grid_plan, _path(seed, grid_plan, 120))
+        walk = model_position_along(grid_plan, _path(seed, grid_plan, 120))
         assert all(lowest <= f.position_after <= highest for f in walk.fills)
     assert (lowest <= 0 <= highest) if direction == "NEUTRAL" else True
 
@@ -114,7 +114,7 @@ def test_neutral_crosses_zero_and_comes_back_on_a_path_that_does() -> None:
     low, high = grid_plan.levels[0].price, grid_plan.levels[-1].price
     path = [high, low, high, low, grid_plan.last_price]
 
-    walk = walk_position(grid_plan, path)
+    walk = model_position_along(grid_plan, path)
     signs = {(f.position_after > 0) - (f.position_after < 0) for f in walk.fills}
 
     assert signs >= {-1, 0, 1}
@@ -125,7 +125,9 @@ def test_neutral_crosses_zero_and_comes_back_on_a_path_that_does() -> None:
 def test_a_walk_starts_from_the_opening_trade() -> None:
     for direction in _DIRECTIONS:
         grid_plan = _plan(direction, LevelSizing.EQUAL_QUANTITY)
-        assert walk_position(grid_plan, []).position == grid_plan.opening_quantity
+        assert (
+            model_position_along(grid_plan, []).position == grid_plan.opening_quantity
+        )
 
 
 def test_a_short_is_paid_entry_minus_exit() -> None:
@@ -135,7 +137,7 @@ def test_a_short_is_paid_entry_minus_exit() -> None:
     gap = _gap(grid_plan)
     below = grid_plan.levels[gap - 1].price
 
-    walk = walk_position(grid_plan, [below])
+    walk = model_position_along(grid_plan, [below])
 
     (fill,) = walk.fills
     assert fill.side is OrderSide.BUY
@@ -149,7 +151,7 @@ def test_a_long_is_paid_exit_minus_entry() -> None:
     q = next(lv.quantity for lv in grid_plan.order_levels)
     above = grid_plan.levels[_gap(grid_plan) + 1].price
 
-    walk = walk_position(grid_plan, [above])
+    walk = model_position_along(grid_plan, [above])
 
     assert walk.realised == q * (above - grid_plan.last_price)
     assert walk.realised > 0

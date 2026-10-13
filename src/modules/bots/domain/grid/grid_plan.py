@@ -29,7 +29,7 @@ something on a position venue; the Spot executor never reads it.
 `LevelSizing` says how a level's quantity is found. `EQUAL_CAPITAL` is Spot's rule above and
 the default. `EQUAL_QUANTITY` gives every order the same base quantity, sized so that every
 order filled at once is worth at most the capital times the leverage (decision O2): only then
-is the position a function of price (`grid_position_walk.py`), which a Futures ladder, its
+is the position a function of price (`grid_position_model.py`), which a Futures ladder, its
 liquidation estimate and its Neutral mode rely on. Leverage multiplies the capital the
 ladder may reach; at 1 it is the capital itself.
 """
