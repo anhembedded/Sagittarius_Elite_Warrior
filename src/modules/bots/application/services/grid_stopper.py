@@ -32,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_s
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
-    IBotRetryScheduler,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
     BotLifecycleState,
@@ -55,14 +52,14 @@ class GridStopper:
     def __init__(
         self,
         context: GridRunContext,
-        retries: IBotRetryScheduler,
-        post: Callable[[str, Callable[[], None]], None],
+        sequence: GridStopSequence,
+        retry: GridStopRetry,
         price: Callable[[], Decimal],
     ) -> None:
         self._context = context
         self._price = price
-        self._sequence = GridStopSequence(context)
-        self._retry = GridStopRetry(context, retries, post)
+        self._sequence = sequence
+        self._retry = retry
 
     def run(self, base: ExposureHandling, reason: GridReason, detail: str = "") -> None:
         state = self._context.state

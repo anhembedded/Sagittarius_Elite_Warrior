@@ -14,6 +14,9 @@ import logging
 from collections.abc import Callable
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+    GridExposure,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_facts import (
     GridFactParts,
     GridFacts,
@@ -54,6 +57,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     GridStartSequence,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_retry import (
+    GridStopRetry,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_sequence import (
+    GridStopSequence,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stopper import (
     GridStopper,
@@ -120,21 +129,29 @@ class GridExecutor(IBotExecutor):
         context: GridRunContext,
         queue: IBotWorkQueue,
         retries: IBotRetryScheduler,
+        exposure: GridExposure,
         risk_watch: GridRiskWatch | None = None,
     ) -> None:
-        """@param risk_watch A position venue's liquidation and divergence watch
+        """@param exposure The collaborators of the venue profile's exposure: the
+        opening, the close, the reconcile check and the order flags (`EPIC-039H`).
+        @param risk_watch A position venue's liquidation and divergence watch
         (`EPIC-039F`, bound by `EPIC-039H`'s factory); `None` on Spot."""
         self._context = context
         self._queue = queue
-        self._start = GridStartSequence(context)
-        self._stop = GridStopper(context, retries, self._post, self._price)
+        self._start = GridStartSequence(context, exposure.opening, exposure.flags)
+        self._stop = GridStopper(
+            context,
+            GridStopSequence(context, exposure.closer),
+            GridStopRetry(context, retries, self._post),
+            self._price,
+        )
         self._status = SymbolStatusGate(context)
         self._storage = GridStorageWatch(context)
         self._resume = GridResumeSequence(
             context, self._start, self._status, self._storage
         )
-        self._reconciler = GridReconciler(context)
-        self._placer = GridLadderPlacer(context)
+        self._reconciler = GridReconciler(context, exposure.check)
+        self._placer = GridLadderPlacer(context, exposure.flags)
         self._recovery = GridRecoveryReader(context)
         self._interrupted_start = GridInterruptedStart(context)
         self._gap = GridStreamGap(

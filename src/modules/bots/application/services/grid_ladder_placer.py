@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_sequence import (
     log_order,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_flags import (
+    IOrderFlags,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
     BotLifecycleState,
@@ -62,8 +65,9 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 class GridLadderPlacer:
     """Places the orders a reaction owes, on the bot's worker."""
 
-    def __init__(self, context: GridRunContext) -> None:
+    def __init__(self, context: GridRunContext, flags: IOrderFlags) -> None:
         self._context = context
+        self._flags = flags
 
     def release_held(self) -> None:
         """Place what a pause held back."""
@@ -90,7 +94,10 @@ class GridLadderPlacer:
             )
             return False
         outcome = self._context.gateway.place_limit(
-            action.side, action.price, action.quantity
+            action.side,
+            action.price,
+            action.quantity,
+            reduce_only=self._flags.reduce_only(action.side),
         )
         log_order(state.bot_id, action, outcome.client_order_id or outcome.detail)
         what = f"L{action.level_index} {action.side.value}"
