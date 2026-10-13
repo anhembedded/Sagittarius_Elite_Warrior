@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
     IBotExecutor,
     IBotExecutorFactory,
 )
@@ -49,7 +49,7 @@ class _Executor(IBotExecutor):
 
     def resume(self) -> None: ...
 
-    def stop(self, base: BaseHandling) -> None: ...
+    def stop(self, base: ExposureHandling) -> None: ...
 
     def confirm_resume(self) -> None: ...
 

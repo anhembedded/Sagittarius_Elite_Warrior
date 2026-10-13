@@ -35,7 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StopBotForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
@@ -93,7 +93,7 @@ def test_stopping_for_the_host_is_the_stop_the_screen_dispatches_keeping_the_bas
     )
 
     assert result.accepted
-    assert dispatcher.dispatched == [StopBotCommand("aaaaaa", BaseHandling.KEEP)]
+    assert dispatcher.dispatched == [StopBotCommand("aaaaaa", ExposureHandling.KEEP)]
 
 
 def test_starting_a_testnet_bot_for_the_host_asks_for_no_real_money_answer() -> None:

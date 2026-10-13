@@ -22,11 +22,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 
 
-class BaseHandling(str, Enum):
-    """What Stop does with the base asset the bot bought (ADR O3)."""
+class ExposureHandling(str, Enum):
+    """What Stop does with the exposure the bot holds (ADR O3): keep it, or close it at market.
+
+    Spot closes by selling the base asset it bought; a position venue closes by a reduce-only
+    market order (`EPIC-039H`). Renamed from `BaseHandling` (`EPIC-039B`, decision D6); the
+    value was never stored, only carried by `StopBotCommand`."""
 
     KEEP = "KEEP"
-    SELL_AT_MARKET = "SELL_AT_MARKET"
+    CLOSE_AT_MARKET = "CLOSE_AT_MARKET"
 
 
 class IBotExecutor(ABC):
@@ -45,7 +49,7 @@ class IBotExecutor(ABC):
         """Place what the pause held back, or re-plan from HALTED (ADR D13)."""
 
     @abstractmethod
-    def stop(self, base: BaseHandling) -> None:
+    def stop(self, base: ExposureHandling) -> None:
         """Cancel every tagged order, then keep or sell the base (ADR O3)."""
 
     @abstractmethod

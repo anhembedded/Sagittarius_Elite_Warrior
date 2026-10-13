@@ -12,7 +12,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -124,7 +124,7 @@ def test_cancel_only_still_allows_stop() -> None:
     world.derive("0")
     world.hold("0")
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPED
     assert world.book.open == {}

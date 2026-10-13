@@ -42,7 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
@@ -74,7 +74,7 @@ class _Runner(IBotRunner):
     def resume(self, bot_id: str) -> None:
         self.calls.append("resume")
 
-    def stop(self, bot_id: str, base: BaseHandling) -> None:
+    def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.calls.append("stop")
 
     def confirm_resume(self, bot_id: str) -> None:
@@ -132,7 +132,7 @@ def test_a_read_only_runner_refuses_a_start_by_name() -> None:
     [
         lambda runner: runner.pause("abc123"),
         lambda runner: runner.resume("abc123"),
-        lambda runner: runner.stop("abc123", BaseHandling.KEEP),
+        lambda runner: runner.stop("abc123", ExposureHandling.KEEP),
         lambda runner: runner.confirm_resume("abc123"),
     ],
     ids=["pause", "resume", "stop", "confirm_resume"],
@@ -167,7 +167,7 @@ def test_a_pause_on_a_read_only_copy_is_a_named_refusal_through_the_handler() ->
     handlers = (
         PauseBotCommandHandler(store, runner).execute(PauseBotCommand("abc123")),
         StopBotCommandHandler(store, runner).execute(
-            StopBotCommand("abc123", BaseHandling.KEEP)
+            StopBotCommand("abc123", ExposureHandling.KEEP)
         ),
     )
 

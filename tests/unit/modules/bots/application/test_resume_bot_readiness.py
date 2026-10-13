@@ -41,7 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeChecking,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
@@ -105,7 +105,7 @@ class _Runner(IBotRunner):
     def resume(self, bot_id: str) -> None:
         self.resumed.append(bot_id)
 
-    def stop(self, bot_id: str, base: BaseHandling) -> None: ...
+    def stop(self, bot_id: str, base: ExposureHandling) -> None: ...
 
     def confirm_resume(self, bot_id: str) -> None: ...
 

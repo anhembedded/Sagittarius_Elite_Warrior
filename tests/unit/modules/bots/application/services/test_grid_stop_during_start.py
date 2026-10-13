@@ -12,7 +12,7 @@ from collections import deque
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
@@ -63,7 +63,7 @@ def _stop_when_the_order_is_asked_for(world: GridWorld, turn: int) -> None:
     def wait_turn() -> None:
         world.pacer.turns += 1
         if world.pacer.turns == turn:
-            world.executor.stop(BaseHandling.KEEP)
+            world.executor.stop(ExposureHandling.KEEP)
 
     world.pacer.wait_turn = wait_turn  # type: ignore[method-assign]
 

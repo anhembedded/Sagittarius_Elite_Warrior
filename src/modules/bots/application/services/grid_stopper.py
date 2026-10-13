@@ -30,7 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_s
     GridStopSequence,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
@@ -64,7 +64,7 @@ class GridStopper:
         self._sequence = GridStopSequence(context)
         self._retry = GridStopRetry(context, retries, post)
 
-    def run(self, base: BaseHandling, reason: GridReason, detail: str = "") -> None:
+    def run(self, base: ExposureHandling, reason: GridReason, detail: str = "") -> None:
         state = self._context.state
         if state.state is not BotLifecycleState.STOPPING:
             if not state.can(BotLifecycleEvent.STOP):
@@ -75,7 +75,9 @@ class GridStopper:
             state.transition(BotLifecycleEvent.STOP, reason, detail or reason.value)
         # A sell already chosen (a stop loss or take profit forces it) is not
         # undone by pressing Stop again with "keep"; a user may add a sell.
-        sell = base is BaseHandling.SELL_AT_MARKET or state.runtime.sell_base_on_stop
+        sell = (
+            base is ExposureHandling.CLOSE_AT_MARKET or state.runtime.sell_base_on_stop
+        )
         state.update(replace(state.runtime, sell_base_on_stop=sell))
         self._retry.begin_round()
         self._rerun()
@@ -85,7 +87,7 @@ class GridStopper:
         self._retry.begin_round()
         self._rerun()
 
-    def _attempt(self, base: BaseHandling) -> None:
+    def _attempt(self, base: ExposureHandling) -> None:
         try:
             progress = self._sequence.run(base, self._price())
         except ExchangeRateLimitedError as limited:
@@ -94,4 +96,6 @@ class GridStopper:
 
     def _rerun(self) -> None:
         sell = self._context.state.runtime.sell_base_on_stop
-        self._attempt(BaseHandling.SELL_AT_MARKET if sell else BaseHandling.KEEP)
+        self._attempt(
+            ExposureHandling.CLOSE_AT_MARKET if sell else ExposureHandling.KEEP
+        )

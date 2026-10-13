@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 
@@ -37,7 +37,7 @@ class ReadOnlyBotRunner(IBotRunner):
     def resume(self, bot_id: str) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
-    def stop(self, bot_id: str, base: BaseHandling) -> None:
+    def stop(self, bot_id: str, base: ExposureHandling) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
     def confirm_resume(self, bot_id: str) -> None:

@@ -35,7 +35,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
@@ -277,7 +277,7 @@ def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
 def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
     world = _start_world()
     world.runner.start(BOT)
-    world.runner.stop(BOT, BaseHandling.KEEP)
+    world.runner.stop(BOT, ExposureHandling.KEEP)
     assert _bot(world).state is S.STOPPED
 
     world.runner.start(BOT)

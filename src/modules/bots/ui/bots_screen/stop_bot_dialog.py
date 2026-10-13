@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 #: The answer, or `None` when the user cancelled.
-type AskStop = Callable[[BotSnapshot], BaseHandling | None]
+type AskStop = Callable[[BotSnapshot], ExposureHandling | None]
 
 STOP_BUTTON_TEXT = "Stop bot"
 
@@ -78,13 +78,15 @@ class StopBotDialog(QDialog):
         layout.addWidget(self.sell)
         layout.addWidget(buttons)
 
-    def choice(self) -> BaseHandling:
+    def choice(self) -> ExposureHandling:
         return (
-            BaseHandling.SELL_AT_MARKET if self.sell.isChecked() else BaseHandling.KEEP
+            ExposureHandling.CLOSE_AT_MARKET
+            if self.sell.isChecked()
+            else ExposureHandling.KEEP
         )
 
 
-def ask_stop_with_dialog(parent: QWidget, bot: BotSnapshot) -> BaseHandling | None:
+def ask_stop_with_dialog(parent: QWidget, bot: BotSnapshot) -> ExposureHandling | None:
     dialog = StopBotDialog(bot, parent)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return None

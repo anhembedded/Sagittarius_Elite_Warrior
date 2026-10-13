@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
     PriceTick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -216,7 +216,7 @@ def test_a_pause_of_exactly_the_longest_wait_is_still_scheduled() -> None:
 
 def test_a_stop_pressed_during_the_pause_is_not_undone_by_the_resume() -> None:
     world = _halted_by_the_limit()
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
     assert world.state() is S.STOPPED
 
     world.retries.run_next()
@@ -252,7 +252,7 @@ def test_a_stop_whose_cancel_is_rate_limited_waits_for_the_pause() -> None:
     world = _running()
     world.book.cancel_raises = [_limited(timedelta(seconds=90))]
 
-    world.executor.stop(BaseHandling.KEEP)
+    world.executor.stop(ExposureHandling.KEEP)
 
     assert world.state() is S.STOPPING
     assert world.runtime().reason is not GridReason.RATE_LIMITED
@@ -268,7 +268,7 @@ def test_a_stop_selling_the_base_waits_when_a_slice_is_rate_limited() -> None:
     world.derive("4.9")
     world.book.raise_next = [_limited(timedelta(seconds=45))]
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.state() is S.STOPPING
     assert world.retries.pending, "the stop is retried"
@@ -294,7 +294,7 @@ def test_a_stop_whose_price_read_meets_a_pause_waits_instead_of_failing() -> Non
     world.monotonic.advance(3 * 3600)
     world.terms.ask_for_a_pause("BTCUSDT", timedelta(seconds=45))
 
-    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+    world.executor.stop(ExposureHandling.CLOSE_AT_MARKET)
 
     assert world.state() is S.STOPPING
     assert [r.delay for r in world.retries.pending] == [

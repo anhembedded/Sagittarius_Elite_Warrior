@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StopBotForHostCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 
 
@@ -36,6 +36,6 @@ class StopBotForHostCommandHandler(
         return cast(
             BotCommandResult,
             self._dispatcher.dispatch(
-                StopBotCommand, StopBotCommand(command.bot_id, BaseHandling.KEEP)
+                StopBotCommand, StopBotCommand(command.bot_id, ExposureHandling.KEEP)
             ),
         )

@@ -38,7 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
@@ -116,7 +116,7 @@ class _RecordingRunner(IBotRunner):
     def resume(self, bot_id: str) -> None:
         self.sent.append(("resume", bot_id))
 
-    def stop(self, bot_id: str, base: BaseHandling) -> None:
+    def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))
 
     def confirm_resume(self, bot_id: str) -> None:
@@ -298,7 +298,7 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
             store, runner, ResumeReadinessReader(world.facts, world.ports, world.caps)
         ).execute(ResumeBotCommand("abc123")),
         "stop": lambda: StopBotCommandHandler(store, runner).execute(
-            StopBotCommand("abc123", BaseHandling.KEEP)
+            StopBotCommand("abc123", ExposureHandling.KEEP)
         ),
     }
     assert handlers[run]().accepted
@@ -312,10 +312,10 @@ def test_stop_carries_the_users_choice_for_the_base(
     seed(store, "abc123", S.RUNNING)
 
     StopBotCommandHandler(store, runner).execute(
-        StopBotCommand("abc123", BaseHandling.SELL_AT_MARKET)
+        StopBotCommand("abc123", ExposureHandling.CLOSE_AT_MARKET)
     )
 
-    assert runner.sent == [("stop:SELL_AT_MARKET", "abc123")]
+    assert runner.sent == [("stop:CLOSE_AT_MARKET", "abc123")]
 
 
 def test_pause_while_starting_is_refused_and_queues_nothing(
