@@ -12,9 +12,6 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
-    OwnerInventoryDeriver,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
     RegisterOwnerBudgetCommandHandler,
@@ -41,7 +38,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
-    DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudget,
     OwnerInventory,
 )
@@ -52,14 +48,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_history_reader import (
     FakeAccountHistoryReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_inventory_checkpoints import (
-    FakeOwnerInventoryCheckpoints,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.owner_budget_handlers import (
+    registration_handler,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
@@ -143,11 +139,7 @@ def _handler(
         client_factory=factory or _factory(),
         history_reader=history or FakeAccountHistoryReader(now=_NOW),  # type: ignore[arg-type]
     )
-    return RegisterOwnerBudgetCommandHandler(
-        single_venue_scopes(context, state),
-        OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
-        DEFAULT_OWNER_BUDGET_CAPS,
-    )
+    return registration_handler(single_venue_scopes(context, state))
 
 
 def _enabled() -> TradingSessionState:
@@ -198,7 +190,7 @@ def test_a_budget_is_refused_on_a_futures_venue() -> None:
         RegisterOwnerBudgetCommand(_REGISTRATION, venue=TradingVenue.FUTURES_TESTNET)
     )
 
-    assert result.refusal is OwnerBudgetRefusal.VENUE_NOT_SPOT
+    assert result.refusal is OwnerBudgetRefusal.BUDGET_NOT_FOR_VENUE
 
 
 def test_a_budget_is_refused_while_trading_is_off() -> None:

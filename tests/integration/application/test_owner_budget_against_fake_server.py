@@ -76,7 +76,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommand,
-    RegisterOwnerBudgetCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.session_readiness import (
     SessionReadiness,
@@ -135,6 +134,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.credentials_doubles import ResolveOnlyCredentials
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.owner_budget_handlers import (
+    registration_handler,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
     RecordingPublisher,
 )
@@ -180,10 +182,8 @@ class _Venue:
     stream: SpotUserDataStream
 
     def register(self, run_started_at: datetime) -> OwnerBudgetRegistrationResult:
-        handler = RegisterOwnerBudgetCommandHandler(
-            single_venue_scopes(self.context, self.state),
-            OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
-            _CAPS,
+        handler = registration_handler(
+            single_venue_scopes(self.context, self.state), _CAPS
         )
         return handler.execute(
             RegisterOwnerBudgetCommand(_registration(run_started_at), venue=_SPOT)

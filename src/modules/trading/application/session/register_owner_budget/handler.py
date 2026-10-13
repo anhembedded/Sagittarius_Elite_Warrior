@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -30,6 +29,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_d
     InventoryBeyondLookbackError,
     OwnerInventoryDeriver,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_registrar import (
+    OwnerPositionRegistrar,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_resting_orders import (
+    resting_notional,
+    resting_orders,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget.command import (
     RegisterOwnerBudgetCommand,
 )
@@ -39,13 +45,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    tag_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
-    OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
@@ -58,6 +57,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 logger = logging.getLogger("App.CommandHandler")
 
+#: `(market, budget declares no Futures limits)` pairs a registration may be
+#: made for: a Spot budget has none, a USDⓈ-M Futures budget has them.
+_BUDGET_FITS_VENUE = frozenset(
+    {(MarketType.SPOT, True), (MarketType.FUTURES_USD_M, False)}
+)
+
 
 class RegisterOwnerBudgetCommandHandler(
     ICommandHandler[RegisterOwnerBudgetCommand, OwnerBudgetRegistrationResult]
@@ -69,18 +74,21 @@ class RegisterOwnerBudgetCommandHandler(
         self,
         scopes: VenueTradingScopes,
         deriver: OwnerInventoryDeriver,
+        positions: OwnerPositionRegistrar,
         caps: OwnerBudgetCaps,
     ) -> None:
         self._scopes = scopes
         self._deriver = deriver
+        self._positions = positions
         self._caps = caps
 
     def execute(
         self, command: RegisterOwnerBudgetCommand
     ) -> OwnerBudgetRegistrationResult:
         registration = command.registration
-        if command.venue.market_type is not MarketType.SPOT:
-            return _refused(OwnerBudgetRefusal.VENUE_NOT_SPOT)
+        market = command.venue.market_type
+        if (market, registration.budget.futures is None) not in _BUDGET_FITS_VENUE:
+            return _refused(OwnerBudgetRefusal.BUDGET_NOT_FOR_VENUE)
         scope = self._scopes.get(command.venue)
         refusal = self._cheap_refusal(registration, scope)
         if refusal is not None:
@@ -89,6 +97,10 @@ class RegisterOwnerBudgetCommandHandler(
         books = scope.session_state.owner_books
         held = books.open_buffer(registration.tag, registration.symbol)
         try:
+            if market is MarketType.FUTURES_USD_M:
+                return self._positions.derive_and_install(
+                    registration, scope, epoch, held
+                )
             return self._derive_and_install(registration, command, scope, epoch, held)
         finally:
             books.close_buffer(held)
@@ -110,7 +122,7 @@ class RegisterOwnerBudgetCommandHandler(
             derivation = self._deriver.derive(
                 registration, scope.ports.history_reader, datetime.now(UTC)
             )
-            resting = _resting_orders(registration, scope)
+            resting = resting_orders(registration, scope)
         except InventoryBeyondLookbackError as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
             return _refused(OwnerBudgetRefusal.INVENTORY_BEYOND_LOOKBACK)
@@ -119,7 +131,7 @@ class RegisterOwnerBudgetCommandHandler(
             return _refused(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
         book = OwnerBook(registration, derivation.inventory, derivation.counted)
         for order in resting:
-            book.adopt_open(order, _resting_notional(order))
+            book.adopt_open(order, resting_notional(order))
         if not scope.session_state.install_owner_book(
             registration.tag,
             book,
@@ -156,33 +168,6 @@ class RegisterOwnerBudgetCommandHandler(
         if holder is not None and holder != registration.owner_id:
             return _refused(OwnerBudgetRefusal.TAG_HELD_BY_ANOTHER_OWNER)
         return None
-
-
-def _resting_orders(
-    registration: OwnerBudgetRegistration, scope: VenueTradingScope
-) -> tuple[Order, ...]:
-    """The owner's orders open on the venue now.
-    @throws AccountHistoryUnavailableError The venue did not answer."""
-    client = scope.ports.client_factory.create(OrderSubmissionMode.VALIDATE_ONLY)
-    try:
-        open_orders = client.get_open_orders()
-    # Converted at the seam: `ITradingClient` names no exception type, and
-    # any failure of this read means the venue did not answer.
-    except Exception as exc:
-        raise AccountHistoryUnavailableError(f"open orders: {exc}") from exc
-    return tuple(
-        order
-        for order in open_orders
-        if order.symbol == registration.symbol
-        and tag_of(str(order.client_order_id)) == registration.tag
-    )
-
-
-def _resting_notional(order: Order) -> Decimal:
-    """What a resting order commits. A resting Spot order is a LIMIT or a
-    triggered type, so it always carries a price or a stop price."""
-    price = order.price if order.price is not None else order.stop_price
-    return (price or Decimal(0)) * order.quantity
 
 
 def _refused(refusal: OwnerBudgetRefusal) -> OwnerBudgetRegistrationResult:

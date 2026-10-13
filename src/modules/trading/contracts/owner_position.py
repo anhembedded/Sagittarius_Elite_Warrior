@@ -75,6 +75,29 @@ class PositionDivergence:
     exchange: Decimal
 
     @property
-    def cause(self) -> tuple[PositionDivergenceKind, Decimal, Decimal]:
-        """What makes two divergences the same one, so it is logged once."""
-        return (self.kind, self.derived, self.exchange)
+    def cause(self) -> tuple[Decimal, Decimal]:
+        """What makes two divergences the same one, so it is reported once:
+        the same two figures, whatever the kind it was first named."""
+        return (self.derived, self.exchange)
+
+
+@dataclass(frozen=True)
+class ForeignPosition:
+    """A position on the owner's symbol that none of its tagged orders explains.
+
+    @details Reported like Spot's "earlier runs" (`BUG-196`): recorded, never
+    counted as the bot's and never traded."""
+
+    symbol: str
+    #: Signed, as `positionRisk` reports it.
+    quantity: Decimal
+
+    def describe(self) -> str:
+        """@brief The refusal in the user's words, with the exchange's quantity
+        stripped of its trailing zeros (`0.05000000` reads `0.05`)."""
+        direction = "long" if self.quantity > 0 else "short"
+        return (
+            f"{self.symbol} already has a {direction} position of "
+            f"{abs(self.quantity).normalize():f} that this bot did not open; "
+            "close it or pick another symbol"
+        )

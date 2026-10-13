@@ -80,6 +80,11 @@ def booted_futures(exchange: FakeExchange) -> Iterator[BootedFutures]:
     scope = container.resolve(VenueTradingScopes).get(FUTURES)
     stream = scope.ports.user_data_stream
     assert isinstance(stream, FuturesUserDataStream)
+    # `EPIC-039D` - the one thing opening the websocket would have done: an
+    # `ACCOUNT_UPDATE` re-reads the position through the connection's own client.
+    stream.use_client_of_a_connection(
+        scope.ports.client_factory.create(OrderSubmissionMode.VALIDATE_ONLY)
+    )
     try:
         yield BootedFutures(engine, exchange.urls, scope, stream)
     finally:

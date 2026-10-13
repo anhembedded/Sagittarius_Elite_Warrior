@@ -76,6 +76,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
     EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_state_reconciler import (
+    cross_check_owner_positions,
     reconcile_position_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
@@ -199,6 +200,12 @@ class FuturesUserDataStream(ManagedUserDataStream):
             is_current,
         )
 
+    def use_client_of_a_connection(self, client: ITradingClient) -> None:
+        """@brief The client an `ACCOUNT_UPDATE` re-reads positions through:
+        each connection takes a fresh one (`BUG-096`), and a test world that
+        opens no websocket takes it here, which is all the socket gave it."""
+        self._trading_client = client
+
     async def _run_session(
         self,
         credentials: ExchangeCredentials,
@@ -214,8 +221,8 @@ class FuturesUserDataStream(ManagedUserDataStream):
         what revives the library's own reconnect budget (5 attempts) once
         `stream.recv()` raised `ReadLoopClosed`; a fresh client also covers an
         API error while creating it."""
-        self._trading_client = self._trading_client_factory.create(
-            OrderSubmissionMode.VALIDATE_ONLY
+        self.use_client_of_a_connection(
+            self._trading_client_factory.create(OrderSubmissionMode.VALIDATE_ONLY)
         )
         is_closing = False
         client: AsyncClient | None = None
@@ -315,6 +322,14 @@ class FuturesUserDataStream(ManagedUserDataStream):
             reconcile_position_state(
                 self._session_state, symbol, has_position=bool(positions)
             )
+            # `EPIC-039D` - a budgeted Futures owner's derived position is
+            # checked against the exchange's on every change it reports.
+            for divergence in cross_check_owner_positions(
+                self._session_state,
+                symbol,
+                sum((p.position_amt for p in positions), Decimal(0)),
+            ):
+                self._events.position_diverged(divergence)
             if positions:
                 self._events.position_changed(positions[0])
                 # `BUG-095` — `DEBUG`, same reasoning as the equity line
