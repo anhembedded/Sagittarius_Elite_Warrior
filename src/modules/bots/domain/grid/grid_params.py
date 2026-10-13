@@ -15,6 +15,13 @@ venue's filters. Live they come from the account; the backtest records them.
 `percent:<n>` (n per cent beyond the range edge: below `lower` for a stop loss,
 above `upper` for a take profit).
 
+@par Direction and leverage (`EPIC-039B`)
+`direction` (`LONG` | `SHORT` | `NEUTRAL`) and `leverage` (a whole number from 1). A definition
+saved before they existed holds neither and is read as LONG at leverage 1 by
+`exposure_of_a_saved_definition`, the one named migration; such a definition is written back
+without them, so a Spot definition on disk keeps its bytes. A definition that names one must
+name both, and one for a position venue must name both (`from_config_naming_exposure`).
+
 @par A bot created with no parameters (`BOT-150`)
 New bot asks only for the kind, venue and symbol; the parameters are set on
 the draft afterwards. `unset_parameters` names the ones the user must still
@@ -29,6 +36,10 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
+
 _HUNDRED = Decimal(100)
 
 #: The parameters that have no default, keyed by the definition's key, with
@@ -40,6 +51,11 @@ PARAMETERS_WITHOUT_A_DEFAULT: Mapping[str, str] = {
     "upper": "upper price",
     "capital_quote": "capital",
 }
+
+
+#: What a definition saved before `EPIC-039B` means: the Spot Grid, long, unlevered.
+LEGACY_DIRECTION = TradeDirection.LONG
+LEGACY_LEVERAGE = 1
 
 
 class GridSpacing(str, Enum):
@@ -104,6 +120,8 @@ class GridParams:
     capital_quote: Decimal
     stop_loss: ExitLevel
     take_profit: ExitLevel
+    direction: TradeDirection = LEGACY_DIRECTION
+    leverage: int = LEGACY_LEVERAGE
 
     def __post_init__(self) -> None:
         if self.lower <= 0:
@@ -116,10 +134,13 @@ class GridParams:
             raise GridParamsError("capital_quote must be positive")
         if self.stop_loss.kind is ExitKind.PERCENT and self.stop_loss.value >= _HUNDRED:
             raise GridParamsError("a stop_loss percent must be below 100")
+        if self.leverage < 1:
+            raise GridParamsError("leverage must be at least 1")
 
     @classmethod
     def from_config(cls, config: Mapping[str, str]) -> GridParams:
         """@raise GridParamsError A key is missing or unreadable."""
+        direction, leverage = exposure_of_a_saved_definition(config)
         return cls(
             lower=_decimal(config, "lower"),
             upper=_decimal(config, "upper"),
@@ -128,10 +149,22 @@ class GridParams:
             capital_quote=_decimal(config, "capital_quote"),
             stop_loss=_exit(config, "stop_loss"),
             take_profit=_exit(config, "take_profit"),
+            direction=direction,
+            leverage=leverage,
         )
 
+    @classmethod
+    def from_config_naming_exposure(cls, config: Mapping[str, str]) -> GridParams:
+        """A definition for a position venue: `direction` and `leverage` are both required.
+
+        @raise GridParamsError A key, including either of those two, is missing or unreadable.
+        """
+        for key in (_DIRECTION_KEY, _LEVERAGE_KEY):
+            _text(config, key)
+        return cls.from_config(config)
+
     def to_config(self) -> dict[str, str]:
-        return {
+        config = {
             "lower": str(self.lower),
             "upper": str(self.upper),
             "grid_count": str(self.grid_count),
@@ -140,6 +173,10 @@ class GridParams:
             "stop_loss": self.stop_loss.encode(),
             "take_profit": self.take_profit.encode(),
         }
+        if (self.direction, self.leverage) != (LEGACY_DIRECTION, LEGACY_LEVERAGE):
+            config[_DIRECTION_KEY] = self.direction.name
+            config[_LEVERAGE_KEY] = str(self.leverage)
+        return config
 
     @property
     def stop_loss_price(self) -> Decimal | None:
@@ -148,6 +185,21 @@ class GridParams:
     @property
     def take_profit_price(self) -> Decimal | None:
         return self.take_profit.above(self.upper)
+
+
+def exposure_of_a_saved_definition(
+    config: Mapping[str, str],
+) -> tuple[TradeDirection, int]:
+    """The direction and leverage of `config`; LONG at 1 when it names neither.
+
+    This is the migration of definitions saved before `EPIC-039B`: nothing else supplies a
+    default for these keys. Naming one without the other is an error naming the missing one.
+
+    @raise GridParamsError Only one of the two is named, or one is unreadable.
+    """
+    if _DIRECTION_KEY not in config and _LEVERAGE_KEY not in config:
+        return LEGACY_DIRECTION, LEGACY_LEVERAGE
+    return _direction(config), _leverage(config)
 
 
 def unset_parameters(config: Mapping[str, str]) -> tuple[str, ...]:
@@ -205,6 +257,27 @@ def _spacing(config: Mapping[str, str]) -> GridSpacing:
         raise GridParamsError(
             f"spacing is not ARITHMETIC or GEOMETRIC: {text!r}"
         ) from None
+
+
+_DIRECTION_KEY = "direction"
+_LEVERAGE_KEY = "leverage"
+
+
+def _direction(config: Mapping[str, str]) -> TradeDirection:
+    text = _text(config, _DIRECTION_KEY).upper()
+    try:
+        return TradeDirection[text]
+    except KeyError:
+        raise GridParamsError(
+            f"direction is not LONG, SHORT or NEUTRAL: {text!r}"
+        ) from None
+
+
+def _leverage(config: Mapping[str, str]) -> int:
+    value = _integer(config, _LEVERAGE_KEY)
+    if value < 1:
+        raise GridParamsError(f"leverage must be at least 1: {value}")
+    return value
 
 
 def _exit(config: Mapping[str, str], key: str) -> ExitLevel:
