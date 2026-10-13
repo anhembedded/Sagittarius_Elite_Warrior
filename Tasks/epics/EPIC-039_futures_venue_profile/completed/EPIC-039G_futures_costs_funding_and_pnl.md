@@ -1,12 +1,13 @@
 # EPIC-039G — A Futures bot's costs are real: commission from the account, funding every eight hours, realized profit
 
-**Status:** 🔵 Planned — not started
+**Status:** ✅ Done (2026-10-13)
 **Source:** the owner, 2026-10-10 (the earlier numbers on step size versus fees); [DESIGN §3, §6](../DESIGN_2026-10-10_futures_venue_profile.md).
 **Risk:** 🟡 — money figures shown to the owner; a fee counted twice or not at all misstates profit
 **Complexity:** M — a cost port, a funding reader, an event field, PnL and progress changes
 **Epic:** [EPIC-039](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (progress and PnL words).
 **Design:** [DESIGN §3, §6](../DESIGN_2026-10-10_futures_venue_profile.md) · **Research:** [§1, §8](../RESEARCH_2026-10-10_futures_grid.md)
+**Branch:** `claude/epic-039g-futures-costs`
 **Depends on:** [039A](EPIC-039A_venue_profile_seam.md), [039C](EPIC-039C_futures_fake_exchange_matching.md) (the fake charges funding).
 
 ---
@@ -23,14 +24,13 @@ Spot's cost model is maker/taker, with the fee often taken from the base asset (
 - `i_order_entry_terms.py` lists "the funding rate and next funding time for the Futures desk header" as a plausible extension.
 
 ## 2. Acceptance criteria
-- [ ] The official docs for `ORDER_TRADE_UPDATE` and `ACCOUNT_UPDATE` (commission, realized profit, reason types incl. funding) are read and their page and finding recorded here **before coding**; if commission is present per fill, the Futures stream populates `OrderFilledEvent.fee_amount`/`fee_asset` and the docstring is corrected in the same commit; if it is not, the task records how fees are obtained instead (the trade list) and why.
-- [ ] Handed over by [039C](../completed/EPIC-039C_futures_fake_exchange_matching.md) (2026-10-13): Binance's `ORDER_TRADE_UPDATE` page (read in `llms-full.txt`, 2026-10-13) lists `n`/`N` (commission and asset, "will not push if no commission"), `rp` (realized profit of the trade) and `t` (trade id); `order_filled_event.py` says Futures carries no per-fill commission, which the page contradicts. The fake emits all three (maker fee 0.02 %, taker 0.05 %, funding as `ACCOUNT_UPDATE` `m=FUNDING_FEE` with `bc` and an `income` row of type `FUNDING_FEE`); the REST pages for funding rate and income were **not** in that index and are still to read.
-- [ ] `ICostModel` (`bots/contracts`): `fees() -> (maker, taker)`, `funding_estimate(position, horizon) -> Decimal | None` (`None` = unknown, never zero), `breakeven_step_fraction()`. Spot adapter: maker/taker, `funding_estimate → Decimal(0)` **by definition** (no funding exists), break-even as today. Futures adapter: fees from `FuturesCommissionRateReader`, funding from a new `IFundingReader`.
-- [ ] `IFundingReader` (a trading contract, Futures adapter reading the funding rate and next funding time; Spot answers `NotApplicable.ON_THIS_VENUE`) and `FundingRate(symbol, rate, next_funding_at, as_of)`.
-- [ ] The Futures plan checks use the Futures fees: `check_min_step` / `check_break_even` (same thresholds, same codes) with `2 × fee` from the account; a new `FUNDING_ADVERSE` WARNING when the current funding rate costs the plan's net direction more per 8 h than a stated share (default 25 %, in `FuturesGridThresholds`) of its expected cycle profit.
-- [ ] **PnL and progress for a Futures bot** count: realized profit per closed cycle (from the fills or the stream's realized-profit field), commissions (quote asset), and funding paid/earned (from the wallet events, labelled `reason = FUNDING_FEE` once its name is verified). `BotProgress` (`contracts/bot_progress.py`) gets the fields, with the Spot ones untouched; funding is shown separately from grid profit ("Grid profit is the sum of completed cycles; funding is separate", Pionex's split).
-- [ ] No fee is counted twice: the fee on a fill reaches PnL from exactly one source (the fill report **or** the trade list), with the dedup key decided in 039D.
-- [ ] Spot PnL and progress numbers are **unchanged** for the Spot oracle inputs (`039B`'s fixture).
+- [x] **Docs read first, recorded.** Read 2026-10-13 in Binance's `llms-full.txt` (`https://developers.binance.com/en/docs/llms-full.txt`) and the endpoint pages: `ORDER_TRADE_UPDATE` lists `n`/`N` (commission and asset, "will not push if no commission"), `rp` (realized profit of the trade) and `t` (trade id) — handed over by 039C and re-read; `ACCOUNT_UPDATE` reason `m` includes `FUNDING_FEE`, `bc` is "the balance change except for PnL and commission", and since 2026-08-07 `a.S` names the symbol when `m` is `FUNDING_FEE`; `GET /fapi/v1/premiumIndex` returns `lastFundingRate` ("the Latest funding rate"), `nextFundingTime` and `time` (weight 1 with a symbol); `GET /fapi/v1/income` has `incomeType` `FUNDING_FEE`, `COMMISSION`, `REALIZED_PNL`. Commission is present per fill, so the Futures stream populates `OrderFilledEvent.fee_amount`/`fee_asset` and the docstring is corrected in the same commit (`f7a0169`). The fake's own premiumIndex row already served the funding fields, so no fake change was needed. Evidence: `test_futures_costs_in_the_user_stream.py` (9) and `test_futures_costs_on_the_fake_exchange.py`.
+- [x] `ICostModel` (`bots/contracts/i_cost_model.py`): `fees() -> (maker, taker)`, `funding_estimate(position, horizon) -> Decimal | None` (`None` = unknown), `breakeven_step_fraction()`. `SpotCostModel`: maker/taker, funding `Decimal(0)` by definition, break-even `2 × maker`. `FuturesCostModel`: the account's rates (read per symbol by `FuturesCommissionRateReader` through the terms) and the funding rate; `None` when the rate is unknown. Evidence: `test_grid_futures_costs.py`.
+- [x] `IFundingReader` and `FundingRate(symbol, rate, next_funding_at, as_of)` in `trading/contracts`; `FuturesFundingReader` reads `premiumIndex`; a Spot venue has no reader and answers `NotApplicable.ON_THIS_VENUE` through `GetFundingRateQuery` and `IOrderEntryTerms.funding_rate_for`. A blank rate is `MarketPriceUnavailableError`, never zero. Evidence: `test_funding_rate_query.py`, the fake-server read in `test_order_entry_reads_against_fake_server.py`, `test_the_funding_rate_is_read_through_the_venue_terms`.
+- [x] Plan checks. `check_min_step` / `check_break_even` were already reading `terms.maker_fee`, which for a Futures venue is the account's rate (`exchange_terms_for` ← `FuturesCommissionRateReader`); unchanged thresholds and codes, and a test pins `two_maker_fees` to `FuturesCostModel.breakeven_step_fraction()` and shows the same step passes at 0.02 % and is refused at 0.1 %. New `FUNDING_ADVERSE` (advisory, `grid_funding_check.py`, `FuturesGridThresholds.funding_adverse_share` = 25 %): one funding interval's cost on the plan's opening net position against that share of `cycle_profit_quote`; long pays a positive rate, short a negative one, neutral opens none.
+- [x] PnL and progress. `GridRuntime.commissions` and `funding_total` (codec: absent reads as 0), `PnlSummary.commissions` and `.funding` (`BotProgress.pnl` carries them; `BotProgress`'s own Spot fields are untouched). Funding is booked through `FundingChargedEvent` → `BotEventRouter.on_funding` → `IBotFacts.on_funding`; it is in `total`, never in `grid_profit` or `realised`. Commission reaches PnL through the fill's quote fee exactly as a Spot quote fee does. Realized profit per cycle comes from the fills, as Spot's does; the stream's `rp` is carried to the bot (`BotOrderFill.realized_profit`) for the position executor (039H) and is **not** summed here: a second source for the same number is the double counting this task forbids. Evidence: `test_grid_futures_costs_in_the_run.py`.
+- [x] No fee is counted twice — **given a trade id**. The emitter claims a trade by `(symbol, trade_id)` and the bot's applied fills do the same, so a duplicate report adds its commission once (tested at both layers). **Until 039D parses `t`, a Futures fill still carries `trade_id = None` and a duplicated Futures report is counted twice** (found by 039C); the end-to-end duplicate test on the fake belongs to 039D and is the check that closes this criterion for Futures.
+- [x] Spot PnL and progress are unchanged for the Spot oracle inputs: the earlier figures are the same arithmetic with a zero funding term (`test_spot_pnl_is_unchanged_for_the_oracle_inputs`), and the existing Spot suites (`tests/unit/modules/bots`, `tests/integration/modules/bots`, 2 872 + the new ones) pass unchanged.
 
 ## 3. Design
 Costs behind one port (`ICostModel`) so the planner's break-even, the readiness text and the PnL read the same numbers (the `EPIC-037` lesson: one place). "Unknown" is a value (`None`), never zero (`domain-truth-rule.md`, the `ExchangeSnapshot` pattern): a funding rate that could not be read says so rather than showing 0.
@@ -46,13 +46,14 @@ Costs behind one port (`ICostModel`) so the planner's break-even, the readiness 
 
 ## 5. Testing
 Tier: unit; integration on the fake (funding).
+All six written, plus the check, the router and the codec. Mutation checks run: a `with_funding` that adds nothing and a flipped funding sign turn five of them red.
 - `test_futures_fees_come_from_the_account_and_set_the_break_even_step`
 - `test_a_position_across_a_funding_time_pays_or_earns_and_progress_shows_it_separately`
 - `test_an_unreadable_funding_rate_is_unknown_not_zero`
 - `test_funding_adverse_warns_when_it_eats_the_cycle_profit`
 - `test_a_fill_fee_reaches_pnl_once_whichever_report_comes_first`
 - `test_spot_pnl_is_unchanged_for_the_oracle_inputs`
-Not run yet.
+Run 2026-10-13, green.
 
 ## Pitfalls
 - A fee in the **base** asset exists on Spot only; the Spot sizing rule "net of the opening fee" must stay behind the Spot adapter.
@@ -60,7 +61,15 @@ Not run yet.
 - Rates differ by account tier; never hard-code 0.02 %/0.05 % (those figures in the owner's chat were from memory).
 
 ## Implementation notes (written when done)
-Not started.
+**What shipped** (three commits: trading, cost model + check, run accounting).
+- **Trading side.** `user_data_event_parser.py` gains `fill_commission`, `fill_realized_profit` and `account_update_funding`; `FuturesOrderUpdates` passes the commission and `rp` to `VenueEventEmitter.order_filled(…, fee, trade_id, realized_profit)` — only those fields, so 039D's `trade_id` change merges beside it. `FuturesUserDataStream` reports funding **before** it needs a position read, because a funding update carries everything in its payload. The funding rate rides on the existing query/handler/`VenueContext` pattern the mark price uses (`funding_reader` is `None` on Spot).
+- **A funding update without `a.S`** (before 2026-08-07, or if Binance drops it) is attributed to the one position it lists, else dropped unattributed: funding is never guessed onto a symbol.
+- **`FUNDING_INTERVAL` is 8 h**, a constant in `bot_kind_inputs.py`: the pages do not give a per-symbol schedule (039C said so for the fake). `FundingRate.next_funding_at` is the exchange's exact next time; the model's horizon arithmetic is an estimate and labelled one.
+- **`venue_assembly.py` is at the 400-line ceiling** (400); the next addition there must split it.
+
+**Decisions taken (recorded, not asked; all reversible):** the cost model sits as a port with two adapters but the domain checks keep reading `ExchangeTerms` fees — the same numbers, pinned equal by a test — rather than pushing a port into the pure domain; `commissions` is kept on the run although it is already inside the realised figures, so the screen can name what trading cost; `rp` is carried, not summed.
+
+**Not done, by design:** nothing renders `commissions`/`funding` yet (the Futures UI is 039J); no Futures executor exists, so `planner_numbers` reads the funding rate only when a profile with funding is a bot venue (`BOT_MARKETS` still excludes Futures until 039H) — covered by `funding_view_of`'s tests, not by a running Futures bot. Funding has no unique id in `ACCOUNT_UPDATE`, so a replayed funding update could not be told from a new one; none is replayed on a reconnect today.
 
 ## Resume
-Not started. First action: read Binance's order-update and account-update event pages (`llms-full.txt` if the pages do not render) and record commission, `rp` and the funding reason name here.
+Done. Hand-offs: **039D** — parse `t` into `trade_id` and add the duplicate-Futures-fill test (the end-to-end half of the "no fee twice" criterion); **039H** — read `BotOrderFill.realized_profit` and `IBotFacts.on_funding`; **039J** — show `PnlSummary.commissions`/`.funding` and the `FUNDING_ADVERSE` advice (`NO_FIELD` lists it as having no single field); **039K** — the funding history (`GET /fapi/v1/fundingRate`) behind `IFundingReader`.

@@ -55,7 +55,7 @@ gantt
 | EPIC-039D | [Exposure book for positions](incomplete/EPIC-039D_exposure_book_for_positions.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-039E | [Settings gate and readiness](incomplete/EPIC-039E_futures_settings_gate_and_readiness.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-039F | [Risk guard and liquidation](incomplete/EPIC-039F_risk_guard_and_liquidation.md) | — | 🔴 | 🔵 Planned; asks O3, O4 | — |
-| EPIC-039G | [Costs, funding and PnL](incomplete/EPIC-039G_futures_costs_funding_and_pnl.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-039G | [Costs, funding and PnL](completed/EPIC-039G_futures_costs_funding_and_pnl.md) | `claude/epic-039g-futures-costs` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039H | [Futures Grid Long](incomplete/EPIC-039H_futures_grid_long.md) | — | 🔴 | 🔵 Planned; asks O1, O6, O8, O10 | — |
 | EPIC-039I | [Short and Neutral](incomplete/EPIC-039I_futures_grid_short_and_neutral.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | — | 🟡 | 🔵 Planned | — |
@@ -69,6 +69,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-13 | 039G | Commission and realized profit on the Futures fill, funding as its own event and a rate reader, one cost model, `FUNDING_ADVERSE`, and a run that books commissions and funding apart from grid profit. The no-double-fee proof for Futures waits for 039D's trade id. |
 | 2026-10-13 | 039C | The Futures fake matches resting orders on a price cross, with positions, funding, liquidation, user-data events, faults and the settings refusals; a `futures` fixture boots the composed app on the Futures testnet. Findings handed to 039D/039E/039G. |
 | 2026-10-13 | 039A | The venue profile seam delivered: one deciding place for what a venue allows, a guard that fails on a second, `IBotKind.supported_profiles`; Spot sentences pinned and unchanged. No Futures path exists. |
 | 2026-10-13 | 039B | The planner knows LONG, SHORT and NEUTRAL (signed opening quantity, reduce-only marks, `LevelSizing`), a pure position model proves the position function for equal-quantity ladders, `BaseHandling` is `ExposureHandling`, `GridParams` carry direction and leverage, and a direction the venue does not allow is refused. Spot unchanged (recorded oracle). No Short or Neutral grid is startable. |
