@@ -162,6 +162,8 @@ class RememberingSettings(FakeFuturesSettingsControl):
         self._terms = terms
         self.setting = setting
         self.silently_ignores_changes = False
+        #: The exchange refuses the leverage value (e.g. -4028) after any margin change.
+        self.leverage_error: Exception | None = None
         #: Every method name called, so a test can assert what the gate never calls.
         self.calls: list[str] = []
 
@@ -175,6 +177,8 @@ class RememberingSettings(FakeFuturesSettingsControl):
         self, symbol: str, leverage: int
     ) -> AccountControlResult[LeverageSetting]:
         self.calls.append("change_leverage")
+        if self.leverage_error is not None:
+            raise self.leverage_error
         answer = super().change_leverage(symbol, leverage)
         if answer.applied is not None and not self.silently_ignores_changes:
             self.move(leverage=leverage)

@@ -118,3 +118,18 @@ class TestTheFakesOwnBookkeeping:
 
         assert answer.reachable is False
         assert answer.failure is ConnectionFailureKind.NOT_CONFIGURED
+
+
+def test_the_fake_can_be_told_the_position_read_fails_and_then_to_answer_again(
+    ready_status: ExchangeConnectionStatus,
+) -> None:
+    """`positions_raise` is the fake's own helper (`EPIC-039E`): a read that raised is a
+    different fact from "nothing open", which the real adapter cannot tell a caller."""
+    fake = FakeAccountSnapshot(ready_status)
+
+    fake.positions_raise(ConnectionError("reset"))
+    with pytest.raises(ConnectionError, match="reset"):
+        fake.open_positions()
+
+    fake.positions_raise(None)
+    assert fake.open_positions() == ()

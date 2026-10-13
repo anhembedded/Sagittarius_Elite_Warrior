@@ -29,6 +29,7 @@ untouched. `verify` is steps 1, 2 and the comparison.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
@@ -99,9 +100,9 @@ class FuturesSettingsGate(IVenueSettingsGate):
             return before
         if not _differences(before, request):
             return ENSURED
-        not_flat = _not_flat_words(bound, request)
-        if not_flat is not None:
-            return GateResult(GateOutcome.SYMBOL_NOT_FLAT, not_flat)
+        busy = _busy_symbol(bound, request)
+        if busy is not None:
+            return busy
         refused = self._write(bound, request, before)
         if refused is not None:
             return refused
@@ -157,14 +158,18 @@ class FuturesSettingsGate(IVenueSettingsGate):
         request: GateRequest,
         before: FuturesSymbolSetting,
     ) -> GateResult | None:
+        """Margin type, then leverage, each only if it differs. A refusal after the margin
+        type changed says so: the exchange then holds a setting the user did not see."""
         wanted = _MARGIN_TYPES[request.margin_mode]
         control = ports.futures_settings
+        margin_changed = False
         try:
             if before.margin_type is not wanted:
                 changed = control.change_margin_type(request.symbol, wanted)
                 refusal = _refusal(changed.blocked_by, changed.detail, "margin type")
                 if refusal is not None:
                     return refusal
+                margin_changed = True
                 _log_change(
                     request, "margin type", before.margin_type.value, wanted.value
                 )
@@ -172,13 +177,34 @@ class FuturesSettingsGate(IVenueSettingsGate):
                 leveraged = control.change_leverage(request.symbol, request.leverage)
                 refusal = _refusal(leveraged.blocked_by, leveraged.detail, "leverage")
                 if refusal is not None:
-                    return refusal
+                    return _after_margin_change(
+                        refusal, margin_changed, before, request
+                    )
                 _log_change(
                     request, "leverage", str(before.leverage), str(request.leverage)
                 )
         except (AccountControlRejectedError, AccountControlUnavailableError) as error:
-            return GateResult(GateOutcome.EXCHANGE_REFUSED, f"the exchange: {error}")
+            refused = GateResult(GateOutcome.EXCHANGE_REFUSED, f"the exchange: {error}")
+            return _after_margin_change(refused, margin_changed, before, request)
         return None
+
+
+def _after_margin_change(
+    refusal: GateResult,
+    margin_changed: bool,
+    before: FuturesSymbolSetting,
+    request: GateRequest,
+) -> GateResult:
+    """`refusal`, with what the exchange already holds when the margin type was changed first."""
+    if not margin_changed:
+        return refusal
+    wanted = _MARGIN_TYPES[request.margin_mode]
+    now = "; ".join(_differences(replace(before, margin_type=wanted), request))
+    return GateResult(
+        refusal.outcome,
+        f"{refusal.detail}; the margin type was already changed to {wanted.value} "
+        f"and stays so ({now})",
+    )
 
 
 def _differences(setting: FuturesSymbolSetting, request: GateRequest) -> list[str]:
@@ -195,11 +221,16 @@ def _differences(setting: FuturesSymbolSetting, request: GateRequest) -> list[st
     return found
 
 
-def _not_flat_words(ports: VenueTradingPorts, request: GateRequest) -> str | None:
-    """Why a change cannot be asked yet, or `None` when the symbol is flat."""
+def _busy_symbol(ports: VenueTradingPorts, request: GateRequest) -> GateResult | None:
+    """Why a change cannot be asked yet, or `None` when the symbol is known to be flat."""
     symbol = request.symbol
-    orders = [o for o in ports.account_activity.open_orders() if o.symbol == symbol]
-    held = [p for p in ports.account_snapshot.open_positions() if p.symbol == symbol]
+    try:
+        orders = [o for o in ports.account_activity.open_orders() if o.symbol == symbol]
+        held = [
+            p for p in ports.account_snapshot.open_positions() if p.symbol == symbol
+        ]
+    except Exception as exc:  # noqa: BLE001 - converted at the seam: a symbol whose orders or position could not be read is not known to be flat, so the answer is a named refusal, never a raise and never "flat"
+        return _unreadable(f"{symbol}'s open orders and position were not read ({exc})")
     if not orders and not held:
         return None
     what = []
@@ -207,10 +238,11 @@ def _not_flat_words(ports: VenueTradingPorts, request: GateRequest) -> str | Non
         what.append(f"{len(orders)} open order(s)")
     if held:
         what.append(f"a position of {held[0].position_amt}")
-    return (
+    return GateResult(
+        GateOutcome.SYMBOL_NOT_FLAT,
         f"{symbol} has {' and '.join(what)}, and Binance refuses a margin type or leverage "
         "change then; cancel the orders and close the position, or set the leverage and "
-        "margin type in the exchange yourself. Nothing was changed"
+        "margin type in the exchange yourself. Nothing was changed",
     )
 
 

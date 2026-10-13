@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_re
     GateOutcome,
     GateRequest,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_rejected_error import (
+    AccountControlRejectedError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_result import (
     AccountControlRefusal,
 )
@@ -216,3 +219,38 @@ def test_a_change_the_gate_made_is_logged_at_info(
     assert "[futures-gate]" in record.getMessage()
     assert SYMBOL in record.getMessage()
     assert "from 5 to 3" in record.getMessage()
+
+
+@pytest.mark.parametrize("read", ["orders", "positions"])
+def test_a_failed_read_of_the_symbols_orders_or_position_is_unreadable_not_a_raise(
+    read: str,
+) -> None:
+    """Red before: the read ran outside any handler and a `ConnectionError` escaped `ensure`.
+    A symbol whose orders or position could not be read is not known to be flat."""
+    world = FuturesWorld(leverage=5, margin_type=MarginType.ISOLATED)
+    if read == "orders":
+        world.activity.open_orders_raise(ConnectionError("reset"))
+    else:
+        world.account.positions_raise(ConnectionError("reset"))
+
+    result = _gate(world).ensure(_ask(leverage=3))
+
+    assert result.outcome is GateOutcome.SETTINGS_UNREADABLE
+    assert "reset" in result.detail
+    assert world.settings.calls == []
+
+
+def test_a_refused_leverage_says_the_margin_type_was_already_changed() -> None:
+    """Red before: the user read only the leverage refusal while the exchange already held
+    the new margin type."""
+    world = FuturesWorld(leverage=5, margin_type=MarginType.CROSSED)
+    world.settings.leverage_error = AccountControlRejectedError(
+        -4028, "Leverage 3 is not valid"
+    )
+
+    result = _gate(world).ensure(_ask(leverage=3))
+
+    assert result.outcome is GateOutcome.EXCHANGE_REFUSED
+    assert "-4028" in result.detail
+    assert "margin type was already changed to isolated" in result.detail
+    assert "leverage 3 asked, exchange says 5" in result.detail

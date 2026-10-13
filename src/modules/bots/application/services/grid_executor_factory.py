@@ -93,6 +93,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     BUDGET_QUOTE_ASSET,
 )
 
+#: The margin mode a Grid bot asks of its venue: Isolated only (decision O5, `EPIC-039`).
+#: A bot that may ask for Cross reads it from its params instead, and this goes.
+GRID_MARGIN_MODE = MarginMode.ISOLATED
+
 
 @dataclass(frozen=True, slots=True)
 class GridExecutorDeps:
@@ -167,7 +171,7 @@ class GridExecutorFactory(IBotExecutorFactory):
                     bot.definition.venue,
                     symbol,
                     params.leverage,
-                    MarginMode.ISOLATED,
+                    GRID_MARGIN_MODE,
                 ),
             ),
         )
