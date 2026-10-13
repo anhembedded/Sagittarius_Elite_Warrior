@@ -14,8 +14,12 @@ configuration (`ConfigKeys.TRADING_BOT_LIMITS_*`); the defaults are the
 values the user approved on 2026-10-03, and they sit inside Binance Spot's
 own `ORDERS` rate limits (the `EPIC-029A` implementation notes record them).
 
-Plausible extensions, each a local change: a Futures owner (the inventory
-becomes a position; one deriver behind the same registration), a daily
+A Futures owner (`EPIC-039D`) is the extension this paragraph announced: its
+inventory is a signed position (`OwnerPosition`), derived behind the same
+registration, and its budget carries `FuturesLimits`, judged in notional and
+margin instead of in BUY quote and inventory.
+
+Plausible extensions, each a local change: a daily
 loss cap (one more field and one more check), a per-owner notional cap
 (one field, consulted beside `max_notional_per_order`).
 """
@@ -27,8 +31,36 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    OwnerPosition,
+)
 
 _ONE_MINUTE = timedelta(minutes=1)
+
+
+@dataclass(frozen=True)
+class FuturesLimits:
+    """`EPIC-039D` (DECISION O2) — what a Futures owner's position may reach.
+
+    @details `capital_quote` on Futures is the margin the user commits and
+    `leverage` multiplies it, so the position's notional may reach
+    `committed_margin × leverage`, and never the leverage bracket's cap.
+    `max_position_notional` is the lower of the two; the margin is a second,
+    independent ceiling, so a figure that drifts from the other is still
+    caught."""
+
+    #: The most the worst-case position may be worth, in the quote asset.
+    max_position_notional: Decimal
+    leverage: int
+    #: The margin the owner committed: the initial margin of its worst-case
+    #: position (notional divided by leverage) may not exceed it.
+    committed_margin: Decimal
+
+    def __post_init__(self) -> None:
+        if self.leverage < 1:
+            raise ValueError("a Futures budget's leverage is at least 1")
+        if self.max_position_notional <= 0 or self.committed_margin <= 0:
+            raise ValueError("a Futures budget's notional and margin must be positive")
 
 
 @dataclass(frozen=True)
@@ -45,6 +77,11 @@ class OwnerBudget:
     #: Orders inside any `window`, counting the one being sent.
     max_orders_per_window: int
     window: timedelta
+    #: `EPIC-039D` — present exactly on a Futures venue, where the owner is
+    #: judged in position notional and margin; `None` leaves Spot's judgement
+    #: as it was. `max_exposure_quote` is still required and still positive,
+    #: but a Futures owner is judged by this figure instead.
+    futures: FuturesLimits | None = None
 
     def __post_init__(self) -> None:
         if self.max_open_orders < 1 or self.max_orders_per_window < 1:
@@ -104,6 +141,23 @@ EMPTY_INVENTORY = OwnerInventory(Decimal(0), Decimal(0))
 
 
 @dataclass(frozen=True)
+class PositionExposure:
+    """`EPIC-039D` — a Futures owner's book as the policy needs it: the
+    signed position and what its open orders could still add to it.
+
+    @details Only orders that can **add** are counted: a reduce-only order
+    never moves the position away from flat, so it commits nothing."""
+
+    position: OwnerPosition
+    #: The base the owner's open BUY orders could still buy, reduce-only ones excluded.
+    open_adding_buy_quantity: Decimal
+    #: The base the owner's open SELL orders could still sell, reduce-only ones excluded.
+    open_adding_sell_quantity: Decimal
+    #: Whether the order being sent is reduce-only.
+    order_reduce_only: bool
+
+
+@dataclass(frozen=True)
 class OwnerBudgetFacts:
     """What `TradingLimitPolicy` judges a budgeted owner's order against:
     the budget, the owner book as it stands, and the order being sent."""
@@ -121,3 +175,10 @@ class OwnerBudgetFacts:
     orders_in_window: int
     order_side: OrderSide
     order_quantity: Decimal
+    #: `EPIC-039D` — set by a Futures owner's book (and then `inventory` is
+    #: empty and unused); `None` for Spot, whose judgement is unchanged.
+    position: PositionExposure | None = None
+
+    def __post_init__(self) -> None:
+        if self.position is not None and self.budget.futures is None:
+            raise ValueError("a position is judged by Futures limits the budget lacks")

@@ -59,6 +59,12 @@ class TradingLimitViolation(str, Enum):
     OWNER_BUDGET_SELL_EXCEEDS_INVENTORY = "owner_budget_sell_exceeds_inventory"
     OWNER_BUDGET_SPACING = "owner_budget_spacing"
     OWNER_BUDGET_RATE = "owner_budget_rate"
+    #: `EPIC-039D` — a Futures owner's two checks, which replace the exposure
+    #: and sell-exceeds-inventory checks for it: the worst-case position's
+    #: notional against `FuturesLimits.max_position_notional`, and its initial
+    #: margin against `FuturesLimits.committed_margin`.
+    OWNER_BUDGET_POSITION_NOTIONAL = "owner_budget_position_notional"
+    OWNER_BUDGET_MARGIN = "owner_budget_margin"
     #: ...and the sixth gate: an order carrying a client order tag with no
     #: budget registered for it on the order's symbol, so a bot never falls
     #: back to the signal limits, which have no inventory check.
