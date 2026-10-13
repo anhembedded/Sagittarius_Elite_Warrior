@@ -7,7 +7,7 @@
 **Epic:** [EPIC-038](../README.md)
 **SPEC:** [SPEC-003](../../../../Docs/SPEC/SPEC-003_check_the_exchange_connection.md) (the credentials step) is read; no journey changes for the GUI.
 **Design:** [DESIGN §10](../DESIGN_2026-10-09_headless_operation.md) · **Research:** [§4, §6](../RESEARCH_2026-10-09_headless_operation.md) · **Decision:** [O3](../DECISION_2026-10-09_headless_operation.md)
-**Depends on:** owner decision O3. Coordinates with [`EPIC-036A`](../../EPIC-036_alerting_module/incomplete/EPIC-036A_alerting_core.md) (N3: `ISecretStore` to `core/contracts`) — whichever lands first moves the port once; the other imports it.
+**Depends on:** owner decision O3. Coordinates with [`EPIC-036A`](../../EPIC-036_alerting_module/completed/EPIC-036A_alerting_core.md) (N3: `ISecretStore` to `core/contracts`) — whichever lands first moves the port once; the other imports it.
 
 ---
 

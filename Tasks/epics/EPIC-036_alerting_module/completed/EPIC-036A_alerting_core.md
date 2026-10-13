@@ -1,6 +1,6 @@
 # EPIC-036A — Alerting core: a typed alert goes through a hub, an outbox and a worker to any channel
 
-**Status:** 🔵 Planned — not started
+**Status:** ✅ Done (2026-10-13)
 **Source:** the owner's approval of the alerting design, 2026-10-08 (N1, N2, N3, N5, N8), relayed by the coordinator session; design page https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1.
 **Risk:** 🟡 — a new module, a new durable store and a contract lifted out of `support`
 **Complexity:** L — one module with five parts and a move of a contract; no UI and no real channel
@@ -28,6 +28,21 @@
 
 ## 3. Design
 Hexagonal ports and adapters (`architecture-rule.md`); Bounded Context (N1); the **transactional outbox** pattern for N2 (an alert is persisted before any send is attempted, the worker reads from the store); the project's `IBotStore`/atomic-write precedent for SQLite handling, surveyed before inventing (`CONSTITUTION.md` P5). Alert groups and kinds are code constants: a new kind is one line in one group. `IAlertChannel` is the `INotificationChannel` seam extended (BOT-018), not a parallel port; whether it is a `Protocol` or an `ABC` follows `architecture-rule.md` §2.1 (a QObject channel forces a `Protocol`, a plain adapter does not). The clock and the sleep are injected (`IMonotonicClock`, `IBotTicker` from `EPIC-035A` are the precedent) so no test sleeps. Open question O2: `KeyringSecretStore` is at `modules/trading/adapters/binance/mainnet/keyring_secret_store.py`; `alerting` may not import it, so it moves with the contract or a second keyring adapter is not written — decide and record.
+
+## 3a. Reuse
+Checked against `.claude/rules/capabilities.md` and `src/` on `master-warrior` `93ff7d0`, 2026-10-13. No UI need.
+| Need | Checked | Result |
+| :--- | :--- | :--- |
+| A channel port | `INotificationChannel` (`core/contracts/i_notification_channel.py`) | **extended, not paralleled**: `IAlertChannel` takes a typed `Alert` and answers a `DeliveryResult`. The old port, `TelegramNotificationChannel` and `NotificationEventHandler` stay untouched: `EPIC-036B` replaces the handler, `EPIC-036C` moves Telegram |
+| A durable queue | `src/infrastructure/persistence` (a symbol cache only); `bots`' `JsonBotStore` (one JSON file per bot); `market_data`'s SQLAlchemy models | `not used because` none can claim "the due deliveries of one channel, CRITICAL first" and the SQLAlchemy models are `market_data`'s own; stdlib `sqlite3` under `data_root()/state/`, so no dependency changes |
+| Where runtime data lives | catalog: `data_root` | used: `state/alerts.sqlite3` |
+| A periodic job | `Scheduler.every(...).do(...)` (Engine), as `operations` uses it | used for the grouping and quiet-hours flush (1 s). The delivery lanes are threads, not scheduler jobs: a lane blocks inside a channel, and a scheduler tick must not |
+| A clock | `bots`' `IBotClock` / `IMonotonicClock`; `operations`' `IOperationsClock` | `not used because` the first two are `bots`' contracts and `operations` may be depended on by none (`test_no_module_depends_on_operations.py`); `IAlertClock` is the same shape with a verified fake and a contract suite |
+| The event bus | `IEventBus` | `not used here`: subscribing to `bots` and `trading` events is `EPIC-036B` |
+| A health fact | `IOperationsRegistry.declare_health` | used: section `alerting`, see the notes |
+| A read-only copy must not write | `IInstanceAccess.read_only`, as `operations` does | used |
+| A secret | `ISecretStore` | `not imported`: no channel ships in this task. N3 is delivered by `EPIC-038E` (owner decision 2026-10-13); this task neither moves nor copies it |
+| A capability entry | `Capability:` block | `not added`: the first user of `IAlertPublisher` is `EPIC-036B`; the block lands with it so the catalog row names a real user |
 
 ## 4. Changes, per file
 | File | Change |
@@ -62,10 +77,39 @@ Tier per `ci-rule.md` §2: unit and integration; every regression test shown red
 - `test_no_secret_is_stored_in_the_settings`
 - the module-boundary and architecture guards (`pytest tests/unit/architecture -q`)
 
-Not run yet.
+Run 2026-10-13 on branch `claude/epic-036a-alerting-core`; results in the notes below.
 
 ## Implementation notes (written when done)
-Not started.
+Written 2026-10-13 on `claude/epic-036a-alerting-core` from `master-warrior` `93ff7d0`. Engine at the pinned `f4ef582`, untouched. No dependency, `pyproject.toml` or settings change.
+
+**What exists.** `src/modules/alerting/`: `domain/` (`Alert`, `AlertSubject`, `Severity`, `AlertKind` with `alert_catalog.py` giving each kind one group, one default severity and one label; `AlertSettings`, `AlertRoute`, `QuietHours`, `Loudness`, `BotAlertMode`, `DeliveryState`, `NoisePolicy`, `DeliveryPolicy`); `contracts/` (`IAlertChannel`, `DeliveryResult`, `IAlertPublisher`, `IOutbox`, five narrow ports, and the verified fakes `FakeAlertClock` and `FakeAlertChannel`); `application/` (`AlertHub`, `AlertRouter`, `AlertDeduplicator`, `AlertCoalescer`, `ConditionBook`, `QuietHoursHold`, `DeliveryAdmission`, `ChannelDelivery`, `AlertingHealthContributor`); `adapters/` (`SqliteOutbox`, `ThreadedDeliveryHost`, `WakeSignal`, in-memory settings, clock, catalog, null publisher); `composition/` (`alerting_bindings.py`, `channel_bindings.py`); `module.py`. `AlertingModule` is listed in `shell/modules.py` before `operations`.
+
+**Path of an alert.** `publish` (caller's thread; writes the outbox, calls no channel) -> inhibited? -> deduplicated? -> held for quiet hours? -> grouped? -> routed -> admitted to each channel's bounded queue -> `enqueue`. A lane per channel (`ThreadedDeliveryHost`) runs `ChannelDelivery.run_due`: expire, take the due delivery with the highest severity, call the channel, record the outcome. A wait (`retry_after`, or the back-off) pauses the whole channel; the worker pass takes an injected clock and no thread, which is why no test sleeps.
+
+**Decisions taken, and why.**
+- **`deliver(alert, loudness)`, not `deliver(alert)`.** The criterion's signature has no way to say "silently"; loudness belongs to the route cell (group x channel), not to the event, so it travels beside the alert instead of inside the frozen `Alert`.
+- **N8 and fail-over override an *off* cell for CRITICAL; a disabled channel and a bot set to Off do not.** A CRITICAL that fewer than two channels would hear is lifted to two (loud) from the enabled channels. The matrix cannot remove the cover for a push that never arrives; the owner's explicit "disable this channel" and N5's confirmed "Off" for a bot still win.
+- **Dedup, grouping, inhibition and recovery state is in memory.** After a restart a repeat is a new record (the owner hears it twice, never zero times: `test_dedup_windows_do_not_survive_a_restart`), and nothing recovers until the source raises the condition again. The alerts, their counts and their deliveries are durable.
+- **An inhibitor lapses after one hour** (`NoisePolicy.inhibition_ttl`), so a source that never clears a venue-down alert cannot silence the venue's bots for good.
+- **Held (quiet-hours) alerts are recorded in the outbox when held** (history) and leave as one `DAILY_SUMMARY`; the summary's list of held alerts is in memory, so a restart inside quiet hours loses the summary, not the record. `EPIC-036E` owns the *daily* summary and the heartbeat.
+- **Bounded queue per channel (`DeliveryPolicy.capacity`, 200).** A full queue sheds the oldest delivery of the lowest severity below the newcomer; with none below, a newcomer under CRITICAL is recorded `DROPPED` (never silently lost), and a CRITICAL is admitted beyond the bound.
+- **Finished alerts are purged after 30 days** (hourly, from the flush tick) so the file cannot grow without bound on an unattended host.
+- **Settings are in memory** (`InMemoryAlertSettings`, N4's defaults). Persistence belongs to the Options page (`EPIC-036D`); `IAlertSettingsSource` is the seam it replaces.
+- **A read-only copy** (`EPIC-035H`) opens no outbox and starts no lane; `IAlertPublisher` resolves to a null publisher there.
+- **Health (`declare_health`, section `alerting`):** `undelivered` and `oldest_undelivered_age_s`; `status: degraded` when the oldest has waited over 15 minutes. One line of `tests/integration/modules/operations/test_the_host_writes_its_snapshot.py` (the expected section list) gained `alerting`.
+- **`ISecretStore` / N3 / open question O2:** not touched here (owner decision 2026-10-13). No channel in this task reads a secret.
+
+**Verification, on the checked tree.**
+- Red first: the new test files failed to import (`ModuleNotFoundError: ...modules.alerting`) before any source existed.
+- `tests/unit/modules/alerting`: 94 tests; `tests/integration/modules/alerting`: 5 tests (the composed app delivers to a declared channel, delivers after a restart, leaves no `alerting-*` thread after `stop`, publishes the health section, and a read-only copy writes no outbox and starts no lane).
+- Mutation checks (each turned a test red, the code restored after): N8 floor, dedup window, channel pause, fail-over threshold, severity ordering of `due`, shedding bound, expiry boundary, inhibition TTL, wake-up on enqueue, single-alert group, "channel failing" once. One mutant survived at first (the channel pause) because the test ran one pass; the test now runs a second pass inside the wait.
+- `scripts/ci-local.ps1 -SkipTests`: PASS (ruff, format, mypy, reference check). `pytest tests/unit/architecture -q`: all pass after one fix (`ANN401` on an untyped `register(context)`).
+- `pytest tests/integration -q` (whole tier, local): 534 passed, 3 skipped, 1 failed. The failure, `test_workbench_conformance[True-1024x700]` (the Backtest mode needs 706 px of height in a 700 px window), fails identically on a clean `master-warrior` `93ff7d0` worktree: a font-metric difference of this container, not this change. `tests/sanity`: 49 passed (the real composition boots, headless boot without PySide6 included).
+- `ci-local.ps1 -Full` is GitHub Actions' to run on the PR head.
+
+**Not verified.** Nothing ran against a real channel or network. "Restart" is the outbox closed and reopened on the same file, and the app stopped and booted again in-process; no process was killed mid-write. The Windows behaviour of SQLite in WAL mode was not exercised. The lanes are tested with fakes; a soak with a real slow channel is `EPIC-036C`'s.
+
+**Open for the neighbours.** `EPIC-036B`: the sources call `IAlertPublisher.publish` / `condition_cleared`, add `bots` and `trading` to `AlertingModule.dependencies`, add the first `Capability:` block, and decide the toast channel's path. `EPIC-036C`: append `AlertChannelDescriptor`s to `composition/channel_bindings.py`. `EPIC-036D`: replace `InMemoryAlertSettings` and read `IOutbox.history`. `EPIC-036E`: heartbeat and the daily summary through `IAlertPublisher`.
 
 ## Resume
-Not started. First action: `test_an_alert_is_frozen_and_carries_its_subject`, run red.
+Done. The only unchecked criterion is the `ISecretStore` lift, delivered by `EPIC-038E`.
