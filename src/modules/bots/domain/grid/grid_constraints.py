@@ -47,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
     check_stop_loss,
     check_take_profit,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_funding_check import (
+    check_funding_adverse,
+    venue_charges_funding,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_checks import (
     check_distinct_levels,
 )
@@ -65,6 +69,10 @@ class GridConstraint:
     #: Each code the check answers when the plan violates it, and whether that
     #: violation blocks Start (D7).
     violations: Mapping[str, bool]
+    #: Whether the constraint concerns this plan's venue at all. One that does not is
+    #: not run and says nothing: a Spot plan has no funding line (`EPIC-039G`), so its
+    #: verdicts are exactly what they were.
+    applies: Callable[[GridCheckInputs], bool] = lambda _inputs: True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "violations", MappingProxyType(dict(self.violations)))
@@ -136,9 +144,19 @@ GRID_CONSTRAINTS: tuple[GridConstraint, ...] = (
         check_spacing_for_range,
         {"ARITHMETIC_ON_WIDE_RANGE": False},
     ),
+    GridConstraint(
+        "funding_leaves_the_cycle_profit",
+        check_funding_adverse,
+        {"FUNDING_ADVERSE": False},
+        applies=venue_charges_funding,
+    ),
 )
 
 
 def run_checks(inputs: GridCheckInputs) -> tuple[Verdict, ...]:
-    """One verdict per constraint, in the table's order."""
-    return tuple(constraint.check(inputs) for constraint in GRID_CONSTRAINTS)
+    """One verdict per constraint that concerns the plan's venue, in the table's order."""
+    return tuple(
+        constraint.check(inputs)
+        for constraint in GRID_CONSTRAINTS
+        if constraint.applies(inputs)
+    )

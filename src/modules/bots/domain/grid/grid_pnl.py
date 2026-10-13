@@ -3,7 +3,8 @@
 Pure `Decimal` arithmetic over the saved run. The **total** is the realised PnL of
 every sell (a completed cycle, the sell of the opening inventory, an exit slice,
 each against the average cost and net of fees) plus the unrealised PnL of what is
-still held at the bot's own last price. **Grid profit** is one part of it: the
+still held at the bot's own last price, plus the funding a Futures position paid or
+earned (`EPIC-039G`; zero on Spot, where none exists). **Grid profit** is one part of it: the
 completed buy/sell cycles only. The **HODL benchmark** is what the same capital
 would have gained held from the price the run began at.
 
@@ -38,17 +39,29 @@ class PnlSummary:
     hodl: Decimal | None
     #: Fills whose fee could not be priced: the figures are short by them.
     unpriced_fees: int
+    #: `EPIC-039G` — what the run's fills paid in commission, in the quote asset; shown so
+    #: trading's cost is visible (see `GridRuntime.commissions` for how each fee is valued).
+    commissions: Decimal = _ZERO
+    #: `EPIC-039G` — funding settled on the position, signed (earned positive). Part of
+    #: the `total`, never of `grid_profit` ("funding is separate", Pionex's split).
+    funding: Decimal = _ZERO
 
 
 def pnl_summary(runtime: GridRuntime, capital: Decimal | None) -> PnlSummary:
     unrealised = _unrealised(runtime)
     return PnlSummary(
-        total=None if unrealised is None else runtime.realised_total + unrealised,
+        total=(
+            None
+            if unrealised is None
+            else runtime.realised_total + unrealised + runtime.funding_total
+        ),
         realised=runtime.realised_total,
         unrealised=unrealised,
         grid_profit=runtime.realised_profit,
         hodl=_hodl(runtime, capital),
         unpriced_fees=runtime.unpriced_fees,
+        commissions=runtime.commissions,
+        funding=runtime.funding_total,
     )
 
 

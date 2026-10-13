@@ -17,6 +17,7 @@ class ReportedFill:
     fill: tuple[Decimal, Decimal]
     fee: tuple[Decimal, str] | None
     trade_id: int | None
+    realized_profit: Decimal | None = None
 
 
 class FakeOrderFillReporter(IOrderFillReporter):
@@ -31,5 +32,6 @@ class FakeOrderFillReporter(IOrderFillReporter):
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None = None,
         trade_id: int | None = None,
+        realized_profit: Decimal | None = None,
     ) -> None:
-        self.reported.append(ReportedFill(order, fill, fee, trade_id))
+        self.reported.append(ReportedFill(order, fill, fee, trade_id, realized_profit))

@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.funding_charged_event import (
+    FundingChargedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
 )
@@ -98,11 +101,12 @@ class VenueEventEmitter(IOrderFillReporter):
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None = None,
         trade_id: int | None = None,
+        realized_profit: Decimal | None = None,
     ) -> None:
         """`fill` is `(price, quantity)` of this one fill; `fee` is
-        `(amount, asset)` where the venue reports one (Spot), else `None`;
+        `(amount, asset)` where the report carries one, else `None`; `realized_profit` is Futures' profit of the trade (`EPIC-039G`);
         `trade_id` is the exchange's id of this fill where the venue reports
-        one (Spot), which the owner books and the bots use to count a fill once (`EPIC-035P`).
+        one, which the owner books and the bots use to count a fill once (`EPIC-035P`).
         A trade already reported, by the response or the stream, is dropped here
         (`BOT-173`)."""
         if not self._reported_trades.claim(order.symbol, trade_id):
@@ -113,7 +117,7 @@ class VenueEventEmitter(IOrderFillReporter):
             )
             return
         try:
-            self._apply_and_publish(order, fill, fee, trade_id)
+            self._apply_and_publish(order, fill, fee, trade_id, realized_profit)
         except Exception:
             # The trade was claimed but not counted everywhere: let the next
             # record of it (the stream, a history re-read) try again. The owner
@@ -127,6 +131,7 @@ class VenueEventEmitter(IOrderFillReporter):
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None,
         trade_id: int | None,
+        realized_profit: Decimal | None,
     ) -> None:
         fill_price, fill_quantity = fill
         self._owner_books.apply_fill(order, fill, fee, trade_id)
@@ -138,8 +143,16 @@ class VenueEventEmitter(IOrderFillReporter):
                 fee_amount=fee[0] if fee is not None else None,
                 fee_asset=fee[1] if fee is not None else None,
                 trade_id=trade_id,
+                realized_profit=realized_profit,
                 venue=self._venue,
             )
+        )
+
+    def funding_charged(self, symbol: str, amount: Decimal) -> None:
+        """`EPIC-039G` — the exchange settled a funding fee on `symbol`; `amount` is
+        the wallet's signed change in the quote asset."""
+        self._event_bus.emit(
+            FundingChargedEvent(symbol=symbol, amount=amount, venue=self._venue)
         )
 
     def order_ended(self, order: Order) -> None:

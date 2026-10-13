@@ -86,9 +86,9 @@ Commit tier (`ci-local.ps1 -SkipTests`): PASS on the pushed head; `tests/unit/ar
 
 **Not done, handed on:**
 - **No position checkpoint:** a run older than the venue's 30-day history window cannot be re-derived and its registration is refused (`INVENTORY_BEYOND_LOOKBACK`), where Spot's `IOwnerInventoryCheckpoints` bounds the read. `039H` (the first to run a Futures bot for weeks) adds a position checkpoint behind a second port.
-- **Fees:** a live Futures fill still reports no commission (`039G` parses `n`/`N`), so `OwnerPosition.fees` counts only what the history replay found until then; `realized_pnl` is computed from prices, before fees.
+- **Fees:** a live Futures fill reports its commission since `039G` (`n`/`N`), so `OwnerPosition.fees` counts it on the live path too, once, by the trade id this task parses; `realized_pnl` is computed from prices, before fees.
 - **The fake's `positionRisk` after a restart of the registration** is the oracle here; no testnet run has checked the foreign-position and unordered rules against Binance (`039L`).
 - Hedge Mode is out (the connection check already refuses it).
 
 ## Resume
-Done. Open items elsewhere: `039G` parses commission and realized profit on top of `t`; `039F` consumes `OwnerPositionDivergedEvent`; `039H` consumes `IExposureBook`, adds the position checkpoint and computes `FuturesLimits`.
+Done. Open items elsewhere: `039G` parsed commission and realized profit on top of `t` (merged beside it); `039F` consumes `OwnerPositionDivergedEvent`; `039H` consumes `IExposureBook`, adds the position checkpoint and computes `FuturesLimits`.

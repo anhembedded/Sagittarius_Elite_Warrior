@@ -55,7 +55,7 @@ gantt
 | EPIC-039D | [Exposure book for positions](completed/EPIC-039D_exposure_book_for_positions.md) | `claude/epic-039d-exposure-book` | 🔴 | ✅ Done 2026-10-13 | — |
 | EPIC-039E | [Settings gate and readiness](completed/EPIC-039E_futures_settings_gate_and_readiness.md) | `claude/epic-039e-settings-gate` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039F | [Risk guard and liquidation](incomplete/EPIC-039F_risk_guard_and_liquidation.md) | — | 🔴 | 🔵 Planned; asks O3, O4 | — |
-| EPIC-039G | [Costs, funding and PnL](incomplete/EPIC-039G_futures_costs_funding_and_pnl.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-039G | [Costs, funding and PnL](completed/EPIC-039G_futures_costs_funding_and_pnl.md) | `claude/epic-039g-futures-costs` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039H | [Futures Grid Long](incomplete/EPIC-039H_futures_grid_long.md) | — | 🔴 | 🔵 Planned; asks O1, O6, O8, O10 | — |
 | EPIC-039I | [Short and Neutral](incomplete/EPIC-039I_futures_grid_short_and_neutral.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | — | 🟡 | 🔵 Planned | — |
@@ -69,6 +69,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-13 | 039G | Commission and realized profit on the Futures fill, funding as its own event and a rate reader, one cost model, `FUNDING_ADVERSE`, and a run that books commissions and funding apart from grid profit. A repeated Futures fill report pays its commission once (039D's trade id). |
 | 2026-10-13 | 039D | A Futures owner's signed position is derived from its tagged fills, judged in notional and margin, cross-checked with `positionRisk` (a foreign position refuses the registration; a mismatch or a change with no tagged fill is reported, never overwritten), and a Futures fill carries its trade id so a repeated report counts once. Spot unchanged. No Futures bot is startable yet. |
 | 2026-10-13 | 039C | The Futures fake matches resting orders on a price cross, with positions, funding, liquidation, user-data events, faults and the settings refusals; a `futures` fixture boots the composed app on the Futures testnet. Findings handed to 039D/039E/039G. |
 | 2026-10-13 | 039A | The venue profile seam delivered: one deciding place for what a venue allows, a guard that fails on a second, `IBotKind.supported_profiles`; Spot sentences pinned and unchanged. No Futures path exists. |

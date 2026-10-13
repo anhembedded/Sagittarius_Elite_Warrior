@@ -62,9 +62,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     ORDER_TRADE_UPDATE,
     account_update_captured_at,
     account_update_changed_symbols,
+    account_update_funding,
     account_update_position_amounts,
     account_update_position_pnls,
     account_update_wallet_balance,
+    is_funding_update,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_stream_supervisor import (
     DEFAULT_RECONNECT_POLICY,
@@ -276,6 +278,21 @@ class FuturesUserDataStream(ManagedUserDataStream):
             )
 
     async def _handle_account_update(self, payload: dict[str, Any]) -> None:
+        # `EPIC-039G` - funding is a wallet fact the payload carries whole: it needs no
+        # position read, so it is reported before anything that does.
+        funding = account_update_funding(payload)
+        if funding is not None:
+            self._events.funding_charged(funding.symbol, funding.amount)
+            logger.debug(
+                "ACCOUNT_UPDATE  %s  funding %s", funding.symbol, funding.amount
+            )
+        elif is_funding_update(payload):
+            logger.warning(
+                "[funding-unbooked] a FUNDING_FEE ACCOUNT_UPDATE named no symbol or carried "
+                "no USDT balance change, so its funding is in no bot's account: %s",
+                payload.get("a"),
+            )
+
         if self._trading_client is None:
             # Only a direct `_handle_message` call before `_run_stream` gets here.
             logger.error("ACCOUNT_UPDATE received before the stream was ready.")

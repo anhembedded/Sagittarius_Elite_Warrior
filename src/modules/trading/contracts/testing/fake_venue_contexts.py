@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.unarranged_
     UnarrangedClientFactory,
     UnarrangedCommissionRateReader,
     UnarrangedCredentialsProvider,
+    UnarrangedFundingReader,
     UnarrangedHistoryReader,
     UnarrangedMarkPriceReader,
     UnarrangedMetadataCache,
@@ -81,6 +82,9 @@ def fake_venue_context(
         book_ticker_reader=UnarrangedBookTickerReader(),
         mark_price_reader=(
             None if venue is TradingVenue.SPOT_TESTNET else UnarrangedMarkPriceReader()
+        ),
+        funding_reader=(
+            None if venue is TradingVenue.SPOT_TESTNET else UnarrangedFundingReader()
         ),
     )
 

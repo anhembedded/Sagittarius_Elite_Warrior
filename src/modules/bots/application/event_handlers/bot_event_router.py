@@ -11,6 +11,8 @@ Nothing here touches a bot's record or sends an order.
     arrives right after trading is enabled is never dropped.
   · **A rejection** (`OrderRejectedEvent`) ends the order with the exchange's
     reason, which halts the bot.
+  · **A funding fee** (`FundingChargedEvent`, `EPIC-039G`) names a symbol, not an order:
+    it goes to the bot of that symbol on that venue.
   · **A tick** goes to every executor trading that symbol on that market.
   · **The trading switch.** Off: every executor on the venue halts. On: every
     stored bot on the venue that is not DRAFT or STOPPED takes its lease back
@@ -29,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
     GridExecutor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotFundingCharge,
     BotOrderEnd,
     BotOrderFill,
 )
@@ -45,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.funding_charged_event import (
+    FundingChargedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -87,8 +93,22 @@ class BotEventRouter:
                     event.fee_amount,
                     event.fee_asset,
                     event.trade_id,
+                    event.realized_profit,
                 )
             )
+
+    def on_funding(self, event: FundingChargedEvent) -> None:
+        """`EPIC-039G` — a funding fee carries a symbol, not an order id, so it goes to
+        the bot of that symbol on that venue (the symbol lease allows one at a time)."""
+        charge = BotFundingCharge(event.symbol, event.amount)
+        for stored in self._store.load_all().bots:
+            bot = stored.bot
+            if (
+                bot.definition.venue is event.venue
+                and bot.definition.symbol == event.symbol
+                and bot.state not in RUN_STARTING_STATES
+            ):
+                self._executors.for_bot(bot).facts.on_funding(charge)
 
     def on_end(self, event: OrderEndedEvent) -> None:
         executor = self._executor_for(event.order.client_order_id, event.venue)

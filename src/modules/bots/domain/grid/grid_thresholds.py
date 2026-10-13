@@ -13,6 +13,16 @@ from decimal import Decimal
 
 
 @dataclass(frozen=True, slots=True)
+class FuturesGridThresholds:
+    """`EPIC-039G` — the advisory numbers only a position venue has (DESIGN §6). Like the
+    Spot ones, a value the kind is built with, never a literal inside a check."""
+
+    #: A plan's funding costs more than this share of its expected cycle profit per
+    #: funding interval: `FUNDING_ADVERSE`.
+    funding_adverse_share: Decimal = Decimal("0.25")
+
+
+@dataclass(frozen=True, slots=True)
 class GridThresholds:
     """The defaults behind every Grid warning."""
 
@@ -26,3 +36,5 @@ class GridThresholds:
     exit_distance_high: Decimal = Decimal("0.08")
     #: The report: arithmetic and geometric diverge beyond a range of about 20%.
     arithmetic_max_range_fraction: Decimal = Decimal("0.20")
+    #: `EPIC-039G` — what only a position venue judges.
+    futures: FuturesGridThresholds = FuturesGridThresholds()

@@ -45,6 +45,8 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
             runtime.mark_price_at.isoformat() if runtime.mark_price_at else None
         ),
         "unpriced_fees": runtime.unpriced_fees,
+        "commissions": str(runtime.commissions),
+        "funding_total": str(runtime.funding_total),
         "earlier_runs_base": str(runtime.earlier_runs_base),
         "earlier_runs_cost": str(runtime.earlier_runs_cost),
         "held": [_encode_held(held) for held in runtime.held],
@@ -74,6 +76,9 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
             _moment(data["mark_price_at"]) if data.get("mark_price_at") else None
         ),
         unpriced_fees=_int(data, "unpriced_fees") if "unpriced_fees" in data else 0,
+        # Absent from a file an earlier build wrote: nothing counted yet (`EPIC-039G`).
+        commissions=_optional_decimal(data, "commissions") or Decimal(0),
+        funding_total=_optional_decimal(data, "funding_total") or Decimal(0),
         # Absent from a file an earlier build wrote: nothing known (`BUG-196`).
         earlier_runs_base=_optional_decimal(data, "earlier_runs_base") or Decimal(0),
         earlier_runs_cost=_optional_decimal(data, "earlier_runs_cost") or Decimal(0),

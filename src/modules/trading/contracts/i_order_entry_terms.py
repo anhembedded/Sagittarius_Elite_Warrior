@@ -8,11 +8,11 @@ by accident.
 its own method because each changes at its own pace: the leverage and the
 brackets when the user changes them, the mark price and the book every
 second, the app's notional limit only with the configuration. On a venue
-with no leverage, brackets or mark price (Spot) those three answer
+with no leverage, brackets, mark price or funding (Spot) those four answer
 `NotApplicable.ON_THIS_VENUE`, never an invented figure.
 
 Plausible extensions, each one new method here plus its query:
-- the funding rate and next funding time for the Futures desk header;
+- the funding rate's history for the Futures backtest (`EPIC-039K`);
 - the Multi-Assets mode, which changes what the Futures available balance
   counts;
 - a mainnet venue, which needs nothing here: another `VenueTradingPorts`.
@@ -25,6 +25,9 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.funding_rate import (
+    FundingRate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
     FuturesSymbolSetting,
@@ -85,6 +88,12 @@ class IOrderEntryTerms(ABC):
     @abstractmethod
     def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
         """Read `symbol`'s mark price.
+        @raise MarketPriceUnavailableError The exchange did not answer.
+        """
+
+    @abstractmethod
+    def funding_rate_for(self, symbol: str) -> FundingRate | NotApplicable:
+        """Read `symbol`'s funding rate and next funding time (`EPIC-039G`).
         @raise MarketPriceUnavailableError The exchange did not answer.
         """
 

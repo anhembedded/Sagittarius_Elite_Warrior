@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_best_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_commission_rate.query import (
     GetCommissionRateQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_funding_rate.query import (
+    GetFundingRateQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_futures_symbol_setting.query import (
     GetFuturesSymbolSettingQuery,
 )
@@ -40,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.funding_rate import (
+    FundingRate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
     FuturesSymbolSetting,
@@ -105,6 +111,11 @@ class OrderEntryTermsService(IOrderEntryTerms):
     def mark_price_for(self, symbol: str) -> MarkPrice | NotApplicable:
         return self._ask_unless_not_applicable(
             GetMarkPriceQuery(venue=self._venue, symbol=symbol), MarkPrice
+        )
+
+    def funding_rate_for(self, symbol: str) -> FundingRate | NotApplicable:
+        return self._ask_unless_not_applicable(
+            GetFundingRateQuery(venue=self._venue, symbol=symbol), FundingRate
         )
 
     def best_bid_ask_for(self, symbol: str) -> BestBidAsk:

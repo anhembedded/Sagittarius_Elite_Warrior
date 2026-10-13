@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_funding_reader import (
+    IFundingReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
 )
@@ -88,6 +91,8 @@ class VenueContext:
     book_ticker_reader: IBookTickerReader
     #: `None` on a venue with no mark price (Spot), as `account_control`.
     mark_price_reader: IMarkPriceReader | None
+    #: `None` on a venue with no funding (Spot), as `mark_price_reader` (`EPIC-039G`).
+    funding_reader: IFundingReader | None
     #: A mainnet venue's refusal of a key that can withdraw (`EPIC-034` D5);
     #: `None` on a testnet. The adapters above already resolve their key through
     #: it (`VenueAssembly.order_credentials`); the Connect step asks it to say why.

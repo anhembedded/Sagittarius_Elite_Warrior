@@ -41,19 +41,21 @@ class OrderFilledEvent(BaseEvent):
     order: Order
     fill_price: Decimal
     fill_quantity: Decimal
-    #: `EPIC-027L` — Spot's per-fill commission (`"n"`/`"N"` on
-    #: `executionReport`), absent for Futures (`ORDER_TRADE_UPDATE` carries
-    #: no per-fill commission field at all — funding/commission there is a
-    #: separate wallet-balance concern `account_update_wallet_balance`
-    #: already covers). `None` rather than `Decimal(0)` when unknown: a real
-    #: zero-fee fill and "this venue's parser never populated it" are
-    #: different facts (`code/errors.md` §6, no fabricated fallback).
+    #: `EPIC-027L` — the per-fill commission: Spot's `"n"`/`"N"` on
+    #: `executionReport`, and Futures' on `ORDER_TRADE_UPDATE` (`EPIC-039G`: the
+    #: page lists `n` and `N`, "will not push if no commission"; Futures charges in
+    #: the quote asset). `None` rather than `Decimal(0)` when the report carries
+    #: none: a real zero-fee fill and "this report did not say" are different
+    #: facts (`code/errors.md` §6, no fabricated fallback).
     fee_amount: Decimal | None = None
     fee_asset: str | None = None
     #: `EPIC-035P` — the exchange's id of this one fill (`"t"` on Spot and on
     #: Futures, `EPIC-039D`), `None` where a report carries none: what lets a
     #: consumer count a report the stream delivers twice once.
     trade_id: int | None = None
+    #: `EPIC-039G` — Futures' realized profit of this trade (`"rp"`), in the quote
+    #: asset, gross of the commission; `None` where the venue reports none (Spot).
+    realized_profit: Decimal | None = None
     #: `EPIC-028C` — the venue this happened on, so a screen showing one
     #: venue never shows another's. No default: a missing venue is exactly
     #: the fill landing in the wrong desk's table.
