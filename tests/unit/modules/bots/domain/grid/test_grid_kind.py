@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotFundingCharge,
     BotOrderEnd,
     BotOrderFill,
 )
@@ -65,6 +66,8 @@ class _Facts(IBotFacts):
     def on_fill(self, fill: BotOrderFill) -> None: ...
 
     def on_end(self, end: BotOrderEnd) -> None: ...
+
+    def on_funding(self, charge: BotFundingCharge) -> None: ...
 
     def on_tick(self, tick: PriceTick) -> None: ...
 

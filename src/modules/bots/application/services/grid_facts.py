@@ -57,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_terms_
     GridTermsWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotFundingCharge,
     BotOrderEnd,
     BotOrderFill,
 )
@@ -139,6 +140,9 @@ class GridFacts(IBotFacts):
     def on_end(self, end: BotOrderEnd) -> None:
         self._post(f"end of {end.client_order_id}", lambda: self._apply_end(end))
 
+    def on_funding(self, charge: BotFundingCharge) -> None:
+        self._post("funding", lambda: self._apply_funding(charge))
+
     def on_tick(self, tick: PriceTick) -> None:
         self._post("tick", lambda: self._parts.prices.on_tick(tick))
 
@@ -175,7 +179,11 @@ class GridFacts(IBotFacts):
         level_fill = self._level_fill(fill)
         if state.runtime.level_of(fill.client_order_id) is None:
             if fill.client_order_id in self._context.off_ladder:
-                state.update(book_market_fill(state.runtime, fill.side, level_fill))
+                state.update(
+                    book_market_fill(
+                        state.runtime, fill.side, level_fill
+                    ).with_commission(level_fill.quote_fee)
+                )
             else:
                 logger.info(
                     "Bot %s: fill of %s ignored; no level holds it and the bot "
@@ -190,8 +198,16 @@ class GridFacts(IBotFacts):
             self._context.terms.step_size,
             hold=state.state is not _S.RUNNING,
         )
-        state.update(reaction.runtime)
+        state.update(reaction.runtime.with_commission(level_fill.quote_fee))
         self._parts.placer.act(reaction.actions)
+
+    def _apply_funding(self, charge: BotFundingCharge) -> None:
+        """`EPIC-039G` — only a bot that has run holds a position to be charged on."""
+        state = self._context.state
+        if state.state in (_S.DRAFT, _S.STOPPED):
+            return
+        state.update(state.runtime.with_funding(charge.amount))
+        logger.debug("Bot %s: funding %s booked", state.bot_id, charge.amount)
 
     def _apply_end(self, end: BotOrderEnd) -> None:
         state = self._context.state

@@ -199,6 +199,14 @@ class GridRuntime:
     #: Fills whose fee was paid in an asset that could not be priced in the quote
     #: asset; the total is then short by those fees.
     unpriced_fees: int = 0
+    #: `EPIC-039G` — the commissions the run's accepted fills paid, in the quote asset (a
+    #: fee in another asset at its quote price when it was paid). Already inside the
+    #: realised figures; kept apart so the screen can say what trading cost.
+    commissions: Decimal = _ZERO
+    #: `EPIC-039G` — the funding the exchange settled on the run's symbol, signed (earned
+    #: positive, paid negative). A wallet event, not a fill, so it is **not** in
+    #: `realised_profit`: a funding gain must not hide a losing grid.
+    funding_total: Decimal = _ZERO
     held: tuple[HeldOrder, ...] = ()
     reason: GridReason | None = None
     reason_detail: str = ""
@@ -229,6 +237,12 @@ class GridRuntime:
 
     def level_at(self, price: Decimal) -> RuntimeLevel | None:
         return next((level for level in self.levels if level.price == price), None)
+
+    def with_commission(self, commission: Decimal) -> GridRuntime:
+        return replace(self, commissions=self.commissions + commission)
+
+    def with_funding(self, funding: Decimal) -> GridRuntime:
+        return replace(self, funding_total=self.funding_total + funding)
 
     def with_reason(self, reason: GridReason, detail: str) -> GridRuntime:
         return replace(self, reason=reason, reason_detail=detail)

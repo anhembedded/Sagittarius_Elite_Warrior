@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotFundingCharge,
     BotOrderEnd,
     BotOrderFill,
 )
@@ -35,6 +36,11 @@ class IBotFacts(ABC):
     @abstractmethod
     def on_end(self, end: BotOrderEnd) -> None:
         """One of the bot's orders ended without filling whole."""
+
+    @abstractmethod
+    def on_funding(self, charge: BotFundingCharge) -> None:
+        """The exchange settled a funding fee on the bot's symbol (`EPIC-039G`): booked
+        beside the fills, never as grid profit."""
 
     @abstractmethod
     def on_tick(self, tick: PriceTick) -> None:

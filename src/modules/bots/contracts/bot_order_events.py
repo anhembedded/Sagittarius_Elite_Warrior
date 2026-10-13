@@ -27,6 +27,19 @@ class BotOrderFill:
     #: reports none. With the order id it names the fill, so a report delivered
     #: twice is counted once.
     trade_id: int | None = None
+    #: `EPIC-039G` — Futures' realized profit of this trade, quote asset, gross of the
+    #: commission; `None` where the report carries none (Spot). Carried for the position
+    #: executor (`EPIC-039H`); the Grid's own cycle accounting does not read it.
+    realized_profit: Decimal | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BotFundingCharge:
+    """`EPIC-039G` — the exchange settled a funding fee on the bot's symbol; `amount` is
+    the wallet's signed change in the quote asset (negative: paid)."""
+
+    symbol: str
+    amount: Decimal
 
 
 @dataclass(frozen=True, slots=True)
