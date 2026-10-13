@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_re
     GateRequest,
     GateResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_plan_risk_inputs import (
     PlanRiskInputs,
 )
@@ -149,6 +152,7 @@ def a_position_world(
     gate: Gate | None = None,
     guard: Guard | None = None,
     unreadable: str | None = None,
+    state: BotLifecycleState = BotLifecycleState.STARTING,
 ) -> tuple[GridWorld, Gate]:
     gate = gate or Gate()
     guard = guard or Guard()
@@ -163,7 +167,11 @@ def a_position_world(
         )
 
     exposures = GridExposures(VenueProfilesByMarket(), {ExposureKind.INVENTORY: build})
-    return grid_world(exposures=exposures), gate
+    world = grid_world(state=state, exposures=exposures)
+    # A position venue's registration always answers a derived position; a bot that has done
+    # nothing yet derives none.
+    world.session.register_owner_budget_answers(a_registration("0"))
+    return world, gate
 
 
 def a_long_position(quantity: str) -> LivePosition:
@@ -197,5 +205,25 @@ def flat_once_sold(
     def positions() -> tuple[LivePosition, ...]:
         sold = any(r.order_type is OrderType.MARKET for r in world.book.requests)
         return () if sold else (a_long_position(held),)
+
+    monkeypatch.setattr(world.snapshot, "open_positions", positions)
+
+
+def exchange_holds_less_after_each_sale(
+    world: GridWorld, monkeypatch: pytest.MonkeyPatch, held: str
+) -> None:
+    """The exchange reports `held`, less what the bot's market orders sold since (a long)."""
+
+    def positions() -> tuple[LivePosition, ...]:
+        sold = sum(
+            (
+                r.quantity
+                for r in world.book.requests
+                if r.order_type is OrderType.MARKET
+            ),
+            D(0),
+        )
+        left = D(held) - sold
+        return (a_long_position(str(left)),) if left != 0 else ()
 
     monkeypatch.setattr(world.snapshot, "open_positions", positions)

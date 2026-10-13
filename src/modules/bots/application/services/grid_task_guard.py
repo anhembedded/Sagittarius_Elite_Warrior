@@ -121,6 +121,8 @@ class GridTaskGuard:
         sent = self._context.gateway.submissions > sent_before
         if self._orders_may_rest(before, sent):
             self._park()
+        elif self._halted_unable_to_park(before, sent):
+            self._say_position_stays_open()
         if self._unsaved_and_parked():
             self._note(f"{_STORAGE_NOTE} ({state.storage_failure})")
         self._pause.after_task()
@@ -133,6 +135,20 @@ class GridTaskGuard:
             and (before not in _PARKED or sent)
             and state.runtime.reason not in _NOT_PARKED
         )
+
+    def _halted_unable_to_park(self, before: BotLifecycleState, sent: bool) -> bool:
+        """A halt just made, for a reason that sends no cancel (`_NOT_PARKED`)."""
+        state = self._context.state
+        return (
+            state.state in _PARKED
+            and (before not in _PARKED or sent)
+            and state.runtime.reason in _NOT_PARKED
+        )
+
+    def _say_position_stays_open(self) -> None:
+        words = self._parking.left_open_words()
+        if words is not None and words not in self._context.state.runtime.reason_detail:
+            self._note(words)
 
     def _unsaved_and_parked(self) -> bool:
         """A parked bot whose file is behind, and which does not say so yet."""

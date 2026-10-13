@@ -54,18 +54,39 @@ class GridParking:
         self._stopper = stopper
         self._housekeeping = GridHousekeeping(context)
 
+    def left_open_words(self) -> str | None:
+        """What a halt that cannot close says instead (a switch-off, a rejected key, a rate
+        limit: no cancel and no close can be sent), or `None` where the venue closes nothing on
+        a halt (Spot's base is the user's to keep). `EPIC-039L`'s stop on the exchange is what
+        protects the position meanwhile."""
+        if not self._closer.closes_on_halt():
+            return None
+        return (
+            "any position stays open on the exchange: this bot cannot close it "
+            "until trading is back"
+        )
+
     def park(self) -> str | None:
         """@return What may still rest, in words, when a cancel did not go through; `None`
-        when the ladder is off (and the position, where the venue closes one, is being closed)."""
+        when the ladder is off.
+
+        Where the venue closes on a halt the close follows whatever the cancel did, even a
+        refusal or a failure that propagates: a leveraged position is never left bare, and the
+        stop that closes cancels the tagged orders again with its own retries."""
+        try:
+            return self._cancel_ladder()
+        finally:
+            if self._closer.closes_on_halt():
+                self._close_position()
+
+    def _cancel_ladder(self) -> str | None:
         report = self._housekeeping.cancel_tagged()
-        if report.failed is not None:
-            return (
-                f"{report.client_order_id} and any after it may still rest: "
-                f"{report.failed.detail}"
-            )
-        if self._closer.closes_on_halt():
-            self._close_position()
-        return None
+        if report.failed is None:
+            return None
+        return (
+            f"{report.client_order_id} and any after it may still rest: "
+            f"{report.failed.detail}"
+        )
 
     def _close_position(self) -> None:
         state = self._context.state
