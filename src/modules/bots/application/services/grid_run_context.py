@@ -37,6 +37,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_refere
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.off_ladder_orders import (
     OffLadderOrders,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.settings_check import (
+    SettingsCheck,
+    no_settings_to_check,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -115,6 +119,9 @@ class GridRunContext:
     stop_requested: threading.Event = field(default_factory=threading.Event)
     #: The fills the run has counted, so a repeat is counted once (`EPIC-035P`).
     applied_fills: AppliedFills = field(default_factory=AppliedFills)
+    #: Whether the venue still holds the settings the bot asked for (`EPIC-039E`): the
+    #: gate's read-only `verify` for the bot's request. Spot has none to hold.
+    settings_check: SettingsCheck = no_settings_to_check
 
     @property
     def terms(self) -> ExchangeTerms:

@@ -21,6 +21,7 @@ two different things.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
@@ -34,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
     ExchangeUnavailable,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
+    IVenueFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
@@ -60,9 +64,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
-    SpotHolding,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.account_source import (
     AccountSource,
 )
@@ -72,8 +73,21 @@ logger = logging.getLogger("App.Bots.Readiness")
 _ZERO = Decimal(0)
 
 
-class ExchangeFactsReader:
-    """@brief What the exchange says about `bot`'s symbol and account, now."""
+@dataclass(frozen=True, slots=True)
+class _Balance:
+    """One asset's free and locked amounts, as the account reports them."""
+
+    asset: str
+    free: Decimal
+    locked: Decimal
+
+
+class ExchangeFactsReader(IVenueFacts):
+    """@brief What the exchange says about `bot`'s symbol and account, now.
+
+    @details The Spot adapter of `IVenueFacts` (`EPIC-039E`): it answers today's
+    `ExchangeSnapshot`, unchanged. Spot's balances are read here as bots' own
+    `_Balance` rows, so no Spot trading type is named in `bots`."""
 
     def __init__(self, ports: IVenueTradingPorts, clock: IBotClock) -> None:
         self._ports = ports
@@ -140,7 +154,7 @@ def _facts(
 ) -> ExchangeFacts:
     symbol = bot.definition.symbol
     bot_id = bot.bot_id.value
-    holdings = status.holdings or ()
+    holdings = tuple(_Balance(h.asset, h.free, h.locked) for h in status.holdings or ())
     base = symbol.removesuffix(BUDGET_QUOTE_ASSET)
     on_symbol = tuple(order for order in orders if order.symbol == symbol)
     own = tuple(order for order in on_symbol if tag_of(order.client_order_id) == bot_id)
@@ -180,7 +194,7 @@ def _facts(
     return facts
 
 
-def _locked(holdings: tuple[SpotHolding, ...], asset: str) -> Decimal:
+def _locked(holdings: tuple[_Balance, ...], asset: str) -> Decimal:
     return next((h.locked for h in holdings if h.asset == asset), _ZERO)
 
 

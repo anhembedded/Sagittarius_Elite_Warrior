@@ -53,7 +53,7 @@ gantt
 | EPIC-039B | [Direction-aware planner](completed/EPIC-039B_direction_aware_grid_planner.md) | `claude/epic-039b-direction-planner` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039C | [Futures fake exchange matching](completed/EPIC-039C_futures_fake_exchange_matching.md) | `claude/epic-039c-futures-fake-exchange` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039D | [Exposure book for positions](incomplete/EPIC-039D_exposure_book_for_positions.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-039E | [Settings gate and readiness](incomplete/EPIC-039E_futures_settings_gate_and_readiness.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-039E | [Settings gate and readiness](completed/EPIC-039E_futures_settings_gate_and_readiness.md) | `claude/epic-039e-settings-gate` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039F | [Risk guard and liquidation](incomplete/EPIC-039F_risk_guard_and_liquidation.md) | — | 🔴 | 🔵 Planned; asks O3, O4 | — |
 | EPIC-039G | [Costs, funding and PnL](incomplete/EPIC-039G_futures_costs_funding_and_pnl.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-039H | [Futures Grid Long](incomplete/EPIC-039H_futures_grid_long.md) | — | 🔴 | 🔵 Planned; asks O1, O6, O8, O10 | — |

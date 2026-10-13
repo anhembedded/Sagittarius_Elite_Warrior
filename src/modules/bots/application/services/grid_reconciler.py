@@ -58,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
+    GateOutcome,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
@@ -145,6 +148,9 @@ class GridReconciler:
         exchange evidence); the caller applies the answer. `run` does for a
         RECOVERING bot, `GridStreamGap` for a running one (`EPIC-035B`)."""
         state = self._context.state
+        drift = self._settings_drift()
+        if drift is not None:
+            return drift
         # Open orders **before** the registration reads history fresh: an order
         # that fills in between is still listed open here and waits for the
         # next run, whereas read after it, the order would be gone from the
@@ -175,6 +181,25 @@ class GridReconciler:
             return outcome
         mismatch = self._check_inventory(outcome, registration.inventory.quantity)
         return outcome if mismatch is None else mismatch
+
+    def _settings_drift(self) -> ReconcileMismatch | ReconcileWait | None:
+        """The venue's leverage or margin type against what the bot asked for
+        (`EPIC-039E`): a difference halts the bot with both values; it is never set again
+        silently. A read that failed waits, since a missing setting is not a match."""
+        result = self._context.settings_check()
+        if result.ensured:
+            return None
+        logger.info(
+            "Bot %s: the venue's settings no longer match: %s [futures-gate]",
+            self._context.state.bot_id,
+            result.detail,
+        )
+        if result.outcome is GateOutcome.SETTINGS_UNREADABLE:
+            return ReconcileWait(
+                GridReason.TASK_FAILED,
+                f"waiting: the venue's settings were not read ({result.detail})",
+            )
+        return ReconcileMismatch(GridReason.SETTINGS_DRIFT, result.detail)
 
     def _read_records(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]

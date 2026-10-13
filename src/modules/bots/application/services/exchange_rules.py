@@ -122,11 +122,25 @@ def judge_exchange(
     snapshot: ExchangeSnapshot, needs: LadderNeeds | None, purpose: RunPurpose
 ) -> RuleOutcome:
     """Every rule's finding over `snapshot`, or the one item its state is."""
+    if not isinstance(snapshot, ExchangeLoaded):
+        return not_loaded_outcome(snapshot)
+    context = RuleContext(purpose, snapshot.facts, needs)
+    found = RuleOutcome()
+    for rule in RULES:
+        found = found + rule(context)
+    return found
+
+
+def not_loaded_outcome(
+    snapshot: ExchangeChecking | ExchangeUnavailable,
+) -> RuleOutcome:
+    """The one item a snapshot that holds no facts is: still being read, or not read.
+    Shared with the Futures rules (`futures_rules.py`), so both profiles say it alike."""
     match snapshot:
         case ExchangeChecking():
             return RuleOutcome(
                 (
-                    _item(
+                    item(
                         "RUN_EXCHANGE_CHECKING",
                         CHECKING_THE_EXCHANGE,
                         BotRefusal.EXCHANGE_NOT_READ,
@@ -137,7 +151,7 @@ def judge_exchange(
         case ExchangeUnavailable(reason=reason):
             return RuleOutcome(
                 (
-                    _item(
+                    item(
                         "RUN_EXCHANGE_UNAVAILABLE",
                         f"The exchange's facts could not be read: {reason}",
                         BotRefusal.EXCHANGE_NOT_READ,
@@ -145,12 +159,6 @@ def judge_exchange(
                     ),
                 )
             )
-        case ExchangeLoaded(facts=facts):
-            context = RuleContext(purpose, facts, needs)
-            found = RuleOutcome()
-            for rule in RULES:
-                found = found + rule(context)
-            return found
 
 
 def field_verdicts(items: tuple[ReadinessItem, ...]) -> tuple[Verdict, ...]:
@@ -183,9 +191,9 @@ def earlier_runs_left(context: RuleContext) -> RuleOutcome:
     if not earlier.is_left:
         return RuleOutcome()
     worth = (
-        f"≈ {_money(earlier.quantity * context.needs.price)} {facts.quote_asset}"
+        f"≈ {money(earlier.quantity * context.needs.price)} {facts.quote_asset}"
         if context.needs is not None
-        else f"(cost {_money(earlier.cost)} {facts.quote_asset})"
+        else f"(cost {money(earlier.cost)} {facts.quote_asset})"
     )
     return RuleOutcome(
         advisories=(
@@ -215,7 +223,7 @@ def base_short_for_sells(context: RuleContext) -> RuleOutcome:
     )
     return RuleOutcome(
         (
-            _item(
+            item(
                 "RUN_BASE_SHORT",
                 f"The resumed ladder sells {_amount(needs.base)} {facts.base_asset} "
                 f"and {facts.venue_title} has {_amount(available)} {facts.base_asset} "
@@ -240,15 +248,15 @@ def quote_short_for_ladder(context: RuleContext) -> RuleOutcome:
         else "The resumed ladder's BUY levels"
     )
     have = (
-        f"{facts.venue_title} has {_money(available, ROUND_FLOOR)} "
+        f"{facts.venue_title} has {money(available, ROUND_FLOOR)} "
         f"{facts.quote_asset} free"
     )
-    need = f"{what} need {_money(needs.quote, ROUND_CEILING)} {facts.quote_asset}"
+    need = f"{what} need {money(needs.quote, ROUND_CEILING)} {facts.quote_asset}"
     if context.purpose is RunPurpose.START:
         advice = _capital_advice(needs, available)
         return RuleOutcome(
             (
-                _item(
+                item(
                     QUOTE_SHORT,
                     f"{need} and {have}; {advice}",
                     BotRefusal.BALANCE_TOO_SMALL,
@@ -259,7 +267,7 @@ def quote_short_for_ladder(context: RuleContext) -> RuleOutcome:
         )
     return RuleOutcome(
         (
-            _item(
+            item(
                 QUOTE_SHORT,
                 f"{need} and {have}; free the quote or stop the bot",
                 BotRefusal.BALANCE_TOO_SMALL,
@@ -306,7 +314,7 @@ def _capital_advice(needs: LadderNeeds, available: Decimal) -> str:
     fits = fitting_capital(needs, available)
     if fits is None:
         return "no capital makes this ladder fit; free quote on the account"
-    return f"lower the capital to at most {_money(fits)}"
+    return f"lower the capital to at most {money(fits)}"
 
 
 #: The rules, in the order their findings are listed. A new check is one more entry.
@@ -317,7 +325,7 @@ RULES: tuple[Rule, ...] = (
 )
 
 
-def _item(
+def item(
     code: str,
     reason: str,
     refusal: BotRefusal,
@@ -332,5 +340,5 @@ def _amount(value: Decimal) -> str:
     return f"{value.normalize():f}"
 
 
-def _money(value: Decimal, rounding: str = ROUND_FLOOR) -> str:
+def money(value: Decimal, rounding: str = ROUND_FLOOR) -> str:
     return f"{value.quantize(_CENT, rounding=rounding):f}"
