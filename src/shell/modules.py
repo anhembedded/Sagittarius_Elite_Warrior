@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.module import AlertingModule
 from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
 from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
@@ -51,6 +52,7 @@ MODULES: tuple[type[BoundedContextModule], ...] = (
     StrategyModule,
     BacktestingModule,
     BotsModule,
+    AlertingModule,
     OperationsModule,
 )
 
