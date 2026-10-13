@@ -102,6 +102,9 @@ class GridReason(str, Enum):
     #: The exchange's position moved with no order of the bot's behind it (`EPIC-039F`): a
     #: forced close, an auto-deleveraging, or a trade by hand, still there when re-read.
     FOREIGN_FILL = "foreign_fill"
+    #: The exchange's position could not be seen for longer than the limit while the bot
+    #: may hold one (`EPIC-039F`, the owner's rule): a position nobody can see is not safe.
+    POSITION_UNOBSERVABLE = "position_unobservable"
     #: The exchange's position and the one the bot's fills add up to disagree, still there
     #: when re-read (`EPIC-039F`).
     POSITION_MISMATCH = "position_mismatch"

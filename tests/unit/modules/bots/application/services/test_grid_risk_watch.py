@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_spot import (
     SpotRiskGuard,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
+    PriceTick,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_risk_changed_event import (
     BotRiskChangedEvent,
 )
@@ -275,3 +278,74 @@ def test_a_bot_without_a_risk_watch_ignores_a_divergence_and_the_beat() -> None:
     world.executor.facts.on_price_age_check()
 
     assert world.state() is S.RUNNING
+
+
+def _advance(rig: _Rig, seconds: int) -> None:
+    """Move the monotonic clock without letting the price feed go stale."""
+    while seconds > 0:
+        step = min(seconds, 30)
+        rig.world.monotonic.advance(step)
+        rig.world.executor.facts.on_tick(PriceTick.at(D(120)))
+        seconds -= step
+
+
+def _go_blind(rig: _Rig) -> None:
+    """The exchange stops answering and the last reading ages past the limit."""
+    rig.beat()
+    rig.exchange.unreadable = True
+    rig.world.clock.advance(timedelta(seconds=61))
+    rig.beat()
+
+
+def test_unknown_for_more_than_the_limit_while_a_position_exists_halts() -> None:
+    rig = _Rig()
+    _go_blind(rig)
+    assert rig.world.state() is S.RUNNING
+
+    _advance(rig, 120)
+    rig.beat()
+    assert rig.world.state() is S.RUNNING  # exactly the limit is not past it
+    _advance(rig, 1)
+    rig.beat()
+
+    assert rig.world.state() is S.HALTED
+    runtime = rig.world.runtime()
+    assert runtime.reason is GridReason.POSITION_UNOBSERVABLE
+    assert "120" in runtime.reason_detail
+
+
+def test_a_fresh_reading_restarts_the_unknown_clock() -> None:
+    rig = _Rig()
+    _go_blind(rig)
+    _advance(rig, 100)
+    rig.exchange.unreadable = False
+    rig.beat()  # seen again
+    rig.exchange.unreadable = True
+    rig.world.clock.advance(timedelta(seconds=61))
+    rig.beat()  # blind again
+    _advance(rig, 100)
+    rig.beat()
+
+    assert rig.world.state() is S.RUNNING
+
+
+def test_unknown_with_a_flat_last_reading_does_not_halt() -> None:
+    rig = _Rig()
+    rig.exchange.position = D(0)
+    _go_blind(rig)
+
+    _advance(rig, 500)
+    rig.beat()
+
+    assert rig.world.state() is S.RUNNING
+
+
+def test_a_bot_that_never_got_a_reading_halts_after_the_limit() -> None:
+    rig = _Rig()
+    rig.exchange.unreadable = True
+    rig.beat()
+    _advance(rig, 121)
+
+    rig.beat()
+
+    assert rig.world.runtime().reason is GridReason.POSITION_UNOBSERVABLE

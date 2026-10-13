@@ -16,6 +16,13 @@ and only in the states that hold or lay orders (`PRICE_STALENESS_HALTS`):
     is still there (`FOREIGN_FILL`, or `POSITION_MISMATCH`). Unconfirmed, it is logged and the
     bot runs on.
 
+  · **A bot that cannot see its position is not safe** (the owner's rule): when the level has
+    been UNKNOWN - or no reading ever arrived - for longer than `risk_unknown_halt_after`
+    (120 s) and the last known position is not flat, it halts with
+    `GridReason.POSITION_UNOBSERVABLE`. A last reading that was flat does not halt it; a
+    bot with no reading at all counts as possibly exposed. Any judgeable reading restarts
+    the clock.
+
 What the halt then does with the position (close it reduce-only unless an exchange-side stop
 stands, decision O8) is the Futures executor's policy (`EPIC-039H`, `039L`), not this watch's.
 The watch never changes a parameter and never sends an order.
@@ -98,6 +105,8 @@ class GridRiskWatch:
         self._snapshot: RiskSnapshot | None = None
         self._read_failing = False
         self._pending: _Pending | None = None
+        #: When the bot stopped being able to judge, on the monotonic clock; `None` while it can.
+        self._blind_since: float | None = None
 
     @property
     def level(self) -> RiskLevel:
@@ -127,6 +136,7 @@ class GridRiskWatch:
         if self._context.state.state not in PRICE_STALENESS_HALTS:
             self._level = RiskLevel.SAFE
             self._pending = None
+            self._blind_since = None
             return
         self._confirm_divergence()
         if self._context.state.state in PRICE_STALENESS_HALTS:
@@ -173,14 +183,40 @@ class GridRiskWatch:
         self._read()
         snapshot = self._snapshot
         if snapshot is None:
+            self._note_blindness(None)
             return
         state = self._parts.guard.watch(snapshot, self._parts.clock.now(), self._level)
-        if state.level is self._level:
+        if state.level is not self._level:
+            self._level = state.level
+            self._announce(state, snapshot)
+            if state.level is RiskLevel.CRITICAL:
+                halt_with(
+                    self._context.state, GridReason.LIQUIDATION_RISK, state.reason
+                )
+        self._note_blindness(state)
+
+    def _note_blindness(self, state: RiskState | None) -> None:
+        """Halt once the bot has been unable to judge for longer than the limit."""
+        if state is not None and state.level is not RiskLevel.UNKNOWN:
+            self._blind_since = None
             return
-        self._level = state.level
-        self._announce(state, snapshot)
-        if state.level is RiskLevel.CRITICAL:
-            halt_with(self._context.state, GridReason.LIQUIDATION_RISK, state.reason)
+        now = self._context.monotonic.seconds()
+        if self._blind_since is None:
+            self._blind_since = now
+        limit = self._parts.thresholds.risk_unknown_halt_after.total_seconds()
+        last = self._snapshot
+        exposed = last is None or last.position != 0
+        if now - self._blind_since > limit and exposed:
+            detail = (
+                f"the exchange's position could not be seen for more than {limit:.0f} s "
+                "and the bot may hold one"
+            )
+            logger.error(
+                "Bot %s: %s; halting [liquidation-risk]",
+                self._context.state.bot_id,
+                detail,
+            )
+            halt_with(self._context.state, GridReason.POSITION_UNOBSERVABLE, detail)
 
     def _read(self) -> None:
         try:

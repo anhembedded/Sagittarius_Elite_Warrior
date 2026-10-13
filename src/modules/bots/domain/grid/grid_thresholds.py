@@ -38,6 +38,10 @@ class FuturesGridThresholds:
     liq_rearm_factor: Decimal = Decimal("1.1")
     #: A snapshot older than this says nothing about now: UNKNOWN, never SAFE.
     risk_snapshot_max_age: timedelta = timedelta(seconds=60)
+    #: A bot that cannot judge its liquidation distance (the state is UNKNOWN, or no
+    #: reading ever arrived) for longer than this while it may hold a position halts (the
+    #: owner's rule, 2026-10-13).
+    risk_unknown_halt_after: timedelta = timedelta(seconds=120)
     #: How long the bot waits before it re-reads a position that moved with no order of its
     #: own, so the user-data stream has time to deliver the matching fill first.
     position_recheck_delay: timedelta = timedelta(seconds=5)
@@ -56,6 +60,8 @@ class FuturesGridThresholds:
             raise ValueError("min_liq_buffer_atr must not be negative")
         if self.risk_snapshot_max_age <= timedelta(0):
             raise ValueError("risk_snapshot_max_age must be positive")
+        if self.risk_unknown_halt_after <= timedelta(0):
+            raise ValueError("risk_unknown_halt_after must be positive")
         if self.position_recheck_delay < timedelta(0):
             raise ValueError("position_recheck_delay must not be negative")
 
