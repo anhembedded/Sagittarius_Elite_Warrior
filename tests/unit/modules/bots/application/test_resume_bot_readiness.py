@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot
     ResumeBotCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotCommandResult,
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
@@ -64,15 +65,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_ready_result import (
-    SessionBlockReason,
-    SessionReadyResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_world import (
     ReadinessWorld,
@@ -106,8 +106,9 @@ class _Runner(IBotRunner):
 
     def pause(self, bot_id: str) -> None: ...
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.resumed.append(bot_id)
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None: ...
 
@@ -149,7 +150,6 @@ def _handler(world: ReadinessWorld, runner: _Runner) -> ResumeBotCommandHandler:
         world.store,
         runner,
         ResumeReadinessReader(world.facts, world.ports, world.caps),
-        world.ports,
     )
 
 
@@ -259,46 +259,45 @@ def test_a_paused_bots_resume_lays_no_ladder_and_is_not_gated(
     assert result.accepted
     assert runner.resumed == [BOT]
     assert world.session.earlier_runs_requests == []
-    assert world.session.ready_requests == 0
 
 
-def test_a_resume_from_halted_opens_the_order_session_before_it_is_queued(
-    world: ReadinessWorld,
-) -> None:
-    """`BUG-202`: Resume is a deliberate action, so it opens a closed session."""
-    _hold(world, "4.132")
-    world.session.set_enabled(enabled=False)
+def test_a_halted_mainnet_resume_nobody_confirmed_is_refused_before_anything_is_read() -> (
+    None
+):
+    """`BUG-202`: Resume can reopen a mainnet session an Emergency Stop closed, so
+    the use case asks for the real-money answer as Start does."""
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.HALTED)
     runner = _Runner()
 
-    result = _resume(world, runner)
+    result = _resume(made, runner)
 
-    assert result.accepted, result.message
-    assert world.session.snapshot().enabled
-    assert runner.resumed == [BOT]
-
-
-def test_a_resume_whose_session_will_not_open_is_refused_not_reported_done(
-    world: ReadinessWorld,
-) -> None:
-    """`BUG-202`: a session that stays closed leaves the bot HALTED, so the
-    command is refused in the session's own words and nothing is queued."""
-    _hold(world, "4.132")
-    world.session.ready_answers(
-        SessionReadyResult(
-            ready=False,
-            block_reason=SessionBlockReason.EMERGENCY_STOP_IN_PROGRESS,
-            reconciled_positions=(),
-            reconciled_open_orders=(),
-        )
-    )
-    runner = _Runner()
-
-    result = _resume(world, runner)
-
-    assert not result.accepted
-    assert result.refusal is BotRefusal.VENUE_NOT_READY
-    assert "Emergency stop is still running" in result.message
+    assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
+    assert "real money" in result.message
     assert runner.resumed == []
+    assert made.session.ready_requests == 0
+
+
+def test_a_confirmed_halted_mainnet_resume_goes_on_to_the_readiness() -> None:
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.HALTED)
+
+    result = _handler(made, _Runner()).execute(
+        ResumeBotCommand(BOT, real_money_confirmed=True)
+    )
+
+    assert result.refusal is not BotRefusal.REAL_MONEY_NOT_CONFIRMED
+
+
+def test_a_paused_mainnet_resume_reopens_no_session_and_needs_no_confirmation() -> None:
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.PAUSED)
+    runner = _Runner()
+
+    result = _resume(made, runner)
+
+    assert result.accepted
+    assert runner.resumed == [BOT]
 
 
 # --- fail closed: a ladder that cannot be drawn is a named item, as in Start ----

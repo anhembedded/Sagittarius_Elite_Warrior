@@ -113,8 +113,9 @@ class _RecordingRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         self.sent.append(("pause", bot_id))
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.sent.append(("resume", bot_id))
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))
@@ -295,10 +296,7 @@ def test_a_declared_command_is_queued_on_the_bots_executor(
             PauseBotCommand("abc123")
         ),
         "resume": lambda: ResumeBotCommandHandler(
-            store,
-            runner,
-            ResumeReadinessReader(world.facts, world.ports, world.caps),
-            world.ports,
+            store, runner, ResumeReadinessReader(world.facts, world.ports, world.caps)
         ).execute(ResumeBotCommand("abc123")),
         "stop": lambda: StopBotCommandHandler(store, runner).execute(
             StopBotCommand("abc123", ExposureHandling.KEEP)

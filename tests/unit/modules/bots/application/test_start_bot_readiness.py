@@ -76,7 +76,7 @@ class _CountingRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         raise NotImplementedError
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         raise NotImplementedError
 
     def stop(self, bot_id: str, base: object) -> None:  # type: ignore[override]

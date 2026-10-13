@@ -66,6 +66,14 @@ _STARTS_TRADING = frozenset(
 )
 
 
+#: What the real-money question says the user is about to do.
+_TRADING_ACTION = {
+    BotAction.START: "start this bot",
+    BotAction.RESUME: "resume this bot",
+    BotAction.CONFIRM_RESUME: "resume this bot",
+}
+
+
 def command_for(
     action: BotAction,
     bot: BotSnapshot,
@@ -75,7 +83,7 @@ def command_for(
     """The command for `action` on `bot`, or `None` when the user cancelled."""
     bot_id = bot.bot_id
     if action in _STARTS_TRADING and not dialogs.allow_real_money(
-        bot.venue, "start this bot"
+        bot.venue, _TRADING_ACTION[action]
     ):
         return None
     if action is BotAction.STOP:
@@ -95,8 +103,10 @@ def command_for(
             dict(edited) if unsaved and edited else None,
             real_money_confirmed=True,
         )
+    if action is BotAction.RESUME:
+        # Reaching here, `allow_real_money` answered yes: the use case enforces it.
+        return ResumeBotCommand(bot_id, real_money_confirmed=True)
     return {
         BotAction.PAUSE: PauseBotCommand,
-        BotAction.RESUME: ResumeBotCommand,
         BotAction.CONFIRM_RESUME: ConfirmBotResumeCommand,
     }[action](bot_id)

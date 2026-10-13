@@ -16,6 +16,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_session_opening import (
+    order_session_refusal_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     ResumeRecoveringForHostCommand,
     ResumeRecoveringResult,
@@ -75,15 +78,14 @@ class ResumeRecoveringForHostCommandHandler(
                 opened=False,
                 note=f"{venue.display_name} trades real money: resuming needs --confirm-venue {venue.value}",
             )
-        ready = self._ports.get(venue).trading_session.ensure_ready()
-        if ready.ready:
-            return VenueResumeOutcome(venue.value, bot_ids, opened=True)
-        reason = (
-            ready.block_reason.value if ready.block_reason is not None else "unknown"
+        refusal = order_session_refusal_words(
+            self._ports.get(venue).trading_session, f"Venue {venue.value}"
         )
+        if refusal is None:
+            return VenueResumeOutcome(venue.value, bot_ids, opened=True)
         return VenueResumeOutcome(
             venue.value,
             bot_ids,
             opened=False,
-            note=f"the order session did not open: {reason}",
+            note=f"the order session did not open: {refusal}",
         )

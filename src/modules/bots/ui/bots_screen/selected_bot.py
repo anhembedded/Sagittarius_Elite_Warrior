@@ -150,7 +150,8 @@ class SelectedBot:
     def accepted_status(self, label: str, action: BotAction | None) -> str:
         """The status line for an accepted command: what it did, or was sent to
         do (`BUG-202`), and what a Save leaves undone."""
-        return f"{accepted_words(label, action)}{self.still_blocked(action)}"
+        state = self.bot.state if self.bot is not None else None
+        return f"{accepted_words(label, action, state)}{self.still_blocked(action)}"
 
     def still_blocked(self, action: BotAction | None) -> str:
         """What a Save leaves undone (`EPIC-035N`): the parameters were stored as

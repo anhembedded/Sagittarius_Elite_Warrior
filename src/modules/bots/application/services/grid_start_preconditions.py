@@ -62,11 +62,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 
 
 class GridStartPreconditions:
-    """Answers `None` when a Grid may start, else the refusal."""
+    """Answers `None` when a Grid may start, else the refusal. A Resume from HALTED
+    asks the one step it shares, the order session (`BUG-202`)."""
 
     def __init__(self, ports: IVenueTradingPorts, budgets: IGridBudgets) -> None:
         self._ports = ports
         self._budgets = budgets
+
+    def open_session_for_resume(self, bot: Bot) -> BotCommandResult | None:
+        """A resume from HALTED proposes a ladder, which registers the budget a
+        closed session refuses: open it, as Start does, or say why it will not."""
+        session = self._ports.get(bot.definition.venue).trading_session
+        return order_session_refusal(session, bot.bot_id.value)
 
     def check(self, bot: Bot, now: datetime) -> BotCommandResult | None:
         bot_id = bot.bot_id.value
