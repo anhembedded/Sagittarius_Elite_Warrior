@@ -10,6 +10,8 @@ klines, so no figure stands without its caveat.
   falling market shows profit on cycles while it holds losing base.
 · **Equity** is quote cash plus the base at each candle's close; the
   buy-and-hold curve sits on the same timestamps (D18).
+· **Grid profit on a position venue** (`futures` is set) is the profit of closed cycles net
+  of every commission; funding is kept in `futures`, never inside it (`EPIC-039K`).
 · **Fees** are split by maker (resting ladder orders) and taker (the opening
   buy, an exit), each in the quote asset.
 """
@@ -24,6 +26,9 @@ from enum import Enum
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     FillSide,
     OverlayFill,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_outcome import (
+    FuturesOutcome,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     PriceBar,
@@ -44,6 +49,8 @@ class StopReason(str, Enum):
     TAKE_PROFIT = "take_profit"
     #: The ladder halted itself (the live executor would have halted too).
     HALTED = "halted"
+    #: A Futures position reached its liquidation price (`EPIC-039K`).
+    LIQUIDATED = "liquidated"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,9 +65,14 @@ class BacktestFill:
     #: `None` for a market order (the opening buy, an exit).
     level_index: int | None
     maker: bool
+    #: What to call a market fill when the side does not say it (`EPIC-039K`: a SHORT opens
+    #: with a SELL, a liquidation closes at market); `None` keeps the Spot reading.
+    tag: str | None = None
 
     @property
     def label(self) -> str:
+        if self.tag is not None:
+            return self.tag
         return (
             "Open"
             if self.level_index is None and self.side is OrderSide.BUY
@@ -128,6 +140,8 @@ class GridBacktestResult:
     final_states: tuple[tuple[int, LevelState], ...] = ()
     average_cost: Decimal | None = None
     stop_detail: str = ""
+    #: The Futures-only figures; `None` for a Spot replay (`EPIC-039K`).
+    futures: FuturesOutcome | None = None
 
     def activity(self) -> GridActivity:
         """What the chart draws on top of the plan (`grid_overlay`)."""
