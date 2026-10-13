@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.intended_setting import (
+    intended_setting,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.level_sizing_rule import (
     level_sizing_for,
 )
@@ -119,7 +122,8 @@ def _risk_verdicts(
     plan: GridPlan,
 ) -> tuple[Verdict, ...]:
     """The liquidation verdicts of a plan on a position venue, once its facts are read
-    (`EPIC-039F`, shown by `EPIC-039J`); nothing for a venue that supplies none."""
+    (`EPIC-039F`, shown by `EPIC-039J`); nothing for a venue that supplies none. The symbol is
+    judged on the setting the gate will make (`intended_setting`), as Start's guard does."""
     risk = inputs.risk
     if risk is None:
         return ()
@@ -127,7 +131,7 @@ def _risk_verdicts(
         PlanRiskInputs(
             params,
             plan,
-            risk.setting,
+            intended_setting(risk.setting, params, risk.brackets),
             risk.brackets,
             inputs.market.last_price,
             thresholds.futures,
