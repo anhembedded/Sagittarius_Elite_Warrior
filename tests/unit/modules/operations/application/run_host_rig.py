@@ -33,10 +33,12 @@ class Rig:
         steps: tuple[RecordingStep, ...] = (),
         stop_timeout_s: float = FOREVER_S,
         stop_grace_s: float = FOREVER_S,
+        health: RecordingHostHealth | None = None,
+        leave_publish_s: float = FOREVER_S,
     ) -> None:
         self.signals = HandFiredSignalSource()
         self.host_signal = RecordingHostSignal()
-        self.health = RecordingHostHealth()
+        self.health = health if health is not None else RecordingHostHealth()
         self.policy = policy if policy is not None else ScriptedPolicy()
         self.leaver = RecordingLeaver()
         self.host = RunHost(
@@ -49,6 +51,7 @@ class Rig:
                 stop_timeout_s=stop_timeout_s,
                 stop_grace_s=stop_grace_s,
                 leave_process=self.leaver,
+                leave_publish_s=leave_publish_s,
             )
         )
 

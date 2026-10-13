@@ -260,12 +260,31 @@ class RunHost:
             _describe(left) if left else "none named by the policy",
         )
         with self._moves:
-            moved = self._machine.state is HostState.DRAINING
-            if moved:
+            if self._machine.state is HostState.DRAINING:
                 self._machine.move_to(HostState.STOPPED)
-        if moved:
+            stopped = self._machine.state is HostState.STOPPED
+        if stopped:
             self._parts.health.set_state(HostState.STOPPED)
+            self._publish_stopped()
         self._parts.leave_process(0)
+
+    def _publish_stopped(self) -> None:
+        """Write the STOPPED snapshot before `os._exit` skips the module's own last one.
+
+        Best effort and bounded: the writer runs the probes first, and a probe on a dead
+        exchange can hold it. Past `leave_publish_s` the host leaves with the snapshot as it was."""
+        publisher = threading.Thread(
+            target=self._parts.health.publish_now,
+            name="RunHostLeavePublish",
+            daemon=True,
+        )
+        publisher.start()
+        publisher.join(self._parts.leave_publish_s)
+        if publisher.is_alive():
+            logger.warning(
+                "[host] the STOPPED snapshot was not written within %.0f s; leaving anyway",
+                self._parts.leave_publish_s,
+            )
 
     def _apply_policy(self, give_up: threading.Event, done: threading.Event) -> None:
         policy = self._parts.policy

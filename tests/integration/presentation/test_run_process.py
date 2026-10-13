@@ -149,6 +149,10 @@ def test_a_second_signal_while_the_app_is_closing_ends_the_process_and_says_so(
     assert code == int(ExitCode.SUCCESS), child.stdout + child.stderr
     assert "second signal while closing the app" in child.stdout
     assert lock_is_free(tmp_path)
+    snapshot = FileHealthSnapshotSource(tmp_path / "state" / "health.json").read()
+    assert snapshot is not None and snapshot.host_state is HostState.STOPPED, (
+        "os._exit skipped the module's last snapshot, so the host must have written it"
+    )
 
 
 def test_a_child_that_reaches_for_a_real_host_fails_the_test_that_started_it(

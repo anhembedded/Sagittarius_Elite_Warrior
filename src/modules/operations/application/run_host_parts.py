@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_shutdown_signa
 #: stop is bound by `stop_timeout_s + STOP_GRACE_SECONDS`, which is what a service unit's
 #: `TimeoutStopSec` must exceed (`SPEC-015`, `EPIC-038H`).
 STOP_GRACE_SECONDS = 30.0
+#: How long the forced exit waits for the STOPPED snapshot to be written. The snapshot is
+#: best effort: the probes that run before it can sit on a dead exchange, and the exit must not.
+LEAVE_PUBLISH_SECONDS = 2.0
 
 
 def leave_the_process(status: int) -> None:
@@ -57,4 +60,5 @@ class RunHostParts:
     steps: tuple[IHostStep, ...]
     stop_timeout_s: float
     stop_grace_s: float = STOP_GRACE_SECONDS
+    leave_publish_s: float = LEAVE_PUBLISH_SECONDS
     leave_process: Callable[[int], None] = leave_the_process

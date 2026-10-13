@@ -75,6 +75,21 @@ class RecordingHostHealth(IHostHealth):
         self.published.append(self.states[-1])
 
 
+class StuckHostHealth(RecordingHostHealth):
+    """A snapshot writer that stops returning once `stuck` is set, as a probe on a dead
+    exchange can make it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stuck = False
+        self.release = threading.Event()
+
+    def publish_now(self) -> None:
+        super().publish_now()
+        if self.stuck:
+            self.release.wait(30)
+
+
 class RecordingStep(IHostStep):
     def __init__(
         self,

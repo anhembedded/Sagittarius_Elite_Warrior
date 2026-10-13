@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.operations.application.run_hos
     HandFiredSignalSource,
     RecordingStep,
     ScriptedPolicy,
+    StuckHostHealth,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.application.run_host_rig import (
     BRIEF_S as _BRIEF_S,
@@ -94,6 +95,44 @@ def test_the_whole_stop_has_one_deadline_and_passing_it_leaves_and_names_why(
     assert rig.leaver.codes == [0]
     named = [m for m in _warnings(caplog) if "stop deadline" in m]
     assert named and "bot-9" in named[0] and "closing the app" in named[0], named
+
+
+def test_leaving_publishes_the_stopped_snapshot_first_so_status_does_not_say_draining() -> (
+    None
+):
+    """`os._exit` skips the module's last snapshot; without this the file keeps saying
+    DRAINING for a process that is gone."""
+    rig = _Rig(policy=ScriptedPolicy(leaves=("bot-1",)))
+    rig.host.begin()
+    rig.signals.fire()
+    rig.host.drain()
+    rig.host.end()  # the app is closing and does not finish
+
+    rig.signals.fire()
+
+    assert rig.leaver.called.wait(5)
+    assert rig.health.published[-1] is HostState.STOPPED
+    assert rig.health.published.index(HostState.STOPPED) < len(rig.health.published)
+
+
+def test_a_snapshot_that_cannot_be_written_does_not_keep_the_host_from_leaving(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A probe on a dead exchange can hold the writer; the forced exit must not wait on it."""
+    health = StuckHostHealth()
+    rig = _Rig(health=health, leave_publish_s=_BRIEF_S)
+    caplog.set_level(logging.INFO, logger="App.Operations.Host")
+    rig.host.begin()
+    rig.signals.fire()
+    rig.host.drain()
+    rig.host.end()
+    health.stuck = True
+
+    rig.signals.fire()
+
+    assert rig.leaver.called.wait(5), "the stuck snapshot kept the process alive"
+    assert any("STOPPED snapshot was not written" in m for m in _warnings(caplog))
+    health.release.set()
 
 
 def test_a_stop_that_finishes_in_time_never_leaves_early() -> None:
