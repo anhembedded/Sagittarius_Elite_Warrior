@@ -65,6 +65,9 @@ from sagittarius_engine.interfaces.i_container import IContainer
 #: `retry_after` that has come due.
 LANE_POLL_SECONDS = 5.0
 
+#: How often grouped alerts and the quiet-hours summary are looked at.
+HOUSEKEEPING_SECONDS = 1.0
+
 
 def outbox_path() -> Path:
     return data_root() / "state" / "alerts.sqlite3"
@@ -116,5 +119,7 @@ def bind_alerting(container: IContainer) -> None:
             resolver.resolve(IAlertChannelCatalog).channel_ids(),
             resolver.resolve(WakeSignal),
             LANE_POLL_SECONDS,
+            resolver.resolve(AlertHub).flush_due,
+            HOUSEKEEPING_SECONDS,
         ),
     )

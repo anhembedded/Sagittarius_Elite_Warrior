@@ -27,7 +27,12 @@ def hosted(tmp_path: Path) -> Iterator[tuple[object, ThreadedDeliveryHost, WakeS
     signal = WakeSignal()
     rig = build_rig(tmp_path, wakeup=signal)
     host = ThreadedDeliveryHost(
-        rig.delivery, tuple(rig.channels), signal, poll_seconds=30.0
+        rig.delivery,
+        tuple(rig.channels),
+        signal,
+        poll_seconds=30.0,
+        housekeeping=rig.hub.flush_due,
+        housekeeping_seconds=30.0,
     )
     yield rig, host, signal
     host.stop()
@@ -81,3 +86,25 @@ def test_a_wakeup_that_arrives_between_a_pass_and_the_wait_is_not_lost() -> None
     signal.notify()
 
     assert signal.wait(seen, timeout=0.0) != seen
+
+
+def test_housekeeping_runs_the_hubs_flush_without_the_scheduler(tmp_path: Path) -> None:
+    """A scheduled job would publish two bus events a second into the Developer
+    event log; the host's own thread does not."""
+    ticked = threading.Event()
+    signal = WakeSignal()
+    rig = build_rig(tmp_path, wakeup=signal)
+    host = ThreadedDeliveryHost(
+        rig.delivery,
+        (),
+        signal,
+        poll_seconds=30.0,
+        housekeeping=ticked.set,
+        housekeeping_seconds=0.01,
+    )
+    host.start()
+    try:
+        assert ticked.wait(WAIT_S)
+    finally:
+        host.stop()
+    assert host.running_lanes() == 0

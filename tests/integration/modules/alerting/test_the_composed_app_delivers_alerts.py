@@ -18,7 +18,13 @@ from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.composition import channel_bindings
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.alert_hub import (
+    AlertHub,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.composition import (
+    alerting_bindings,
+    channel_bindings,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     AlertChannelDescriptor,
 )
@@ -42,6 +48,11 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snaps
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+from sagittarius_engine.infrastructure.event_bus.bus_observers import (
+    IBusObserver,
+    add_bus_observer,
+    remove_bus_observer,
+)
 
 WAIT_S = 15.0
 
@@ -161,3 +172,42 @@ def test_a_read_only_copy_neither_writes_the_outbox_nor_starts_a_lane(
 
     assert not (_data_root / "state" / "alerts.sqlite3").exists()
     assert channel.received == []
+
+
+class _EventNames(IBusObserver):
+    def __init__(self) -> None:
+        self.names: list[str] = []
+
+    def event_emitted(self, event_name: str, handler_count: int) -> None:
+        self.names.append(event_name)
+
+
+def test_the_periodic_flush_puts_nothing_on_the_event_bus(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Developer mode's event log lists every bus event (`EPIC-033P`). A
+    one-second `Scheduler` job published `runtime.tasks.started` / `.completed`
+    twice a second and widened that log's column past the conformance rule."""
+    flushed = threading.Event()
+    calls: list[int] = []
+    real = AlertHub.flush_due
+
+    def counting(self: AlertHub) -> None:
+        real(self)
+        calls.append(1)
+        if len(calls) >= 3:
+            flushed.set()
+
+    monkeypatch.setattr(AlertHub, "flush_due", counting)
+    monkeypatch.setattr(alerting_bindings, "HOUSEKEEPING_SECONDS", 0.01)
+    observer = _EventNames()
+    add_bus_observer(observer)
+    app = create_app(ConfigManager())
+    try:
+        app.boot()
+        assert flushed.wait(WAIT_S)
+    finally:
+        app.stop()
+        remove_bus_observer(observer)
+
+    assert [n for n in observer.names if n.startswith("runtime.tasks.")] == []
