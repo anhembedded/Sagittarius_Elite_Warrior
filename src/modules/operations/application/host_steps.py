@@ -94,9 +94,11 @@ class ReportRecoveringBots(IHostStep):
         for bot in recovering:
             logger.warning(
                 "[recovering] bot %s (%s) is RECOVERING after the restart and stays so: "
-                "a person resumes it (decision O2) - the Bots tab, or `bot resume %s` "
-                "once a running host can be controlled (EPIC-038J). The host never "
-                "resumes a bot by itself",
+                "a person resumes it (decision O2) - the Bots tab, or stop the host and "
+                "start it again with --resume-recovering (a mainnet venue also needs "
+                "--confirm-venue <that venue>); `bot resume %s` needs a host that can be "
+                "controlled (EPIC-038J). Without that flag the host never resumes a bot "
+                "by itself",
                 bot.bot_id,
                 bot.name,
                 bot.bot_id,
@@ -105,6 +107,7 @@ class ReportRecoveringBots(IHostStep):
 
 class ResumeRecoveringBots(IHostStep):
     name = "resume-recovering"
+    trades = True
 
     def __init__(
         self, dispatcher: ICommandDispatcher, confirmed_venue: str | None
@@ -141,6 +144,7 @@ class ResumeRecoveringBots(IHostStep):
 
 class StartPlannedBots(IHostStep):
     name = "start-planned"
+    trades = True
 
     def __init__(
         self,
@@ -206,14 +210,46 @@ def mainnet_start_refusal(
     if not plan.exists():
         return None
     wanted = plan.wants_running()
-    unconfirmed = [
-        bot
-        for bot in bots
-        if bot.bot_id in wanted
-        and bot.is_at_rest
-        and TradingVenue(bot.venue).is_mainnet
-        and bot.venue != confirmed_venue
-    ]
+    return _unconfirmed_mainnet_refusal(
+        "--start-planned would start",
+        [
+            bot
+            for bot in bots
+            if bot.bot_id in wanted
+            and bot.is_at_rest
+            and TradingVenue(bot.venue).is_mainnet
+            and bot.venue != confirmed_venue
+        ],
+        "the plan holds",
+    )
+
+
+def mainnet_resume_refusal(
+    bots: tuple[BotStatusEntry, ...], confirmed_venue: str | None
+) -> str | None:
+    """Why the whole `--resume-recovering` must be refused, or `None` (decision O8).
+
+    Resuming a RECOVERING bot on a mainnet venue reconciles real orders and lets the bot
+    trade again, so it is judged like a start: an unconfirmed mainnet venue refuses the
+    run with exit 2 and names the flag. It is not skipped with a warning - a host that
+    serves while it quietly left a bot unresumed is the surprise O8 exists to prevent.
+    """
+    return _unconfirmed_mainnet_refusal(
+        "--resume-recovering would resume",
+        [
+            bot
+            for bot in bots
+            if bot.state == _RECOVERING
+            and TradingVenue(bot.venue).is_mainnet
+            and bot.venue != confirmed_venue
+        ],
+        "the host holds",
+    )
+
+
+def _unconfirmed_mainnet_refusal(
+    what: str, unconfirmed: list[BotStatusEntry], holds: str
+) -> str | None:
     if not unconfirmed:
         return None
     named = "; ".join(f"{bot.bot_id} on {bot.venue}" for bot in unconfirmed)
@@ -221,10 +257,10 @@ def mainnet_start_refusal(
     needed = f"--confirm-venue {venues[0]}"
     if len(venues) > 1:
         needed += (
-            f" (the plan holds real-money bots on {len(venues)} venues and one run "
-            "confirms one: plan one mainnet venue per run)"
+            f" ({holds} real-money bots on {len(venues)} venues and one run "
+            "confirms one: one mainnet venue per run)"
         )
     return (
-        f"--start-planned would start real-money bots ({named}); nothing was started. "
+        f"{what} real-money bots ({named}); nothing was started. "
         f"Type the venue to confirm it: {needed}"
     )

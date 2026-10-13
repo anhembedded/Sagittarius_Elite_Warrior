@@ -191,6 +191,94 @@ def test_a_host_signal_the_machine_cannot_give_is_refused_with_two_before_the_pr
     assert source.installed is False
 
 
+def _seed_recovering_mainnet_bot(data_root: Path, bot_id: str) -> None:
+    JsonBotStore(data_root / "bots").save(
+        StoredBot(
+            Bot(
+                BotId(bot_id),
+                BotDefinition(
+                    "real money",
+                    "grid",
+                    TradingVenue.SPOT_MAINNET,
+                    "BTCUSDT",
+                    {"lower": "1"},
+                ),
+                BotLifecycle(BotLifecycleState.RECOVERING),
+                datetime(2026, 10, 1, tzinfo=UTC),
+            )
+        )
+    )
+
+
+def test_an_unconfirmed_mainnet_resume_recovering_is_refused_with_two_and_nothing_boots(
+    data_root: Path,
+) -> None:
+    """Decision O8: not a quiet skip. The bot stays RECOVERING, the host does not serve,
+    and the message names the flag that would have allowed it."""
+    _seed_recovering_mainnet_bot(data_root, "aaaaaa")
+    source = _Source()
+
+    outcome = RunCommand(
+        _app(data_root),
+        RunOptions(
+            resume_recovering=True, accept_silent_failures=True, skip_preflight=True
+        ),
+        source,
+    ).execute()
+
+    assert outcome is not None and outcome.code is ExitCode.USAGE
+    assert "--confirm-venue spot_mainnet" in outcome.message
+    assert "aaaaaa" in outcome.message
+    assert source.installed is False, "no host was built, no signal was taken"
+    stored = JsonBotStore(data_root / "bots").load(BotId("aaaaaa"))
+    assert stored.bot.state is BotLifecycleState.RECOVERING
+
+
+def test_a_stop_requested_before_serving_starts_and_resumes_nothing_on_the_composed_app(
+    data_root: Path,
+) -> None:
+    """A planned bot at rest and a stop that arrives as the app boots: the bot stays at
+    rest. (`--start-planned` on a testnet bot would otherwise open that venue's session.)"""
+    JsonBotStore(data_root / "bots").save(
+        StoredBot(
+            Bot(
+                BotId("aaaaaa"),
+                BotDefinition(
+                    "paper",
+                    "grid",
+                    TradingVenue.SPOT_TESTNET,
+                    "BTCUSDT",
+                    {"lower": "1"},
+                ),
+                BotLifecycle(BotLifecycleState.STOPPED),
+                datetime(2026, 10, 1, tzinfo=UTC),
+            )
+        )
+    )
+    source = _Source()
+    app = _app(data_root)
+    app.container.singleton(IBotPlan, _Plan("aaaaaa"))  # type: ignore[type-abstract]
+    command = RunCommand(
+        app, RunOptions(start_planned=True, skip_preflight=True), source
+    )
+    original_install = source.install
+
+    def install_then_fire(on_signal: Callable[[], None]) -> None:
+        original_install(on_signal)
+        source.fire()
+
+    source.install = install_then_fire  # type: ignore[method-assign]
+    with _heard() as lines:
+        outcome = command.execute()
+
+    assert outcome is None
+    text = "\n".join(lines)
+    assert "step start-planned skipped" in text, text
+    assert "[start-planned]" not in text
+    stored = JsonBotStore(data_root / "bots").load(BotId("aaaaaa"))
+    assert stored.bot.state is BotLifecycleState.STOPPED
+
+
 def test_a_stop_requested_while_the_app_boots_is_honoured_and_every_state_is_published(
     data_root: Path,
 ) -> None:
@@ -226,4 +314,5 @@ def test_a_stop_requested_while_the_app_boots_is_honoured_and_every_state_is_pub
     snapshot = FileHealthSnapshotSource(data_root / "state" / "health.json").read()
     assert snapshot is not None and snapshot.host_state is HostState.STOPPED
     assert snapshot.interval_s == 60, "the host's interval, not the default ten seconds"
-    assert "no venue holds a RECOVERING bot" in text
+    assert "step resume-recovering skipped" in text, text
+    assert "no venue holds a RECOVERING bot" not in text, "the resume step ran"

@@ -15,6 +15,9 @@ from abc import ABC, abstractmethod
 class IHostStep(ABC):
     #: The word the log uses for this step.
     name: str
+    #: True for a step that resumes or starts a bot. A request to stop that arrived before
+    #: the host served skips it: the host would otherwise open orders and then drain.
+    trades: bool = False
 
     @abstractmethod
     def run(self) -> None:

@@ -76,13 +76,24 @@ class RecordingHostHealth(IHostHealth):
 
 
 class RecordingStep(IHostStep):
-    def __init__(self, name: str, log: list[str], fails: bool = False) -> None:
+    def __init__(
+        self,
+        name: str,
+        log: list[str],
+        fails: bool = False,
+        trades: bool = False,
+        during: Callable[[], None] | None = None,
+    ) -> None:
         self.name = name
+        self.trades = trades
         self._log = log
         self._fails = fails
+        self._during = during
 
     def run(self) -> None:
         self._log.append(self.name)
+        if self._during is not None:
+            self._during()
         if self._fails:
             raise RuntimeError(f"{self.name} failed")
 
@@ -109,6 +120,8 @@ class ScriptedPolicy(IShutdownPolicy):
         self._during = during
         self.applied = 0
         self.gave_up = threading.Event()
+        #: What the process ending does to a policy that blocks: the thread dies with it.
+        self.unblock = threading.Event()
 
     def apply(self, ledger: StopLedger, give_up: threading.Event) -> None:
         self.applied += 1
@@ -119,5 +132,25 @@ class ScriptedPolicy(IShutdownPolicy):
         if self._fails:
             raise RuntimeError("the exchange said no")
         if self._blocks:
-            assert give_up.wait(10), "the host never told the policy to give up"
+            while not give_up.wait(0.01):
+                if self.unblock.is_set():
+                    return
             self.gave_up.set()
+
+
+class RecordingLeaver:
+    """Stands in for the call that ends the process, so a test can see it was made.
+
+    The real one never returns; this one records the status and lets the host's
+    watchdog thread end, which is all the test needs to wait on."""
+
+    def __init__(self) -> None:
+        self.codes: list[int] = []
+        self.called = threading.Event()
+        self.on_call: Callable[[], None] | None = None
+
+    def __call__(self, code: int) -> None:
+        self.codes.append(code)
+        self.called.set()
+        if self.on_call is not None:
+            self.on_call()

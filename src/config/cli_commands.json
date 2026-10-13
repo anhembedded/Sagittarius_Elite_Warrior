@@ -228,7 +228,7 @@
           "name": "--stop-timeout",
           "type": "float",
           "default": 25,
-          "help": "Seconds the stop policy may take after the first signal (a second signal does not wait). A service unit's TimeoutStopSec must be larger"
+          "help": "Seconds the stop policy may take after the first signal; the whole stop may take this plus 30 (a second signal does not wait). A service unit's TimeoutStopSec must be larger than that sum"
         },
         {
           "name": "--health-interval",

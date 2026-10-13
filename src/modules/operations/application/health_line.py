@@ -12,7 +12,7 @@ parser ignores keys it does not know, so an older monitor survives a newer host)
 | :--- | :--- | :--- |
 | `state` | a `HostState` name | — |
 | `up` | whole seconds since boot, with an `s` suffix | — |
-| `bots` | `state:count` pairs, comma-separated, in the host's order; `none` when it holds no bot | — |
+| `bots` | `running`, `paused`, `halted` and `recovering` counts as `state:count` pairs, zeros included, comma-separated; `none` when the bots' section did not answer | — |
 | `tick_age_s` | whole seconds since the last market tick (the freshest open feed) | `na` |
 | `stream_down_s` | whole seconds the worst user-data stream has been out of `connected`; `0` when every stream is connected (the stream reports state changes, not messages, so there is no "age of the last message") | `na` when none has reported |
 | `skew_ms` | signed milliseconds, local clock minus the exchange's | `na` |

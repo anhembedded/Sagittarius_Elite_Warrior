@@ -17,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps imp
     ResumeRecoveringBots,
     StartPlannedBots,
     WarnWhenNoAlertChannel,
+    mainnet_resume_refusal,
     mainnet_start_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
@@ -86,6 +87,8 @@ def test_recovering_bots_stay_recovering_by_default_and_are_named_in_the_log(
     assert len(warnings) == 2  # one WARNING per bot
     assert "aaaaaa" in warnings[0] and "bot resume aaaaaa" in warnings[0]
     assert "cccccc" in warnings[1] and "bot resume cccccc" in warnings[1]
+    # The headless remedy that exists today is named, with the flag a mainnet venue needs.
+    assert all("--resume-recovering" in w and "--confirm-venue" in w for w in warnings)
     assert world.starts == [] and world.resumes == []  # the host resumed nothing
 
 
@@ -241,3 +244,57 @@ def test_a_mainnet_bot_already_running_needs_no_confirmation_to_be_left_alone() 
     bots = (entry("bbbbbb", "RUNNING", "spot_mainnet"),)
 
     assert mainnet_start_refusal(bots, FixedPlan(frozenset({"bbbbbb"})), None) is None
+
+
+@pytest.mark.parametrize(
+    ("typed", "refused"),
+    [
+        (None, True),
+        ("spot_testnet", True),
+        ("futures_mainnet", True),
+        ("spot_mainnet", False),
+    ],
+)
+def test_a_recovering_mainnet_bot_refuses_the_whole_resume_unless_its_venue_was_typed(
+    typed: str | None, refused: bool
+) -> None:
+    """Decision O8 says exit 2, not a quiet skip: the host must not serve while it has
+    left real-money bots unresumed that the operator thought it had resumed."""
+    bots = (
+        entry("aaaaaa", "RECOVERING", "spot_testnet"),
+        entry("bbbbbb", "RECOVERING", "spot_mainnet"),
+    )
+
+    message = mainnet_resume_refusal(bots, typed)
+
+    assert (message is not None) is refused
+    if refused:
+        assert message is not None
+        assert "bbbbbb" in message
+        assert "--confirm-venue spot_mainnet" in message
+        assert "--resume-recovering" in message
+
+
+def test_a_mainnet_bot_that_is_not_recovering_needs_no_confirmation_to_resume() -> None:
+    bots = (
+        entry("aaaaaa", "RUNNING", "spot_mainnet"),
+        entry("bbbbbb", "STOPPED", "futures_mainnet"),
+        entry("cccccc", "RECOVERING", "spot_testnet"),
+    )
+
+    assert mainnet_resume_refusal(bots, None) is None
+
+
+def test_recovering_bots_on_two_mainnet_venues_name_both_and_say_one_run_confirms_one() -> (
+    None
+):
+    bots = (
+        entry("aaaaaa", "RECOVERING", "spot_mainnet"),
+        entry("bbbbbb", "RECOVERING", "futures_mainnet"),
+    )
+
+    message = mainnet_resume_refusal(bots, None)
+
+    assert message is not None
+    assert "aaaaaa" in message and "bbbbbb" in message
+    assert "2 venues" in message

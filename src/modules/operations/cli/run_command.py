@@ -69,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps imp
     ResumeRecoveringBots,
     StartPlannedBots,
     WarnWhenNoAlertChannel,
+    mainnet_resume_refusal,
     mainnet_start_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.preflight_gate import (
@@ -80,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.preflight_runn
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.run_host import (
     RunHost,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.application.run_host_parts import (
+    RunHostParts,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
     HostSignalName,
@@ -161,14 +165,21 @@ class RunCommand:
             and not self._alerts.carries_bot_events()
         ):
             return CliOutcome(ExitCode.CONFIGURATION, _NO_ALERT_FOR_RESUME)
+        message = self._unconfirmed_mainnet_refusal()
+        return None if message is None else CliOutcome(ExitCode.USAGE, message)
+
+    def _unconfirmed_mainnet_refusal(self) -> str | None:
+        """Decision O8: real money is started or resumed only for the venue the operator typed."""
+        options = self._options
+        if not (options.start_planned or options.resume_recovering):
+            return None
+        bots = read_bot_status(self._dispatcher).bots
         if options.start_planned:
-            message = mainnet_start_refusal(
-                read_bot_status(self._dispatcher).bots,
-                self._plan,
-                options.confirm_venue,
-            )
+            message = mainnet_start_refusal(bots, self._plan, options.confirm_venue)
             if message is not None:
-                return CliOutcome(ExitCode.USAGE, message)
+                return message
+        if options.resume_recovering:
+            return mainnet_resume_refusal(bots, options.confirm_venue)
         return None
 
     def _host_signal(self) -> IHostSignal | CliOutcome:
@@ -210,12 +221,14 @@ class RunCommand:
             options.host_signal.value,
         )
         return RunHost(
-            signals=self._signals,
-            policy=policy,
-            host_signal=host_signal,
-            health=CadenceHostHealth(cadence),
-            steps=self._steps(),
-            stop_timeout_s=options.stop_timeout_s,
+            RunHostParts(
+                signals=self._signals,
+                policy=policy,
+                host_signal=host_signal,
+                health=CadenceHostHealth(cadence),
+                steps=self._steps(),
+                stop_timeout_s=options.stop_timeout_s,
+            )
         )
 
     def _policy(self) -> IShutdownPolicy:
