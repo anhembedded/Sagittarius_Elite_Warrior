@@ -190,12 +190,11 @@ def a_position_world(
         )
 
     exposures = GridExposures(VenueProfilesByMarket(), {ExposureKind.INVENTORY: build})
-    world = grid_world(state=state, exposures=exposures)
+    world = grid_world(state=state, exposures=exposures, config=config)
     # A position venue's registration always answers a derived position; a bot that has done
     # nothing yet derives none.
     world.session.register_owner_budget_answers(a_registration("0"))
     return world, gate
-    return grid_world(state=state, exposures=exposures, config=config), gate
 
 
 def a_long_position(quantity: str) -> LivePosition:
