@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.windows_secret_file_permission_check import (
     WindowsSecretFilePermissionCheck,
+    icacls_encoding,
+    icacls_output,
 )
 
 PATH = Path("/srv/secrets/spot_mainnet_api_key")
@@ -138,6 +140,44 @@ def test_a_line_hidden_behind_the_blank_line_is_not_a_summary() -> None:
     check = WindowsSecretFilePermissionCheck(lambda _: listing, lambda: ACCOUNT)
 
     assert check.inspect(PATH, 0).problem
+
+
+def test_a_trailing_line_shaped_like_an_entry_is_not_a_summary() -> None:
+    """No summary looks like `name:(rights)`. With the summary missing, the one line
+    after the blank is an entry (a French stranger's, here) and must be read as one."""
+    listing = f"{PATH} HOTE\\svc:(R)\n\nTout le monde:(R)\n"
+    check = WindowsSecretFilePermissionCheck(lambda _: listing, lambda: "HOTE\\svc")
+
+    verdict = check.inspect(PATH, 0)
+
+    assert verdict.problem
+    assert "Tout le monde" in verdict.fix
+
+
+def test_the_oem_code_page_is_what_icacls_writes_on_a_non_english_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`text=True` decodes with the ANSI page, but icacls writes the OEM one, so a
+    built-in name arrives mangled and the printed `/remove` names no account."""
+    printed = f"{PATH} {ACCOUNT}:(R)\n      NT AUTHORITY\\Système:(F)\n\nfini\n"
+
+    def fake_run(*_: object, **__: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess([], 0, printed.encode("cp850"), b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    check = WindowsSecretFilePermissionCheck(
+        lambda p: icacls_output(p, encoding="cp850"), lambda: ACCOUNT
+    )
+    verdict = check.inspect(PATH, 0)
+
+    assert "NT AUTHORITY\\Système" in verdict.problem  # decoded, not SystŠme
+    assert 'NT AUTHORITY\\Système"' in verdict.fix
+
+
+def test_windows_asks_for_the_oem_code_page_and_elsewhere_utf8() -> None:
+    assert icacls_encoding("win32") == "oem"
+    assert icacls_encoding("linux") == "utf-8"
 
 
 def test_a_run_that_exits_non_zero_is_refused_by_the_exit_code(

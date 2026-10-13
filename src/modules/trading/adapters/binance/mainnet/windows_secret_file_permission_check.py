@@ -26,6 +26,7 @@ import getpass
 import os
 import re
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -39,18 +40,25 @@ _ALWAYS_ALLOWED = ("nt authority\\system", "builtin\\administrators")
 _ACE = re.compile(r"^(?P<who>.+?):(?P<rights>(?:\([^()]*\))+)$")
 
 
-def icacls_output(path: Path) -> str:
-    """@raise OSError `icacls` cannot run. @raise subprocess.SubprocessError It failed."""
+def icacls_encoding(platform: str) -> str:
+    """What `icacls` writes in: the OEM code page on Windows (`text=True` would use the
+    ANSI one, and a built-in name such as `Système` would arrive as `SystŠme`, so the
+    printed `/remove` would name no account). The `oem` codec exists only on Windows."""
+    return "oem" if platform == "win32" else "utf-8"
+
+
+def icacls_output(path: Path, encoding: str | None = None) -> str:
+    """@raise OSError `icacls` cannot run. @raise subprocess.SubprocessError It failed.
+    @raise UnicodeDecodeError Its output is not in `encoding` (the caller refuses)."""
     system_root = os.environ.get("SYSTEMROOT", r"C:\Windows")
     tool = str(Path(system_root) / "System32" / "icacls.exe")
     done = subprocess.run(  # noqa: S603 - fixed tool path, the path is one argument, no shell
         [tool, str(path)],
         capture_output=True,
-        text=True,
         timeout=15,
         check=True,
     )
-    return done.stdout
+    return done.stdout.decode(encoding or icacls_encoding(sys.platform))
 
 
 def running_account() -> str:
@@ -118,8 +126,13 @@ def _principals(listing: str, path: Path) -> list[str] | None:
     to skip (a stranger's entry in a shape the parser does not know would be accepted).
     """
     entries, _, summary = _split_at_first_blank_line(listing)
-    if len([line for line in summary if line.strip()]) > 1:
+    trailing = [line.strip() for line in summary if line.strip()]
+    if len(trailing) > 1:
         return None
+    # No summary, in any language, looks like `name:(rights)`: such a line is an entry
+    # the summary's absence has left behind the blank, so it is read as one.
+    if trailing and _ACE.match(trailing[0]):
+        entries = [*entries, trailing[0]]
     found: list[str] = []
     for line in entries:
         text = line.strip()
