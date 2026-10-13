@@ -33,7 +33,7 @@ def _order(*backends: SecretBackend) -> OrderedSecretStores:
     return OrderedSecretStores(backends)
 
 
-def test_the_first_store_that_holds_a_secret_answers_and_is_named() -> None:
+def test_the_first_store_that_holds_a_secret_answers() -> None:
     first = InMemorySecretStore()
     second = InMemorySecretStore(**{KEY: "from-second"})
     third = InMemorySecretStore(**{KEY: "from-third"})
@@ -43,17 +43,13 @@ def test_the_first_store_that_holds_a_secret_answers_and_is_named() -> None:
         SecretBackend(CredentialsSource.KEYRING, third, writable=True),
     )
 
-    found = order.read_sourced(KEY)
-
-    assert found is not None
-    assert (found.value, found.source) == ("from-second", CredentialsSource.SECRET_FILE)
     assert order.read(KEY) == "from-second"
 
 
 def test_a_secret_no_store_holds_reads_none() -> None:
     order = _order(SecretBackend(CredentialsSource.KEYRING, InMemorySecretStore()))
 
-    assert order.read_sourced(KEY) is None
+    assert order.read_pair(KEY, SECRET) is None
     assert order.read(KEY) is None
 
 
@@ -144,20 +140,20 @@ def test_a_single_store_is_the_keyring_and_writable() -> None:
 
     order.write(KEY, "v")
 
-    found = order.read_sourced(KEY)
-    assert found is not None
-    assert found.source is CredentialsSource.KEYRING
+    assert order.read(KEY) == "v"
     assert store.secrets == {KEY: "v"}
 
 
-def test_the_value_is_not_in_the_repr_of_what_a_read_returns() -> None:
+def test_the_values_are_not_in_the_repr_of_a_pair_a_read_returns() -> None:
     order = OrderedSecretStores.single(
-        InMemorySecretStore(**{KEY: "distinctive-value"})
+        InMemorySecretStore(**{KEY: "distinctive-key", SECRET: "distinctive-secret"})
     )
-    found = order.read_sourced(KEY)
+    pair = order.read_pair(KEY, SECRET)
 
-    assert "distinctive-value" not in repr(found)
-    assert "distinctive-value" not in repr(order)
+    assert pair is not None
+    for shown in (repr(pair), str(pair), repr(order), repr(order.backends)):
+        assert "distinctive-key" not in shown
+        assert "distinctive-secret" not in shown
 
 
 def test_the_provider_reports_the_source_that_served_the_key() -> None:

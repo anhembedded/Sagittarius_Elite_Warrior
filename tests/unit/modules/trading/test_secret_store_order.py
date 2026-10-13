@@ -58,10 +58,13 @@ def test_the_stores_read_the_environment_they_were_built_from(tmp_path: Path) ->
     (tmp_path / "spot_mainnet_api_key").write_text("fake-key\n", encoding="utf-8")
     stores = build_secret_stores({CREDENTIALS_DIRECTORY_ENV: str(tmp_path)})
 
-    found = stores.read_sourced("spot_mainnet_api_key")
+    (tmp_path / "spot_mainnet_api_secret").write_text("fake-secret\n", encoding="utf-8")
 
-    assert found is not None
-    assert (found.value, found.source) == (
+    pair = stores.read_pair("spot_mainnet_api_key", "spot_mainnet_api_secret")
+
+    assert pair is not None
+    assert (pair.first, pair.second, pair.source) == (
         "fake-key",
+        "fake-secret",
         CredentialsSource.SYSTEMD_CREDENTIAL,
     )

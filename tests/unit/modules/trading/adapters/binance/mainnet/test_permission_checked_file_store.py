@@ -4,6 +4,7 @@ directory, read only when every check accepts it, refused once in the log."""
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ class _Says(ISecretFileCheck):
         self._verdict = verdict
         self.inspected: list[Path] = []
 
-    def inspect(self, path: Path) -> SecretFileVerdict:
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
         self.inspected.append(path)
         return self._verdict
 
@@ -127,3 +128,59 @@ def test_a_file_that_is_not_text_reads_none_without_its_bytes_in_the_log(
         )
 
     assert "CANARY-BYTES" not in caplog.text
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symbolic links and O_NOFOLLOW")
+def test_a_symbolic_link_to_a_file_the_service_owns_is_never_followed(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    target = tmp_path / "somewhere_else"
+    target.write_text(FAKE, encoding="utf-8")
+    target.chmod(0o600)
+    directory = tmp_path / "secrets"
+    directory.mkdir()
+    (directory / "name").symlink_to(target)
+    check = _Says(ACCEPT)
+
+    with caplog.at_level(logging.DEBUG):
+        assert PermissionCheckedFileStore(directory, (check,)).read("name") is None
+
+    assert check.inspected == []  # refused at the open, before any check
+    assert [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert FAKE not in caplog.text
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="replacing an open file")
+def test_the_file_read_is_the_file_inspected_even_if_the_path_is_swapped_between(
+    tmp_path: Path,
+) -> None:
+    """Check-then-use: the checks and the read share one descriptor, so a path
+    replaced after the checks cannot change which file is read."""
+    path = tmp_path / "name"
+    path.write_text("the-inspected-file", encoding="utf-8")
+    impostor = tmp_path / "impostor"
+    impostor.write_text("the-impostor-file", encoding="utf-8")
+
+    class _SwapsThePathAfterInspecting(ISecretFileCheck):
+        def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
+            impostor.replace(path)
+            return SecretFileVerdict()
+
+    store = PermissionCheckedFileStore(tmp_path, (_SwapsThePathAfterInspecting(),))
+
+    assert store.read("name") == "the-inspected-file"
+
+
+def test_the_checks_are_given_the_open_descriptor_of_the_file(tmp_path: Path) -> None:
+    (tmp_path / "name").write_text(FAKE, encoding="utf-8")
+    seen: list[int] = []
+
+    class _Records(ISecretFileCheck):
+        def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
+            seen.append(descriptor)
+            return SecretFileVerdict()
+
+    PermissionCheckedFileStore(tmp_path, (_Records(),)).read("name")
+
+    assert len(seen) == 1
+    assert seen[0] >= 0

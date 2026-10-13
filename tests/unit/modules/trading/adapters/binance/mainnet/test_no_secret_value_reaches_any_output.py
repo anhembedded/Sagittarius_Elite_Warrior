@@ -68,7 +68,7 @@ KEY_NAME, SECRET_NAME = f"{VENUE.value}_api_key", f"{VENUE.value}_api_secret"
 
 
 class _Accepts(ISecretFileCheck):
-    def inspect(self, path: Path) -> SecretFileVerdict:
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
         return SecretFileVerdict()
 
 
@@ -92,7 +92,9 @@ def _file(directory: Path) -> OrderedSecretStores:
 
 def _group_readable_file(directory: Path) -> OrderedSecretStores:
     check = PosixSecretFilePermissionCheck(
-        lambda _: FileFacts(mode=0o640, owner_id=7, is_regular=True), lambda: 7
+        lambda _: FileFacts(mode=0o640, owner_id=7, is_regular=True),
+        lambda: 7,
+        lambda _: FileFacts(mode=0o700, owner_id=7, is_regular=False),
     )
     store = PermissionCheckedFileStore(directory, (check,))
     return OrderedSecretStores((SecretBackend(CredentialsSource.SECRET_FILE, store),))
@@ -112,6 +114,9 @@ def _everything_a_person_can_read(
     seen: list[str] = [repr(resolved), str(resolved), repr(provider), repr(stores)]
     seen += [repr(b) for b in stores.backends]
     seen += [repr(b.store) for b in stores.backends]
+    pair = stores.read_pair(KEY_NAME, SECRET_NAME)
+    if pair is not None:
+        seen += [repr(pair), str(pair), repr([pair])]
     if resolved.credentials is not None:
         seen += [repr(resolved.credentials), str(resolved.credentials)]
     for attempt in (

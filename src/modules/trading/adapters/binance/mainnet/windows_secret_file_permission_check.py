@@ -19,7 +19,7 @@ import getpass
 import os
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
@@ -29,7 +29,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check
 
 _ALWAYS_ALLOWED = ("nt authority\\system", "builtin\\administrators")
 #: `principal:(F)`, `principal:(I)(R)`, `principal:(DENY)(W)` - rights are parenthesised groups.
-_ACE = re.compile(r"^(?P<who>.+?):(?P<rights>(?:\([^()]*\))+)\s*$")
+_ACE = re.compile(r"^(?P<who>.+?):(?P<rights>(?:\([^()]*\))+)$")
+_PROCESSED = re.compile(
+    r"^Successfully processed \d+ files; Failed processing (?P<failed>\d+) files$"
+)
 
 
 def icacls_output(path: Path) -> str:
@@ -61,38 +64,63 @@ class WindowsSecretFilePermissionCheck(ISecretFileCheck):
         self._icacls = icacls
         self._account = account
 
-    def inspect(self, path: Path) -> SecretFileVerdict:
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
         account = self._account()
-        fix = f'icacls "{path}" /inheritance:r /grant:r "{account}:(R)"'
         try:
             listing = self._icacls(path)
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            # ValueError covers UnicodeDecodeError: the tool printed in an encoding
+            # we cannot read, and the error text would quote its bytes.
             return SecretFileVerdict(
                 f"its access list cannot be read ({type(exc).__name__})",
                 f"check that icacls runs and that the account can read {path}",
             )
         principals = _principals(listing, path)
-        if not principals:
-            return SecretFileVerdict("its access list could not be read", fix)
+        if principals is None or not principals:
+            return SecretFileVerdict(
+                "its access list could not be understood, so it is not trusted",
+                _fix(path, account, ()),
+            )
         allowed = (*_ALWAYS_ALLOWED, account.lower())
-        strangers = [p for p in principals if p.lower() not in allowed]
+        strangers = sorted({p for p in principals if p.lower() not in allowed})
         if strangers:
             return SecretFileVerdict(
                 "its access list grants "
-                + ", ".join(sorted(set(strangers)))
+                + ", ".join(strangers)
                 + f" and only {account}, SYSTEM and the administrators may have access",
-                fix,
+                _fix(path, account, strangers),
             )
         return SecretFileVerdict()
 
 
-def _principals(listing: str, path: Path) -> list[str]:
+def _fix(path: Path, account: str, strangers: Sequence[str]) -> str:
+    """One `icacls` call that leaves the account alone: no inherited entries, every
+    named stranger's entries removed (grants and denies), the account granted read."""
+    removals = "".join(f' /remove "{who}"' for who in strangers)
+    return f'icacls "{path}" /inheritance:r{removals} /grant:r "{account}:(R)"'
+
+
+def _principals(listing: str, path: Path) -> list[str] | None:
+    """The principal of every entry, or `None` when any line is not understood.
+
+    Fails closed: this check stands between a key and every other account, so a line
+    it cannot read is a reason to refuse the whole listing, never a line to skip
+    (a stranger's entry in a shape the parser does not know would be accepted).
+    """
     found: list[str] = []
     for line in listing.splitlines():
         text = line.strip()
+        if not text:
+            continue
         if text.startswith(str(path)):
             text = text[len(str(path)) :].strip()
+        summary = _PROCESSED.match(text)
+        if summary is not None:
+            if summary.group("failed") != "0":
+                return None
+            continue
         matched = _ACE.match(text)
-        if matched:
-            found.append(matched.group("who").strip())
+        if matched is None:
+            return None
+        found.append(matched.group("who").strip())
     return found

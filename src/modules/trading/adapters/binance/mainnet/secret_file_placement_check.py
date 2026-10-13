@@ -55,7 +55,7 @@ class SecretFilePlacementCheck(ISecretFileCheck):
         self._is_ignored = is_ignored
         self._work_tree_of = work_tree_of
 
-    def inspect(self, path: Path) -> SecretFileVerdict:
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
         resolved = path.resolve()
         if resolved.is_relative_to(self._repository_root):
             return SecretFileVerdict(

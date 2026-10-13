@@ -23,6 +23,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
     KeyringSecretStore,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
+    OrderedSecretStores,
+    SecretBackend,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.permission_checked_file_store import (
     PermissionCheckedFileStore,
 )
@@ -33,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.syst
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
     ISecretFileCheck,
     SecretFileVerdict,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 
@@ -57,7 +64,7 @@ class _MemoryKeyring(KeyringBackend):
 
 
 class _Accepts(ISecretFileCheck):
-    def inspect(self, path: Path) -> SecretFileVerdict:
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
         return SecretFileVerdict()
 
 
@@ -94,7 +101,24 @@ def _file(tmp_path: Path) -> _Backend:
     )
 
 
+def _ordered_writable(tmp_path: Path) -> _Backend:
+    store = OrderedSecretStores.single(InMemorySecretStore())
+    return _Backend(store, store.write, True)
+
+
+def _ordered_provisioned(tmp_path: Path) -> _Backend:
+    systemd = SystemdCredentialStore({CREDENTIALS_DIRECTORY_ENV: str(tmp_path)})
+    store = OrderedSecretStores(
+        (SecretBackend(CredentialsSource.SYSTEMD_CREDENTIAL, systemd),)
+    )
+    return _Backend(
+        store, lambda n, v: (tmp_path / n).write_text(v, encoding="utf-8"), False
+    )
+
+
 _BACKENDS = {
+    "ordered (writable)": _ordered_writable,
+    "ordered (provisioned only)": _ordered_provisioned,
     "in-memory": _in_memory,
     "keyring": _keyring,
     "systemd": _systemd,
@@ -155,7 +179,9 @@ def test_every_secret_store_passes_the_same_contract_a_write_either_lands_or_ref
             backend.store.delete("k")
 
 
-@pytest.fixture(params=["systemd", "permission-checked file"])
+@pytest.fixture(
+    params=["systemd", "permission-checked file", "ordered (provisioned only)"]
+)
 def provisioned_elsewhere(
     request: pytest.FixtureRequest, tmp_path: Path
 ) -> Iterator[_Backend]:

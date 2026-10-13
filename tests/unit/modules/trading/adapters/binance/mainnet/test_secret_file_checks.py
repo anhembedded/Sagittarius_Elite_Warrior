@@ -16,7 +16,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.posix_secret_file_permission_check import (
     FileFacts,
     PosixSecretFilePermissionCheck,
-    facts_of,
+    facts_of_descriptor,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.secret_file_placement_check import (
     SecretFilePlacementCheck,
@@ -27,13 +27,24 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.wind
 
 PATH = Path("/srv/secrets/spot_mainnet_api_key")
 ME = 1001
+_ROOT = 0
 
 
-def _posix(mode: int, *, uid: int = ME, regular: bool = True):
+def _posix(
+    mode: int,
+    *,
+    uid: int = ME,
+    regular: bool = True,
+    directory_mode: int = 0o700,
+    directory_uid: int = ME,
+):
     return PosixSecretFilePermissionCheck(
         lambda _: FileFacts(mode=mode, owner_id=uid, is_regular=regular),
         lambda: ME,
-    ).inspect(PATH)
+        lambda _: FileFacts(
+            mode=directory_mode, owner_id=directory_uid, is_regular=True
+        ),
+    ).inspect(PATH, 0)
 
 
 @pytest.mark.parametrize("mode", [0o600, 0o400])
@@ -67,13 +78,54 @@ def test_the_refusal_states_the_mode_and_never_a_value() -> None:
     assert "640" in _posix(0o640).problem
 
 
+@pytest.mark.parametrize("directory_mode", [0o777, 0o770, 0o707, 0o722, 0o775])
+def test_a_private_file_in_a_directory_others_can_write_to_is_refused(
+    directory_mode: int,
+) -> None:
+    """Whoever can write the directory can replace the file with their own."""
+    verdict = _posix(0o600, directory_mode=directory_mode)
+
+    assert verdict.problem
+    assert "directory" in verdict.problem
+    assert verdict.fix == f"chmod go-w {PATH.parent}"
+
+
+@pytest.mark.parametrize("directory_mode", [0o700, 0o750, 0o755, 0o500])
+def test_a_directory_only_its_owner_can_write_to_is_accepted(
+    directory_mode: int,
+) -> None:
+    assert _posix(0o600, directory_mode=directory_mode).problem == ""
+
+
+def test_a_directory_owned_by_root_is_accepted_and_by_a_stranger_is_not() -> None:
+    assert _posix(0o600, directory_uid=_ROOT).problem == ""
+
+    verdict = _posix(0o600, directory_uid=4242)
+
+    assert verdict.problem
+    assert verdict.fix == f"chown $(id -un) {PATH.parent}"
+
+
+def test_a_file_or_directory_that_cannot_be_inspected_is_refused() -> None:
+    def broken(_: object) -> FileFacts:
+        raise OSError("gone")
+
+    assert PosixSecretFilePermissionCheck(broken, lambda: ME).inspect(PATH, 0).problem
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
-def test_the_facts_of_a_real_file_are_its_mode_and_its_owner(tmp_path: Path) -> None:
+def test_the_facts_of_a_real_open_file_are_its_mode_and_its_owner(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "secret"
     path.write_text("fake", encoding="utf-8")
     path.chmod(0o640)
 
-    facts = facts_of(path)
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        facts = facts_of_descriptor(descriptor)
+    finally:
+        os.close(descriptor)
 
     assert stat.S_IMODE(facts.mode) == 0o640
     assert facts.owner_id == os.geteuid()
@@ -81,10 +133,23 @@ def test_the_facts_of_a_real_file_are_its_mode_and_its_owner(tmp_path: Path) -> 
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
-def test_a_missing_file_has_no_facts_and_is_refused(tmp_path: Path) -> None:
-    check = PosixSecretFilePermissionCheck(facts_of, os.geteuid)
-
-    assert check.inspect(tmp_path / "gone").problem
+def test_a_real_world_writable_directory_is_refused_for_a_private_file(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "shared"
+    directory.mkdir()
+    path = directory / "secret"
+    path.write_text("fake", encoding="utf-8")
+    path.chmod(0o600)
+    check = PosixSecretFilePermissionCheck()
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        directory.chmod(0o777)
+        assert check.inspect(path, descriptor).problem
+        directory.chmod(0o700)
+        assert check.inspect(path, descriptor).problem == ""
+    finally:
+        os.close(descriptor)
 
 
 ACCOUNT = r"HOST\svc-sew"
@@ -106,7 +171,7 @@ def _icacls(*aces: str, path: Path = PATH) -> str:
 def _windows(*aces: str):
     return WindowsSecretFilePermissionCheck(
         lambda _: _icacls(*aces), lambda: ACCOUNT
-    ).inspect(PATH)
+    ).inspect(PATH, 0)
 
 
 def test_an_acl_of_the_service_account_system_and_administrators_is_accepted() -> None:
@@ -151,7 +216,7 @@ def test_output_that_lists_no_entry_is_refused_rather_than_trusted() -> None:
         lambda _: "Access is denied.\n", lambda: ACCOUNT
     )
 
-    assert check.inspect(PATH).problem
+    assert check.inspect(PATH, 0).problem
 
 
 def test_a_tool_that_cannot_run_refuses_rather_than_trusts() -> None:
@@ -160,7 +225,64 @@ def test_a_tool_that_cannot_run_refuses_rather_than_trusts() -> None:
 
     check = WindowsSecretFilePermissionCheck(broken, lambda: ACCOUNT)
 
-    assert check.inspect(PATH).problem
+    assert check.inspect(PATH, 0).problem
+
+
+@pytest.mark.parametrize(
+    "unreadable",
+    [
+        r"BUILTIN\Users:R",  # rights without parentheses
+        r"BUILTIN\Users:(R) [inherited]",  # text after the rights
+        "BUILTIN\\Users\uff1a(R)",  # a full-width colon
+        r"BUILTIN\Users (R)",  # no separator
+        "***",  # not an entry at all
+    ],
+)
+def test_a_line_the_parser_does_not_understand_refuses_the_whole_listing(
+    unreadable: str,
+) -> None:
+    """The service account's own line parses; the stranger's does not. Dropping
+    the line it cannot read would accept a listing it only half understood."""
+    verdict = _windows(rf"{ACCOUNT}:(R)", unreadable)
+
+    assert verdict.problem
+    assert "icacls" in verdict.fix
+
+
+def test_a_listing_that_says_a_file_failed_to_process_is_refused() -> None:
+    listing = (
+        f"{PATH} {ACCOUNT}:(R)\n\n"
+        "Successfully processed 0 files; Failed processing 1 files\n"
+    )
+    check = WindowsSecretFilePermissionCheck(lambda _: listing, lambda: ACCOUNT)
+
+    assert check.inspect(PATH, 0).problem
+
+
+def test_output_icacls_printed_in_an_unreadable_encoding_refuses_rather_than_raises() -> (
+    None
+):
+    def undecodable(_: Path) -> str:
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+    check = WindowsSecretFilePermissionCheck(undecodable, lambda: ACCOUNT)
+
+    verdict = check.inspect(PATH, 0)
+
+    assert verdict.problem
+    assert "invalid start byte" not in verdict.problem
+
+
+def test_the_printed_fix_removes_every_stranger_not_only_inheritance() -> None:
+    verdict = _windows(
+        rf"{ACCOUNT}:(R)", r"Everyone:(R)", r"NT AUTHORITY\Authenticated Users:(M)"
+    )
+
+    assert '/remove "Everyone"' in verdict.fix or '"Everyone"' in verdict.fix
+    assert "Authenticated Users" in verdict.fix
+    assert "/remove" in verdict.fix
+    assert "/inheritance:r" in verdict.fix
+    assert "/grant:r" in verdict.fix
 
 
 def test_a_deny_entry_is_not_an_acceptable_grant() -> None:
@@ -178,12 +300,12 @@ def _placement(*, ignored: bool | None = None, work_trees: tuple[Path, ...] = ()
 
 
 def test_a_file_outside_every_work_tree_is_accepted() -> None:
-    assert _placement().inspect(Path("/etc/sew/secrets/key")).problem == ""
+    assert _placement().inspect(Path("/etc/sew/secrets/key"), 0).problem == ""
 
 
 def test_a_file_inside_the_repository_is_refused_even_when_git_ignores_it() -> None:
     verdict = _placement(ignored=True, work_trees=(REPO,)).inspect(
-        REPO / "src" / "config" / "key"
+        REPO / "src" / "config" / "key", 0
     )
 
     assert verdict.problem
@@ -193,7 +315,7 @@ def test_a_file_inside_the_repository_is_refused_even_when_git_ignores_it() -> N
 def test_a_file_inside_a_git_work_tree_is_refused() -> None:
     other = Path("/home/ops/infra")
 
-    verdict = _placement(ignored=False, work_trees=(other,)).inspect(other / "key")
+    verdict = _placement(ignored=False, work_trees=(other,)).inspect(other / "key", 0)
 
     assert verdict.problem
     assert "git" in verdict.problem
@@ -204,7 +326,7 @@ def test_a_file_in_a_work_tree_that_git_ignores_is_accepted() -> None:
     other = Path("/home/ops/infra")
 
     assert (
-        _placement(ignored=True, work_trees=(other,)).inspect(other / "key").problem
+        _placement(ignored=True, work_trees=(other,)).inspect(other / "key", 0).problem
         == ""
     )
 
@@ -212,4 +334,6 @@ def test_a_file_in_a_work_tree_that_git_ignores_is_accepted() -> None:
 def test_a_work_tree_git_cannot_be_asked_about_refuses_rather_than_trusts() -> None:
     other = Path("/home/ops/infra")
 
-    assert _placement(ignored=None, work_trees=(other,)).inspect(other / "key").problem
+    assert (
+        _placement(ignored=None, work_trees=(other,)).inspect(other / "key", 0).problem
+    )

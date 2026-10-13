@@ -3,7 +3,7 @@
 @details A mainnet key can come from several places (systemd credentials, a
 permission-checked file, the keyring). The provider that resolves it must name the
 place - a status page and `preflight` show it - without ever showing the value, so
-this port adds to `ISecretStore` the reads that return the backend with the value.
+this port adds to `ISecretStore` the read that returns the backend with the value (a pair, because a key and its secret are one credential).
 The value is excluded from every `repr`: a traceback, a log line or an assertion
 diff that prints one of these shows the source only.
 
@@ -24,12 +24,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 
 
 @dataclass(frozen=True)
-class SourcedSecret:
-    value: str = field(repr=False)
-    source: CredentialsSource
-
-
-@dataclass(frozen=True)
 class SourcedPair:
     first: str = field(repr=False)
     second: str = field(repr=False)
@@ -37,10 +31,6 @@ class SourcedPair:
 
 
 class ISourcedSecretStore(ISecretStore):
-    @abstractmethod
-    def read_sourced(self, name: str) -> SourcedSecret | None:
-        """The secret called `name` and the backend that held it, or `None`."""
-
     @abstractmethod
     def read_pair(self, first: str, second: str) -> SourcedPair | None:
         """Both secrets from the first backend that holds both, or `None`."""

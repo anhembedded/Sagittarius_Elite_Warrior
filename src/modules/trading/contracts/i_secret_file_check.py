@@ -39,6 +39,10 @@ class SecretFileVerdict:
 
 class ISecretFileCheck(ABC):
     @abstractmethod
-    def inspect(self, path: Path) -> SecretFileVerdict:
-        """The verdict on `path`. Never reads the file's contents, never raises:
-        a file that cannot be inspected is refused, with the reason."""
+    def inspect(self, path: Path, descriptor: int) -> SecretFileVerdict:
+        """The verdict on `path`, which the caller has already opened as
+        `descriptor`. A check about the file itself (owner, mode) asks the
+        descriptor, never the path again, so the file it judges is the file that is
+        read: the path could be swapped between the check and the read. A check about
+        where the file lives uses the path. Never reads the file's contents, never
+        raises: a file that cannot be inspected is refused, with the reason."""

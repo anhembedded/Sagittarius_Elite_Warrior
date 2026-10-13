@@ -230,11 +230,30 @@ def test_no_credential_reaches_the_log(boot: _Boot) -> None:
     assert _CANARY_SECRET not in boot.log, "an API secret reached the log"
 
 
+def test_no_credential_reaches_a_file_the_run_wrote(boot: _Boot) -> None:
+    assert boot.result.returncode == 0, boot.evidence
+    _assert_no_canary_in_any_file_the_run_wrote(boot.data_root)
+
+
 def test_a_plain_headless_run_writes_no_log_file(boot: _Boot) -> None:
     assert boot.result.returncode == 0, boot.evidence
     logs_dir = boot.data_root / "logs"
     written = sorted(os.listdir(logs_dir)) if logs_dir.exists() else []
     assert written == [], f"a plain run wrote log files: {written}"
+
+
+def _assert_no_canary_in_any_file_the_run_wrote(data_root: Path) -> None:
+    """The log is one place a secret could leak; the health snapshot
+    (`state/health.json`) and every other file under the data root are the rest."""
+    written = [
+        Path(folder) / name for folder, _, names in os.walk(data_root) for name in names
+    ]
+    # The scan must cover the snapshot, or its silence proves nothing about it.
+    assert data_root / "state" / "health.json" in written, [str(p) for p in written]
+    for path in written:
+        content = path.read_bytes()
+        assert _CANARY_KEY.encode() not in content, f"an API key reached {path}"
+        assert _CANARY_SECRET.encode() not in content, f"an API secret reached {path}"
 
 
 def _provision(directory: Path, venue: str) -> None:
@@ -283,6 +302,7 @@ def test_no_credential_provisioned_by_systemd_or_a_secret_file_reaches_the_log(
     assert "RESOLVED spot_mainnet via secret-file canary=True" in out, (
         provisioned_boot.evidence
     )
+    _assert_no_canary_in_any_file_the_run_wrote(provisioned_boot.data_root)
     assert _CANARY_KEY not in provisioned_boot.log, "an API key reached the log"
     assert _CANARY_SECRET not in provisioned_boot.log, "an API secret reached the log"
     assert not _PROBLEM_RECORD.findall(provisioned_boot.log), provisioned_boot.evidence

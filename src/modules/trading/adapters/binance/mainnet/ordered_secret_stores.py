@@ -34,7 +34,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_sourced_secret_store import (
     ISourcedSecretStore,
     SourcedPair,
-    SourcedSecret,
 )
 
 
@@ -60,13 +59,6 @@ class OrderedSecretStores(ISourcedSecretStore):
     def backends(self) -> tuple[SecretBackend, ...]:
         return self._backends
 
-    def read_sourced(self, name: str) -> SourcedSecret | None:
-        for backend in self._backends:
-            value = backend.store.read(name)
-            if value is not None:
-                return SourcedSecret(value, backend.source)
-        return None
-
     def read_pair(self, first: str, second: str) -> SourcedPair | None:
         """Both secrets from the first backend that holds both."""
         for backend in self._backends:
@@ -86,8 +78,11 @@ class OrderedSecretStores(ISourcedSecretStore):
         return None
 
     def read(self, name: str) -> str | None:
-        found = self.read_sourced(name)
-        return found.value if found is not None else None
+        for backend in self._backends:
+            value = backend.store.read(name)
+            if value is not None:
+                return value
+        return None
 
     def write(self, name: str, value: str) -> None:
         self._writer().write(name, value)
