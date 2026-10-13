@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     ReadKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sources import (
+    FakeMarketDataSources,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
     PositionMode,
@@ -90,6 +93,8 @@ def _a_futures_bot(bot_id: str) -> object:
 
 
 def _venue_says(screen: BotsScreen, facts: IVenueFacts) -> None:
+    futures = TradingVenue.FUTURES_TESTNET.market_data_venue
+    screen.market_sources.serving(FakeMarketDataSources.ports(futures))
     screen.dispatcher._container.singleton(IVenueFacts, facts)  # type: ignore[attr-defined]
 
 

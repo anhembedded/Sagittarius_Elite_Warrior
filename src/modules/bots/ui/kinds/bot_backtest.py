@@ -21,11 +21,18 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    BOT_MARKET,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -48,6 +55,9 @@ class BacktestContext:
     config: Mapping[str, str]
     #: The planner's terms (filters and fees); `None` until they are read.
     terms: ExchangeTerms | None
+    #: A position venue's leverage brackets, read for the plan's liquidation (`EPIC-039J`);
+    #: `None` until read, and always `None` on Spot.
+    brackets: LeverageBrackets | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,8 @@ class BacktestPorts:
     feed: ICandleFeed
     #: How a backtest that could not run reaches the user (`BOT-169`).
     notifier: INotifier
+    #: The market the venue's candles are read in (`EPIC-039J`): the result chart's.
+    market: MarketType = BOT_MARKET
 
 
 class BotBacktest(ABC):

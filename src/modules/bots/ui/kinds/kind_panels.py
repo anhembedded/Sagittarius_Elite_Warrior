@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
     UnknownBotKindError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    SPOT_MARKETS,
+    PROFILE_MARKETS,
     SPOT_TITLE,
     VenueProfile,
     is_in_markets,
@@ -45,9 +45,10 @@ _BACKTESTS: Mapping[str, Callable[[BacktestPorts], BotBacktest]] = {
 
 #: The markets each kind's backtest can replay. On a venue outside its set the tab stays
 #: hidden rather than replaying another market's candles as the bot's own; the Futures
-#: backtest (funding and liquidation included, decision O9) is `EPIC-039K`, which adds
-#: its market to the Grid's entry.
-_BACKTEST_PROFILES: Mapping[str, frozenset[MarketType]] = {GRID_KIND_ID: SPOT_MARKETS}
+#: backtest (funding and liquidation included, decision O9, `EPIC-039K`) is the Grid's too.
+_BACKTEST_PROFILES: Mapping[str, frozenset[MarketType]] = {
+    GRID_KIND_ID: PROFILE_MARKETS
+}
 
 #: What a kind is called, by `kind_id`; the venue's market is put before it (`kind_title`).
 _KIND_NAMES: Mapping[str, str] = {GRID_KIND_ID: "Grid"}

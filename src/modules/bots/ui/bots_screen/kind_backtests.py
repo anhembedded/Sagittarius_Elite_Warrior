@@ -99,4 +99,5 @@ def backtest_context(selected: SelectedBot) -> BacktestContext | None:
         symbol=bot.symbol,
         config=dict(selected.edited if selected.edited is not None else bot.config),
         terms=market.terms if market is not None else None,
+        brackets=selected.risk.brackets if selected.risk is not None else None,
     )
