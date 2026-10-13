@@ -129,4 +129,5 @@ def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
         state=bot.state.value,
         reason=bot.progress.reason if bot.progress is not None else "",
         run_started_at=bot.run_started_at,
+        resting_orders=bot.progress.open_orders if bot.progress is not None else None,
     )

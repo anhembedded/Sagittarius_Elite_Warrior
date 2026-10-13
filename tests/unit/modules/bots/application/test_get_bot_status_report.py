@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
     ListBotsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+    encode_runtime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+    _AT_REST,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    AT_REST_STATES,
     UNREADABLE_STATE,
     BotStatusReport,
     GetBotStatusReportQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
@@ -18,6 +28,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
+    LevelState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridRuntime,
+    LevelOrder,
+    RuntimeLevel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers import seed
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
     BOTS_DIRECTORY,
@@ -119,3 +138,33 @@ def test_the_report_says_whether_a_copy_of_the_app_is_running() -> None:
         assert isinstance(report, BotStatusReport)
         assert report.app_running is held
         assert report.payload()["app_running"] is held
+
+
+def test_the_report_counts_the_orders_each_bot_has_resting() -> None:
+    """`EPIC-038D`: a host that stops must say how many orders it leaves on the
+    exchange, from the same read model `status` prints."""
+    store = FakeBotStore()
+    bot = seed(store, "aaaaaa", BotLifecycleState.RUNNING)
+    seed(store, "bbbbbb", BotLifecycleState.DRAFT, runtime={})
+    buy = LevelOrder("SEW-aaaaaa-0000000001", OrderSide.BUY, Decimal(99), Decimal(1))
+    sell = LevelOrder("SEW-aaaaaa-0000000002", OrderSide.SELL, Decimal(101), Decimal(1))
+    runtime = GridRuntime(
+        (
+            RuntimeLevel(0, Decimal(99), Decimal(1), LevelState.RESTING, buy),
+            RuntimeLevel(1, Decimal(101), Decimal(1), LevelState.RESTING, sell),
+        )
+    )
+    store.save(StoredBot(bot, dict(encode_runtime(runtime))))
+
+    report = _report(BotQueryDispatcher(store))
+
+    resting = {entry.bot_id: entry.resting_orders for entry in report.bots}
+    assert resting["aaaaaa"] == 2
+    assert resting["bbbbbb"] is None  # a draft has no run, so nothing is known
+    assert [b["resting_orders"] for b in report.payload()["bots"]] == [2, None]  # type: ignore[index, union-attr]
+
+
+def test_the_at_rest_states_are_the_lifecycles() -> None:
+    """The report spells states as strings; the host decides what a stop leaves by
+    them. The constant must say what the bots' close objection says."""
+    assert {state.value for state in _AT_REST} == AT_REST_STATES
