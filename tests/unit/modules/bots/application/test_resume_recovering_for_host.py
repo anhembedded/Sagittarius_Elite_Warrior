@@ -126,7 +126,7 @@ def test_a_session_the_exchange_refuses_is_reported_with_its_reason_not_hidden()
     (venue,) = world.resume().venues
 
     assert venue.opened is False
-    assert SessionBlockReason.UNEXPECTED_POSITIONS.value in venue.note
+    assert "unexpected open positions" in venue.note
 
 
 def test_a_mainnet_venue_is_opened_only_when_the_operator_typed_it() -> None:

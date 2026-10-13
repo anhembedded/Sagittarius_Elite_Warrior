@@ -99,8 +99,8 @@ _WHAT_IT_DOES = {
     ),
     BotAction.PAUSE: "Stop placing new orders; resting orders stay.",
     BotAction.RESUME: (
-        "Resume. A halted bot first cancels its tagged orders and proposes a "
-        "new ladder (shown in its log) for you to confirm."
+        "Resume. A halted bot reopens the order session, cancels its tagged orders "
+        "and proposes a new ladder (shown in its log) for you to confirm."
     ),
     BotAction.CONFIRM_RESUME: "Lay the ladder the last Resume proposed.",
     BotAction.STOP: "Cancel the resting orders and stop; asks what to do with the base.",

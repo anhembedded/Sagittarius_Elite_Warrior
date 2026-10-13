@@ -338,7 +338,7 @@ class BotsPresenter(CommandPresenter):
         )
         if accepted and isinstance(result, BotCommandResult):
             self._model.set_status(
-                f"{label}: done.{self._selected.still_blocked(pending.action)}", False
+                self._selected.accepted_status(label, pending.action), False
             )
             if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id

@@ -113,8 +113,9 @@ class _RecordingRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         self.sent.append(("pause", bot_id))
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.sent.append(("resume", bot_id))
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))

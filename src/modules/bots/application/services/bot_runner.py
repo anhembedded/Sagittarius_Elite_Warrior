@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
     BotLifecycleEvent,
+    BotLifecycleState,
     InvalidBotTransitionError,
 )
 
@@ -78,8 +79,16 @@ class BotRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         self._executor(bot_id).pause()
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
+        found = self._lookup.find(bot_id)
+        if isinstance(found, BotCommandResult):
+            return found
+        if found.bot.state is BotLifecycleState.HALTED:
+            refusal = self._preconditions.open_session_for_resume(found.bot)
+            if refusal is not None:
+                return refusal
         self._executor(bot_id).resume()
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self._executor(bot_id).stop(base)

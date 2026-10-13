@@ -34,8 +34,10 @@ class ReadOnlyBotRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
-    def resume(self, bot_id: str) -> None:
-        raise ReadOnlyInstanceError(self._reason)
+    def resume(self, bot_id: str) -> BotCommandResult:
+        return BotCommandResult.refused(
+            BotRefusal.READ_ONLY_INSTANCE, self._reason, bot_id
+        )
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         raise ReadOnlyInstanceError(self._reason)
