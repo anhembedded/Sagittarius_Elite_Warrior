@@ -29,11 +29,11 @@ from datetime import timedelta
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_sequence import (
-    StopProgress,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.stop_progress import (
+    StopProgress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,

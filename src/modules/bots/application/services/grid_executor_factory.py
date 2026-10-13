@@ -9,7 +9,7 @@ its own work queue.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from functools import partial
 
@@ -32,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
     GridExecutor,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+    GridExposures,
+    spot_only_exposures,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_age import (
     GridPriceAge,
@@ -129,6 +133,8 @@ class GridExecutorDeps:
     #: Builds a position venue's liquidation and divergence watch for one bot's context
     #: (`EPIC-039F`); `EPIC-039H` binds it for Futures. `None`: Spot has neither.
     risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None
+    #: The exposure-shaped collaborators, chosen by the bot's venue profile (`EPIC-039H`).
+    exposures: GridExposures = field(default_factory=spot_only_exposures)
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -181,9 +187,9 @@ class GridExecutorFactory(IBotExecutorFactory):
                 ),
             ),
         )
+        exposure = deps.exposures.build(context)
+        if deps.risk_watch is not None:
+            exposure = replace(exposure, risk_watch=deps.risk_watch(context))
         return GridExecutor(
-            context,
-            deps.queues(f"bot-{bot_id}"),
-            deps.retries,
-            deps.risk_watch(context) if deps.risk_watch is not None else None,
+            context, deps.queues(f"bot-{bot_id}"), deps.retries, exposure
         )

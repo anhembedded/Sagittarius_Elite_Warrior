@@ -20,10 +20,12 @@ ADR's order:
      and what history says it already executed is applied as for a saved order
      (`EPIC-035Q`): the open-order list carries no executed quantity.
      Two orders at one level, or one at no level, halts.
-  6. **Check the inventory**: the saved inventory equals the derived one to
-     within one step (`INVENTORY_MISMATCH`), and the account holds **at
-     least** the derived inventory (`HOLDING_BELOW_INVENTORY`) — never an
-     equality with the holding, which includes the user's own coins.
+  6. **Check the exposure** (`IExposureCheck`, the venue profile's): on Spot the saved
+     inventory equals the derived one to within one step (`INVENTORY_MISMATCH`), and the
+     account holds **at least** the derived inventory (`HOLDING_BELOW_INVENTORY`) — never an
+     equality with the holding, which includes the user's own coins; on a position venue the
+     saved position equals the one derived from the bot's fills and checked against
+     `positionRisk` (`POSITION_MISMATCH`, `EPIC-039H`).
   7. **Persist, then transition**: `reconcile_ok` back to RUNNING or PAUSED,
      or `reconcile_mismatch` to HALTED, naming why.
 
@@ -57,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housek
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check import (
+    IExposureCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     GateOutcome,
@@ -119,8 +124,9 @@ class GridReconciler:
     """Reconciles a RECOVERING Grid (ends in its prior state or HALTED), or a
     running one after a stream gap (`EPIC-035B`)."""
 
-    def __init__(self, context: GridRunContext) -> None:
+    def __init__(self, context: GridRunContext, exposure: IExposureCheck) -> None:
         self._context = context
+        self._exposure = exposure
         self._housekeeping = GridHousekeeping(context)
 
     def run(self) -> None:
@@ -159,7 +165,7 @@ class GridReconciler:
         # order (the review of PR 431, finding 3).
         open_orders = self._context.gateway.tagged_open_orders()
         registration = self._housekeeping.register()
-        if not registration.registered or registration.inventory is None:
+        if not registration.registered or not self._exposure.derives(registration):
             return ReconcileWait(
                 GridReason.SWITCH_OFF,
                 f"waiting: the budget was refused: {refusal_text(registration)}",
@@ -179,8 +185,10 @@ class GridReconciler:
             )
         if isinstance(outcome, ReconcileMismatch):
             return outcome
-        mismatch = self._check_inventory(outcome, registration.inventory.quantity)
-        return outcome if mismatch is None else mismatch
+        mismatch = self._exposure.check(outcome, registration)
+        if mismatch is None:
+            return outcome
+        return ReconcileMismatch(mismatch.reason, mismatch.detail)
 
     def _settings_drift(self) -> ReconcileMismatch | ReconcileWait | None:
         """The venue's leverage or margin type against what the bot asked for
@@ -356,24 +364,6 @@ class GridReconciler:
                 return caught_up
             runtime = caught_up
         return runtime
-
-    def _check_inventory(
-        self, runtime: GridRuntime, derived: Decimal
-    ) -> ReconcileMismatch | None:
-        step = self._context.terms.step_size
-        if abs(runtime.inventory - derived) > step:
-            return ReconcileMismatch(
-                GridReason.INVENTORY_MISMATCH,
-                f"saved {runtime.inventory} against {derived} derived from the exchange",
-            )
-        base = self._context.base_asset
-        holding = self._context.gateway.holding(base)
-        if holding is None or holding < derived:
-            return ReconcileMismatch(
-                GridReason.HOLDING_BELOW_INVENTORY,
-                f"the account holds {holding} {base}, below the {derived} the bot bought",
-            )
-        return None
 
     def _mismatch(self, reason: GridReason, detail: str) -> None:
         self._context.state.transition(

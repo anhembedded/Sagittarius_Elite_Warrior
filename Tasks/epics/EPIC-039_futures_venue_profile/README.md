@@ -57,7 +57,7 @@ Do them in the order in §0 (dependencies), not in this table's order.
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-039F](completed/EPIC-039F_risk_guard_and_liquidation.md) | Risk guard: liquidation distance as plan verdicts, a runtime guard on the exchange's liquidation price, thresholds, alert kinds | Elite | 039E, 039G | 🔴 | Done 2026-10-13 (pull request open) |
-| [EPIC-039H](incomplete/EPIC-039H_futures_grid_long.md) | Futures Grid executor, **Long** first: start, counters, reduce-only exits, stop, reconcile, restart recovery | Elite | 039B, 039D, 039E, 039F, 039G | 🔴 | Planned |
+| [EPIC-039H](incomplete/EPIC-039H_futures_grid_long.md) | Futures Grid executor, **Long** first: start, counters, reduce-only exits, stop, reconcile, restart recovery | Elite | 039B, 039D, 039E, 039F, 039G | 🔴 | 🟡 In progress (stage 1 of 3: the seams) |
 | [EPIC-039I](incomplete/EPIC-039I_futures_grid_short_and_neutral.md) | Short and Neutral directions on the same executor | Elite | 039H | 🔴 | Planned |
 | [EPIC-039L](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | Exchange-side protective stop for a Futures bot, the mainnet gate and the Futures testnet soak | Elite | 039H, `EPIC-026K` | 🔴 | Planned |
 | [EPIC-039A](completed/EPIC-039A_venue_profile_seam.md) | The venue profile seam: replace every `is SPOT` branch with the profile; "only one" guard; Spot unchanged | Elite | None | 🟡 | Done 2026-10-13 |

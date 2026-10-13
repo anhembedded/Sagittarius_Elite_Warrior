@@ -1,6 +1,6 @@
 # EPIC-039H — A Futures Grid runs Long: start, counters, reduce-only exits, stop, reconcile and restart
 
-**Status:** 🔵 Planned — not started
+**Status:** 🟡 In progress — delivered in three pull requests (§ Resume); stage 1 of 3 is the seams
 **Source:** the owner, 2026-10-10; [DESIGN §5, §8, §9](../DESIGN_2026-10-10_futures_venue_profile.md).
 **Risk:** 🔴 — the first leveraged bot executor; the halt and stop paths decide what stands on the exchange
 **Complexity:** L — the executor's variant points, five collaborators, journeys on the fake
@@ -83,4 +83,11 @@ Not run yet. **Never against a real exchange**; Futures testnet runs are the own
 Not started.
 
 ## Resume
-Not started. First action: ask the owner O1, O6, O8, O10; then read `grid_start_sequence.py`, `grid_stop_sequence.py`, `grid_reconciler.py` end to end and write down, line by line, which statements are exposure-shaped.
+**Staging (author's decision, 2026-10-13; the task is too large for one reviewable pull request).** Each stage leaves `master-warrior` green and Spot byte-identical; Futures stays unreachable until stage 2 flips the two switches.
+| Stage | Content | State |
+| :-- | :--- | :--- |
+| 1 | The four exposure joints become ports with Spot adapters (`IOpeningStrategy`, `IExposureCloser`, `IExposureCheck`, `IOrderFlags`, `GridExposures`); the gateway forwards `reduce_only`. A refactor: the Spot suites run unchanged. | In review |
+| 2 | The Futures adapters (opening, close, position check, reduce-only flags), the Futures owner budget, the venue's limits in the plan judge, readiness and preview, the settings gate / `judge_venue` / `judge_plan` calls at Start, the risk watch binding, the O8 halt close, `BOT_MARKETS` and `supported_profiles` flipped, journeys on the Futures fake (start, stop, halt, restart, gap, refusals). | Not started |
+| 3 | Mark-price ticks for stop loss / take profit, `RANGE_EXIT` (O6), the position checkpoint, the duplicate-report journey, the model-against-executor and sibling-parity tests; this record closed. | Not started |
+
+Next action: stage 2, starting from the Futures budget (`grid_budget` is the only place a Grid's `OwnerBudget` is built).

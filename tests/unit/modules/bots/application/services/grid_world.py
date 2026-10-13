@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
     GridExecutorDeps,
     GridExecutorFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+    GridExposures,
+    spot_only_exposures,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
     GridRiskWatch,
 )
@@ -291,6 +295,7 @@ def grid_world(
     store_view: Callable[[FakeBotStore], IBotStore] | None = None,
     settings_gate: IVenueSettingsGate | None = None,
     risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None,
+    exposures: GridExposures | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -340,6 +345,7 @@ def grid_world(
             events=events,
             settings_gate=settings_gate or SpotSettingsGate(),
             risk_watch=risk_watch,
+            exposures=exposures or spot_only_exposures(),
         )
     )
     executor = factory.create(bot)
@@ -360,7 +366,7 @@ def grid_world(
     )
 
 
-def recovering_world() -> GridWorld:
+def recovering_world(exposures: GridExposures | None = None) -> GridWorld:
     """A bot saved while RUNNING and restored: RECOVERING, its ladder resting."""
     before = grid_world()
     before.executor.start()
@@ -368,6 +374,7 @@ def recovering_world() -> GridWorld:
         state=BotLifecycleState.RECOVERING,
         runtime=before.runtime(),
         recovering_from=BotLifecycleState.RUNNING,
+        exposures=exposures,
     )
     world.book.open = dict(before.book.open)
     world.derive("0")

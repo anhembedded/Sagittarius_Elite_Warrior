@@ -143,11 +143,24 @@ class BotOrderGateway:
         return taken
 
     def place_limit(
-        self, side: OrderSide, price: Decimal, quantity: Decimal
+        self,
+        side: OrderSide,
+        price: Decimal,
+        quantity: Decimal,
+        *,
+        reduce_only: bool = False,
     ) -> OrderOutcome:
-        """A LIMIT GTC order at `price`."""
+        """A LIMIT GTC order at `price`; `reduce_only` on a position venue's exits
+        (`EPIC-039H`, `IOrderFlags`)."""
         return self._submit(
-            self._request(side, OrderType.LIMIT, quantity, price, TimeInForce.GTC)
+            self._request(
+                side,
+                OrderType.LIMIT,
+                quantity,
+                price,
+                TimeInForce.GTC,
+                reduce_only=reduce_only,
+            )
         )
 
     def market_buy(self, quote: Decimal, reference_price: Decimal) -> OrderOutcome:
@@ -284,6 +297,8 @@ class BotOrderGateway:
         quantity: Decimal,
         price: Decimal,
         time_in_force: TimeInForce | None = None,
+        *,
+        reduce_only: bool = False,
     ) -> OrderRequest:
         return OrderRequest(
             symbol=self._identity.symbol,
@@ -291,6 +306,7 @@ class BotOrderGateway:
             order_type=order_type,
             quantity=quantity,
             reference_price=price,
+            reduce_only=reduce_only,
             owner_id=self._identity.owner_id,
             time_in_force=time_in_force,
             client_order_tag=self._identity.tag,
