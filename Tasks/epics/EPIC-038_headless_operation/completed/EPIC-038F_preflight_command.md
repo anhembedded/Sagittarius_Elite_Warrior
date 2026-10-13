@@ -73,4 +73,4 @@ Written 2026-10-12 on branch `claude/epic-038f-preflight` from `master-warrior` 
 **Delivery:** branch pushed and a draft PR opened (see the PR); not merged. Epic README, the epics index and the decision record's evidence table are updated; 038D has the gate criterion.
 
 ## Resume
-Done. Open items live elsewhere: the `run` gate wiring in [038D](../incomplete/EPIC-038D_run_host.md); `declare_health` in 038C.
+Done. Open items live elsewhere: the `run` gate wiring in [038D](EPIC-038D_run_host.md); `declare_health` in 038C.

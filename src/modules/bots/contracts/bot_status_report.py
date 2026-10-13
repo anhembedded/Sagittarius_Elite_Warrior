@@ -35,6 +35,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
 #: state: the bot may well be running, and the file is the only record of it.
 UNREADABLE_STATE = "unreadable"
 
+#: The states in which a bot has nothing on the exchange and nothing to watch
+#: (`RunningBotsObjection`'s `_AT_REST`, spelled as the report spells states).
+#: `test_the_at_rest_states_are_the_lifecycles` ties the two together.
+AT_REST_STATES = frozenset({"DRAFT", "STOPPED"})
+
 #: Said above any list of states when no copy of the app is running.
 RECORDED_STATES_NOTE = (
     "No copy of the app is running: these are the states recorded in the bot "
@@ -64,9 +69,21 @@ class BotStatusEntry:
     reason: str
     run_started_at: datetime | None
     health: Mapping[str, JsonValue] = field(default_factory=dict)
+    #: How many orders the bot's own record says rest on the exchange; `None`
+    #: when it keeps no record (a draft, a bot that never ran). The bot's account,
+    #: not a safety input (`BotProgress`): the host reads it to say what a stop leaves.
+    resting_orders: int | None = None
+    #: Whether a restart makes this bot RECOVERING (RUNNING, PAUSED or RECOVERING), asked of
+    #: the lifecycle table. The host judges a mainnet resume by it *before* the app boots,
+    #: when a RUNNING bot on disk is still RUNNING and not yet RECOVERING.
+    recovers_on_restart: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))
+
+    @property
+    def is_at_rest(self) -> bool:
+        return self.state in AT_REST_STATES
 
     def payload(self) -> dict[str, JsonValue]:
         return {
@@ -79,6 +96,8 @@ class BotStatusEntry:
             "reason": self.reason,
             "run_started_at": _utc(self.run_started_at),
             "health": dict(self.health),
+            "resting_orders": self.resting_orders,
+            "recovers_on_restart": self.recovers_on_restart,
         }
 
 

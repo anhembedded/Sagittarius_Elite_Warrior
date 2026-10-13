@@ -7,9 +7,13 @@ the user stream is down the app is blind to its resting orders' fills, so this i
 the number a monitor alerts on. The stream publishes state *changes*, not each
 message, so there is no "age of the last message" to report.
 
-`skew_ms` is `null`: nothing in the app keeps a clock skew and a contributor may
-not make the network call that measures one. The `run` host measures it on its
-health interval and publishes it (`EPIC-038D`), and `preflight` measures it once.
+`skew_ms` is the clock skew the `run` host last measured (`EPIC-038D`): local clock
+minus the exchange's, the venue furthest from zero when there are several. A
+contributor may not make the network call that measures one, so a probe does
+(`ClockSkewProbe`, on the host's health interval) and leaves the number in a
+`ClockSkewRecorder` this section reads. It is `null` until the first measurement,
+and again after a measurement that found nothing - never a stale number. `status`
+opens no connection of its own; `preflight` measures once.
 
 No account, balance, key or order id appears here.
 """
@@ -23,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
     IHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.report import JsonValue
+from Sagittarius_Elite_Warrior.src.modules.trading.application.health.clock_skew_recorder import (
+    ClockSkewRecorder,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.health.user_stream_recorder import (
     UserStreamRecorder,
 )
@@ -42,9 +49,11 @@ class TradingHealthContributor(IHealthContributor):
         self,
         streams: UserStreamRecorder,
         clock: Callable[[], datetime] = _utc_now,
+        skews: ClockSkewRecorder | None = None,
     ) -> None:
         self._streams = streams
         self._clock = clock
+        self._skews = skews
 
     @property
     def name(self) -> str:
@@ -64,5 +73,5 @@ class TradingHealthContributor(IHealthContributor):
         return {
             "user_stream": venues,
             "stream_down_s": (max(down) if down else 0) if venues else None,
-            "skew_ms": None,
+            "skew_ms": self._skews.worst_ms() if self._skews is not None else None,
         }

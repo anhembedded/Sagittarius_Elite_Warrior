@@ -1,17 +1,20 @@
 """The health line: one log record an operator greps and a monitor parses
 (`EPIC-038G`, `DESIGN_2026-10-09_headless_operation.md` §6).
 
-    [health] state=SERVING up=3600s bots=running:3,paused:1,halted:0 tick_age_s=2 stream_age_s=5 skew_ms=-120 rss_mb=310
+    [health] state=SERVING up=3600s bots=running:3,paused:1,halted:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310
 
-**The contract** (a field is added at the end, never renamed or reordered; the
+**The contract** (a field is added at the end, never renamed or reordered once a monitor
+reads it - `stream_down_s` was `stream_age_s` until `EPIC-038D` renamed it, before the host
+existed to write it; the
 parser ignores keys it does not know, so an older monitor survives a newer host):
 
 | Key | Value | Unknown |
 | :--- | :--- | :--- |
 | `state` | a `HostState` name | — |
 | `up` | whole seconds since boot, with an `s` suffix | — |
-| `bots` | `state:count` pairs, comma-separated, in the host's order; `none` when it holds no bot | — |
-| `tick_age_s`, `stream_age_s` | whole seconds since the last tick / user-stream message | `na` |
+| `bots` | `running`, `paused`, `halted` and `recovering` counts as `state:count` pairs, zeros included, comma-separated; `none` when the bots' section did not answer | — |
+| `tick_age_s` | whole seconds since the last market tick (the freshest open feed) | `na` |
+| `stream_down_s` | whole seconds the worst user-data stream has been out of `connected`; `0` when every stream is connected (the stream reports state changes, not messages, so there is no "age of the last message") | `na` when none has reported |
 | `skew_ms` | signed milliseconds, local clock minus the exchange's | `na` |
 | `rss_mb` | resident memory in whole megabytes | `na` |
 
@@ -75,7 +78,7 @@ class HealthLine:
     up_s: int
     bots: tuple[BotCount, ...]
     tick_age_s: int | None
-    stream_age_s: int | None
+    stream_down_s: int | None
     skew_ms: int | None
     rss_mb: int | None
 
@@ -83,7 +86,7 @@ class HealthLine:
         non_negative = {
             "up_s": self.up_s,
             "tick_age_s": self.tick_age_s,
-            "stream_age_s": self.stream_age_s,
+            "stream_down_s": self.stream_down_s,
             "rss_mb": self.rss_mb,
         }
         for name, value in non_negative.items():
@@ -102,7 +105,7 @@ def format_health_line(health: HealthLine) -> str:
         ("up", f"{health.up_s}s"),
         ("bots", bots),
         ("tick_age_s", _number(health.tick_age_s)),
-        ("stream_age_s", _number(health.stream_age_s)),
+        ("stream_down_s", _number(health.stream_down_s)),
         ("skew_ms", _number(health.skew_ms)),
         ("rss_mb", _number(health.rss_mb)),
     )
@@ -130,7 +133,7 @@ def parse_health_line(text: str) -> HealthLine:
             up_s=_seconds(values["up"]),
             bots=_bots(values["bots"]),
             tick_age_s=_optional_int(values["tick_age_s"]),
-            stream_age_s=_optional_int(values["stream_age_s"]),
+            stream_down_s=_optional_int(values["stream_down_s"]),
             skew_ms=_optional_int(values["skew_ms"]),
             rss_mb=_optional_int(values["rss_mb"]),
         )

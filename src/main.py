@@ -16,7 +16,7 @@ status 1 with the traceback in the log.
 
 import argparse
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cmd import (
     execute_stream,
@@ -56,8 +59,11 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     create_app,
     read_only_instance_access,
 )
+from Sagittarius_Elite_Warrior.src.shell.console_log_stream import console_log_to
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
+    command_owns_its_lifecycle,
+    command_requires_writable_instance,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_status import run_command
 from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
@@ -154,11 +160,35 @@ _LAUNCHER_VERBS = (
 )
 
 
-def _app_work_for(args: argparse.Namespace) -> Callable[[App], CliOutcome | None]:
+def _app_work_for(
+    args: argparse.Namespace, commands: Mapping[str, object]
+) -> Callable[[App], CliOutcome | None]:
     """What a word that runs against the built app does with it."""
     if args.command == "shell":
         return _run_interactive_mode
+    if command_owns_its_lifecycle(commands, args):
+        # `run` (`EPIC-038D`) boots and stops the app itself: it checks the machine
+        # before the bots are restored and waits between boot and stop.
+        return lambda app: _dispatch(app, args)
     return lambda app: _run_headless_mode(app, args)
+
+
+def _build_app(
+    config_manager: ConfigManager, instance: IInstanceAccess, report_on_stdout: bool
+) -> App:
+    """The object graph; its console log leaves by stderr when stdout is a report."""
+    if report_on_stdout:
+        with console_log_to(sys.stderr):
+            return create_app(config_manager, instance)
+    return create_app(config_manager, instance)
+
+
+def _lock_held(command: str, instance: IInstanceAccess) -> CliOutcome:
+    return CliOutcome(
+        ExitCode.LOCK_HELD,
+        f"{instance.reason} `{command}` needs to be the writable copy and starts nothing "
+        "on a read-only one.",
+    )
 
 
 def main() -> int:
@@ -175,13 +205,14 @@ def main() -> int:
     if args.command == "gui":
         return run_command(_run_gui)
 
-    work = _app_work_for(args)
-    if wants_machine_output(args):
-        # `--json` / `--format <name>`: stdout is the report, nothing else. The
-        # Engine's console logger writes to stdout, so it is off for this run
-        # (the same key an operator sets in `user_config.json`); the traceback
-        # of a failure still reaches stderr, and a configured log file is kept.
-        config_manager.load_dict({ConfigKeys.LOG_CONSOLE_ENABLED.value: False})
+    commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
+    work = _app_work_for(args, commands)
+    # `--json` / `--format <name>`: stdout is the report, nothing else. The
+    # Engine's console logger writes to stdout, so for such a run the app is built
+    # with that logger on stderr (`EPIC-038D`): the log is kept, and so is the
+    # document. The traceback of a failure reaches stderr as before.
+    machine_output = wants_machine_output(args)
+    if machine_output:
         banner = None
     if banner is not None:
         print(banner)
@@ -189,14 +220,19 @@ def main() -> int:
     # `EPIC-038C` — a command that only reads (`"read_only": true` in
     # `cli_commands.json`) is never the writable copy: its boot would apply the
     # restart rule to the bots, and it would hold the lock `status` asks about.
-    commands = config_manager.get(ConfigKeys.CLI_COMMANDS.value, {})
     instance = (
         read_only_instance_access()
         if command_is_read_only(commands, args)
         else acquire_instance_access()
     )
     try:
-        return run_command(lambda: work(create_app(config_manager, instance)))
+        if instance.read_only and command_requires_writable_instance(commands, args):
+            # `EPIC-038D` - a host that is not the writable copy would look alive to its
+            # supervisor while trading nothing; refuse, start nothing, and say why.
+            return run_command(lambda: _lock_held(args.command, instance))
+        return run_command(
+            lambda: work(_build_app(config_manager, instance, machine_output))
+        )
     finally:
         instance.release()
 

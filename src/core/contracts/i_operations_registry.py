@@ -31,6 +31,7 @@ from typing import Protocol
 from Sagittarius_Elite_Warrior.src.core.contracts.i_health_contributor import (
     IHealthContributor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_health_probe import IHealthProbe
 from Sagittarius_Elite_Warrior.src.core.contracts.i_preflight_check import (
     IPreflightCheck,
 )
@@ -80,6 +81,20 @@ class HealthContributorDescriptor:
     contributor_id: str
 
 
+type HealthProbeFactory = Callable[[PortResolver], IHealthProbe]
+
+
+@dataclass(frozen=True, slots=True)
+class HealthProbeDescriptor:
+    """One measurement a module takes for the host's health interval (`EPIC-038D`)."""
+
+    #: Equal to the built probe's `name`; a second claim raises, as for a check.
+    name: str
+    factory: HealthProbeFactory
+    #: Which module declared it, so a clash names both sides.
+    contributor_id: str
+
+
 class IOperationsRegistry(ABC):
     """What a module sees of the shell's operations table: declarations, no reads."""
 
@@ -99,6 +114,14 @@ class IOperationsRegistry(ABC):
         `status --json`), so a second claim raises, naming both modules.
         """
 
+    @abstractmethod
+    def declare_probe(self, descriptor: HealthProbeDescriptor) -> None:
+        """Claim the probe `descriptor.name` for this module (`EPIC-038D`).
+
+        The `run` host calls every probe once per health interval, before it
+        publishes; a second claim of one name raises, naming both modules.
+        """
+
 
 class IPreflightCheckTable(ABC):
     """What `operations` sees: the finished table, and no way to add to it."""
@@ -114,3 +137,11 @@ class IHealthContributorTable(ABC):
     @abstractmethod
     def health_descriptors(self) -> tuple[HealthContributorDescriptor, ...]:
         """Every declared health contributor, in a stable order (by name)."""
+
+
+class IHealthProbeTable(ABC):
+    """What `operations` sees of the probe declarations: the finished table."""
+
+    @abstractmethod
+    def probe_descriptors(self) -> tuple[HealthProbeDescriptor, ...]:
+        """Every declared probe, in a stable order (by name)."""

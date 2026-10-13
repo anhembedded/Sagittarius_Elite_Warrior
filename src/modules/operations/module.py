@@ -22,8 +22,14 @@ What it holds today:
     exchange are declared by `trading`, the module that knows the key and the
     clock.
 
-The `run` host (`EPIC-038D`) will join these hooks; `subscribe` and `contribute`
-are inherited no-ops.
+  - the **`run` host** (`EPIC-038D`): `main.py run` serves until told to stop. The
+    module binds what the host shares with the snapshot machinery - the health cadence
+    (interval, host state, the probes before a snapshot and the health line after it),
+    the alert-channel answer and the process-memory reader - and `boot()` reads the
+    cadence, so a `run` that configured it before the boot gets its own interval and
+    states from the same job every writable copy runs.
+
+`subscribe` and `contribute` are inherited no-ops.
 """
 
 from __future__ import annotations
@@ -65,6 +71,12 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snaps
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
     FileHealthSnapshotSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.no_alert_channels import (
+    NoAlertChannels,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.process_memory import (
+    default_process_memory,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.python_floor_check import (
     PythonFloorCheck,
 )
@@ -73,6 +85,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.system_operations
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.declared_health_contributors import (
     DeclaredHealthContributors,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.application.health_cadence import (
+    HealthCadence,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.health_publisher import (
     HealthPublisher,
@@ -91,11 +106,14 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.queries.get_ho
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.preflight_cli_handler import (
     PreflightCliHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_cli_handler import (
+    RunCliHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.status_cli_handler import (
     StatusCliHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.operations.contracts.health_snapshot import (
-    HEALTH_INTERVAL_SECONDS,
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
+    IAlertChannels,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_health_snapshot_sink import (
     IHealthSnapshotSink,
@@ -105,6 +123,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_health_snapsho
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_operations_clock import (
     IOperationsClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_process_memory import (
+    IProcessMemory,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_engine_context import IEngineContext
@@ -131,6 +152,11 @@ class OperationsModule(BoundedContextModule):
     def register(self, context: IEngineContext) -> None:
         container = context.container
         container.singleton(IOperationsClock, SystemOperationsClock())
+        # `EPIC-038D` - what `run` configures before the boot and the module reads in it.
+        container.singleton(HealthCadence, HealthCadence())
+        # Until `EPIC-036B` routes bot events to a person, nothing would say a bot halted.
+        container.singleton(IAlertChannels, NoAlertChannels())
+        container.singleton(IProcessMemory, default_process_memory())
         container.singleton(
             IHealthSnapshotSource, FileHealthSnapshotSource(_snapshot_path())
         )
@@ -154,6 +180,7 @@ class OperationsModule(BoundedContextModule):
         registry.declare(
             CliCommandDescriptor("preflight", PreflightCliHandler, self.module_id)
         )
+        registry.declare(CliCommandDescriptor("run", RunCliHandler, self.module_id))
 
     def declare_operations(self, registry: IOperationsRegistry) -> None:
         for check_id, factory in (
@@ -171,6 +198,7 @@ class OperationsModule(BoundedContextModule):
             logger.info("[health-snapshot] not written: this copy is read-only")
             return
         clock = container.resolve(IOperationsClock)
+        cadence = container.resolve(HealthCadence)
         publisher = HealthPublisher(
             container.resolve(IHealthContributors),
             container.resolve(IHealthSnapshotSink),
@@ -182,21 +210,21 @@ class OperationsModule(BoundedContextModule):
                 ),
                 pid=os.getpid(),
                 started_at=clock.now(),
-                interval_s=HEALTH_INTERVAL_SECONDS,
+                interval_s=cadence.interval_s,
             ),
         )
-        publishing = HealthPublishing(publisher)
+        publishing = HealthPublishing(publisher, cadence)
         publishing.begin()
         self._publishing = publishing
         self._job = (
             container.resolve(Scheduler)
-            .every(seconds=HEALTH_INTERVAL_SECONDS)
+            .every(seconds=cadence.interval_s)
             .do(publishing.tick)
         )
         logger.info(
             "[health-snapshot] writing %s every %ss",
             _snapshot_path(),
-            HEALTH_INTERVAL_SECONDS,
+            cadence.interval_s,
         )
 
     def shutdown(self, context: IEngineContext) -> None:

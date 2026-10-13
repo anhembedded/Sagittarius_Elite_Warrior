@@ -33,13 +33,27 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot
     ResumeBotCommand,
     ResumeBotCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_recovering_for_host import (
+    ResumeRecoveringForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
     StartBotCommand,
     StartBotCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot_for_host import (
+    StartBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
     StopBotCommand,
     StopBotCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_for_host import (
+    StopBotForHostCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeRecoveringForHostCommand,
+    StartBotForHostCommand,
+    StopBotForHostCommand,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -54,3 +68,9 @@ def bind_commands(container: IContainer) -> None:
     container.bind(StopBotCommand, StopBotCommandHandler)
     container.bind(ConfirmBotResumeCommand, ConfirmBotResumeCommandHandler)
     container.bind(DeleteBotCommand, DeleteBotCommandHandler)
+    # `EPIC-038D` - what the `run` host asks, answered by the screen's own commands.
+    container.bind(StartBotForHostCommand, StartBotForHostCommandHandler)
+    container.bind(StopBotForHostCommand, StopBotForHostCommandHandler)
+    container.bind(
+        ResumeRecoveringForHostCommand, ResumeRecoveringForHostCommandHandler
+    )

@@ -76,8 +76,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution impo
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.declarations import (
-    trading_preflight_checks,
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.operations_declarations import (
+    declare_trading_operations,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.health.trading_health import (
     TradingHealth,
@@ -272,11 +272,9 @@ class TradingModule(BoundedContextModule):
             registry.contribute_command(command)
 
     def declare_operations(self, registry: IOperationsRegistry) -> None:
-        """The pre-flight checks about the key and the exchange's clock
-        (`EPIC-038F`): this context knows them, `operations` runs them."""
-        for descriptor in trading_preflight_checks(self.module_id):
-            registry.declare_preflight(descriptor)
-        registry.declare_health(self._health.declaration(self.module_id))
+        """The pre-flight checks, the stream section and the clock probe
+        (`EPIC-038F`, `EPIC-038D`): this context knows them, `operations` runs them."""
+        declare_trading_operations(registry, self.module_id, self._health)
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.

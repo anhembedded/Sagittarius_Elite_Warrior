@@ -31,7 +31,7 @@ _SERVING = HealthLine(
     up_s=3600,
     bots=(BotCount("running", 3), BotCount("paused", 1), BotCount("halted", 0)),
     tick_age_s=2,
-    stream_age_s=5,
+    stream_down_s=5,
     skew_ms=-120,
     rss_mb=310,
 )
@@ -40,7 +40,7 @@ _SERVING = HealthLine(
 def test_the_health_line_text_is_pinned() -> None:
     assert format_health_line(_SERVING) == (
         "[health] state=SERVING up=3600s bots=running:3,paused:1,halted:0 "
-        "tick_age_s=2 stream_age_s=5 skew_ms=-120 rss_mb=310"
+        "tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310"
     )
 
 
@@ -54,7 +54,7 @@ def test_unknown_measurements_and_no_bots_round_trip() -> None:
         up_s=0,
         bots=(),
         tick_age_s=None,
-        stream_age_s=None,
+        stream_down_s=None,
         skew_ms=None,
         rss_mb=None,
     )
@@ -63,7 +63,7 @@ def test_unknown_measurements_and_no_bots_round_trip() -> None:
 
     assert text == (
         "[health] state=BOOTING up=0s bots=none "
-        "tick_age_s=na stream_age_s=na skew_ms=na rss_mb=na"
+        "tick_age_s=na stream_down_s=na skew_ms=na rss_mb=na"
     )
     assert parse_health_line(text) == quiet
 
@@ -84,11 +84,13 @@ def test_a_key_added_later_is_ignored_not_fatal() -> None:
     "text",
     [
         "no tag here state=SERVING",
-        "[health] state=SERVING up=1s bots=none tick_age_s=na stream_age_s=na skew_ms=na",
-        "[health] state=NAPPING up=1s bots=none tick_age_s=na stream_age_s=na skew_ms=na rss_mb=na",
-        "[health] state=SERVING up=soon bots=none tick_age_s=na stream_age_s=na skew_ms=na rss_mb=na",
-        "[health] state=SERVING up=1s bots=running tick_age_s=na stream_age_s=na skew_ms=na rss_mb=na",
-        "[health] state=SERVING up=1s bots=none tick_age_s=na tick_age_s=3 stream_age_s=na skew_ms=na rss_mb=na",
+        "[health] state=SERVING up=1s bots=none tick_age_s=na stream_down_s=na skew_ms=na",
+        "[health] state=NAPPING up=1s bots=none tick_age_s=na stream_down_s=na skew_ms=na rss_mb=na",
+        "[health] state=SERVING up=soon bots=none tick_age_s=na stream_down_s=na skew_ms=na rss_mb=na",
+        "[health] state=SERVING up=1s bots=running tick_age_s=na stream_down_s=na skew_ms=na rss_mb=na",
+        "[health] state=SERVING up=1s bots=none tick_age_s=na tick_age_s=3 stream_down_s=na skew_ms=na rss_mb=na",
+        # The field's old name: it measured nothing the stream can report.
+        "[health] state=SERVING up=1s bots=none tick_age_s=na stream_age_s=na skew_ms=na rss_mb=na",
     ],
 )
 def test_a_malformed_line_is_refused_not_guessed(text: str) -> None:
@@ -127,7 +129,7 @@ def test_a_health_line_that_could_not_be_parsed_back_cannot_be_built(
         "up_s": _SERVING.up_s,
         "bots": _SERVING.bots,
         "tick_age_s": _SERVING.tick_age_s,
-        "stream_age_s": _SERVING.stream_age_s,
+        "stream_down_s": _SERVING.stream_down_s,
         "skew_ms": _SERVING.skew_ms,
         "rss_mb": _SERVING.rss_mb,
         **field_overrides,
@@ -188,7 +190,7 @@ def test_a_stale_feed_is_logged_at_info_never_warning(
         up_s=90_000,
         bots=(BotCount("running", 1),),
         tick_age_s=86_400,
-        stream_age_s=86_400,
+        stream_down_s=86_400,
         skew_ms=0,
         rss_mb=200,
     )

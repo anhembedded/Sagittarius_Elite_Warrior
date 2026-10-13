@@ -12,6 +12,9 @@ from collections.abc import Callable
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     HealthContributorDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.health.clock_skew_recorder import (
+    ClockSkewRecorder,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.health.trading_health_contributor import (
     SECTION_NAME,
     TradingHealthContributor,
@@ -27,11 +30,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_
 class TradingHealth:
     def __init__(self) -> None:
         self._streams = UserStreamRecorder()
+        self._skews = ClockSkewRecorder()
+
+    @property
+    def skews(self) -> ClockSkewRecorder:
+        """Where the host's clock-skew probe leaves what it measured."""
+        return self._skews
 
     def declaration(self, contributor_id: str) -> HealthContributorDescriptor:
         return HealthContributorDescriptor(
             SECTION_NAME,
-            lambda _resolver: TradingHealthContributor(self._streams),
+            lambda _resolver: TradingHealthContributor(
+                self._streams, skews=self._skews
+            ),
             contributor_id,
         )
 

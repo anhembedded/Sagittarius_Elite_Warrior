@@ -40,7 +40,7 @@ _PRINTER = ReportPrinter(ReportFormats.default())
 _LIST_KEYS = {"app_running", "bots", "unreadable", "counts"}
 _BOT_KEYS = {
     "bot_id", "name", "kind", "venue", "symbol", "state", "reason",
-    "run_started_at", "health",
+    "run_started_at", "health", "resting_orders", "recovers_on_restart",
 }  # fmt: skip
 _UNREADABLE_KEYS = {"bot_id", "state", "path", "reason"}
 

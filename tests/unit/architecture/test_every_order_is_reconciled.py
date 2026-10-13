@@ -13,13 +13,16 @@ to any of them goes red here rather than in production:
    safety gate refuses (`TRADING_SWITCH_OFF`) while `session_state.enabled` is
    false, and it is the one place a live order is placed. So no order path
    skips fact 1, by any road.
-3. **Only the three actions open it.** `ensure_ready()` is called from Start
-   bot (`GridStartPreconditions`), Arm strategy (`ArmStrategyCommandHandler`)
-   and the manual order (`ExecuteOrderCommandHandler`, when the request
-   `opens_session`), plus the command handler behind the port
-   (`ITradingSession.ensure_ready` dispatches to it). An automated caller — a
-   bot's tick, a strategy's signal — never opens it, so a late order cannot
-   undo an Emergency Stop.
+3. **Only the three actions open it** - and one operator flag. `ensure_ready()` is
+   called from Start bot (`GridStartPreconditions`), Arm strategy
+   (`ArmStrategyCommandHandler`) and the manual order (`ExecuteOrderCommandHandler`,
+   when the request `opens_session`), plus the command handler behind the port
+   (`ITradingSession.ensure_ready` dispatches to it), plus `run --resume-recovering`
+   (`EPIC-038D`, decision O2(b)): the headless operator's equivalent of the first Start,
+   asked for by a flag, once, at process start - a fresh process's session is always
+   closed, so no Emergency Stop can precede it. An automated caller — a bot's tick, a
+   strategy's signal, a retry — never opens it, so a late order cannot undo an
+   Emergency Stop.
 4. **Every live-order caller is accounted for.** Each file that calls
    `submit(..., live=True)` is declared below with how its orders are covered.
    A new caller fails here until its author says so, which is the point.
@@ -52,6 +55,11 @@ _ENSURE_READY_CALLERS = {
     _EXECUTE_ORDER: "a manual order (`opens_session`)",
     "src/modules/trading/application/session/ensure_session_ready/handler.py": (
         "the command behind the port"
+    ),
+    "src/modules/bots/application/use_cases/resume_recovering_for_host/handler.py": (
+        "`run --resume-recovering` (`EPIC-038D`, decision O2(b)): the operator's flag, "
+        "once at process start; refused without an alert channel or the typed "
+        "acknowledgement, and for a mainnet venue without `--confirm-venue`"
     ),
 }
 

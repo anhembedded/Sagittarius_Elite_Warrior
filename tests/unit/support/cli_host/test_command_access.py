@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
+    command_owns_its_lifecycle,
+    command_requires_writable_instance,
 )
 
 _COMMANDS = {
@@ -69,6 +71,8 @@ _WRITABLE = {
     ("stream", "start"),
     ("stream", "stop"),
     ("trade-once", None),
+    # The writable copy by definition: it trades, and refuses to start without the lock.
+    ("run", None),
 }
 
 
@@ -102,3 +106,57 @@ def test_the_shipped_commands_say_what_was_decided() -> None:
             command,
             verb,
         )
+
+
+_HOSTS = {
+    "run": {"requires_writable": True, "owns_lifecycle": True},
+    "status": {"read_only": True},
+    "sync": {},
+    "bot": {
+        "subparsers": {
+            "dest": "action",
+            "commands": {"start": {"requires_writable": True}, "list": {}},
+        }
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("args", "writable", "owns"),
+    [
+        (_args(command="run"), True, True),
+        (_args(command="status"), False, False),
+        (_args(command="sync"), False, False),
+        (_args(command="unknown"), False, False),
+        (_args(command="bot", action="start"), True, False),
+        (_args(command="bot", action="list"), False, False),
+    ],
+)
+def test_a_command_declares_that_it_needs_the_lock_and_that_it_owns_its_lifecycle(
+    args: argparse.Namespace, writable: bool, owns: bool
+) -> None:
+    assert command_requires_writable_instance(_HOSTS, args) is writable
+    assert command_owns_its_lifecycle(_HOSTS, args) is owns
+
+
+def test_only_run_requires_the_lock_and_owns_its_lifecycle_in_the_shipped_table() -> (
+    None
+):
+    shipped = _shipped()
+    leaves = _every_shipped_leaf()
+
+    requiring = {
+        leaf
+        for leaf in leaves
+        if command_requires_writable_instance(
+            shipped, _args(command=leaf[0], action=leaf[1])
+        )
+    }
+    owning = {
+        leaf
+        for leaf in leaves
+        if command_owns_its_lifecycle(shipped, _args(command=leaf[0], action=leaf[1]))
+    }
+
+    assert requiring == {("run", None)}
+    assert owning == {("run", None)}

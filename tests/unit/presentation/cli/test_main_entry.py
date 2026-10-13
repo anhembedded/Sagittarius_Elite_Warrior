@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -212,15 +213,18 @@ def test_a_word_nobody_runs_is_a_usage_error(
     assert "Unknown command: sync" in capsys.readouterr().err
 
 
-def test_machine_output_keeps_the_console_log_off_stdout(
+def test_machine_output_builds_the_app_with_its_console_log_on_stderr(
     monkeypatch: pytest.MonkeyPatch, built: _Recorder
 ) -> None:
     """`--json` promises stdout is one document; the Engine's console logger
-    writes to stdout, so it is switched off for that run and only that run."""
-    seen: list[object] = []
+    writes to whatever `sys.stdout` is when it is built, so for that run, and only
+    that run, the app is built while `sys.stdout` names stderr. Afterwards
+    `sys.stdout` is the real one again, for the report to be printed on."""
+    seen: list[bool] = []
+    real_stdout = sys.stdout
 
     def create(config_manager: object, instance: object) -> Mock:
-        seen.append(config_manager.get("log.console.enabled", True))  # type: ignore[attr-defined]
+        seen.append(sys.stdout is sys.stderr)
         return built.app
 
     monkeypatch.setattr(entry, "create_app", create)
@@ -229,6 +233,7 @@ def test_machine_output_keeps_the_console_log_off_stdout(
     )
 
     _run(monkeypatch, "exchange-status", "--json")
+    assert sys.stdout is real_stdout
     _run(monkeypatch, "exchange-status")
 
-    assert seen == [False, True]
+    assert seen == [True, False]

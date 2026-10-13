@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.no_bot_plan import NoBotPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -47,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_b
     ReadOnlyBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_plan import IBotPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
@@ -72,6 +74,8 @@ def bind_state(container: IContainer) -> None:
     container.singleton(BotIdGenerator, BotIdGenerator())
     container.singleton(BotRestoreService, _build_restore_service)
     container.singleton(BotsStateDirectory, _build_state_directory)
+    # `EPIC-038D` - no plan file exists until `bot apply` (`EPIC-038I`) writes one.
+    container.singleton(IBotPlan, NoBotPlan())
 
 
 def _build_store(container: IContainer) -> IBotStore:
