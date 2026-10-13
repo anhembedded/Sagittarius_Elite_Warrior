@@ -77,9 +77,16 @@ class ExchangeCheck:
         """`bot` was selected, or its state changed: ask again, or cancel the
         ask when nothing is left to check."""
         self._selected.take_exchange(ExchangeChecking())
-        if bot is None or bot.state not in CHECKED_STATES:
+        if bot is None:
             self._reads.abandon(ReadKind.EXCHANGE)
             self._risk.follow(None)
+            return
+        if bot.state not in CHECKED_STATES:
+            # Start's readiness has nothing to check for a bot that runs, but its Backtest still
+            # needs the symbol's brackets (`EPIC-039J` hand-off): the risk facts are read in
+            # every state, the exchange snapshot only for a bot at rest.
+            self._reads.abandon(ReadKind.EXCHANGE)
+            self._risk.follow(bot)
             return
         logger.debug("Exchange check: asking for %s (%s)", bot.name, bot.state.value)
         self._queries.exchange(bot)
