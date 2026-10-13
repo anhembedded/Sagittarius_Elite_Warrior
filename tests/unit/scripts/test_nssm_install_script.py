@@ -8,12 +8,12 @@ import stat
 import subprocess
 from pathlib import Path
 
-import pytest
 from Sagittarius_Elite_Warrior.scripts.render_service_files import (
     NSSM_FILE,
     render_nssm_script,
     supervisor_stop_wait_seconds,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.modules.operations.application.run_host_parts import (
     LEAVE_PUBLISH_SECONDS,
     STOP_GRACE_SECONDS,
@@ -29,8 +29,8 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,
-    PWSH,
     one,
+    require_tool,
     service,
 )
 
@@ -61,10 +61,13 @@ def test_the_wrapper_stops_restarting_on_exactly_the_codes_the_unit_does() -> No
         for code in re.findall(r"^Set-Nssm AppExit (\d+) Exit$", text, re.MULTILINE)
     }
 
-    assert exits == set(non_restarting_codes())
+    # Exit 0 ends the service too: NSSM restarts on every status it is not told about, while
+    # the unit's Restart=on-failure does not restart a clean exit.
+    assert exits == {int(ExitCode.SUCCESS), *non_restarting_codes()}
+    assert 0 in exits
     assert "Set-Nssm AppExit Default Restart" in text
     unit_codes = {int(c) for c in one(service(), "RestartPreventExitStatus").split()}
-    assert exits == unit_codes
+    assert exits - {0} == unit_codes
 
 
 def test_the_wrapper_sets_no_log_file_and_rotates_what_it_captures() -> None:
@@ -80,11 +83,10 @@ def test_the_wrapper_sets_no_log_file_and_rotates_what_it_captures() -> None:
     assert "SEW_DATA_ROOT=" in text
 
 
-@pytest.mark.skipif(PWSH is None, reason="pwsh is not installed")
 def test_the_wrapper_is_valid_powershell() -> None:
     result = subprocess.run(
         [
-            str(PWSH),
+            require_tool("pwsh"),
             "-NoProfile",
             "-Command",
             (
@@ -113,7 +115,6 @@ def _fake_tool(path: Path, log: Path, status_exit: str = "0") -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
-@pytest.mark.skipif(PWSH is None, reason="pwsh is not installed")
 def test_the_wrapper_issues_the_settings_the_runbook_names_and_a_second_run_installs_nothing(
     tmp_path: Path,
 ) -> None:
@@ -123,7 +124,7 @@ def test_the_wrapper_issues_the_settings_the_runbook_names_and_a_second_run_inst
     _fake_tool(nssm, log, status_exit="3")
     _fake_tool(tmp_path / "icacls", log)
     arguments = [
-        str(PWSH),
+        require_tool("pwsh"),
         "-NoProfile",
         "-File",
         str(NSSM_FILE),
@@ -153,7 +154,7 @@ def test_the_wrapper_issues_the_settings_the_runbook_names_and_a_second_run_inst
     assert first.returncode == 0, first.stdout + first.stderr
     assert any(call.startswith("nssm install sew-run") for call in calls)
     assert "nssm set sew-run AppStopMethodConsole 62000" in calls
-    for code in non_restarting_codes():
+    for code in (0, *non_restarting_codes()):
         assert f"nssm set sew-run AppExit {code} Exit" in calls
     assert "nssm set sew-run AppExit Default Restart" in calls
     parameters = next(

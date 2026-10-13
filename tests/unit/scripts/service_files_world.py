@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections import defaultdict
 
+import pytest
 from Sagittarius_Elite_Warrior.scripts.render_service_files import UNIT_FILE
 
-PWSH = shutil.which("pwsh")
 FORBIDDEN_IN_A_SERVICE = ("log.file", "--dev", "--debug")
 
 
@@ -34,3 +35,18 @@ def service() -> dict[str, list[str]]:
 def one(values: dict[str, list[str]], key: str) -> str:
     assert len(values[key]) == 1, f"{key} must appear exactly once: {values[key]}"
     return values[key][0]
+
+
+def require_tool(name: str) -> str:
+    """The path of an external tool a test needs, or a skip with a reason on a developer's machine.
+
+    On the GitHub Actions runner the tool must be there: a test that silently skipped
+    there would leave the unit and the install script unchecked while the gate stayed
+    green, so a missing tool fails the test instead (`EPIC-038H`, review of PR #478).
+    """
+    path = shutil.which(name)
+    if path is not None:
+        return path
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        pytest.fail(f"{name} is required on CI and is not on PATH")
+    pytest.skip(f"{name} is not installed")

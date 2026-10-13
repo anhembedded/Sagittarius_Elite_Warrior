@@ -12,13 +12,11 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import Mock
 
-import pytest
 from Sagittarius_Elite_Warrior.scripts.render_service_files import (
     NSSM_FILE,
     UNIT_FILE,
@@ -54,13 +52,13 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,
     one,
+    require_tool,
     sections,
     service,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 
 _ROOT = Path(__file__).resolve().parents[3]
-_SYSTEMD_ANALYZE = shutil.which("systemd-analyze")
 _PLACEHOLDER = "placeholder-not-a-secret"
 
 
@@ -260,7 +258,6 @@ def test_the_hardening_leaves_the_notify_socket_and_the_exchange_reachable() -> 
 # --- systemd's own check -----------------------------------------------------
 
 
-@pytest.mark.skipif(_SYSTEMD_ANALYZE is None, reason="systemd-analyze is not installed")
 def test_systemd_accepts_the_unit(tmp_path: Path) -> None:
     """`systemd-analyze verify` on the unit, with the install paths bound to real files.
 
@@ -284,7 +281,7 @@ def test_systemd_accepts_the_unit(tmp_path: Path) -> None:
     )
 
     result = subprocess.run(
-        [str(_SYSTEMD_ANALYZE), "verify", str(unit)],
+        [require_tool("systemd-analyze"), "verify", str(unit)],
         capture_output=True,
         text=True,
         timeout=60,

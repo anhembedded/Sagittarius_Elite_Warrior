@@ -13,8 +13,10 @@
 # WM_CLOSE and then TerminateProcess; its default is 1500 ms, far below the host's drain.
 #   AppStopMethodConsole = (ceil(--stop-timeout + STOP_GRACE_SECONDS + LEAVE_PUBLISH_SECONDS) + 5) s
 #                        = ceil(25 + 30 + 2) + 5 = 62000 ms
-# The exit statuses the host returns for a fault a restart cannot fix are told to NSSM to
-# stop on (`AppExit <code> Exit`); every other status restarts after AppRestartDelay.
+# NSSM restarts on every exit status unless told otherwise. Exit 0 (a requested stop or a second
+# signal) and the statuses the host returns for a fault a restart cannot fix are told to NSSM to
+# end the service on (`AppExit <code> Exit`), as the unit's Restart=on-failure and
+# RestartPreventExitStatus do; every other status restarts after AppRestartDelay.
 #
 # Run from an elevated PowerShell:
 #   .\nssm-install.ps1 -Nssm C:\tools\nssm.exe -Python C:\sew\venv\Scripts\python.exe `
@@ -64,6 +66,7 @@ Set-Nssm Start SERVICE_AUTO_START
 Set-Nssm ObjectName $Account
 
 Set-Nssm AppExit Default Restart
+Set-Nssm AppExit 0 Exit
 Set-Nssm AppExit 2 Exit
 Set-Nssm AppExit 3 Exit
 Set-Nssm AppExit 4 Exit
