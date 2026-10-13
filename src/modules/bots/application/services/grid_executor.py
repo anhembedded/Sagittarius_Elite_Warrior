@@ -49,9 +49,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_resume
     GridResumeSequence,
     ResumeProposal,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
-    GridRiskWatch,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
 )
@@ -130,12 +127,10 @@ class GridExecutor(IBotExecutor):
         queue: IBotWorkQueue,
         retries: IBotRetryScheduler,
         exposure: GridExposure,
-        risk_watch: GridRiskWatch | None = None,
     ) -> None:
         """@param exposure The collaborators of the venue profile's exposure: the
-        opening, the close, the reconcile check and the order flags (`EPIC-039H`).
-        @param risk_watch A position venue's liquidation and divergence watch
-        (`EPIC-039F`, bound by `EPIC-039H`'s factory); `None` on Spot."""
+        opening, the close, the reconcile check, the order flags and, on a position venue,
+        the risk watch (`EPIC-039H`)."""
         self._context = context
         self._queue = queue
         self._start = GridStartSequence(context, exposure.opening, exposure.flags)
@@ -176,7 +171,7 @@ class GridExecutor(IBotExecutor):
                 self._interrupted_start,
                 GridKeyProbe(context),
                 GridTermsWatch(context),
-                risk_watch,
+                exposure.risk_watch,
             ),
             self._post,
             self._forget_proposal,

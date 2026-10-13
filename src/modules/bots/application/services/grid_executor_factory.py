@@ -9,7 +9,7 @@ its own work queue.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from functools import partial
 
@@ -187,10 +187,9 @@ class GridExecutorFactory(IBotExecutorFactory):
                 ),
             ),
         )
+        exposure = deps.exposures.build(context)
+        if deps.risk_watch is not None:
+            exposure = replace(exposure, risk_watch=deps.risk_watch(context))
         return GridExecutor(
-            context,
-            deps.queues(f"bot-{bot_id}"),
-            deps.retries,
-            deps.exposures.build(context),
-            deps.risk_watch(context) if deps.risk_watch is not None else None,
+            context, deps.queues(f"bot-{bot_id}"), deps.retries, exposure
         )

@@ -3,7 +3,8 @@
 @details A Grid's executor is exposure-agnostic except at four joints: how the start takes its
 opening, how the stop closes what the bot holds, what a reconcile checks of the holding, and
 what flags the ladder's orders carry. Each is a port (`IOpeningStrategy`, `IExposureCloser`,
-`IExposureCheck`, `IOrderFlags`); `GridExposure` is the four of one bot, and `GridExposures`
+`IExposureCheck`, `IOrderFlags`); `GridExposure` is the four of one bot, plus the risk watch
+a position venue adds (`None` where the exposure has none), and `GridExposures`
 builds them from the profile of the bot's venue, exactly as `VenueSettingsGates` picks a
 settings gate. No sequence names a market and a third kind of exposure is one more entry.
 
@@ -22,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closer_spot
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exposure_check_spot import (
     SpotExposureCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+    GridRiskWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
@@ -57,12 +61,24 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 
 @dataclass(frozen=True, slots=True)
 class GridExposure:
-    """The four exposure-shaped collaborators of one bot's executor."""
+    """The exposure-shaped collaborators of one bot's executor."""
 
     opening: IOpeningStrategy
     closer: IExposureCloser
     check: IExposureCheck
     flags: IOrderFlags
+    #: A position venue's liquidation and divergence watch (`EPIC-039F`); `None`: Spot has neither.
+    risk_watch: GridRiskWatch | None = None
+
+
+class ExposureKindNotBuiltError(LookupError):
+    """The bot's venue has an exposure kind this build has no collaborators for."""
+
+    def __init__(self, kind: ExposureKind) -> None:
+        super().__init__(
+            f"This build has no collaborators for a {kind.name} exposure, "
+            "so a bot on that venue cannot run."
+        )
 
 
 type ExposureBuilder = Callable[[GridRunContext], GridExposure]
@@ -90,9 +106,12 @@ class GridExposures:
 
     def build(self, context: GridRunContext) -> GridExposure:
         """@raise VenueTradesNoMarketError The bot's venue trades no market.
-        @raise KeyError The venue's exposure kind has no builder in this build."""
+        @raise ExposureKindNotBuiltError The venue's exposure kind has no builder in this build."""
         profile = self._profiles.for_venue(context.state.bot.definition.venue)
-        return self._by_exposure[profile.exposure_kind](context)
+        build = self._by_exposure.get(profile.exposure_kind)
+        if build is None:
+            raise ExposureKindNotBuiltError(profile.exposure_kind)
+        return build(context)
 
 
 def spot_only_exposures() -> GridExposures:

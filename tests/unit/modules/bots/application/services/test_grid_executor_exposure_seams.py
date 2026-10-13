@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exposure_ch
     SpotExposureCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+    ExposureKindNotBuiltError,
     GridExposure,
     GridExposures,
     spot_exposure,
@@ -165,8 +166,11 @@ def test_an_exposure_kind_with_no_builder_is_not_silently_given_spots() -> None:
         VenueProfilesByMarket(), {ExposureKind.POSITION: spot_exposure}
     )
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ExposureKindNotBuiltError) as refused:
         only_positions.build(world.executor._context)
+
+    assert "INVENTORY" in str(refused.value)
+    assert "no collaborators" in str(refused.value)
 
 
 def test_the_start_takes_its_opening_from_the_strategy_and_lays_what_it_returns() -> (
