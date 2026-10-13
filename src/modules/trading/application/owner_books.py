@@ -191,7 +191,10 @@ class OwnerBooks:
 
     def position_of(self, tag: str, owner_id: str) -> OwnerPosition | None:
         """@brief The signed position `owner_id` holds under `tag`, or `None`
-        when `tag` has no book, another owner holds it, or it is a Spot book."""
+        when `tag` has no book, another owner holds it, or it is a Spot book.
+        @details The live read behind `IExposureBook` once `EPIC-039H`'s
+        executor needs one (today the bots side reads the registration's
+        answer); until then tests are its callers."""
         with self._lock:
             book = self._by_tag.get(tag)
             if book is None or book.owner_id != owner_id:

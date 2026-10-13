@@ -9,6 +9,7 @@ from a `Mock(spec=ITradingClientFactory)`, its filters from a
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -254,3 +255,33 @@ def test_a_spot_venue_refuses_a_budget_with_futures_limits() -> None:
     )
 
     assert result.refusal is OwnerBudgetRefusal.BUDGET_NOT_FOR_VENUE
+
+
+def test_an_own_order_that_fills_between_the_two_reads_is_not_a_foreign_position() -> (
+    None
+):
+    """The exchange is read before the history, so a fill that lands between the
+    reads leaves the history ahead of it, never behind (review of PR #485)."""
+    state = TradingSessionState()
+    state.enable(set())
+    factory = Mock(spec=ITradingClientFactory)
+    client = factory.create.return_value
+    client.get_open_orders.return_value = []
+    client.get_positions.return_value = _live("0")
+
+    class _FillsDuringTheHistoryRead(FakeAccountHistoryReader):
+        def order_history(self, symbol: str, since: datetime):  # type: ignore[no-untyped-def]
+            client.get_positions.return_value = _live("0.010")
+            return super().order_history(symbol, since)
+
+    context = venue_context(
+        _FUTURES,
+        client_factory=factory,
+        metadata_provider=_metadata(),
+        history_reader=_FillsDuringTheHistoryRead(now=NOW),  # type: ignore[arg-type]
+    )
+    handler = registration_handler(single_venue_scopes(context, state))
+
+    result = handler.execute(RegisterOwnerBudgetCommand(REGISTRATION, venue=_FUTURES))
+
+    assert result.registered

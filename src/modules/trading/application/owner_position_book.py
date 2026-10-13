@@ -131,6 +131,8 @@ class OwnerPositionBook(IOwnerBook):
                 self._position,
                 orders.open_adding_quantity(OrderSide.BUY),
                 orders.open_adding_quantity(OrderSide.SELL),
+                orders.open_adding_notional(OrderSide.BUY),
+                orders.open_adding_notional(OrderSide.SELL),
                 order.reduce_only,
             ),
         )

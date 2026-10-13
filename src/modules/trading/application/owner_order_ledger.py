@@ -94,6 +94,18 @@ class OwnerOrderLedger:
             _ZERO,
         )
 
+    def open_adding_notional(self, side: OrderSide) -> Decimal:
+        """What the open orders of `side` that could add to a position still
+        commit, each at its own price (reduce-only orders left out)."""
+        return sum(
+            (
+                o.notional * o.remaining / o.quantity if o.quantity > 0 else o.notional
+                for o in self._open.values()
+                if o.side is side and not o.reduce_only
+            ),
+            _ZERO,
+        )
+
     def time_since_last_send(self, now: datetime) -> timedelta | None:
         """@return `None` when the owner has sent nothing this session."""
         return now - self._sends[-1] if self._sends else None

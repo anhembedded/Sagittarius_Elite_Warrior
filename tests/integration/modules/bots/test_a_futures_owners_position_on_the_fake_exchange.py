@@ -209,3 +209,24 @@ def test_a_fill_without_a_tag_changes_the_position_and_is_reported_as_unordered(
             Decimal("0.010"),
             Decimal(0),
         )
+
+
+def test_a_burst_of_the_owners_own_fills_is_no_divergence(
+    futures: FakeExchange,
+) -> None:
+    """The book is compared with the amount each `ACCOUNT_UPDATE` reports, not with a
+    later read that already holds the next fill of the burst (review of PR #485)."""
+    with booted_futures(futures) as app:
+        diverged: list[OwnerPositionDivergedEvent] = []
+        app.engine.context.container.resolve(IEventBus).on(
+            OwnerPositionDivergedEvent, diverged.append
+        )
+        assert _register(app).registered
+        _limit(app, OrderSide.BUY, "63000.0", "0.010")
+        _limit(app, OrderSide.BUY, "62500.0", "0.020")
+
+        app.move_price(Decimal(62000))  # crosses both levels at once
+
+        assert _exchange_position(app) == Decimal("0.030")
+        assert _book_position(app) == Decimal("0.030")
+        assert diverged == []

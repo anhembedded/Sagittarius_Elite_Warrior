@@ -183,21 +183,13 @@ def _inventory_checks(
 def _position_checks(
     facts: OwnerBudgetFacts, order_notional: Decimal
 ) -> tuple[TradingLimitCheck, TradingLimitCheck]:
-    position, limits = facts.position, facts.budget.futures
-    if position is None or limits is None:
-        raise ValueError("a position check needs a position and Futures limits")
-    side, quantity = facts.order_side, facts.order_quantity
     return (
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_POSITION_NOTIONAL,
-            passed=notional_within_limits(
-                position, limits, side, quantity, order_notional
-            ),
+            passed=notional_within_limits(facts, order_notional),
         ),
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_MARGIN,
-            passed=margin_within_limits(
-                position, limits, side, quantity, order_notional
-            ),
+            passed=margin_within_limits(facts, order_notional),
         ),
     )

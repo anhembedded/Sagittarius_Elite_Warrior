@@ -62,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     ORDER_TRADE_UPDATE,
     account_update_captured_at,
     account_update_changed_symbols,
+    account_update_position_amounts,
     account_update_position_pnls,
     account_update_wallet_balance,
 )
@@ -309,6 +310,14 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 equity_sample.total,
             )
 
+        # `EPIC-039D` - a budgeted Futures owner's derived position is checked
+        # against the amount **this event** reports, not a later REST read.
+        for symbol, amount in account_update_position_amounts(payload).items():
+            for divergence in cross_check_owner_positions(
+                self._session_state, symbol, amount
+            ):
+                self._events.position_diverged(divergence)
+
         generation = self._generation
         for symbol in account_update_changed_symbols(payload):
             # `BOT-145` — off the loop: `get_positions()` blocks on REST I/O.
@@ -322,14 +331,6 @@ class FuturesUserDataStream(ManagedUserDataStream):
             reconcile_position_state(
                 self._session_state, symbol, has_position=bool(positions)
             )
-            # `EPIC-039D` - a budgeted Futures owner's derived position is
-            # checked against the exchange's on every change it reports.
-            for divergence in cross_check_owner_positions(
-                self._session_state,
-                symbol,
-                sum((p.position_amt for p in positions), Decimal(0)),
-            ):
-                self._events.position_diverged(divergence)
             if positions:
                 self._events.position_changed(positions[0])
                 # `BUG-095` — `DEBUG`, same reasoning as the equity line

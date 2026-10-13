@@ -131,6 +131,20 @@ def account_update_changed_symbols(payload: dict[str, Any]) -> list[str]:
     return [position["s"] for position in payload.get("a", {}).get("P", [])]
 
 
+def account_update_position_amounts(payload: dict[str, Any]) -> dict[str, Decimal]:
+    """@brief `{symbol: signed position amount}` (`"pa"`) for every position
+    `"a"."P"` reports on *this* `ACCOUNT_UPDATE` (`EPIC-039D`).
+    @details The amount the exchange had **at this event**, which is what the
+    owner's book is compared with: a REST read taken after the event can
+    already include a fill whose `ORDER_TRADE_UPDATE` the book has not yet
+    heard, and would read a burst of the bot's own fills as a disagreement.
+    A flat position reports `"0"`."""
+    return {
+        position["s"]: Decimal(str(position["pa"]))
+        for position in payload.get("a", {}).get("P", [])
+    }
+
+
 def account_update_position_pnls(payload: dict[str, Any]) -> dict[str, Decimal]:
     """@brief `{symbol: unrealized_pnl}` for every position `"a"."P"`
     reports on *this* `ACCOUNT_UPDATE` — not a full snapshot of every

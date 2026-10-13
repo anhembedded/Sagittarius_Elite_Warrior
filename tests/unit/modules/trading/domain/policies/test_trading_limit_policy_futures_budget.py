@@ -62,11 +62,13 @@ def _facts(
     sells: str = "0",
     reduce_only: bool = False,
     limits: FuturesLimits = _LIMITS,
+    open_price: str = "100",
+    entry: str = "100",
 ) -> OwnerBudgetFacts:
     position = (
         EMPTY_POSITION
         if Decimal(held) == 0
-        else OwnerPosition(Decimal(held), Decimal(100), Decimal(0), Decimal(0))
+        else OwnerPosition(Decimal(held), Decimal(entry), Decimal(0), Decimal(0))
     )
     return OwnerBudgetFacts(
         budget=replace(_BUDGET, futures=limits),
@@ -79,7 +81,12 @@ def _facts(
         order_side=side,
         order_quantity=Decimal(quantity),
         position=PositionExposure(
-            position, Decimal(buys), Decimal(sells), order_reduce_only=reduce_only
+            position,
+            Decimal(buys),
+            Decimal(sells),
+            Decimal(buys) * Decimal(open_price),
+            Decimal(sells) * Decimal(open_price),
+            order_reduce_only=reduce_only,
         ),
     )
 
@@ -193,3 +200,41 @@ def test_the_spot_budget_judgement_is_unchanged() -> None:
     )
 
     assert _violation(spot) is TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY
+
+
+def test_the_verdict_does_not_depend_on_the_order_a_ladder_is_sent_in() -> None:
+    """A ladder of BUY 1 at 100, 90 and 80 against a ceiling of 250 is refused at its
+    third level whichever way it is sent (review of PR #485)."""
+    ceiling = FuturesLimits(Decimal(250), 5, Decimal(50))
+
+    def third_is_refused(prices: tuple[str, str, str]) -> bool:
+        first, second, third = prices
+        resting = Decimal(first) + Decimal(second)
+        facts = replace(
+            _facts(BUY, "1", buys="2", limits=ceiling),
+            position=PositionExposure(
+                EMPTY_POSITION,
+                Decimal(2),
+                Decimal(0),
+                resting,
+                Decimal(0),
+                order_reduce_only=False,
+            ),
+        )
+        return (
+            _violation(facts, price=third)
+            is TradingLimitViolation.OWNER_BUDGET_POSITION_NOTIONAL
+        )
+
+    assert third_is_refused(("100", "90", "80"))
+    assert third_is_refused(("80", "90", "100"))
+    assert not third_is_refused(("80", "70", "100"))  # 250 exactly
+
+
+def test_a_held_position_is_valued_at_its_entry_not_at_the_new_orders_price() -> None:
+    # Held 2 at 100 (200) plus BUY 10 at 10 (100): 300 > 250, whatever the new price.
+    ceiling = FuturesLimits(Decimal(250), 5, Decimal(50))
+    assert (
+        _violation(_facts(BUY, "10", held="2", limits=ceiling), price="10")
+        is TradingLimitViolation.OWNER_BUDGET_POSITION_NOTIONAL
+    )

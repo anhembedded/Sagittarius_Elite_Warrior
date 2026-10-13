@@ -5,8 +5,8 @@ refuse a position that is not its own, install its book.
 chooses between this and the Spot derivation once, by the venue's market: the
 books themselves hold no venue test. In the order of the reads:
 
-1. the history (`OwnerPositionDeriver`) and the owner's resting orders;
-2. `positionRisk` for the symbol. If the owner's tagged fills add up to flat
+1. `positionRisk` for the symbol, then the history (`OwnerPositionDeriver`) and
+   the owner's resting orders, in that order (see `derive_and_install`). If the owner's tagged fills add up to flat
    and the exchange holds a position beyond one step, that position is not the
    bot's: the registration is refused as `FOREIGN_POSITION`, recorded and never
    traded (Spot's "earlier runs", `BUG-196`);
@@ -81,12 +81,16 @@ class OwnerPositionRegistrar:
         installed, a refusal otherwise."""
         scope.ports.history_reader.discard_remembered(registration.symbol)
         try:
+            # `positionRisk` first: an order of the owner that fills between the
+            # two reads then leaves the history ahead of the exchange figure,
+            # which is never "foreign". Read after, the owner's own fill would
+            # make its own position look like one it did not open.
+            exchange = _exchange_quantity(registration, scope)
+            step = _step_of(registration, scope)
             derivation = self._deriver.derive(
                 registration, scope.ports.history_reader, datetime.now(UTC)
             )
             resting = resting_orders(registration, scope)
-            exchange = _exchange_quantity(registration, scope)
-            step = _step_of(registration, scope)
         except InventoryBeyondLookbackError as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
             return _refused(OwnerBudgetRefusal.INVENTORY_BEYOND_LOOKBACK)

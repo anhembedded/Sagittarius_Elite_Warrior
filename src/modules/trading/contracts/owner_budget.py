@@ -153,6 +153,9 @@ class PositionExposure:
     open_adding_buy_quantity: Decimal
     #: The base the owner's open SELL orders could still sell, reduce-only ones excluded.
     open_adding_sell_quantity: Decimal
+    #: What those open BUY and SELL orders still commit, each at its own price.
+    open_adding_buy_notional: Decimal
+    open_adding_sell_notional: Decimal
     #: Whether the order being sent is reduce-only.
     order_reduce_only: bool
 
