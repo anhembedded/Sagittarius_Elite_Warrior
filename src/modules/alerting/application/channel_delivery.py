@@ -38,6 +38,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Sever
 
 logger = logging.getLogger("App.Alerting")
 
+#: How many waiting deliveries are looked at for a CRITICAL while the channel waits.
+WAITING_SCAN = 20
+
+#: Fail-overs remembered, so a long run does not grow the set without bound.
+MAX_REMEMBERED = 1000
+
 
 class ChannelDelivery:
     def __init__(
@@ -55,21 +61,26 @@ class ChannelDelivery:
         self._policy = policy
         self._lock = threading.Lock()
         self._paused_until: dict[str, datetime] = {}
+        self._horizon_read: set[str] = set()
         self._failing: set[str] = set()
-        self._failed_over: set[int] = set()
+        self._failed_over: dict[int, None] = {}
 
     def run_due(self, channel_id: str) -> int:
         """Try what is due on `channel_id`, most urgent first, until nothing is or
         the channel asks to wait; the number of tries made.
 
         A wait (`retry_after`, or the back-off after a failure) pauses the whole
-        channel: a 429 answers for the channel, not for one message.
+        channel: a 429 answers for the channel, not for one message. A CRITICAL
+        left waiting behind a wait longer than `failover_after` is queued on
+        another channel at once.
         """
         self._outbox.expire_before(self._clock.now() - self._policy.expiry)
         tries = 0
         while True:
             now = self._clock.now()
-            if self._is_paused(channel_id, now):
+            until = self._pause_until(channel_id)
+            if until is not None and now < until:
+                self._fail_over_waiting_criticals(channel_id, now, until - now)
                 return tries
             due = self._outbox.due(channel_id, now, 1)
             if not due:
@@ -79,26 +90,35 @@ class ChannelDelivery:
                 return tries
 
     def _attempt(self, channel_id: str, item: DueDelivery, now: datetime) -> bool:
-        """One try; whether the channel now has to wait."""
+        """One try; whether the channel now has to wait.
+
+        `attempts` counts real tries that did not work. An answer that only asks
+        to wait (a 429) is the platform pacing us, not the channel failing: it
+        does not use an attempt, and the 24 h expiry bounds how long we honour it.
+        """
         result = self._call(channel_id, item)
-        attempts = item.delivery.attempts + 1
+        attempts = item.delivery.attempts
         if result.ok:
             self._outbox.mark(
                 item.delivery.delivery_id,
-                DeliveryUpdate(DeliveryState.SENT, attempts, now, ""),
+                DeliveryUpdate(DeliveryState.SENT, attempts + 1, now, ""),
             )
             self._recovered(channel_id)
             return False
         if result.permanent:
             self._outbox.mark(
                 item.delivery.delivery_id,
-                DeliveryUpdate(DeliveryState.FAILED, attempts, now, result.reason),
+                DeliveryUpdate(DeliveryState.FAILED, attempts + 1, now, result.reason),
             )
             self._flag_failing(channel_id, result.reason)
+            self._fail_over_once(channel_id, item)
             return False
+        asked_to_wait = result.retry_after is not None
+        if not asked_to_wait:
+            attempts += 1
         wait = result.retry_after or self._policy.backoff_after(attempts)
         retry_at = now + wait
-        exhausted = attempts >= self._policy.max_attempts
+        exhausted = not asked_to_wait and attempts >= self._policy.max_attempts
         self._outbox.mark(
             item.delivery.delivery_id,
             DeliveryUpdate(
@@ -111,9 +131,20 @@ class ChannelDelivery:
         self._pause(channel_id, retry_at)
         if exhausted:
             self._flag_failing(channel_id, result.reason)
-        elif self._should_fail_over(item, wait):
-            self._follow_up.fail_over(item.delivery.alert_id, channel_id)
+            self._fail_over_once(channel_id, item)
+        elif wait > self._policy.failover_after:
+            self._fail_over_once(channel_id, item)
         return True
+
+    def _fail_over_waiting_criticals(
+        self, channel_id: str, now: datetime, remaining: timedelta
+    ) -> None:
+        if remaining <= self._policy.failover_after:
+            return
+        for waiting in self._outbox.due(channel_id, now, WAITING_SCAN):
+            if waiting.alert.severity is not Severity.CRITICAL:
+                return  # `due` lists CRITICAL first
+            self._fail_over_once(channel_id, waiting)
 
     def _call(self, channel_id: str, item: DueDelivery) -> DeliveryResult:
         channel = self._catalog.channel(channel_id)
@@ -127,21 +158,31 @@ class ChannelDelivery:
             )
             return DeliveryResult.failed(f"channel raised {type(error).__name__}")
 
-    def _should_fail_over(self, item: DueDelivery, wait: timedelta) -> bool:
+    def _fail_over_once(self, channel_id: str, item: DueDelivery) -> None:
+        """Queue a CRITICAL on another channel, once per delivery."""
         if item.alert.severity is not Severity.CRITICAL:
-            return False
-        if wait <= self._policy.failover_after:
-            return False
+            return
         with self._lock:
             if item.delivery.delivery_id in self._failed_over:
-                return False
-            self._failed_over.add(item.delivery.delivery_id)
-        return True
+                return
+            self._failed_over[item.delivery.delivery_id] = None
+            while len(self._failed_over) > MAX_REMEMBERED:
+                del self._failed_over[next(iter(self._failed_over))]
+        self._follow_up.fail_over(item.delivery.alert_id, channel_id)
 
-    def _is_paused(self, channel_id: str, now: datetime) -> bool:
+    def _pause_until(self, channel_id: str) -> datetime | None:
+        """When the channel may be tried again. After a restart the in-memory wait
+        is gone, so the first look reads it back from the channel's open
+        `RETRYING` rows: a restart does not cancel a 10 minute `retry_after`."""
         with self._lock:
-            until = self._paused_until.get(channel_id)
-        return until is not None and now < until
+            first_look = channel_id not in self._horizon_read
+            self._horizon_read.add(channel_id)
+        if first_look:
+            horizon = self._outbox.retry_horizon(channel_id)
+            if horizon is not None:
+                self._pause(channel_id, horizon)
+        with self._lock:
+            return self._paused_until.get(channel_id)
 
     def _pause(self, channel_id: str, until: datetime) -> None:
         with self._lock:

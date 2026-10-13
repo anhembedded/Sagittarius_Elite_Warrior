@@ -111,6 +111,9 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
 
     def condition_cleared(self, dedup_key: str, at: datetime) -> None:
         with self._lock:
+            # The condition is over, so its next occurrence is a new one: forget
+            # the stale window, or a flap is swallowed after "Recovered".
+            self._dedup.forget((dedup_key,))
             if self._coalescer.discard(dedup_key):
                 return  # never sent, so nothing to recover from
             original = self._book.close(dedup_key)
@@ -124,23 +127,24 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
                     f"Recovered: {original.title}",
                     "The condition has cleared.",
                     at,
-                    f"{dedup_key}:recovered",
+                    f"{original.dedup_key}:recovered",
                     recovery=True,
                 ),
                 self._clock.now(),
                 frozenset(),
             )
 
-    # -- the scheduler's tick -------------------------------------------------
+    # -- the housekeeping tick -------------------------------------------------
 
     def flush_due(self) -> None:
         """Send what has waited long enough: grouped alerts whose window ended and
-        the quiet-hours summary once the period is over. Driven by the scheduler."""
+        the quiet-hours summary once the period is over. Driven by the host's housekeeping thread."""
         with self._lock:
             now = self._clock.now()
             for group in self._coalescer.take_due(now):
                 alert_id = self._dispatch(group.alert, now, frozenset())
                 self._dedup.attach(group.member_keys, alert_id)
+                self._book.adopt(group.alert.dedup_key, group.member_keys)
             summary = self._hold.release(self._settings.current(), now)
             if summary is not None:
                 self._dispatch(summary, now, frozenset())
@@ -229,7 +233,8 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
         )
         admitted = self._admission.admit(targets, alert.severity)
         alert_id = self._outbox.enqueue(alert, admitted, now)
-        self._dedup.remember(alert, now, alert_id)
+        if not alert.recovery:  # a recovery exists because a condition was open
+            self._dedup.remember(alert, now, alert_id)
         self._book.open(alert, now)
         if any(target.state is DeliveryState.PENDING for target in admitted):
             self._wakeup.notify()

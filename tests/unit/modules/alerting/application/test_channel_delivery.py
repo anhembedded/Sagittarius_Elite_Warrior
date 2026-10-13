@@ -33,21 +33,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudness
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import (
+    FAST,
     an_alert,
     bot_subject,
     build_rig,
+    states_of,
 )
-
-FAST = DeliveryPolicy(max_attempts=3, backoff_base=timedelta(seconds=1))
-
-
-def _states(rig, channel_id: str) -> list[DeliveryState]:  # type: ignore[no-untyped-def]
-    return [
-        d.state
-        for entry in rig.outbox.history(50)
-        for d in entry.deliveries
-        if d.channel_id == channel_id
-    ]
 
 
 def test_critical_is_delivered_before_info(tmp_path: Path) -> None:
@@ -82,7 +73,7 @@ def test_info_is_dropped_before_critical_when_the_queue_is_full(tmp_path: Path) 
     assert kinds[0] is AlertKind.BOT_HALTED
     assert AlertKind.RATE_LIMITED in kinds
     assert kinds.count(AlertKind.HEARTBEAT) == 1
-    assert _states(rig, "phone").count(DeliveryState.DROPPED) == 1
+    assert states_of(rig, "phone").count(DeliveryState.DROPPED) == 1
 
 
 def test_a_new_info_is_itself_dropped_when_nothing_lower_is_queued(
@@ -98,7 +89,7 @@ def test_a_new_info_is_itself_dropped_when_nothing_lower_is_queued(
     rig.deliver_all()
 
     assert rig.received_kinds("phone") == [AlertKind.BOT_HALTED, AlertKind.BOT_ERROR]
-    assert DeliveryState.DROPPED in _states(rig, "phone")
+    assert DeliveryState.DROPPED in states_of(rig, "phone")
 
 
 def test_critical_is_never_dropped_even_over_capacity(tmp_path: Path) -> None:
@@ -111,7 +102,7 @@ def test_critical_is_never_dropped_even_over_capacity(tmp_path: Path) -> None:
     rig.deliver_all()
 
     assert len(rig.channels["phone"].received) == 3
-    assert DeliveryState.DROPPED not in _states(rig, "phone")
+    assert DeliveryState.DROPPED not in states_of(rig, "phone")
 
 
 def test_retry_after_is_never_retried_early(tmp_path: Path) -> None:
@@ -129,7 +120,7 @@ def test_retry_after_is_never_retried_early(tmp_path: Path) -> None:
     rig.clock.advance(timedelta(seconds=1))
     rig.deliver_all()
     assert len(phone.received) == 2
-    assert _states(rig, "phone") == [DeliveryState.SENT]
+    assert states_of(rig, "phone") == [DeliveryState.SENT]
 
 
 def test_a_rate_limited_channel_pauses_its_whole_queue(tmp_path: Path) -> None:
@@ -166,7 +157,7 @@ def test_a_channel_failing_after_its_attempts_raises_channel_failing_once(
     assert phone_kinds.count(AlertKind.BOT_HALTED) == FAST.max_attempts
     assert AlertKind.CHANNEL_FAILING not in phone_kinds
     assert rig.received_kinds("backup").count(AlertKind.CHANNEL_FAILING) == 1
-    assert DeliveryState.FAILED in _states(rig, "phone")
+    assert DeliveryState.FAILED in states_of(rig, "phone")
 
 
 def test_a_refusal_fails_the_delivery_at_once_and_flags_the_channel(
@@ -273,7 +264,7 @@ def test_an_alert_older_than_24_hours_expires_and_is_not_sent(tmp_path: Path) ->
     rig.deliver_all()
 
     assert [c.received for c in rig.channels.values()] == [[], []]
-    assert set(_states(rig, "phone") + _states(rig, "backup")) == {
+    assert set(states_of(rig, "phone") + states_of(rig, "backup")) == {
         DeliveryState.EXPIRED
     }
 
@@ -314,7 +305,7 @@ def test_a_delivery_is_repeated_if_the_worker_dies_before_it_is_recorded(
     second.deliver_all()
 
     assert len(second.channels["phone"].received) == 1  # the repeat, once
-    assert _states(second, "phone") == [DeliveryState.SENT]
+    assert states_of(second, "phone") == [DeliveryState.SENT]
 
 
 def test_the_outbox_survives_a_restart(tmp_path: Path) -> None:

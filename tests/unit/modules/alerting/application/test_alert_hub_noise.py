@@ -283,3 +283,99 @@ def test_an_alert_the_hub_receives_is_recorded_even_when_no_route_delivers_it(
     [entry] = rig.outbox.history(10)
     assert entry.deliveries == ()
     assert entry.record.alert.kind is AlertKind.BOT_HALTED
+
+
+def test_a_condition_that_comes_back_after_its_recovery_is_sent_again(
+    tmp_path: Path,
+) -> None:
+    """Raise, clear, raise again inside the dedup window: the second raise is a
+    new fact, not a repeat of one the owner was already told was over."""
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    halted = an_alert(AlertKind.BOT_HALTED)
+    rig.hub.publish(halted)
+
+    rig.clock.advance(timedelta(seconds=20))
+    rig.hub.condition_cleared(halted.dedup_key, rig.clock.now())
+    rig.clock.advance(timedelta(seconds=20))
+    rig.hub.publish(an_alert(AlertKind.BOT_HALTED, at=rig.clock.now()))
+    rig.clock.advance(timedelta(seconds=20))
+    rig.hub.condition_cleared(halted.dedup_key, rig.clock.now())
+    rig.deliver_all()
+
+    received = [
+        (i.alert.kind, i.alert.recovery) for i in rig.channels["phone"].received
+    ]
+    assert received.count((AlertKind.BOT_HALTED, False)) == 2
+    assert received.count((AlertKind.BOT_HALTED, True)) == 2
+    assert received[-1] == (AlertKind.BOT_HALTED, True)
+
+
+def test_a_warning_that_comes_back_after_its_recovery_is_sent_again(
+    tmp_path: Path,
+) -> None:
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    exit_ = an_alert(AlertKind.RANGE_EXIT)
+    rig.hub.publish(exit_)
+    rig.clock.advance(timedelta(minutes=1))
+    rig.hub.condition_cleared(exit_.dedup_key, rig.clock.now())
+
+    rig.clock.advance(timedelta(minutes=3))
+    rig.hub.publish(an_alert(AlertKind.RANGE_EXIT, at=rig.clock.now()))
+    rig.hub.condition_cleared(exit_.dedup_key, rig.clock.now())
+    rig.deliver_all()
+
+    received = [i.alert.recovery for i in rig.channels["phone"].received]
+    assert received == [False, False, True, True] or sorted(received) == [
+        False,
+        False,
+        True,
+        True,
+    ]
+
+
+def _stale_wave(rig, count: int):  # type: ignore[no-untyped-def]
+    alerts = [an_alert(FEED, bot_subject(f"bot{n}")) for n in range(count)]
+    for alert in alerts:
+        rig.hub.publish(alert)
+    rig.clock.advance(timedelta(seconds=11))
+    rig.hub.flush_due()
+    return alerts
+
+
+def test_a_grouped_feed_alert_recovers_when_its_last_member_clears(
+    tmp_path: Path,
+) -> None:
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    members = _stale_wave(rig, 3)
+
+    for member in members[:2]:
+        rig.hub.condition_cleared(member.dedup_key, rig.clock.now())
+    rig.deliver_all()
+    assert [i.alert.recovery for i in rig.channels["phone"].received] == [False]
+
+    rig.hub.condition_cleared(members[2].dedup_key, rig.clock.now())
+    rig.hub.condition_cleared(members[2].dedup_key, rig.clock.now())
+    rig.deliver_all()
+
+    [grouped, recovery] = [i.alert for i in rig.channels["phone"].received]
+    assert recovery.recovery is True
+    assert recovery.kind is FEED
+    assert "3 bots" in recovery.title
+    assert recovery.subject == grouped.subject
+
+
+def test_a_new_wave_after_a_grouped_recovery_is_grouped_and_sent_again(
+    tmp_path: Path,
+) -> None:
+    rig = build_rig(tmp_path, channel_ids=("phone",))
+    first = _stale_wave(rig, 2)
+    for member in first:
+        rig.hub.condition_cleared(member.dedup_key, rig.clock.now())
+
+    rig.clock.advance(timedelta(seconds=5))
+    _stale_wave(rig, 2)
+    rig.deliver_all()
+
+    kinds = [(i.alert.kind, i.alert.recovery) for i in rig.channels["phone"].received]
+    assert kinds.count((FEED, False)) == 2
+    assert kinds.count((FEED, True)) == 1

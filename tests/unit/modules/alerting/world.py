@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
     AlertSubject,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import (
+    DeliveryState,
+)
 
 NOW = FAKE_CLOCK_START
 SPOT = "spot-mainnet"
@@ -138,3 +141,17 @@ def minutes(count: float) -> timedelta:
 
 def at_utc(hour: int, minute: int = 0) -> datetime:
     return datetime(NOW.year, NOW.month, NOW.day, hour, minute, tzinfo=UTC)
+
+
+#: A policy that gives up after three real failures, quickly.
+FAST = DeliveryPolicy(max_attempts=3, backoff_base=timedelta(seconds=1))
+
+
+def states_of(rig: Rig, channel_id: str) -> list[DeliveryState]:
+    """The state of every delivery the channel holds, newest alert first."""
+    return [
+        d.state
+        for entry in rig.outbox.history(50)
+        for d in entry.deliveries
+        if d.channel_id == channel_id
+    ]

@@ -64,6 +64,12 @@ class IOutbox(ABC):
         how many."""
 
     @abstractmethod
+    def retry_horizon(self, channel_id: str) -> datetime | None:
+        """The latest time any open `RETRYING` delivery of `channel_id` waits for;
+        `None` when none does. How a restarted worker knows the channel asked it
+        to wait."""
+
+    @abstractmethod
     def pending_count(self, channel_id: str) -> int:
         """Open deliveries of `channel_id`."""
 

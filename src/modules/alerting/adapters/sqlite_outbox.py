@@ -232,6 +232,15 @@ class SqliteOutbox(IOutbox):
             )
         return cursor.rowcount
 
+    def retry_horizon(self, channel_id: str) -> datetime | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT MAX(next_attempt_at) FROM deliveries "
+                "WHERE channel_id = ? AND state = 'retrying'",
+                (channel_id,),
+            ).fetchone()
+        return None if row[0] is None else unstamp(str(row[0]))
+
     def pending_count(self, channel_id: str) -> int:
         with self._lock:
             row = self._db.execute(

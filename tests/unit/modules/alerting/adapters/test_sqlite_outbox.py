@@ -213,3 +213,29 @@ def test_channels_of_an_alert_lists_every_channel_holding_it(tmp_path: Path) -> 
     outbox.add_delivery(alert_id, DeliveryTarget("pager", Loudness.LOUD), NOW)
 
     assert outbox.channels_of(alert_id) == frozenset({"phone", "pager"})
+
+
+def test_the_retry_horizon_is_the_latest_wait_among_a_channels_retrying_rows(
+    tmp_path: Path,
+) -> None:
+    outbox = _outbox(tmp_path)
+    target = (DeliveryTarget("phone", Loudness.LOUD),)
+    outbox.enqueue(an_alert(reason="a"), target, NOW)
+    outbox.enqueue(an_alert(reason="b"), target, NOW)
+    outbox.enqueue(
+        an_alert(reason="other"), (DeliveryTarget("backup", Loudness.LOUD),), NOW
+    )
+    first, second = outbox.due("phone", NOW, 10)
+    assert outbox.retry_horizon("phone") is None
+
+    outbox.mark(
+        first.delivery.delivery_id,
+        DeliveryUpdate(DeliveryState.RETRYING, 0, NOW + timedelta(minutes=3), "x"),
+    )
+    outbox.mark(
+        second.delivery.delivery_id,
+        DeliveryUpdate(DeliveryState.RETRYING, 0, NOW + timedelta(minutes=10), "x"),
+    )
+
+    assert outbox.retry_horizon("phone") == NOW + timedelta(minutes=10)
+    assert outbox.retry_horizon("backup") is None

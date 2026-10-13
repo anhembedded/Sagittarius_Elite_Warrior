@@ -52,6 +52,12 @@ class AlertDeduplicator:
             if seen is not None:
                 seen.alert_id = alert_id
 
+    def forget(self, dedup_keys: Iterable[str]) -> None:
+        """A cleared condition starts over: its next occurrence is a new fact, not
+        a repeat of one the owner was already told is over."""
+        for key in dedup_keys:
+            self._seen.pop(key, None)
+
     def _forget_expired(self, now: datetime) -> None:
         for key in [k for k, seen in self._seen.items() if seen.expires_at <= now]:
             del self._seen[key]
