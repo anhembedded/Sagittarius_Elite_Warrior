@@ -5,12 +5,19 @@ and the sanity test that points the log scan at `run` itself. A real process, be
 a signal, a lock and an exit status belong to one: a double of any of them proves the
 double.
 
-The child runs `main()` exactly as `python src/main.py run` would. The only thing moved
-is where the exchange is: `python-binance`'s URLs are pointed at the fake exchange
-(`tests/sanity/binance_fake_server.py`) **before** `main()` imports anything, mainnet
-included, so a venue that has a key can never reach a real host. A test may also hand
-the child a patch (`patch=`) that runs first - a stop policy that never finishes, a
-full disk - the way a test plants a double in a process it cannot reach otherwise.
+The child runs `main()` exactly as `python src/main.py run` would, inside the sanity
+tier's network boundary for a child process (`BUG-199`,
+`tests/sanity/fake_exchange/child_process.py`): a `sitecustomize` on its path blocks
+every non-loopback connection, points every `python-binance` endpoint - mainnet
+included - at the fake exchange and swaps the websocket transport, **before** `main()`
+imports anything, so a venue that has a key can never reach a real host. What the child
+refused is read back when it ends and fails the test: a refusal that the child's own code
+catches and logs would otherwise leave it green. A test may also hand the child a patch
+(`patch=`) that runs first - a stop policy that never finishes, a full disk - the way a
+test plants a double in a process it cannot reach otherwise.
+
+A child that leaves by `os._exit` (the host's forced exit) runs no `atexit`, so it
+reports nothing; the in-process tests of that path use the doubles instead.
 """
 
 from __future__ import annotations
@@ -25,6 +32,13 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
+from Sagittarius_Elite_Warrior.tests.sanity.fake_exchange.child_process import (
+    child_environment as boundary_environment,
+)
+from Sagittarius_Elite_Warrior.tests.sanity.fake_exchange.child_process import (
+    refused_by_child,
+)
+from Sagittarius_Elite_Warrior.tests.sanity.fake_exchange.server import FakeServerUrls
 
 _REPO_PARENT = Path(__file__).resolve().parents[2]
 
@@ -44,12 +58,6 @@ DEFAULT_CREDENTIALS: Mapping[str, str] = {
 
 CHILD_SCRIPT = """
 import os, sys
-from binance.client import Client
-Client.FUTURES_TESTNET_URL = os.environ["SEW_FAKE_FUTURES"]
-Client.FUTURES_URL = os.environ["SEW_FAKE_FUTURES"]
-Client.API_URL = os.environ["SEW_FAKE_SPOT"]
-Client.API_TESTNET_URL = os.environ["SEW_FAKE_SPOT"]
-Client.MARGIN_API_URL = os.environ["SEW_FAKE_MARGIN"]
 exec(os.environ.get("SEW_CHILD_PATCH", ""))
 sys.argv = ["main.py", *sys.argv[1:]]
 from Sagittarius_Elite_Warrior.src.main import main
@@ -57,17 +65,15 @@ sys.exit(main())
 """
 
 
-class FakeExchangeUrls:
-    """The three base URLs the child is pointed at (a `FakeServerUrls` has them)."""
-
-    futures: str
-    spot: str
-    margin: str
+def boundary_directory(data_root: Path) -> Path:
+    """Where the boundary writes its `sitecustomize` and its refusal report: beside the
+    data root, never in it (a test scans every file under the data root for a secret)."""
+    return data_root.parent / f"{data_root.name}-boundary"
 
 
 def child_environment(
     data_root: Path,
-    urls: FakeExchangeUrls,
+    urls: FakeServerUrls,
     credentials: Mapping[str, str],
     patch: str = "",
 ) -> dict[str, str]:
@@ -79,9 +85,6 @@ def child_environment(
     env.update(
         {
             DATA_ROOT_ENV: str(data_root),
-            "SEW_FAKE_FUTURES": urls.futures,
-            "SEW_FAKE_SPOT": urls.spot,
-            "SEW_FAKE_MARGIN": urls.margin,
             "SEW_CHILD_PATCH": patch,
             "QT_QPA_PLATFORM": "offscreen",
             # No operating-system keyring: the keys come from the environment or from nowhere.
@@ -90,7 +93,7 @@ def child_environment(
             **credentials,
         }
     )
-    return env
+    return boundary_environment(boundary_directory(data_root), urls, env)
 
 
 class RunChild:
@@ -99,13 +102,14 @@ class RunChild:
     def __init__(
         self,
         data_root: Path,
-        urls: FakeExchangeUrls,
+        urls: FakeServerUrls,
         *args: str,
         patch: str = "",
         credentials: Mapping[str, str] | None = None,
         script: str = CHILD_SCRIPT,
         command: str = "run",
     ) -> None:
+        self._boundary_directory = boundary_directory(data_root)
         env = child_environment(
             data_root,
             urls,
@@ -186,6 +190,10 @@ class RunChild:
             pytest.fail(f"the process did not end in {timeout_s}s:\n{self.evidence}")
         for reader in self._readers:
             reader.join(timeout=10)
+        refused = refused_by_child(self._boundary_directory)
+        assert refused == [], (
+            f"the process tried to reach a host outside the fake exchange: {refused}"
+        )
         return code
 
     def kill(self) -> None:

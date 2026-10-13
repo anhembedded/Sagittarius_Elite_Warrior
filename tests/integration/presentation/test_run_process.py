@@ -119,6 +119,58 @@ def test_a_second_signal_stops_at_once_and_names_what_it_left(
     assert lock_is_free(tmp_path)
 
 
+_STUCK_APP_STOP = """
+import time
+from sagittarius_engine import App
+
+def _stuck(self):
+    print("APP_STOP_STARTED", flush=True)
+    time.sleep(300)  # a worker that ignores its close, as app.stop() would find it
+
+App.stop = _stuck
+"""
+
+
+def test_a_second_signal_while_the_app_is_closing_ends_the_process_and_says_so(
+    started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`app.stop()` is where the 10 s-per-worker closes happen; the first signal's work
+    is over by then, and an operator who presses the key again must not be ignored."""
+    child = start_child(started, tmp_path, exchange, patch=_STUCK_APP_STOP)
+    child.wait_for_stdout("[host] BOOTING -> SERVING")
+    child.send(signal.SIGTERM)
+    child.wait_for_stdout("APP_STOP_STARTED")
+
+    began = time.monotonic()
+    child.send(signal.SIGTERM)
+    code = child.finish(timeout_s=30)
+
+    assert time.monotonic() - began < 30, "the second signal was absorbed"
+    assert code == int(ExitCode.SUCCESS), child.stdout + child.stderr
+    assert "second signal while closing the app" in child.stdout
+    assert lock_is_free(tmp_path)
+
+
+def test_a_child_that_reaches_for_a_real_host_fails_the_test_that_started_it(
+    started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`BUG-199`'s boundary is only worth having if a connect it refuses is reported even
+    when the code that made it catches the error and carries on."""
+    reaches_out = """
+import socket
+try:
+    socket.create_connection(("203.0.113.9", 443), timeout=1)
+except Exception:
+    pass  # caught and logged by the code under test, as a real client would
+"""
+    child = start_child(started, tmp_path, exchange, patch=reaches_out)
+    child.wait_for_stdout("[host] BOOTING -> SERVING")
+    child.send(signal.SIGTERM)
+
+    with pytest.raises(AssertionError, match="203.0.113.9"):
+        child.finish()
+
+
 def test_a_policy_that_outlasts_the_stop_timeout_is_given_up_on(
     started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
 ) -> None:
