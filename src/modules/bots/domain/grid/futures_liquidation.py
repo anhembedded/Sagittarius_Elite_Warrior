@@ -39,8 +39,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets i
     LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.liquidation_estimate import (
-    LiquidationTerms,
-    estimated_liquidation_price,
+    BracketedPosition,
+    estimated_liquidation_price_in_brackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -85,16 +85,14 @@ def liquidation_price(position: HeldPosition, terms: Leveraged) -> Decimal | Non
     (a long at leverage 1) or it is flat."""
     if position.quantity == 0:
         return None
-    bracket = terms.brackets.bracket_for(position.notional)
-    estimate = estimated_liquidation_price(
-        LiquidationTerms(
+    estimate = estimated_liquidation_price_in_brackets(
+        BracketedPosition(
             side=position.side,
             quantity=abs(position.quantity),
             entry_price=position.entry_price,
             margin=isolated_margin(position, terms.leverage),
-            maintenance_margin_rate=bracket.maintenance_margin_rate,
-            maintenance_amount=bracket.maintenance_amount,
-        )
+        ),
+        terms.brackets,
     )
     return estimate.price
 

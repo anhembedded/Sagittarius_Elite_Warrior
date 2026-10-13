@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    PositionDivergence,
+)
 
 
 class IBotFacts(ABC):
@@ -65,3 +68,9 @@ class IBotFacts(ABC):
     def halt_user_stream_down(self, down_for: timedelta) -> None:
         """The user-data stream has been down for `down_for`: halt and park
         the ladder, because no fill can be seen (`EPIC-035B`)."""
+
+    @abstractmethod
+    def on_position_divergence(self, divergence: PositionDivergence) -> None:
+        """Trading found the exchange's position differing from the one the bot's fills
+        add up to (`EPIC-039F`): a position bot re-reads it before it halts; a bot with no
+        position ignores it."""
