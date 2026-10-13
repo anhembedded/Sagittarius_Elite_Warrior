@@ -72,7 +72,11 @@ def test_a_halt_whose_cancel_is_refused_still_closes_the_position(
         "the close was sent although the ladder's cancel failed"
     )
     assert world.state() is S.STOPPED
-    assert "may still rest" in world.runtime().reason_detail
+    # STOPPED proves the stop read zero orders: the halt says what happened, not what might.
+    detail = world.runtime().reason_detail
+    assert "may still rest" not in detail
+    assert "cancel did not go through" in detail
+    assert "took the ladder off" in detail
 
 
 def test_a_halt_whose_parking_raises_still_closes_the_position(
@@ -98,7 +102,9 @@ def test_a_halt_whose_parking_raises_still_closes_the_position(
 
     assert _market_orders(world)
     assert world.state() is S.STOPPED
-    assert "may still rest" in world.runtime().reason_detail
+    detail = world.runtime().reason_detail
+    assert "may still rest" not in detail
+    assert "took the ladder off" in detail
 
 
 def test_a_halt_that_cannot_close_says_the_position_stays_open_on_the_exchange() -> (

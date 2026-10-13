@@ -85,6 +85,14 @@ _NOT_PARKED: frozenset[GridReason] = frozenset(
 )
 
 
+#: What a halt says when its own cancel failed and the stop that closed the position then took
+#: the ladder off (`GridParking`): a stopped bot has no order left.
+_CANCEL_FAILED_STOP_TOOK_IT_OFF = (
+    "the halt's own cancel did not go through, and the stop that closed the position "
+    "took the ladder off"
+)
+
+
 #: How a parked bot says its file is behind; also what keeps the note single.
 _STORAGE_NOTE = "its state could not be saved"
 
@@ -166,10 +174,15 @@ class GridTaskGuard:
             logger.exception(
                 "Bot %s: taking the ladder off failed", self._context.state.bot_id
             )
-            self._note(f"its orders may still rest: {error}")
+            note = f"its orders may still rest: {error}"
+        if note is None:
             return
-        if note is not None:
-            self._note(note)
+        if self._context.state.state is BotLifecycleState.STOPPED:
+            # A venue that closes on a halt ran the stop after the failed cancel, and a stop
+            # is only STOPPED once it read zero orders of the bot's: say what happened, not
+            # what might have.
+            note = _CANCEL_FAILED_STOP_TOOK_IT_OFF
+        self._note(note)
 
     def _note(self, extra: str) -> None:
         state = self._context.state
