@@ -33,6 +33,10 @@ class FuturesSymbolConfig:
         """`EPIC-028O` — the leverage `symbol`'s position margin uses."""
         return self._leverage.get(symbol, _DEFAULT_LEVERAGE)
 
+    def margin_type(self, symbol: str) -> str:
+        """`EPIC-039C` — `CROSSED` or `ISOLATED`, the mode `symbol`'s position is in."""
+        return self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE)
+
     def change_leverage(self, params: dict[str, str]) -> tuple[int, object]:
         symbol = params["symbol"]
         leverage = int(params["leverage"])
