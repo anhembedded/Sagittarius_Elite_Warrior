@@ -14,6 +14,7 @@ Connect step, and the fills panel says only that they were not read.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Sequence
 from functools import partial
 
@@ -40,6 +41,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.connect_failure import (
     ConnectFailure,
 )
+
+logger = logging.getLogger("App.Bots.Screen")
 
 #: What the fills panel says in place of the failure, which the message bar carries.
 FILLS_PROBLEM = "see the message at the top of the screen"
@@ -88,6 +91,7 @@ class BotsFailures:
             return
         if kind is ReadKind.RISK:
             # The Liquidation row says "not estimated"; the exchange check tells the account.
+            logger.warning("Plan risk read failed: %s [plan-risk]", detail)
             return
         if kind is ReadKind.FILLS:
             self._show_fills(BotFills(problem=FILLS_PROBLEM))

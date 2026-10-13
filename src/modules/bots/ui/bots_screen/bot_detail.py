@@ -46,7 +46,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    exposure_limits_of,
+    plan_limits_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     PlanRiskFacts,
@@ -69,7 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
     JudgedPlan,
-    VenueExposure,
+    PlanWorld,
     judge,
     verdict_line,
 )
@@ -121,8 +121,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
             inputs.kind,
             config,
             inputs.market,
-            connection.account,
-            venue=VenueExposure(exposure_limits_of(bot.venue), inputs.risk),
+            PlanWorld(connection.account, plan_limits_of(bot.venue), inputs.risk),
         )
         if inputs.kind is not None
         else JudgedPlan()

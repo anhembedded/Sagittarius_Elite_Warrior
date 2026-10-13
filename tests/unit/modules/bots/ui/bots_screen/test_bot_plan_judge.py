@@ -28,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     VerdictSeverity,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
-    VenueExposure,
+    PlanWorld,
     judge,
     verdict_line,
 )
@@ -92,7 +92,7 @@ def test_a_refused_plan_has_its_refusing_check_among_the_verdicts() -> None:
 def test_the_account_is_judged_beside_the_plan() -> None:
     cannot_trade = AccountView(Decimal(1), "USDT", False, "Spot Testnet")
 
-    judged = judge(_KIND, GOOD_CONFIG, _MARKET, cannot_trade)
+    judged = judge(_KIND, GOOD_CONFIG, _MARKET, PlanWorld(cannot_trade))
 
     refusing = [v.code for v in judged.verdicts if v.refuses]
     assert refusing == ["KEY_CANNOT_TRADE"]
@@ -129,7 +129,9 @@ def test_a_position_venues_plan_is_judged_for_liquidation_in_the_same_list() -> 
             ),
         ),
     )
-    exposure = VenueExposure(ExposureLimits(frozenset(TradeDirection), 20), facts)
+    exposure = PlanWorld(
+        limits=ExposureLimits(frozenset(TradeDirection), 20), risk=facts
+    )
     config = {
         **GOOD_CONFIG,
         "direction": "LONG",
@@ -137,7 +139,7 @@ def test_a_position_venues_plan_is_judged_for_liquidation_in_the_same_list() -> 
         "stop_loss": "percent:5",
     }
 
-    judged = judge(_KIND, config, _MARKET, venue=exposure)
+    judged = judge(_KIND, config, _MARKET, exposure)
 
     estimate = next(v for v in judged.verdicts if v.code == "LIQUIDATION_ESTIMATE")
     assert estimate.subject == "long"

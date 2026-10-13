@@ -50,11 +50,12 @@ class JudgedPlan:
 
 
 @dataclass(frozen=True, slots=True)
-class VenueExposure:
-    """What the bot's venue lets a plan ask for and says about its liquidation (`EPIC-039J`):
-    the directions and leverage its profile allows, and the symbol's risk facts once read.
-    Spot's answer is the default: long at 1, nothing to liquidate."""
+class PlanWorld:
+    """What a plan is judged against besides the market (`EPIC-039J`): the account the
+    Connect step read, the directions and leverage the venue's market allows, and the symbol's
+    risk facts once read. Spot's answer is the default: long at 1, nothing to liquidate."""
 
+    account: AccountView | None = None
     limits: ExposureLimits = SPOT_LIMITS
     risk: PlanRiskFacts | None = None
 
@@ -63,14 +64,12 @@ def judge(
     kind: IBotKind,
     config: Mapping[str, str],
     market: PlannerMarket | None,
-    account: AccountView | None = None,
-    *,
-    venue: VenueExposure = VenueExposure(),  # noqa: B008
+    world: PlanWorld = PlanWorld(),  # noqa: B008
 ) -> JudgedPlan:
     if market is None or market.terms is None or market.market is None:
         return JudgedPlan()
     inputs = BotKindInputs(
-        config, market.terms, market.market, account, venue.limits, venue.risk
+        config, market.terms, market.market, world.account, world.limits, world.risk
     )
     return JudgedPlan(verdicts=kind.validate(inputs), overlay=kind.overlay(inputs))
 
