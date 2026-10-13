@@ -50,7 +50,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-039A | [Venue profile seam](completed/EPIC-039A_venue_profile_seam.md) | `claude/epic-039a-venue-profile` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-039B | [Direction-aware planner](incomplete/EPIC-039B_direction_aware_grid_planner.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-039B | [Direction-aware planner](completed/EPIC-039B_direction_aware_grid_planner.md) | `claude/epic-039b-direction-planner` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039C | [Futures fake exchange matching](incomplete/EPIC-039C_futures_fake_exchange_matching.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-039D | [Exposure book for positions](incomplete/EPIC-039D_exposure_book_for_positions.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-039E | [Settings gate and readiness](incomplete/EPIC-039E_futures_settings_gate_and_readiness.md) | — | 🟡 | 🔵 Planned | — |
@@ -70,6 +70,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-13 | 039A | The venue profile seam delivered: one deciding place for what a venue allows, a guard that fails on a second, `IBotKind.supported_profiles`; Spot sentences pinned and unchanged. No Futures path exists. |
+| 2026-10-13 | 039B | The planner knows LONG, SHORT and NEUTRAL (signed opening quantity, reduce-only marks, `LevelSizing`), a pure position model proves the position function for equal-quantity ladders, `BaseHandling` is `ExposureHandling`, `GridParams` carry direction and leverage, and a direction the venue does not allow is refused. Spot unchanged (recorded oracle). No Short or Neutral grid is startable. |
 | 2026-10-10 | Spec | Evaluation accepted by the owner; epic scaffolded with thirteen children, a design, a research record and a decision record; `EPIC-029K` superseded. Documentation only. |
 
 ---
