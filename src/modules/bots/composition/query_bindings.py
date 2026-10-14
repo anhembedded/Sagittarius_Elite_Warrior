@@ -3,6 +3,10 @@ bot's panel judges its parameters against and a bot's fills (`EPIC-029F`)."""
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
+    ExportBotPlanQuery,
+    ExportBotPlanQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
     GetBotQueryHandler,
@@ -51,6 +55,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 def bind_queries(container: IContainer) -> None:
     container.bind(ListBotsQuery, ListBotsQueryHandler)
     container.bind(GetBotQuery, GetBotQueryHandler)
+    container.bind(ExportBotPlanQuery, ExportBotPlanQueryHandler)
     container.bind(GetBotStatusReportQuery, GetBotStatusReportQueryHandler)
     container.bind(GetPlannerMarketQuery, GetPlannerMarketQueryHandler)
     container.bind(GetBotFillsQuery, GetBotFillsQueryHandler)

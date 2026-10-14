@@ -29,6 +29,14 @@ class UnknownBotsError(LookupError):
     """Some asked-for ids name no stored bot."""
 
 
+def require_known_bots(bots: Sequence[BotSnapshot], ids: Sequence[str]) -> None:
+    """@raise UnknownBotsError An id in `ids` names no bot in `bots`."""
+    known = {bot.bot_id for bot in bots}
+    missing = [bot_id for bot_id in ids if bot_id not in known]
+    if missing:
+        raise UnknownBotsError(f"no bot has the id {', '.join(missing)}")
+
+
 def export_plan(
     bots: Sequence[BotSnapshot], recorded: AppliedPlan | None, ids: Sequence[str]
 ) -> BotPlanDocument:
@@ -36,13 +44,8 @@ def export_plan(
 
     @raise UnknownBotsError An id in `ids` names no bot (nothing is exported).
     """
-    chosen = list(bots)
-    if ids:
-        known = {bot.bot_id for bot in bots}
-        missing = [bot_id for bot_id in ids if bot_id not in known]
-        if missing:
-            raise UnknownBotsError(f"no bot has the id {', '.join(missing)}")
-        chosen = [bot for bot in bots if bot.bot_id in set(ids)]
+    require_known_bots(bots, ids)
+    chosen = [bot for bot in bots if bot.bot_id in set(ids)] if ids else list(bots)
     return BotPlanDocument(
         tuple(
             PlannedBot(

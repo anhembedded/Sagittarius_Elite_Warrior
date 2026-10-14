@@ -23,6 +23,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
     ExitCode,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.plan_file import (
+    PlanFileRefused,
+    write_new_plan_file,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_document import (
     BotPlanDocument,
 )
@@ -41,7 +45,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_differ imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_export import (
     UnknownBotsError,
-    export_plan,
+    require_known_bots,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
+    ExportBotPlanQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
@@ -53,10 +60,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_reports import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.i_bot_verb import IBotVerb
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (
-    AppliedPlan,
-    AppliedPlanUnreadableError,
-)
 
 
 class ApplyBotPlanVerb(IBotVerb):
@@ -110,36 +113,35 @@ class ExportBotPlanVerb(IBotVerb):
             return CliOutcome(
                 ExitCode.USAGE, "bot export takes --all or --bot-id, not both"
             )
+        # Checked before the dispatch: the dispatcher logs every handler exception at
+        # ERROR, and a mistyped id is a usage error, not a failure (as it always was).
         listing = cast(
             BotList, world.dispatcher.dispatch(ListBotsQuery, ListBotsQuery())
         )
         try:
-            document = export_plan(listing.bots, _recorded(world), ids)
+            require_known_bots(listing.bots, ids)
         except UnknownBotsError as unknown:
             return CliOutcome(ExitCode.USAGE, str(unknown))
+        document = cast(
+            BotPlanDocument,
+            world.dispatcher.dispatch(
+                ExportBotPlanQuery, ExportBotPlanQuery(ids, all_stopped=False)
+            ),
+        )
         target = Path(args.output)
-        try:
-            with target.open("x", encoding="utf-8") as stream:
-                stream.write(document.to_json_text())
-        except FileExistsError:
+        written = write_new_plan_file(target, document.to_json_text())
+        if isinstance(written, PlanFileRefused):
+            if written.reason == "exists":
+                return CliOutcome(
+                    ExitCode.USAGE,
+                    f"{target} already exists; export never overwrites a plan - choose a new name",
+                )
             return CliOutcome(
-                ExitCode.USAGE,
-                f"{target} already exists; export never overwrites a plan - choose a new name",
-            )
-        except OSError as failure:
-            return CliOutcome(
-                ExitCode.USAGE, f"cannot write {target}: {failure.strerror}"
+                ExitCode.USAGE, f"cannot write {target}: {written.detail}"
             )
         return world.printer.print_report(
             export_report(str(target), len(document.bots)), args
         )
-
-
-def _recorded(world: BotVerbWorld) -> AppliedPlan | None:
-    try:
-        return world.plans.read()
-    except AppliedPlanUnreadableError:
-        return None
 
 
 def _load_plan(path: Path, world: BotVerbWorld) -> BotPlanDocument | CliOutcome:

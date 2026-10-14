@@ -107,3 +107,13 @@ _WHAT_IT_DOES = {
     BotAction.SAVE: "Save the changed parameters.",
     BotAction.DELETE: "Delete this bot's definition.",
 }
+
+
+def export_plan_availability(bot_count: int) -> ActionAvailability:
+    """Export plan… (`BOT-176`) is live while there is a bot to write; it reads, so
+    neither the selection nor an action in flight matters."""
+    if bot_count == 0:
+        return ActionAvailability(False, "There is no bot to export yet.")
+    return ActionAvailability(
+        True, "Write the bots as a plan file that a server can apply."
+    )

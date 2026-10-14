@@ -20,11 +20,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
 from ..strategies.venue_strategies import VenueStrategies
-from .bot_action_rules import BotAction
+from .bot_action_rules import BotAction, export_plan_availability
 from .bot_chart_host import BotChartHost
 from .bots_commands import (
     ARM_STRATEGY,
     DISARM_STRATEGY,
+    EXPORT_PLAN,
     FIT_LEVELS,
     FIX_NEXT,
     NEW_BOT,
@@ -117,6 +118,7 @@ def bind_bots_commands(
         enabled=fix.changed,
         initially_enabled=fix.value,
     )
+    _bind_export_plan(binder, view_model)
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)
     # The selected kind's own commands follow its toolbar; the presenter
@@ -127,6 +129,30 @@ def bind_bots_commands(
     # Live stream follows the selected bot's chart, when the mode has charts.
     if charts is not None:
         charts.bind_commands(binder)
+
+
+def _bind_export_plan(binder: ICommandBinder, view_model: BotsViewModel) -> None:
+    """`BOT-176`: live while a bot exists, and the tip says why not otherwise."""
+    has_bots = DerivedState(
+        view_model.bots_changed,
+        lambda: export_plan_availability(len(view_model.bots)).enabled,
+        view_model,
+    )
+    binder.bind(
+        EXPORT_PLAN,
+        lambda _checked: view_model.export_plan_requested.emit(),
+        enabled=has_bots.changed,
+        initially_enabled=has_bots.value,
+    )
+    qaction = binder.action(EXPORT_PLAN)
+    declared = qaction.toolTip()
+
+    def say() -> None:
+        reason = export_plan_availability(len(view_model.bots)).reason
+        qaction.setToolTip(f"{declared}\n{reason}")
+
+    view_model.bots_changed.connect(say)
+    say()
 
 
 def _bind_lifecycle(

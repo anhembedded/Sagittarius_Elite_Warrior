@@ -111,11 +111,12 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Confirm resume | — | Bots | yes |
 | | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
 | | &Delete bot (no "…": it only confirms, and "…" marks a command that asks for more input, §4 of the rule) | — | — | yes |
-| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
+| | the selected kind's commands (Spot grid: Su&ggest from ATR, Suggest from &Bollinger), enabled while a bot of that kind is selected and editable | — | the kind's toolbar | — |
 | | Refresh &fills (the selected bot's fills, read again; enabled while a bot is selected; `EPIC-033K` stage 4) | — | — | — |
 | | Fit &levels (every kind; enabled while a bot is selected) | — | — | — |
 | | Retry ven&ue account (reads the selected bot's venue account again; enabled while it could not be read; `EPIC-034D`), Fi&x next item (does the first fix the Plan's list of what is left before Start offers: reads the account again, brings the field forward, or selects the bot that is still active; enabled while there is one; `EPIC-034H`) | — | — | — |
 | | Ar&m strategy…, D&isarm strategy (the Strategies panel's selected venue; `EPIC-033K` stage 3) | — | — | — |
+| | Export pl&an… (writes the bots as a `sew.bot-plan/1` file for `bot apply` on a server, through the query and the never-overwrite writer `bot export` uses; a dialog asks *Selected bot* or *All bots*, *Keep each bot's wanted state* or *All stopped*, defaulting to *All stopped* when a mainnet bot is in scope, then **Save…** or **Copy JSON**; enabled while a bot exists; `BOT-176`) | — | — | — |
 | | Li&ve stream (checkable: Go live / Retry when checked, Cancel / Stop live when unchecked, on the selected bot's chart; `EPIC-034G`) | — | the chart's chip | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |

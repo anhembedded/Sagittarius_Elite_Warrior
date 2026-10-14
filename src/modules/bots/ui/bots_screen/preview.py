@@ -8,6 +8,7 @@ it (`bots/ui/chart/preview.py`).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -53,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
     BotsView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialog import (
+    ExportPlanDialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
@@ -104,6 +108,16 @@ def build_preview() -> QWidget:
     view.apply_ui_mode(BotsUiState.EDITING_DRAFT)
     view.resize(1200, 760)
     return view
+
+
+def build_export_plan_preview() -> QWidget:
+    """Bots → Export plan… (`BOT-176`) over one testnet and one mainnet bot, the first
+    selected: *All bots* includes the mainnet one, so *All stopped* is the default there."""
+    testnet = _bot(1, BotLifecycleState.RUNNING)
+    mainnet = replace(
+        _bot(2, BotLifecycleState.STOPPED), venue=TradingVenue.SPOT_MAINNET
+    )
+    return ExportPlanDialog((testnet, mainnet), testnet)
 
 
 def _sample_verdicts() -> tuple[Verdict, ...]:
