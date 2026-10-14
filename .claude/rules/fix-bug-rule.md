@@ -25,6 +25,9 @@ The regression test is never deleted, skipped, weakened or rewritten off the ori
 ## 6. Commit
 The fix and its regression test in one `fix:` commit whose body states the root cause and the id. `[gate: commit lint; review: L2]`
 
+## 6.1 The pull request carries the root cause and the sequences
+The description of every `fix:` pull request holds four filled-in sections, because the owner reads the pull request and not the bug report: `## Root cause` (the mechanism with `file:line`), `## Corrective action` (what changed and why it fixes the mechanism), and `## Sequence: before` and `## Sequence: after`, each one ```mermaid `sequenceDiagram` block over the real participants (Bot runner, Reconciler, Exchange, UI), showing the step where the defect happened and where the fix acts. A defect local to one function or one piece of displayed text, with no interaction to draw, may hold the single line `Not applicable: <reason>` in both Sequence sections; a defect that crosses two or more components, threads or the exchange always needs the diagrams. The bug report stays the repository's record and may link to the pull request for the diagrams rather than copy them. Whether the diagrams match the change is review check E16; the headings and the diagram-or-waiver are checked by `scripts/check_fix_pr_body.py` on every `pull_request` event. `[gate: fix pr body; review: E16]`
+
 ## 6.5 Case study when the gate was green
 If an existing net (type checker, test, guard, review row) covered the area and missed it, and the same blind spot is open elsewhere now, add `Docs/CASE_STUDIES/CS-{nnn}_{slug}.md` from `.claude/templates/case-study.md` in the fixing commit — one screen, the three sections the index requires — and **the check that closes it ships in the same commit**. Not every bug earns one. `[guard: test_case_study_index_is_consistent.py]`
 
