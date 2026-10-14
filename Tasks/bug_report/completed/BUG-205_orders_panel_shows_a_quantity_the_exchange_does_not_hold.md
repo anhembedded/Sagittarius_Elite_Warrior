@@ -3,7 +3,7 @@
 - **Reported:** 2026-10-14 (owner, on the real-money Spot Mainnet bot `Test_real_cash`, id ke95g7, via the coordinator session)
 - **Severity:** 🔴 P1 — real money: the bot's books for a resting order (what a full fill completes, the counter order's size, the profit) can rest on a quantity the exchange does not hold
 - **Status:** Fixed (2026-10-14)
-- **Board:** The Orders panel showed L6 at 0.0022 while Binance held 0.0021. Cause: the clients dropped the exchange's `origQty` and the restart reconcile matched ids only. Fix (#507): save the accepted quantity; the reconcile adopts a smaller one and halts on a larger one. Why the two differed stays unknown; the 08:35 log is lost.
+- **Board:** The Orders panel showed L6 at 0.0022 while Binance held 0.0021. Cause: the ladder saved the unrounded quantity 0.00219090; the exchange took it floored to the lot step (0.0021); the panel rounded it to 0.0022; and neither placement nor the restart reconcile read the exchange's quantity back. Fix (#507): save the accepted quantity; the reconcile adopts a smaller one and halts on a larger one.
 - **Context:** [SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) → Module `bots` (`application/services/`: ladder placing, reconcile) and `trading` (`adapters/binance/`: the placement answer) → Application / Adapters
 - **Environment:** Spot Mainnet, ETHUSDT, grid 2348–2667, 6 grids, capital 35 USDT; ladder laid 2026-10-14 about 08:35 (Binance local time); app commit not captured (Unknown). No secret in this report.
 
@@ -47,4 +47,12 @@ Same family, scanned: the Futures client had the identical discard (fixed togeth
 Initial run, unit, integration and sanity tiers: 13 871 passed; after the review round, unit (architecture, all modules) and the bots and trading integration tiers: 9 744 passed. Failures that also fail on the base commit and are unrelated: `test_workbench_conformance[True-1024x700]` (window size) and `test_ci_local_checkout_name_guard` (`pwsh` is not installed here). `ruff check`, `ruff format --check` clean; `mypy` clean on the touched files. The full gate is the PR's GitHub Actions `ci-local.ps1 -Full` run. The owner's real order is not reproduced: this fix cannot say why it differed.
 
 ## Closure (2026-10-14)
-The fix merged in PR #507 with its regression tests green and an independent review PASS. Why Binance held 0.0021 is **not established and will not be**: the owner reports that the 08:35 log is gone, and the app commit then running is unknown. The fix closes the gap whatever the cause was. `as_accepted` now logs `[order-quantity]` at placement whenever the exchange accepts a different quantity, and the reconcile logs it on every adopted difference, so a repeat leaves evidence. The owner's follow-up on the halt reason for a large shortfall is [PRO-010](../../proposal/PRO-010.md).
+The fix merged in PR #507, with its regression tests green and an independent review PASS.
+
+**Cause of the owner's 0.0021, established after the merge.** The 08:35 log is lost, but the first restart on the fixed build logged:
+
+`Bot ke95g7: SEW-ke95g7-fb52e1da7a at L6 is held by the exchange for 0.00210000, the ladder had 0.00219090; the exchange's quantity is adopted [order-quantity]` (owner's log, 2026-10-14 23:40:48)
+
+So the saved ladder held an **unrounded** quantity, 0.00219090, the net-of-fee action. The order that reached the exchange was floored to the 0.0001 lot step, giving 0.0021, and the Orders panel rounded the saved value to four places, giving 0.0022. The Root cause section above refuted a re-size *after* placement; that refutation stands. The difference arose at placement, between the saved action and the rounded order that was sent. The fix covers it: placement now saves the exchange's `origQty`, and the reconcile adopted the 0.0021 for this order with the WARNING above.
+
+The owner's follow-up on the halt reason for a large shortfall is [PRO-010](../../proposal/PRO-010.md).
