@@ -29,6 +29,8 @@ from .boundaries.imports import resolve_relative, strip_prefix
 _KIND_PACKAGES = (
     "modules.bots.application.kinds",
     "modules.bots.domain.grid",
+    # `BOT-179`: the kinds' screens; the plan export path is scanned for it too.
+    "modules.bots.ui.kinds",
 )
 _BASELINE_FILE = Path(__file__).with_name("baseline_bots_shell_imports_a_kind.txt")
 

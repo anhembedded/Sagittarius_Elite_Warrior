@@ -124,5 +124,5 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         # `BOT-176`: the bots as a `sew.bot-plan/1` file, for `bot apply` on a server;
         # every letter of its name was another command's access key; "A" moved from
         # Suggest from ATR (now "G", freed by Bollinger moving to "B") to this one.
-        command(EXPORT_PLAN, "Export pl&an…", on_toolbar=False, needs_input=True),
+        command(EXPORT_PLAN, "Export pl&an…", on_toolbar=True, needs_input=True),
     )
