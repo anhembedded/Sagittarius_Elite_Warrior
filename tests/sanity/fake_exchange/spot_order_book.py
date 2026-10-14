@@ -40,6 +40,10 @@ class SpotOrderBook:
             "_triggered": False,
         }
 
+    def resize(self, client_order_id: str, quantity: str) -> None:
+        """The exchange's own record of a resting order carries `quantity`."""
+        self._orders[client_order_id]["origQty"] = quantity
+
     def take(
         self, symbol: str, client_order_id: str | None, order_id: str | None
     ) -> dict[str, Any] | None:

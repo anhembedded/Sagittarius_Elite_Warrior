@@ -14,6 +14,8 @@ ADR's order:
      up in order history; what it executed beyond what the bot counted is
      applied as a fill (its counter order held), then the level empties if
      the order is over.
+  4b. **Align quantities** (`BUG-205`): a saved order the exchange lists at another
+     quantity takes the exchange's, and the change is logged (`grid_order_quantities`).
   5. **Then adopt.** A tagged order the saved ladder did not know — sent but
      never saved, because the app died between the submit and the write — is
      adopted at the level of its price, so that level is never placed twice,
@@ -54,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
     GridHousekeeping,
     refusal_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_quantities import (
+    adopt_exchange_quantities,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
@@ -169,7 +174,11 @@ class GridReconciler:
             applied = self._apply_missed_fills(state.runtime, open_orders, records)
             if isinstance(applied, ReconcileMismatch):
                 return applied
-            outcome = self._adopt(applied, open_orders, records)
+            outcome = self._adopt(
+                adopt_exchange_quantities(state.bot_id, applied, open_orders),
+                open_orders,
+                records,
+            )
         except AccountHistoryUnavailableError as error:
             logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
             return ReconcileWait(

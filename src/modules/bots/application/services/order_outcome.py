@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from decimal import Decimal
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
@@ -60,6 +61,9 @@ class OrderOutcome:
     detail: str = ""
     #: For `RATE_LIMITED`: how long the exchange asked for.
     retry_after: timedelta | None = None
+    #: For `DONE`: the quantity the exchange accepted (`BUG-205`), which a ladder
+    #: saves and shows instead of the quantity it asked for.
+    quantity: Decimal | None = None
 
     @property
     def done(self) -> bool:
@@ -103,7 +107,10 @@ def classify_submit(result: ExecuteOrderResult) -> OrderOutcome:
         return _refusal(result.blocked_by, "")
     if result.submitted_order is None:
         return OrderOutcome(OrderOutcomeKind.FAULT, detail="trading returned no order")
-    return OrderOutcome(OrderOutcomeKind.DONE, result.submitted_order.client_order_id)
+    accepted = result.submitted_order
+    return OrderOutcome(
+        OrderOutcomeKind.DONE, accepted.client_order_id, quantity=accepted.quantity
+    )
 
 
 def classify_cancel(result: CancelOrderResult, client_order_id: str) -> OrderOutcome:

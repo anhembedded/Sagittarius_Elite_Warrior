@@ -226,8 +226,18 @@ class GridStartSequence:
             fail_with(state, outcome, f"L{action.level_index} {action.side.value}")
             return False
         oid = outcome.client_order_id
-        state.update(accepted(placed(state.runtime, action, oid), oid))
+        state.update(
+            accepted(placed(state.runtime, as_accepted(action, outcome), oid), oid)
+        )
         return True
+
+
+def as_accepted(action: PlaceOrder, outcome: OrderOutcome) -> PlaceOrder:
+    """`action` carrying the quantity the exchange accepted for it (`BUG-205`):
+    the ladder saves, and the Orders panel shows, what rests, not what was asked."""
+    if outcome.quantity is None or outcome.quantity == action.quantity:
+        return action
+    return replace(action, quantity=outcome.quantity)
 
 
 def log_order(bot_id: str, action: PlaceOrder, result: str) -> None:
