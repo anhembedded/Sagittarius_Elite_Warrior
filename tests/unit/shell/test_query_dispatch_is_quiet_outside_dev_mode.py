@@ -150,3 +150,28 @@ def test_the_filter_is_installed_once_however_often_the_graph_is_built(
 
     assert len(logging.getLogger("App").filters) == 1
     assert captured.lines(logging.INFO) == []
+
+
+@pytest.mark.parametrize(
+    ("developer", "expected"),
+    [
+        (False, "[log-filter] dispatcher query lines hidden (dev.mode off)"),
+        (True, "[log-filter] dispatcher query lines shown (dev.mode on)"),
+    ],
+)
+def test_the_decision_is_logged_when_the_graph_is_built(
+    captured: _Capture, developer: bool, expected: str
+) -> None:
+    # `create_app` rebuilds the handlers of `App` itself, so listen on the child.
+    child = logging.getLogger("App.LogFilter")
+    child.addHandler(captured)
+    child.setLevel(logging.DEBUG)
+    try:
+        config = ConfigManager()
+        config.load_dict({_DEV_MODE_KEY: developer})
+        create_app(config)
+    finally:
+        child.removeHandler(captured)
+        child.setLevel(logging.NOTSET)
+
+    assert captured.lines(logging.INFO) == [expected]

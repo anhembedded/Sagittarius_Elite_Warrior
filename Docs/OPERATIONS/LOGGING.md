@@ -95,3 +95,4 @@ Everything on standard output, one record per line, in the format of §3. The ta
 | `[signals]` | INFO | which signals ask the host to stop |
 | `[health]` | INFO | the health line (§4); WARNING `probe <name> failed` once per streak when the clock probe cannot ask the exchange |
 | `[health-snapshot]` | INFO / ERROR | where the snapshot is written and how often; ERROR when a write fails |
+| `[log-filter]` (`App.LogFilter`) | INFO | once at start: `dispatcher query lines hidden (dev.mode off)` or `shown (dev.mode on)`, the decision of §5's filter (`BOT-178`) |

@@ -28,6 +28,7 @@ from sagittarius_engine.interfaces.i_config import IConfig
 _EXTRA_ATTRIBUTE = "extra"
 _DISPATCHER = "Dispatcher"
 _QUERY_LINE_PREFIX = "Executing query: "
+_decision_log = logging.getLogger("App.LogFilter")
 
 
 class QueryDispatchFilter(logging.Filter):
@@ -54,5 +55,12 @@ def quiet_query_dispatch_outside_developer_mode(config: IConfig) -> None:
     logger = logging.getLogger("App")
     for installed in [f for f in logger.filters if isinstance(f, QueryDispatchFilter)]:
         logger.removeFilter(installed)
-    if not config.get(ConfigKeys.DEV_MODE.value, False):
+    developer = bool(config.get(ConfigKeys.DEV_MODE.value, False))
+    if not developer:
         logger.addFilter(QueryDispatchFilter())
+    # `logging-rule.md` §2: the decision is logged, the disabled case included.
+    _decision_log.info(
+        "[log-filter] dispatcher query lines %s (dev.mode %s)",
+        "shown" if developer else "hidden",
+        "on" if developer else "off",
+    )
