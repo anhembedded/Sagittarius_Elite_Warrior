@@ -5,7 +5,7 @@
 **Risk:** 🟡 — moderate; a checker or a rule changes and can turn CI red across the tree
 **Complexity:** M — a generator, two CI steps; touches the workflow, so it waits for the owner
 **Epic:** [EPIC-041](../README.md)
-**Depends on:** [EPIC-041A](EPIC-041A_docs_map_and_status.md)
+**Depends on:** [EPIC-041A](EPIC-041A_docs_skeleton.md)
 
 ---
 

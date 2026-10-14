@@ -34,7 +34,7 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-041A](incomplete/EPIC-041A_docs_map_and_status.md) | `Docs/README.md` maps reader questions to files; every doc has a status line | Elite | None | 🟢 | Planned |
+| [EPIC-041A](incomplete/EPIC-041A_docs_skeleton.md) | **First.** The skeleton: map, status lines, four homes with templates, the `bots` module-doc skeleton for EPIC-040 to fill, and the "Docs touched" rule | Elite | None | 🟢 | Planned |
 | [EPIC-041C](incomplete/EPIC-041C_decisions_index.md) | `Docs/DECISIONS` index of every decision, generated and guarded | Elite | 041A | 🟢 | Planned |
 | [EPIC-041B](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | Doc ↔ rule links checked in both directions by `rule_integrity` | Elite | 041A | 🟡 | Planned |
 | [EPIC-041F](incomplete/EPIC-041F_quality_metrics_data.md) | Bug fields, backfill, quality report and data dictionary | Elite | 041C | 🟡 | Planned |
@@ -59,4 +59,5 @@
 - A documentation site generator.
 
 ## Notes (newest first)
+- **2026-10-14** — `041A` widened into the skeleton, aimed at `EPIC-040`: the owner will do only it now and the rest when credit allows (*"epic đó vẫn để như vậy, sau này dư dã AI credit tui sẽ làm"*).
 - **2026-10-14** — Epic scaffolded from the owner's requests; nine children written; philosophy recorded as a decision.
