@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-013 — See my account on a desk
 
 - **Status:** ✅ built and proven (the live-venue step is the user's, §8)

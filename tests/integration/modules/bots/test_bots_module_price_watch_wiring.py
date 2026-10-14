@@ -13,10 +13,10 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
     BotPriceWatch,
     bot_price_owner,
 )

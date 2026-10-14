@@ -1,3 +1,5 @@
+Status: Historical
+
 # High-Level Design — Sagittarius Elite Warrior
 
 - **Status:** 🟢 Round 1 approved on 2026-09-11. The decision record is

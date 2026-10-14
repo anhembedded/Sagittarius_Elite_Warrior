@@ -110,6 +110,21 @@ def test_each_role_draws_in_its_own_colour(qapp) -> None:
     assert by_label["SL"] != by_label["TP"]
 
 
+def test_an_exit_never_shares_a_style_with_a_range_bound_or_a_level(qapp) -> None:
+    """`BUG-207`: the owner read the range top as a take-profit; an exit trigger's
+    colour, dash and width are its own, whatever else is drawn."""
+    items = overlay_items(sample_overlay())
+    style = {
+        level.label: (level.color, level.style, level.width) for level in items.levels
+    }
+    exits = {style["SL"], style["TP"]}
+
+    others = [value for label, value in style.items() if label not in ("SL", "TP")]
+    assert len(exits) == 2
+    assert not exits & set(others)
+    assert any("range" in level.label for level in items.levels)
+
+
 def test_a_new_overlay_replaces_the_old_one(qapp) -> None:
     chart, card = build_chart()
     chart.show_overlay(sample_overlay())

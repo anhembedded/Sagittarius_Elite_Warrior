@@ -24,25 +24,21 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    tag_of,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.checkpointed_replay import (
+    InventoryBeyondLookbackError,
+    ReplayStart,
+    replay_owner_fills,
+    still_open_orders,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
-    MAX_HISTORY_LOOKBACK,
     IAccountHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_checkpoints import (
     IOwnerInventoryCheckpoints,
     OwnerInventoryCheckpoint,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
-    OrderRecord,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
-    is_terminal,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     EMPTY_INVENTORY,
@@ -61,10 +57,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.owner_invento
 
 logger = logging.getLogger("App.Trading.OwnerInventory")
 
-#: The next read starts this far before the derivation, so a fill the venue
-#: lists a moment late is still read; `last_trade_id` keeps it from being
-#: counted twice.
-_READ_OVERLAP = timedelta(minutes=1)
+__all__ = [
+    "InventoryBeyondLookbackError",
+    "OwnerInventoryDerivation",
+    "OwnerInventoryDeriver",
+    "owner_fill_of",
+    "still_open_orders",
+]
 
 
 @dataclass(frozen=True)
@@ -90,18 +89,6 @@ class OwnerInventoryDerivation:
         return trade_id in self.counted_trade_ids
 
 
-class InventoryBeyondLookbackError(ValueError):
-    """The derivation would have to read further back than the venue's
-    history reaches, and no checkpoint covers the gap."""
-
-    def __init__(self, read_from: datetime) -> None:
-        super().__init__(
-            f"the owner's history starts {read_from.isoformat()}, more than "
-            f"{MAX_HISTORY_LOOKBACK.days} days back, and no checkpoint covers it"
-        )
-        self.read_from = read_from
-
-
 class OwnerInventoryDeriver:
     """Derives an owner's inventory from exchange evidence."""
 
@@ -120,57 +107,38 @@ class OwnerInventoryDeriver:
         back than the venue's history reaches.
         @throws AccountHistoryUnavailableError The venue did not answer."""
         checkpoint = self._checkpoint_for(registration)
-        read_from = (
-            checkpoint.read_from
-            if checkpoint is not None
-            else registration.run_started_at
-        )
-        if now - read_from > MAX_HISTORY_LOOKBACK:
-            raise InventoryBeyondLookbackError(read_from)
-        orders = tuple(
-            record
-            for record in history.order_history(registration.symbol, read_from)
-            if tag_of(str(record.order.client_order_id)) == registration.tag
-        )
-        carried_open = (
-            checkpoint.open_order_ids if checkpoint is not None else frozenset()
-        )
-        owned = {record.exchange_order_id for record in orders} | carried_open
-        inventory = checkpoint.inventory if checkpoint is not None else EMPTY_INVENTORY
-        last_trade_id = checkpoint.last_trade_id if checkpoint is not None else None
-        counted_through = last_trade_id
-        replayed: set[int] = set()
-        for trade in history.trade_history(registration.symbol, read_from):
-            if trade.order_id not in owned or (
-                last_trade_id is not None and trade.trade_id <= last_trade_id
-            ):
-                continue
-            inventory = inventory_after(
+        found = replay_owner_fills(
+            registration,
+            history,
+            now,
+            _start_of(registration, checkpoint),
+            lambda inventory, trade: inventory_after(
                 inventory, owner_fill_of(trade, registration.base_asset)
-            )
-            replayed.add(trade.trade_id)
-            last_trade_id = trade.trade_id
+            ),
+        )
         self._checkpoints.save(
             OwnerInventoryCheckpoint(
                 tag=registration.tag,
                 run_started_at=registration.run_started_at,
-                inventory=inventory,
-                last_trade_id=last_trade_id,
-                open_order_ids=_still_open(orders, carried_open),
-                read_from=max(read_from, now - _READ_OVERLAP),
+                inventory=found.state,
+                last_trade_id=found.last_trade_id,
+                open_order_ids=found.open_order_ids,
+                read_from=found.next_read_from,
             )
         )
         logger.info(
             "Derived inventory for %s on %s: %s %s at cost %s (from %s, %d order(s)).",
             registration.tag,
             registration.symbol,
-            inventory.quantity,
+            found.state.quantity,
             registration.base_asset,
-            inventory.cost,
+            found.state.cost,
             "a checkpoint" if checkpoint is not None else "the run start",
-            len(orders),
+            found.orders_read,
         )
-        return OwnerInventoryDerivation(inventory, frozenset(replayed), counted_through)
+        return OwnerInventoryDerivation(
+            found.state, found.counted_trade_ids, found.counted_through
+        )
 
     def _checkpoint_for(
         self, registration: OwnerBudgetRegistration
@@ -187,22 +155,21 @@ class OwnerInventoryDeriver:
         return checkpoint
 
 
+def _start_of(
+    registration: OwnerBudgetRegistration, checkpoint: OwnerInventoryCheckpoint | None
+) -> ReplayStart[OwnerInventory]:
+    if checkpoint is None:
+        return ReplayStart(EMPTY_INVENTORY, registration.run_started_at)
+    return ReplayStart(
+        checkpoint.inventory,
+        checkpoint.read_from,
+        checkpoint.last_trade_id,
+        checkpoint.open_order_ids,
+    )
+
+
 def owner_fill_of(trade: TradeRecord, base_asset: str) -> OwnerFill:
     """@brief `trade` as the owner's inventory takes it: a fee in the base
     asset leaves less base than was traded."""
     base_fee = trade.fee if trade.fee_asset == base_asset else Decimal(0)
     return OwnerFill(trade.side, trade.quantity, trade.quote_quantity, base_fee)
-
-
-def _still_open(
-    orders: tuple[OrderRecord, ...], carried_open: frozenset[int]
-) -> frozenset[int]:
-    """The owner's orders that may still fill: those read and not over, and
-    those carried from the checkpoint that this read did not see end."""
-    ended = {
-        record.exchange_order_id
-        for record in orders
-        if is_terminal(record.order.status)
-    }
-    read_open = {record.exchange_order_id for record in orders} - ended
-    return frozenset(read_open | (carried_open - ended))

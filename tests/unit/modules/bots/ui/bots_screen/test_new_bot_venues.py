@@ -23,6 +23,9 @@ def test_new_bot_offers_the_spot_venue_even_when_none_is_enabled(
     screen.view.model.new_bot_requested.emit()
     screen.settle()
 
-    assert answers.asked == [
-        f"new bot ['grid'] ['{VENUE.value}', '{TradingVenue.SPOT_MAINNET.value}']"
-    ]
+    venues = (
+        f"'{VENUE.value}', '{TradingVenue.SPOT_MAINNET.value}', "
+        f"'{TradingVenue.FUTURES_TESTNET.value}', "
+        f"'{TradingVenue.FUTURES_MAINNET.value}'"
+    )
+    assert answers.asked == [f"new bot ['grid'] [{venues}]"]

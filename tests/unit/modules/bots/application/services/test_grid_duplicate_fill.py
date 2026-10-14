@@ -16,7 +16,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (

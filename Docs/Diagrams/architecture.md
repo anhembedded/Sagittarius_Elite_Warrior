@@ -1,3 +1,5 @@
+Status: Superseded by [Docs/HLD/README.md](../HLD/README.md)
+
 # System Architecture & Event-Driven Flows
 
 This document contains Mermaid diagrams illustrating the Clean Architecture, CQRS, and Event-Driven flows within the Binance Bot.

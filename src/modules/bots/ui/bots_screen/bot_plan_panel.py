@@ -24,6 +24,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    title_word_of,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
 )
@@ -35,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words i
     header,
     item_lines,
     step_lines,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    add_venue_choice,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
@@ -54,6 +61,8 @@ EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
 #: sentence `bot_facts.py` writes ("10.00 at 65,000.00"), its numbers by the
 #: application's formatter, so those rows are text; the running time is a
 #: duration the formatter writes itself.
+#: The rows only a venue with funding shows (`EPIC-039J`): costs apart from the profit.
+COST_KEYS = ("commissions", "funding")
 FACT_SPECS = (
     *(
         ColumnSpec(key, title, ColumnKind.TEXT)
@@ -67,6 +76,8 @@ FACT_SPECS = (
             ("hodl", "HODL benchmark"),
             ("inventory", "Held"),
             ("earlier_runs", "Left from earlier runs"),
+            ("commissions", "Commissions paid"),
+            ("funding", "Funding (earned +, paid −)"),
         )
     ),
     ColumnSpec("running_time", "Running time", ColumnKind.DURATION),
@@ -106,6 +117,7 @@ class BotPlanPanel(QStackedWidget):
         self._panel_slot = QVBoxLayout()
         self._build()
         self._connect()
+        self._show_costs(False)
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
@@ -207,16 +219,18 @@ class BotPlanPanel(QStackedWidget):
         return (bot.bot_id, bot.venue, bot.venue_locked, self._model.venue_choices)
 
     def _show_venue(self) -> None:
-        """The bot's venue among the Spot venues, changeable only while the bot
-        is a draft that never ran (`BOT-171`); a locked field says why."""
+        """The bot's venue among the venues of its own market, changeable only while the
+        bot is a draft that never ran (`BOT-171`); a locked field says why."""
         bot = self._model.selected
         combo = self.venue
         self._venue_shown = self._venue_key()
         combo.clear()
         if bot is None:
             return
+        profile = venue_profile_of(bot.venue)
         for choice in self._model.venue_choices:
-            combo.addItem(choice.option_text, choice.venue)
+            if venue_profile_of(choice.venue) == profile:
+                add_venue_choice(combo, choice)
         index = combo.findData(bot.venue)
         if index < 0:
             combo.addItem(bot.venue.display_name, bot.venue)
@@ -225,7 +239,7 @@ class BotPlanPanel(QStackedWidget):
         combo.setEnabled(not bot.venue_locked)
         combo.setToolTip(
             bot.venue_locked
-            or "Move this draft to another Spot venue: its account is read again."
+            or f"Move this draft to another {title_word_of(bot.venue)} venue: its account is read again."
         )
 
     def _on_venue_picked(self, index: int) -> None:
@@ -241,6 +255,16 @@ class BotPlanPanel(QStackedWidget):
         self.facts.set_values(
             {spec.key: getattr(facts, spec.key) if facts else "" for spec in FACT_SPECS}
         )
+        self._show_costs(facts is not None and facts.shows_costs)
+
+    def _show_costs(self, shown: bool) -> None:
+        """The cost rows belong to a venue with funding; Spot's figures keep their rows."""
+        form = self.facts.layout()
+        if not isinstance(form, QFormLayout):
+            raise TypeError(f"the figures lay out as a form, not {type(form).__name__}")
+        for spec_index, spec in enumerate(FACT_SPECS):
+            if spec.key in COST_KEYS:
+                form.setRowVisible(spec_index, shown)
 
     def _show_readiness(self) -> None:
         """How far the bot is and what is left before Start (`EPIC-034H`): the

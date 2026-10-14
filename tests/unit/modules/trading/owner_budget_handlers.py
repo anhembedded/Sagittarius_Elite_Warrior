@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_inventory_checkpoints import (
     FakeOwnerInventoryCheckpoints,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_position_checkpoints import (
+    FakeOwnerPositionCheckpoints,
+)
 
 
 def registration_handler(
@@ -33,6 +36,6 @@ def registration_handler(
     return RegisterOwnerBudgetCommandHandler(
         scopes,
         OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
-        OwnerPositionRegistrar(OwnerPositionDeriver()),
+        OwnerPositionRegistrar(OwnerPositionDeriver(FakeOwnerPositionCheckpoints())),
         caps,
     )

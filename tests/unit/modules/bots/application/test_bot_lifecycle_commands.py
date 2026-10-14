@@ -7,10 +7,10 @@ from __future__ import annotations
 import threading
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeReadinessReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
@@ -113,8 +113,9 @@ class _RecordingRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         self.sent.append(("pause", bot_id))
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.sent.append(("resume", bot_id))
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))
@@ -275,6 +276,7 @@ def test_a_bot_whose_file_is_unreadable_is_refused_as_unreadable(
         (S.RUNNING, "pause", "pause"),
         (S.PAUSED, "resume", "resume"),
         (S.HALTED, "resume", "resume"),
+        (S.RECOVERING, "resume", "resume"),
         (S.RUNNING, "stop", "stop:KEEP"),
         (S.ERROR, "stop", "stop:KEEP"),
     ],

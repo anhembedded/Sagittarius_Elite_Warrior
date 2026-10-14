@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-_TAIL = "nothing is placed until trading is enabled"
+#: `BUG-204` - the report is one read at startup, not a live view: orders that fill
+#: after it are booked by the reconcile Resume runs, and until then nothing listens.
+_TAIL = (
+    "nothing is placed and nothing listens to the exchange until Resume opens the "
+    "order session and books what filled since"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +46,7 @@ class RecoveryReport:
                 f"{self.unreadable}; {_TAIL}"
             )
         return (
-            f"after the restart: {self.resting} saved order(s) rest, "
+            f"after the restart (read once, at startup): {self.resting} saved order(s) rest, "
             f"{self.filled_while_closed} filled while the app was closed, "
             f"{self.missing} missing, {self.foreign} not saved by the bot; {_TAIL}"
         )

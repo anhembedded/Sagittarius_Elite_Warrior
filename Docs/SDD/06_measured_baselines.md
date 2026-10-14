@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §6 — The baselines Phase 0 committed
 
 > Part of the SDD, split out of the single `README.md` this document used to be

@@ -13,10 +13,10 @@ from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (

@@ -13,10 +13,10 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier import (
     RecordingNotifier,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.sleep_watch import (
     SleepWatch,
     SleepWatchDeps,
 )

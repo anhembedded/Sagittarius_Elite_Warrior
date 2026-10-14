@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_tick_extremes import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_tick_extremes import (
     GridTickExtremes,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (

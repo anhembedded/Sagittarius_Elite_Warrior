@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §4 — Boot, and writing configuration
 
 > Part of the SDD, split out of the single `README.md` this document used to be

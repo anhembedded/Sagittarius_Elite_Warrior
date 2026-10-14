@@ -370,3 +370,28 @@ def test_the_text_report_of_a_dry_run_prints_the_notes(
     )
 
     assert "dddddd" in capsys.readouterr().out
+
+
+def test_an_unknown_id_is_a_usage_error_that_never_reaches_the_export_query(
+    tmp_path: Path,
+) -> None:
+    """The engine's dispatcher logs a raising handler at ERROR, so a mistyped id would add a
+    stderr record `bot export` never had: the id is checked before the query is dispatched."""
+    world = CommandWorld()
+    seed(world.store, "aaaaaa", BotLifecycleState.STOPPED)
+    plain = verb_world(world, _PRINTER)
+
+    outcome = ExportBotPlanVerb().run(
+        argparse.Namespace(
+            all=False,
+            bot_id="zzzzzz",
+            output=str(tmp_path / "new.json"),
+            json=True,
+            format=None,
+        ),
+        plain,
+    )
+
+    assert outcome is not None and outcome.code is ExitCode.USAGE
+    assert "zzzzzz" in outcome.message
+    assert plain.dispatcher.exports == []  # type: ignore[attr-defined]

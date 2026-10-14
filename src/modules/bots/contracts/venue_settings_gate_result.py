@@ -19,6 +19,9 @@ from dataclasses import dataclass
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import MarginMode
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    MANUAL_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -51,6 +54,9 @@ class GateRequest:
     symbol: str
     leverage: int
     margin_mode: MarginMode
+    #: Who asks (`EPIC-039H`): a bot holds its symbol's lease, and the lease's holder is the one
+    #: owner allowed to change that symbol's settings. The unprivileged default is a human.
+    owner_id: str = MANUAL_OWNER
 
     def __post_init__(self) -> None:
         if self.leverage < 1:

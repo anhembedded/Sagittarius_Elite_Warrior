@@ -6,7 +6,7 @@ inline queue (each task runs as it is posted) and a pacer that counts turns.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -17,24 +17,31 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
+    SpotGridBudgets,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
     GridExecutor,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
-    GridRiskWatch,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exposures import (
+    GridExposures,
+    spot_only_exposures,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     decode_runtime,
     encode_runtime,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_risk_watch import (
+    GridRiskWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_settings_gate_spot import (
     SpotSettingsGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
@@ -291,6 +298,8 @@ def grid_world(
     store_view: Callable[[FakeBotStore], IBotStore] | None = None,
     settings_gate: IVenueSettingsGate | None = None,
     risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None,
+    exposures: GridExposures | None = None,
+    config: Mapping[str, str] | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -318,7 +327,9 @@ def grid_world(
     venue_ports = FakeVenueTradingPorts(ports)
     store = FakeBotStore()
     clock = FakeBotClock()
-    definition = BotDefinition("grid one", "grid", VENUE, SYMBOL, CONFIG)
+    definition = BotDefinition(
+        "grid one", "grid", VENUE, SYMBOL, dict(config or CONFIG)
+    )
     lifecycle = BotLifecycle(state, RUN_STARTED, recovering_from)
     bot = Bot(BotId(BOT), definition, lifecycle, RUN_STARTED)
     store.save(StoredBot(bot, encode_runtime(runtime) if runtime else {}))
@@ -338,8 +349,10 @@ def grid_world(
             monotonic=monotonic,
             prices=VenueFreshPriceReader(venue_ports),
             events=events,
+            budgets=SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS),
             settings_gate=settings_gate or SpotSettingsGate(),
             risk_watch=risk_watch,
+            exposures=exposures or spot_only_exposures(),
         )
     )
     executor = factory.create(bot)
@@ -360,7 +373,7 @@ def grid_world(
     )
 
 
-def recovering_world() -> GridWorld:
+def recovering_world(exposures: GridExposures | None = None) -> GridWorld:
     """A bot saved while RUNNING and restored: RECOVERING, its ladder resting."""
     before = grid_world()
     before.executor.start()
@@ -368,6 +381,7 @@ def recovering_world() -> GridWorld:
         state=BotLifecycleState.RECOVERING,
         runtime=before.runtime(),
         recovering_from=BotLifecycleState.RUNNING,
+        exposures=exposures,
     )
     world.book.open = dict(before.book.open)
     world.derive("0")

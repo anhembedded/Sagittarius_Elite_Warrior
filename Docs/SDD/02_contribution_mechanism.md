@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §2 — The contribution mechanism
 
 > Part of the SDD, split out of the single `README.md` this document used to be

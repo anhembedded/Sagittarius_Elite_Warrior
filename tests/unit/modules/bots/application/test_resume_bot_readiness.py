@@ -13,16 +13,16 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
+    encode_runtime,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
-    encode_runtime,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     MARKET_NOT_READ,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeInputs,
     ResumeReadinessReader,
     assess_resume,
@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot
     ResumeBotCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotCommandResult,
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
@@ -70,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_world import (
     ReadinessWorld,
     readiness_world,
@@ -102,8 +106,9 @@ class _Runner(IBotRunner):
 
     def pause(self, bot_id: str) -> None: ...
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.resumed.append(bot_id)
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None: ...
 
@@ -254,6 +259,45 @@ def test_a_paused_bots_resume_lays_no_ladder_and_is_not_gated(
     assert result.accepted
     assert runner.resumed == [BOT]
     assert world.session.earlier_runs_requests == []
+
+
+def test_a_halted_mainnet_resume_nobody_confirmed_is_refused_before_anything_is_read() -> (
+    None
+):
+    """`BUG-202`: Resume can reopen a mainnet session an Emergency Stop closed, so
+    the use case asks for the real-money answer as Start does."""
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.HALTED)
+    runner = _Runner()
+
+    result = _resume(made, runner)
+
+    assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
+    assert "real money" in result.message
+    assert runner.resumed == []
+    assert made.session.ready_requests == 0
+
+
+def test_a_confirmed_halted_mainnet_resume_goes_on_to_the_readiness() -> None:
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.HALTED)
+
+    result = _handler(made, _Runner()).execute(
+        ResumeBotCommand(BOT, real_money_confirmed=True)
+    )
+
+    assert result.refusal is not BotRefusal.REAL_MONEY_NOT_CONFIRMED
+
+
+def test_a_paused_mainnet_resume_reopens_no_session_and_needs_no_confirmation() -> None:
+    made = readiness_world(bot_venue=TradingVenue.SPOT_MAINNET)
+    _halt(made, BotLifecycleState.PAUSED)
+    runner = _Runner()
+
+    result = _resume(made, runner)
+
+    assert result.accepted
+    assert runner.resumed == [BOT]
 
 
 # --- fail closed: a ladder that cannot be drawn is a named item, as in Start ----

@@ -1,3 +1,5 @@
+Status: Historical
+
 # §2 — Context map
 
 - **Diagrams (component, PlantUML) — high view first, detail second:**

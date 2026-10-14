@@ -6,11 +6,11 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exposure_books import (
-    exposure_book_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
     refusal_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.exposure_books import (
+    exposure_book_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_book import (
     Exposure,

@@ -31,6 +31,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.grid_back
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.backtest.preview import (
     sample_result,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.futures_replay_builders import (
+    bar,
+    position_config,
+    replay,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 
@@ -140,3 +145,68 @@ def test_a_whole_period_stored_has_no_missing_caveat(result) -> None:
     )
 
     assert not any("not the whole period" in note for note in summary_of(whole).notes)
+
+
+# -- a position venue's result (`EPIC-039K`) -------------------------------------- #
+
+
+def _futures_result(**futures_changes: object) -> GridBacktestResult:
+    result = replay(
+        [bar(0, "65000", "65200", "64800", "65000")], position_config("LONG")
+    )
+    assert result.futures is not None
+    return dataclasses.replace(
+        result, futures=dataclasses.replace(result.futures, **futures_changes)
+    )
+
+
+def test_a_spot_result_shows_no_futures_row_and_no_futures_note(result) -> None:
+    summary = summary_of(result)
+
+    assert "funding_paid" not in _kinds(summary)
+    assert not any("Modelled" in note for note in summary.notes)
+
+
+def test_funding_not_included_is_the_first_thing_the_notes_say() -> None:
+    result = _futures_result(
+        funding_included=False,
+        funding_note="FUNDING IS NOT INCLUDED in this result: the exchange is down.",
+    )
+
+    notes = summary_of(result).notes
+
+    assert notes[0].startswith("FUNDING IS NOT INCLUDED")
+
+
+def test_a_futures_result_shows_funding_apart_and_says_it_is_modelled() -> None:
+    result = _futures_result(funding_paid=Decimal("12.5"))
+
+    summary = summary_of(result)
+
+    assert summary.readout.values["funding_paid"] == Decimal("12.5")
+    assert _kinds(summary)["funding_paid"] is ColumnKind.MONEY
+    assert summary.readout.values["grid_profit"] == result.grid_profit
+    assert any("Modelled, not replayed" in note for note in summary.notes)
+
+
+def test_a_liquidation_is_named_in_the_stop_words_with_the_margin_lost() -> None:
+    result = _futures_result(liquidated=True, margin_lost=Decimal(1200))
+    result = dataclasses.replace(result, stop_reason=StopReason.LIQUIDATED)
+
+    summary = summary_of(result)
+
+    assert any("Stopped by a liquidation" in note for note in summary.notes)
+    assert summary.readout.values["margin_lost"] == Decimal(1200)
+
+
+def test_a_distance_to_liquidation_that_does_not_exist_has_no_row() -> None:
+    summary = summary_of(_futures_result(closest_to_liquidation=None))
+
+    assert "closest_to_liquidation" not in _kinds(summary)
+
+
+def test_the_distance_to_liquidation_is_shown_as_a_percent() -> None:
+    summary = summary_of(_futures_result(closest_to_liquidation=Decimal("0.125")))
+
+    assert summary.readout.values["closest_to_liquidation"] == Decimal("12.5")
+    assert _kinds(summary)["closest_to_liquidation"] is ColumnKind.PERCENT

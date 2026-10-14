@@ -31,6 +31,8 @@ A bot that halts, crashes or is closed leaves its exposure where it stands. On S
 - [ ] **Settle the event order on testnet** (handed on by 039D): record, from a Futures testnet run, whether `ORDER_TRADE_UPDATE` precedes the `ACCOUNT_UPDATE` of one trade for single fills and for a burst. `POSITION_CHANGED_UNORDERED` (and the 039F guard that halts on it) rests on it; the soak checklist includes a count of divergences the app reported against fills the bot ordered, which must be zero.
 - [ ] **Mainnet gate:** Futures mainnet stays out of the bot venue picker (`offered=False`) until (a) this task's journeys are green, (b) the owner records a **14-day unattended soak on Futures testnet** (as `EPIC-026`'s ADR D6 requires for mainnet), (c) the owner opens it. The task adds the soak checklist (what to run, what to read in the logs, what counts as a pass) and does **not** open it.
 - [ ] A headless `run` host (EPIC-038) asks the profile for its stop policy: for a Futures bot without a standing stop "leave orders resting" is refused (O12); the interface is a `IShutdownPolicy` input, recorded here for 038D.
+- [ ] **Halts that cannot close** (handed on by `039H`, review of #490): a switch-off, a rejected key and a rate limit halt a Futures bot without a cancel or a close (the order session is closed or the key refused), so its position stays open on the exchange; `039H` makes the halt's words say so. A standing protective stop is the answer: with it these halts are safe, without it they are the dangerous path; a journey proves a switch-off halt with a stop standing and the words without one.
+- [ ] **Replace `CLOSED_VENUES`** (`contracts/venue_profile.py`, `closed_venue_refusal`, used by create, change-venue, start, the host's start and resume, and resume): `039H` closes Futures mainnet on every path with that set; this task builds the real gate and removes the set in the same commit that opens the venue.
 - [ ] Alerts: a missing or triggered protective stop publishes the events `EPIC-036B` turns into `STOP_FAILED`/`LIQUIDATION_RISK`.
 
 ## 3. Design
@@ -40,7 +42,7 @@ The stop is state owned by the executor with the same persistence discipline as 
 | File | Change |
 | :--- | :--- |
 | `bots/application/services/protective_stop.py` (new) | place, record, cancel-after-flat, adopt, orphan cleanup |
-| `bots/application/services/grid_reconciler.py` (via the exposure-check seam, 039H) | adopt/orphan rules |
+| `bots/application/kinds/grid/recovery/grid_reconciler.py` (via the exposure-check seam, 039H) | adopt/orphan rules |
 | `bots/domain/grid/grid_runtime.py` | the stop's ids on the runtime and in the codec (`grid_runtime_codec.py`, version-safe) |
 | `trading/…` (only if 026K's mapping is not enough) | the bot-owned stop through `IOrderSubmission` |
 | `Docs/OPERATIONS/…` or the task notes | the soak checklist |

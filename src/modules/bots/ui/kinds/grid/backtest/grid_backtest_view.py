@@ -69,6 +69,8 @@ class GridBacktestView(QWidget):
     run_requested = Signal()
     cancel_requested = Signal()
     sync_requested = Signal()
+    #: `EPIC-039J` - the user chose to replay a Futures period without its funding.
+    run_without_funding_requested = Signal()
 
     def __init__(
         self, chart_ports: LiveChartPorts, parent: QWidget | None = None
@@ -90,6 +92,12 @@ class GridBacktestView(QWidget):
         self.cancel_button.setObjectName("btnGridBacktestCancel")
         self.sync_button = QPushButton("Sync candles")
         self.sync_button.setObjectName("btnGridBacktestSync")
+        self.no_funding_button = QPushButton("Run without funding")
+        self.no_funding_button.setObjectName("btnGridBacktestNoFunding")
+        self.no_funding_button.setToolTip(
+            "Replays the period with no funding charged. The result says so, and a "
+            "leveraged grid looks better than it was."
+        )
         self.status = plain_label()
         self.status.setObjectName("lblGridBacktestStatus")
         self.status.setWordWrap(True)
@@ -105,6 +113,7 @@ class GridBacktestView(QWidget):
         self.run_button.clicked.connect(self.run_requested)
         self.cancel_button.clicked.connect(self.cancel_requested)
         self.sync_button.clicked.connect(self.sync_requested)
+        self.no_funding_button.clicked.connect(self.run_without_funding_requested)
         self.show_idle("")
 
     # -- what the presenter reads ----------------------------------------- #
@@ -123,6 +132,7 @@ class GridBacktestView(QWidget):
         self.run_button.setToolTip(reason)
         self.cancel_button.setEnabled(False)
         self.sync_button.setVisible(False)
+        self.no_funding_button.setVisible(False)
         if reason:
             self.status.setText(reason)
 
@@ -133,11 +143,15 @@ class GridBacktestView(QWidget):
         self.cancel_button.setEnabled(True)
         self.cancel_button.setText("Stop" if side_effects else "Cancel")
         self.sync_button.setVisible(False)
+        self.no_funding_button.setVisible(False)
         self.status.setText(text)
 
-    def show_refusal(self, reason: str, *, offer_sync: bool) -> None:
+    def show_refusal(
+        self, reason: str, *, offer_sync: bool, offer_without_funding: bool = False
+    ) -> None:
         self.show_idle("")
         self.sync_button.setVisible(offer_sync)
+        self.no_funding_button.setVisible(offer_without_funding)
         self.status.setText(reason)
 
     def offer_sync(self, reason: str) -> None:
@@ -192,6 +206,7 @@ class GridBacktestView(QWidget):
         period.addWidget(self.run_button)
         period.addWidget(self.cancel_button)
         period.addWidget(self.sync_button)
+        period.addWidget(self.no_funding_button)
         period.addStretch(1)
         # The figures scroll in their own pane: a dozen form rows would
         # otherwise set the Bots mode's minimum height (PR #361 review).

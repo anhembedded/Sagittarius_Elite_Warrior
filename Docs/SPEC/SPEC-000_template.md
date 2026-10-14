@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-000 — the template (copy this file, do not edit it)
 
 - **Status:** 🔵 specified, not built

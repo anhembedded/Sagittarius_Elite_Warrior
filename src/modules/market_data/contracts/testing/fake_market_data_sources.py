@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_funding_history import (
+    IFundingHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -31,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_funding_history import (
+    FakeFundingHistory,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
@@ -73,8 +79,9 @@ class FakeMarketDataSources(IMarketDataSources):
         history: IHistoricalKlines | None = None,
         stream: IMarketStream | None = None,
         repository: IMarketDataRepository | None = None,
+        funding: IFundingHistory | None = None,
     ) -> MarketDataPorts:
-        """`venue`'s four ports, each a fresh verified fake unless given."""
+        """`venue`'s ports, each a fresh verified fake unless given."""
         return MarketDataPorts(
             venue=venue,
             sync=sync or FakeMarketDataSync(),
@@ -82,6 +89,7 @@ class FakeMarketDataSources(IMarketDataSources):
             stream=stream or FakeMarketStream(),
             coverage=FakeRangeCoverage(),
             repository=repository or FakeMarketDataRepository(),
+            funding=funding or FakeFundingHistory(),
         )
 
     def serving(self, ports: MarketDataPorts) -> FakeMarketDataSources:

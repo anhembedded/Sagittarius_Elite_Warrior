@@ -11,6 +11,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Supreme law; starting; authority; principles | [`.claude/CONSTITUTION.md`](.claude/CONSTITUTION.md) · [`.claude/ONBOARDING.md`](.claude/ONBOARDING.md) |
 | Implementing or resuming a task | [`.claude/skills/execute-task/SKILL.md`](.claude/skills/execute-task/SKILL.md); completion contract: [`task-execution-rule.md`](.claude/rules/task-execution-rule.md) |
 | What the app must do, one use case per file | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
+| Which document answers which question; where a doc goes; what a module doc holds | [`Docs/README.md`](Docs/README.md) |
 | Architecture: layers, ports, explicit contracts, events, seams; what already exists to reuse | [`architecture-rule.md`](.claude/rules/architecture-rule.md) · [`capabilities.md`](.claude/rules/capabilities.md) |
 | Code quality, naming & error handling | [`code/quality.md`](.claude/rules/code/quality.md) · [`code/naming.md`](.claude/rules/code/naming.md) · [`code/errors.md`](.claude/rules/code/errors.md) |
 | Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |

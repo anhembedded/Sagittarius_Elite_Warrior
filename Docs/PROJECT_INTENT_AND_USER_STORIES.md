@@ -1,3 +1,5 @@
+Status: Historical
+
 # Binance Trading Bot — Ý định Dự án & User Stories
 
 > Tài liệu này được tổng hợp từ `README.md`, `Tasks/ROADMAP.md`, các task trong `Tasks/completed/` & `Tasks/backlog/`, và `Docs/Diagrams/architecture.md`. Mục đích: phản chiếu lại những gì tôi (Claude) hiểu về ý định thật sự và các user story đằng sau dự án này, để bạn xác nhận hoặc chỉnh sửa nếu tôi hiểu sai chỗ nào.

@@ -77,6 +77,7 @@ from .fenced_reads import BotQueries, FencedReads, ReadKind
 from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
 from .new_bot_symbols import new_bot_symbols
+from .plan_export_flow import PlanExport
 from .planner_recovery import PlannerRecovery
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
 from .selected_bot import SelectedBot
@@ -140,11 +141,13 @@ class BotsPresenter(CommandPresenter):
             self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
+        self._export = PlanExport(self._model, commands, self._dialogs, deps.notifier)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, deps.run_facts)
         self._venues = BotVenues(
             deps.contexts,
+            self._catalog,
             self._model,
             self._selected,
             self._account,
@@ -337,7 +340,7 @@ class BotsPresenter(CommandPresenter):
         )
         if accepted and isinstance(result, BotCommandResult):
             self._model.set_status(
-                f"{label}: done.{self._selected.still_blocked(pending.action)}", False
+                self._selected.accepted_status(label, pending.action), False
             )
             if pending.creates_bot and result.bot_id:
                 self._select_after_create = result.bot_id

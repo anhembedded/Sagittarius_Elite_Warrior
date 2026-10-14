@@ -1,3 +1,5 @@
+Status: Current
+
 # Case studies — why the gate was green while it was broken
 
 A bug report answers *what broke and what fixed it*. A case study answers **why nothing caught

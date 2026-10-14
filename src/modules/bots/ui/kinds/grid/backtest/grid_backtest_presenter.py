@@ -17,7 +17,6 @@ current one is dropped and logged. So:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
@@ -30,8 +29,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
     GridBacktestRefusal,
     RunGridBacktestQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
+    FundingRequirement,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    BOT_MARKET,
+    plan_market_of,
+    venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestResult,
@@ -64,6 +67,7 @@ logger = logging.getLogger("App.Bots.Backtest")
 _KIND = "grid_backtest"
 _NO_BOT = "Select a bot to backtest its parameters."
 _NO_TERMS = "The market numbers for this symbol are still being read."
+_NO_BRACKETS = "The leverage brackets for this symbol are still being read."
 #: What failed, by the action's label: the headline the user reads (`BOT-169`).
 _FAILED_HEADLINES = {
     "backtest": "The backtest could not run. Check the period and try again.",
@@ -91,6 +95,7 @@ class GridBacktestPresenter(QObject):
         view.run_requested.connect(self._on_run_requested)
         view.cancel_requested.connect(self._on_cancel_requested)
         view.sync_requested.connect(self._on_sync_requested)
+        view.run_without_funding_requested.connect(self._on_run_without_funding)
         coordinator.finished.connect(self._on_finished)
         view.show_idle(_NO_BOT)
 
@@ -119,9 +124,17 @@ class GridBacktestPresenter(QObject):
     # -- commands ------------------------------------------------------------ #
 
     def _on_run_requested(self) -> None:
+        self._start_run(FundingRequirement.REQUIRED)
+
+    def _on_run_without_funding(self) -> None:
+        """The user's explicit choice after a refusal for missing funding history: the
+        replay runs and its result says funding is not included (`EPIC-039K`, O9)."""
+        self._start_run(FundingRequirement.OPTIONAL)
+
+    def _start_run(self, funding: FundingRequirement) -> None:
         if self._busy() or self._why_not():
             return
-        query = self._query()
+        query = self._query(funding)
         if query is None:
             return
         self._last = query
@@ -187,7 +200,11 @@ class GridBacktestPresenter(QObject):
         elif isinstance(answer, GridBacktestResult) and self._last is not None:
             self._show_replay(answer, self._last)
         elif isinstance(answer, GridBacktestRefusal):
-            self._view.show_refusal(answer.reason, offer_sync=answer.missing_candles)
+            self._view.show_refusal(
+                answer.reason,
+                offer_sync=answer.missing_candles,
+                offer_without_funding=answer.funding_unavailable,
+            )
 
     def _show_replay(
         self, result: GridBacktestResult, query: RunGridBacktestQuery
@@ -208,7 +225,7 @@ class GridBacktestPresenter(QObject):
 
     # -- helpers --------------------------------------------------------------- #
 
-    def _query(self) -> RunGridBacktestQuery | None:
+    def _query(self, funding: FundingRequirement) -> RunGridBacktestQuery | None:
         context = self._context
         if context is None or context.terms is None:
             return None
@@ -226,6 +243,8 @@ class GridBacktestPresenter(QObject):
             start,
             end,
             context.venue,
+            brackets=context.brackets,
+            funding=funding,
         )
 
     def _why_not(self) -> str:
@@ -233,7 +252,14 @@ class GridBacktestPresenter(QObject):
             return _NO_BOT
         if self._context.terms is None:
             return _NO_TERMS
+        if self._needs_brackets() and self._context.brackets is None:
+            return _NO_BRACKETS
         return ""
+
+    def _needs_brackets(self) -> bool:
+        """A position venue's liquidation price needs the symbol's brackets."""
+        profile = venue_profile_of(self._context.venue) if self._context else None
+        return profile is not None and bool(profile.margin_modes)
 
     def _busy(self) -> bool:
         return self._tracker.active_outcome is ActionOutcome.PENDING
@@ -250,18 +276,18 @@ class GridBacktestPresenter(QObject):
 
 def _sync_requests(query: RunGridBacktestQuery) -> tuple[MarketDataSyncRequest, ...]:
     return tuple(
-        _sync_request(query.symbol, interval, query.start, query.end)
+        _sync_request(query, interval)
         for interval in (query.interval, TimeFrame.ONE_SECOND)
     )
 
 
 def _sync_request(
-    symbol: str, interval: TimeFrame, start: datetime, end: datetime
+    query: RunGridBacktestQuery, interval: TimeFrame
 ) -> MarketDataSyncRequest:
     return MarketDataSyncRequest(
-        symbols=(symbol,),
+        symbols=(query.symbol,),
         interval=interval,
-        market=BOT_MARKET,
-        start_time=start,
-        end_time=end,
+        market=plan_market_of(query.venue),
+        start_time=query.start,
+        end_time=query.end,
     )

@@ -98,6 +98,8 @@ class _Screen:
                 confirm_delete=lambda _bot: False,
                 ask_arm_strategy=lambda _venue, _form: False,
                 allow_real_money=lambda _venue, _what: True,
+                ask_export_plan=lambda _bots, _selected: None,
+                ask_plan_save_path=lambda _suggested: "",
             ),
         )
         self.actions = bound_actions(

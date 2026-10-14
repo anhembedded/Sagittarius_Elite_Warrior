@@ -7,7 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
     exchange_terms_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (

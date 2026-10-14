@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_read
     GetBotReadinessQuery,
     GetBotReadinessQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
@@ -76,7 +76,7 @@ class _CountingRunner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         raise NotImplementedError
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         raise NotImplementedError
 
     def stop(self, bot_id: str, base: object) -> None:  # type: ignore[override]

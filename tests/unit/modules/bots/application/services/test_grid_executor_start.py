@@ -16,7 +16,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_work_queue import (
     ThreadBotWorkQueue,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     decode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId

@@ -20,8 +20,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
     ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    CLOSED,
     KEY_SAVED,
     NO_KEY,
+    NOT_ENABLED,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -179,7 +181,7 @@ def test_a_stopped_bot_has_run_and_keeps_its_venue(open_bots_screen) -> None:
     assert not screen.view.plan.venue.isEnabled()
 
 
-def test_new_bot_offers_every_spot_venue_with_its_connection_state(
+def test_new_bot_offers_every_venue_bots_run_on_with_its_connection_state(
     open_bots_screen,
 ) -> None:
     from .bots_screen_fixtures import Answers
@@ -194,5 +196,25 @@ def test_new_bot_offers_every_spot_venue_with_its_connection_state(
     assert answers.offered == [
         f"Spot Testnet — {KEY_SAVED}",
         f"Spot Mainnet — {KEY_SAVED}",
+        f"Futures Testnet — {NOT_ENABLED}",
+        f"Futures Mainnet — {CLOSED}",
     ]
     assert NO_KEY not in " ".join(answers.offered)
+
+
+def test_a_spot_drafts_venue_field_keeps_its_sentence_and_lists_only_its_market(
+    open_bots_screen,
+) -> None:
+    """`EPIC-039J` — the words use the profile's title, which for Spot is the word they
+    always had; the field lists the venues the draft can move to, those of its own market."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+
+    select(screen, "a00001")
+    screen.settle()
+
+    combo = screen.view.plan.venue
+    assert (
+        combo.toolTip()
+        == "Move this draft to another Spot venue: its account is read again."
+    )

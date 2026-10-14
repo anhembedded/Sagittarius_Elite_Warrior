@@ -15,7 +15,7 @@
 The seam is only real if a *new* kind gets both profiles by implementing a small checklist, and a kind that skips the ports (calls `trading` directly, branches on the market, keeps its own exposure) fails CI. `IBotKind`'s docstring has listed "Futures Grid" as an extension case since `EPIC-029B`; the other listed cases are Signal, DCA and Trailing Grid (`EPIC-029L`).
 
 ### Facts verified on `master-warrior` `076d339`
-- `bots/contracts/i_bot_kind.py`: `kind_id`, `validate(inputs) -> tuple[Verdict, …]`, `overlay(inputs)`, `executor_factory()`; extension cases listed in its docstring; the registry `application/services/bot_kind_catalog.py` (`IBotKindCatalog`, `GRID_KIND_ID`).
+- `bots/contracts/i_bot_kind.py`: `kind_id`, `validate(inputs) -> tuple[Verdict, …]`, `overlay(inputs)`, `executor_factory()`; extension cases listed in its docstring; the registry `application/services/lifecycle/bot_kind_catalog.py` (`IBotKindCatalog`, `GRID_KIND_ID`).
 - Contract-test pattern for ports with several implementers: `src/modules/bots/contracts/testing/` and `tests/integration/modules/bots/contracts/` (a shared suite per port).
 - After 039A each kind declares `supported_profiles`; 039H makes `GridKind` support both.
 

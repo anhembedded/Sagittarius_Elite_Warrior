@@ -39,8 +39,9 @@ class IBotRunner(ABC):
         """Queue `pause` on the bot's executor."""
 
     @abstractmethod
-    def resume(self, bot_id: str) -> None:
-        """Queue `resume` on the bot's executor."""
+    def resume(self, bot_id: str) -> BotCommandResult:
+        """Queue `resume` on the bot's executor. A HALTED bot's resume opens the
+        venue's order session first (`BUG-202`); a refusal queues nothing."""
 
     @abstractmethod
     def stop(self, bot_id: str, base: ExposureHandling) -> None:

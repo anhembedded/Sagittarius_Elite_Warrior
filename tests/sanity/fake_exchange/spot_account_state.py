@@ -41,11 +41,11 @@ and Binance's public Spot User Data Streams documentation
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
 from decimal import ROUND_DOWN, Decimal
 from typing import Any
 
 from .history_log import HistoryLog, now_ms
+from .spot_account_records import _Balance, _Fill
 from .spot_order_book import SpotOrderBook
 
 _STATUS_NEW = "NEW"
@@ -55,6 +55,7 @@ _STATUS_CANCELED = "CANCELED"
 _SIDE_BUY = "BUY"
 _ORDER_TYPE_MARKET = "MARKET"
 _ORDER_TYPE_STOP_LIMIT = "STOP_LOSS_LIMIT"
+_ORDER_TYPE_LIMIT = "LIMIT"
 #: `EPIC-029A` (`BUG-141`) — the prefix of the id a cancel request is given
 #: when it names none, as Binance gives one; the report's `"c"`.
 _CANCEL_ID_PREFIX = "fakecxl"
@@ -81,27 +82,6 @@ def _q(value: Decimal) -> str:
     return str(value.quantize(_EIGHT_DP, rounding=ROUND_DOWN))
 
 
-@dataclass(frozen=True)
-class _Fill:
-    price: Decimal
-    qty: Decimal
-    quote_amount: Decimal
-    commission: Decimal
-    commission_asset: str
-    #: The exchange's id of this trade: the history lists it as `id`, and the
-    #: stream's executionReport carries it as `"t"`, so a client can count the
-    #: fill once however it learned of it.
-    trade_id: int
-
-
-class _Balance:
-    __slots__ = ("free", "locked")
-
-    def __init__(self, free: Decimal) -> None:
-        self.free = free
-        self.locked = Decimal(0)
-
-
 class SpotAccountState:
     """One instance per `run_binance_fake_server()` call — like
     `OrderBookState`, state does not outlive a single test's `with`
@@ -116,6 +96,8 @@ class SpotAccountState:
             "BTC": _Balance(Decimal(10)),
             "ETH": _Balance(Decimal(100)),
         }
+        #: What the venue takes off every LIMIT order's quantity when it accepts it.
+        self._limit_shortfall = Decimal(0)
         self._user_data_events: list[dict[str, Any]] = []
         self._trade_ids = itertools.count(3_000_000)
         self.history = HistoryLog()
@@ -133,6 +115,8 @@ class SpotAccountState:
         side = params["side"]
         order_type = params["type"]
         quantity = self._quantity(symbol, params)
+        if order_type == _ORDER_TYPE_LIMIT:
+            quantity -= self._limit_shortfall
         client_order_id = params["newClientOrderId"]
         order_id = next(self._order_ids)
 
@@ -242,6 +226,17 @@ class SpotAccountState:
             {key: value for key, value in order.items() if not key.startswith("_")}
             for order in self._book.resting(symbol)
         ]
+
+    def accept_limits_for_less(self, shortfall: Decimal) -> None:
+        """From now on the venue accepts every LIMIT order for `shortfall` less than
+        it was sent for, and answers with the quantity it accepted."""
+        self._limit_shortfall = shortfall
+
+    def resize_resting(self, client_order_id: str, quantity: Decimal) -> None:
+        """The exchange's record of a resting order says `quantity`, whatever the
+        sender believes it sent (a venue that shrank it, or a hand edit)."""
+        self._book.resize(client_order_id, _q(quantity))
+        self.history.update_order(client_order_id, origQty=_q(quantity))
 
     def free_balance(self, asset: str) -> Decimal:
         return self._balances[asset].free

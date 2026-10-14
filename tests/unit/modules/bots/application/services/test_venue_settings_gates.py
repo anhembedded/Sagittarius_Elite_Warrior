@@ -7,16 +7,16 @@ refusal, never a pass.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_settings_gate_futures import (
     FuturesSettingsGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_settings_gate_spot import (
     SpotSettingsGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gates import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_settings_gates import (
     VenueSettingsGates,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import MarginMode

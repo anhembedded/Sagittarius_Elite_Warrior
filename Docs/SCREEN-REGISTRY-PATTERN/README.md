@@ -1,3 +1,5 @@
+Status: Historical
+
 # KIẾN TRÚC & THIẾT KẾ CHI TIẾT: SCREEN REGISTRY PATTERN (V2 - ENHANCED)
 
 - **Tài liệu:** Thiết kế Kiến trúc Module Màn hình & Điều hướng Tự động (Screen Registry & Modular Sidebar Pattern)
