@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -58,7 +59,8 @@ def test_the_plan_alone_draws_its_levels_edges_and_exits() -> None:
     ]
     assert _by_role(source, OverlayRole.EMPTY_LEVEL) == [Decimal(65000)]
     assert len(_by_role(source, OverlayRole.SELL_LEVEL)) == 5
-    assert _by_role(source, OverlayRole.RANGE_EDGE) == [Decimal(60000), Decimal(70000)]
+    # `BUG-207`: both limits are levels here (L0 and L10), so they draw as those levels.
+    assert _by_role(source, OverlayRole.RANGE_EDGE) == []
     assert _by_role(source, OverlayRole.STOP_LOSS) == [Decimal(57000)]
     assert _by_role(source, OverlayRole.TAKE_PROFIT) == [Decimal(73500)]
     assert _by_role(source, OverlayRole.AVERAGE_COST) == []
@@ -123,17 +125,43 @@ def test_bollinger_bands_draw_between_them() -> None:
     ]
 
 
-def test_equal_prices_draw_in_one_stable_order() -> None:
-    """60,000 is both level L0 and the lower edge: the order is by price,
-    then role, so every surface lists them the same way."""
+def test_a_limit_that_is_a_level_draws_one_label_in_the_levels_colour() -> None:
+    """`BUG-207`: 60,000 is both level L0 and the lower limit, 70,000 both L10 and the
+    upper. Two tags at one price overprint at the chart's right edge and the later one
+    hides the other, so each price gets one label, the level's, saying what else it is."""
     lines = grid_overlay(_source()).lines
 
     at_lower = [(line.role, line.label) for line in lines if line.price == 60000]
-    assert at_lower == [
-        (OverlayRole.BUY_LEVEL, "L0"),
-        (OverlayRole.RANGE_EDGE, "Lower"),
-    ]
+    at_upper = [(line.role, line.label) for line in lines if line.price == 70000]
+    assert at_lower == [(OverlayRole.BUY_LEVEL, "L0 · range bottom")]
+    assert at_upper == [(OverlayRole.SELL_LEVEL, "L10 · range top")]
     assert [line.price for line in lines] == sorted(line.price for line in lines)
+    prices = [line.price for line in lines]
+    assert len(prices) == len(set(prices))
+
+
+def test_a_limit_between_levels_keeps_its_own_line() -> None:
+    """A limit no level sits on (the lowest level is above it) is a second price: it
+    keeps its range-edge line and label, and every level keeps its own."""
+    source = _source()
+    source = replace(source, params=replace(source.params, lower=Decimal(59500)))
+
+    lines = grid_overlay(source).lines
+
+    assert [
+        (line.price, line.role, line.label)
+        for line in lines
+        if line.role is OverlayRole.RANGE_EDGE
+    ] == [(Decimal(59500), OverlayRole.RANGE_EDGE, "range bottom")]
+    assert [line.label for line in lines if line.price == 60000] == ["L0"]
+    assert [line.label for line in lines if line.price == 70000] == ["L10 · range top"]
+
+
+def test_every_level_keeps_a_label_when_the_limits_merge_into_it() -> None:
+    lines = grid_overlay(_source()).lines
+
+    labelled = {line.label.split(" · ")[0] for line in lines if line.label[0] == "L"}
+    assert labelled == {f"L{index}" for index in range(11)}
 
 
 def test_an_atr_zone_never_reaches_below_zero() -> None:
@@ -163,3 +191,21 @@ def test_a_position_plans_liquidation_is_drawn_as_an_estimate_per_side() -> None
 
 def test_a_plan_without_liquidation_draws_none() -> None:
     assert _by_role(_source(), OverlayRole.LIQUIDATION) == []
+
+
+def test_range_labels_cannot_be_read_as_exits() -> None:
+    """`BUG-207`: the take-profit and stop-loss keep their own roles and labels; no
+    range-limit wording is "Up", "Upper", "TP" or "SL", merged or not."""
+    source = _source()
+    source = replace(source, params=replace(source.params, lower=Decimal(59500)))
+
+    lines = grid_overlay(source).lines
+
+    exits = {line.role: line.label for line in lines if line.label in ("TP", "SL")}
+    assert exits == {OverlayRole.TAKE_PROFIT: "TP", OverlayRole.STOP_LOSS: "SL"}
+    range_words = [
+        line.label
+        for line in lines
+        if line.role is OverlayRole.RANGE_EDGE or "range" in line.label
+    ]
+    assert range_words == ["range bottom", "L10 · range top"]

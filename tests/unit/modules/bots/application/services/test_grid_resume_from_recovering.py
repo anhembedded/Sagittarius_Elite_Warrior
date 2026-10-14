@@ -12,6 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_reconciler import (
+    RESTORED_PAUSED_DETAIL,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
 )
@@ -121,3 +124,30 @@ def test_a_resume_queued_in_recovering_is_dropped_once_the_switch_reconcile_halt
     assert world.runtime().reason is GridReason.INVENTORY_MISMATCH
     assert world.executor.proposal is None
     assert world.book.requests == []
+
+
+def test_a_bot_paused_before_the_restart_comes_back_paused_and_says_so() -> None:
+    """`BUG-206`: the reconcile returns the owner's PAUSED bot to PAUSED and leaves a
+    reason the screen shows; the next Resume runs it and clears that reason."""
+    world = restored(S.PAUSED)
+
+    world.executor.resume()
+
+    assert world.state() is S.PAUSED
+    assert world.runtime().reason is GridReason.RESTORED_PAUSED
+    assert world.runtime().reason_detail == RESTORED_PAUSED_DETAIL
+
+    world.executor.resume()
+
+    assert world.state() is S.RUNNING
+    assert world.runtime().reason is None
+    assert world.runtime().reason_detail == ""
+
+
+def test_a_bot_running_before_the_restart_carries_no_restored_paused_note() -> None:
+    world = restored(S.RUNNING)
+
+    world.executor.resume()
+
+    assert world.state() is S.RUNNING
+    assert world.runtime().reason is None

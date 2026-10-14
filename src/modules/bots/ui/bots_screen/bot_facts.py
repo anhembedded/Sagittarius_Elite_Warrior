@@ -57,6 +57,13 @@ RECOVERING_WAITS_FOR_RESUME = (
     "waiting for you: press Resume to open the order session and continue"
 )
 
+#: `BUG-206` - a bot the owner had paused comes back to PAUSED, so one Resume only
+#: reconciles it; saying "continue" there promised a run it does not give.
+RECOVERING_FROM_PAUSED_WAITS_FOR_RESUME = (
+    "waiting for you: it was Paused before the restart. Resume opens the order "
+    "session and books what filled, then returns it to Paused; press Resume again to run"
+)
+
 #: States in which the run's clock is still going.
 _RUNNING_CLOCK = frozenset(
     {
@@ -122,7 +129,12 @@ def _state_line(bot: BotSnapshot) -> str:
     detail = progress.reason_detail if progress is not None else ""
     if bot.state is BotLifecycleState.RECOVERING:
         # `BUG-204` - not "recovery finished": the bot is waiting for the owner.
-        detail = f"{RECOVERING_WAITS_FOR_RESUME}. {detail}".rstrip()
+        waits = (
+            RECOVERING_FROM_PAUSED_WAITS_FOR_RESUME
+            if bot.recovering_from is BotLifecycleState.PAUSED
+            else RECOVERING_WAITS_FOR_RESUME
+        )
+        detail = f"{waits}. {detail}".rstrip()
     if not detail:
         return state_text(bot.state)
     return f"{state_text(bot.state)} — {detail}"

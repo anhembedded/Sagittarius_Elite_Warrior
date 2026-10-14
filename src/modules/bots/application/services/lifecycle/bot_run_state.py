@@ -115,7 +115,11 @@ class BotRunState:
         self._bot = self._bot.apply(event, self._clock.now())
         if reason is not None:
             self._runtime = self._runtime.with_reason(reason, detail)
-        elif event is BotLifecycleEvent.START:
+        elif event is BotLifecycleEvent.START or (
+            # `BUG-206` - the note "it stays paused, press Resume" is answered by Resume.
+            event is BotLifecycleEvent.RESUME
+            and self._runtime.reason is GridReason.RESTORED_PAUSED
+        ):
             self._runtime = replace(self._runtime, reason=None, reason_detail="")
         self._save()
         logger.info(
