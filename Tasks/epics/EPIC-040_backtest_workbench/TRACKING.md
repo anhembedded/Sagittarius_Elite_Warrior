@@ -31,7 +31,10 @@ gantt
 
     section Phase 3 - One copy
     040F Grid on the workbench            :crit,    f, after e, 2d
-    Epic exit check                       :milestone, m, after f, 0d
+
+    section Phase 4 - Second kind
+    040G Strategy bot kind                :crit,    g, after f, 8d
+    Epic exit check                       :milestone, m, after g, 0d
 ```
 
 ---
@@ -46,6 +49,7 @@ gantt
 | EPIC-040D | [Backtest workbench shell](incomplete/EPIC-040D_backtest_workbench_shell.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040E | [Live and Backtest centre tabs](incomplete/EPIC-040E_live_and_backtest_tabs.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-040F | [Grid on the workbench, duplicate deleted](incomplete/EPIC-040F_grid_on_the_workbench.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-040G | [Strategy bot kind](incomplete/EPIC-040G_strategy_bot_kind.md) | — | 🔴 | 🔵 Planned | — |
 
 ---
 
@@ -54,6 +58,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-14 | Spec | Epic scaffolded, six sub-tasks written with design assessments; parked at the owner's request. |
+| 2026-10-14 | Spec | `040G` added: the strategy bot as a kind of its own, moved from `EPIC-029L`. |
 
 ---
 

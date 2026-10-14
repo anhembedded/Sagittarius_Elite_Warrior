@@ -5,7 +5,8 @@
 - **Origin:** The owner, 2026-10-14, on the Bots screen with a Spot Mainnet Grid running:
   - *"back test screen of the bot is no contribute when the bot run, so, could we move it to another tab with live chart? … back test could have another input parameters panel, that will not check the real equity of real account"*;
   - *"Cái này nên là common của mọi bot chứ nhỉ, k riêng gì bot grid"* ("this should be common to every bot, not just the Grid");
-  - *"Bạn tạo epic luôn, viết từng task, đánh giá design từng task"* ("create the epic, write each task, assess each task's design").
+  - *"Bạn tạo epic luôn, viết từng task, đánh giá design từng task"* ("create the epic, write each task, assess each task's design");
+  - later the same day, on bots that run a strategy: *"nó có nên là 1 loại bot riêng ko … nó sẽ có nhiều cái thao tác xử lý phức tạp hơn grid bot … nó cũng base vs bot grid"* ("should it be a bot kind of its own … it will need more complex handling than the Grid … it is also based on the Grid bot"), then *"gộp ý vừa rồi vào epic tách bot common"* ("merge that into the epic that makes bots common").
 - **North star:** `Docs/HLD/11_desktop_workbench.md` (the workbench layout) and the kind seam of `EPIC-029D` / `EPIC-029F` (`ui/kinds/bot_backtest.py`, `ui/kinds/bot_kind_panel.py`). This epic completes that seam; it adds no new architecture style.
 - **Decisions (optional):** pending the owner; see §1.
 - **Dependencies:**
@@ -30,6 +31,10 @@
 4. **The sandbox is judged by the symbol's rules, not by the account.**
    - Tick, step, minimum notional and fees still apply, so a replay cannot use orders the exchange would refuse.
    - Balance checks do not run: `BotKindInputs.account=None` already means "not checked"; the wording says "not checked in a simulation".
+5. **A bot that runs a strategy is a kind of its own, on the shared bot shell, not built on the Grid.**
+   - The Grid is a ladder of resting orders. A strategy bot reads candles, computes indicators, emits signals and manages one position. They share no execution logic to inherit.
+   - What they share already lives in the bot shell, not in the Grid: the lifecycle and restart recovery, the venue profile (`EPIC-039`), the risk guard, exposure book, order pacer and checkpoint, the plan file (`BOT-176`), and this epic's workbench.
+   - The strategy kind therefore brings only its `IBotKind` parts (`validate`, `overlay`, `executor_factory`) and its `IKindBacktester` adapter. The port of `040B` must fit it from the start (`040G`).
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-14 at `64e5510`) | When the epic is done |
@@ -49,6 +54,7 @@
 | [EPIC-040D](incomplete/EPIC-040D_backtest_workbench_shell.md) | A kind-neutral Backtest workbench: setup, run state and result panes, written once | Elite | 040B, 040C | 🟡 | Planned |
 | [EPIC-040E](incomplete/EPIC-040E_live_and_backtest_tabs.md) | The Bots screen has Live and Backtest centre tabs; the bottom Backtest tab is gone | Elite | 040D | 🟡 | Planned |
 | [EPIC-040F](incomplete/EPIC-040F_grid_on_the_workbench.md) | The Grid runs on the workbench and its duplicate backtest UI is deleted | Elite | 040E | 🔴 | Planned |
+| [EPIC-040G](incomplete/EPIC-040G_strategy_bot_kind.md) | A bot that runs a strategy is its own kind on the shared shell, backtested on the workbench with the same strategy code it runs live | Elite | 040B, 040F | 🔴 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -56,13 +62,15 @@
 | 1. Pinned and contracted (040A–040C) | The Grid page's behaviour is pinned. The kind-neutral result and port exist with the Grid behind them. Sandbox parameters exist and are judged without the account | Characterisation tests and preview frames green on master. The 039B oracle unchanged. A test that editing the sandbox never touches the bot. Not run |
 | 2. Workbench on screen (040D–040E) | The Backtest centre tab hosts the workbench for the selected bot's kind. Live keeps the chart, Plan and Orders/Fills/Log | Conformance suite at 1024×700, 1366×768 and 1920×1080. Preview frames for both tabs. The owner's look on Windows. Not run |
 | 3. One copy (040F) | The Grid's page uses the workbench. The duplicate UI under `ui/kinds/grid/backtest/` is deleted | The 040A tests pass unchanged against the new page. Line count recorded against §2. Not run |
+| 4. Second kind (040G) | A strategy bot runs on Testnet with the shell's lifecycle and is backtested on the workbench, with no change to kind-neutral code beyond registration | Backtest and live give the same signals on the same candles (parity test). Restart recovery after warm-up. Testnet run. Not run |
 
 ## 5. Out of scope
 - **Copying sandbox parameters into a bot's plan.** That is a later task. It must pass Start's checks on a stopped bot; it is never a shortcut from a simulation to real money.
-- **New bot kinds** (DCA, Signal). The epic makes them cheap; it does not add them.
+- **The DCA kind.** The epic makes it cheap; it does not add it. The strategy (signal) kind is in scope as `040G`, moved here from `EPIC-029L` at the owner's request.
 - **Simulator changes.** The Grid and Futures replays compute what they compute today.
 - **Colour and theme.** That is `PRO-009`.
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
 ## Notes (newest first)
+- **2026-10-14** — Decision 5 and `040G` added: the strategy bot is a kind of its own on the shared shell, taken from `EPIC-029L`. `040B` now requires its port to fit that kind.
 - **2026-10-14** — Epic scaffolded from the owner's request. Six children, each with its design assessed. Not started, as asked.

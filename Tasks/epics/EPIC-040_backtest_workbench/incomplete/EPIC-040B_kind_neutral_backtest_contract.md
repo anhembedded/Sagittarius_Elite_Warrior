@@ -28,6 +28,9 @@
 - [ ] The port is found by kind id through the existing kind registry (`kind_panels` / `IBotKindCatalog`). Nothing outside the Grid names the Grid.
 - [ ] The 039B oracle and the 039K tests pass unchanged; the figures are byte-identical.
 - [ ] An architecture guard forbids kind-neutral code from importing `domain/grid`.
+- [ ] The request and outcome also fit the strategy kind of [EPIC-040G](EPIC-040G_strategy_bot_kind.md), proven by a test stub adapter, not by a real strategy:
+  - the request can ask for warm-up history before the period;
+  - the outcome's trades can be one position at a time, entered and exited, not only ladder fills.
 
 ## 3. Design
 **Envelope plus detail.** This is the same shape `FuturesOutcome` already uses inside `GridBacktestResult` (`EPIC-039K`): common fields every pane reads, plus one opaque kind object that only the kind's own panes read. P5: reuse the pattern the codebase already has.
