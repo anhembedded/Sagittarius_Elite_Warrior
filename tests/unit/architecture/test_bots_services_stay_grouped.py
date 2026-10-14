@@ -24,9 +24,11 @@ import ast
 from collections.abc import Iterable
 from pathlib import Path
 
+from .boundaries.imports import resolve_relative, strip_prefix
+
 _KIND_PACKAGES = (
-    "Sagittarius_Elite_Warrior.src.modules.bots.application.kinds",
-    "Sagittarius_Elite_Warrior.src.modules.bots.domain.grid",
+    "modules.bots.application.kinds",
+    "modules.bots.domain.grid",
 )
 _BASELINE_FILE = Path(__file__).with_name("baseline_bots_shell_imports_a_kind.txt")
 
@@ -52,14 +54,25 @@ def loose_top_level_files(entries: Iterable[Path]) -> list[str]:
     )
 
 
-def _imported_modules(tree: ast.Module) -> set[str]:
+def _imported_modules(tree: ast.Module, importing_module: str) -> set[str]:
+    """Every module the file imports, relative imports resolved and the repository
+    prefix stripped, as `boundaries/imports.py` does. `TYPE_CHECKING` blocks are
+    read too: a shell type that names a kind still depends on it."""
     modules: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            modules.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            modules.add(node.module)
-            modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+            modules.update(strip_prefix(alias.name) for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = resolve_relative(
+                    importing_module, False, node.level, node.module
+                )
+            elif node.module:
+                base = strip_prefix(node.module)
+            else:
+                continue
+            modules.add(base)
+            modules.update(f"{base}.{alias.name}" for alias in node.names)
     return modules
 
 
@@ -75,7 +88,8 @@ def files_importing_a_kind(paths: Iterable[Path], root: Path) -> list[str]:
     found = []
     for path in sorted(paths):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        if any(_is_kind_module(module) for module in _imported_modules(tree)):
+        dotted = ".".join(path.relative_to(root / "src").with_suffix("").parts)
+        if any(_is_kind_module(m) for m in _imported_modules(tree, dotted)):
             found.append(path.relative_to(root).as_posix())
     return found
 
@@ -141,33 +155,32 @@ def test_the_baseline_lost_a_line_when_its_file_stopped_importing_a_kind() -> No
 def test_probe_files_importing_a_kind_turn_the_direction_check_red(
     tmp_path: Path,
 ) -> None:
-    feature = tmp_path / "services" / "orders"
+    feature = (
+        tmp_path / "src" / "modules" / "bots" / "application" / "services" / "orders"
+    )
     feature.mkdir(parents=True)
     clean = feature / "clean.py"
-    clean.write_text("from decimal import Decimal\n", encoding="utf-8")
+    clean.write_text(
+        "from decimal import Decimal\nfrom ..lifecycle import bot_runner\n",
+        encoding="utf-8",
+    )
     assert files_importing_a_kind([clean], tmp_path) == []
 
+    prefix = "Sagittarius_Elite_Warrior.src.modules.bots"
     for probe_name, source in {
-        "kind_from.py": (
-            "from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid"
-            ".grid_facts import GridFacts\n"
-        ),
-        "kind_import.py": (
-            "import Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid\n"
-        ),
-        "domain_grid_from.py": (
-            "from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan "
-            "import GridPlan\n"
-        ),
-        "domain_grid_package.py": (
-            "from Sagittarius_Elite_Warrior.src.modules.bots.domain import grid\n"
-        ),
+        "kind_from.py": f"from {prefix}.application.kinds.grid.grid_facts import GridFacts\n",
+        "kind_import.py": f"import {prefix}.application.kinds.grid\n",
+        "domain_grid_from.py": f"from {prefix}.domain.grid.grid_plan import GridPlan\n",
+        "domain_grid_package.py": f"from {prefix}.domain import grid\n",
+        "relative_kind.py": "from ...kinds.grid import grid_facts\n",
+        "relative_kind_module.py": "from ...kinds.grid.grid_facts import GridFacts\n",
+        "relative_domain_grid.py": "from ....domain.grid.grid_plan import GridPlan\n",
     }.items():
         probe = feature / probe_name
         probe.write_text(source, encoding="utf-8")
 
         assert files_importing_a_kind([clean, probe], tmp_path) == [
-            f"services/orders/{probe_name}"
+            probe.relative_to(tmp_path).as_posix()
         ], probe_name
 
 
