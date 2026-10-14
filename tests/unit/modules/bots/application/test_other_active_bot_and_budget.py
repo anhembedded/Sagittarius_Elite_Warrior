@@ -6,10 +6,10 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     grid_budget_problem,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
     other_active_bot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (

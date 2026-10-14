@@ -13,10 +13,10 @@ exchange yet (`EPIC-039L` lets a standing stop make "keep" an honest answer).
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_gate import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_gate import (
     BotCommandGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot.command import (

@@ -1,0 +1,31 @@
+# Files in the shared bot shell (`bots/application/services/`) that import `application/kinds/` or `domain/grid/` today (BOT-177).
+# Read by tests/unit/architecture/test_bots_services_stay_grouped.py. Shrink-only: a new line fails the guard,
+# and a line whose file stopped importing a kind must be deleted in the same commit. These are the Grid types
+# that EPIC-040B / EPIC-040G lift out of the shell, one file at a time.
+src/modules/bots/application/services/lifecycle/bot_boot_recovery.py
+src/modules/bots/application/services/lifecycle/bot_executors.py
+src/modules/bots/application/services/lifecycle/bot_restore_service.py
+src/modules/bots/application/services/lifecycle/bot_run_state.py
+src/modules/bots/application/services/lifecycle/bot_runner.py
+src/modules/bots/application/services/orders/bot_order_gateway.py
+src/modules/bots/application/services/positions/closer_futures.py
+src/modules/bots/application/services/positions/closer_spot.py
+src/modules/bots/application/services/positions/exposure_check_futures.py
+src/modules/bots/application/services/positions/exposure_check_spot.py
+src/modules/bots/application/services/positions/opening_futures.py
+src/modules/bots/application/services/positions/opening_spot.py
+src/modules/bots/application/services/readiness/bot_progress_reader.py
+src/modules/bots/application/services/readiness/bot_readiness_reader.py
+src/modules/bots/application/services/readiness/bot_run_facts.py
+src/modules/bots/application/services/readiness/resume_readiness.py
+src/modules/bots/application/services/risk/risk_guard_futures.py
+src/modules/bots/application/services/risk/risk_guard_spot.py
+src/modules/bots/application/services/risk/risk_reads_futures.py
+src/modules/bots/application/services/venue/exchange_rules.py
+src/modules/bots/application/services/venue/futures_rules.py
+src/modules/bots/application/services/venue/futures_start_checks.py
+src/modules/bots/application/services/venue/mark_source_futures.py
+src/modules/bots/application/services/venue/symbol_status_gate.py
+src/modules/bots/application/services/venue/venue_needs.py
+src/modules/bots/application/services/venue/venue_rules.py
+src/modules/bots/application/services/watches/streamed_fine_klines.py

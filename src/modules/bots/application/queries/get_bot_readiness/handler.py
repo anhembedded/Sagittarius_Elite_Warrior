@@ -10,10 +10,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_readiness.query import (
     GetBotReadinessQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readiness_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_readiness_reader import (
     BotReadinessReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (

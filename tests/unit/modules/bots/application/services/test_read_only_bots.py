@@ -13,10 +13,10 @@ from dataclasses import replace
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_runner import (
     ReadOnlyBotRunner,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_store import (
     ReadOnlyBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume.command import (

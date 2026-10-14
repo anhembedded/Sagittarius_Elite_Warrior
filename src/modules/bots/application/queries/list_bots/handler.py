@@ -9,7 +9,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.qu
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.result import (
     BotList,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
     bot_progress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (

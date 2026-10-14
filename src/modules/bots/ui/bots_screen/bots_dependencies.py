@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (

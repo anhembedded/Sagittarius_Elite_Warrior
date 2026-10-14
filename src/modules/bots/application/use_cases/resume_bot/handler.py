@@ -18,17 +18,17 @@ session that does not open is refused, never reported as done while the bot stay
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_gate import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_gate import (
     BotCommandGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closed_venue import (
-    closed_venue_refusal,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeReadinessReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
+    closed_venue_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot.command import (
     ResumeBotCommand,

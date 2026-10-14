@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (

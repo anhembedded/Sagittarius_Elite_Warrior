@@ -12,7 +12,7 @@
 
 ## 1. Context and problem
 The bot checks itself internally, but the owner cannot see on screen whether a running bot is alive:
-- `UserStreamHealthEvent` (`src/modules/trading/contracts/events/user_stream_health_event.py`) is consumed by `UserStreamWatch` (`src/modules/bots/application/services/user_stream_watch.py`) and has no UI consumer.
+- `UserStreamHealthEvent` (`src/modules/trading/contracts/events/user_stream_health_event.py`) is consumed by `UserStreamWatch` (`src/modules/bots/application/services/watches/user_stream_watch.py`) and has no UI consumer.
 - The age of the 035A price feed is not shown anywhere.
 - The status bar reads "Exchange: not checked · Market data: not live" even while a bot is running and connected (`src/modules/trading/ui/market/connection_words.py:17`, `src/modules/trading/ui/market/market_presenter.py:89`; the same symptom as the status-bar line of [`EPIC-035N`](EPIC-035N_invalid_parameters_are_explained_where_they_are.md), which this task supersedes for the status bar).
 

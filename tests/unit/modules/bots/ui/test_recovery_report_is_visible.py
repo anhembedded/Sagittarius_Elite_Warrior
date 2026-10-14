@@ -7,11 +7,11 @@ reads a bot's "why"), then reaches the detail panel through `bot_progress` and
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
-    bot_progress,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
+    bot_progress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,

@@ -17,10 +17,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_runner import (
     ReadOnlyBotRunner,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_store import (
     ReadOnlyBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner

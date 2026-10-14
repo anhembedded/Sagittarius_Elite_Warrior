@@ -28,7 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
     GridBacktestAnswer,
     GridBacktestRefusal,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fine_klines import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.streamed_fine_klines import (
     StreamedFineKlines,
     price_bar,
 )

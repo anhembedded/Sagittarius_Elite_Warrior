@@ -13,7 +13,7 @@ import logging
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_price_reaction import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_price_reaction import (
     MARK_PRICE_SAVE_SECONDS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (

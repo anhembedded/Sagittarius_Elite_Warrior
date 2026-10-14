@@ -12,10 +12,10 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_watch import (
     DEFAULT_USER_STREAM_LIMITS,
     UserStreamWatch,
 )

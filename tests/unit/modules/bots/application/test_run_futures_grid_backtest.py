@@ -15,6 +15,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.futures_backtest_terms import (
+    futures_run_terms,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     GridBacktestRefusal,
     RunGridBacktestQuery,
@@ -23,11 +26,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest.funding_requirement import (
     FundingRequirement,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.cost_model_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.cost_model_futures import (
     FuturesCostModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_backtest_terms import (
-    futures_run_terms,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     FUNDING_INTERVAL,

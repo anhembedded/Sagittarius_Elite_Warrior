@@ -4,7 +4,7 @@
 - **Severity:** 🟡 P2 — the resume halts again; the base stays held and unsold
 - **Status:** Open
 - **Board:** A confirmed resume placed its BUY and the exchange then refused the first SELL for insufficient balance although trading derived 0.0082917 ETH as held; cause not established.
-- **Context:** SPEC-014 (run a grid bot) → `src/modules/bots/application/services/grid_resume_sequence.py`, `grid_start_sequence.place_ladder`
+- **Context:** SPEC-014 (run a grid bot) → `src/modules/bots/application/kinds/grid/recovery/grid_resume_sequence.py`, `grid_start_sequence.place_ladder`
 - **Environment:** as BUG-194.
 
 ## Reproduction

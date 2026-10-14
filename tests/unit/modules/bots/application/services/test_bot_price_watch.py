@@ -12,7 +12,7 @@ from dataclasses import replace
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
     bot_price_owner,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (

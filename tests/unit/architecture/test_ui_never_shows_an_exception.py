@@ -253,5 +253,5 @@ def test_a_ui_file_is_one_under_a_ui_segment() -> None:
     assert is_ui_file("src/modules/bots/ui/bots_screen/bots_view.py")
     assert is_ui_file("src/support/ui_kit/message_bar.py")
     assert is_ui_file("src/presentation/ui/main_window.py")
-    assert not is_ui_file("src/modules/bots/application/services/grid_executor.py")
+    assert not is_ui_file("src/modules/bots/application/kinds/grid/grid_executor.py")
     assert not is_ui_file("src/presentation/cli/order_dry_run_cmd.py")
