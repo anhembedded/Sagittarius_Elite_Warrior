@@ -141,8 +141,10 @@ class UserStreamSupervisor:
             try:
                 await open_session(mark_connected)
             except asyncio.CancelledError:
+                # Re-raised (`BUG-143`): the task ends `cancelled()` for the
+                # runtime that asked, rather than returning as if it finished.
                 logger.info("%s task was cancelled.", self._label)
-                break
+                raise
             except Exception as exc:  # noqa: BLE001 - the supervisor's job: nothing ends the stream but a stop
                 failure = f"{type(exc).__name__}: {redact_secrets(str(exc))}"
             else:

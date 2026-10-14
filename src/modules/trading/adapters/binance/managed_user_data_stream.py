@@ -13,6 +13,9 @@ both copies).
     by itself therefore no longer leaves `start()` answering "already running"
     for ever, and `is_running` reports what is true.
   · **Health**: `stop()` publishes `STOPPED`; the supervisor publishes the rest.
+  · **Teardown** (`BUG-143`): a session leaves its socket and closes its client
+    through `websocket_teardown`, so a task cancelled by the runtime unwinds
+    inside the runtime's drain instead of waiting out the library's 10 s.
 
 @par Extension cases (`architecture-rule.md` §7.2.1)
 A third venue stream is one more subclass: `_run_stream` and a task name.
@@ -24,12 +27,16 @@ import logging
 import threading
 from abc import ABC, abstractmethod
 
+from binance import AsyncClient
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_stream_supervisor import (
     ReconnectPolicy,
     UserStreamSupervisor,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.websocket_teardown import (
+    close_client,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
@@ -123,3 +130,12 @@ class ManagedUserDataStream(IUserDataStream, ABC):
                 if generation == self._generation:
                     self._task_handle = None
                     self._token = None
+
+    @staticmethod
+    async def _close_client(client: AsyncClient) -> None:
+        """End a session's client inside the runtime's drain; a failure to
+        close is logged and teardown goes on (`BUG-143`)."""
+        try:
+            await close_client(client)
+        except Exception as exc:  # noqa: BLE001 - boundary: log and continue teardown
+            logger.warning("Error closing user data stream client: %s", exc)
