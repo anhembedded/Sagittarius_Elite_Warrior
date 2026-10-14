@@ -1,7 +1,7 @@
 """`BOT-180` — drive `check_fix_pr_body.py` as CI does, through `PR_TITLE` and `PR_BODY`.
 
 Runs the real script in a subprocess on a well-formed fix body, a body missing
-each section, and a non-fix title, and prints the exit code of each. Exit code 0
+each section, and a non-fix title, and reports the exit code of each. Exit code 0
 means every case behaved as `fix-bug-rule.md` §6.1 requires; 1 means one did not.
 
     python -m Sagittarius_Elite_Warrior.scripts.bot180_fix_pr_body_probe
@@ -43,7 +43,9 @@ def main() -> int:
         actual = _exit_code(title, body)
         verdict = "ok" if actual == expected else "WRONG"
         wrong += actual != expected
-        print(f"{verdict}: {title!r} exited {actual} (expected {expected})")
+        sys.stdout.write(
+            f"{verdict}: {title!r} exited {actual} (expected {expected})\n"
+        )
     return 1 if wrong else 0
 
 

@@ -104,19 +104,20 @@ def main() -> int:
     title = os.environ.get("PR_TITLE", "")
     body = os.environ.get("PR_BODY", "")
     if not is_fix_title(title):
-        print(f"OK: {title!r} is not a fix pull request; nothing to check.")
+        sys.stdout.write(
+            f"OK: {title!r} is not a fix pull request; nothing to check.\n"
+        )
         return 0
     found = problems(title, body)
     for problem in found:
-        print(f"fix pull request body: {problem} (fix-bug-rule.md §6.1)")
+        sys.stdout.write(f"fix pull request body: {problem} (fix-bug-rule.md §6.1)\n")
     if found:
-        print(
-            f"\n{len(found)} problem(s); fill them in on the pull request description.",
-            file=sys.stderr,
+        sys.stderr.write(
+            f"\n{len(found)} problem(s); fill them in on the pull request description.\n"
         )
         return 1
-    print(
-        "OK: the fix pull request carries root cause, corrective action and both sequences."
+    sys.stdout.write(
+        "OK: the fix pull request carries root cause, corrective action and both sequences.\n"
     )
     return 0
 
