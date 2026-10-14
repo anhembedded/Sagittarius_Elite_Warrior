@@ -223,7 +223,10 @@ class GridExecutor(IBotExecutor):
         self._post("pause", self._run_pause)
 
     def resume(self) -> None:
-        self._post("resume", self._run_resume)
+        # The state the command was given in travels with it (`BUG-204`): a Resume asked
+        # of a RECOVERING bot must not be read as another state's by the time it runs.
+        asked_in = self._context.state.state
+        self._post("resume", lambda: self._run_resume(asked_in))
 
     def stop(self, base: ExposureHandling) -> None:
         self._context.stop_requested.set()
@@ -277,8 +280,18 @@ class GridExecutor(IBotExecutor):
     def _run_pause(self) -> None:
         self._transition_if_declared(_E.PAUSE)
 
-    def _run_resume(self) -> None:
+    def _run_resume(self, asked_in: BotLifecycleState) -> None:
         state = self._context.state
+        if asked_in is _S.RECOVERING and state.state is not _S.RECOVERING:
+            # `BUG-204` - the session's own switch-on reconcile ran first and moved the
+            # bot on (a mismatch halts it). That halt is for the owner to read; this
+            # Resume was for leaving RECOVERING, and is not a HALTED bot's re-plan.
+            logger.info(
+                "Bot %s: resume from RECOVERING dropped, the bot is %s [recovering-resume]",
+                self.bot_id,
+                state.state.value,
+            )
+            return
         if state.state is _S.HALTED:
             self._proposal = self._resume.propose(self._price())
             return
