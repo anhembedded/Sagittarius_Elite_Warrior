@@ -45,9 +45,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_differ imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_export import (
     UnknownBotsError,
+    require_known_bots,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
     ExportBotPlanQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
+    BotList,
+    ListBotsQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_reports import (
     apply_report,
@@ -108,15 +113,21 @@ class ExportBotPlanVerb(IBotVerb):
             return CliOutcome(
                 ExitCode.USAGE, "bot export takes --all or --bot-id, not both"
             )
+        # Checked before the dispatch: the dispatcher logs every handler exception at
+        # ERROR, and a mistyped id is a usage error, not a failure (as it always was).
+        listing = cast(
+            BotList, world.dispatcher.dispatch(ListBotsQuery, ListBotsQuery())
+        )
         try:
-            document = cast(
-                BotPlanDocument,
-                world.dispatcher.dispatch(
-                    ExportBotPlanQuery, ExportBotPlanQuery(ids, all_stopped=False)
-                ),
-            )
+            require_known_bots(listing.bots, ids)
         except UnknownBotsError as unknown:
             return CliOutcome(ExitCode.USAGE, str(unknown))
+        document = cast(
+            BotPlanDocument,
+            world.dispatcher.dispatch(
+                ExportBotPlanQuery, ExportBotPlanQuery(ids, all_stopped=False)
+            ),
+        )
         target = Path(args.output)
         written = write_new_plan_file(target, document.to_json_text())
         if isinstance(written, PlanFileRefused):

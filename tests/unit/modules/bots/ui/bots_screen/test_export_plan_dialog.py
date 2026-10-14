@@ -104,6 +104,7 @@ def test_the_default_follows_the_scope_until_the_person_picks_a_state(qapp) -> N
 def test_it_says_the_plan_holds_no_key_and_the_server_judges_it_again(qapp) -> None:
     assert "no API key" in NOTE
     assert "bot apply <file> --dry-run" in NOTE
+    assert "`" not in NOTE, "a label shows text as written, so no Markdown"
 
 
 @pytest.mark.parametrize(

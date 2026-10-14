@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_export imp
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_plan import (
     ExportBotPlanQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
+    BotSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
@@ -58,6 +61,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialo
 logger = logging.getLogger("App.Bots.Screen")
 
 _CAUSE = "bots.export_plan"
+_GONE = (
+    "The plan was not exported: that bot no longer exists. "
+    "Select another bot and try again."
+)
 
 
 def suggested_plan_name(now: datetime) -> str:
@@ -104,7 +111,7 @@ class PlanExport(QObject):
         choice = self._dialogs.ask_export_plan(self._model.bots, selected)
         if choice is None:
             return
-        document = self._document(choice)
+        document = self._document(choice, selected)
         if document is None:
             return
         if choice.action is ExportPlanAction.COPY:
@@ -116,8 +123,14 @@ class PlanExport(QObject):
             return
         self._save(document)
 
-    def _document(self, choice: ExportPlanChoice) -> BotPlanDocument | None:
-        selected = self._model.selected
+    def _document(
+        self, choice: ExportPlanChoice, selected: BotSnapshot | None
+    ) -> BotPlanDocument | None:
+        """`selected` is the bot the dialog was opened on: the screen's selection can
+        change while it is open, and a vanished bot must fail, never widen the scope."""
+        if choice.scope is ExportPlanScope.SELECTED and selected is None:
+            self._fail(_GONE, "no bot was selected")
+            return None
         ids = (
             (selected.bot_id,)
             if choice.scope is ExportPlanScope.SELECTED and selected is not None
@@ -132,11 +145,7 @@ class PlanExport(QObject):
                 ),
             )
         except UnknownBotsError as unknown:
-            self._fail(
-                "The plan was not exported: that bot no longer exists. "
-                "Select another bot and try again.",
-                failure_detail(unknown),
-            )
+            self._fail(_GONE, failure_detail(unknown))
         return None
 
     def _save(self, document: BotPlanDocument) -> None:

@@ -53,7 +53,7 @@ type AskExportPlan = Callable[
 
 NOTE = (
     "A plan holds no API key. The server judges it again with its own account: "
-    "run `bot apply <file> --dry-run` first, then `bot apply <file>`."
+    "run bot apply <file> --dry-run first, then bot apply <file>."
 )
 SAVE_TEXT = "Save…"
 COPY_TEXT = "Copy JSON"

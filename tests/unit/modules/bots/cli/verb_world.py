@@ -42,10 +42,13 @@ class _WithExportQuery(ICommandDispatcher):
     def __init__(self, inner: ICommandDispatcher, plans: IAppliedPlanStore) -> None:
         self._inner = inner
         self._export = ExportBotPlanQueryHandler(inner, plans)
+        #: The export queries that reached the handler (an engine dispatch logs ERROR on a raise).
+        self.exports: list[ExportBotPlanQuery] = []
 
     def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
         if handler_class is ExportBotPlanQuery:
             assert isinstance(input_dto, ExportBotPlanQuery)
+            self.exports.append(input_dto)
             return self._export.execute(input_dto)
         return self._inner.dispatch(handler_class, input_dto)
 

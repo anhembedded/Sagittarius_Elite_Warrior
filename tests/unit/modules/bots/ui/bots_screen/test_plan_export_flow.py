@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_p
     ExportBotPlanQuery,
     ExportBotPlanQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
+    ListBotsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -29,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialo
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.plan_export_flow import (
     PlanExport,
     suggested_plan_name,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.plan.plan_world import (
     CommandWorld,
@@ -83,3 +91,46 @@ def test_the_suggested_name_is_the_day(qapp) -> None:
     assert suggested_plan_name(datetime(2026, 10, 14, 23, 59, tzinfo=UTC)) == (
         "bot-plan-20261014.json"
     )
+
+
+def test_a_selection_that_vanishes_while_the_dialog_is_open_fails_and_never_widens_the_scope(
+    qapp, tmp_path: Path
+) -> None:
+    """The dialog is modal but the event loop runs: a list refresh can clear the selection
+    before it returns. *Selected bot* then names a bot that is gone; it must not become every
+    bot, one of which is a running mainnet bot the person never chose."""
+    world = CommandWorld()
+    save_bot(world.store, "aaaaaa", BotLifecycleState.STOPPED, "testnet one")
+    save_bot(
+        world.store,
+        "bbbbbb",
+        BotLifecycleState.RUNNING,
+        "mainnet two",
+        venue=TradingVenue.SPOT_MAINNET,
+    )
+    listing = world.dispatch(ListBotsQuery, ListBotsQuery())
+    model = BotsViewModel()
+    model.set_bots(listing.bots)
+    model.set_selected(next(b for b in listing.bots if b.bot_id == "aaaaaa"))
+    # The bot the dialog was opened on is deleted while it is open.
+    world.store.delete(BotId("aaaaaa"))
+    answers = Answers(
+        export_plan=ExportPlanChoice(
+            ExportPlanScope.SELECTED, False, ExportPlanAction.SAVE
+        )
+    )
+    target = tmp_path / "plan.json"
+    answers.plan_path = str(target)
+    dialogs = replace(
+        answers.dialogs(),
+        ask_export_plan=lambda bots, selected: (
+            model.set_selected(None) or answers.export_plan
+        ),
+    )
+    notifier = RecordingNotifier()
+    flow = PlanExport(model, _Dispatcher(world), dialogs, notifier)
+
+    flow.export_plan()
+
+    assert not target.exists()
+    assert "no longer exists" in notifier.last.headline
