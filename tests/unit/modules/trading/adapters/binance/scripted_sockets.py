@@ -59,6 +59,10 @@ class Socket:
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
         return False
 
+    async def close(self) -> None:
+        """`ReconnectingWebsocket.close()`: the exit, asked for by hand."""
+        await self.__aexit__(None, None, None)
+
     async def recv(self) -> dict[str, str] | None:
         if self._recv_error is not None:
             raise self._recv_error

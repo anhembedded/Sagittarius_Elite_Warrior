@@ -97,7 +97,7 @@ user with their own keys.
 - **User's third run (2026-10-04)**, `-TestnetOnly`, on `master-warrior` `e5ca8226`:
   - `test_grid_bot_round_trip.py` **passed** on the real Spot Testnet: the stream probe was heard, every level rested with the bot's tag, an outside cancel was laid again, and Stop left no tagged order. It is the first run in which the app's `SpotUserDataStream` delivered events on the real venue.
   - `test_spot_rate_limits.py` passed again.
-  - At teardown the interpreter printed pending-task and unclosed-session warnings from the stream; filed as [`BUG-143`](../../../bug_report/incomplete/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md).
+  - At teardown the interpreter printed pending-task and unclosed-session warnings from the stream; filed as [`BUG-143`](../../../bug_report/completed/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md).
   - The JSON reports (`spot_grid_round_trip.json`, `spot_rate_limits.json`) are with the user; their figures go into the soak report.
   - The four Futures tests still fail with `-2015`.
 - **User's second run (2026-10-04)**, `-TestnetOnly`, on `master-warrior` after PR7:

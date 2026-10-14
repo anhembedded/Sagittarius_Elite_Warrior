@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_stream_
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.websocket_teardown import (
+    close_socket,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -150,7 +153,9 @@ class SpotUserDataStream(ManagedUserDataStream):
                 testnet=self._events.venue.is_testnet,
             )
             bsm = BinanceSocketManager(client)
-            async with bsm.user_socket() as stream:
+            socket = bsm.user_socket()
+            stream = await socket.__aenter__()
+            try:
                 connected()
                 while is_current():
                     res = await stream.recv()
@@ -160,16 +165,14 @@ class SpotUserDataStream(ManagedUserDataStream):
                     # waiting on `stream.recv()`.
                     if res and generation == self._generation:
                         await self._handle_message(res)
+            finally:
+                await close_socket(socket)
         except GeneratorExit:
             is_closing = True
             raise
         finally:
             if client is not None and not is_closing:
-                try:
-                    await client.close_connection()
-                    logger.info("User data stream AsyncClient connection closed.")
-                except Exception as exc:  # noqa: BLE001 - boundary: log and continue teardown
-                    logger.warning("Error closing user data stream client: %s", exc)
+                await self._close_client(client)
 
     async def _handle_message(self, payload: dict[str, Any]) -> None:
         event_type = payload.get("e")
