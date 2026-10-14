@@ -1,0 +1,223 @@
+"""`EPIC-029E` — resuming a HALTED Grid is always safe (ADR D13, O2).
+
+`propose` runs when the user asks to resume a HALTED bot. In this order:
+
+  1. **Register the budget**, which derives the inventory from the exchange
+     (D6) — after a disable the old ladder may still rest; after an Emergency
+     Stop the bot may be flat, partly flat or still invested (§1.4).
+  2. **Cancel every order carrying the bot's tag**: no ladder is ever laid
+     over orphans.
+  3. **Propose a new plan** from the current price and that inventory: the
+     SELL side sized to what the bot holds, no opening buy (§3.4).
+
+Nothing is placed. The bot stays HALTED with the proposal until the user
+confirms it (`confirm`): only then does `resume` move it to STARTING and the
+ladder go out — after the price is read from the book again (`EPIC-035J`): a
+market that moved past `RESUME_PRICE_TOLERANCE` since the proposal refuses the
+ladder, with `PROPOSAL_PRICE_MOVED`, and the user resumes again. **Both steps ask the store first** (`EPIC-035G`, D6, `GridStorageWatch.admits_relaunch`): a ladder is not laid over a file that cannot say so, whoever asks, the user or the rate-limit timer. A proposal lives in memory; after a restart the user resumes
+again, which proposes afresh from the exchange as it then is.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from decimal import Decimal
+
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
+    GridHousekeeping,
+    refusal_text,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_order_failure import (
+    fail_with,
+    halt_with,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
+    GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_sequence import (
+    GridStartSequence,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_storage_watch import (
+    GridStorageWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
+    OrderOutcomeKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_status_gate import (
+    SymbolStatusGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check import (
+    IExposureCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
+    FreshPriceUnavailableError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
+    unplaced_inventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_resume_plan import (
+    resume_plan,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.reference_price import (
+    RESUME_PRICE_TOLERANCE,
+    moved_beyond,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
+
+logger = logging.getLogger("App.Bots.GridExecutor")
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeProposal:
+    """The ladder a resume would lay, and the inventory it was sized to."""
+
+    plan: GridPlan
+    inventory: OwnerInventory
+    #: The base the plan's SELL levels do not reach (`EPIC-035R`); it stays held.
+    unplaced_inventory: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeParts:
+    """The collaborators a resume works through."""
+
+    start: GridStartSequence
+    status: SymbolStatusGate
+    storage: GridStorageWatch
+    #: What the bot holds, read from the registration in the venue profile's terms.
+    exposure: IExposureCheck
+
+
+class GridResumeSequence:
+    """Proposes a fresh ladder for a HALTED Grid, and lays it once confirmed."""
+
+    def __init__(self, context: GridRunContext, parts: ResumeParts) -> None:
+        self._context = context
+        self._start = parts.start
+        self._status = parts.status
+        self._storage = parts.storage
+        self._exposure = parts.exposure
+        self._housekeeping = GridHousekeeping(context)
+        #: The detail before the resume's unplaced-base sentence, and with it.
+        self._noted: tuple[str, str] | None = None
+
+    def propose(self, price: Decimal) -> ResumeProposal | None:
+        """Steps 1–3; `None` when a step could not finish (the reason says why)."""
+        state = self._context.state
+        if not self._storage.admits_relaunch():
+            return None
+        registration = self._housekeeping.register()
+        held = self._exposure.held(registration)
+        if not registration.registered or held is None:
+            reason = state.runtime.reason or GridReason.SWITCH_OFF
+            detail = (
+                f"resume waits: the budget was refused: {refusal_text(registration)}"
+            )
+            state.update(state.runtime.with_reason(reason, detail))
+            return None
+        report = self._housekeeping.cancel_tagged()
+        if report.failed is not None:
+            if report.failed.kind in (
+                OrderOutcomeKind.FAULT,
+                OrderOutcomeKind.RATE_LIMITED,
+                OrderOutcomeKind.KEY_REJECTED,
+            ):
+                fail_with(state, report.failed, f"cancel {report.client_order_id}")
+            return None
+        proposal = self._proposal_for(price, held)
+        self._name_unplaced(proposal.unplaced_inventory)
+        logger.info(
+            "Bot %s: resume proposes %d orders from %s with %s held; waiting for confirmation",
+            state.bot_id,
+            len(proposal.plan.order_levels),
+            price,
+            proposal.inventory.quantity,
+        )
+        return proposal
+
+    def _proposal_for(
+        self, price: Decimal, inventory: OwnerInventory
+    ) -> ResumeProposal:
+        """The plan at `price` over `inventory` (`EPIC-035R`): SELLs sized to
+        what is held, BUYs sized to the capital it leaves."""
+        sized = resume_plan(
+            self._context.params,
+            self._context.terms,
+            price,
+            inventory,
+            self._context.level_sizing,
+        )
+        return ResumeProposal(
+            sized, inventory, unplaced_inventory(sized, inventory.quantity)
+        )
+
+    def _name_unplaced(self, unplaced: Decimal) -> None:
+        """Say on the HALTED bot which base no SELL level covers: once, and
+        replacing the sentence an earlier resume added (kept as the detail it
+        was added to, never parsed back out of the text)."""
+        runtime = self._context.state.runtime
+        if runtime.reason is None:
+            return
+        base = runtime.reason_detail
+        if self._noted is not None and base == self._noted[1]:
+            base = self._noted[0]
+        detail = base
+        self._noted = None
+        if unplaced > 0:
+            detail = (
+                f"{base}; resume proposal: {unplaced} {self._context.base_asset} of "
+                "the inventory has no SELL level to go on and stays unplaced"
+            )
+            self._noted = (base, detail)
+        if detail != runtime.reason_detail:
+            self._context.state.update(runtime.with_reason(runtime.reason, detail))
+
+    def confirm(self, proposal: ResumeProposal) -> None:
+        """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the
+        symbol does not trade (`SymbolStatusGate`) or the market has left the price
+        it was proposed at (`PROPOSAL_PRICE_MOVED`): then it stays HALTED."""
+        if not self._storage.admits_relaunch():
+            return
+        if not self._status.admits() or self._moved_since(proposal):
+            return
+        self._context.state.transition(BotLifecycleEvent.RESUME)
+        self._start.place_ladder(proposal.plan, proposal.inventory)
+
+    def _moved_since(self, proposal: ResumeProposal) -> bool:
+        state = self._context.state
+        proposed = proposal.plan.last_price
+        try:
+            now = self._context.reference_price.fresh()
+        except FreshPriceUnavailableError:
+            logger.warning(
+                "Bot %s: the book could not be read to re-price the resume",
+                state.bot_id,
+                exc_info=True,
+            )
+            halt_with(
+                state,
+                GridReason.PROPOSAL_PRICE_MOVED,
+                f"the price could not be read to confirm the ladder proposed at "
+                f"{proposed}; nothing was laid, resume again",
+            )
+            return True
+        if not moved_beyond(proposed, now, RESUME_PRICE_TOLERANCE):
+            return False
+        halt_with(
+            state,
+            GridReason.PROPOSAL_PRICE_MOVED,
+            f"the price moved from {proposed} to {now}, more than "
+            f"{RESUME_PRICE_TOLERANCE:.1%}, since the ladder was proposed; "
+            "nothing was laid, resume again",
+        )
+        return True

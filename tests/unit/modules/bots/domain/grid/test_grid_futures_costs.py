@@ -12,16 +12,16 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
-    exchange_terms_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.cost_model_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.cost_model_futures import (
     FuturesCostModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.cost_model_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.cost_model_spot import (
     SpotCostModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.funding_view import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
+    exchange_terms_for,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.funding_view import (
     funding_view_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (

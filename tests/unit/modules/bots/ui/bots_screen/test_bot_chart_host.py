@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier imp
     RecordingNotifier,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts import venue_profile
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -143,3 +144,35 @@ def test_a_bots_chart_reads_its_own_venues_feed_and_ticks(qapp) -> None:
 
     host.close()
     assert ticks._venue is None
+
+
+def test_a_futures_bots_chart_reads_the_futures_market(qapp, monkeypatch) -> None:
+    """`EPIC-039J` — the market of a chart and of its tick feed is the bot's venue's
+    (its profile's), not the Spot one the screen was built around."""
+    monkeypatch.setattr(
+        venue_profile,
+        "BOT_MARKETS",
+        frozenset({MarketType.SPOT, MarketType.FUTURES_USD_M}),
+    )
+    world = ChartWorld()
+    ticks = BotTickFeed(MemoryEventBus(), MarketType.SPOT)
+    host = BotChartHost(
+        BotChartPorts(
+            InlineThreadManager(),
+            lambda _venue: MarketDataCandleFeed(
+                world.sync, world.history, world.stream, MarketType.FUTURES_USD_M
+            ),
+            ticks,
+            RecordingNotifier(),
+        )
+    )
+    bot = replace(
+        BotSnapshot.of(stored("a00004", BotLifecycleState.DRAFT).bot, None),
+        venue=TradingVenue.FUTURES_TESTNET,
+    )
+
+    host.show(bot)
+
+    assert ticks._market is MarketType.FUTURES_USD_M
+    assert ticks._venue is TradingVenue.FUTURES_TESTNET.market_data_venue
+    host.close()

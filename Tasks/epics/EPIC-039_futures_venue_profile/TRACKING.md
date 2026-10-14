@@ -56,10 +56,10 @@ gantt
 | EPIC-039E | [Settings gate and readiness](completed/EPIC-039E_futures_settings_gate_and_readiness.md) | `claude/epic-039e-settings-gate` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039F | [Risk guard and liquidation](completed/EPIC-039F_risk_guard_and_liquidation.md) | `claude/epic-039f-risk-guard` | 🔴 | ✅ Done 2026-10-13 | — |
 | EPIC-039G | [Costs, funding and PnL](completed/EPIC-039G_futures_costs_funding_and_pnl.md) | `claude/epic-039g-futures-costs` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-039H | [Futures Grid Long](incomplete/EPIC-039H_futures_grid_long.md) | — | 🔴 | 🔵 Planned; asks O1, O6, O8, O10 | — |
+| EPIC-039H | [Futures Grid Long](completed/EPIC-039H_futures_grid_long.md) | `claude/epic-039h-futures-grid-long-stage3` | 🔴 | ✅ Done (stages 1 and 2 merged; stage 3 pull request open) | — |
 | EPIC-039I | [Short and Neutral](incomplete/EPIC-039I_futures_grid_short_and_neutral.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-039K | [Futures backtest](incomplete/EPIC-039K_futures_backtest.md) | — | 🟡 | 🔵 Planned; asks O9 | — |
+| EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | `claude/epic-039j-futures-ui` | 🟡 | 🟡 In progress (implemented; pull request open; four items wait on 039H, 039K, 039L) | — |
+| EPIC-039K | [Futures backtest](completed/EPIC-039K_futures_backtest.md) | `claude/epic-039k-futures-backtest` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-039L | [Protective stop, mainnet gate, soak](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | — | 🔴 | 🔵 Planned; asks O7, O12; waits for `EPIC-026K` | — |
 | EPIC-039M | [Kind conformance](incomplete/EPIC-039M_kind_conformance_for_profiles.md) | — | 🟢 | 🔵 Planned | — |
 

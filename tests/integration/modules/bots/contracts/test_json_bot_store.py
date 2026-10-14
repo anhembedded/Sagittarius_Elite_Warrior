@@ -13,7 +13,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_restore_service import (
     BotRestoreService,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (

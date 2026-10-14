@@ -1,3 +1,5 @@
+Status: Historical
+
 # §1 — Criteria for cutting a module
 
 A module may exist only if it passes **all six** criteria below. The criteria are there so that

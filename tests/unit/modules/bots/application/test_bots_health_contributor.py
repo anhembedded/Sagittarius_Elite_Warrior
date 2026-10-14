@@ -10,7 +10,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bots_health_contributor import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bots_health_contributor import (
     BotsHealthContributor,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (

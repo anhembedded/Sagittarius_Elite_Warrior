@@ -5,14 +5,14 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
+    encode_runtime,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
     ListBotsQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
-    encode_runtime,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.running_bots_objection import (
     _AT_REST,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (

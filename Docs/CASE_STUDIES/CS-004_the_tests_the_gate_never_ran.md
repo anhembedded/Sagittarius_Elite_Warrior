@@ -1,5 +1,5 @@
+Status: Current
 # CS-004 — the tests the gate never ran
-
 `BUG-128`: the time-range picker opened on an **inverted** range (`08 Jul → 01 Jul`) and let the
 user Apply it, which the backend reads as an empty window. `refresh()` detected the state and
 declined to repair it: `if start is None or end is None or start > end:` filled gaps with

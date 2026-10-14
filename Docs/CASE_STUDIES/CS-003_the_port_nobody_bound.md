@@ -1,5 +1,5 @@
+Status: Current
 # CS-003 — The port nobody bound
-
 `BUG-127`. `BOT-095E1`'s market-rule check answered *"not verified against exchange rules"* for
 every symbol since it shipped: nothing calls the parser that makes the metadata, and nothing binds
 the port that stores it, so `resolve()` raises on every construction and lands in an `except` that

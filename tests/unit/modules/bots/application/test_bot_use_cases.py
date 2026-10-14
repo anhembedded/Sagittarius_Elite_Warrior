@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     ListBotsQuery,
     ListBotsQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_restore_service import (
     BotRestoreService,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (

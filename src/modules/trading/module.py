@@ -391,6 +391,10 @@ class TradingModule(BoundedContextModule):
             try:
                 contexts.get(venue).user_data_stream.stop()
             except Exception as exc:  # noqa: BLE001 — see the docstring
-                logger.debug(
-                    "User data stream shutdown error on %s: %s", venue.value, exc
+                # `BUG-209`: at shutdown, once per venue - a stream that would not stop
+                # may leave a socket open, which DEBUG hid from an unattended run.
+                logger.warning(
+                    "User data stream shutdown error on %s: %s [user-stream-stop]",
+                    venue.value,
+                    exc,
                 )

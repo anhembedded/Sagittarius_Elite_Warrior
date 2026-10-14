@@ -55,6 +55,8 @@ class GridReason(str, Enum):
     INVENTORY_MISMATCH = "inventory_mismatch"
     HOLDING_BELOW_INVENTORY = "holding_below_inventory"
     DUPLICATE_LEVEL_ORDER = "duplicate_level_order"
+    #: The exchange holds a saved order for more than the bot saved (`BUG-205`).
+    ORDER_QUANTITY_MISMATCH = "order_quantity_mismatch"
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
@@ -110,10 +112,15 @@ class GridReason(str, Enum):
     POSITION_MISMATCH = "position_mismatch"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
+    #: The mark price left the range and the bot was asked to close there (`EPIC-039H`, O6).
+    RANGE_EXIT = "range_exit"
     USER_STOP = "user_stop"
     #: A restored bot's read-only boot report (`EPIC-035C`); the full
     #: reconcile replaces it when the order session opens.
     RECOVERY_READ = "recovery_read"
+    #: A bot the owner had paused came back from RECOVERING to PAUSED (`BUG-206`): the
+    #: reconcile is done and the bot waits for a Resume, which the screen says.
+    RESTORED_PAUSED = "restored_paused"
     #: The app closed while the bot was starting; its tagged orders are owed a
     #: cancel (`EPIC-035C`). Cleared into `START_INTERRUPTED_CLEARED` once paid.
     START_INTERRUPTED = "start_interrupted"

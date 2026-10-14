@@ -6,10 +6,13 @@ selected, and the user sets them in its detail panel, where the planner has
 read the symbol's numbers and can suggest a range. They can be changed again
 whenever the bot is not running (DRAFT or STOPPED, the lifecycle's EDIT).
 
-The symbol is chosen in the shared symbol picker over the Spot catalog (`BUG-155`),
-never taken from a chart, so a bot never trades a pair because a chart happened
-to show it. The Spot venues are offered whether or not one is enabled and one is
-always preselected: Venue never blocks Create (`BUG-155`). A venue that is not
+The symbol is chosen in the shared symbol picker over the catalog of the chosen venue's
+market (`BUG-155`, `EPIC-039J`), never taken from a chart, so a bot never trades a pair
+because a chart happened to show it. The offered venues are listed whether or not one is
+enabled and one is always preselected: Venue never blocks Create (`BUG-155`). Choosing a
+venue of another market clears the symbol, which may not exist there. The kind is "Grid" on
+every venue (`BUG-208`): the venue says Spot or Futures. A venue bots are closed on is listed
+greyed out with the reason. A venue that is not
 enabled is refused where it matters, at Start and in the planner. Nothing is
 placed; Cancel discards every field. Injectable (`AskNewBot`) so a test creates
 a bot without a modal dialog.
@@ -29,17 +32,22 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    market_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols import (
     NewBotSymbols,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
+    add_venue_choice,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
-    KIND_TITLES,
+    kind_title,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -77,16 +85,17 @@ class NewBotDialog(QDialog):
         super().__init__(parent)
         self._symbols = symbols
         self._chosen = ""
+        self._market: MarketType | None = None
         self._picker: SymbolPickerOverlay | None = None
         self.setWindowTitle("New bot")
         self.kind = QComboBox()
         self.kind.setObjectName("cmbNewBotKind")
-        for kind_id in kinds:
-            self.kind.addItem(KIND_TITLES.get(kind_id, kind_id), kind_id)
         self.venue = QComboBox()
         self.venue.setObjectName("cmbNewBotVenue")
         for choice in venues:
-            self.venue.addItem(choice.option_text, choice.venue)
+            add_venue_choice(self.venue, choice)
+        for kind_id in kinds:
+            self.kind.addItem(kind_title(kind_id), kind_id)
         self.symbol = QPushButton(CHOOSE_SYMBOL_TEXT)
         self.symbol.setObjectName("btnNewBotSymbol")
         self.symbol.clicked.connect(self._open_picker)
@@ -122,6 +131,28 @@ class NewBotDialog(QDialog):
         layout.addWidget(self.parameters_hint)
         layout.addWidget(buttons)
         self.name.textEdited.connect(self._sync_create)
+        self._follow_venue()
+        self.venue.currentIndexChanged.connect(self._follow_venue)
+        self._sync_create()
+
+    def _venue(self) -> TradingVenue | None:
+        data = self.venue.currentData()
+        return TradingVenue(data) if data is not None else None
+
+    def _follow_venue(self) -> None:
+        """The chosen venue's market decides the symbols; a symbol chosen on another market
+        is dropped, as it may not exist on this one."""
+        venue = self._venue()
+        if venue is None:
+            return
+        if self._market is not None and market_of(venue) is not self._market:
+            self._chosen = ""
+            self.symbol.setText(CHOOSE_SYMBOL_TEXT)
+        self._market = market_of(venue)
+        self._symbols.use_venue(venue)
+        if self._picker is not None:
+            self._symbols.load_catalog()
+            self._picker.refresh()
         self._sync_create()
 
     def command(self) -> CreateBotCommand:

@@ -31,6 +31,9 @@ import logging
 from dataclasses import replace
 
 from binance.exceptions import BinanceAPIException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.accepted_order import (
+    as_accepted,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_failure import (
     SEND_FAILURES,
     raise_for_failed_read,
@@ -113,8 +116,8 @@ class SpotTradingClient(ITradingClient):
         the symbol's filters (see the mapper's own docstring).
         @raise OrderRejectedByExchangeError The exchange refused the
         request — including a `VALIDATE_ONLY` refusal.
-        @return `order` unchanged on acceptance, matching
-        `FuturesTradingClient`'s own contract: the authoritative order
+        @return `order` as the exchange accepted it (`BUG-205`: its quantity is the
+        response's `origQty`), matching `FuturesTradingClient`'s own contract: the authoritative order
         lifecycle is what the Spot User Data Stream (`EPIC-027L`) reports,
         not this call's return value. The fills the exchange's response
         carries are the exception, reported through `IOrderFillReporter`
@@ -138,7 +141,7 @@ class SpotTradingClient(ITradingClient):
                 live=self._submission_mode is not OrderSubmissionMode.VALIDATE_ONLY,
             )
         self._report_fills(order, response)
-        return order
+        return as_accepted(order, response)
 
     def _report_fills(self, order: Order, response: object) -> None:
         """Hand the response's trades to the fill door (`BOT-173`).

@@ -9,6 +9,7 @@ consumer's test drives.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -39,6 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data
 _MAINNET = MarketDataVenue.MAINNET_PUBLIC
 _TESTNET = MarketDataVenue.SPOT_TESTNET
 _MINUTE = TimeFrame.ONE_MINUTE
+_MOMENT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _real() -> tuple[
@@ -91,6 +93,31 @@ def test_the_exposed_repository_is_the_store_history_and_coverage_read() -> None
     sources, stores = _real()
 
     assert sources.ports_for(_TESTNET).repository is stores[_TESTNET]
+
+
+def test_a_venues_funding_history_asks_that_venues_exchange_client_when_read() -> None:
+    """`EPIC-039K` — the port is bound to the venue it came from, and building the ports
+    builds no client: that is a network call (`BUG-045`), made when funding is read."""
+    client = Mock()
+    client.get_funding_rate_history.return_value = []
+    stores = {venue: FakeMarketDataRepository() for venue in MarketDataVenue}
+    venues = FakeMarketDataVenues(Mock(), stores[_MAINNET], Mock(), default=_MAINNET)
+    venues.for_venue(
+        MarketDataVenue.FUTURES_TESTNET,
+        client,
+        stores[MarketDataVenue.FUTURES_TESTNET],
+        Mock(),
+    )
+    sources = MarketDataSources(Mock(), venues)
+    ports = sources.ports_for(MarketDataVenue.FUTURES_TESTNET)
+
+    asked_before = client.get_funding_rate_history.call_count
+    ports.funding.funding_between(
+        MarketType.FUTURES_USD_M, "BTCUSDT", _MOMENT, _MOMENT, lambda: False
+    )
+
+    assert asked_before == 0
+    client.get_funding_rate_history.assert_called_once()
 
 
 class TestTheFake:

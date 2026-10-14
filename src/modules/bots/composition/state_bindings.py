@@ -43,16 +43,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.applied_bot_pla
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report import (
     BotsStateDirectory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_restore_service import (
     BotRestoreService,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.notifying_bot_store import (
     NotifyingBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_store import (
     ReadOnlyBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (

@@ -56,13 +56,18 @@ _ZERO = Decimal(0)
 
 
 def runtime_from_plan(plan: GridPlan, step_size: Decimal) -> GridRuntime:
-    """A fresh ladder for `plan`: every level EMPTY, none placed yet."""
+    """A fresh ladder for `plan`: every level EMPTY, none placed yet. Each level's
+    `buy_quantity` is what its counter BUY buys: its share of the capital at its own price on
+    an inventory venue, the plan's one quantity on a position venue (`EPIC-039H`)."""
+    uniform = plan.uniform_quantity
     return GridRuntime(
         tuple(
             RuntimeLevel(
                 level.index,
                 level.price,
-                _ROUNDING.round_quantity_down(
+                uniform
+                if uniform is not None
+                else _ROUNDING.round_quantity_down(
                     plan.capital_per_level / level.price, step_size
                 ),
             )
@@ -109,7 +114,13 @@ def buys_within_capital(plan: GridPlan, left: Decimal, rules: LadderRules) -> Gr
     share = min(plan.capital_per_level, max(left, _ZERO) / len(buys))
     resized: dict[int, GridLevel] = {}
     for level in buys:
-        quantity = _ROUNDING.round_quantity_down(share / level.price, rules.step_size)
+        # Never more than the plan's own quantity for the level: equal-capital sizing
+        # reaches it exactly when the share is whole, an equal-quantity plan keeps its one
+        # quantity until the capital left cannot pay for it.
+        quantity = min(
+            level.quantity,
+            _ROUNDING.round_quantity_down(share / level.price, rules.step_size),
+        )
         if quantity * level.price < rules.min_notional:
             quantity = _ZERO
         side = LevelSide.BUY if quantity > 0 else LevelSide.EMPTY

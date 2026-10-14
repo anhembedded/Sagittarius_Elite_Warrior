@@ -18,18 +18,24 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
-    BotExecutors,
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
+    SpotGridBudgets,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
-    BotRunner,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_preconditions import (
     GridStartPreconditions,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
+    BotExecutors,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_runner import (
+    BotRunner,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_brackets import (
+    BracketsUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
@@ -38,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
     ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
 )
@@ -59,11 +68,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    GridParams,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
     BestBidAsk,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
+    OwnerBudget,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
@@ -155,7 +168,9 @@ def _start_world(
     clock = FakeBotClock()
     definition = BotDefinition("grid one", "grid", venue, SYMBOL, CONFIG)
     store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
-    preconditions = GridStartPreconditions(ports, DEFAULT_OWNER_BUDGET_CAPS)
+    preconditions = GridStartPreconditions(
+        ports, SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS)
+    )
     queues: list[_ClosableInlineQueue] = []
 
     def queue(_name: str) -> _ClosableInlineQueue:
@@ -175,6 +190,7 @@ def _start_world(
                 FakeMonotonicClock(),
                 VenueFreshPriceReader(ports),
                 RecordingPublisher(),
+                SpotGridBudgets(DEFAULT_OWNER_BUDGET_CAPS),
             )
         )
     )
@@ -261,6 +277,32 @@ def test_a_refused_budget_gives_the_lease_back() -> None:
     assert refusal.refusal is BotRefusal.BUDGET_REFUSED
     assert "max_open_orders" in refusal.message
     assert world.session.claim_symbol(SYMBOL, "manual")
+
+
+class _BudgetsThatCannotBeRead(IGridBudgets):
+    """A position venue whose brackets, which the budget is capped by, cannot be read."""
+
+    def budget_of(
+        self, venue: TradingVenue, symbol: str, params: GridParams
+    ) -> OwnerBudget:
+        raise BracketsUnavailableError(f"{venue.value} has no brackets for {symbol}")
+
+
+def test_a_budget_that_cannot_be_read_refuses_the_start_and_claims_nothing() -> None:
+    """Review of #490: `budget_of` ran after the symbol was claimed, so a read that failed
+    left the lease with a bot that never started."""
+    world = _start_world()
+    preconditions = GridStartPreconditions(
+        world.preconditions._ports, _BudgetsThatCannotBeRead()
+    )
+
+    refusal = preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.VENUE_NOT_READY
+    assert "no brackets" in refusal.message
+    assert world.session.claim_symbol(SYMBOL, "manual"), "the lease was left behind"
+    assert world.session.budgets == {}
 
 
 def test_the_runner_starts_a_draft_bot_through_to_running() -> None:

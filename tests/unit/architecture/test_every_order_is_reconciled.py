@@ -13,8 +13,9 @@ to any of them goes red here rather than in production:
    safety gate refuses (`TRADING_SWITCH_OFF`) while `session_state.enabled` is
    false, and it is the one place a live order is placed. So no order path
    skips fact 1, by any road.
-3. **Only the three actions open it** - and one operator flag. `ensure_ready()` is
-   called from Start bot (`GridStartPreconditions`), Arm strategy
+3. **Only the deliberate actions open it** - and one operator flag. `ensure_ready()` is
+   called from Start bot and Resume from HALTED (both through `order_session_refusal`,
+   `BUG-202`), Arm strategy
    (`ArmStrategyCommandHandler`) and the manual order (`ExecuteOrderCommandHandler`,
    when the request `opens_session`), plus the command handler behind the port
    (`ITradingSession.ensure_ready` dispatches to it), plus `run --resume-recovering`
@@ -46,15 +47,12 @@ _SRC = _REPO_ROOT / "src"
 _SESSION_READINESS = "src/modules/trading/application/session/session_readiness.py"
 _EXECUTE_ORDER = "src/modules/trading/application/orders/execute_order/handler.py"
 
-#: Where `ensure_ready()` may be called from, and why.
-_ENSURE_READY_CALLERS = {
-    "src/modules/bots/application/services/grid_start_preconditions.py": "Start bot",
-    "src/modules/strategy/application/use_cases/arm_strategy/handler.py": (
-        "Arm strategy"
-    ),
-    _EXECUTE_ORDER: "a manual order (`opens_session`)",
-    "src/modules/trading/application/session/ensure_session_ready/handler.py": (
-        "the command behind the port"
+#: Where a bot-side deliberate action opens the session, through `order_session_opening`
+#: (`BUG-202`), the one place that calls `ensure_ready` for a bot and words its refusal.
+_BOT_SESSION_OPENERS = {
+    "src/modules/bots/application/kinds/grid/start/grid_start_preconditions.py": (
+        "Start bot, and Resume from HALTED or RECOVERING (`open_session_for_resume`, "
+        "asked by `BotRunner.resume` behind the read-only guard; `BUG-204`)"
     ),
     "src/modules/bots/application/use_cases/resume_recovering_for_host/handler.py": (
         "`run --resume-recovering` (`EPIC-038D`, decision O2(b)): the operator's flag, "
@@ -63,12 +61,27 @@ _ENSURE_READY_CALLERS = {
     ),
 }
 
+#: Where `ensure_ready()` may be called from, and why.
+_ENSURE_READY_CALLERS = {
+    "src/modules/bots/application/services/orders/order_session_opening.py": (
+        "every bot-side open (`BUG-202`); its callers are fixed by "
+        "`_BOT_SESSION_OPENERS`"
+    ),
+    "src/modules/strategy/application/use_cases/arm_strategy/handler.py": (
+        "Arm strategy"
+    ),
+    _EXECUTE_ORDER: "a manual order (`opens_session`)",
+    "src/modules/trading/application/session/ensure_session_ready/handler.py": (
+        "the command behind the port"
+    ),
+}
+
 #: Every file that sends a live order through `IOrderSubmission.submit`.
 _LIVE_ORDER_CALLERS = {
     "src/modules/trading/ui/desk/order_entry/order_entry_presenter.py": (
         "the manual order: sends `opens_session=True`, so the handler reconciles"
     ),
-    "src/modules/bots/application/services/bot_order_gateway.py": (
+    "src/modules/bots/application/services/orders/bot_order_gateway.py": (
         "a bot's order: Start bot opened the session (`GridStartPreconditions`)"
     ),
     "src/modules/strategy/application/services/live_trading_coordinator.py": (
@@ -132,6 +145,17 @@ def calls_state_enable(source: str) -> bool:
 def calls_ensure_ready(source: str) -> bool:
     return any(
         isinstance(call.func, ast.Attribute) and call.func.attr == "ensure_ready"
+        for call in _calls(source)
+    )
+
+
+def calls_bot_session_opening(source: str) -> bool:
+    """A bare-name call of either function of `order_session_opening` (the
+    repository imports with `from ... import`, so a `module.f()` call is not a shape
+    it has; a new one would need this scanner widened)."""
+    return any(
+        isinstance(call.func, ast.Name)
+        and call.func.id in ("order_session_refusal", "order_session_refusal_words")
         for call in _calls(source)
     )
 
@@ -216,8 +240,20 @@ def test_every_live_order_needs_the_session_open() -> None:
     assert gated < placed  # the gate is asked before an order is placed
 
 
-def test_only_the_three_actions_open_the_session() -> None:
+def test_only_the_declared_files_call_ensure_ready() -> None:
     assert sorted(_files_where(calls_ensure_ready)) == sorted(_ENSURE_READY_CALLERS)
+
+
+def test_only_start_resume_and_the_host_resume_open_the_session_for_a_bot() -> None:
+    """`BUG-202`: an automated bot caller (a reconciliation, a stop retry) never
+    opens it, so a late order cannot undo an Emergency Stop. The helper module itself
+    is excluded: it defines the functions and calls one from the other."""
+    callers = [
+        path
+        for path in _files_where(calls_bot_session_opening)
+        if not path.endswith("order_session_opening.py")
+    ]
+    assert sorted(callers) == sorted(_BOT_SESSION_OPENERS)
 
 
 def test_a_manual_order_opens_the_session_and_an_automated_one_does_not() -> None:
@@ -238,6 +274,9 @@ def test_the_scanners_can_fail() -> None:
     assert calls_state_enable("scope.session_state.enable(set())\n")
     assert not calls_state_enable('"""session_state.enable(set())"""\n')
     assert not calls_state_enable("widget.enable(True)\n")
+    assert calls_bot_session_opening("order_session_refusal(session, bot_id)\n")
+    assert calls_bot_session_opening("order_session_refusal_words(session, 'x')\n")
+    assert not calls_bot_session_opening('"""order_session_refusal(s, b)"""\nx = 1\n')
     assert calls_ensure_ready("session.ensure_ready()\n")
     assert not calls_ensure_ready('"""ensure_ready()"""\nx = 1\n')
     assert sends_a_live_order("ports.order_submission.submit(request, live=True)\n")

@@ -56,6 +56,7 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **E13** | Compare doubles to real interfaces; prefer lightweight real collaborators over invented mocks. |
 | **E14** | Enforce case-study criteria in `.claude/rules/fix-bug-rule.md` §6.5 when a green gate missed a defect. |
 | **E15** | Assert composition graph wiring and event subscriptions against production graph. |
+| **E16** | For a `fix:` pull request, verify the `## Root cause`, `## Corrective action` and before/after sequence diagrams on the PR description match the actual change: real participants, the defect step where the code fails, the fix acting where the diff acts; a `Not applicable:` waiver is valid only for a defect local to one function or one piece of text (`.claude/rules/fix-bug-rule.md` §6.1). |
 | **F1** | Verify real market data coverage and absence of synthetic gaps or unrecorded bars. |
 | **F2** | Enforce distinct order fill, execution, and position semantics; no synthetic fills. |
 | **F3** | Enforce truthful UI state promises: UI shows only states the engine can guarantee. |

@@ -6,7 +6,7 @@ futures testnet, both mainnet venues the public mainnet — so the price a perso
 looks at is the price their order fills at. Before `BUG-172` one process-wide
 setting decided it for every venue, and two of the four were always wrong.
 
-**The shape.** `ports_for(venue)` returns the four ports bound to that venue's
+**The shape.** `ports_for(venue)` returns the ports bound to that venue's
 market: what a sync fetches and stores, what a read returns, what a stream
 opens and what a coverage check counts all belong to it and to no other. The
 caller picks the venue once, where it is built, and then uses the ports it
@@ -29,6 +29,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_funding_history import (
+    IFundingHistory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -61,6 +64,9 @@ class MarketDataPorts:
     #: The venue's candle store itself, for a consumer that streams rows or counts
     #: them (`RunGridBacktestQuery`): the same store `history` reads.
     repository: IMarketDataRepository
+    #: The venue's funding settlements (`EPIC-039K`): read from the exchange on demand,
+    #: and unavailable on a market without funding.
+    funding: IFundingHistory
 
 
 class IMarketDataSources(ABC):

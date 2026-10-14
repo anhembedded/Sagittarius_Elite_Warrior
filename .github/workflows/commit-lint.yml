@@ -6,6 +6,8 @@ name: commit-lint
 on:
   pull_request:
     branches: [master-warrior]
+    # `edited` re-runs the fix-body step when the description changes.
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
@@ -22,3 +24,11 @@ jobs:
         run: >-
           python3 scripts/check_commit_messages.py
           "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+      # BOT-180 — a `fix:` pull request carries its root cause, corrective action
+      # and before/after sequence (fix-bug-rule.md §6.1). Title and body travel
+      # through the environment, never through the shell command line.
+      - name: Check a fix pull request's description
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/check_fix_pr_body.py

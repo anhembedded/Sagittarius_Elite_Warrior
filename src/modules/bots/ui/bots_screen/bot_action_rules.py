@@ -71,13 +71,21 @@ def availability(
     if action is BotAction.CONFIRM_RESUME:
         return _confirm_resume(state)
     if not is_declared(state, _EVENT[action]):
+        waits = (
+            " It is waiting for Resume."
+            if state is BotLifecycleState.RECOVERING
+            else ""
+        )
         return ActionAvailability(
-            False, f"{action.value} is not possible while the bot is {_name(state)}."
+            False,
+            f"{action.value} is not possible while the bot is {_name(state)}.{waits}",
         )
     if action is BotAction.START and start.blocked_by:
         return ActionAvailability(False, start.blocked_by)
     if action is BotAction.RESUME and start.resume_blocked_by:
         return ActionAvailability(False, start.resume_blocked_by)
+    if action is BotAction.RESUME and state is BotLifecycleState.RECOVERING:
+        return ActionAvailability(True, _RESUME_RECOVERING)
     return ActionAvailability(True, _WHAT_IT_DOES[action])
 
 
@@ -93,17 +101,33 @@ def _name(state: BotLifecycleState) -> str:
     return state.value.lower()
 
 
+_RESUME_RECOVERING = (
+    "Open the order session, book any order that filled while the app was closed "
+    "and put the bot back to work. Nothing is placed before the exchange agrees "
+    "with the saved ladder."
+)
+
 _WHAT_IT_DOES = {
     BotAction.START: (
         "Save the changed parameters, then place the ladder on the exchange."
     ),
     BotAction.PAUSE: "Stop placing new orders; resting orders stay.",
     BotAction.RESUME: (
-        "Resume. A halted bot first cancels its tagged orders and proposes a "
-        "new ladder (shown in its log) for you to confirm."
+        "Resume. A halted bot reopens the order session, cancels its tagged orders "
+        "and proposes a new ladder (shown in its log) for you to confirm."
     ),
     BotAction.CONFIRM_RESUME: "Lay the ladder the last Resume proposed.",
     BotAction.STOP: "Cancel the resting orders and stop; asks what to do with the base.",
     BotAction.SAVE: "Save the changed parameters.",
     BotAction.DELETE: "Delete this bot's definition.",
 }
+
+
+def export_plan_availability(bot_count: int) -> ActionAvailability:
+    """Export plan… (`BOT-176`) is live while there is a bot to write; it reads, so
+    neither the selection nor an action in flight matters."""
+    if bot_count == 0:
+        return ActionAvailability(False, "There is no bot to export yet.")
+    return ActionAvailability(
+        True, "Write the bots as a plan file that a server can apply."
+    )

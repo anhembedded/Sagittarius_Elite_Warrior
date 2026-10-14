@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environm
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
     JsonOwnerInventoryCheckpoints,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_position_checkpoints import (
+    JsonOwnerPositionCheckpoints,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
     OwnerInventoryDeriver,
 )
@@ -69,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_key_environment_p
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_checkpoints import (
     IOwnerInventoryCheckpoints,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_position_checkpoints import (
+    IOwnerPositionCheckpoints,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -162,7 +168,16 @@ def bind_adapters(container: IContainer) -> None:
         lambda c: OwnerInventoryDeriver(c.resolve(IOwnerInventoryCheckpoints)),
     )
     # `EPIC-039D` - a Futures owner's position, derived from the same evidence.
-    container.singleton(OwnerPositionDeriver, lambda _c: OwnerPositionDeriver())
+    container.singleton(
+        IOwnerPositionCheckpoints,
+        lambda _c: JsonOwnerPositionCheckpoints(
+            data_root() / "state" / "trading" / "owner_position"
+        ),
+    )
+    container.singleton(
+        OwnerPositionDeriver,
+        lambda c: OwnerPositionDeriver(c.resolve(IOwnerPositionCheckpoints)),
+    )
     container.singleton(
         OwnerPositionRegistrar,
         lambda c: OwnerPositionRegistrar(c.resolve(OwnerPositionDeriver)),

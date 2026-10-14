@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-001 — Bring a symbol's candle history up to date
 
 - **Status:** ✅ built and proven

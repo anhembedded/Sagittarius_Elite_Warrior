@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-002 — Watch the live market for chosen symbols
 
 - **Status:** ✅ built and proven

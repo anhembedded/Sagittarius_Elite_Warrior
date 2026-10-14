@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.running_bots_objection import (
     RunningBotsObjection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (

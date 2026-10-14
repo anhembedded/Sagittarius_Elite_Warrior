@@ -41,6 +41,9 @@ class BotSnapshot:
     progress: BotProgress | None = None
     #: Why the venue cannot change, or `""` when it can (`Bot.venue_locked_reason`).
     venue_locked: str = ""
+    #: `BUG-206` - the state a RECOVERING bot returns to when its reconcile succeeds
+    #: (`Bot.lifecycle.recovering_from`); `None` outside RECOVERING.
+    recovering_from: BotLifecycleState | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))
@@ -60,4 +63,5 @@ class BotSnapshot:
             config=definition.config,
             progress=progress,
             venue_locked=bot.venue_locked_reason,
+            recovering_from=bot.lifecycle.recovering_from,
         )

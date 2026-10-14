@@ -31,6 +31,8 @@ class OverlayRole(str, Enum):
     RANGE_EDGE = "RANGE_EDGE"
     #: The average cost of what the bot holds.
     AVERAGE_COST = "AVERAGE_COST"
+    #: `EPIC-039J` - where a leveraged position is estimated to be liquidated.
+    LIQUIDATION = "LIQUIDATION"
 
 
 class OverlayBandRole(str, Enum):

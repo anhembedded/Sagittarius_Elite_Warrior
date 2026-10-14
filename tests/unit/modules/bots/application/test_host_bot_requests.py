@@ -10,7 +10,6 @@ the operator typed the venue (decision O8).
 
 from __future__ import annotations
 
-import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -108,12 +107,12 @@ def test_starting_a_testnet_bot_for_the_host_asks_for_no_real_money_answer() -> 
     assert dispatcher.dispatched == [StartBotCommand("aaaaaa")]
 
 
-@pytest.mark.parametrize(
-    "venue", [TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_MAINNET]
-)
-def test_a_mainnet_start_without_the_venue_typed_is_refused_and_dispatches_nothing(
-    venue: TradingVenue,
-) -> None:
+def test_a_mainnet_start_without_the_venue_typed_is_refused_and_dispatches_nothing() -> (
+    None
+):
+    """Futures mainnet is closed before real money is even asked about
+    (`test_futures_mainnet_is_closed_on_every_path.py`), so Spot's is the example."""
+    venue = TradingVenue.SPOT_MAINNET
     dispatcher = _RecordingDispatcher()
     handler = StartBotForHostCommandHandler(_store_with("aaaaaa", venue), dispatcher)
 
@@ -129,11 +128,11 @@ def test_a_mainnet_start_with_another_venue_typed_is_refused() -> None:
     """A command copied from a testnet run cannot start mainnet (decision O8)."""
     dispatcher = _RecordingDispatcher()
     handler = StartBotForHostCommandHandler(
-        _store_with("aaaaaa", TradingVenue.FUTURES_MAINNET), dispatcher
+        _store_with("aaaaaa", TradingVenue.SPOT_MAINNET), dispatcher
     )
 
     result = handler.execute(
-        StartBotForHostCommand("aaaaaa", TradingVenue.FUTURES_TESTNET.value)
+        StartBotForHostCommand("aaaaaa", TradingVenue.SPOT_TESTNET.value)
     )
 
     assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED

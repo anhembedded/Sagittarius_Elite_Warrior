@@ -14,11 +14,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
     RunPurpose,
     judge_exchange,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_rules import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futures_rules import (
     FOREIGN_POSITION,
     FUTURES_RULES,
     LEVERAGE_ABOVE_BRACKET,
@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_rul
     POSITION_MODE_NOT_ONE_WAY,
     judge_futures,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_rules import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_rules import (
     WrongVenueFactsError,
     judge_venue,
 )

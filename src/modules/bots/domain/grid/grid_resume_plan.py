@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
+    LevelSizing,
     plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
@@ -38,13 +39,15 @@ def resume_plan(
     terms: ExchangeTerms,
     price: Decimal,
     inventory: OwnerInventory,
+    level_sizing: LevelSizing = LevelSizing.EQUAL_CAPITAL,
 ) -> GridPlan:
     """The plan at `price` over `inventory`: SELLs sized to what is held, BUYs
-    sized to the capital it leaves."""
+    sized to the capital it leaves. On a position venue `inventory.cost` is the held
+    position's notional and the capital reached is the margin times the leverage."""
     sells = resized_for_inventory(
-        plan(params, terms, price), inventory.quantity, terms.min_notional
+        plan(params, terms, price, level_sizing), inventory.quantity, terms.min_notional
     )
-    left = params.capital_quote - inventory.cost
+    left = params.capital_quote * params.leverage - inventory.cost
     return buys_within_capital(
         sells, left, LadderRules(terms.step_size, terms.min_notional)
     )

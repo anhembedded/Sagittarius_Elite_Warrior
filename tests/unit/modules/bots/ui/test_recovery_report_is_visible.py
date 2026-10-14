@@ -7,11 +7,11 @@ reads a bot's "why"), then reaches the detail panel through `bot_progress` and
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
-    bot_progress,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
+    bot_progress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.recovery_report impo
     RecoveryReport,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import (
+    RECOVERING_WAITS_FOR_RESUME,
     bot_facts,
 )
 
@@ -42,7 +43,9 @@ def test_the_recovery_report_is_in_the_bots_facts() -> None:
 
     facts = bot_facts(BotSnapshot.of(bot, progress), NOW)
 
-    assert facts.state == f"Recovering — {report.words()}"
+    assert (
+        facts.state == f"Recovering — {RECOVERING_WAITS_FOR_RESUME}. {report.words()}"
+    )
     assert "3 saved order(s) rest" in facts.state
     assert "1 filled while the app was closed" in facts.state
     assert "2 not saved by the bot" in facts.state
@@ -57,3 +60,14 @@ def test_a_stopping_bot_shows_why_it_waits_and_what_is_still_open() -> None:
     facts = bot_facts(BotSnapshot.of(bot, progress), NOW)
 
     assert facts.state == f"Stopping — {detail}"
+
+
+def test_a_recovering_bot_says_it_waits_and_names_resume_even_with_no_report() -> None:
+    """`BUG-204`: "after the restart: …" read as a finished recovery. The state line
+    says the bot is waiting for the owner and names the one action that continues it."""
+    bot = stored("a00003", BotLifecycleState.RECOVERING).bot
+
+    facts = bot_facts(BotSnapshot.of(bot), NOW)
+
+    assert facts.state.startswith("Recovering — waiting for you: press Resume")
+    assert "order session" in facts.state

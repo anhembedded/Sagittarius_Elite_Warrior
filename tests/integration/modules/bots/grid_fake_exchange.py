@@ -24,15 +24,15 @@ from pathlib import Path
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
-    BotExecutors,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
     GridExecutorDeps,
     GridExecutorFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     decode_runtime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
+    BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     IFreshPriceReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_grid_budgets import (
+    IGridBudgets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
@@ -272,6 +275,7 @@ def booted(
             monotonic=container.resolve(IMonotonicClock),
             prices=container.resolve(IFreshPriceReader),
             events=container.resolve(IEventPublisher),
+            budgets=container.resolve(IGridBudgets),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

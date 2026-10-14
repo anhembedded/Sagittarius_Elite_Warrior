@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fill
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_exchange_facts import (
     GetExchangeFactsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_plan_risk_facts import (
+    GetPlanRiskFactsQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
 )
@@ -59,6 +62,9 @@ class ReadKind(str, Enum):
     #: `BOT-174` — what the exchange says about the selected bot's symbol and
     #: account, the facts the exchange rules of its readiness are judged on.
     EXCHANGE = "exchange"
+    #: `EPIC-039J` — the symbol's leverage brackets and the account's setting on a position
+    #: venue, the facts a plan's liquidation is estimated from.
+    RISK = "risk"
 
 
 type ReadTrackers = Mapping[ReadKind, ActionOwnershipTracker[ReadKind, str, None]]
@@ -158,6 +164,9 @@ class BotQueries:
     def exchange(self, bot: BotSnapshot) -> None:
         self._read(ReadKind.EXCHANGE, bot.bot_id, GetExchangeFactsQuery(bot.bot_id))
 
+    def risk(self, bot: BotSnapshot) -> None:
+        self._read(ReadKind.RISK, bot.bot_id, GetPlanRiskFactsQuery(bot.bot_id))
+
     def again(self, kind: ReadKind) -> None:
         """Asks `kind` once more, for the selected bot (Retry on its message bar)."""
         bot = self._selected()
@@ -167,6 +176,8 @@ class BotQueries:
             self.planner(bot)
         elif kind is ReadKind.EXCHANGE and bot is not None:
             self.exchange(bot)
+        elif kind is ReadKind.RISK and bot is not None:
+            self.risk(bot)
         else:
             self.fills(bot)
 

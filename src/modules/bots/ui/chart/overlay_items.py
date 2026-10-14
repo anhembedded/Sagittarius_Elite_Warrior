@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
     EMPTY_LEVEL_COLOR,
     INDICATOR_BAND_COLOR,
+    LIQUIDATION_COLOR,
     PARTIAL_LEVEL_COLOR,
     RANGE_EDGE_COLOR,
     STOP_LOSS_COLOR,
@@ -57,6 +58,7 @@ _LINE_STYLES: dict[OverlayRole, _LineStyle] = {
     OverlayRole.TAKE_PROFIT: _LineStyle(TAKE_PROFIT_COLOR, LineStyle.SOLID, 2),
     OverlayRole.RANGE_EDGE: _LineStyle(RANGE_EDGE_COLOR, LineStyle.SOLID, 1),
     OverlayRole.AVERAGE_COST: _LineStyle(AVERAGE_COST_COLOR, LineStyle.DOT, 2),
+    OverlayRole.LIQUIDATION: _LineStyle(LIQUIDATION_COLOR, LineStyle.DASH, 2),
 }
 
 _BAND_COLORS: dict[OverlayBandRole, str] = {

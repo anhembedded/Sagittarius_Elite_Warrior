@@ -191,3 +191,23 @@ class TestRejectionTranslation:
 
         assert "502 Bad Gateway" in exc_info.value.raw_message
         assert "<" not in exc_info.value.raw_message
+
+
+class TestAcceptedQuantity:
+    """`BUG-205` — the order handed back carries what the exchange accepted."""
+
+    def test_live_returns_the_quantity_the_response_names(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {"origQty": "0.001"}
+
+        result = _client(raw_client, OrderSubmissionMode.LIVE).place_order(_order())
+
+        assert result.quantity == Decimal("0.001")
+        assert result.client_order_id == _order().client_order_id
+
+    def test_live_without_a_readable_response_keeps_the_order_as_sent(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {}
+        order = _order()
+
+        assert _client(raw_client, OrderSubmissionMode.LIVE).place_order(order) is order

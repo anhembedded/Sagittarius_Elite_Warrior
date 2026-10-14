@@ -1,3 +1,5 @@
+Status: Historical
+
 # §3 — Module contracts
 
 - **Diagrams (component, PlantUML) — high view first, detail second:**

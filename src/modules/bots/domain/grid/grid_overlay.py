@@ -9,14 +9,19 @@ with the same activity draw the same chart.
 
 · **Levels** take their role from the activity's state when there is one,
   else from the plan's side (`BUY`, `SELL`, `EMPTY`).
-· **Range edges** are the user's lower and upper limits, beside the rounded
-  levels nearest them.
+· **Range edges** are the user's lower and upper limits. One label per price
+  (`BUG-207`): a limit that is also a level is not a second line but part of the
+  level's label ("L6 · range top"), in the level's own colour, so the tag a chart
+  draws at its right edge is never hidden by another at the same price; a limit
+  no level sits on keeps its own line.
 · **ATR zones** (with a daily ATR): where each edge sits if the range is
   `range_atr_low`–`range_atr_high` daily ATRs wide **and centred on the last
   price**. The range-versus-ATR check judges the width alone
   (`grid_checks.check_range_against_atr`); centring is this drawing's own
   suggestion. A zone never reaches below zero.
 · **Bollinger** (when the caller computed the bands): the band between them.
+· **Liquidation** (`EPIC-039J`, a position venue's plan once the guard judged it): one dashed
+  line per exposed side at the guard's estimated liquidation price, labelled an estimate.
 
 Lines sort by price, then role, then label, so equal prices draw in one
 stable order everywhere.
@@ -24,7 +29,7 @@ stable order everywhere.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
@@ -49,8 +54,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 _TWO = Decimal(2)
+
+#: `BUG-207` - the range limits' names. Not "Upper"/"Lower" or "Up": the owner read
+#: that as a take-profit line, and an exit (TP, SL) is a different thing from the range.
+RANGE_TOP = "range top"
+RANGE_BOTTOM = "range bottom"
 
 
 class LevelState(str, Enum):
@@ -111,14 +122,20 @@ class GridOverlaySource:
     activity: GridActivity | None = None
     daily_atr: Decimal | None = None
     bollinger: BollingerBands | None = None
+    #: The estimated liquidation price per exposed side, as `liquidation_marks` reads them
+    #: from the guard's verdicts; empty on Spot and before the facts are read.
+    liquidations: tuple[tuple[str, Decimal], ...] = ()
 
 
 def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     """@brief The Grid's lines, bands and fills for one surface."""
     activity = source.activity or GridActivity()
-    lines = [_level_line(level, activity) for level in source.plan.levels]
-    lines += _edge_lines(source.params)
+    limits = _limits(source.params)
+    lines = [_level_line(level, activity, limits) for level in source.plan.levels]
+    level_prices = {level.price for level in source.plan.levels}
+    lines += _edge_lines(limits, level_prices)
     lines += _exit_lines(source.params)
+    lines += _liquidation_lines(source.liquidations)
     if activity.average_cost is not None:
         lines.append(
             OverlayLine(activity.average_cost, OverlayRole.AVERAGE_COST, "Avg")
@@ -131,16 +148,30 @@ def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     )
 
 
-def _level_line(level: GridLevel, activity: GridActivity) -> OverlayLine:
+def _level_line(
+    level: GridLevel, activity: GridActivity, limits: tuple[tuple[Decimal, str], ...]
+) -> OverlayLine:
     state = activity.level_states.get(level.index)
     role = _PLAN_ROLES[level.side] if state is None else _STATE_ROLES[state]
-    return OverlayLine(level.price, role, f"L{level.index}")
+    label = f"L{level.index}"
+    for price, name in limits:
+        if price == level.price:
+            label = f"{label} · {name}"
+    return OverlayLine(level.price, role, label)
 
 
-def _edge_lines(params: GridParams) -> list[OverlayLine]:
+def _limits(params: GridParams) -> tuple[tuple[Decimal, str], ...]:
+    return ((params.lower, RANGE_BOTTOM), (params.upper, RANGE_TOP))
+
+
+def _edge_lines(
+    limits: tuple[tuple[Decimal, str], ...], level_prices: set[Decimal]
+) -> list[OverlayLine]:
+    """The limits no level sits on; the others are in their level's label."""
     return [
-        OverlayLine(params.lower, OverlayRole.RANGE_EDGE, "Lower"),
-        OverlayLine(params.upper, OverlayRole.RANGE_EDGE, "Upper"),
+        OverlayLine(price, OverlayRole.RANGE_EDGE, name)
+        for price, name in limits
+        if price not in level_prices
     ]
 
 
@@ -153,6 +184,27 @@ def _exit_lines(params: GridParams) -> list[OverlayLine]:
             OverlayLine(params.take_profit_price, OverlayRole.TAKE_PROFIT, "TP")
         )
     return lines
+
+
+def _liquidation_lines(
+    liquidations: tuple[tuple[str, Decimal], ...],
+) -> list[OverlayLine]:
+    return [
+        OverlayLine(price, OverlayRole.LIQUIDATION, f"Liq {side} (est.)")
+        for side, price in liquidations
+    ]
+
+
+def liquidation_marks(verdicts: Iterable[Verdict]) -> tuple[tuple[str, Decimal], ...]:
+    """The liquidation price the guard estimated for each exposed side, `long` first: the
+    first verdict of the side that carries one, so the chart draws what the Liquidation row
+    says."""
+    found: dict[str, Decimal] = {}
+    for verdict in verdicts:
+        price = verdict.numbers.get("liquidation_price")
+        if verdict.subject and price is not None and verdict.subject not in found:
+            found[verdict.subject] = price
+    return tuple((side, found[side]) for side in ("long", "short") if side in found)
 
 
 def _atr_zones(source: GridOverlaySource) -> list[OverlayBand]:

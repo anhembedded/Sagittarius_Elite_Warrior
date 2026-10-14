@@ -11,7 +11,7 @@ Where each field comes from:
 
 | Field | Section | Key |
 | :--- | :--- | :--- |
-| `bots` | `bots` | `states` (running, paused, halted, recovering; zeros included) |
+| `bots` | `bots` | `states` (running, paused, halted, recovering, error, starting, stopping; zeros included) |
 | `tick_age_s` | `market_data` | `tick_age_s` (the freshest open feed) |
 | `stream_down_s` | `trading` | `stream_down_s` |
 | `skew_ms` | `trading` | `skew_ms` (what the host's probe last measured) |
@@ -32,9 +32,20 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.health_snapshot 
     is_unavailable,
 )
 
-#: The states the line counts, in the order it writes them. The lifecycle's others
-#: (STARTING, STOPPING, STOPPED, DRAFT, ERROR) are in `states` for `status`.
-_LINE_STATES = ("running", "paused", "halted", "recovering")
+#: The states the line counts, in the order it writes them. The first four are the
+#: line's original contract; `error`, `starting` and `stopping` follow them (`BUG-209`:
+#: a bot in ERROR was invisible to the one line an operator reads). Order is the
+#: contract's - a state is appended, never moved. The lifecycle's others (STOPPED,
+#: DRAFT) are in `states` for `status`.
+_LINE_STATES = (
+    "running",
+    "paused",
+    "halted",
+    "recovering",
+    "error",
+    "starting",
+    "stopping",
+)
 
 
 def health_line_of(snapshot: HealthSnapshot, rss_mb: int | None) -> HealthLine:

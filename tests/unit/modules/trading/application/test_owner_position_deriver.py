@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_history_reader import (
     FakeAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_owner_position_checkpoints import (
+    FakeOwnerPositionCheckpoints,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
     TradeRecord,
 )
@@ -36,7 +39,9 @@ def _derive(*fills: tuple[OrderRecord, TradeRecord]) -> OwnerPositionDerivation:
     orders = [order for order, _ in fills]
     trades = [trade for _, trade in fills]
     reader = FakeAccountHistoryReader(orders, trades, now=NOW)
-    return OwnerPositionDeriver().derive(REGISTRATION, reader, NOW)
+    return OwnerPositionDeriver(FakeOwnerPositionCheckpoints()).derive(
+        REGISTRATION, reader, NOW
+    )
 
 
 def test_a_ladder_of_tagged_fills_derives_the_signed_position_and_entry() -> None:
@@ -102,4 +107,4 @@ def test_a_run_older_than_the_venues_history_cannot_be_derived() -> None:
     )
 
     with pytest.raises(InventoryBeyondLookbackError):
-        OwnerPositionDeriver().derive(old, reader, NOW)
+        OwnerPositionDeriver(FakeOwnerPositionCheckpoints()).derive(old, reader, NOW)

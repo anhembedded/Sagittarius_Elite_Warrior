@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotProgress,
 )
@@ -28,6 +29,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_panel import (
     FACT_SPECS,
+    BotPlanPanel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
+    BotsViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.grid_runtime_builders import (
     started_ladder,
@@ -166,3 +174,73 @@ def test_base_earlier_runs_left_is_named_with_its_cost_and_otherwise_shows_nothi
     assert none == NO_VALUE
     assert "0.0083" in left
     assert "not traded by this run" in left
+
+
+def _on(venue: TradingVenue, pnl: PnlSummary | None) -> BotSnapshot:
+    held = replace(_HELD, pnl=pnl)
+    return replace(_running(held), venue=venue)
+
+
+_COSTS = PnlSummary(
+    total=Decimal("9.5"),
+    realised=Decimal(12),
+    unrealised=Decimal("0.5"),
+    grid_profit=Decimal(12),
+    hodl=None,
+    unpriced_fees=0,
+    commissions=Decimal("0.0042"),
+    funding=Decimal("-0.0317"),
+)
+
+
+def test_a_futures_bot_shows_commissions_and_funding_apart_from_the_grid_profit() -> (
+    None
+):
+    """`EPIC-039J`: trading's costs are their own figures, funding is part of the total and
+    never of the grid profit, and a payment far below a cent is not printed as zero."""
+    facts = bot_facts(_on(TradingVenue.FUTURES_TESTNET, _COSTS), NOW)
+
+    assert facts.shows_costs
+    assert facts.commissions == "0.0042"
+    assert facts.funding == "-0.0317"
+    assert facts.grid_profit != facts.funding
+
+
+def test_a_spot_bot_shows_no_cost_rows_and_its_figures_are_unchanged() -> None:
+    facts = bot_facts(_on(TradingVenue.SPOT_TESTNET, _COSTS), NOW)
+
+    assert not facts.shows_costs
+    assert (
+        facts.total_pnl
+        == bot_facts(_running(replace(_HELD, pnl=_COSTS)), NOW).total_pnl
+    )
+
+
+def test_a_futures_bot_without_a_run_account_says_no_value_for_its_costs() -> None:
+    facts = bot_facts(_on(TradingVenue.FUTURES_TESTNET, None), NOW)
+
+    assert (facts.commissions, facts.funding) == (NO_VALUE, NO_VALUE)
+
+
+def _panel_showing(qtbot, venue: TradingVenue):  # type: ignore[no-untyped-def]
+    model = BotsViewModel()
+    panel = BotPlanPanel(model)
+    qtbot.addWidget(panel)
+    bot = _on(venue, _COSTS)
+    model.set_selected(bot)
+    model.set_facts(bot_facts(bot, NOW))
+    return panel
+
+
+def _row_shown(panel: BotPlanPanel, key: str) -> bool:
+    return panel.facts.findChild(QLabel, f"readout::{key}").isVisibleTo(panel.facts)
+
+
+def test_the_cost_rows_are_on_screen_for_futures_and_not_for_spot(qtbot) -> None:
+    futures = _panel_showing(qtbot, TradingVenue.FUTURES_TESTNET)
+    spot = _panel_showing(qtbot, TradingVenue.SPOT_TESTNET)
+
+    assert _row_shown(futures, "commissions") and _row_shown(futures, "funding")
+    assert futures.facts.value_text("funding") == "-0.0317"
+    assert not _row_shown(spot, "commissions") and not _row_shown(spot, "funding")
+    assert _row_shown(spot, "grid_profit") and _row_shown(futures, "grid_profit")

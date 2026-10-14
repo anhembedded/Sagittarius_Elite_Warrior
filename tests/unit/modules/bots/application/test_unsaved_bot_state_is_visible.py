@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot.hand
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot.query import (
     GetBotQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.notifying_bot_store import (
     NotifyingBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (

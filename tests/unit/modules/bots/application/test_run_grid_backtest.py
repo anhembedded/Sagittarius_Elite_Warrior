@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_bac
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
     handler as handler_module,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fine_klines import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.streamed_fine_klines import (
     StreamedFineKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (

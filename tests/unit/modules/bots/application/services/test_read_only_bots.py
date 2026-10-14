@@ -13,10 +13,10 @@ from dataclasses import replace
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstanceError
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_runner import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_runner import (
     ReadOnlyBotRunner,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.read_only_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.read_only_bot_store import (
     ReadOnlyBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume.command import (
@@ -71,8 +71,9 @@ class _Runner(IBotRunner):
     def pause(self, bot_id: str) -> None:
         self.calls.append("pause")
 
-    def resume(self, bot_id: str) -> None:
+    def resume(self, bot_id: str) -> BotCommandResult:
         self.calls.append("resume")
+        return BotCommandResult.done(bot_id)
 
     def stop(self, bot_id: str, base: ExposureHandling) -> None:
         self.calls.append("stop")
@@ -131,11 +132,10 @@ def test_a_read_only_runner_refuses_a_start_by_name() -> None:
     "command",
     [
         lambda runner: runner.pause("abc123"),
-        lambda runner: runner.resume("abc123"),
         lambda runner: runner.stop("abc123", ExposureHandling.KEEP),
         lambda runner: runner.confirm_resume("abc123"),
     ],
-    ids=["pause", "resume", "stop", "confirm_resume"],
+    ids=["pause", "stop", "confirm_resume"],
 )
 def test_a_read_only_runner_passes_no_command_to_a_bot(
     command: Callable[[IBotRunner], None],
@@ -145,6 +145,19 @@ def test_a_read_only_runner_passes_no_command_to_a_bot(
     with pytest.raises(ReadOnlyInstanceError):
         command(ReadOnlyBotRunner(inner, _REASON))
 
+    assert inner.calls == []
+
+
+def test_a_read_only_runner_refuses_a_resume_by_name_before_any_session_opens() -> None:
+    """`BUG-202`: a Resume from HALTED opens the venue's order session behind the
+    runner, as Start's preconditions do; the read-only runner refuses first."""
+    inner = _Runner()
+
+    result = ReadOnlyBotRunner(inner, _REASON).resume("abc123")
+
+    assert result.accepted is False
+    assert result.refusal is BotRefusal.READ_ONLY_INSTANCE
+    assert result.message == _REASON
     assert inner.calls == []
 
 
