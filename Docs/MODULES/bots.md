@@ -41,7 +41,7 @@ owns the client order id and gives the fill to its `GridFacts` (`.../grid_facts.
 state has one writer, `BotRunState` (`.../bot_run_state.py:54`), and is stored through `IBotStore`,
 implemented by `JsonBotStore` (`src/modules/bots/adapters/persistence/json_bot_store.py:44`). A new
 kind plugs in through one seam, `IBotKind` (`src/modules/bots/contracts/i_bot_kind.py:42`): `kind_id`,
-`supported_profiles`, `validate`, `overlay` and `executor_factory`. The backtest-side components
+`supported_profiles`, `validate`, `overlay` and `executor_factory`. A Grid's `overlay` (`domain/grid/grid_overlay.py`) draws one label per price: a range limit equal to a level's price is part of that level's label ("L6 · range top"), else its own "range top"/"range bottom" line, and SL/TP keep their own roles and styles (`BUG-207`). The backtest-side components
 change in `EPIC-040B` (one kind-neutral result and simulator port); the strategy kind is a second
 `IBotKind` in `EPIC-040G`.
 

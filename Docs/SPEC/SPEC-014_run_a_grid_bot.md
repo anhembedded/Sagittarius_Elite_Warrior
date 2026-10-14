@@ -64,7 +64,7 @@ sound, I start it, and I watch what it does."*
    The new bot's design follows: the app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
-   the bot's chart; Bots → **Fit levels** scales the price axis to show them all. A draft's chart
+   the bot's chart; Bots → **Fit levels** scales the price axis to show them all. One label per price: a range limit that is also a level reads "L6 · range top" or "L0 · range bottom" in the level's colour, and a limit no level sits on reads "range top" or "range bottom"; never "Up" or "Upper", which read as an exit. The stop loss and take profit keep their own labels (SL, TP) and styles (`BUG-207`). A draft's chart
    reads stored candles until the trader's **Go live** on its chip opens a view-only price stream
    (it places nothing); a running bot's chart is Live on its own (`EPIC-034G`). The chart and the
    Backtest tab read the bot's own venue's market and stored candles, never another venue's (`BUG-172`).
