@@ -36,6 +36,12 @@ The first line of every `.md` under `Docs/` is one of:
 A document with nothing to vouch for it is `Historical`, never `Current` (decision D6). A `SPEC`'s own
 `- **Status:**` bullet is a different thing: it says how much of the use case is built.
 
+**Exception: a generated document carries no status line.** A file that a script writes whole and a
+guard compares byte for byte (today `OPERATIONS/exit_codes.md`, from `scripts/render_exit_codes.py`)
+is current by construction: the guard fails the moment it differs from the generator, so a hand-added
+line would break the match. Such a file says that it is generated in its own first lines. A generator
+that gives its file a status line does so in the generator, not by hand.
+
 ## Being replaced
 
 `HLD/`, `SDD/` and `Diagrams/` predate this layout. They are marked, not moved; `EPIC-041D` and
