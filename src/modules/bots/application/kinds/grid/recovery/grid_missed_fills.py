@@ -97,8 +97,11 @@ class GridMissedFills:
         # from history is not counted again when the stream delivers it late.
         for trade in trades:
             self._context.applied_fills.record(saved.client_order_id, trade.trade_id)
-        logger.info(
-            "Bot %s: reconcile %s executed %s since",
+        # `BUG-209`: the stream lost this fill and history gave it back - degraded
+        # but recovered, so a WARNING, one per order (a reconcile, not a tick).
+        logger.warning(
+            "Bot %s: reconcile %s executed %s since, which the stream never "
+            "delivered; applied from history [missed-fill]",
             self._context.state.bot_id,
             saved.client_order_id,
             missed,
@@ -123,8 +126,9 @@ class GridMissedFills:
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
             return ReconcileMismatch(halt.reason, halt.detail)
-        logger.info(
-            "Bot %s: reconcile %s missing from the exchange, ended without filling",
+        logger.warning(
+            "Bot %s: reconcile %s missing from the exchange, ended without filling; "
+            "the stream never delivered its end [missed-end]",
             self._context.state.bot_id,
             saved.client_order_id,
         )

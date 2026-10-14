@@ -8,9 +8,11 @@ RUNNING. Split from `test_grid_reconciler_gap.py` (400-line ceiling).
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -162,3 +164,71 @@ def test_the_fee_a_missed_partial_fill_paid_is_counted_once() -> None:
 
     assert world.state() is S.RUNNING
     assert world.runtime().inventory == before + Decimal("0.002997")
+
+
+def _warnings(caplog: pytest.LogCaptureFixture, tag: str) -> list[logging.LogRecord]:
+    return [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and tag in r.getMessage()
+    ]
+
+
+def test_a_fill_the_stream_lost_is_a_warning_naming_the_order(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`BUG-209`. History gave back a fill the stream never delivered: degraded but
+    recovered, so a WARNING (it was INFO, and the owner's grep for WARNING found nothing)."""
+    world = running()
+    partly_filled_in_the_gap(world, Decimal(110), "0.003")
+    _bought_in_the_gap(world, "0.003")
+
+    with caplog.at_level(logging.DEBUG, logger="App.Bots.GridExecutor"):
+        world.executor.facts.reconcile_after_gap()
+
+    (warning,) = _warnings(caplog, "[missed-fill]")
+    assert "0.003" in warning.getMessage()
+    assert world.state() is S.RUNNING
+
+
+def test_an_end_the_stream_lost_is_a_warning(caplog: pytest.LogCaptureFixture) -> None:
+    world = running()
+    cancelled_in_the_gap(world, Decimal(110))
+
+    with caplog.at_level(logging.DEBUG, logger="App.Bots.GridExecutor"):
+        world.executor.facts.reconcile_after_gap()
+
+    assert len(_warnings(caplog, "[missed-end]")) == 1
+
+
+def test_a_reconcile_that_finds_nothing_missed_writes_no_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    world = running()
+
+    with caplog.at_level(logging.DEBUG, logger="App.Bots.GridExecutor"):
+        world.executor.facts.reconcile_after_gap()
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+def test_a_quantity_mismatch_that_halts_the_bot_is_a_warning_with_its_reason(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`BUG-209`, items 4 and 8: a reconcile that halts reaches WARNING through the
+    one transition, with the reason, though its own lines are INFO."""
+    world = running()
+    partly_filled_in_the_gap(world, Decimal(110), "0.003")
+
+    with caplog.at_level(logging.DEBUG, logger="App.Bots.GridExecutor"):
+        world.executor.facts.reconcile_after_gap()
+        world.executor.facts.reconcile_after_gap()
+
+    assert world.state() is S.HALTED
+    halts = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "-> HALTED" in r.getMessage()
+    ]
+    assert len(halts) == 1
+    assert world.runtime().reason.value in halts[0].getMessage()

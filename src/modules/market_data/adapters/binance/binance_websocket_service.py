@@ -32,6 +32,13 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 logger = logging.getLogger("App.LiveStream")
 
+
+class KlineStreamError(OSError):
+    """The socket library reported a failure as a message (`{"e": "error"}`). An
+    `OSError`, so `_run_stream` logs it at ERROR and reconnects like a dropped
+    connection."""
+
+
 #: Delay before retrying the WebSocket connection after an `OSError`.
 _RECONNECT_DELAY_SECONDS = 5
 #: `logging-rule.md` §6: `TRACE(5)`, one below `DEBUG`, on only under `--debug`.
@@ -225,12 +232,13 @@ class BinanceWebsocketService(ILiveStreamService):
                     logger.info("Stream task was cancelled.")
                     break
                 except OSError as e:
-                    if not token.is_cancelled():
-                        logger.error(
-                            f"WebSocket connection error: {e}. Reconnecting in "
-                            f"{_RECONNECT_DELAY_SECONDS}s..."
-                        )
-                        await asyncio.sleep(_RECONNECT_DELAY_SECONDS)
+                    await self._reconnect_after(
+                        token, f"WebSocket connection error: {e}", unexpected=False
+                    )
+                except Exception:  # noqa: BLE001 - worker boundary (`BUG-209`): the library raises its own exception types (a closed socket, a protocol error); any of them used to end this task with nothing in the journal and the feed silently dead, so it is logged and the stream reconnected
+                    await self._reconnect_after(
+                        token, "Kline stream failed unexpectedly [kline-stream]", True
+                    )
         except GeneratorExit:
             is_closing = True
             raise
@@ -241,6 +249,22 @@ class BinanceWebsocketService(ILiveStreamService):
                     logger.info("Binance AsyncClient connection closed.")
                 except Exception as e:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning(f"Error closing Binance client: {e}")
+
+    @staticmethod
+    async def _reconnect_after(
+        token: CancellationToken, what: str, unexpected: bool
+    ) -> None:
+        """Log `what` at ERROR (with the traceback when `unexpected`) and wait out the
+        reconnect delay, unless the stream is being cancelled. Called inside `except`."""
+        if token.is_cancelled():
+            return
+        logger.error(
+            "%s. Reconnecting in %ss...",
+            what,
+            _RECONNECT_DELAY_SECONDS,
+            exc_info=unexpected,
+        )
+        await asyncio.sleep(_RECONNECT_DELAY_SECONDS)
 
     async def _process_socket_message(
         self, tscm: ReconnectingWebsocket, market: MarketType
@@ -254,6 +278,14 @@ class BinanceWebsocketService(ILiveStreamService):
         # Multiplex stream wraps data in a "data" property
         if "data" in res:
             res = res["data"]
+
+        if res.get("e") == "error":
+            # The library puts its own failures on the queue as `{"e": "error"}`
+            # (`BUG-209`); they used to fall through as "not a kline" and vanish.
+            raise KlineStreamError(
+                f"the library reported a stream error: type={res.get('type')!r} "
+                f"message={res.get('m')!r}"
+            )
 
         if res.get("e") == "kline":
             try:

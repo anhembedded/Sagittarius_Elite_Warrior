@@ -114,7 +114,4 @@ def halt_with(state: BotRunState, reason: GridReason, detail: str) -> None:
 def _apply(
     state: BotRunState, event: BotLifecycleEvent, reason: GridReason, detail: str
 ) -> None:
-    if state.can(event):
-        state.transition(event, reason, detail)
-    else:
-        state.update(state.runtime.with_reason(reason, detail))
+    state.apply_or_record(event, reason, detail)

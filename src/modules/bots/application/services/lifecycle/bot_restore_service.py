@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_interrupted_start import (
     START_INTERRUPTED_DETAIL,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_run_state import (
+    landing_level,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
@@ -63,7 +66,8 @@ class BotRestoreService:
             restored = stored.bot.restored(now)
             if restored != stored.bot:
                 self._store.save(StoredBot(restored, self._runtime_for(stored)))
-                logger.info(
+                logger.log(
+                    landing_level(restored.state),
                     "Restored bot %s: %s -> %s",
                     restored.bot_id,
                     stored.bot.state.value,

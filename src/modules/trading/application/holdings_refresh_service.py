@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings import (
     GetHoldingsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.refresh_failure_streak import (
+    RefreshFailureStreak,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -63,6 +66,7 @@ class HoldingsRefreshService:
         self._event_publisher = event_publisher
         self._session_state = session_state
         self._venue = venue
+        self._failures = RefreshFailureStreak(logger, "Holdings refresh", venue.value)
 
     @property
     def venue(self) -> TradingVenue:
@@ -81,8 +85,9 @@ class HoldingsRefreshService:
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - worker boundary: a transient network hiccup must not kill the scheduler's job thread, and there is nothing user-facing to report for one missed tick — the next one simply tries again
-            logger.debug("Holdings refresh failed: %s", exc)
+            self._failures.failed(exc)
             return
+        self._failures.succeeded()
 
         self._event_publisher.publish(
             HoldingsChangedEvent(holdings=holdings, venue=self._venue)

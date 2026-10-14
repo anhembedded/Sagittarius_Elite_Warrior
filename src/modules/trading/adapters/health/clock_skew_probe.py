@@ -8,6 +8,8 @@ or simulated. A fresh scope per call, so every interval asks the exchange again.
 
 An exchange that does not answer is not an error to raise: the skew is recorded as
 unknown, which the health line shows as `na`, and the next interval asks again.
+
+A skew past the pre-flight's thresholds is logged by `ClockSkewAlarm` (`BUG-209`).
 """
 
 from __future__ import annotations
@@ -15,6 +17,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_health_probe import IHealthProbe
 from Sagittarius_Elite_Warrior.src.core.contracts.preflight_scope import (
     PreflightScope,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.health.clock_skew_alarm import (
+    ClockSkewAlarm,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_reads import (
     VenueReads,
@@ -30,6 +35,7 @@ class ClockSkewProbe(IHealthProbe):
     def __init__(self, reads: VenueReads, recorder: ClockSkewRecorder) -> None:
         self._reads = reads
         self._recorder = recorder
+        self._alarm = ClockSkewAlarm()
 
     @property
     def name(self) -> str:
@@ -43,3 +49,4 @@ class ClockSkewProbe(IHealthProbe):
                 continue
             status = self._reads.connection(scope, name, context)
             self._recorder.record(name, status.server_time_skew_ms)
+            self._alarm.observe(name, status.server_time_skew_ms)
