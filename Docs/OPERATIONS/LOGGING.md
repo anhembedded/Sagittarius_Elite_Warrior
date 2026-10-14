@@ -1,3 +1,5 @@
+Status: Current
+
 # Logging for an unattended run
 
 The log guide of the headless operation (`EPIC-038`, task `038G`). The runbook ([`headless_runbook.md`](headless_runbook.md), `EPIC-038H`) links here for log placement, rotation and the health line. Design: [`DESIGN_2026-10-09_headless_operation.md` §6, §12](../../Tasks/epics/EPIC-038_headless_operation/DESIGN_2026-10-09_headless_operation.md) · evidence: [`RESEARCH` §9](../../Tasks/epics/EPIC-038_headless_operation/RESEARCH_2026-10-09_headless_operation.md) · decision: O7.

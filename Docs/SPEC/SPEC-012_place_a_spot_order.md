@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-012 — Place an order on Spot, and see it settle as a balance
 
 - **Status:** ✅ built and proven — the real Spot Testnet round trip (§8's last row, `EPIC-027P`

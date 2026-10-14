@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §1 — The diagrams, and what each one is the authority on
 
 > Part of the SDD, split out of the single `README.md` this document used to be

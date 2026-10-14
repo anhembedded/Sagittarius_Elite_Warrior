@@ -72,6 +72,6 @@
 - **Showing the backtest and the live chart side by side.** A tab can later be detached into its own window (a Qt dock), if wanted.
 
 ## Notes (newest first)
-- **2026-10-14** — Every child updates the views of `Docs/MODULES/bots.md` it changes, through its "Docs touched" section. The skeleton comes from [`EPIC-041A`](../EPIC-041_documentation_standard/incomplete/EPIC-041A_docs_skeleton.md), which runs first.
+- **2026-10-14** — Every child updates the views of `Docs/MODULES/bots.md` it changes, through its "Docs touched" section. The skeleton comes from [`EPIC-041A`](../EPIC-041_documentation_standard/completed/EPIC-041A_docs_skeleton.md), which runs first.
 - **2026-10-14** — Decision 5 and `040G` added: the strategy bot is a kind of its own on the shared shell, taken from `EPIC-029L`. `040B` now requires its port to fit that kind.
 - **2026-10-14** — Epic scaffolded from the owner's request. Six children, each with its design assessed. Not started, as asked.

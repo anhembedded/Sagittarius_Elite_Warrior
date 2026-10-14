@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD — Software Design Description for `EPIC-025`
 
 - **Status:** 🔵 Draft 2026-09-13 — **round 3**, revised after the independent design review

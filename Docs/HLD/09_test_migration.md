@@ -1,3 +1,5 @@
+Status: Historical
+
 # §9 — What happens to the tests: move, rewrite, delete, retarget
 
 - **Status:** 🟢 Approved 2026-09-13 (ADR D18), in answer to the user: *"mình chưa cần nhắc test sẽ

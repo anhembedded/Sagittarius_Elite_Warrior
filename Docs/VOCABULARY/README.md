@@ -1,3 +1,5 @@
+Status: Current
+
 # Vocabulary — the words this project uses, and what each one means
 
 - **Purpose:** one place to look a term up while developing, and the **only** place a term is

@@ -1,4 +1,4 @@
-<!-- The body of every pull request. GitHub fills this in; keep the three headings, delete this comment. -->
+<!-- The body of every pull request. GitHub fills this in; keep the four headings, delete this comment. -->
 
 ## What
 
@@ -11,3 +11,7 @@
 ## Verification
 
 <!-- A bug fix: its regression test, red before the fix and green after, and the commit tier (ci-rule.md §1, "Bug fix"). Otherwise: the GitHub Actions `ci-local.ps1 -Full` run on this PR's head sha, and what the grep of its job log found. Guards touched and why. Documentation-only (ONBOARDING §7): say so and name the doc guards run. -->
+
+## Docs touched
+
+<!-- Each document under Docs/ this change updates, or "none, because …". A change to a module's shape, a boundary, a lifecycle, a thread or a timing constant lists that module's Docs/MODULES/<module>.md. -->

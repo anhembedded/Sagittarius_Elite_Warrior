@@ -1,5 +1,5 @@
+Status: Current
 # CS-008 — The clock the fake never had
-
 `BUG-189`: a Spot Grid on Mainnet halted five minutes after Start, `saved 0.0119 against 0 derived`. The owner's machine clock is not Binance's (`BUG-111`), so every history window opened after the bot's own first orders. The gate was green: the fake exchange answered `serverTime: 0` and stamped its orders with the machine's own clock, so two clocks could never disagree.
 
 ## Why nothing caught it

@@ -1,3 +1,5 @@
+Status: Historical
+
 # Thiết kế Kiến trúc: Provisional vs Commit cho Indicator/Series theo Tick (BOT-042)
 
 Tài liệu này mô tả thiết kế kỹ thuật cho việc mở rộng `IIndicator`/`Series` để
