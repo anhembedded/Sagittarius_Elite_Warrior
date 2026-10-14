@@ -31,7 +31,14 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.operations.status_world import
 
 _BOTS: dict[str, JsonValue] = {
     "total": 4,
-    "states": {"RUNNING": 3, "PAUSED": 1, "RECOVERING": 0, "STOPPED": 7},
+    "states": {
+        "RUNNING": 3,
+        "PAUSED": 1,
+        "RECOVERING": 0,
+        "STOPPED": 7,
+        "ERROR": 2,
+        "STARTING": 1,
+    },
 }
 _MARKET: dict[str, JsonValue] = {"tick_age_s": 2, "feeds": {"spot:BTCUSDT": 2}}
 _TRADING: dict[str, JsonValue] = {
@@ -57,7 +64,9 @@ def test_the_line_reads_each_field_from_its_section() -> None:
     assert line.rss_mb == 310
 
 
-def test_the_bots_are_counted_running_paused_halted_recovering_zeros_included() -> None:
+def test_the_bots_are_counted_in_the_contract_order_zeros_included() -> None:
+    """`BUG-209`: `error`, `starting` and `stopping` were missing, so a bot in ERROR was
+    invisible to the one line an operator reads. They follow the original four."""
     line = _line({"bots": _BOTS})
 
     assert line.bots == (
@@ -65,6 +74,13 @@ def test_the_bots_are_counted_running_paused_halted_recovering_zeros_included() 
         BotCount("paused", 1),
         BotCount("halted", 0),
         BotCount("recovering", 0),
+        BotCount("error", 2),
+        BotCount("starting", 1),
+        BotCount("stopping", 0),
+    )
+    assert (
+        "bots=running:3,paused:1,halted:0,recovering:0,error:2,starting:1,stopping:0"
+        in (format_health_line(line))
     )
 
 

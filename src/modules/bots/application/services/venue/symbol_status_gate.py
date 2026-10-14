@@ -84,29 +84,22 @@ class SymbolStatusGate:
 
     def _not_trading(self, detail: str) -> None:
         state = self._context.state
-        logger.warning(
-            "Bot %s: %s; nothing was placed [symbol-status]", state.bot_id, detail
-        )
         if state.state is BotLifecycleState.STARTING:
             state.transition(
                 BotLifecycleEvent.START_REFUSED, GridReason.SYMBOL_NOT_TRADING, detail
             )
-        else:
-            state.update(
-                state.runtime.with_reason(GridReason.SYMBOL_NOT_TRADING, detail)
-            )
+            return
+        logger.warning(
+            "Bot %s: %s; nothing was placed [symbol-status]", state.bot_id, detail
+        )
+        state.update(state.runtime.with_reason(GridReason.SYMBOL_NOT_TRADING, detail))
 
     def _delisted(self, detail: str) -> None:
+        """The transition says it at WARNING with the reason, so no line of its own."""
         state = self._context.state
-        logger.warning(
-            "Bot %s: %s; the ladder is taken off [symbol-status]", state.bot_id, detail
-        )
         event = (
             BotLifecycleEvent.START_REFUSED
             if state.state is BotLifecycleState.STARTING
             else BotLifecycleEvent.HALT
         )
-        if state.can(event):
-            state.transition(event, GridReason.SYMBOL_DELISTED, detail)
-        else:
-            state.update(state.runtime.with_reason(GridReason.SYMBOL_DELISTED, detail))
+        state.apply_or_record(event, GridReason.SYMBOL_DELISTED, detail)
