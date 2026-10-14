@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_reconciler import (
     RESTORED_PAUSED_DETAIL,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (

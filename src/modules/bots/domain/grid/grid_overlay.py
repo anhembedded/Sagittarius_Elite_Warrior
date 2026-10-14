@@ -11,7 +11,7 @@ with the same activity draw the same chart.
   else from the plan's side (`BUY`, `SELL`, `EMPTY`).
 · **Range edges** are the user's lower and upper limits. One label per price
   (`BUG-207`): a limit that is also a level is not a second line but part of the
-  level's label ("L6 · Upper"), in the level's own colour, so the tag a chart
+  level's label ("L6 · range top"), in the level's own colour, so the tag a chart
   draws at its right edge is never hidden by another at the same price; a limit
   no level sits on keeps its own line.
 · **ATR zones** (with a daily ATR): where each edge sits if the range is
@@ -57,6 +57,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 _TWO = Decimal(2)
+
+#: `BUG-207` - the range limits' names. Not "Upper"/"Lower" or "Up": the owner read
+#: that as a take-profit line, and an exit (TP, SL) is a different thing from the range.
+RANGE_TOP = "range top"
+RANGE_BOTTOM = "range bottom"
 
 
 class LevelState(str, Enum):
@@ -156,7 +161,7 @@ def _level_line(
 
 
 def _limits(params: GridParams) -> tuple[tuple[Decimal, str], ...]:
-    return ((params.lower, "Lower"), (params.upper, "Upper"))
+    return ((params.lower, RANGE_BOTTOM), (params.upper, RANGE_TOP))
 
 
 def _edge_lines(

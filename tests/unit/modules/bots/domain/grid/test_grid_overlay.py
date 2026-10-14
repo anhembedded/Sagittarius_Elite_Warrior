@@ -133,8 +133,8 @@ def test_a_limit_that_is_a_level_draws_one_label_in_the_levels_colour() -> None:
 
     at_lower = [(line.role, line.label) for line in lines if line.price == 60000]
     at_upper = [(line.role, line.label) for line in lines if line.price == 70000]
-    assert at_lower == [(OverlayRole.BUY_LEVEL, "L0 · Lower")]
-    assert at_upper == [(OverlayRole.SELL_LEVEL, "L10 · Upper")]
+    assert at_lower == [(OverlayRole.BUY_LEVEL, "L0 · range bottom")]
+    assert at_upper == [(OverlayRole.SELL_LEVEL, "L10 · range top")]
     assert [line.price for line in lines] == sorted(line.price for line in lines)
     prices = [line.price for line in lines]
     assert len(prices) == len(set(prices))
@@ -152,9 +152,9 @@ def test_a_limit_between_levels_keeps_its_own_line() -> None:
         (line.price, line.role, line.label)
         for line in lines
         if line.role is OverlayRole.RANGE_EDGE
-    ] == [(Decimal(59500), OverlayRole.RANGE_EDGE, "Lower")]
+    ] == [(Decimal(59500), OverlayRole.RANGE_EDGE, "range bottom")]
     assert [line.label for line in lines if line.price == 60000] == ["L0"]
-    assert [line.label for line in lines if line.price == 70000] == ["L10 · Upper"]
+    assert [line.label for line in lines if line.price == 70000] == ["L10 · range top"]
 
 
 def test_every_level_keeps_a_label_when_the_limits_merge_into_it() -> None:
@@ -191,3 +191,21 @@ def test_a_position_plans_liquidation_is_drawn_as_an_estimate_per_side() -> None
 
 def test_a_plan_without_liquidation_draws_none() -> None:
     assert _by_role(_source(), OverlayRole.LIQUIDATION) == []
+
+
+def test_range_labels_cannot_be_read_as_exits() -> None:
+    """`BUG-207`: the take-profit and stop-loss keep their own roles and labels; no
+    range-limit wording is "Up", "Upper", "TP" or "SL", merged or not."""
+    source = _source()
+    source = replace(source, params=replace(source.params, lower=Decimal(59500)))
+
+    lines = grid_overlay(source).lines
+
+    exits = {line.role: line.label for line in lines if line.label in ("TP", "SL")}
+    assert exits == {OverlayRole.TAKE_PROFIT: "TP", OverlayRole.STOP_LOSS: "SL"}
+    range_words = [
+        line.label
+        for line in lines
+        if line.role is OverlayRole.RANGE_EDGE or "range" in line.label
+    ]
+    assert range_words == ["range bottom", "L10 · range top"]
