@@ -183,7 +183,7 @@ class GridReconciler:
             return ReconcileWait(
                 GridReason.HISTORY_UNAVAILABLE,
                 f"waiting: order history did not answer ({error}); "
-                "enable trading again to retry",
+                "press Resume to retry",
             )
         if isinstance(outcome, ReconcileMismatch):
             return outcome

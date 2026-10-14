@@ -52,9 +52,11 @@ Filled by: EPIC-040B (backtest components), EPIC-040G (strategy kind), EPIC-041E
 Two tables, both declared as data. The bot lifecycle,
 `src/modules/bots/domain/bot_lifecycle_fsm_matrix.py:39-180`, has nine states (`DRAFT`, `STARTING`,
 `RUNNING`, `PAUSED`, `RECOVERING`, `HALTED`, `STOPPING`, `STOPPED`, `ERROR`) and fifteen events. The
-table has no `resume` from `RECOVERING`: `resume` is declared from `PAUSED` (to `RUNNING`, `:120`) and
-`HALTED` (to `STARTING`, `:135`), and a `RECOVERING` bot leaves it by `reconcile_ok`, which returns to
-the state it came from (`:129`, `PRIOR`), by `reconcile_mismatch`, `halt`, `fault` or `stop`. A restart
+table declares `resume` from `PAUSED` (to `RUNNING`, `:125`), from `HALTED` (to `STARTING`, `:143`) and,
+since `BUG-204`, from `RECOVERING` (to `RECOVERING`, `:135`: a self-loop, because the next state is the
+reconcile's to decide). A `RECOVERING` bot leaves it by `reconcile_ok`, which returns to the state it
+came from (`:137`, `PRIOR`), by `reconcile_mismatch`, `halt`, `fault` or `stop`; the reconcile runs when
+the venue's order session opens, which the owner's Resume now asks for. A restart
 turns `RUNNING` and `PAUSED` into `RECOVERING` and `STARTING` into `HALTED`
 (`src/modules/bots/application/services/bot_restore_service.py`). Each Grid level has its own machine
 in `src/modules/bots/domain/grid/grid_level_fsm_matrix.py:28-80`: five states (`EMPTY`, `PLACING`,
@@ -77,10 +79,18 @@ and books the rest on the bot's worker (`grid_facts.py:190-232`). **Stop.** The 
 `GridStopSequence` (`.../grid_stop_sequence.py:94`), which cancels the bot's tagged orders and settles
 the exposure. **Restart.** `BotRestoreService` applies `app_restart` to every saved bot,
 `BotBootRecovery` pays cancels a crash left owing, and `GridReconciler` compares a `RECOVERING` bot
-with the exchange (`.../grid_reconciler.py:150` on a match, `:372` on a mismatch). A deliberate action
-that trades opens the order session in one place, `order_session_opening.py:1-59`, with exactly three
-callers: Start, a Resume from `HALTED`, and the headless `run --resume-recovering`
-(`.../grid_start_preconditions.py:76,114` and `.../resume_recovering_for_host/handler.py:81`). Design:
+with the exchange (`.../grid_reconciler.py:134`, `run`), and only once the venue's order session is
+open: until then nothing listens to the exchange and the Orders panel shows the ladder as saved, with
+a note saying so. **Resume from `RECOVERING`** (`BUG-204`, the desktop's way out): the use case asks
+for the real-money answer on a mainnet venue, `BotRunner.resume` (`.../bot_runner.py:89`) opens the
+session (`open_session_for_resume`, `.../grid_start_preconditions.py:72`) or refuses in the session's
+words, and the executor reconciles (`.../grid_executor.py:285`, `GridFacts.reconcile_recovering`,
+`.../grid_facts.py:276`): a fill the bot missed is booked once from the order history, its counter
+order laid, an order missing from the book ended, and the bot returns to its prior state, or halts on
+a mismatch. A deliberate action that trades opens the order session in one place,
+`order_session_opening.py:1-59`, with exactly three callers: Start, a Resume from `HALTED` or
+`RECOVERING`, and the headless `run --resume-recovering`
+(`.../grid_start_preconditions.py:72,114` and `.../resume_recovering_for_host/handler.py:81`). Design:
 ADR 029 §3.3 and §3.4, design 038 §5, design 039 §9.
 
 Filled by: EPIC-041E.

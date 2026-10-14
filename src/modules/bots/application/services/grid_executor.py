@@ -282,6 +282,11 @@ class GridExecutor(IBotExecutor):
         if state.state is _S.HALTED:
             self._proposal = self._resume.propose(self._price())
             return
+        if state.state is _S.RECOVERING:
+            # `BUG-204` - the runner opened the order session before queueing this; a
+            # session that was already open sent no switch-on event, so reconcile here.
+            self._facts.reconcile_recovering()
+            return
         if state.state is not _S.PAUSED:
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return

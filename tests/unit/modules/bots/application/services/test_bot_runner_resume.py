@@ -1,5 +1,5 @@
-"""`BUG-202` — `BotRunner.resume`: the order session opens for a HALTED bot only,
-and a refused open queues nothing."""
+"""`BUG-202` — `BotRunner.resume`: the order session opens for a HALTED bot, and for a
+RECOVERING one (`BUG-204`), never for a PAUSED one; a refused open queues nothing."""
 
 from __future__ import annotations
 
@@ -193,3 +193,35 @@ def test_a_paused_resume_opens_no_session() -> None:
     assert result.accepted, result.message
     assert world.session.ready_requests == 0
     assert world.executors.get(BOT) is not None
+
+
+def test_a_recovering_resume_opens_the_session_and_reaches_the_bots_executor() -> None:
+    """`BUG-204`: a restart leaves the session closed; Resume is the way to open it."""
+    world = _world(S.RECOVERING)
+    assert world.session.snapshot().enabled is False
+
+    result = world.runner.resume(BOT)
+
+    assert result.accepted, result.message
+    assert world.session.snapshot().enabled is True
+    assert world.executors.get(BOT) is not None
+
+
+def test_a_recovering_resume_whose_session_will_not_open_is_refused_and_queues_nothing() -> (
+    None
+):
+    world = _world(S.RECOVERING)
+    world.session.ready_answers(
+        SessionReadyResult(
+            ready=False,
+            block_reason=SessionBlockReason.CONNECTION_NOT_READY,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
+
+    result = world.runner.resume(BOT)
+
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert world.executors.get(BOT) is None
+    assert world.session.snapshot().enabled is False

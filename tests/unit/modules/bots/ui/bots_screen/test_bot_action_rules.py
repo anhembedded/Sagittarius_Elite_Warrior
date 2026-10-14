@@ -22,7 +22,7 @@ LEGAL = {
     S.STARTING: {A.STOP},
     S.RUNNING: {A.PAUSE, A.STOP},
     S.PAUSED: {A.RESUME, A.STOP},
-    S.RECOVERING: {A.STOP},
+    S.RECOVERING: {A.RESUME, A.STOP},
     S.HALTED: {A.RESUME, A.CONFIRM_RESUME, A.STOP},
     S.STOPPING: {A.STOP},
     S.STOPPED: {A.START, A.SAVE, A.DELETE},
@@ -75,3 +75,17 @@ def test_export_plan_is_live_exactly_while_a_bot_exists() -> None:
     assert "no bot" in export_plan_availability(0).reason
     assert export_plan_availability(1).enabled
     assert export_plan_availability(7).enabled
+
+
+def test_a_recovering_bots_resume_says_it_opens_the_session_and_books_fills() -> None:
+    """`BUG-204`: the owner's way out of RECOVERING is Resume; its tooltip says what it does."""
+    reason = availability(S.RECOVERING, A.RESUME).reason
+    assert "order session" in reason
+    assert "filled" in reason
+
+
+def test_confirm_resume_stays_a_halted_bots_alone_when_a_recovering_bot_may_resume() -> (
+    None
+):
+    """`BUG-204`: a RECOVERING bot has no proposal to confirm."""
+    assert not availability(S.RECOVERING, A.CONFIRM_RESUME).enabled

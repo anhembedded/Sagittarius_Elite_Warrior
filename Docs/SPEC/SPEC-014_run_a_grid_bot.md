@@ -225,10 +225,21 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 - A Recovering bot is not silent meanwhile (`EPIC-035C`): at start-up the app reads, from the
   exchange, which of its saved orders still rest, which filled while the app was closed, which are
   missing and which tagged orders the bot never saved, and shows the four counts beside its state
-  ("after the restart: 2 saved order(s) rest, 1 filled while the app was closed, 1 missing, 0 not
-  saved by the bot; nothing is placed until trading is enabled"). The read places and cancels
-  nothing; a read that fails is said in the same place. Counter orders for what filled still wait
-  for the order session.
+  ("after the restart (read once, at startup): 2 saved order(s) rest, 1 filled while the app was
+  closed, 1 missing, 0 not saved by the bot; nothing is placed and nothing listens to the exchange
+  until Resume opens the order session and books what filled since"). The read places and cancels
+  nothing; a read that fails is said in the same place. It is one read, not a live view: the
+  Orders panel of a Recovering bot shows the ladder as saved, with a note that an order may have
+  filled since and that the held quantity does not yet count it (`BUG-204`). Counter orders for
+  what filled wait for the order session.
+- **Resume takes a Recovering bot out of Recovering on the desktop** (`BUG-204`). It asks the
+  real-money question on a mainnet venue, opens the venue's order session (or says why it will
+  not, and the bot stays Recovering so Resume can be pressed again), and reconciles the bot with
+  the exchange: an order that filled while the bot was Recovering is booked once from the order
+  history, its counter order is laid at the next level, and no level is placed twice. The bot
+  returns to Running or Paused, or halts on a mismatch, naming it. Without Resume a restored bot
+  waited for some other action to open the session (starting another bot, a manual order), and Stop
+  waited for the same session.
 - A bot whose start the restart cut short (Starting when the app closed) comes back Halted, and the
   app cancels the orders carrying its tag as soon as the exchange lets it — when trading is enabled
   at the latest. Until then the bot says how many tagged orders still rest; a cancel the exchange

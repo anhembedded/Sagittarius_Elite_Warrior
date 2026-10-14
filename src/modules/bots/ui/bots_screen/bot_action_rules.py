@@ -78,6 +78,8 @@ def availability(
         return ActionAvailability(False, start.blocked_by)
     if action is BotAction.RESUME and start.resume_blocked_by:
         return ActionAvailability(False, start.resume_blocked_by)
+    if action is BotAction.RESUME and state is BotLifecycleState.RECOVERING:
+        return ActionAvailability(True, _RESUME_RECOVERING)
     return ActionAvailability(True, _WHAT_IT_DOES[action])
 
 
@@ -92,6 +94,12 @@ def _confirm_resume(state: BotLifecycleState) -> ActionAvailability:
 def _name(state: BotLifecycleState) -> str:
     return state.value.lower()
 
+
+_RESUME_RECOVERING = (
+    "Open the order session, book any order that filled while the app was closed "
+    "and put the bot back to work. Nothing is placed before the exchange agrees "
+    "with the saved ladder."
+)
 
 _WHAT_IT_DOES = {
     BotAction.START: (
