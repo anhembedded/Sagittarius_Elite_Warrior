@@ -52,6 +52,7 @@ BOTS_TOOLBAR = [
     "Resume",
     "Confirm resume",
     "Stop…",
+    "Export plan…",
 ]
 
 

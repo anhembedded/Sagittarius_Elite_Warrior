@@ -25,7 +25,12 @@ hosts the headless `run` and talks to bots through `bots/contracts/` alone
 (`src/modules/operations/application/host_steps.py:33-44`). The command-line verbs are
 `list`, `show`, `apply` and `export` of a plan (`src/modules/bots/cli/bot_verbs.py:82-87`). `alerting`
 does not consume bot events yet: its docstring says `EPIC-036B` brings those sources
-(`src/modules/alerting/module.py:3-6`).
+(`src/modules/alerting/module.py:3-6`). Writing a plan is shared by every bot kind and by two callers: the
+Bots mode's **Export plan…** (a menu item and a toolbar button, one `QAction`: `bots_commands.py` `EXPORT_PLAN`;
+dialog and flow in `ui/bots_screen/export_plan_dialog.py`, `plan_export_flow.py`) and `bot export` both dispatch
+`ExportBotPlanQuery` (`application/queries/export_bot_plan/`) and write through `adapters/plan_file.py`. Nothing on
+that path names a kind: `BotSnapshot.kind` and `config` pass through as opaque data and only the parser asks
+`IBotKindCatalog` (`test_bots_export_path_names_no_kind.py`, `test_export_of_a_second_kind.py`; `BOT-179`).
 
 Filled by: EPIC-041E.
 

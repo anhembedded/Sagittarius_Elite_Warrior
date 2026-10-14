@@ -197,11 +197,12 @@ def save_bot(
     name: str,
     config: dict[str, str] | None = None,
     venue: TradingVenue = TradingVenue.SPOT_TESTNET,
+    kind: str = "grid",
 ) -> None:
     """A stored bot with a name of the test's choosing (`helpers.seed` gives every bot one name)."""
     definition = BotDefinition(
         name=name,
-        kind="grid",
+        kind=kind,
         venue=venue,
         symbol="BTCUSDT",
         config=config or {"lower": "60000"},
