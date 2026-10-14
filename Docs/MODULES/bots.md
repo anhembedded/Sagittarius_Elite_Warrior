@@ -67,7 +67,7 @@ packages. Under `src/modules/bots/application/`:
   - `start/`: start preconditions, the start sequence and the interrupted start.
   - `stop/`: the stopper, stop sequence, request, retry and waiting, exit slices and the mark exit.
   - `watch/`: the range, risk, storage, terms and key watches, price age and reaction, the rate-limit pause, stream gap and tick extremes.
-  - `recovery/`: the reconciler, the recovery reader and the resume sequence.
+  - `recovery/`: the reconciler (with the missed fills it applies and the quantities it aligns, in their own files), the recovery reader and the resume sequence.
 
 The shell does not import a kind. Today's exceptions, files of the shell that still import Grid types, are
 listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt` and the list only shrinks

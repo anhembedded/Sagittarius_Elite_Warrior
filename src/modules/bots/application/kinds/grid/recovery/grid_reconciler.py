@@ -51,9 +51,7 @@ bot's inventory is still the exchange's.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
-from datetime import datetime
-from decimal import Decimal
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
@@ -65,9 +63,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_hous
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_missed_fills import (
+    GridMissedFills,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_order_quantities import (
     QuantityExceedsSaved,
     adopt_exchange_quantities,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.reconcile_outcome import (
+    ReconcileMismatch,
+    ReconcileWait,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check import (
     IExposureCheck,
@@ -83,13 +88,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
     LevelState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
-    Halt,
-    LadderRules,
-    LevelEnd,
-    LevelFill,
     adopted,
-    on_end,
-    on_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -103,31 +102,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
-    BUDGET_QUOTE_ASSET,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
-    TradeRecord,
-)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
-
-
-@dataclass(frozen=True, slots=True)
-class ReconcileMismatch:
-    """A step found the exchange and the ladder disagree, and why."""
-
-    reason: GridReason
-    detail: str
-
-
-@dataclass(frozen=True, slots=True)
-class ReconcileWait:
-    """The exchange did not answer a read: nothing was changed. What a
-    RECOVERING bot shows while it waits for the next try."""
-
-    reason: GridReason
-    detail: str
 
 
 #: `BUG-206` - what a bot the owner paused says once its reconcile put it back to PAUSED.
@@ -145,6 +121,7 @@ class GridReconciler:
         self._context = context
         self._exposure = exposure
         self._housekeeping = GridHousekeeping(context)
+        self._missed_fills = GridMissedFills(context)
 
     def run(self) -> None:
         state = self._context.state
@@ -188,7 +165,7 @@ class GridReconciler:
         # that fills in between is still listed open here and waits for the
         # next run, whereas read after it, the order would be gone from the
         # open orders while the history just read still shows it unexecuted,
-        # and `_apply_missed_fills` would drop it with no fill and no counter
+        # and `GridMissedFills.apply` would drop it with no fill and no counter
         # order (the review of PR 431, finding 3).
         open_orders = self._context.gateway.tagged_open_orders()
         registration = self._housekeeping.register()
@@ -206,7 +183,7 @@ class GridReconciler:
                 return ReconcileMismatch(
                     GridReason.ORDER_QUANTITY_MISMATCH, aligned.detail
                 )
-            applied = self._apply_missed_fills(aligned, open_orders, records)
+            applied = self._missed_fills.apply(aligned, open_orders, records)
             if isinstance(applied, ReconcileMismatch):
                 return applied
             outcome = self._adopt(applied, open_orders, records)
@@ -257,105 +234,6 @@ class GridReconciler:
         unknown = frozenset(order.client_order_id for order in open_orders) - known
         return self._context.gateway.order_records(known | unknown, since)
 
-    def _apply_missed_fills(
-        self,
-        runtime: GridRuntime,
-        open_orders: tuple[Order, ...],
-        records: dict[str, OrderRecord],
-    ) -> GridRuntime | ReconcileMismatch:
-        since = self._context.state.bot.lifecycle.run_started_at
-        if since is None:
-            return runtime
-        open_ids = {order.client_order_id for order in open_orders}
-        for saved in runtime.open_orders:
-            record = records.get(saved.client_order_id)
-            applied = self._catch_up(runtime, saved, record, since)
-            if isinstance(applied, ReconcileMismatch):
-                return applied
-            runtime = applied
-            if saved.client_order_id not in open_ids:
-                ended = self._end_missing(runtime, saved)
-                if isinstance(ended, ReconcileMismatch):
-                    return ended
-                runtime = ended
-        return runtime
-
-    def _catch_up(
-        self,
-        runtime: GridRuntime,
-        saved: LevelOrder,
-        record: OrderRecord | None,
-        since: datetime,
-    ) -> GridRuntime | ReconcileMismatch:
-        """What the order executed beyond what the bot counted, applied as a
-        fill, whether the order is gone from the exchange or still resting
-        (`BUG-188`: a partial fill of an open order missed in a gap)."""
-        missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
-        if missed <= 0 or record is None:
-            return runtime
-        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
-        fill = self._missed_fill(saved, record, missed, trades)
-        reaction = on_fill(runtime, fill, self._context.terms.step_size, hold=True)
-        halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
-        if halt is not None:
-            return ReconcileMismatch(halt.reason, halt.detail)
-        # The replay uses the stream's key (`EPIC-035P`): a trade this applied
-        # from history is not counted again when the stream delivers it late.
-        for trade in trades:
-            self._context.applied_fills.record(saved.client_order_id, trade.trade_id)
-        logger.info(
-            "Bot %s: reconcile %s executed %s since",
-            self._context.state.bot_id,
-            saved.client_order_id,
-            missed,
-        )
-        return reaction.runtime
-
-    def _end_missing(
-        self, runtime: GridRuntime, saved: LevelOrder
-    ) -> GridRuntime | ReconcileMismatch:
-        """An order missing from the exchange that is not whole ended without
-        filling: the level is laid again once, as the stream's end event does
-        (`BUG-187`); a fully filled one was settled by `_catch_up`."""
-        if runtime.level_of(saved.client_order_id) is None:
-            return runtime
-        terms = self._context.terms
-        reaction = on_end(
-            runtime,
-            LevelEnd(saved.client_order_id, self._context.state.now()),
-            LadderRules(terms.step_size, terms.min_notional),
-            hold=True,
-        )
-        halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
-        if halt is not None:
-            return ReconcileMismatch(halt.reason, halt.detail)
-        logger.info(
-            "Bot %s: reconcile %s missing from the exchange, ended without filling",
-            self._context.state.bot_id,
-            saved.client_order_id,
-        )
-        return reaction.runtime
-
-    def _missed_fill(
-        self,
-        saved: LevelOrder,
-        record: OrderRecord,
-        missed: Decimal,
-        trades: tuple[TradeRecord, ...],
-    ) -> LevelFill:
-        base = self._context.base_asset
-        base_fee = sum((t.fee for t in trades if t.fee_asset == base), Decimal(0))
-        quote_fee = sum(
-            (t.fee for t in trades if t.fee_asset == BUDGET_QUOTE_ASSET), Decimal(0)
-        )
-        return LevelFill(
-            saved.client_order_id,
-            record.average_price or saved.price,
-            missed,
-            base_fee=base_fee - saved.base_fee,
-            quote_fee=quote_fee - saved.quote_fee,
-        )
-
     def _adopt(
         self,
         runtime: GridRuntime,
@@ -391,7 +269,7 @@ class GridReconciler:
             # `EPIC-035Q`: the open-order list says nothing of what the order
             # already executed; history does. The adopted order starts there,
             # not at zero, as a saved one is brought level with it.
-            caught_up = self._catch_up(
+            caught_up = self._missed_fills.catch_up(
                 runtime, adoptee, records.get(order.client_order_id), since
             )
             if isinstance(caught_up, ReconcileMismatch):
