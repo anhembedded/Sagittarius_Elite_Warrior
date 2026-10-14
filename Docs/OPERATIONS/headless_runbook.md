@@ -82,6 +82,11 @@ BINANCE_SPOT_TESTNET_API_SECRET=<your spot testnet secret>
 
 A venue you do not use can be left out. The unit reads this file if it exists (`EnvironmentFile=-`).
 
+**The unit loads the four mainnet credential files even on a testnet-only server.** Its `LoadCredential=` lines name them, and systemd refuses to start the service when one is missing, with `status=243/CREDENTIALS` ("Failed to set up credentials"). This was observed on the first VPS install, on 2026-10-14 (systemd 255). A testnet-only server does one of two things:
+
+- **Create the four files empty**, the same command as for mainnet below. An empty credential reads as "no key". Use this when the server will later go to mainnet, because nothing changes then except filling the files in.
+- **Clear the list with a drop-in.** A `LoadCredential=` line with no value resets the unit's list, so the service starts without the files. Put it in the same drop-in as `--start-planned` (§8), and remove it before any mainnet venue.
+
 **Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands it to the service through `LoadCredential=`, so it is not in the service's environment and not inherited by a child process. The unit names four files; create all four, **empty for a venue you do not use** (an empty credential reads as "no key"; a missing file would stop the unit from starting):
 
 ```bash
@@ -221,6 +226,23 @@ sudo systemctl start sew-run
 - `bot apply` changes bots, so it needs the data root's lock: with the host running it exits `3` and changes nothing (control of a running host is `EPIC-038J`, decision O4). A real apply is a **writable boot**, so the restart rule runs first, as at any start: a bot saved as RUNNING or PAUSED becomes RECOVERING in its file (the same state the next `run` would have made it). `--dry-run` boots read-only and changes nothing, which is why it is safe beside a running host. A second apply of the same plan changes nothing. An entry that would edit a bot in a state the lifecycle forbids (it must be stopped first) is reported, not applied, and the command exits `2`; the other entries are applied.
 - `apply` records what the plan wants in **`state/bot_plan.json`** (beside the bots' files, keyed by bot id). **Only that applied record is what the host reads**, never the file you edit, so an edit counts once it has been applied.
 - **`run --start-planned`** starts the bots the applied plan says are running and that are at rest. It is not in the unit by default. With no applied plan, or a record that cannot be read, it exits **`5`** before anything boots, which the unit does not restart; so add it to the unit only after a plan has been applied. To add it, use a drop-in (`sudo systemctl edit sew-run`): write `[Service]`, an empty `ExecStart=`, then `ExecStart=` followed by the unit's own line with ` --start-planned` appended.
+
+  `systemctl edit` opens an editor. Its `--stdin` option needs systemd 256 or newer, and Ubuntu 24.04 ships 255, where it answers `unrecognized option '--stdin'`. To do it without an editor, write the drop-in file yourself:
+
+  ```bash
+  sudo mkdir -p /etc/systemd/system/sew-run.service.d
+  sudo tee /etc/systemd/system/sew-run.service.d/override.conf > /dev/null <<'EOF'
+  [Service]
+  ExecStart=
+  ExecStart=/opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py run --stop-timeout 25 --health-interval 60 --on-stop leave-orders --host-signal sdnotify --start-planned
+  EOF
+  sudo systemctl daemon-reload
+  sudo systemctl reset-failed sew-run
+  sudo systemctl restart sew-run
+  systemctl cat sew-run | grep -E "LoadCredential|ExecStart"   # the drop-in's lines come last and win
+  ```
+
+  On a testnet-only server without the four credential files (§3), add the line `LoadCredential=` under `[Service]` in the same file.
 - A bot on a **mainnet** venue is started only with `--confirm-venue <venue>` in the same line; without it the host exits `2` and starts nothing. One `--confirm-venue` names one venue.
 
 ## 9. Install on Windows (NSSM)
