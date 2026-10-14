@@ -26,6 +26,6 @@ Write the report's one-line `- **Board:**` field under its status: the symptom a
 
 ## 4. Update and close
 
-When diagnosis or implementation is authorised, follow `fix-bug-rule.md` and bring its established cause, changes, regression evidence and verification into this same report. Link a case study when that rule requires one. Keep the report Open while required fix verification is incomplete. `[review: K2]`
+When diagnosis or implementation is authorised, follow `fix-bug-rule.md` and bring its established cause, changes, regression evidence and verification into this same report; the before/after sequence diagrams live on the fix's pull request (`fix-bug-rule.md` §6.1), so the report links to it rather than copying them. Link a case study when that rule requires one. Keep the report Open while required fix verification is incomplete. `[review: K2]`
 
 Only after the fix meets its verification requirements, move the report to `completed/` (`git mv` for a tracked file), set Fixed with the date and rewrite its `Board` line to name the root cause and the fix. Complete ONBOARDING §6's bookkeeping. This record transition does not itself claim the fix was committed, pushed or merged; state delivery truthfully in the user report. `[guard: test_task_board_is_consistent.py; review: K2]`

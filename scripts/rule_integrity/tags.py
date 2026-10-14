@@ -42,6 +42,7 @@ GATE_STEPS: dict[str, tuple[str, str]] = {
     "run-log scan": (CI_SCRIPT, "Invoke-RunLogScan"),
     "reference check": (CI_SCRIPT, "check_skill_prompt_references.py"),
     "commit lint": (".github/workflows/commit-lint.yml", "check_commit_messages.py"),
+    "fix pr body": (".github/workflows/commit-lint.yml", "check_fix_pr_body.py"),
     "pre-commit hook": (".claude/settings.json", "pre_tool_use.py"),
 }
 
