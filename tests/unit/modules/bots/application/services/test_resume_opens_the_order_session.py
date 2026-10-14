@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budgets import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
     SpotGridBudgets,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_preconditions import (
     GridStartPreconditions,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (

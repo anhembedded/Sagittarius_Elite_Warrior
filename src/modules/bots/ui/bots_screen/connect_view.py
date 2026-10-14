@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.account_view import (
-    account_view_of,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
-    ACCOUNT_UNREADABLE_STATE,
-    state_words,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     ConnectionRead,
     ConnectionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.account_view import (
+    account_view_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
+    ACCOUNT_UNREADABLE_STATE,
+    state_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     venue_profile_of,

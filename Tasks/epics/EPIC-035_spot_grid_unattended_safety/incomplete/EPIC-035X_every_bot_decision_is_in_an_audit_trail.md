@@ -11,7 +11,7 @@
 ---
 
 ## 1. Context and problem
-The owner had to read a raw dev log to learn why the bot cancelled all its orders (`RUNNING -> HALTED on halt (inventory_mismatch …)`); the UI did not explain it. Decisions live in log lines, which rotate, mix with everything else and carry no stable reason code. Verify the current record on the running app and in `src/modules/bots/application/services/bot_run_state.py` before coding.
+The owner had to read a raw dev log to learn why the bot cancelled all its orders (`RUNNING -> HALTED on halt (inventory_mismatch …)`); the UI did not explain it. Decisions live in log lines, which rotate, mix with everything else and carry no stable reason code. Verify the current record on the running app and in `src/modules/bots/application/services/lifecycle/bot_run_state.py` before coding.
 
 This task is specified briefly: it is Phase 3 — Alerting and transparency. The full acceptance criteria are re-confirmed against the code when the task is started (`execute-task`). A claim that does not hold is said so here and reported.
 

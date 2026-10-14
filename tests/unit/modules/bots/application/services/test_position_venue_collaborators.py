@@ -11,22 +11,22 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exposure_check_futures import (
-    PositionExposureCheck,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budgets import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budgets import (
     FuturesGridBudgets,
     GridBudgetsByProfile,
     SpotGridBudgets,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_flags_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_flags_futures import (
     PositionOrderFlags,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.symbol_brackets import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.exposure_check_futures import (
+    PositionExposureCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.symbol_brackets import (
     BracketsUnavailableError,
     SymbolBrackets,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (

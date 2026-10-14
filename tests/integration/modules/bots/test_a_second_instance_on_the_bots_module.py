@@ -20,7 +20,7 @@ from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_acces
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (

@@ -13,7 +13,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     BotIdentity,
     BotOrderGateway,
     OrderOutcomeKind,

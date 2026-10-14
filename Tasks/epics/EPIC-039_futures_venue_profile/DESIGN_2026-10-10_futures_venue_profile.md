@@ -21,7 +21,7 @@
 | Leverage and margin control | `trading/contracts/i_futures_settings_control.py` (set leverage, set margin type; refuse with an open position) and `futures_symbol_setting.py` (`leverage`, `margin_type`, `max_notional`) | position mode is not controllable here ("plausible extension") |
 | Brackets | `leverage_brackets.py` (`initial_leverage`, `notional_floor/cap`, `maintenance_margin_rate`, `maintenance_amount`) | read via `IOrderEntryTerms` |
 | Liquidation estimate | `trading/contracts/liquidation_estimate.py` — `LiquidationTerms(side, quantity, entry_price, margin, maintenance_margin_rate, maintenance_amount)` → `estimated_liquidation_price()`; Binance's one-way formula; **an estimate** (optimistic under cross margin; funding not counted) | the type forbids passing it where an exchange-reported price belongs |
-| Positions | `live_position.py` — one-way only; direction from the sign of `position_amt`; `liquidation_price` read from the exchange, never computed | Hedge Mode refused at connection time (`ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED`; words in `bots/application/services/connect_failure_words.py:52`) |
+| Positions | `live_position.py` — one-way only; direction from the sign of `position_amt`; `liquidation_price` read from the exchange, never computed | Hedge Mode refused at connection time (`ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED`; words in `bots/application/services/venue/connect_failure_words.py:52`) |
 | Mark price | `mark_price.py` (`GET /fapi/v1/premiumIndex`, mark price only — **no funding fields**) | |
 | Reduce-only | `Order.reduce_only` (`trading/contracts/order.py`) | the fake refuses a non-reducing one with `-2022` |
 | Conditional (stop) orders | `adapters/binance/futures_algo_order_mapper.py`, `algo_update_parser.py`, `algo_order_links.py` — Binance's Algo Order API | `EPIC-028R` |
@@ -34,22 +34,22 @@
 | :-: | :--- | :--- |
 | 1 | `domain/bot.py:120` | `venue_locked_reason`: "Only a Spot bot can change its venue." |
 | 2 | `domain/bot.py:136` | `moved_to`: refuses a non-Spot venue |
-| 3 | `application/services/bot_run_facts.py:60` | `_venue_problem`: "… is not a Spot venue this app trades on" |
-| 4 | `application/services/planner_numbers.py:59` | the planner's numbers only for Spot |
+| 3 | `application/services/readiness/bot_run_facts.py:60` | `_venue_problem`: "… is not a Spot venue this app trades on" |
+| 4 | `application/kinds/grid/planner_numbers.py:59` | the planner's numbers only for Spot |
 | 5 | `application/queries/get_planner_market/handler.py:72` | planner market read passes `MarketType.SPOT` |
 | 6–8 | `application/queries/run_grid_backtest/handler.py:70,86,97` | backtest candles and filters are Spot |
-| 9 | `application/services/exchange_facts_reader.py:63-64,183` | the readiness snapshot reads `SpotHolding` |
+| 9 | `application/services/venue/exchange_facts_reader.py:63-64,183` | the readiness snapshot reads `SpotHolding` |
 
 **In `ui/` (6):** `strategies/arm_strategy_dialog.py:94` (`fields.setRowVisible(self.leverage, venue.market_type is not MarketType.SPOT)`, the arm-strategy dialog's leverage row, the one UI site that already branches the other way), `bots_screen/venue_choice.py:48` (the venue picker lists only Spot venues), `bots_screen/bot_chart_host.py:80` (chart market defaults to SPOT), `bots_screen/bots_presenter.py:118` (`BotTickFeed(…, MarketType.SPOT)`), `kinds/grid/backtest/grid_backtest.py:47` and `grid_backtest_presenter.py:262` (backtest market). Text that says "Spot" for the user: `bot_plan_panel.py:210,228`, `bot_venues.py:64`, `bot_commands.py:54`.
 
-**Already generic (leave alone):** `application/services/bot_price_watch.py:178` (opens the stream for `bot.definition.venue.market_type`), `application/event_handlers/bot_event_router.py:123` (matches a tick to an executor by market type and market-data venue).
+**Already generic (leave alone):** `application/services/watches/bot_price_watch.py:178` (opens the stream for `bot.definition.venue.market_type`), `application/event_handlers/bot_event_router.py:123` (matches a tick to an executor by market type and market-data venue).
 
 **Spot *meaning* that is not a branch** (these are the deeper changes):
-- the ladder's SELL levels are covered by an **opening MARKET BUY** and sized net of its base fee (`domain/grid/grid_plan.py`, `application/services/grid_start_sequence.py`);
-- readiness is about **base and quote balances** and "base short for sells" (`application/services/exchange_rules.py:201,229`, `contracts/exchange_facts.py`);
+- the ladder's SELL levels are covered by an **opening MARKET BUY** and sized net of its base fee (`domain/grid/grid_plan.py`, `application/kinds/grid/start/grid_start_sequence.py`);
+- readiness is about **base and quote balances** and "base short for sells" (`application/services/venue/exchange_rules.py:201,229`, `contracts/exchange_facts.py`);
 - the **owner budget** is "open BUY quote plus the inventory at cost" and the inventory is **derived from the exchange's history of tagged orders** (`trading/contracts/owner_budget.py`, `trading/application/owner_inventory_deriver.py`, ADR D6) — its docstring already names "a Futures owner: the inventory becomes a position";
 - Stop asks `BaseHandling.KEEP | SELL_AT_MARKET` (`contracts/i_bot_executor.py`); a stop loss or take profit forces SELL (`grid_price_reaction.py`);
-- the reconciler's `inventory_mismatch` (`application/services/grid_reconciler.py`);
+- the reconciler's `inventory_mismatch` (`application/kinds/grid/recovery/grid_reconciler.py`);
 - the bots' `AccountView.available_quote` (`domain/bot_kind_inputs.py`) — Futures has margin, not a quote balance.
 
 ### 1.3 The seam the code already announced

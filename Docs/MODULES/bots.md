@@ -31,7 +31,7 @@ Filled by: EPIC-041E.
 
 ## 2. Components
 
-`BotRunner` (`src/modules/bots/application/services/bot_runner.py`) takes a command from a use case
+`BotRunner` (`src/modules/bots/application/services/lifecycle/bot_runner.py`) takes a command from a use case
 and hands it to `BotExecutors` (`.../bot_executors.py:25`), which holds one executor per bot. For the
 Grid kind that is `GridExecutor` (`.../grid_executor.py:125`), built by `GridExecutorFactory`
 (`.../grid_executor_factory.py`) with a `BotOrderGateway` (`.../bot_order_gateway.py:112`), the
@@ -44,6 +44,29 @@ kind plugs in through one seam, `IBotKind` (`src/modules/bots/contracts/i_bot_ki
 `supported_profiles`, `validate`, `overlay` and `executor_factory`. The backtest-side components
 change in `EPIC-040B` (one kind-neutral result and simulator port); the strategy kind is a second
 `IBotKind` in `EPIC-040G`.
+
+**Where the code lives.** The application services are split first by kind, then by feature
+(`BOT-177`). A path written `.../name.py` above is the file of that name in one of these
+packages. Under `src/modules/bots/application/`:
+
+- `services/` is the shell every bot kind shares, and nothing sits loose in it:
+  - `lifecycle/`: the runner, run state, executors registry, command gate and lock, restore and boot recovery, lookup, the read-only runner and store, the notifying store, the kind catalog and the health contributor.
+  - `orders/`: the order gateway, order history and outcome, order flags (Spot and Futures), the order-session opening and applied fills.
+  - `venue/`: what the venue allows and costs: facts, needs, profiles, rules and the settings gates, symbol brackets and status, the Futures rules and start checks, the mark source, account and funding views, exchange terms.
+  - `positions/`: exposure books and checks, closers, opening strategies and cost models, each Spot/Futures pair side by side.
+  - `risk/`: the risk guards and risk reads.
+  - `readiness/`: the readiness reader and assessment, resume readiness, the progress reader and run facts.
+  - `watches/`: the price, user-stream and sleep watches, the clock-gap detector, the wake-exit check and streamed fine klines.
+- `kinds/grid/` is everything that knows the Grid; a second kind gets its own `kinds/<kind>/` beside it:
+  - the package itself: the executor and its factory, facts, ladder placer, run context, runtime codec, task guard, budgets, exposures, housekeeping, parking, margin mode, order failure, earlier runs, reference price, ladder needs, off-ladder orders, planner numbers and the Futures backtest terms.
+  - `start/`: start preconditions, the start sequence and the interrupted start.
+  - `stop/`: the stopper, stop sequence, request, retry and waiting, exit slices and the mark exit.
+  - `watch/`: the range, risk, storage, terms and key watches, price age and reaction, the rate-limit pause, stream gap and tick extremes.
+  - `recovery/`: the reconciler, the recovery reader and the resume sequence.
+
+The shell does not import a kind. Today's exceptions, files of the shell that still import Grid types, are
+listed in `tests/unit/architecture/baseline_bots_shell_imports_a_kind.txt` and the list only shrinks
+(`tests/unit/architecture/test_bots_services_stay_grouped.py`).
 
 Filled by: EPIC-040B (backtest components), EPIC-040G (strategy kind), EPIC-041E (the rest).
 
@@ -58,7 +81,7 @@ reconcile's to decide). A `RECOVERING` bot leaves it by `reconcile_ok`, which re
 came from (`:137`, `PRIOR`), by `reconcile_mismatch`, `halt`, `fault` or `stop`; the reconcile runs when
 the venue's order session opens, which the owner's Resume now asks for. A restart
 turns `RUNNING` and `PAUSED` into `RECOVERING` and `STARTING` into `HALTED`
-(`src/modules/bots/application/services/bot_restore_service.py`). Each Grid level has its own machine
+(`src/modules/bots/application/services/lifecycle/bot_restore_service.py`). Each Grid level has its own machine
 in `src/modules/bots/domain/grid/grid_level_fsm_matrix.py:28-80`: five states (`EMPTY`, `PLACING`,
 `RESTING`, `PARTIAL`, `FILLED`) and seven events. Design: ADR 029 §3.1 and §3.2. By decision D4 these
 tables become generated diagrams with a drift test, in the task that fills this view.
@@ -129,11 +152,11 @@ The constants that decide when a bot waits, retries, pauses or halts:
 | :--- | :--- | :--- |
 | Price is stale after; grace at start | 60 s; 60 s | `src/modules/bots/domain/grid/price_freshness.py:23-24` |
 | A reference price older than this is refused | 10 s | `src/modules/bots/domain/grid/reference_price.py:22` |
-| Every bot's feed is checked every | 5 s | `src/modules/bots/application/services/bot_price_watch.py:80` |
+| Every bot's feed is checked every | 5 s | `src/modules/bots/application/services/watches/bot_price_watch.py:80` |
 | Order pacer default caps: open orders, spacing, orders per minute | 100; 250 ms; 60 | `src/modules/trading/contracts/owner_budget.py:122-127` |
-| User stream down for this long halts; reconciled every; checked every | 120 s; 300 s; 15 s | `src/modules/bots/application/services/user_stream_watch.py:70-76` |
-| Sleep: heartbeat; a gap over this is a sleep; fresh-price attempts and spacing | 15 s; 60 s; 4 × 15 s | `src/modules/bots/application/services/sleep_watch.py:60-66` |
-| Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/services/grid_stop_retry.py:53-59` |
+| User stream down for this long halts; reconciled every; checked every | 120 s; 300 s; 15 s | `src/modules/bots/application/services/watches/user_stream_watch.py:70-76` |
+| Sleep: heartbeat; a gap over this is a sleep; fresh-price attempts and spacing | 15 s; 60 s; 4 × 15 s | `src/modules/bots/application/services/watches/sleep_watch.py:60-66` |
+| Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py:53-59` |
 | Rate-limit pause: margin, longest wait, most automatic resumes | 2 s; 1 h; 5 | `src/modules/bots/domain/grid/rate_limit_pause.py:21-23` |
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py:113` |
 

@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_read
     GetBotReadinessQuery,
     GetBotReadinessQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_command_lock import (
     BotCommandLock,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (

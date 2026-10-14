@@ -10,7 +10,7 @@ halt that does not try a cancel it cannot make.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_key_probe import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_key_probe import (
     KEY_PROBE_EVERY_SECONDS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (

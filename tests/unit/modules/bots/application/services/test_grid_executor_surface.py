@@ -7,10 +7,10 @@ repository-wide guard that covers `src/modules/bots`.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
     GridExecutor,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_facts import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_facts import (
     GridFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (

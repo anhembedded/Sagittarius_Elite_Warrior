@@ -16,7 +16,7 @@
 ## 1. Context
 ✅ A new Grid bot on `master-warrior` 2889775 could not start, and nothing told the owner why:
 - **The reason is computed but never shown.** `ActionAvailability.reason` (`src/modules/bots/ui/bots_screen/bot_action_rules.py:63-87`) is not displayed; `bots_command_binding.py:7-10` records this as accepted in `EPIC-033D`. Only a refused plan reaches the user (`bot_plan_panel.py:123-127`).
-- **Five refusals surface only after the click:** trading off, venue not enabled, the symbol lease, the budget, another active bot (`application/services/grid_start_preconditions.py:68-109`). They appear in a status label (`bots_presenter.py:355`).
+- **Five refusals surface only after the click:** trading off, venue not enabled, the symbol lease, the budget, another active bot (`application/kinds/grid/start/grid_start_preconditions.py:68-109`). They appear in a status label (`bots_presenter.py:355`).
 - **The bot chart is silent.** It goes live only for a started bot (`bot_chart_host.py:43,108-110`). Its four messages go out on `LiveCandleChart.logged`, which the Bots module never connects (`live_chart_coordinator.py:117-170`); the Desk does (`desk_presenter.py:214`).
 - **The venue reads as an identifier** (`bots_table_models.py:71`, `bot_facts.py:82`, `new_bot_dialog.py:94`). The status bar reports the app's primary venue, not the bot's (`connection_words.py:51-57`).
 - **The balance is checked only at Start**, when trading registers the owner budget (`grid_start_preconditions.py:100`). The plan's other checks run before the click (`domain/grid/grid_checks.py`).

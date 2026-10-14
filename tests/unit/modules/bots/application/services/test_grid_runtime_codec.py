@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     GridRuntimeCodecError,
     decode_runtime,
     encode_runtime,
