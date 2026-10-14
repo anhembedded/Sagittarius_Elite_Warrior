@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
+    encode_runtime,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
     GetBotQueryHandler,
@@ -27,13 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     ListBotsQuery,
     ListBotsQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
-    encode_runtime,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.notifying_bot_store import (
     NotifyingBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (

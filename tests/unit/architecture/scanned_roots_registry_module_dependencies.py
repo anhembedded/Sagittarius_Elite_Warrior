@@ -23,4 +23,9 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
         "tests/unit/architecture/test_bots_decide_the_market_in_one_place.py",
         (("src/modules/bots", "*.py"),),
     ),
+    # `BOT-177` - the bots service shell stays grouped and kind-neutral.
+    (
+        "tests/unit/architecture/test_bots_services_stay_grouped.py",
+        (("src/modules/bots/application/services", "*.py"),),
+    ),
 )

@@ -26,11 +26,11 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
-    BotExecutors,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
     GridExecutor,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
+    BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotFundingCharge,

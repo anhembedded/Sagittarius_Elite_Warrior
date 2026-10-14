@@ -15,7 +15,7 @@ import logging
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_retry import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stop_retry import (
     STOP_RETRY_DELAYS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (

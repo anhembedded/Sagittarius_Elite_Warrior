@@ -24,10 +24,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     decode_runtime,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.notifying_bot_store import (
     NotifyingBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (

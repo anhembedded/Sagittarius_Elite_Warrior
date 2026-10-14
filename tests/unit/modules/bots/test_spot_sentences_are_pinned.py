@@ -10,11 +10,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
-    BotRunFactsReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_numbers import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
     read_planner_numbers,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
+    BotRunFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,

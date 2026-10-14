@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind

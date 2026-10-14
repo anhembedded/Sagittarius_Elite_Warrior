@@ -12,10 +12,10 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue import (
     exchange_rules,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
     CAPITAL_FIELD,
     CHECKING_THE_EXCHANGE,
     RULES,

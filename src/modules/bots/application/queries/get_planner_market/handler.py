@@ -15,15 +15,15 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
+    read_planner_numbers,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market.query import (
     GetPlannerMarketQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market.result import (
     PlannerMarket,
     SuggestedRange,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_numbers import (
-    read_planner_numbers,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (

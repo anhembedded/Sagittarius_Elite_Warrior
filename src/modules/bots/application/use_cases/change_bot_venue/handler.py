@@ -9,10 +9,10 @@ other, so a screen showing the bot reads it again.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closed_venue import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
     closed_venue_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue.command import (

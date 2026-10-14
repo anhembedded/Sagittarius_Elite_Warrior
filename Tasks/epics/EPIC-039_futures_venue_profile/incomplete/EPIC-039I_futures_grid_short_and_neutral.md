@@ -34,9 +34,9 @@ Nothing new in structure: direction is data of the plan (039B), the collaborator
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `bots/application/services/opening_futures.py`, `closer_futures.py` | direction-aware (a sign) — no new files unless size forces a split |
+| `bots/application/services/positions/opening_futures.py`, `closer_futures.py` | direction-aware (a sign) — no new files unless size forces a split |
 | `bots/domain/grid/grid_params.py`, `grid_plan.py` | stop-loss / take-profit sides per direction |
-| `bots/application/services/risk_guard_futures.py` | per-edge estimates |
+| `bots/application/services/risk/risk_guard_futures.py` | per-edge estimates |
 | `tests/integration/modules/bots/` | the parametrised direction suite |
 
 ## 5. Testing

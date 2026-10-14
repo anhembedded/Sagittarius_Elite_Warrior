@@ -11,13 +11,13 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.futures_facts_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.futures_facts_reader import (
     FuturesFactsReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_facts_by_profile import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_facts_by_profile import (
     VenueFactsByProfile,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (

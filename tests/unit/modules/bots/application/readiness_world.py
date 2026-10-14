@@ -8,13 +8,13 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_readiness_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_readiness_reader import (
     BotReadinessReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_facts_reader import (
     ExchangeFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot

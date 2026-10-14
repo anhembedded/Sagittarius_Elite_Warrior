@@ -42,7 +42,7 @@ The stop is state owned by the executor with the same persistence discipline as 
 | File | Change |
 | :--- | :--- |
 | `bots/application/services/protective_stop.py` (new) | place, record, cancel-after-flat, adopt, orphan cleanup |
-| `bots/application/services/grid_reconciler.py` (via the exposure-check seam, 039H) | adopt/orphan rules |
+| `bots/application/kinds/grid/recovery/grid_reconciler.py` (via the exposure-check seam, 039H) | adopt/orphan rules |
 | `bots/domain/grid/grid_runtime.py` | the stop's ids on the runtime and in the codec (`grid_runtime_codec.py`, version-safe) |
 | `trading/…` (only if 026K's mapping is not enough) | the bot-owned stop through `IOrderSubmission` |
 | `Docs/OPERATIONS/…` or the task notes | the soak checklist |

@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
     state_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (

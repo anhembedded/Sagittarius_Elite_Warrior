@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_session_opening import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_session_opening import (
     order_session_refusal_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (

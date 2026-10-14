@@ -12,7 +12,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_facts_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_facts_reader import (
     ExchangeFactsReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (

@@ -17,29 +17,29 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closer_spot import (
-    SpotExposureCloser,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exposure_check_spot import (
-    SpotExposureCheck,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_exposures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exposures import (
     ExposureKindNotBuiltError,
     GridExposure,
     GridExposures,
     spot_exposure,
     spot_only_exposures,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.opening_spot import (
-    SpotOpening,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.order_flags_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.order_flags_spot import (
     SpotOrderFlags,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_profiles_by_market import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.closer_spot import (
+    SpotExposureCloser,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.exposure_check_spot import (
+    SpotExposureCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.positions.opening_spot import (
+    SpotOpening,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_profiles_by_market import (
     VenueProfilesByMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (

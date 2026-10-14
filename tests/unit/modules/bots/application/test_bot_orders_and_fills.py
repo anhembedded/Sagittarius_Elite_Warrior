@@ -6,6 +6,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
+    encode_runtime,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     GetBotFillsQuery,
     GetBotFillsQueryHandler,
@@ -13,9 +16,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fill
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
     ListBotsQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
-    encode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (

@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeReadinessReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (

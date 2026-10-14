@@ -12,7 +12,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.sleep_watch import (
     DEFAULT_SLEEP_LIMITS,
     SleepLimits,
 )

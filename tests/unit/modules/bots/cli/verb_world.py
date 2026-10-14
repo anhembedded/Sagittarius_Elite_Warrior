@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.export_bot_p
     ExportBotPlanQuery,
     ExportBotPlanQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue_settings_gate_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.venue_settings_gate_futures import (
     FuturesSettingsGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import MarginMode

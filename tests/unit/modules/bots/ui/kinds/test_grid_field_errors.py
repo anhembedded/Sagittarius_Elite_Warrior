@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
     CAPITAL_FIELD,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_grid_checks import (

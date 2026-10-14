@@ -23,7 +23,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
@@ -85,7 +85,7 @@ def started(exchange: FakeServerUrls) -> Iterator[list[RunChild]]:
 #: No market-data websocket: the fake exchange speaks REST only, and a bot that is not at
 #: rest asks for a price stream at boot, which would reach the real public host.
 NO_PRICE_STREAMS = """
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services import bot_price_watch
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches import bot_price_watch
 
 bot_price_watch.BotPriceWatch.start = lambda self: None
 bot_price_watch.BotPriceWatch.on_bot_changed = lambda self, event: None

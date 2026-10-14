@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_watch import (
     DEFAULT_USER_STREAM_LIMITS,
     UserStreamWatch,
 )

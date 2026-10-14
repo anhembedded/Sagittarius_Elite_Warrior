@@ -19,10 +19,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
-    field_verdicts,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     MARKET_NOT_READ,
     ConnectionRead,
     ConnectionState,
@@ -30,9 +27,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_a
     RunFacts,
     assess_readiness,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeInputs,
     assess_resume,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
+    field_verdicts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,

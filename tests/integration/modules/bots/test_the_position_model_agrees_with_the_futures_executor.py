@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_exchange_terms import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
     exchange_terms_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (

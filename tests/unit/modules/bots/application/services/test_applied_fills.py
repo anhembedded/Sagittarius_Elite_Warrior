@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.applied_fills import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.applied_fills import (
     AppliedFills,
 )
 

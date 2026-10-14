@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.closed_venue import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
     closed_venue_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot.command import (

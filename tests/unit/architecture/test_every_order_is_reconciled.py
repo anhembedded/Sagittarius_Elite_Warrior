@@ -50,7 +50,7 @@ _EXECUTE_ORDER = "src/modules/trading/application/orders/execute_order/handler.p
 #: Where a bot-side deliberate action opens the session, through `order_session_opening`
 #: (`BUG-202`), the one place that calls `ensure_ready` for a bot and words its refusal.
 _BOT_SESSION_OPENERS = {
-    "src/modules/bots/application/services/grid_start_preconditions.py": (
+    "src/modules/bots/application/kinds/grid/start/grid_start_preconditions.py": (
         "Start bot, and Resume from HALTED or RECOVERING (`open_session_for_resume`, "
         "asked by `BotRunner.resume` behind the read-only guard; `BUG-204`)"
     ),
@@ -63,7 +63,7 @@ _BOT_SESSION_OPENERS = {
 
 #: Where `ensure_ready()` may be called from, and why.
 _ENSURE_READY_CALLERS = {
-    "src/modules/bots/application/services/order_session_opening.py": (
+    "src/modules/bots/application/services/orders/order_session_opening.py": (
         "every bot-side open (`BUG-202`); its callers are fixed by "
         "`_BOT_SESSION_OPENERS`"
     ),
@@ -81,7 +81,7 @@ _LIVE_ORDER_CALLERS = {
     "src/modules/trading/ui/desk/order_entry/order_entry_presenter.py": (
         "the manual order: sends `opens_session=True`, so the handler reconciles"
     ),
-    "src/modules/bots/application/services/bot_order_gateway.py": (
+    "src/modules/bots/application/services/orders/bot_order_gateway.py": (
         "a bot's order: Start bot opened the session (`GridStartPreconditions`)"
     ),
     "src/modules/strategy/application/services/live_trading_coordinator.py": (
