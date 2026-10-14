@@ -5,7 +5,7 @@
 **Risk:** 🟢 — low; documents and generated indexes
 **Complexity:** S — one generator and one guard
 **Epic:** [EPIC-041](../README.md)
-**Depends on:** [EPIC-041A](EPIC-041A_docs_skeleton.md)
+**Depends on:** [EPIC-041A](../completed/EPIC-041A_docs_skeleton.md)
 
 ---
 

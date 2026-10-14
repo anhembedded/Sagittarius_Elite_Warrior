@@ -1,3 +1,5 @@
+Status: Current
+
 # Exit codes
 
 The process exit status of every command-line command. A supervisor, a cron job

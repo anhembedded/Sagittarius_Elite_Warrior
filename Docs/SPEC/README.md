@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC — what the application does, one use case per file
 
 This is the **behaviour** specification: what a person does with this app, step by step, and

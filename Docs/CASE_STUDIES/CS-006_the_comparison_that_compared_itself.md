@@ -1,5 +1,5 @@
+Status: Current
 # CS-006 — The comparison that compared itself
-
 `EPIC-025` PR #226's `f76d5ced` claimed two Dev Board integration test failures were "confirmed
 pre-existing" from a `git worktree` comparison against `master-warrior`. An independent PR review
 reproduced both cleanly passing on `master-warrior` (3/3) and failing identically on the PR branch

@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-004 — The order session opens with the first action that trades, and Emergency stop closes it
 
 - **Status:** ✅ built and proven

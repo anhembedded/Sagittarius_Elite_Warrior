@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-014 — Run a Grid bot
 
 - **Status:** ✅ built and proven (the run on Spot Testnet is the user's, §8)

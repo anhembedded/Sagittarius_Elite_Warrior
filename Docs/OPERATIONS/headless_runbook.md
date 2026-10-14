@@ -1,3 +1,5 @@
+Status: Current
+
 # Headless runbook: install, run, stop, upgrade and diagnose on a server
 
 `EPIC-038H`. For a person who has a fresh Linux VPS (systemd) or a Windows server and wants the app to run the bots there with no window, as a service. Journey: [`SPEC-015`](../SPEC/SPEC-015_run_the_bots_headless.md) · exit codes: [`exit_codes.md`](exit_codes.md) · logs and the health line: [`LOGGING.md`](LOGGING.md).

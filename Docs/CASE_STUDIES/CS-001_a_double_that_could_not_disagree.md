@@ -1,5 +1,5 @@
+Status: Current
 # CS-001 — A double that could not disagree
-
 `BUG-124` · shipped in PR 1.5a · Start on the Welcome screen did nothing.
 [report](../../Tasks/bug_report/completed/BUG-124_welcome_start_called_publish_on_the_engine_event_bus.md)
 · follow-up [`BUG-125`](../../Tasks/bug_report/completed/BUG-125_ilogger_has_no_exception_and_printf_args_are_dropped.md): reading this page's own list below found two more, same file

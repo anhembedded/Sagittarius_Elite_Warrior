@@ -1,3 +1,5 @@
+Status: Current
+
 # §11 — The desktop workbench: QtWidgets only, the OS theme, panels and dialogs instead of cards
 
 - **Status:** 🟢 User decisions 2026-09-13 (ADR D20, D21, D22). Where this section and §4 differ, this

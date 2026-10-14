@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-011 — Start the app, and choose developer mode
 
 - **Status:** ✅ built and proven

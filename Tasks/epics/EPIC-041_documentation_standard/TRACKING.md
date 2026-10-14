@@ -21,7 +21,7 @@ gantt
     Epic, decision and sub-tasks written  :done,    s1, 2026-10-14, 1d
 
     section Phase 1 - Map and links
-    041A Docs skeleton (first)           :         a, after s1, 1d
+    041A Docs skeleton (first)           :done,    a, after s1, 1d
     041B Doc to rule links checked        :         b, after a, 2d
     041C Decisions index                  :         c, after a, 1d
 
@@ -45,7 +45,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-041A | [Docs skeleton](incomplete/EPIC-041A_docs_skeleton.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-041A | [Docs skeleton](completed/EPIC-041A_docs_skeleton.md) | `claude/epic-041a-docs-skeleton` | 🟢 | ✅ Done | 2026-10-14 |
 | EPIC-041B | [Doc to rule links checked both ways](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-041C | [Decisions index](incomplete/EPIC-041C_decisions_index.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-041D | [App context and module map](incomplete/EPIC-041D_app_context_and_module_map.md) | — | 🟡 | 🔵 Planned | — |
@@ -62,6 +62,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-14 | Spec | Epic scaffolded with nine sub-tasks and the documentation-philosophy decision. |
+| 2026-10-14 | 041A | Documentation skeleton delivered: map, status lines, four homes, `bots` skeleton, "Docs touched" rule. |
 
 ---
 

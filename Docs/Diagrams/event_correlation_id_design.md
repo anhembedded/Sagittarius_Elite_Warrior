@@ -1,3 +1,5 @@
+Status: Historical
+
 # Thiết kế Kiến trúc: `correlation_id` — phân biệt event của action nào, màn hình nào (BOT-121/BOT-122)
 
 **Trạng thái:** ✅ Đã triển khai — 2026-08-31. Ví dụ cụ thể đang chạy: `SingleSyncProgressEvent`

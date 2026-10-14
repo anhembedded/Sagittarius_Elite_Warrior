@@ -1,3 +1,5 @@
+Status: Historical
+
 # §4 — Surfaces and contribution points
 
 > **Rendering superseded by §11 (2026-09-13, ADR D20–D22):** the places, surfaces and the

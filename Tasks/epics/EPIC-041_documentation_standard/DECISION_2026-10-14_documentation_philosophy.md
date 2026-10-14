@@ -53,6 +53,6 @@ The suggestion assessed was: arc42 at app level, C4 context and container views,
 | D1 | [EPIC-041B](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | Not started | Not yet verified |
 | D2, D3, D8 | [EPIC-041D](incomplete/EPIC-041D_app_context_and_module_map.md), [EPIC-041E](incomplete/EPIC-041E_bots_module_doc.md), [EPIC-041G](incomplete/EPIC-041G_runtime_crosscutting_security_quality.md), [EPIC-041I](incomplete/EPIC-041I_retire_hld_sdd_and_guard_vocabulary.md) | Not started | Not yet verified |
 | D4 | [EPIC-041C](incomplete/EPIC-041C_decisions_index.md), 041E, 041F, 041H | Not started | Not yet verified |
-| D5, D6, D7 | [EPIC-041A](incomplete/EPIC-041A_docs_skeleton.md) | Not started | Not yet verified |
+| D5, D6, D7 | [EPIC-041A](completed/EPIC-041A_docs_skeleton.md) | Delivered | `Docs/README.md`; every `Docs/**/*.md` starts with a `Status:` line; the "Docs touched" clause in `task-execution-rule.md`. D7 is applied by the new home READMEs; no guard yet (`041B`) |
 | D9 | [EPIC-041F](incomplete/EPIC-041F_quality_metrics_data.md) | Not started | Not yet verified |
 | D10 | [EPIC-041H](incomplete/EPIC-041H_dependency_register_audit_licences.md) | Waiting for O1 | Not yet verified |
