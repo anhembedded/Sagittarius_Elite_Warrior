@@ -52,6 +52,11 @@ def _money(value: Decimal | None) -> str:
     return NO_VALUE if value is None else write_value(ColumnKind.MONEY, float(value))
 
 
+#: What a RECOVERING bot says first: it waits, and Resume is the action that continues it.
+RECOVERING_WAITS_FOR_RESUME = (
+    "waiting for you: press Resume to open the order session and continue"
+)
+
 #: States in which the run's clock is still going.
 _RUNNING_CLOCK = frozenset(
     {
@@ -114,9 +119,13 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
 
 def _state_line(bot: BotSnapshot) -> str:
     progress = bot.progress
-    if progress is None or not progress.reason_detail:
+    detail = progress.reason_detail if progress is not None else ""
+    if bot.state is BotLifecycleState.RECOVERING:
+        # `BUG-204` - not "recovery finished": the bot is waiting for the owner.
+        detail = f"{RECOVERING_WAITS_FOR_RESUME}. {detail}".rstrip()
+    if not detail:
         return state_text(bot.state)
-    return f"{state_text(bot.state)} — {progress.reason_detail}"
+    return f"{state_text(bot.state)} — {detail}"
 
 
 def _unrealised(bot: BotSnapshot) -> str:

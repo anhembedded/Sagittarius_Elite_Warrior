@@ -25,6 +25,11 @@ rejected, a counter order with nowhere to go (RUNNING or PAUSED), and an exit
 slice that failed (STOPPING, naming the unsold remainder, §3.4). Each leads to
 HALTED, whose exit is a resume that re-plans (D13) or a stop.
 
+`resume` from RECOVERING **(added by `BUG-204`)** is the owner's way out on the desktop:
+the order session, which a restart leaves closed, opens with it, and the session's
+opening has the bot reconcile. It is a self-loop, since the reconcile decides the next
+state (`reconcile_ok` or `reconcile_mismatch`), not the click.
+
 `halt` also answers a quiet price feed (`EPIC-035A`, `PRICE_FEED_STALE`), which
 can be heard in any state that holds or lays orders: STARTING and RECOVERING
 gained the cell for it, RUNNING and PAUSED already had it. STOPPING has one but
@@ -125,6 +130,9 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.PAUSED, _E.APP_RESTART): _S.RECOVERING,
     # --- RECOVERING ---
     (_S.RECOVERING, _E.STOP): _S.STOPPING,
+    # `BUG-204` - Resume opens the venue's order session and reconciles; the bot
+    # stays RECOVERING until `reconcile_ok` or `reconcile_mismatch` moves it.
+    (_S.RECOVERING, _E.RESUME): _S.RECOVERING,
     (_S.RECOVERING, _E.SWITCH_OFF): _S.RECOVERING,
     (_S.RECOVERING, _E.RECONCILE_OK): _T.PRIOR,
     (_S.RECOVERING, _E.RECONCILE_MISMATCH): _S.HALTED,
