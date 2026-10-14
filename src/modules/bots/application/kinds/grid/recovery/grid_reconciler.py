@@ -14,6 +14,9 @@ or any other deliberate action that trades), this runs, in the ADR's order:
      up in order history; what it executed beyond what the bot counted is
      applied as a fill (its counter order held), then the level empties if
      the order is over.
+  4a. **Align quantities first** (`BUG-205`): each saved order takes the quantity the
+     exchange holds for it (open list, or history for one that is gone), before any
+     fill is applied against it; a larger one halts (`grid_order_quantities`).
   5. **Then adopt.** A tagged order the saved ladder did not know — sent but
      never saved, because the app died between the submit and the write — is
      adopted at the level of its price, so that level is never placed twice,
@@ -61,6 +64,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_hous
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_order_quantities import (
+    QuantityExceedsSaved,
+    adopt_exchange_quantities,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check import (
     IExposureCheck,
@@ -174,7 +181,14 @@ class GridReconciler:
             )
         try:
             records = self._read_records(state.runtime, open_orders)
-            applied = self._apply_missed_fills(state.runtime, open_orders, records)
+            aligned = adopt_exchange_quantities(
+                state.bot_id, state.runtime, open_orders, records
+            )
+            if isinstance(aligned, QuantityExceedsSaved):
+                return ReconcileMismatch(
+                    GridReason.ORDER_QUANTITY_MISMATCH, aligned.detail
+                )
+            applied = self._apply_missed_fills(aligned, open_orders, records)
             if isinstance(applied, ReconcileMismatch):
                 return applied
             outcome = self._adopt(applied, open_orders, records)

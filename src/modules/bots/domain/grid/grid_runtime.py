@@ -55,6 +55,8 @@ class GridReason(str, Enum):
     INVENTORY_MISMATCH = "inventory_mismatch"
     HOLDING_BELOW_INVENTORY = "holding_below_inventory"
     DUPLICATE_LEVEL_ORDER = "duplicate_level_order"
+    #: The exchange holds a saved order for more than the bot saved (`BUG-205`).
+    ORDER_QUANTITY_MISMATCH = "order_quantity_mismatch"
     UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
     LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"

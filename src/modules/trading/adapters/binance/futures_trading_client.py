@@ -36,6 +36,9 @@ from __future__ import annotations
 from decimal import Decimal
 
 from binance.exceptions import BinanceAPIException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.accepted_order import (
+    as_accepted,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
     is_algo_routed,
     map_futures_algo_payload_to_order,
@@ -120,7 +123,8 @@ class FuturesTradingClient(ITradingClient):
         @raise OrderRejectedByExchangeError The exchange refused the
         request — including a `VALIDATE_ONLY` refusal, which is exactly
         `EPIC-021F`'s own runnable milestone's rejected case.
-        @return `order` unchanged on acceptance. Binance's synchronous
+        @return `order` as the exchange accepted it (`BUG-205`: its quantity is the
+        response's `origQty`). Binance's synchronous
         response is not parsed into an updated status here: the
         authoritative order lifecycle (`NEW` -> `PARTIALLY_FILLED` -> ...)
         is what `EPIC-021H`'s User Data Stream exists to report, not this
@@ -136,11 +140,11 @@ class FuturesTradingClient(ITradingClient):
         try:
             if self._submission_mode is OrderSubmissionMode.VALIDATE_ONLY:
                 client.futures_create_test_order(**params)
-            else:
-                client.futures_create_order(**params)
+                return order
+            response = client.futures_create_order(**params)
         except SEND_FAILURES as exc:
             raise_for_failed_send(order, exc, live=self._is_live)
-        return order
+        return as_accepted(order, response)
 
     def find_order(self, symbol: str, client_order_id: str) -> Order | None:
         """@details A regular order by `origClientOrderId`; an id that is not

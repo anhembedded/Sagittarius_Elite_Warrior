@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
     GridRunContext,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_sequence import (
+    as_accepted,
     log_order,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
@@ -116,7 +117,9 @@ class GridLadderPlacer:
             fail_with(state, outcome, what)
             return False
         oid = outcome.client_order_id
-        state.update(accepted(placed(state.runtime, action, oid), oid))
+        state.update(
+            accepted(placed(state.runtime, as_accepted(action, outcome), oid), oid)
+        )
         return True
 
     def _leave_rung_empty(self, action: PlaceOrder, detail: str) -> bool:

@@ -104,7 +104,12 @@ the exposure. **Restart.** `BotRestoreService` applies `app_restart` to every sa
 `BotBootRecovery` pays cancels a crash left owing, and `GridReconciler` compares a `RECOVERING` bot
 with the exchange (`.../grid_reconciler.py:134`, `run`), and only once the venue's order session is
 open: until then nothing listens to the exchange and the Orders panel shows the ladder as saved, with
-a note saying so. **Resume from `RECOVERING`** (`BUG-204`, the desktop's way out): the use case asks
+a note saying so. The reconcile also brings each saved order's quantity level with the exchange's, **before**
+it applies any missed fill (`recovery/grid_order_quantities.py`, `adopt_exchange_quantities`;
+`BUG-205`): from the open-order list, or from history for an order that is gone. A smaller
+quantity is adopted and logged `[order-quantity]`; a larger one halts the bot
+(`order_quantity_mismatch`). A new order is saved at the quantity the exchange accepted, never
+the one asked for. **Resume from `RECOVERING`** (`BUG-204`, the desktop's way out): the use case asks
 for the real-money answer on a mainnet venue, `BotRunner.resume` (`.../bot_runner.py:89`) opens the
 session (`open_session_for_resume`, `.../grid_start_preconditions.py:72`) or refuses in the session's
 words, and the executor reconciles (`.../grid_executor.py:285`, `GridFacts.reconcile_recovering`,
