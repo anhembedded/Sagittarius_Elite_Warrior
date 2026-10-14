@@ -10,6 +10,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
     BotAction,
     StartConditions,
     availability,
+    export_plan_availability,
 )
 
 S = BotLifecycleState
@@ -66,3 +67,11 @@ def test_a_refusal_never_blocks_an_action_other_than_start() -> None:
 
     assert availability(S.DRAFT, A.SAVE, refused).enabled
     assert availability(S.RUNNING, A.STOP, refused).enabled
+
+
+def test_export_plan_is_live_exactly_while_a_bot_exists() -> None:
+    """`BOT-176`: it reads the stored bots, so neither a selection nor the lifecycle matters."""
+    assert not export_plan_availability(0).enabled
+    assert "no bot" in export_plan_availability(0).reason
+    assert export_plan_availability(1).enabled
+    assert export_plan_availability(7).enabled

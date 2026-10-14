@@ -10,9 +10,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialog import (
+    AskExportPlan,
+    ask_export_plan_with_dialog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_dialog import (
     AskNewBot,
@@ -40,6 +44,9 @@ type ConfirmDelete = Callable[[BotSnapshot], bool]
 #: `(venue, what)` -> may it go on: the one question that names real money, asked
 #: on a mainnet venue's first Start or Arm of the session (`EPIC-034` D3, D11).
 type AllowRealMoney = Callable[[TradingVenue, str], bool]
+#: The suggested file name -> the path the person chose, `""` when they cancelled
+#: (`BOT-176`).
+type AskPlanSavePath = Callable[[str], str]
 
 
 @dataclass(frozen=True)
@@ -50,6 +57,9 @@ class BotsDialogs:
     #: Bots → Arm strategy… (`EPIC-033K` stage 3).
     ask_arm_strategy: AskArmStrategy
     allow_real_money: AllowRealMoney
+    #: Bots → Export plan… (`BOT-176`): which bots and how, then where to save.
+    ask_export_plan: AskExportPlan
+    ask_plan_save_path: AskPlanSavePath
 
 
 def delete_question(bot: BotSnapshot) -> str:
@@ -77,7 +87,24 @@ def dialogs_for(
             and ask_arm_with_dialog(parent, venue, form)
         ),
         allow_real_money=consent.confirmed,
+        ask_export_plan=lambda bots, selected: ask_export_plan_with_dialog(
+            parent, bots, selected
+        ),
+        ask_plan_save_path=lambda suggested: _ask_plan_save_path(parent, suggested),
     )
+
+
+def _ask_plan_save_path(parent: QWidget, suggested: str) -> str:
+    """A native save dialog that does not ask "replace?": the writer never overwrites,
+    so the question would be asked about a file it refuses anyway."""
+    path, _selected_filter = QFileDialog.getSaveFileName(
+        parent,
+        "Export plan",
+        suggested,
+        "Bot plan (*.json)",
+        options=QFileDialog.Option.DontConfirmOverwrite,
+    )
+    return path
 
 
 def _ask_delete(parent: QWidget, bot: BotSnapshot) -> bool:

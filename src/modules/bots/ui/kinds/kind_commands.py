@@ -42,8 +42,8 @@ SUGGEST_FROM_BOLLINGER = "bots.bots.grid.suggest_from_bollinger"
 #: Each kind's commands, in menu order, by `kind_id`.
 KIND_COMMANDS: Mapping[str, tuple[KindCommand, ...]] = {
     GRID_KIND_ID: (
-        KindCommand(SUGGEST_FROM_ATR, "Suggest from &ATR"),
-        KindCommand(SUGGEST_FROM_BOLLINGER, "Suggest from Bollin&ger"),
+        KindCommand(SUGGEST_FROM_ATR, "Su&ggest from ATR"),
+        KindCommand(SUGGEST_FROM_BOLLINGER, "Suggest from &Bollinger"),
     ),
 }
 

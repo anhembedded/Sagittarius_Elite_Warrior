@@ -40,6 +40,7 @@ BOTS_MENU = [
     "Fix next item",
     "Arm strategy…",
     "Disarm strategy",
+    "Export plan…",
     "Live stream",
 ]
 #: HLD §11.2.3: the Bots commands with "Bots" in the toolbar column.

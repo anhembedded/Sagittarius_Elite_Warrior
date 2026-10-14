@@ -211,7 +211,7 @@ Read the `[preflight]` lines after the start. **`bot-files-readable` WARN** mean
 
 ### Plan files and version control (`bot export`, `bot apply`, `run --start-planned`)
 
-A plan is a JSON file (`sew.bot-plan/1`) that names each bot by name and venue and holds **no key, secret or account identifier**, so it is safe to keep in version control and to review as a diff. It is how a server's bots are defined without the desktop app. The procedure, each step run as in §5 (`M` is the `sudo -u sew env ... main.py` prefix there):
+A plan is a JSON file (`sew.bot-plan/1`) that names each bot by name and venue and holds **no key, secret or account identifier**, so it is safe to keep in version control and to review as a diff. It is how a server's bots are defined without the desktop app. The desktop app's Bots → Export plan… writes the same file (same query, same never-overwrite writer), so a bot designed there reaches the server with `scp`; it defaults to *All stopped* when a mainnet bot is in scope, so a copied plan starts nothing under `--start-planned` until you change `desired_state` on purpose. The procedure, each step run as in §5 (`M` is the `sudo -u sew env ... main.py` prefix there):
 
 ```bash
 M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"

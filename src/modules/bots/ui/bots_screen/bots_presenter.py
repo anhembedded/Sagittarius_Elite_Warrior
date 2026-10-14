@@ -77,6 +77,7 @@ from .fenced_reads import BotQueries, FencedReads, ReadKind
 from .kind_backtests import KindBacktests
 from .kind_command_binding import KindCommands
 from .new_bot_symbols import new_bot_symbols
+from .plan_export_flow import PlanExport
 from .planner_recovery import PlannerRecovery
 from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
 from .selected_bot import SelectedBot
@@ -140,6 +141,7 @@ class BotsPresenter(CommandPresenter):
             self._account.venue_refused,
         )
         self._commands = BotActionsCoordinator(commands, threads)
+        self._export = PlanExport(self._model, commands, self._dialogs, deps.notifier)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now, deps.run_facts)

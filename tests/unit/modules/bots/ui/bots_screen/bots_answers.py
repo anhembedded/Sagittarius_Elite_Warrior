@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.export_plan_dialog import (
+    ExportPlanChoice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
 )
@@ -43,6 +46,9 @@ class Answers:
     arm_strategy: bool = False
     #: The real-money question's answer (`EPIC-034` D3, D11).
     real_money: bool = True
+    #: Bots → Export plan… (`BOT-176`): the choice, and the path Save… picks (`""` cancels).
+    export_plan: ExportPlanChoice | None = None
+    plan_path: str = ""
     asked: list[str] = field(default_factory=list)
     offered: list[str] = field(default_factory=list)
 
@@ -53,7 +59,21 @@ class Answers:
             confirm_delete=self._confirm_delete,
             ask_arm_strategy=self._ask_arm_strategy,
             allow_real_money=self._allow_real_money,
+            ask_export_plan=self._ask_export_plan,
+            ask_plan_save_path=self._ask_plan_save_path,
         )
+
+    def _ask_export_plan(
+        self, bots: Sequence[BotSnapshot], selected: BotSnapshot | None
+    ) -> ExportPlanChoice | None:
+        self.asked.append(
+            f"export plan {len(bots)} {selected.bot_id if selected else '-'}"
+        )
+        return self.export_plan
+
+    def _ask_plan_save_path(self, suggested: str) -> str:
+        self.asked.append(f"plan path {suggested}")
+        return self.plan_path
 
     def _allow_real_money(self, venue: TradingVenue, what: str) -> bool:
         self.asked.append(f"real money {venue.value}: {what}")

@@ -1,7 +1,7 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
 lifecycle actions, each kind's own commands (`kind_commands.py`), Refresh
 fills, Fit levels, Retry venue account (`EPIC-034D`), Refresh exchange check
-(`BOT-174`), Fix next item (`EPIC-034H`), and Arm strategy… / Disarm strategy for the Strategies
+(`BOT-174`), Fix next item (`EPIC-034H`), Export plan… (`BOT-176`), and Arm strategy… / Disarm strategy for the Strategies
 panel's selected venue (`EPIC-033K` stage 3; HLD §11.2: a strategy armed on a
 venue is a row of the Bots mode until `EPIC-029L`).
 
@@ -51,6 +51,7 @@ REFRESH_EXCHANGE = f"{_PREFIX}.refresh_exchange"
 FIX_NEXT = f"{_PREFIX}.fix_next"
 ARM_STRATEGY = f"{_PREFIX}.arm_strategy"
 DISARM_STRATEGY = f"{_PREFIX}.disarm_strategy"
+EXPORT_PLAN = f"{_PREFIX}.export_plan"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
@@ -120,4 +121,8 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
         # The Strategies panel's selected venue: M and I are free in the menu.
         command(ARM_STRATEGY, "Ar&m strategy…", on_toolbar=False, needs_input=True),
         command(DISARM_STRATEGY, "D&isarm strategy", on_toolbar=False),
+        # `BOT-176`: the bots as a `sew.bot-plan/1` file, for `bot apply` on a server;
+        # every letter of its name was another command's access key; "A" moved from
+        # Suggest from ATR (now "G", freed by Bollinger moving to "B") to this one.
+        command(EXPORT_PLAN, "Export pl&an…", on_toolbar=False, needs_input=True),
     )

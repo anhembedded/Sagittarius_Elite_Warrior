@@ -78,6 +78,8 @@ class BotsViewModel(StatusMessageViewModel):
     retry_connect_requested = Signal()
     #: Ask the exchange again for the facts the readiness is judged on (`BOT-174`).
     refresh_exchange_requested = Signal()
+    #: Write the bots as a plan file (`BOT-176`).
+    export_plan_requested = Signal()
     #: Do the first fix the readiness offers (`EPIC-034H`): bring the field
     #: forward, read the account again, or select the bot that is still active.
     fix_next_requested = Signal()
