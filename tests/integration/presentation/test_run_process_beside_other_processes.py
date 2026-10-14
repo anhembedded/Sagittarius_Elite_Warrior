@@ -139,13 +139,15 @@ def test_status_from_a_second_process_reads_the_running_hosts_snapshot_and_its_s
     assert abs(skew) < 1000, "the fake exchange keeps this machine's time"
 
 
-def test_a_health_interval_costs_two_dispatcher_lines_and_no_more(
+def test_a_plain_run_writes_no_dispatcher_query_lines(
     started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
 ) -> None:
     """The Engine logs `Executing query: ...` at INFO for every dispatch, and the bots
-    section dispatches two queries per snapshot. That is accepted for the host and bounded
-    by the journal (decision recorded in `Docs/OPERATIONS/LOGGING.md` §5); this keeps it
-    two, so a new dispatch per tick shows up here and not in a full journal."""
+    section dispatches two queries per snapshot. The app keeps that line out of a normal
+    run's log (`BOT-178`, `Docs/OPERATIONS/LOGGING.md` §5), so the journal holds what
+    happened to the bots and not how often they were read. `run` takes no `--dev`; the
+    line coming back in developer mode is proved on the composition root, in
+    `test_query_dispatch_is_quiet_outside_dev_mode.py`."""
     child = start_child(started, tmp_path, exchange, "--health-interval", "1")
     child.wait_for_stdout("[health] state=SERVING")
     child.wait_for_stdout("up=2s")  # at least two intervals have passed
@@ -156,7 +158,7 @@ def test_a_health_interval_costs_two_dispatcher_lines_and_no_more(
     lines = child.stdout.splitlines()
     health = [i for i, line in enumerate(lines) if "[health] state=SERVING" in line]
     between = lines[health[-2] + 1 : health[-1]]
-    assert len([line for line in between if "Executing query" in line]) == 2, between
+    assert [line for line in between if "Executing query" in line] == [], between
 
 
 def test_a_held_lock_exits_three_and_starts_nothing(
