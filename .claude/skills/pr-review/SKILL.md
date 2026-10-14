@@ -27,7 +27,7 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 | Uncommitted Working Tree | `git status --short`, `git diff -M HEAD`, and `git ls-files --others --exclude-standard` |
 | Staged Changes Only | `git diff --cached` |
 
-- **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 109 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
+- **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 110 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
 
 Read the entire diff and surrounding production code. **The full gate is GitHub Actions' `ci-local.ps1 -Full` check run on the reviewed head sha** (`.claude/rules/ci-rule.md` §1): verify it passed and read its job log (rubric B1, B2); do not re-run the full gate locally. For a bug fix the gate evidence is the regression test, red before the fix and green after, plus the commit tier; do not wait on the `-Full` run (`ci-rule.md` §1, "Bug fix"). Run focused checks only where a finding needs proof — a targeted test, a mutation of one line — and run them in an isolated environment; never mutate or switch the active working tree:
 ```bash
