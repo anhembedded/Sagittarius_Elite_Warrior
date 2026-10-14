@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.readiness_words i
     item_lines,
     step_lines,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    add_venue_choice,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.empty_page import empty_page
 from Sagittarius_Elite_Warrior.src.support.ui_kit.plain_label import plain_label
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
@@ -227,7 +230,7 @@ class BotPlanPanel(QStackedWidget):
         profile = venue_profile_of(bot.venue)
         for choice in self._model.venue_choices:
             if venue_profile_of(choice.venue) == profile:
-                combo.addItem(choice.option_text, choice.venue)
+                add_venue_choice(combo, choice)
         index = combo.findData(bot.venue)
         if index < 0:
             combo.addItem(bot.venue.display_name, bot.venue)

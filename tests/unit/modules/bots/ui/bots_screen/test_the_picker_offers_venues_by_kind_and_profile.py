@@ -1,8 +1,8 @@
 """`EPIC-039J` — which venues New bot and the Plan's Venue field list.
 
 @details The business promise: a venue is listed when a kind declares its market, the build
-lets bots run there, and the owner has opened it. Futures mainnet stays unlisted until
-`EPIC-039L` opens it (decision O7); Spot's list is what it always was."""
+lets bots run there, and the owner has opened it. Futures mainnet is listed closed, with
+its reason, until `EPIC-039L` opens it (decision O7, `BUG-208`); Spot's list is what it always was."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     CLOSED_VENUES,
     SPOT_MARKETS,
-    is_offered,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
@@ -24,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
+    CLOSED,
     NOT_ENABLED,
     venue_choices,
 )
@@ -74,7 +74,7 @@ class _Kind(IBotKind):
 
 def _listed(markets: frozenset[MarketType]) -> list[TradingVenue]:
     choices = venue_choices(_NothingEnabled(), [_Kind(markets)])
-    assert {choice.connection for choice in choices} <= {NOT_ENABLED}
+    assert {choice.connection for choice in choices} <= {NOT_ENABLED, CLOSED}
     return [choice.venue for choice in choices]
 
 
@@ -97,12 +97,16 @@ def test_futures_testnet_is_listed_for_a_kind_that_declares_futures(
     assert TradingVenue.FUTURES_TESTNET in _listed(_BOTH)
 
 
-def test_futures_mainnet_is_not_listed_until_the_owner_opens_it(
+def test_futures_mainnet_is_listed_closed_until_the_owner_opens_it(
     futures_run_here: None,
 ) -> None:
     assert TradingVenue.FUTURES_MAINNET in CLOSED_VENUES
-    assert TradingVenue.FUTURES_MAINNET not in _listed(_BOTH)
-    assert not is_offered(TradingVenue.FUTURES_MAINNET)
+    choices = {
+        choice.venue: choice
+        for choice in venue_choices(_NothingEnabled(), [_Kind(_BOTH)])
+    }
+    assert choices[TradingVenue.FUTURES_MAINNET].connection == CLOSED
+    assert choices[TradingVenue.FUTURES_MAINNET].closed_reason
 
 
 def test_a_kind_that_declares_only_spot_is_never_offered_a_futures_venue(
@@ -117,10 +121,11 @@ def test_a_kind_that_declares_only_spot_is_never_offered_a_futures_venue(
 def test_the_build_lets_bots_run_on_futures_so_a_kind_declaring_it_lists_its_testnet() -> (
     None
 ):
-    """`EPIC-039H` raised the ceiling: a kind's declaration alone lists Futures testnet, and
-    Futures mainnet stays closed (`CLOSED_VENUES`)."""
-    assert set(_listed(_BOTH)) == {
+    """`EPIC-039H` raised the ceiling: a kind's declaration alone lists the Futures venues;
+    Futures mainnet is closed (`CLOSED_VENUES`) and listed last."""
+    assert _listed(_BOTH) == [
+        TradingVenue.FUTURES_TESTNET,
         TradingVenue.SPOT_TESTNET,
         TradingVenue.SPOT_MAINNET,
-        TradingVenue.FUTURES_TESTNET,
-    }
+        TradingVenue.FUTURES_MAINNET,
+    ]

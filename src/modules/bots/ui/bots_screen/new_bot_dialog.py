@@ -10,8 +10,9 @@ The symbol is chosen in the shared symbol picker over the catalog of the chosen 
 market (`BUG-155`, `EPIC-039J`), never taken from a chart, so a bot never trades a pair
 because a chart happened to show it. The offered venues are listed whether or not one is
 enabled and one is always preselected: Venue never blocks Create (`BUG-155`). Choosing a
-venue of another market clears the symbol, which may not exist there, and retitles the kind
-("Spot Grid", "Futures Grid"). A venue that is not
+venue of another market clears the symbol, which may not exist there. The kind is "Grid" on
+every venue (`BUG-208`): the venue says Spot or Futures. A venue bots are closed on is listed
+greyed out with the reason. A venue that is not
 enabled is refused where it matters, at Start and in the planner. Nothing is
 placed; Cancel discards every field. Injectable (`AskNewBot`) so a test creates
 a bot without a modal dialog.
@@ -36,15 +37,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot
     CreateBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    VenueProfile,
     market_of,
-    venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.new_bot_symbols import (
     NewBotSymbols,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
     VenueChoice,
+    add_venue_choice,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     kind_title,
@@ -93,9 +93,9 @@ class NewBotDialog(QDialog):
         self.venue = QComboBox()
         self.venue.setObjectName("cmbNewBotVenue")
         for choice in venues:
-            self.venue.addItem(choice.option_text, choice.venue)
+            add_venue_choice(self.venue, choice)
         for kind_id in kinds:
-            self.kind.addItem(kind_title(kind_id, self._profile()), kind_id)
+            self.kind.addItem(kind_title(kind_id), kind_id)
         self.symbol = QPushButton(CHOOSE_SYMBOL_TEXT)
         self.symbol.setObjectName("btnNewBotSymbol")
         self.symbol.clicked.connect(self._open_picker)
@@ -139,13 +139,9 @@ class NewBotDialog(QDialog):
         data = self.venue.currentData()
         return TradingVenue(data) if data is not None else None
 
-    def _profile(self) -> VenueProfile | None:
-        venue = self._venue()
-        return venue_profile_of(venue) if venue is not None else None
-
     def _follow_venue(self) -> None:
-        """The chosen venue's market decides the symbols and the kind's title; a symbol
-        chosen on another market is dropped, as it may not exist on this one."""
+        """The chosen venue's market decides the symbols; a symbol chosen on another market
+        is dropped, as it may not exist on this one."""
         venue = self._venue()
         if venue is None:
             return
@@ -154,10 +150,6 @@ class NewBotDialog(QDialog):
             self.symbol.setText(CHOOSE_SYMBOL_TEXT)
         self._market = market_of(venue)
         self._symbols.use_venue(venue)
-        for index in range(self.kind.count()):
-            self.kind.setItemText(
-                index, kind_title(self.kind.itemData(index), self._profile())
-            )
         if self._picker is not None:
             self._symbols.load_catalog()
             self._picker.refresh()

@@ -26,7 +26,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     bot_closed_reason,
     bot_profile_of,
     exposure_limits_of,
-    is_offered,
     plan_limits_of,
     runs_bots_on,
     title_word_of,
@@ -200,8 +199,6 @@ def test_a_plan_is_judged_on_what_the_market_allows_and_a_bot_on_what_it_runs() 
 
 
 def test_futures_mainnet_alone_is_closed_to_bots_and_says_why() -> None:
-    assert not is_offered(TradingVenue.FUTURES_MAINNET)
-    assert is_offered(TradingVenue.FUTURES_TESTNET)
     assert "closed to bots" in (bot_closed_reason(TradingVenue.FUTURES_MAINNET) or "")
     for venue in (*_SPOT, TradingVenue.FUTURES_TESTNET, TradingVenue.DISABLED):
         assert bot_closed_reason(venue) is None

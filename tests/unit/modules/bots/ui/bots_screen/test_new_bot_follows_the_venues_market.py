@@ -1,9 +1,9 @@
-"""`EPIC-039J` — New bot lists the symbols of the chosen venue's market and words the kind
-for it; a Spot dialog is what it was.
+"""`EPIC-039J` — New bot lists the symbols of the chosen venue's market; a Spot dialog is what
+it was.
 
 @details The business promise: choosing a Futures venue lists Futures symbols (read once, from
-the Futures catalog), titles the kind "Futures Grid", and drops a symbol picked on Spot, which
-may not trade there; choosing Spot again brings the Spot list and "Spot Grid" back."""
+the Futures catalog) and drops a symbol picked on Spot, which may not trade there; choosing Spot
+again brings the Spot list back. The kind stays "Grid" on both (`BUG-208`)."""
 
 from __future__ import annotations
 
@@ -84,16 +84,16 @@ def _listed(dialog: NewBotDialog) -> list[str]:
     return list(dialog._symbols.catalog_symbols())
 
 
-def test_a_spot_dialog_lists_spot_symbols_and_titles_the_kind_spot_grid(qtbot) -> None:
+def test_a_spot_dialog_lists_spot_symbols_and_titles_the_kind_grid(qtbot) -> None:
     catalog = _catalog()
     dialog = _dialog(qtbot, catalog)
 
-    assert dialog.kind.itemText(0) == "Spot Grid"
+    assert dialog.kind.itemText(0) == "Grid"
     assert _listed(dialog) == ["BTCUSDT", "ETHUSDT"]
     assert catalog.markets_read == [MarketType.SPOT]
 
 
-def test_choosing_a_futures_venue_lists_futures_symbols_and_titles_the_kind(
+def test_choosing_a_futures_venue_lists_futures_symbols_and_keeps_the_kind_title(
     qtbot,
 ) -> None:
     catalog = _catalog()
@@ -101,7 +101,7 @@ def test_choosing_a_futures_venue_lists_futures_symbols_and_titles_the_kind(
 
     dialog.venue.setCurrentIndex(1)
 
-    assert dialog.kind.itemText(0) == "Futures Grid"
+    assert dialog.kind.itemText(0) == "Grid"
     assert _listed(dialog) == ["BTCUSDT", "SOLUSDT"]
     assert catalog.markets_read == [MarketType.FUTURES_USD_M]
 

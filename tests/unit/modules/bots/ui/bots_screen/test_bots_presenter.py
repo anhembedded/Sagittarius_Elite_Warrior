@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     ReadKind,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
 from .bots_screen_fixtures import (
@@ -195,8 +192,8 @@ def test_a_new_bot_is_saved_as_a_draft_and_selected(open_bots_screen, qtbot) -> 
     qtbot.waitUntil(lambda: screen.view.model.selected is not None)
     screen.settle()
 
-    offered = [VENUE, TradingVenue.SPOT_MAINNET, TradingVenue.FUTURES_TESTNET]
-    assert answers.asked == [f"new bot ['grid'] {[v.value for v in offered]}"]
+    offered = ["spot_testnet", "spot_mainnet", "futures_testnet", "futures_mainnet"]
+    assert answers.asked == [f"new bot ['grid'] {offered}"]
     selected = screen.view.model.selected
     assert selected is not None and selected.name == "my grid"
     assert selected.state is S.DRAFT

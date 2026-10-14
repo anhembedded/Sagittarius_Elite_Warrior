@@ -15,7 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     PROFILE_MARKETS,
-    SPOT_TITLE,
     VenueProfile,
     is_in_markets,
 )
@@ -50,7 +49,7 @@ _BACKTEST_PROFILES: Mapping[str, frozenset[MarketType]] = {
     GRID_KIND_ID: PROFILE_MARKETS
 }
 
-#: What a kind is called, by `kind_id`; the venue's market is put before it (`kind_title`).
+#: What a kind is called, by `kind_id`.
 _KIND_NAMES: Mapping[str, str] = {GRID_KIND_ID: "Grid"}
 
 #: Which definition key holds the capital the bot may use, by `kind_id`; the
@@ -58,14 +57,10 @@ _KIND_NAMES: Mapping[str, str] = {GRID_KIND_ID: "Grid"}
 KIND_CAPITAL_KEYS: Mapping[str, str] = {GRID_KIND_ID: "capital_quote"}
 
 
-def kind_title(kind_id: str, profile: VenueProfile | None) -> str:
-    """The kind as the user reads it on a venue: the profile's word first, "Spot Grid" or
-    "Futures Grid". Without a profile (a venue bots do not run on) it is the Spot one, as it
-    was before Futures existed; a kind with no name is shown by its id."""
-    name = _KIND_NAMES.get(kind_id)
-    if name is None:
-        return kind_id
-    return f"{profile.title_word if profile else SPOT_TITLE} {name}"
+def kind_title(kind_id: str) -> str:
+    """The kind as the user reads it: "Grid", on Spot and on Futures alike. The venue says
+    which market; a kind with no name is shown by its id (`BUG-208`)."""
+    return _KIND_NAMES.get(kind_id, kind_id)
 
 
 def panel_for(kind_id: str) -> BotKindPanel:
