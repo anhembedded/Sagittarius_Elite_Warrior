@@ -71,8 +71,14 @@ def availability(
     if action is BotAction.CONFIRM_RESUME:
         return _confirm_resume(state)
     if not is_declared(state, _EVENT[action]):
+        waits = (
+            " It is waiting for Resume."
+            if state is BotLifecycleState.RECOVERING
+            else ""
+        )
         return ActionAvailability(
-            False, f"{action.value} is not possible while the bot is {_name(state)}."
+            False,
+            f"{action.value} is not possible while the bot is {_name(state)}.{waits}",
         )
     if action is BotAction.START and start.blocked_by:
         return ActionAvailability(False, start.blocked_by)

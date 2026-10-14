@@ -89,3 +89,10 @@ def test_confirm_resume_stays_a_halted_bots_alone_when_a_recovering_bot_may_resu
 ):
     """`BUG-204`: a RECOVERING bot has no proposal to confirm."""
     assert not availability(S.RECOVERING, A.CONFIRM_RESUME).enabled
+
+
+def test_what_a_recovering_bot_cannot_do_says_it_is_waiting_for_resume() -> None:
+    """`BUG-204`: Pause is disabled while Recovering; its tooltip says why and what to press."""
+    reason = availability(S.RECOVERING, A.PAUSE).reason
+    assert "recovering" in reason
+    assert "waiting for Resume" in reason

@@ -225,7 +225,9 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 - A Recovering bot is not silent meanwhile (`EPIC-035C`): at start-up the app reads, from the
   exchange, which of its saved orders still rest, which filled while the app was closed, which are
   missing and which tagged orders the bot never saved, and shows the four counts beside its state
-  ("after the restart (read once, at startup): 2 saved order(s) rest, 1 filled while the app was
+  (the state line first says "waiting for you: press Resume to open the order session and
+  continue", so the report is not read as a finished recovery, then "after the restart (read once,
+  at startup): 2 saved order(s) rest, 1 filled while the app was
   closed, 1 missing, 0 not saved by the bot; nothing is placed and nothing listens to the exchange
   until Resume opens the order session and books what filled since"). The read places and cancels
   nothing; a read that fails is said in the same place. It is one read, not a live view: the
