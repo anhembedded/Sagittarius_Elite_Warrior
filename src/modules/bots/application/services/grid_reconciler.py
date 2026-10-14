@@ -70,6 +70,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_re
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
+    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelState,
@@ -122,6 +123,13 @@ class ReconcileWait:
     detail: str
 
 
+#: `BUG-206` - what a bot the owner paused says once its reconcile put it back to PAUSED.
+RESTORED_PAUSED_DETAIL = (
+    "reconciled with the exchange after the restart; it stays paused as you left it. "
+    "Press Resume to run"
+)
+
+
 class GridReconciler:
     """Reconciles a RECOVERING Grid (ends in its prior state or HALTED), or a
     running one after a stream gap (`EPIC-035B`)."""
@@ -147,7 +155,17 @@ class GridReconciler:
                 # The boot report was a read; this reconcile is the answer.
                 outcome = replace(outcome, reason=None, reason_detail="")
             state.update(outcome)
-            state.transition(BotLifecycleEvent.RECONCILE_OK)
+            if (
+                state.bot.lifecycle.recovering_from is BotLifecycleState.PAUSED
+                and outcome.reason is None
+            ):
+                state.transition(
+                    BotLifecycleEvent.RECONCILE_OK,
+                    GridReason.RESTORED_PAUSED,
+                    RESTORED_PAUSED_DETAIL,
+                )
+            else:
+                state.transition(BotLifecycleEvent.RECONCILE_OK)
 
     def compare_with_exchange(self) -> GridRuntime | ReconcileMismatch | ReconcileWait:
         """Steps 2–6 of the module docstring: the saved ladder brought level

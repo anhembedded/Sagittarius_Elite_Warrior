@@ -226,7 +226,9 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
   exchange, which of its saved orders still rest, which filled while the app was closed, which are
   missing and which tagged orders the bot never saved, and shows the four counts beside its state
   (the state line first says "waiting for you: press Resume to open the order session and
-  continue", so the report is not read as a finished recovery, then "after the restart (read once,
+  continue" for a bot that was Running, or, for a bot the owner had paused, "waiting for you: it was
+  Paused before the restart. Resume opens the order session and books what filled, then returns it
+  to Paused; press Resume again to run" (`BUG-206`), so the report is not read as a finished recovery, then "after the restart (read once,
   at startup): 2 saved order(s) rest, 1 filled while the app was
   closed, 1 missing, 0 not saved by the bot; nothing is placed and nothing listens to the exchange
   until Resume opens the order session and books what filled since"). The read places and cancels
@@ -239,7 +241,9 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
   not, and the bot stays Recovering so Resume can be pressed again), and reconciles the bot with
   the exchange: an order that filled while the bot was Recovering is booked once from the order
   history, its counter order is laid at the next level, and no level is placed twice. The bot
-  returns to Running or Paused, or halts on a mismatch, naming it. Without Resume a restored bot
+  returns to Running or Paused, or halts on a mismatch, naming it. A bot that was Paused comes back Paused and says so on screen ("reconciled with the
+  exchange after the restart; it stays paused as you left it. Press Resume to run"): one Resume
+  never unpauses a bot the owner paused, and the next one runs it (`BUG-206`). Without Resume a restored bot
   waited for some other action to open the session (starting another bot, a manual order), and Stop
   waited for the same session.
 - A bot whose start the restart cut short (Starting when the app closed) comes back Halted, and the

@@ -87,7 +87,11 @@ session (`open_session_for_resume`, `.../grid_start_preconditions.py:72`) or ref
 words, and the executor reconciles (`.../grid_executor.py:285`, `GridFacts.reconcile_recovering`,
 `.../grid_facts.py:276`): a fill the bot missed is booked once from the order history, its counter
 order laid, an order missing from the book ended, and the bot returns to its prior state, or halts on
-a mismatch. A deliberate action that trades opens the order session in one place,
+a mismatch. The prior state is data on the screen's side: `Bot.lifecycle.recovering_from` travels on
+`BotSnapshot.recovering_from`, so the state line of a `RECOVERING` bot says where the reconcile returns
+it (`bot_facts.py`, `BUG-206`). A bot the owner had paused returns to `PAUSED` with the reason
+`restored_paused` (`GridReconciler.run`), which the state line shows until the next Resume clears it,
+so the second press is explained on screen and not only in the `[recovering-resume]` log line. A deliberate action that trades opens the order session in one place,
 `order_session_opening.py:1-59`, with exactly three callers: Start, a Resume from `HALTED` or
 `RECOVERING`, and the headless `run --resume-recovering`
 (`.../grid_start_preconditions.py:72,114` and `.../resume_recovering_for_host/handler.py:81`). Design:
