@@ -35,6 +35,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     InvalidBotTransitionError,
 )
 
+#: The states whose Resume opens the venue's order session first (`BUG-202`, `BUG-204`):
+#: HALTED proposes a ladder, which registers a budget a closed session refuses;
+#: RECOVERING waits for the session a restart leaves closed, then reconciles.
+_RESUMES_AFTER_A_CLOSED_SESSION: frozenset[BotLifecycleState] = frozenset(
+    {BotLifecycleState.HALTED, BotLifecycleState.RECOVERING}
+)
+
 
 class BotRunner(IBotRunner):
     """Starts a bot through its preconditions and queues every other command."""
@@ -83,7 +90,7 @@ class BotRunner(IBotRunner):
         found = self._lookup.find(bot_id)
         if isinstance(found, BotCommandResult):
             return found
-        if found.bot.state is BotLifecycleState.HALTED:
+        if found.bot.state in _RESUMES_AFTER_A_CLOSED_SESSION:
             refusal = self._preconditions.open_session_for_resume(found.bot)
             if refusal is not None:
                 return refusal

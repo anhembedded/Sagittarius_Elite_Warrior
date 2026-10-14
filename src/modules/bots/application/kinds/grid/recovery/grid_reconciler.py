@@ -1,15 +1,15 @@
 """`EPIC-029E` — bringing a restored Grid back in line with the exchange (ADR §3.3, D12).
 
 A bot that was RUNNING or PAUSED when the app closed loads as RECOVERING and
-places nothing. When the user enables trading on its venue, this runs, in the
-ADR's order:
+places nothing. When the venue's order session opens (the owner's Resume, `BUG-204`,
+or any other deliberate action that trades), this runs, in the ADR's order:
 
   1. **Claim the lease** under the bot's owner id (leases live in memory).
   2. **Register the budget**: trading derives the inventory from exchange
      evidence (D6). Refused (trading off again) → the bot stays RECOVERING.
   3. **Read the open orders carrying the bot's tag.**
   4. **Apply fills first.** (History that does not answer is a wait, not a
-     fault: the bot stays RECOVERING naming it, and the next enable retries.)
+     fault: the bot stays RECOVERING naming it, and Resume retries.)
      A saved order missing from the exchange is looked
      up in order history; what it executed beyond what the bot counted is
      applied as a fill (its counter order held), then the level empties if
@@ -183,7 +183,7 @@ class GridReconciler:
             return ReconcileWait(
                 GridReason.HISTORY_UNAVAILABLE,
                 f"waiting: order history did not answer ({error}); "
-                "enable trading again to retry",
+                "press Resume to retry",
             )
         if isinstance(outcome, ReconcileMismatch):
             return outcome

@@ -4,8 +4,9 @@
 action (`EPIC-034C`, `ITradingSession.ensure_ready`). Three bot-side actions open it,
 each through this module and nowhere else: Start (`GridStartPreconditions`), a Resume
 from HALTED (`BotRunner.resume`, whose proposal registers the budget the session
-refuses while closed) and the headless `run --resume-recovering`
-(`ResumeRecoveringForHostCommandHandler`). They share the reconciliation, the refusal's
+refuses while closed), a Resume from RECOVERING (the same call, `BUG-204`: the session a
+restart leaves closed is what the bot waits for) and the headless
+`run --resume-recovering` (`ResumeRecoveringForHostCommandHandler`). They share the reconciliation, the refusal's
 words and the log line: `order_session_refusal_words` is the primitive,
 `order_session_refusal` its answer as a `BotCommandResult`. An automated caller (a
 reconciliation, a stop retry) never asks: a late order must not undo an Emergency Stop.

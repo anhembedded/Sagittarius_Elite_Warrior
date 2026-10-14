@@ -267,15 +267,21 @@ class GridFacts(IBotFacts):
             return
         self._reclaim_lease()
         if state.state is _S.RECOVERING:
-            self._parts.reconciler.run()
-            # Read through the context again: run() moves the state, and a
-            # type checker keeps `state.state` narrowed to RECOVERING.
-            if self._context.state.state is _S.RUNNING:
-                self._parts.placer.release_held()
+            self.reconcile_recovering()
         elif state.state is _S.STOPPING:
             self._parts.stop.after_switch_on()
         elif state.state is _S.HALTED:
             self._parts.interrupted_start.run()
+
+    def reconcile_recovering(self) -> None:
+        """Bring a RECOVERING bot level with the exchange and, if it is back to
+        RUNNING, lay what was held. Runs on the worker: the switch-on event and
+        the owner's Resume (`BUG-204`) both end here, so one reconcile serves both."""
+        self._parts.reconciler.run()
+        # Read through the context again: run() moves the state, and a type
+        # checker keeps `state.state` narrowed to RECOVERING.
+        if self._context.state.state is _S.RUNNING:
+            self._parts.placer.release_held()
 
     def _reclaim_lease(self) -> None:
         """Leases live in memory: a restored bot takes its symbol back when

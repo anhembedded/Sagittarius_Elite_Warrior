@@ -276,6 +276,7 @@ def test_a_bot_whose_file_is_unreadable_is_refused_as_unreadable(
         (S.RUNNING, "pause", "pause"),
         (S.PAUSED, "resume", "resume"),
         (S.HALTED, "resume", "resume"),
+        (S.RECOVERING, "resume", "resume"),
         (S.RUNNING, "stop", "stop:KEEP"),
         (S.ERROR, "stop", "stop:KEEP"),
     ],

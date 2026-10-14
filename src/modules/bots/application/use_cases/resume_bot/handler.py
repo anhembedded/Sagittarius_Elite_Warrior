@@ -13,6 +13,11 @@ session, as Start does (the runner asks `order_session_refusal`, behind the read
 guard): the proposal registers the budget, which a closed session refuses. So on a
 mainnet venue it needs the real-money answer, enforced here as Start enforces it, and a
 session that does not open is refused, never reported as done while the bot stays HALTED.
+
+`BUG-204`: a resume from RECOVERING is the owner's way out of RECOVERING on the desktop.
+A restart leaves the order session closed and nothing reconciles the bot until it opens;
+the runner opens it as for HALTED and the bot's executor reconciles. Same real-money
+answer, same refusal when the session will not open.
 """
 
 from __future__ import annotations
@@ -72,12 +77,14 @@ class ResumeBotCommandHandler(ICommandHandler[ResumeBotCommand, BotCommandResult
         # A paused bot's resume lays no ladder: its orders still rest.
         halted = found.bot.state is BotLifecycleState.HALTED
         venue = found.bot.definition.venue
-        if halted and venue.is_mainnet and not command.real_money_confirmed:
+        reopens_session = halted or found.bot.state is BotLifecycleState.RECOVERING
+        if reopens_session and venue.is_mainnet and not command.real_money_confirmed:
             return BotCommandResult.refused(
                 BotRefusal.REAL_MONEY_NOT_CONFIRMED,
-                f"Resuming a halted bot on {venue.display_name} reopens its order "
-                "session and uses real money, and the resume did not carry the "
-                "confirmation of that; resume it from the Bots screen.",
+                f"Resuming a {found.bot.state.value.lower()} bot on "
+                f"{venue.display_name} reopens its order session and uses real "
+                "money, and the resume did not carry the confirmation of that; "
+                "resume it from the Bots screen.",
                 command.bot_id,
             )
         left = self._readiness.read(found).items if halted else ()

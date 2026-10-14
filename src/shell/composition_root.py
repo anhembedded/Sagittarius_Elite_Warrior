@@ -98,6 +98,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
+from Sagittarius_Elite_Warrior.src.shell.dispatch_log_filter import (
+    quiet_query_dispatch_outside_developer_mode,
+)
 from Sagittarius_Elite_Warrior.src.shell.logging_notifier import LoggingNotifier
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
@@ -235,6 +238,8 @@ def create_app(
     # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
     # handler theo cùng config.
     app_logger = StdLogger(config_manager)
+    # `BOT-178` — the Engine's per-query INFO line is developer detail.
+    quiet_query_dispatch_outside_developer_mode(config_manager)
     # `EPIC-035H` — said here because the run log exists only from this point,
     # and a read-only copy is the one fact a reader of the log needs first.
     _log_instance(instance)

@@ -71,7 +71,8 @@ class GridStartPreconditions:
 
     def open_session_for_resume(self, bot: Bot) -> BotCommandResult | None:
         """A resume from HALTED proposes a ladder, which registers the budget a
-        closed session refuses: open it, as Start does, or say why it will not."""
+        closed session refuses; a resume from RECOVERING (`BUG-204`) waits for the
+        session a restart leaves closed. Open it, as Start does, or say why it will not."""
         session = self._ports.get(bot.definition.venue).trading_session
         return order_session_refusal(session, bot.bot_id.value)
 

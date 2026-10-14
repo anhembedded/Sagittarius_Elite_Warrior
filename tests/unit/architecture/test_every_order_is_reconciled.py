@@ -51,8 +51,8 @@ _EXECUTE_ORDER = "src/modules/trading/application/orders/execute_order/handler.p
 #: (`BUG-202`), the one place that calls `ensure_ready` for a bot and words its refusal.
 _BOT_SESSION_OPENERS = {
     "src/modules/bots/application/kinds/grid/start/grid_start_preconditions.py": (
-        "Start bot, and Resume from HALTED (`open_session_for_resume`, asked by "
-        "`BotRunner.resume` behind the read-only guard)"
+        "Start bot, and Resume from HALTED or RECOVERING (`open_session_for_resume`, "
+        "asked by `BotRunner.resume` behind the read-only guard; `BUG-204`)"
     ),
     "src/modules/bots/application/use_cases/resume_recovering_for_host/handler.py": (
         "`run --resume-recovering` (`EPIC-038D`, decision O2(b)): the operator's flag, "
