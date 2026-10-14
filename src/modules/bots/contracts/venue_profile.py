@@ -195,14 +195,8 @@ def bot_profile_of(
 #: protective stop for every position and the owner's 14-day Futures-testnet soak come first
 #: (`EPIC-039` decision O7, delivered by `EPIC-039L`, which replaces this set by the gate it
 #: builds). `bot_closed_reason` is the sentence every path that would create, start or resume a
-#: bot on one gives; the picker (`is_offered`) simply does not list it.
+#: bot on one gives; the pickers list it greyed out with that sentence (`BUG-208`).
 CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET})
-
-
-def is_offered(venue: TradingVenue) -> bool:
-    """Whether the New bot and Venue pickers list `venue`: a venue bots run on, not closed."""
-    profile = venue_profile_of(venue)
-    return profile is not None and runs_bots_on(profile) and venue not in CLOSED_VENUES
 
 
 def bot_closed_reason(venue: TradingVenue) -> str | None:
