@@ -51,9 +51,15 @@ class BotTickFeed(BaseFeed):
         self._venue = venue
         super().__init__(event_bus, parent)
 
-    def listen_to(self, venue: MarketDataVenue | None) -> None:
-        """The one venue whose candles are forwarded; `None` for none."""
+    def listen_to(
+        self, venue: MarketDataVenue | None, market: MarketType | None = None
+    ) -> None:
+        """The one venue whose candles are forwarded, in `market` (the market the feed was
+        built for when none is given); `None` for no venue. Both mainnet venues read the
+        public mainnet, so the market tells a Spot bot's candles from a Futures bot's."""
         self._venue = venue
+        if market is not None:
+            self._market = market
 
     def _subscribe(self) -> None:
         self._events.on(MarketTickEvent, self._forward)

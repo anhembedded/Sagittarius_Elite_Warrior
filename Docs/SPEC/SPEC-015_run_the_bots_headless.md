@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-015 — Run the bots headless: `main.py run`
 
 - **Status:** 🟡 partly built — the host, its signals, both stop policies, the lock refusal, the pre-flight gate, the health line and the resume of RECOVERING bots are built and proven; `--start-planned` reads the plan `bot apply` recorded (`EPIC-038I`); Ctrl-Break on Windows is proven by the adapter's own test, not by a Windows run; and the host is **not supported for unattended money** until `EPIC-036B`, `036C` and `036E` have merged.

@@ -19,10 +19,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
-    field_verdicts,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     MARKET_NOT_READ,
     ConnectionRead,
     ConnectionState,
@@ -30,9 +27,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_a
     RunFacts,
     assess_readiness,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.resume_readiness import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.resume_readiness import (
     ResumeInputs,
     assess_resume,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
+    field_verdicts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
     BotReadiness,
@@ -42,14 +42,28 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
-    ExchangeSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+    bot_profile_of,
+    exposure_limits_of,
+    plan_limits_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     ActionAvailability,
@@ -63,6 +77,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_facts import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_judge import (
     JudgedPlan,
+    PlanWorld,
     judge,
     verdict_line,
 )
@@ -85,7 +100,9 @@ class DetailInputs:
     #: The Run step's facts (`EPIC-034H`).
     run: RunFacts = field(default_factory=RunFacts)
     #: What the exchange says (`BOT-174`); still being asked until it answers.
-    exchange: ExchangeSnapshot = field(default_factory=ExchangeChecking)
+    exchange: VenueSnapshot = field(default_factory=ExchangeChecking)
+    #: The symbol's liquidation facts on a position venue (`EPIC-039J`); `None` until read.
+    risk: PlanRiskFacts | None = None
 
 
 @dataclass(frozen=True)
@@ -108,7 +125,12 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
     config = inputs.edited if inputs.edited is not None else bot.config
     connection = inputs.connection or ConnectionRead(ConnectionState.READING, "")
     judged = (
-        judge(inputs.kind, config, inputs.market, connection.account)
+        judge(
+            inputs.kind,
+            config,
+            inputs.market,
+            PlanWorld(connection.account, plan_limits_of(bot.venue), inputs.risk),
+        )
         if inputs.kind is not None
         else JudgedPlan()
     )
@@ -123,6 +145,8 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
                 inputs.market,
                 inputs.run,
                 inputs.exchange,
+                profile=bot_profile_of(bot.venue, GRID_MARKETS) or SPOT_PROFILE,
+                limits=exposure_limits_of(bot.venue, GRID_MARKETS),
             )
         )
         if bot.state in RUN_STARTING_STATES

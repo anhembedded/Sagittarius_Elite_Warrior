@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_needs import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.ladder_needs import (
     resume_ladder_needs,
     start_ladder_needs,
 )

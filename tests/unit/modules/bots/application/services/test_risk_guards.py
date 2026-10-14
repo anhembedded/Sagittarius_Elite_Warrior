@@ -8,10 +8,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.risk_guard_futures import (
     FuturesRiskGuard,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.risk_guard_spot import (
     SpotRiskGuard,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import (

@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
     BotFillsTableModel,
     BotOrdersTableModel,
@@ -26,6 +29,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
 NO_ORDERS_TEXT = "The selected bot has no resting orders."
 NO_FILLS_TEXT = "The selected bot has no fills since its run started."
+#: `BUG-204` - a RECOVERING bot's rows are the ladder as saved: nothing has listened
+#: to the exchange since the app started, so a row may be an order that has filled.
+RECOVERING_ORDERS_NOTE = (
+    "Saved ladder, not checked with the exchange since the app started: an order "
+    "below may have filled, and the held quantity does not yet count it. "
+    "Resume checks the exchange and books it."
+)
 
 
 class BotOrdersPanel(QWidget):
@@ -36,11 +46,15 @@ class BotOrdersPanel(QWidget):
         self.setObjectName("panelBotOrders")
         self._model = model
         self.orders = BotOrdersTableModel(self)
+        self.note = plain_label()
+        self.note.setObjectName("lblBotOrdersNote")
+        self.note.setWordWrap(True)
         self._table = SpecTable(
             self.orders, object_name="tblBotOrders", empty_text=NO_ORDERS_TEXT
         )
         layout = QVBoxLayout(self)
-        layout.addWidget(self._table.body)
+        layout.addWidget(self.note)
+        layout.addWidget(self._table.body, 1)
         model.selection_changed.connect(self._show_orders)
         model.facts_changed.connect(self._show_orders)
         self._show_orders()
@@ -51,6 +65,9 @@ class BotOrdersPanel(QWidget):
 
     def _show_orders(self) -> None:
         bot = self._model.selected
+        recovering = bot is not None and bot.state is BotLifecycleState.RECOVERING
+        self.note.setText(RECOVERING_ORDERS_NOTE if recovering else "")
+        self.note.setVisible(recovering)
         if bot is None:
             self.orders.show_rows(None, ())
             return

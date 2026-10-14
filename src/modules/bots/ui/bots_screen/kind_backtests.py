@@ -3,7 +3,8 @@
 Kind-neutral: the backtest comes from `kind_panels.backtest_for`, built once
 per kind and kept while bots of that kind are selected (selecting another bot
 of the same kind cancels its run and clears its result, `BotBacktest.follow`).
-A kind with no backtest, or no selection, hides the Backtest tab.
+A kind with no backtest, a venue whose market it does not replay,
+or no selection hides the Backtest tab.
 """
 
 from __future__ import annotations
@@ -12,6 +13,9 @@ import logging
 from collections.abc import Callable
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
@@ -22,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_backtest import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     backtest_for,
+    backtest_supports,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -58,7 +63,9 @@ class KindBacktests:
             self._kind, self._venue = kind, venue
             self._backtest = (
                 backtest_for(kind, self._ports_for(venue))
-                if kind and venue is not None
+                if kind
+                and venue is not None
+                and backtest_supports(kind, venue_profile_of(venue))
                 else None
             )
             logger.info(
@@ -92,4 +99,5 @@ def backtest_context(selected: SelectedBot) -> BacktestContext | None:
         symbol=bot.symbol,
         config=dict(selected.edited if selected.edited is not None else bot.config),
         terms=market.terms if market is not None else None,
+        brackets=selected.risk.brackets if selected.risk is not None else None,
     )

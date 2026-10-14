@@ -49,6 +49,8 @@ PRICE_LEVEL_LABEL_DARK_COLOR = "black"
 EMPTY_LEVEL_COLOR = "gray"
 PARTIAL_LEVEL_COLOR = "darkorange"
 STOP_LOSS_COLOR = BEAR_COLOR
+#: `EPIC-039J` - the estimated price at which a leveraged position is liquidated.
+LIQUIDATION_COLOR = "firebrick"
 RANGE_EDGE_COLOR = "steelblue"
 AVERAGE_COST_COLOR = "goldenrod"
 SUGGESTION_BAND_COLOR = "gray"

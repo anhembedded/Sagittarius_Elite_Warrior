@@ -1,3 +1,5 @@
+Status: Historical
+
 # §10 — The test philosophy for the module architecture: what each layer proves, and how
 
 - **Status:** 🟢 Approved 2026-09-13 (ADR D19), in answer to the user: *"xem lại triết lý test

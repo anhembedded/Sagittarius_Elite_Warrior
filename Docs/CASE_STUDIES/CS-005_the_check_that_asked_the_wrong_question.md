@@ -1,5 +1,5 @@
+Status: Current
 # CS-005 — the check that asked the wrong question
-
 `BUG-129`: `scripts/check_skill_prompt_references.py` resolved cited paths with `Path.exists()`,
 so it answered about the disk it ran on. `EPIC-025` deleted two legacy directories (named in that
 bug report) and left them on every machine as shells holding nothing but `__pycache__`, which

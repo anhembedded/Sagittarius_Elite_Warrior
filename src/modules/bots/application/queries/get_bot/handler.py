@@ -10,7 +10,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot.query import (
     GetBotQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_progress_reader import (
     bot_progress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (

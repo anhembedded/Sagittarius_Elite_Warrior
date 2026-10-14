@@ -9,8 +9,11 @@ other, so a screen showing the bot reads it again.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
+    closed_venue_refusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.change_bot_venue.command import (
     ChangeBotVenueCommand,
@@ -41,6 +44,9 @@ class ChangeBotVenueCommandHandler(
             return found
         if found.bot.definition.venue is command.venue:
             return BotCommandResult.done(command.bot_id)
+        closed = closed_venue_refusal(command.venue, command.bot_id)
+        if closed is not None:
+            return closed
         try:
             moved = found.bot.moved_to(command.venue)
         except BotVenueFixedError as exc:

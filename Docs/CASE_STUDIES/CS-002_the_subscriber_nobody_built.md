@@ -1,5 +1,5 @@
+Status: Current
 # CS-002 — The subscriber nobody built
-
 `BUG-126` · written in `EPIC-008G`, broken the whole time · a UI slot that raised and a background
 task that died reached nobody.
 [report](../../Tasks/bug_report/completed/BUG-126_system_failures_reached_no_subscriber_at_runtime.md)

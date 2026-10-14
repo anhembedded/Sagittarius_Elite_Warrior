@@ -1,3 +1,5 @@
+Status: Historical
+
 # §7 — Build or buy: what already exists for each thing we plan to build
 
 - **Status:** survey completed 2026-09-12 at the user's request (*"thử điều tra xem những vấn đề

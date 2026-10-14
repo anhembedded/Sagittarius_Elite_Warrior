@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from PySide6.QtCore import QSignalBlocker, QSize, Qt, Signal
+from PySide6.QtCore import QSignalBlocker, QSize, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
     SuggestedRange,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    VenueProfile,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     ExitKind,
     GridSpacing,
@@ -47,11 +50,20 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_exit_field import (
+    ExitField,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_exposure_fields import (
+    ROW_LABELS,
+    ExposureFields,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
     CAPITAL,
+    DIRECTION,
     FIELD_LABELS,
     FIELDS_OF_CODE,
     GRID_COUNT,
+    LEVERAGE,
     LOWER,
     SPACING,
     STOP_LOSS,
@@ -75,51 +87,6 @@ _DEFAULT_GRIDS = 10
 _NO_RANGE_YET = "The planner has no {name} range: it needs more stored daily candles."
 
 
-class _ExitField(QWidget):
-    """An exit rule: off, a price, or a percentage beyond the range edge."""
-
-    edited = Signal()
-
-    def __init__(self, name: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.kind = QComboBox()
-        self.kind.setObjectName(f"cmbGrid{name}Kind")
-        for kind in ExitKind:
-            self.kind.addItem(kind.value, kind.value)
-        self.value = QLineEdit()
-        self.value.setObjectName(f"editGrid{name}")
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.kind)
-        layout.addWidget(self.value, 1)
-        self.kind.activated.connect(self._on_kind)
-        self.value.textEdited.connect(self.edited)
-
-    def encode(self) -> str:
-        kind = self._kind()
-        if kind is ExitKind.OFF:
-            return ExitKind.OFF.value
-        return f"{kind.value}:{self.value.text().strip()}"
-
-    def show_encoded(self, text: str) -> None:
-        kind_text, _, value = text.partition(":")
-        index = self.kind.findText(kind_text.strip())
-        self.kind.setCurrentIndex(max(index, 0))
-        self.value.setText(value.strip())
-        self._sync_value_enabled()
-
-    def _on_kind(self) -> None:
-        self._sync_value_enabled()
-        self.edited.emit()
-
-    def _sync_value_enabled(self) -> None:
-        self.value.setEnabled(self._kind() is not ExitKind.OFF)
-
-    def _kind(self) -> ExitKind:
-        """A combo hands a `str` enum back as a plain `str`: data is the value."""
-        return ExitKind(self.kind.currentData())
-
-
 class GridPanel(BotKindPanel):
     """@brief Edits one Grid's parameters."""
 
@@ -138,8 +105,9 @@ class GridPanel(BotKindPanel):
         for spacing in GridSpacing:
             self.spacing.addItem(spacing.value.capitalize(), spacing.value)
         self.capital = _decimal_field("editGridCapital")
-        self.stop_loss = _ExitField("StopLoss")
-        self.take_profit = _ExitField("TakeProfit")
+        self.exposure = ExposureFields()
+        self.stop_loss = ExitField("StopLoss")
+        self.take_profit = ExitField("TakeProfit")
         self.toolbar = QToolBar("Grid")
         self.toolbar.setObjectName("toolbarGridKind")
         # Worded as the Bots menu's commands, without their access keys.
@@ -149,6 +117,8 @@ class GridPanel(BotKindPanel):
         )
         self._error_labels: dict[str, QLabel] = {}
         self._marker_labels: dict[str, QLabel] = {}
+        self._form = QFormLayout()
+        self._rows: dict[str, QWidget] = {}
         self._build_field_layout()
         self._connect()
         self.set_planner_market(None)
@@ -172,6 +142,14 @@ class GridPanel(BotKindPanel):
         self.capital.setText(config.get("capital_quote", ""))
         self.stop_loss.show_encoded(config.get("stop_loss", ExitKind.OFF.value))
         self.take_profit.show_encoded(config.get("take_profit", ExitKind.OFF.value))
+        self.exposure.show_config(config)
+
+    def set_profile(self, profile: VenueProfile) -> None:
+        """Offers the rows `profile` lists. A row appears because the profile has something
+        for it, never because a market is named here (`EPIC-039J`)."""
+        self.exposure.set_profile(profile)
+        for key, shown in self.exposure.visible_rows().items():
+            self._form.setRowVisible(self._rows[key], shown)
 
     def config(self) -> dict[str, str]:
         return {
@@ -182,6 +160,7 @@ class GridPanel(BotKindPanel):
             "capital_quote": self.capital.text().strip(),
             "stop_loss": self.stop_loss.encode(),
             "take_profit": self.take_profit.encode(),
+            **self.exposure.config(),
         }
 
     def set_planner_market(self, market: PlannerMarket | None) -> None:
@@ -203,6 +182,8 @@ class GridPanel(BotKindPanel):
             self.capital,
             self.stop_loss,
             self.take_profit,
+            self.exposure.direction,
+            self.exposure.leverage,
         ):
             field.setEnabled(editable)
         self._editable = editable
@@ -230,22 +211,31 @@ class GridPanel(BotKindPanel):
         return action
 
     def _build_field_layout(self) -> None:
-        form = QFormLayout()
+        form = self._form
         rows = (
+            (DIRECTION, self.exposure.direction),
             (LOWER, self.lower_price),
             (UPPER, self.upper_price),
             (GRID_COUNT, self.grid_count),
             (SPACING, self.spacing),
             (CAPITAL, self.capital),
+            (LEVERAGE, self.exposure.leverage),
             (STOP_LOSS, self.stop_loss),
             (TAKE_PROFIT, self.take_profit),
         )
         for key, editor in rows:
-            form.addRow(FIELD_LABELS[key], self._row(key, editor))
+            row = self._row(key, editor)
+            self._rows[key] = row
+            form.addRow(FIELD_LABELS[key], row)
+        for key, widget in self.exposure.read_only_rows():
+            self._rows[key] = widget
+            form.addRow(ROW_LABELS[key], widget)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.toolbar)
         layout.addLayout(form)
+        for key in self.exposure.visible_rows():
+            form.setRowVisible(self._rows[key], False)
 
     def _row(self, key: str, editor: QWidget) -> QWidget:
         """The editor with, under it, what the constraints say about it
@@ -280,6 +270,7 @@ class GridPanel(BotKindPanel):
             label.setVisible(error is not None)
             self._mark(key, error)
             self._editor_of(key).setToolTip(error.text if error else "")
+        self.exposure.show_liquidation(verdicts)
 
     def _mark(self, key: str, error: FieldError | None) -> None:
         """A sign beside the sentence, from the platform's own icons: a stop sign
@@ -309,10 +300,10 @@ class GridPanel(BotKindPanel):
         if key is None:
             return False
         editor = self._editor_of(key)
-        if isinstance(editor, _ExitField) and not editor.value.isEnabled():
+        if isinstance(editor, ExitField) and not editor.value.isEnabled():
             editor.kind.setFocus()
         else:
-            (editor.value if isinstance(editor, _ExitField) else editor).setFocus()
+            (editor.value if isinstance(editor, ExitField) else editor).setFocus()
         return True
 
     def field_label(self, code: str) -> str | None:
@@ -333,6 +324,8 @@ class GridPanel(BotKindPanel):
             CAPITAL: self.capital,
             STOP_LOSS: self.stop_loss,
             TAKE_PROFIT: self.take_profit,
+            DIRECTION: self.exposure.direction,
+            LEVERAGE: self.exposure.leverage,
         }[key]
 
     def _connect(self) -> None:
@@ -343,6 +336,8 @@ class GridPanel(BotKindPanel):
         # hears every way a person sets it, typing included.
         self.grid_count.valueChanged.connect(self._emit)
         self.spacing.activated.connect(self._emit)
+        self.exposure.direction.activated.connect(self._emit)
+        self.exposure.leverage.valueChanged.connect(self._emit)
         self.stop_loss.edited.connect(self._emit)
         self.take_profit.edited.connect(self._emit)
         self.suggest_atr.triggered.connect(lambda: self._fill_range(self._atr()))

@@ -15,13 +15,13 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_facts import (
-    BotRunFactsReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.other_active_bot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
     other_active_bot,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
+    BotRunFactsReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     ConnectionRead,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
@@ -29,11 +29,22 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeChecking,
-    ExchangeSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
+    VenueSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     IBotKindCatalog,
     UnknownBotKindError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.plan_risk_read import (
+    PlanRiskRead,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    venue_profile_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
@@ -42,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import
     BotDetail,
     DetailInputs,
     detail_for,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.queued_action_words import (
+    accepted_words,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
@@ -78,14 +92,21 @@ class SelectedBot:
         #: What the exchange says about the selection (`BOT-174`): still being
         #: asked from the moment a bot is selected, so one bot's facts are never
         #: judged for another.
-        self.exchange: ExchangeSnapshot = ExchangeChecking()
+        self.exchange: VenueSnapshot = ExchangeChecking()
+        #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
+        #: read, and none for a bot whose venue carries no such risk.
+        self.risk: PlanRiskFacts | None = None
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
         self.bot, self.market, self.edited = bot, None, None
         self.exchange = ExchangeChecking()
+        self.risk = None
         self.panel = _editor_for(bot)
         if self.panel is not None and bot is not None:
+            profile = venue_profile_of(bot.venue)
+            if profile is not None:
+                self.panel.set_profile(profile)
             self.panel.set_config(bot.config)
         return self.panel
 
@@ -98,8 +119,13 @@ class SelectedBot:
         """The same bot, re-read: its state and progress may have moved."""
         self.bot = bot
 
-    def take_exchange(self, exchange: ExchangeSnapshot) -> None:
+    def take_exchange(self, exchange: VenueSnapshot) -> None:
         self.exchange = exchange
+
+    def take_risk(self, read: PlanRiskRead | None) -> None:
+        """The liquidation facts the venue gave; what it could not give, or `None`, leaves
+        none."""
+        self.risk = read if isinstance(read, PlanRiskFacts) else None
 
     def take_market(self, market: PlannerMarket) -> None:
         self.market = market
@@ -120,6 +146,12 @@ class SelectedBot:
 
     def saved(self) -> None:
         self.edited = None
+
+    def accepted_status(self, label: str, action: BotAction | None) -> str:
+        """The status line for an accepted command: what it did, or was sent to
+        do (`BUG-202`), and what a Save leaves undone."""
+        state = self.bot.state if self.bot is not None else None
+        return f"{accepted_words(label, action, state)}{self.still_blocked(action)}"
 
     def still_blocked(self, action: BotAction | None) -> str:
         """What a Save leaves undone (`EPIC-035N`): the parameters were stored as
@@ -162,6 +194,7 @@ class SelectedBot:
                 self.connection,
                 run,
                 self.exchange,
+                self.risk,
             )
         )
 

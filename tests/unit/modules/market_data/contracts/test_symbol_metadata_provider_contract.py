@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.symbol_m
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.funding_event import (
+    FundingEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
@@ -72,6 +75,9 @@ class _ScriptedExchangeClient(IExchangeClient):
         self, *args, **kwargs
     ) -> Iterator[list[MarketData]]:  # pragma: no cover - see above
         raise AssertionError("the metadata provider must not stream klines")
+
+    def get_funding_rate_history(self, *args, **kwargs) -> list[FundingEvent]:
+        raise AssertionError("the metadata provider must not read funding")
 
 
 class TestFakeSymbolMetadataProvider(SymbolMetadataProviderContract):

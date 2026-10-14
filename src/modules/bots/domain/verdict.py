@@ -36,6 +36,9 @@ class Verdict:
     code: str
     reason: str
     numbers: Mapping[str, Decimal] = field(default_factory=dict)
+    #: The part of the plan a code that can speak twice is about: a Neutral Futures plan has
+    #: a "long" and a "short" side (`EPIC-039J`). `""` for a verdict about the plan as a whole.
+    subject: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "numbers", MappingProxyType(dict(self.numbers)))

@@ -24,11 +24,14 @@ inventory or a position, and the word to show the user.
     and its markets in the kinds that support it;
   · a second exchange - the profile becomes keyed by venue instead of market; the sites do
     not change, because they ask for the profile.
-Two switches, one rule. `BOT_MARKETS` is the build-wide ceiling and the only one read today:
-a venue is one bots run on only when its market is in it. `IBotKind.supported_profiles` is
-each kind's own declaration and is read from `EPIC-039H`, which makes the rule "the market is
-in the kind's set *and* in `BOT_MARKETS`". Until `039H` flips both for the Grid, Futures
-*exists* here and no bot runs on it.
+Two switches, one rule (`EPIC-039H` flipped both for the Grid). `BOT_MARKETS` is the
+build-wide ceiling; `IBotKind.supported_profiles` is each kind's own declaration. A venue is
+one a kind's bots run on only when its market is in the kind's set *and* in `BOT_MARKETS`
+(`bot_profile_of(venue, supported)`), so a kind that declares Spot only is never given a
+Futures venue, whatever the build allows.
+
+A third gate closes a venue, not a market: `CLOSED_VENUES` (Futures mainnet until `EPIC-039L`)
+is judged wherever a bot would be created, started or resumed, not only where the picker lists.
 """
 
 from __future__ import annotations
@@ -69,12 +72,17 @@ class VenueProfile:
     #: The highest leverage a bot may name on this market: 1 where there is none. A symbol's
     #: bracket narrows it further (`EPIC-039E`).
     max_leverage: int = 1
+    #: The directions a bot may **run** today, a subset of `directions` (what the market supports,
+    #: which a plan and a backtest may name). Futures runs LONG only until `EPIC-039I` builds the
+    #: short and neutral openings; the start's preconditions and the readiness refuse the other
+    #: two in one sentence meanwhile (`exposure_refusal`).
+    bot_directions: frozenset[TradeDirection] = frozenset({TradeDirection.LONG})
 
 
 #: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
 _FUTURES_MAX_LEVERAGE = 125
 
-_SPOT = VenueProfile(
+SPOT_PROFILE = VenueProfile(
     market_type=MarketType.SPOT,
     directions=frozenset({TradeDirection.LONG}),
     margin_modes=frozenset(),
@@ -98,10 +106,16 @@ _FUTURES = VenueProfile(
 #: The markets of the Spot profile: what a kind that supports Spot declares.
 SPOT_MARKETS: frozenset[MarketType] = frozenset({MarketType.SPOT})
 
-#: The markets a bot may run on **today**, the build-wide ceiling `EPIC-039H` raises to add
-#: Futures together with the Grid kind's `supported_profiles` (the per-kind half of the rule). A venue whose profile is outside it is "not a venue bots trade
-#: on yet", whatever its profile allows.
-BOT_MARKETS: frozenset[MarketType] = SPOT_MARKETS
+#: The markets of the USDⓈ-M Futures profile (decision D4): what a kind that supports Futures declares.
+FUTURES_MARKETS: frozenset[MarketType] = frozenset({MarketType.FUTURES_USD_M})
+
+#: Every market a profile exists for: what a kind that supports both declares.
+PROFILE_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
+
+#: The markets a bot may run on in this build, the build-wide ceiling (`EPIC-039H` raised it to
+#: Futures together with the Grid kind's `supported_profiles`, the per-kind half of the rule).
+#: A venue whose profile is outside it is "not a venue bots trade on", whatever its profile allows.
+BOT_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
 
 
 def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
@@ -111,15 +125,28 @@ def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
     """
     market = venue.market_type
     if market is MarketType.SPOT:
-        return _SPOT
+        return SPOT_PROFILE
     if market is MarketType.FUTURES_USD_M:
         return _FUTURES
     return None
 
 
+def title_word_of(venue: TradingVenue) -> str:
+    """The word the user reads for `venue`'s market in a sentence: "Spot" or "Futures". A
+    venue that trades no market is described as Spot, as every sentence did before Futures."""
+    profile = venue_profile_of(venue)
+    return profile.title_word if profile is not None else SPOT_TITLE
+
+
+def is_in_markets(profile: VenueProfile, markets: frozenset[MarketType]) -> bool:
+    """Whether the profile's market is one of `markets`: a kind's declared set, or its
+    backtest's."""
+    return profile.market_type in markets
+
+
 def runs_bots_on(profile: VenueProfile) -> bool:
     """Whether a bot can run on this profile's market in this build."""
-    return profile.market_type in BOT_MARKETS
+    return is_in_markets(profile, BOT_MARKETS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,24 +155,87 @@ class ExposureLimits:
 
     directions: frozenset[TradeDirection]
     max_leverage: int
+    #: What the venue's bot holds: an inventory or a position. A kind sizes its levels by it
+    #: (`EPIC-039B`: a position is only a function of price when every level has the same
+    #: quantity).
+    exposure_kind: ExposureKind = ExposureKind.INVENTORY
 
 
 #: The Spot profile's limits: LONG at 1. What a kind judges against when no venue speaks.
-SPOT_LIMITS = ExposureLimits(_SPOT.directions, _SPOT.max_leverage)
+SPOT_LIMITS = ExposureLimits(
+    SPOT_PROFILE.directions, SPOT_PROFILE.max_leverage, SPOT_PROFILE.exposure_kind
+)
 
 
-def exposure_limits_of(venue: TradingVenue) -> ExposureLimits:
-    """The limits of a venue bots run on; Spot's for any other, so nothing is ever wider."""
-    profile = bot_profile_of(venue)
+def exposure_limits_of(
+    venue: TradingVenue, supported: frozenset[MarketType]
+) -> ExposureLimits:
+    """The limits of a venue a kind that supports `supported` runs on; Spot's for any other,
+    so nothing is ever wider."""
+    profile = bot_profile_of(venue, supported)
     if profile is None:
         return SPOT_LIMITS
-    return ExposureLimits(profile.directions, profile.max_leverage)
+    return ExposureLimits(
+        profile.bot_directions, profile.max_leverage, profile.exposure_kind
+    )
 
 
-def bot_profile_of(venue: TradingVenue) -> VenueProfile | None:
-    """The profile of a venue a bot can run on in this build, else `None`."""
+def bot_profile_of(
+    venue: TradingVenue, supported: frozenset[MarketType]
+) -> VenueProfile | None:
+    """The profile of a venue a bot of a kind declaring `supported` markets can run on, else
+    `None`: the market must be in the kind's set and in this build's (`BOT_MARKETS`)."""
     profile = venue_profile_of(venue)
-    return profile if profile is not None and runs_bots_on(profile) else None
+    if profile is None or profile.market_type not in supported:
+        return None
+    return profile if runs_bots_on(profile) else None
+
+
+#: Venues a bot runs on in this build but that stay closed to it until the owner opens them: a
+#: protective stop for every position and the owner's 14-day Futures-testnet soak come first
+#: (`EPIC-039` decision O7, delivered by `EPIC-039L`, which replaces this set by the gate it
+#: builds). `bot_closed_reason` is the sentence every path that would create, start or resume a
+#: bot on one gives; the picker (`is_offered`) simply does not list it.
+CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET})
+
+
+def is_offered(venue: TradingVenue) -> bool:
+    """Whether the New bot and Venue pickers list `venue`: a venue bots run on, not closed."""
+    profile = venue_profile_of(venue)
+    return profile is not None and runs_bots_on(profile) and venue not in CLOSED_VENUES
+
+
+def bot_closed_reason(venue: TradingVenue) -> str | None:
+    """Why no bot may be created, started or resumed on `venue` yet, or `None` when it may."""
+    if venue not in CLOSED_VENUES:
+        return None
+    return (
+        f"{venue.display_name} is closed to bots until a stop stands on the exchange "
+        "for every position they open and the Futures testnet soak is done "
+        "(EPIC-039L); use Futures Testnet."
+    )
+
+
+def plan_limits_of(venue: TradingVenue) -> ExposureLimits:
+    """The limits of `venue`'s market whether or not a bot may run there yet; Spot's for a venue
+    that trades no market.
+
+    @details A backtest replays a plan, it starts nothing, so it is judged against what the
+    market allows (`EPIC-039K`), where `exposure_limits_of` answers what a bot may start with
+    in this build."""
+    profile = venue_profile_of(venue)
+    if profile is None:
+        return SPOT_LIMITS
+    return ExposureLimits(
+        profile.directions, profile.max_leverage, profile.exposure_kind
+    )
+
+
+def plan_market_of(venue: TradingVenue) -> MarketType:
+    """The market a plan on `venue` is read and replayed on, whether or not a bot may run
+    there yet (`EPIC-039K`); `market_of` is the market a running bot trades."""
+    profile = venue_profile_of(venue)
+    return profile.market_type if profile is not None else BOT_MARKET
 
 
 #: The market a bot reads data for where no venue is at hand (a symbol list, a tick feed, a
@@ -153,11 +243,14 @@ def bot_profile_of(venue: TradingVenue) -> VenueProfile | None:
 BOT_MARKET: MarketType = MarketType.SPOT
 
 
-def market_of(venue: TradingVenue) -> MarketType:
-    """The market to read data for on behalf of a bot on `venue`.
+def market_of(
+    venue: TradingVenue, supported: frozenset[MarketType] = PROFILE_MARKETS
+) -> MarketType:
+    """The market to read data for on behalf of a bot of a kind declaring `supported` on `venue`
+    (any kind, for a screen that has none in hand).
 
     Callers refuse a venue bots do not run on before they read, so the fallback to
     `BOT_MARKET` is only the unreachable branch, not a decision.
     """
-    profile = bot_profile_of(venue)
+    profile = bot_profile_of(venue, supported)
     return profile.market_type if profile is not None else BOT_MARKET

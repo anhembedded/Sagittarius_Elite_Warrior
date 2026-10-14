@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §5 — Module contracts: what was specified, and what shipped
 
 > Part of the SDD, split out of the single `README.md` this document used to be

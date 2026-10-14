@@ -9,7 +9,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     MARKET_NOT_READ,
     ConnectionRead,
     ConnectionState,

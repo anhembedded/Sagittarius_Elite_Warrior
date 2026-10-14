@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_settings_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    MANUAL_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -43,17 +46,21 @@ class FuturesSettingsService(IFuturesSettingsControl):
         self._venue = venue
 
     def change_leverage(
-        self, symbol: str, leverage: int
+        self, symbol: str, leverage: int, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[LeverageSetting]:
-        command = ChangeLeverageCommand(symbol, leverage, venue=self._venue)
+        command = ChangeLeverageCommand(
+            symbol, leverage, venue=self._venue, owner_id=owner_id
+        )
         return _result(
             command, self._dispatcher.dispatch(ChangeLeverageCommand, command)
         )
 
     def change_margin_type(
-        self, symbol: str, margin_type: MarginType
+        self, symbol: str, margin_type: MarginType, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[MarginType]:
-        command = ChangeMarginTypeCommand(symbol, margin_type, venue=self._venue)
+        command = ChangeMarginTypeCommand(
+            symbol, margin_type, venue=self._venue, owner_id=owner_id
+        )
         return _result(
             command, self._dispatcher.dispatch(ChangeMarginTypeCommand, command)
         )

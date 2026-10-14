@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    FUTURES_MARKETS,
     SPOT_MARKETS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -26,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import (
     GridOverlaySource,
     grid_overlay,
+    liquidation_marks,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
@@ -33,6 +35,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 GRID_KIND_ID = "grid"
+
+#: The markets a Grid runs on (`EPIC-039H`): the one declaration every Grid-specific caller
+#: of `bot_profile_of` passes and `GridKind.supported_profiles` answers.
+GRID_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
 
 
 class GridKind(IBotKind):
@@ -49,7 +55,7 @@ class GridKind(IBotKind):
         return GRID_KIND_ID
 
     def supported_profiles(self) -> frozenset[MarketType]:
-        return SPOT_MARKETS
+        return GRID_MARKETS
 
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:
         return evaluate_grid(inputs, self._thresholds).verdicts
@@ -66,6 +72,7 @@ class GridKind(IBotKind):
                 evaluation.plan,
                 self._thresholds,
                 daily_atr=inputs.market.daily_atr,
+                liquidations=liquidation_marks(evaluation.verdicts),
             )
         )
 

@@ -17,7 +17,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.testing.recording_notifier imp
     RecordingNotifier,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fine_klines import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.streamed_fine_klines import (
     price_bar,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (

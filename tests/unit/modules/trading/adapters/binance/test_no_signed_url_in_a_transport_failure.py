@@ -24,7 +24,7 @@ from unittest.mock import Mock
 import pytest
 import requests
 from requests.adapters import HTTPAdapter
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     BotIdentity,
     BotOrderGateway,
     OrderOutcomeKind,

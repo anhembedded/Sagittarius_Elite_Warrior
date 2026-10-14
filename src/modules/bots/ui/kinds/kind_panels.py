@@ -9,8 +9,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
     UnknownBotKindError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    PROFILE_MARKETS,
+    SPOT_TITLE,
+    VenueProfile,
+    is_in_markets,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
@@ -36,12 +43,29 @@ _BACKTESTS: Mapping[str, Callable[[BacktestPorts], BotBacktest]] = {
     GRID_KIND_ID: GridBacktest
 }
 
-#: What the New Bot dialog lists, by `kind_id`.
-KIND_TITLES: Mapping[str, str] = {GRID_KIND_ID: "Spot Grid"}
+#: The markets each kind's backtest can replay. On a venue outside its set the tab stays
+#: hidden rather than replaying another market's candles as the bot's own; the Futures
+#: backtest (funding and liquidation included, decision O9, `EPIC-039K`) is the Grid's too.
+_BACKTEST_PROFILES: Mapping[str, frozenset[MarketType]] = {
+    GRID_KIND_ID: PROFILE_MARKETS
+}
+
+#: What a kind is called, by `kind_id`; the venue's market is put before it (`kind_title`).
+_KIND_NAMES: Mapping[str, str] = {GRID_KIND_ID: "Grid"}
 
 #: Which definition key holds the capital the bot may use, by `kind_id`; the
 #: detail panel shows it beside every kind's profit.
 KIND_CAPITAL_KEYS: Mapping[str, str] = {GRID_KIND_ID: "capital_quote"}
+
+
+def kind_title(kind_id: str, profile: VenueProfile | None) -> str:
+    """The kind as the user reads it on a venue: the profile's word first, "Spot Grid" or
+    "Futures Grid". Without a profile (a venue bots do not run on) it is the Spot one, as it
+    was before Futures existed; a kind with no name is shown by its id."""
+    name = _KIND_NAMES.get(kind_id)
+    if name is None:
+        return kind_id
+    return f"{profile.title_word if profile else SPOT_TITLE} {name}"
 
 
 def panel_for(kind_id: str) -> BotKindPanel:
@@ -50,6 +74,13 @@ def panel_for(kind_id: str) -> BotKindPanel:
         return _PANELS[kind_id]()
     except KeyError:
         raise UnknownBotKindError(kind_id) from None
+
+
+def backtest_supports(kind_id: str, profile: VenueProfile | None) -> bool:
+    """Whether `kind_id`'s backtest replays the market `profile` names. A venue with no
+    profile is judged as before profiles existed: it is not turned away here."""
+    markets = _BACKTEST_PROFILES.get(kind_id)
+    return markets is not None and (profile is None or is_in_markets(profile, markets))
 
 
 def backtest_for(kind_id: str, ports: BacktestPorts) -> BotBacktest | None:

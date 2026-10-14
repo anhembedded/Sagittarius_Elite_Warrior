@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_terms_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_terms_watch import (
     TERMS_REFRESH_EVERY_SECONDS,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (

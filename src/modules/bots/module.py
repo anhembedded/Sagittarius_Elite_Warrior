@@ -25,9 +25,9 @@ the lock that makes the D20 check and a start one step.
 @par `boot()` applies the restart rule (ADR D12), then subscribes the bots
 `BotRestoreService.restore_all()` moves RUNNING and PAUSED bots to RECOVERING
 and STARTING bots to HALTED, saving each changed file, and places nothing.
-Then `BotEventRouter` is subscribed to the six events a bot hears: fills,
-ends and rejections of its orders, its symbol's funding fees, its symbol's ticks, and
-the trading switch.
+Then `BotEventRouter` is subscribed to the seven events a bot hears: fills,
+ends and rejections of its orders, its symbol's funding fees, a divergence of its position
+from the exchange's (`EPIC-039F`), its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
@@ -99,35 +99,35 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_boot_recovery import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_boot_recovery import (
     BotBootRecovery,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_files_readable_check import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_files_readable_check import (
     CHECK_ID as BOT_FILES_CHECK_ID,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_files_readable_check import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_files_readable_check import (
     BotFilesReadableCheck,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_price_watch import (
-    BotPriceWatch,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_restore_service import (
     BotRestoreService,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bots_health_contributor import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bots_health_contributor import (
     SECTION_NAME,
     BotsHealthContributor,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.running_bots_objection import (
     RunningBotsObjection,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.sleep_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot_price_watch import (
+    BotPriceWatch,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.sleep_watch import (
     SleepWatch,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.user_stream_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_watch import (
     UserStreamWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_cli_handler import (
@@ -175,6 +175,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_rejected_event import (
     OrderRejectedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.owner_position_diverged_event import (
+    OwnerPositionDivergedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchChangedEvent,
@@ -231,11 +234,13 @@ class BotsModule(BoundedContextModule):
         bus.on(OrderEndedEvent, router.on_end)
         bus.on(OrderRejectedEvent, router.on_rejected)
         bus.on(FundingChargedEvent, router.on_funding)
+        bus.on(OwnerPositionDivergedEvent, router.on_position_diverged)
         bus.on(MarketTickEvent, router.on_tick)
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info(
-            "Bots subscribed to fills, ends, rejections, funding, ticks and the switch"
+            "Bots subscribed to fills, ends, rejections, funding, position divergences, "
+            "ticks and the switch"
         )
         price_watch = container.resolve(BotPriceWatch)
         bus.on(BotChangedEvent, price_watch.on_bot_changed)

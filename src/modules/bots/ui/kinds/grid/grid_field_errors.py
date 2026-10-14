@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
 LOWER, UPPER = "lower", "upper"
 GRID_COUNT, SPACING, CAPITAL = "grid_count", "spacing", "capital_quote"
 STOP_LOSS, TAKE_PROFIT = "stop_loss", "take_profit"
+DIRECTION, LEVERAGE = "direction", "leverage"
 
 #: What the editor labels each field.
 FIELD_LABELS: Mapping[str, str] = MappingProxyType(
@@ -38,6 +39,8 @@ FIELD_LABELS: Mapping[str, str] = MappingProxyType(
         CAPITAL: "Capital (quote)",
         STOP_LOSS: "Stop loss",
         TAKE_PROFIT: "Take profit",
+        DIRECTION: "Direction",
+        LEVERAGE: "Leverage",
     }
 )
 
@@ -61,7 +64,26 @@ FIELDS_OF_CODE: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "STOP_LOSS_DISTANCE": (STOP_LOSS,),
         "TAKE_PROFIT_INSIDE_RANGE": (TAKE_PROFIT,),
         "TAKE_PROFIT_DISTANCE": (TAKE_PROFIT,),
+        # A position venue's plan (`EPIC-039F`, shown by `EPIC-039J`).
+        "LEVERAGE_ABOVE_CEILING": (LEVERAGE,),
+        "LEVERAGE_HIGH": (LEVERAGE,),
+        "NOTIONAL_ABOVE_BRACKET": (LEVERAGE, CAPITAL),
+        "MARGIN_TOO_SMALL": (CAPITAL, LEVERAGE),
+        "LIQUIDATION_INSIDE_RANGE": (LEVERAGE,),
+        "STOP_LOSS_NEEDED": (STOP_LOSS, TAKE_PROFIT),
+        "STOP_LOSS_AFTER_LIQUIDATION": (STOP_LOSS, TAKE_PROFIT),
+        "STOP_LOSS_NEAR_LIQUIDATION": (STOP_LOSS, TAKE_PROFIT),
     }
+)
+
+#: The exit that closes a side at a loss, by the verdict's `subject`: a long's is the stop
+#: loss below the range, a short's the exit above it (`futures_grid_checks.py`). A code in
+#: `EXIT_CODES` marks only that side's field when its verdict names the side.
+EXIT_OF_SIDE: Mapping[str, str] = MappingProxyType(
+    {"long": STOP_LOSS, "short": TAKE_PROFIT}
+)
+EXIT_CODES = frozenset(
+    {"STOP_LOSS_NEEDED", "STOP_LOSS_AFTER_LIQUIDATION", "STOP_LOSS_NEAR_LIQUIDATION"}
 )
 
 #: Codes with no single field, and why.
@@ -70,6 +92,8 @@ NO_FIELD: Mapping[str, str] = MappingProxyType(
         "KEY_CANNOT_TRADE": "it is about the API key, not a parameter",
         "FOREIGN_OPEN_ORDERS": "it is about orders already open, not a parameter",
         "FUNDING_ADVERSE": "it is about the venue's funding rate and the direction, not one field",
+        "CROSS_MARGIN_UNSUPPORTED": "the margin mode is the symbol's setting on the exchange, shown read-only",
+        "LIQUIDATION_ESTIMATE": "it is the Liquidation row's figure, not a problem with a field",
         "PARAMETERS_NOT_SET": "its sentence names every parameter still unset",
         "PARAMETERS_UNREADABLE": "its sentence names the parameter it cannot read",
     }
@@ -101,11 +125,18 @@ def field_errors(verdicts: Iterable[Verdict]) -> dict[str, FieldError]:
         error = FieldError(
             f"{BLOCKS if verdict.refuses else ADVICE}{verdict.reason}", verdict.refuses
         )
-        for field in FIELDS_OF_CODE.get(verdict.code, ()):
+        for field in _fields_of(verdict):
             current = shown.get(field)
             if current is None or (error.blocks and not current.blocks):
                 shown[field] = error
     return shown
+
+
+def _fields_of(verdict: Verdict) -> tuple[str, ...]:
+    """The fields a verdict marks: an exit verdict that names its side marks that side's exit."""
+    if verdict.code in EXIT_CODES and verdict.subject in EXIT_OF_SIDE:
+        return (EXIT_OF_SIDE[verdict.subject],)
+    return FIELDS_OF_CODE.get(verdict.code, ())
 
 
 def field_of_code(code: str) -> str | None:

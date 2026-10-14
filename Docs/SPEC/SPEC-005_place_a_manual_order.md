@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-005 — Place one order by hand
 
 - **Status:** ✅ built and proven

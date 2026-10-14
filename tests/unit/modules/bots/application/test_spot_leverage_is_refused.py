@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.plan_differ imp
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness_assessment import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     ConnectionRead,
     ConnectionState,
     ReadinessInputs,

@@ -11,7 +11,7 @@ are written apart.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.connect_failure_words import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
     NOT_CONNECTED as NOT_CONNECTED_WORDS,
 )
 

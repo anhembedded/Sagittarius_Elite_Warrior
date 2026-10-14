@@ -1,3 +1,5 @@
+Status: Historical
+
 # §8 — The Engine track: what the Engine gets, when, and by what criterion
 
 - **Status:** 🔵 Proposed 2026-09-13, in answer to the user: *"plan sao tui chưa thấy nói tới sẽ làm

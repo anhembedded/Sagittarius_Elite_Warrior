@@ -49,6 +49,9 @@ _STOP_WORDS = {
     StopReason.STOP_LOSS: "the stop loss: everything was sold at market",
     StopReason.TAKE_PROFIT: "the take profit: everything was sold at market",
     StopReason.HALTED: "a halt, as the live bot would have halted",
+    StopReason.LIQUIDATED: (
+        "a liquidation: the exchange closes the position and the margin is lost"
+    ),
 }
 _HUNDRED = Decimal(100)
 
@@ -73,6 +76,19 @@ _FIGURES = (
         "coarse_candles", "Candles without 1-second klines", ColumnKind.QUANTITY
     ),
 )
+#: What a replay on a position venue adds (`EPIC-039K`): funding apart from the grid profit,
+#: the margin a liquidation took, and how near the price came to one.
+_FUTURES_FIGURES = (
+    ColumnSpec(
+        "funding_paid", "Funding paid (USDT, negative earned)", ColumnKind.MONEY
+    ),
+    ColumnSpec(
+        "closest_to_liquidation",
+        "Closest to liquidation (of the price)",
+        ColumnKind.PERCENT,
+    ),
+    ColumnSpec("margin_lost", "Margin lost to a liquidation (USDT)", ColumnKind.MONEY),
+)
 #: How much of the period asked for was stored, when a period was asked.
 _STORED = (
     ColumnSpec("asked_from", "Period asked from", ColumnKind.TIMESTAMP),
@@ -95,7 +111,9 @@ def summary_of(result: GridBacktestResult) -> GridSummary:
     that qualify them (why the replay stopped, the fill rule, candles
     replayed without 1-second klines, a period not wholly stored)."""
     return GridSummary(
-        Readout(_FIGURES + _stored_specs(result), _values(result)),
+        Readout(
+            _FIGURES + _futures_specs(result) + _stored_specs(result), _values(result)
+        ),
         _notes(result),
     )
 
@@ -121,6 +139,7 @@ def _values(result: GridBacktestResult) -> dict[str, DisplayValue]:
         "taker_rate": provenance.taker_fee * _HUNDRED,
         "coarse_candles": len(result.coarse_periods),
     }
+    values |= _futures_values(result)
     window = provenance.window
     if window is not None:
         values |= {
@@ -130,6 +149,25 @@ def _values(result: GridBacktestResult) -> dict[str, DisplayValue]:
             "stored_candles": window.stored_candles,
         }
     return values
+
+
+def _futures_values(result: GridBacktestResult) -> dict[str, DisplayValue]:
+    futures = result.futures
+    if futures is None:
+        return {}
+    values: dict[str, DisplayValue] = {
+        "funding_paid": futures.funding_paid,
+        "margin_lost": futures.margin_lost,
+    }
+    if futures.closest_to_liquidation is not None:
+        values["closest_to_liquidation"] = futures.closest_to_liquidation * _HUNDRED
+    return values
+
+
+def _futures_specs(result: GridBacktestResult) -> tuple[ColumnSpec, ...]:
+    """A figure that does not exist (no liquidation price applied) has no row."""
+    shown = _futures_values(result)
+    return tuple(spec for spec in _FUTURES_FIGURES if spec.key in shown)
 
 
 def _stored_specs(result: GridBacktestResult) -> tuple[ColumnSpec, ...]:
@@ -146,6 +184,7 @@ def _notes(result: GridBacktestResult) -> tuple[str, ...]:
     if result.stop_detail:
         stop = f"{stop} ({result.stop_detail})"
     notes = [f"Stopped by {stop}.", f"Fill rule: {result.provenance.fill_rule}"]
+    notes[:0] = _futures_notes(result)
     if result.coarse_periods:
         notes.append(
             "Without 1-second klines the order of prices inside a candle was "
@@ -157,6 +196,22 @@ def _notes(result: GridBacktestResult) -> tuple[str, ...]:
     if window is not None and window.missing_candles:
         notes.append("The replay ran on what is stored, not the whole period.")
     return tuple(notes)
+
+
+def _futures_notes(result: GridBacktestResult) -> list[str]:
+    """What qualifies a position venue's figures, the missing funding first (`EPIC-039K`)."""
+    futures = result.futures
+    if futures is None:
+        return []
+    notes = [futures.funding_note]
+    notes.append(
+        "Modelled, not replayed: this is a model of a position grid with a Futures bot's "
+        "costs, funding and liquidation. It has not been checked against a Futures bot's "
+        "own fills yet, so treat it as an estimate."
+    )
+    if futures.leverage > 1 and futures.closest_to_liquidation is None:
+        notes.append("No liquidation price applied to the positions held.")
+    return notes
 
 
 def chart_candles(

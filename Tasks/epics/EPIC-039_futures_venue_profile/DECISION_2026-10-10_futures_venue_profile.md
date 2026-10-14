@@ -80,3 +80,5 @@ The Grid bot is Spot-only: nine hard-coded Spot places outside `ui/`, six inside
 | D4 | 039A | Not started | Not yet verified |
 | D5 | 039A, 039D | Not started | Not yet verified |
 | D6 | 039B | Not started | Not yet verified |
+| O8 | 039H, 039L | Delivered in code 2026-10-13 (039H stage 2); the exchange-side stop is 039L | `test_a_halt_by_a_silent_feed_ends_flat_with_no_orders_and_says_why`, `test_a_stop_that_would_keep_a_futures_position_is_refused_in_words` |
+| O10 | 039H | Delivered 2026-10-13 (stage 2) | `test_a_futures_long_opens_its_position_and_lays_reduce_only_sells` (reduce-only SELLs, no post-only) |

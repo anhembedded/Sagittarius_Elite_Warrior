@@ -13,6 +13,9 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
+    ResumeBotCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot.command import (
     StartBotCommand,
 )
@@ -73,7 +76,8 @@ def test_what_puts_orders_on_a_mainnet_venue_asks_first(action: BotAction) -> No
     command = command_for(action, _bot(), _dialogs(consent))
 
     assert command is not None
-    assert consent.asked == [(_MAINNET, "start this bot")]
+    said = "start this bot" if action is BotAction.START else "resume this bot"
+    assert consent.asked == [(_MAINNET, said)]
 
 
 @pytest.mark.parametrize(
@@ -91,6 +95,16 @@ def test_start_sends_the_start_command_once_agreed() -> None:
     )
 
     assert command == StartBotCommand("a00001", real_money_confirmed=True)
+
+
+def test_resume_carries_the_answer_to_the_use_case_that_enforces_it() -> None:
+    """`BUG-202`: a halted bot's resume reopens the session, so the command says
+    the user was asked."""
+    command = command_for(
+        BotAction.RESUME, _bot(), _dialogs(FakeRealMoneyConsent(agrees=True))
+    )
+
+    assert command == ResumeBotCommand("a00001", real_money_confirmed=True)
 
 
 @pytest.mark.parametrize("action", [BotAction.PAUSE, BotAction.SAVE])

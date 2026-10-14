@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-003 — Check that the app can reach the exchange
 
 - **Status:** ✅ built and proven

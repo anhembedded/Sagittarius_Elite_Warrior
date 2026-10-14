@@ -19,10 +19,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.preflight_scope import (
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_files_readable_check import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_files_readable_check import (
     BotFilesReadableCheck,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_restore_service import (
     BotRestoreService,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.contract_bot_store import (

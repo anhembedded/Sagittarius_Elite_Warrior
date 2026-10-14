@@ -1,3 +1,5 @@
+Status: Historical
+
 # Thiết kế Kiến trúc: Xác thực Quy tắc Sàn & Cache Metadata Thị trường (BOT-095E1)
 
 Tài liệu này mô tả chi tiết thiết kế kỹ thuật, kiến trúc phân lớp (Clean Architecture), sơ đồ lớp (Class Diagram), luồng dữ liệu (Sequence Diagram) và các nguyên lý bảo vệ tính trung thực dữ liệu cho module `SymbolMarketMetadata`.

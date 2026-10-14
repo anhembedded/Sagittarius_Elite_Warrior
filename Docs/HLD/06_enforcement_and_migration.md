@@ -1,3 +1,5 @@
+Status: Historical
+
 # §6 — Enforcement and migration
 
 ## 6.1 Three guards — architecture fitness functions

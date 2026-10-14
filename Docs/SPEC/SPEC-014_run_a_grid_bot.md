@@ -1,3 +1,5 @@
+Status: Current
+
 # SPEC-014 — Run a Grid bot
 
 - **Status:** ✅ built and proven (the run on Spot Testnet is the user's, §8)
@@ -177,6 +179,42 @@ available while it runs.
 
 On a server with no window the Bots mode's steps are a **plan file**: a JSON file (`sew.bot-plan/1`) that lists bots by `name`, `kind`, `venue`, `symbol`, `params` (the Grid's parameters as text, exactly what the Plan panel's fields hold) and `desired_state` (`running` | `stopped`). It has no field for a key, a secret or an account identifier, and a file that names one is refused. `main.py bot apply <plan> --dry-run` prints the diff (create, edit, delete, leave, and what `desired_state` will mean); `bot apply <plan>` creates and edits through `CreateBotCommand` and `EditBotCommand` (a bot is saved as a DRAFT; nothing is placed), deletes with `--prune` only a bot at rest, and records each entry's `desired_state`. An edit the lifecycle table refuses for the bot's state (a RUNNING Grid's range) is reported as "needs stop first" and exits `2`; the other entries are still applied. A real apply is a writable boot, so the restart rule runs first (a RUNNING or PAUSED bot on disk is RECOVERING when the diff is read); `--dry-run` boots read-only and shows the states as the files record them, and says "will not start it" for a bot that is not at rest. `main.py run --start-planned` then starts, through the `StartBotCommand` the Start button dispatches, the bots the record says are running and that are at rest. See [`SPEC-015`](SPEC-015_run_the_bots_headless.md).
 
+**Writing a plan from the desktop (`BOT-176`).** The Bots menu's **Export plan…** (enabled while a bot exists) writes the same file, so a bot designed and backtested here reaches the server with `scp` and `bot apply`. A dialog asks which bots (*Selected bot*, only with a selection, or *All bots*) and which wanted state (*Keep each bot's wanted state*, or *All stopped*, which is the default whenever a bot on a mainnet venue is in scope: a plan that says "running" starts real money on a server that runs `--start-planned`), says that the plan holds no key and that the server judges it again with its own account (`bot apply --dry-run` and the pre-flight), and offers **Save…** and **Copy JSON**. Save asks for a path (suggesting `bot-plan-YYYYMMDD.json`) and writes it only if no file is there: an existing path is refused by name and left untouched; a write failure is a message with the reason. After a save the message names the file, the number of bots and the two commands to run on the server. The text is what `bot export` writes for the same stored bots (one query, one writer); importing or applying a plan from the desktop is not offered.
+
+### 3.2 A Futures Long Grid (`EPIC-039H`, application layer only until the screen offers it)
+
+A Grid on a USDⓈ-M Futures venue is the same bot with a position instead of an inventory. It exists
+through the application layer (`CreateBotCommand` / `StartBotCommand` on a Futures venue); the New bot
+dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not offered before
+`EPIC-039L` (decision O7). Its direction is LONG; its `capital_quote` is the margin it commits and
+`leverage` multiplies it (decision O2); with leverage above 1 it needs a stop loss (O3).
+
+1. **Start** is refused, before any order, for what stands in its way, each in the exchange's words
+   and its own: the account in Hedge Mode, a position the bot did not open, too little margin, a
+   leverage the symbol's bracket does not allow, a venue whose leverage or margin type cannot be made
+   the bot's (the symbol keeps an order of the user's), a plan liquidated inside its range or with no
+   exit on its losing side.
+2. **The opening** is one market BUY, in base quantity, of the SELL levels' quantity (cut under the
+   per-order cap); trading counts it from the exchange's record, and the ladder is laid only when that
+   position covers its SELLs and `positionRisk` agrees with it. Every level has the same quantity.
+3. **The ladder**: BUYs below the price, SELLs above it as **reduce-only** orders (decision O10);
+   a filled BUY owes a reduce-only SELL one level up, a filled SELL a BUY one level down.
+4. **Stop** closes the position with reduce-only market orders and is STOPPED only when the exchange
+   reports it flat and no order carrying the tag rests. The choice "keep the position" is refused
+   in words: no exchange-side stop stands yet, and a leveraged position with none can be liquidated.
+5. **A halt** (a silent price feed, a user stream down, a refused counter, a mismatch, a liquidation
+   risk) takes the ladder off and **stops with the same close**, so the bot ends flat; its reason is the
+   halt's own (decision O8). Restart, a stream gap and a position that differs from the bot's own
+   fills are reconciled against `positionRisk` (`POSITION_MISMATCH`), never traded over.
+
+What it does not do yet: Short and Neutral (`EPIC-039I`), the screen's *On range exit* row (`EPIC-039J`), the
+exchange-side protective stop (`EPIC-039L`). The stop loss and take profit of a Futures bot follow the **mark**
+price, read once per beat of the price watch (up to one beat late); `on_range_exit` (`hold` by default, `close`
+stops with the position closed and the reason *range exit*, Futures only) is a plan-file key until the screen has its row. Futures
+mainnet is **closed to bots on every path** (create, start, resume, the headless host) until
+`EPIC-039L` opens it. A halt or a Stop with close closes **only the bot's own position**, derived from
+its fills; a position the owner opened by hand on the symbol stays open and is said so.
+
 ## 4. What must be true afterwards
 
 - A created bot is still listed after a restart, in the state it was saved in; a bot that was
@@ -187,10 +225,23 @@ On a server with no window the Bots mode's steps are a **plan file**: a JSON fil
 - A Recovering bot is not silent meanwhile (`EPIC-035C`): at start-up the app reads, from the
   exchange, which of its saved orders still rest, which filled while the app was closed, which are
   missing and which tagged orders the bot never saved, and shows the four counts beside its state
-  ("after the restart: 2 saved order(s) rest, 1 filled while the app was closed, 1 missing, 0 not
-  saved by the bot; nothing is placed until trading is enabled"). The read places and cancels
-  nothing; a read that fails is said in the same place. Counter orders for what filled still wait
-  for the order session.
+  (the state line first says "waiting for you: press Resume to open the order session and
+  continue", so the report is not read as a finished recovery, then "after the restart (read once,
+  at startup): 2 saved order(s) rest, 1 filled while the app was
+  closed, 1 missing, 0 not saved by the bot; nothing is placed and nothing listens to the exchange
+  until Resume opens the order session and books what filled since"). The read places and cancels
+  nothing; a read that fails is said in the same place. It is one read, not a live view: the
+  Orders panel of a Recovering bot shows the ladder as saved, with a note that an order may have
+  filled since and that the held quantity does not yet count it (`BUG-204`). Counter orders for
+  what filled wait for the order session.
+- **Resume takes a Recovering bot out of Recovering on the desktop** (`BUG-204`). It asks the
+  real-money question on a mainnet venue, opens the venue's order session (or says why it will
+  not, and the bot stays Recovering so Resume can be pressed again), and reconciles the bot with
+  the exchange: an order that filled while the bot was Recovering is booked once from the order
+  history, its counter order is laid at the next level, and no level is placed twice. The bot
+  returns to Running or Paused, or halts on a mismatch, naming it. Without Resume a restored bot
+  waited for some other action to open the session (starting another bot, a manual order), and Stop
+  waited for the same session.
 - A bot whose start the restart cut short (Starting when the app closed) comes back Halted, and the
   app cancels the orders carrying its tag as soon as the exchange lets it — when trading is enabled
   at the latest. Until then the bot says how many tagged orders still rest; a cancel the exchange
@@ -271,7 +322,8 @@ On a server with no window the Bots mode's steps are a **plan file**: a JSON fil
 
 ## 6. What this use case does NOT promise
 
-- Futures grids (`EPIC-039`), trailing grids, DCA and signal bots (`EPIC-029L`): Spot Grid is the only kind.
+- Futures grids on the screen, Short and Neutral directions, a Futures backtest and Futures mainnet
+  (`EPIC-039`, §3.2 says what exists), trailing grids, DCA and signal bots (`EPIC-029L`).
 - A backtest that fills like the exchange: it fills a level only when the price trades a tick
   through it (never on touch), orders levels inside a candle by its 1-second klines and, without
   them, takes the adverse side first and says so. It models no slippage, no queue position and no
@@ -311,6 +363,17 @@ On a server with no window the Bots mode's steps are a **plan file**: a JSON fil
 
 | Evidence | Where | Tier |
 | :--- | :--- | :--- |
+| A Futures Long opens its position, lays reduce-only SELLs, owes a reduce-only counter for each fill, books a cycle that agrees with the exchange's own realised profit, counts a repeated fill report once, books funding whole, stops flat, and refuses a "keep" stop | `tests/integration/modules/bots/test_a_futures_long_grid_on_the_fake_exchange.py` | integration (Futures fake) |
+| A halt ends flat with no orders; a restart in the middle of the ladder and a stream gap are reconciled against the position; a position added by hand halts the recovery; a start is refused for a foreign position, settings the venue will not make the bot's, and a refused liquidation risk | `tests/integration/modules/bots/test_a_futures_grid_halts_and_recovers_on_the_fake_exchange.py` | integration (Futures fake) |
+| The close is reduce-only, cut under the cap and confirmed flat; the opening is never traded over a divergence; the plan's risk and the venue's settings are settled before any order | `tests/unit/modules/bots/application/services/test_position_close.py` · `test_position_opening.py` · `test_position_venue_collaborators.py` | unit |
+| The four exposure joints are ports the sequences reach, and a halt stops with the close where the venue closes on halt | `tests/unit/modules/bots/application/services/test_grid_executor_exposure_seams.py` | unit |
+| A Futures bot is judged by the Futures rules against the margin of its ladder's worst case; its levels are sized by one quantity; the lease holder may change its own symbol's settings | `tests/unit/modules/bots/application/test_futures_readiness_path.py` · `tests/unit/modules/bots/domain/grid/test_position_venue_sizing.py` · `tests/unit/modules/trading/application/account_control/test_account_control_lease_holder.py` | unit |
+| A Futures bot's stop loss and take profit follow the mark price, a crossing is seen at the next read, and an unreadable mark judges nothing and is said once | `tests/unit/modules/bots/application/services/test_position_mark_exit.py` · `tests/integration/modules/bots/test_a_futures_grid_exits_on_the_mark_price_on_the_fake_exchange.py` | unit · integration |
+| A Futures bot out of range holds (default) or closes with the reason range exit; Spot refuses close | `tests/unit/modules/bots/application/services/test_position_range_exit.py` | unit |
+| A halt closes whatever the cancel did, only the bot's own position, and says what happened; Futures mainnet is refused on every path | `tests/unit/modules/bots/application/services/test_position_halt_close.py` · `tests/unit/modules/bots/application/services/test_position_close_scope.py` · `tests/integration/modules/bots/test_futures_mainnet_is_closed_on_every_path.py` | unit · integration |
+| A Futures owner's position survives the venue's 30-day history through a checkpoint | `tests/unit/modules/trading/application/test_owner_position_checkpoint.py` · `tests/unit/modules/trading/adapters/persistence/test_json_owner_position_checkpoints.py` | unit |
+| The position model and the Futures executor hold the same position and profit along one path; the Spot and Futures Long executors agree on a scenario table; the plan is judged on the setting the gate will make | `tests/integration/modules/bots/test_the_position_model_agrees_with_the_futures_executor.py` · `tests/integration/modules/bots/test_spot_and_futures_long_grids_agree_on_the_same_scenarios.py` · `tests/unit/modules/bots/domain/grid/test_plan_is_judged_on_the_intended_setting.py` | integration · unit |
+| Export plan… writes the file `bot export` writes (one query, one never-overwrite writer), *All stopped* changes only `desired_state` and is the default for a mainnet bot, an existing path is refused and untouched, Copy JSON equals the saved text, and a plan exported through the screen applies as "no changes" | `tests/unit/modules/bots/application/plan/test_export_bot_plan_query.py` · `tests/unit/modules/bots/adapters/test_plan_file.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_export_plan.py` · `tests/unit/modules/bots/ui/bots_screen/test_export_plan_dialog.py` · `tests/unit/modules/bots/ui/bots_screen/test_plan_export_flow.py` · `tests/integration/modules/bots/test_export_plan_from_the_desktop_on_the_fake_exchange.py` | unit · integration |
 | The list, legal actions per state, Refused disables Start, save before start, Stop and Delete ask, New bot creates a DRAFT, one action at a time, stale answers dropped, a write elsewhere re-read | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |

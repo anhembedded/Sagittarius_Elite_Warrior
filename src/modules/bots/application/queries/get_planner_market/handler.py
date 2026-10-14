@@ -15,6 +15,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
+    read_planner_numbers,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market.query import (
     GetPlannerMarketQuery,
 )
@@ -22,10 +25,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
     SuggestedRange,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.planner_numbers import (
-    read_planner_numbers,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import market_of
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -69,7 +72,7 @@ class GetPlannerMarketQueryHandler(IQueryHandler[GetPlannerMarketQuery, PlannerM
             return _unreadable(numbers)
         terms, view = numbers
         candles = self._klines.load(
-            market_of(query.venue),
+            market_of(query.venue, GRID_MARKETS),
             query.symbol,
             TimeFrame.ONE_DAY,
             limit=_DAILY_CANDLES,

@@ -16,7 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.bot_plan_parser
     InvalidBotPlanError,
     parse_plan,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
     BotKindCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.applied_plan import (

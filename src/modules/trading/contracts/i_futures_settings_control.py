@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    MANUAL_OWNER,
+)
 
 
 class IFuturesSettingsControl(ABC):
@@ -33,13 +36,14 @@ class IFuturesSettingsControl(ABC):
 
     @abstractmethod
     def change_leverage(
-        self, symbol: str, leverage: int
+        self, symbol: str, leverage: int, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[LeverageSetting]:
         """Set `symbol`'s initial leverage; the answer carries the leverage
-        in effect and the notional it allows."""
+        in effect and the notional it allows. `owner_id` is who asks: the symbol's
+        lease holder may change it, anyone else is refused while it is leased."""
 
     @abstractmethod
     def change_margin_type(
-        self, symbol: str, margin_type: MarginType
+        self, symbol: str, margin_type: MarginType, *, owner_id: str = MANUAL_OWNER
     ) -> AccountControlResult[MarginType]:
-        """Set `symbol`'s margin mode, cross or isolated."""
+        """Set `symbol`'s margin mode, cross or isolated (`owner_id` as for leverage)."""

@@ -13,11 +13,11 @@ import random
 from dataclasses import replace
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.exchange_rules import (
-    fitting_capital,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.ladder_needs import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.ladder_needs import (
     start_ladder_needs,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
+    fitting_capital,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     CONFIG,

@@ -34,10 +34,10 @@ Two existing facts shape the design:
 
 **Layers (architecture-rule).**
 - `bots/contracts/exchange_facts.py` — `ExchangeFacts` (frozen: free/locked base and quote, the bot's own resting orders' base/quote, other open orders, earlier-runs base and cost, `can_trade`, `read_at`) and `ExchangeChecking | ExchangeUnavailable | ExchangeLoaded` (the snapshot).
-- `bots/application/services/exchange_facts_reader.py` — the one venue read (account holdings via `IVenueAccounts`, open orders via `account_activity`, earlier runs via `ITradingSession`). Never raises: any failure is `ExchangeUnavailable(reason)`. Seam precedent: `planner_numbers._open_orders_on`.
+- `bots/application/services/venue/exchange_facts_reader.py` — the one venue read (account holdings via `IVenueAccounts`, open orders via `account_activity`, earlier runs via `ITradingSession`). Never raises: any failure is `ExchangeUnavailable(reason)`. Seam precedent: `planner_numbers._open_orders_on`.
 - `bots/application/queries/get_exchange_facts/` — `GetExchangeFactsQuery(bot_id)`.
-- `bots/application/services/ladder_needs.py` — pure: what a Start / a Resume needs (quote for opening buy + BUYs, base for SELLs), from the same plan functions the executors use (`resume_plan` is extracted so Resume's sizing has one copy).
-- `bots/application/services/exchange_rules.py` — pure rules over `(RuleContext, ExchangeFacts)`; `RULES` is the registry.
+- `bots/application/kinds/grid/ladder_needs.py` — pure: what a Start / a Resume needs (quote for opening buy + BUYs, base for SELLs), from the same plan functions the executors use (`resume_plan` is extracted so Resume's sizing has one copy).
+- `bots/application/services/venue/exchange_rules.py` — pure rules over `(RuleContext, ExchangeFacts)`; `RULES` is the registry.
 - `assess_readiness` gets `exchange` + `purpose`; the exchange items join the Run step; `BotReadiness.advisories` carries the non-blocking ones (the kind's "advice is never an item" rule applies here too).
 - Screen: `ReadKind.EXCHANGE` on the presenter's `FencedReads` (action id, newest-wins, stale drop, `drop_all` on shutdown) — no new concurrency machinery; `SelectedBot.exchange` resets to *checking* on every selection so one bot's facts are never judged for another.
 - Gates: `BotReadinessReader` (Start) reads the snapshot synchronously and calls the same `assess_readiness`; `GridResumeSequence.propose` reads after cancelling the tagged orders and applies the Resume rules.
@@ -47,11 +47,11 @@ Two existing facts shape the design:
 | :--- | :--- |
 | `bots/contracts/exchange_facts.py` | `ExchangeFacts` and the three-state `ExchangeSnapshot` (`ExchangeChecking` · `ExchangeUnavailable` · `ExchangeLoaded`) |
 | `bots/contracts/bot_readiness.py`, `bot_command_result.py` | `ReadinessAdvisory`, `BotReadiness.advisories`, `ReadinessFix.REFRESH_EXCHANGE`; refusals `EXCHANGE_NOT_READ`, `BALANCE_TOO_SMALL` |
-| `bots/application/services/exchange_facts_reader.py` | The one venue read over the trading ports; never raises, never an empty account |
-| `bots/application/services/exchange_rules.py` | `RULES` and `judge_exchange`: the three first rules as pure functions; the extension cases in the docstring |
-| `bots/application/services/ladder_needs.py`, `domain/grid/grid_needs.py`, `grid_resume_plan.py` | What a Start / a Resume asks of the account; `resume_plan` extracted so the executor and the screen size one ladder |
-| `bots/application/services/readiness_assessment.py`, `bot_readiness_reader.py` | The exchange joins the Run step (only once connected and Design is clear); Start reads the snapshot at the click |
-| `bots/application/services/resume_readiness.py`, `use_cases/resume_bot/handler.py` | The Resume rules and the Resume use case's refusal, HALTED only |
+| `bots/application/services/venue/exchange_facts_reader.py` | The one venue read over the trading ports; never raises, never an empty account |
+| `bots/application/services/venue/exchange_rules.py` | `RULES` and `judge_exchange`: the three first rules as pure functions; the extension cases in the docstring |
+| `bots/application/kinds/grid/ladder_needs.py`, `domain/grid/grid_needs.py`, `grid_resume_plan.py` | What a Start / a Resume asks of the account; `resume_plan` extracted so the executor and the screen size one ladder |
+| `bots/application/services/readiness/readiness_assessment.py`, `bot_readiness_reader.py` | The exchange joins the Run step (only once connected and Design is clear); Start reads the snapshot at the click |
+| `bots/application/services/readiness/resume_readiness.py`, `use_cases/resume_bot/handler.py` | The Resume rules and the Resume use case's refusal, HALTED only |
 | `bots/application/queries/get_exchange_facts/` | `GetExchangeFactsQuery` and its handler |
 | `bots/domain/grid/grid_constraints.py`, `grid_account_checks.py` | `CAPITAL_ABOVE_BALANCE` leaves the kind's checks (rule 3 replaces it) |
 | `bots/ui/bots_screen/exchange_check.py`, `fenced_reads.py`, `selected_bot.py`, `bots_presenter.py` | `ReadKind.EXCHANGE` on the existing fenced reads; `ExchangeCheck` asks on selection, on demand, on a state change and after a command; stale answers dropped, cancelled on deselection and shutdown |

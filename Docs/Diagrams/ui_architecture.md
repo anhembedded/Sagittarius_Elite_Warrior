@@ -1,3 +1,5 @@
+Status: Superseded by [Docs/HLD/11_desktop_workbench.md](../HLD/11_desktop_workbench.md)
+
 # UI Architecture & Design Philosophy (post-BOT-030)
 
 > **Superseded 2026-09-13.** The application is moving to QtWidgets only with the OS theme (ADR

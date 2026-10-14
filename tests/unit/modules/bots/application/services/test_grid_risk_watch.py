@@ -11,17 +11,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_risk_watch import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
+    GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_risk_watch import (
     GridRiskWatch,
     RiskWatchParts,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
-    GridRunContext,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_futures import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.risk_guard_futures import (
     FuturesRiskGuard,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk_guard_spot import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.risk.risk_guard_spot import (
     SpotRiskGuard,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (

@@ -1,3 +1,5 @@
+Status: Historical
+
 # SDD §3 — Ownership, lifetime and threads
 
 > Part of the SDD, split out of the single `README.md` this document used to be
