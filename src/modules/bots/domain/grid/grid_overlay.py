@@ -9,8 +9,11 @@ with the same activity draw the same chart.
 
 · **Levels** take their role from the activity's state when there is one,
   else from the plan's side (`BUY`, `SELL`, `EMPTY`).
-· **Range edges** are the user's lower and upper limits, beside the rounded
-  levels nearest them.
+· **Range edges** are the user's lower and upper limits. One label per price
+  (`BUG-207`): a limit that is also a level is not a second line but part of the
+  level's label ("L6 · Upper"), in the level's own colour, so the tag a chart
+  draws at its right edge is never hidden by another at the same price; a limit
+  no level sits on keeps its own line.
 · **ATR zones** (with a daily ATR): where each edge sits if the range is
   `range_atr_low`–`range_atr_high` daily ATRs wide **and centred on the last
   price**. The range-versus-ATR check judges the width alone
@@ -122,8 +125,10 @@ class GridOverlaySource:
 def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     """@brief The Grid's lines, bands and fills for one surface."""
     activity = source.activity or GridActivity()
-    lines = [_level_line(level, activity) for level in source.plan.levels]
-    lines += _edge_lines(source.params)
+    limits = _limits(source.params)
+    lines = [_level_line(level, activity, limits) for level in source.plan.levels]
+    level_prices = {level.price for level in source.plan.levels}
+    lines += _edge_lines(limits, level_prices)
     lines += _exit_lines(source.params)
     lines += _liquidation_lines(source.liquidations)
     if activity.average_cost is not None:
@@ -138,16 +143,30 @@ def grid_overlay(source: GridOverlaySource) -> BotOverlay:
     )
 
 
-def _level_line(level: GridLevel, activity: GridActivity) -> OverlayLine:
+def _level_line(
+    level: GridLevel, activity: GridActivity, limits: tuple[tuple[Decimal, str], ...]
+) -> OverlayLine:
     state = activity.level_states.get(level.index)
     role = _PLAN_ROLES[level.side] if state is None else _STATE_ROLES[state]
-    return OverlayLine(level.price, role, f"L{level.index}")
+    label = f"L{level.index}"
+    for price, name in limits:
+        if price == level.price:
+            label = f"{label} · {name}"
+    return OverlayLine(level.price, role, label)
 
 
-def _edge_lines(params: GridParams) -> list[OverlayLine]:
+def _limits(params: GridParams) -> tuple[tuple[Decimal, str], ...]:
+    return ((params.lower, "Lower"), (params.upper, "Upper"))
+
+
+def _edge_lines(
+    limits: tuple[tuple[Decimal, str], ...], level_prices: set[Decimal]
+) -> list[OverlayLine]:
+    """The limits no level sits on; the others are in their level's label."""
     return [
-        OverlayLine(params.lower, OverlayRole.RANGE_EDGE, "Lower"),
-        OverlayLine(params.upper, OverlayRole.RANGE_EDGE, "Upper"),
+        OverlayLine(price, OverlayRole.RANGE_EDGE, name)
+        for price, name in limits
+        if price not in level_prices
     ]
 
 
