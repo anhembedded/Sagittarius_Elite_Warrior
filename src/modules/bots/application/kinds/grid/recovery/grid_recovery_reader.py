@@ -12,7 +12,7 @@ bot's ladder is left as saved. A read that fails is a report that says so
 turn every restored bot into ERROR.
 
 @par Related, not duplicated
-`GridReconciler._apply_missed_fills` reads the same history to book a fill the
+`GridMissedFills.apply` (called by `GridReconciler`) reads the same history to book a fill the
 bot missed. This counts instead of booking. `EPIC-035B` reconciles after a
 reconnect and needs the same missed-fill read; one shared read is the merge
 point between the two (recorded in `EPIC-035C`'s resume notes).
