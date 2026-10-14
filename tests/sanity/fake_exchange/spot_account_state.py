@@ -236,6 +236,7 @@ class SpotAccountState:
         """The exchange's record of a resting order says `quantity`, whatever the
         sender believes it sent (a venue that shrank it, or a hand edit)."""
         self._book.resize(client_order_id, _q(quantity))
+        self.history.update_order(client_order_id, origQty=_q(quantity))
 
     def free_balance(self, asset: str) -> Decimal:
         return self._balances[asset].free
