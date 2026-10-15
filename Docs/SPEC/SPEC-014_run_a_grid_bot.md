@@ -76,8 +76,12 @@ sound, I start it, and I watch what it does."*
    assertion that answers with its numbers, judged beside the account the Connect step read; the
    verdicts, the field messages and the drawn levels follow each edit.
    **Suggest from ATR** or **Suggest from Bollinger**, the Grid's own commands (Bots menu, and the
-   Grid toolbar at the top of the editor, shown while a Grid is selected), fills the range only
-   when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. **Save bot**
+   Grid toolbar at the top of the editor, shown while a Grid is selected), writes a whole plan only
+   when chosen (`BUG-211`): the range rounded to the tick and holding the current price (a band that
+   misses the price is recentred on it at the same width), and any stop loss or take profit given as
+   a price that the new range makes invalid or leaves outside the advised distance moved to the middle
+   of that distance, with one line on the panel saying which exit moved, from what and why (an exit
+   that is off, or given as a percentage, is never touched); while the parameters cannot be edited, both are disabled. **Save bot**
    (Ctrl+S) stores the edits for a draft; Start does not wait for it (step 6). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
 5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
@@ -398,6 +402,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
 | Start with the price outside the range (below refused, above advised, the bounds themselves neither); levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
+| A suggested plan passes every blocking check for the current price (range holds the price, stale price exits move and are named, off exits stay off), and one `[grid-suggest]` line records it | `tests/unit/modules/bots/domain/grid/test_grid_suggestion.py` · `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |

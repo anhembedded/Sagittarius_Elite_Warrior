@@ -23,6 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     VenueProfile,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    AccountView,
+    PlanRiskFacts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 
@@ -44,6 +48,12 @@ class BotKindPanel(QWidget):
         """Offers the fields `profile` lists (`EPIC-039J`): a direction the profile allows, a
         leverage where it has one. Called once, before `set_config`. A kind whose parameters
         do not depend on the venue keeps this default."""
+
+    def set_plan_facts(
+        self, account: AccountView | None, risk: PlanRiskFacts | None
+    ) -> None:
+        """The account and the symbol's risk facts once read, for a kind whose suggestions are
+        judged with them (`BUG-211`). A kind that does not keeps this default."""
 
     def set_planner_market(self, market: PlannerMarket | None) -> None:
         """The planner's numbers; suggestions are offered only when present."""
