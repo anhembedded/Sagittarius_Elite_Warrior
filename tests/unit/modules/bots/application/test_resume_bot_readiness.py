@@ -189,7 +189,7 @@ def test_a_resume_over_a_short_position_is_refused_in_words_and_nothing_is_queue
     result = _resume(world, runner)
 
     assert not result.accepted
-    assert "short position" in result.message
+    assert "short or neutral grid" in result.message
     assert runner.resumed == []
 
 

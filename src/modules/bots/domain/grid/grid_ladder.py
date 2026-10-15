@@ -56,6 +56,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 
 _ROUNDING = OrderQuantityRoundingPolicy()
 _ZERO = Decimal(0)
+#: The side whose fills open a cycle, by direction; a NEUTRAL grid has none (`GridRuntime`).
+_ENTRY_SIDE: dict[TradeDirection, OrderSide | None] = {
+    TradeDirection.LONG: OrderSide.BUY,
+    TradeDirection.SHORT: OrderSide.SELL,
+    TradeDirection.NEUTRAL: None,
+}
 
 
 def runtime_from_plan(plan: GridPlan, step_size: Decimal) -> GridRuntime:
@@ -77,9 +83,7 @@ def runtime_from_plan(plan: GridPlan, step_size: Decimal) -> GridRuntime:
             for level in plan.levels
         ),
         start_price=plan.last_price,
-        entry_side=OrderSide.SELL
-        if plan.direction is TradeDirection.SHORT
-        else OrderSide.BUY,
+        entry_side=_ENTRY_SIDE[plan.direction],
     )
 
 

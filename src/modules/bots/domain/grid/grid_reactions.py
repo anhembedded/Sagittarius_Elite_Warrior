@@ -172,7 +172,7 @@ def on_fill(
         return Reaction(after.with_level(level.moved(LevelEvent.PARTIAL_FILL, order)))
     filled = level.moved(LevelEvent.FULL_FILL, order)
     after = after.with_level(filled.moved(LevelEvent.SETTLED, None))
-    if order.side is not runtime.entry_side:
+    if runtime.completes_a_cycle(order):
         after = book_cycle(after, order, fill.price)
     counter = _counter(after, level.index, order, step_size)
     if counter is None:
@@ -228,7 +228,7 @@ def _settle_short(
     done for what it executed: a SELL books its cycle, and the counter order
     goes out if it clears the minimum (else the executed part stays in the
     inventory with no level, and a stop sells or keeps it)."""
-    if order.side is not runtime.entry_side:
+    if runtime.completes_a_cycle(order):
         runtime = book_cycle(runtime, order, order.price)
     counter = _counter(runtime, index, order, rules.step_size)
     if counter is None:
@@ -290,7 +290,7 @@ def _counter(
     entry side is the SELL, so the same rule reads mirrored)."""
     target = index + 1 if filled.side is OrderSide.BUY else index - 1
     side = _OPPOSITE[filled.side]
-    if filled.side is runtime.entry_side:
+    if not runtime.completes_a_cycle(filled):
         quantity = _ROUNDING.round_quantity_down(
             filled.total_executed - filled.total_base_fee, step_size
         )

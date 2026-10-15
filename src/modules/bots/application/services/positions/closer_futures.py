@@ -68,10 +68,13 @@ class PositionExposureCloser(IExposureCloser):
         if held is None:
             return self._wait("the exchange's position could not be read")
         derived = registration.position
-        if derived is None:
+        if derived is None and registration.foreign_position is None:
             return self._wait("the bot's own position could not be derived")
+        # A refusal as a foreign position means the bot's own fills add up to flat (trading
+        # refuses only then): nothing of the exchange's position is the bot's to close, which is
+        # a NEUTRAL bot's ordinary state between cycles (`EPIC-039I`).
         step = context.terms.market_step
-        own = _own_quantity(derived.quantity, held)
+        own = _own_quantity(derived.quantity if derived else Decimal(0), held)
         foreign = abs(held) - own
         if own < step:
             self._report_foreign(foreign, step)

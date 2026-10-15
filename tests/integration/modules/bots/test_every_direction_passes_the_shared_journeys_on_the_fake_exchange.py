@@ -288,7 +288,7 @@ def test_a_position_added_by_hand_halts_the_recovery_and_only_the_bots_own_is_cl
         )
 
         runtime = second.runtime(bot_id)
-        assert runtime.reason is GridReason.POSITION_MISMATCH
+        assert runtime.reason is scenario.by_hand_reason
         assert second.bot(bot_id).state is S.STOPPED
         assert abs(second.position()) == D("0.003")
         assert second.resting() == {}
@@ -326,7 +326,7 @@ def test_a_mark_price_through_the_upper_exit_closes_the_position_and_stops_the_b
         # The exchange's mark through it does, while the order there has not filled yet.
         futures.urls.futures_book.faults.hold_fills = True
         app.move_price(scenario.mark_through_upper_exit)
-        assert app.position() != 0
+        assert app.position() == scenario.opening
         app.ticker.fire()
         app.deliver()
 

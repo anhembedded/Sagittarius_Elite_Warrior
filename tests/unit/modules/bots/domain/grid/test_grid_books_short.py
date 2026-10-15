@@ -117,3 +117,79 @@ def test_a_long_runtime_is_booked_as_it_always_was() -> None:
 
     assert reaction.runtime.inventory == 1
     assert reaction.runtime.realised_total == 9
+
+
+def test_a_neutral_book_crosses_zero_booking_what_it_covers_and_opening_the_rest() -> (
+    None
+):
+    """A fill larger than the position (a part fill whose rest ended left it off a whole
+    quantity) covers what is held and opens the other side with the remainder."""
+    neutral = replace(empty_ladder(), entry_side=None)
+    neutral = book_market_fill(neutral, OrderSide.BUY, LevelFill("a", D(100), D("0.7")))
+
+    crossed = book_market_fill(neutral, OrderSide.SELL, LevelFill("b", D(110), D(1)))
+
+    assert crossed.inventory == D("-0.3")
+    assert crossed.realised_total == D("7.0"), "0.7 covered at +10"
+    assert crossed.average_cost == 110, "the short that is left was opened at 110"
+    assert crossed.cost == D("33.0")
+
+
+def _neutral_ladder() -> GridRuntime:
+    """Levels 100..140, no opening; entries rest on both sides: BUYs at L0 and L1, SELLs at L3
+    and L4. Either side may open a cycle."""
+    runtime = replace(empty_ladder(), entry_side=None)
+    runtime = resting(runtime, 0, OrderSide.BUY)
+    runtime = resting(runtime, 1, OrderSide.BUY)
+    runtime = resting(runtime, 3, OrderSide.SELL)
+    return resting(runtime, 4, OrderSide.SELL)
+
+
+def test_a_neutral_sell_entry_owes_a_paired_buy_and_a_buy_entry_a_paired_sell() -> None:
+    sold = on_fill(
+        _neutral_ladder(), LevelFill(order_id(3), D(130), D(1)), STEP, hold=False
+    )
+    bought = on_fill(
+        _neutral_ladder(), LevelFill(order_id(1), D(110), D(1)), STEP, hold=False
+    )
+
+    (buy_back,) = sold.actions
+    (sell_back,) = bought.actions
+    assert isinstance(buy_back, PlaceOrder) and isinstance(sell_back, PlaceOrder)
+    assert (buy_back.side, buy_back.level_index, buy_back.paired_buy_price) == (
+        OrderSide.BUY,
+        2,
+        D(130),
+    )
+    assert (sell_back.side, sell_back.level_index, sell_back.paired_buy_price) == (
+        OrderSide.SELL,
+        2,
+        D(110),
+    )
+
+
+def test_a_neutral_completion_books_the_cycle_whichever_side_it_is_and_owes_an_unpaired_entry() -> (
+    None
+):
+    sold = on_fill(
+        _neutral_ladder(), LevelFill(order_id(3), D(130), D(1)), STEP, hold=False
+    )
+    (buy_back,) = sold.actions
+    assert isinstance(buy_back, PlaceOrder)
+    done = on_fill(
+        perform(sold.runtime, buy_back),
+        LevelFill(order_id(2), D(120), D(1)),
+        STEP,
+        hold=False,
+    )
+
+    assert done.runtime.completed_cycles == 1
+    assert done.runtime.realised_profit == 10, "sold at 130, bought back at 120"
+    assert done.runtime.inventory == 0
+    (entry,) = done.actions
+    assert isinstance(entry, PlaceOrder)
+    assert (entry.side, entry.level_index, entry.paired_buy_price) == (
+        OrderSide.SELL,
+        3,
+        None,
+    )
