@@ -96,8 +96,15 @@ class _Pending:
     second_look: bool = False
 
     def moved_to(self, divergence: PositionDivergence, due_at: float) -> _Pending:
+        # `second_look` is kept: a report that arrives during the second look must not turn it
+        # back into a first look, or a divergence that persists while fills keep reporting is
+        # re-read every few seconds and never halts.
         return _Pending(
-            divergence, min(due_at, self.latest_due_at), self.latest_due_at, moved=True
+            divergence,
+            min(due_at, self.latest_due_at),
+            self.latest_due_at,
+            moved=True,
+            second_look=self.second_look,
         )
 
     def looked_at_again(

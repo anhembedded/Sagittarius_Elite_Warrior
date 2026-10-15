@@ -140,3 +140,23 @@ def test_a_single_report_is_halted_on_after_one_re_read_as_before() -> None:
 
     assert rig.exchange.rechecks == 1
     assert rig.world.state() is S.HALTED
+
+
+def test_a_mismatch_that_persists_while_fills_keep_reporting_halts_after_two_looks() -> (
+    None
+):
+    """Review of PR #529: a report arriving during the second look must not turn it back into
+    a first look. One report a second for two minutes, the divergence real throughout."""
+    rig = _Rig()
+    rig.exchange.still_diverged = _reported(9)
+
+    for second in range(120):
+        if rig.world.state() is not S.RUNNING:
+            break
+        rig.world.executor.facts.on_position_divergence(_reported(second))
+        _advance(rig, 1)
+        rig.beat()
+
+    assert rig.world.state() is S.HALTED
+    assert rig.world.runtime().reason is GridReason.FOREIGN_FILL
+    assert rig.exchange.rechecks == 2, "the first look and the second, then the halt"
