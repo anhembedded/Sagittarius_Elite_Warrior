@@ -292,6 +292,12 @@ class BotOrderGateway:
         status = self._ports.account_snapshot.check_connection()
         return status.failure is ConnectionFailureKind.KEY_REJECTED
 
+    def connection_failure(self) -> ConnectionFailureKind | None:
+        """Why the venue's account cannot be read now, or `None` when it can. A venue with
+        no key answers at once, without a request; a caller that reads the account only
+        to report asks this first, so a state the operator fixes is never an exception."""
+        return self._ports.account_snapshot.check_connection().failure
+
     def tagged_open_orders(self) -> tuple[Order, ...]:
         """The account's open orders on the bot's symbol that carry its tag."""
         return tuple(

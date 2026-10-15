@@ -97,7 +97,12 @@ def failure_cause(failure: ConnectFailure) -> str:
 
 def state_words(failure: ConnectFailure) -> str:
     """What a failed read is, in a few words: "key refused"."""
-    return _STATES[failure.kind]
+    return kind_state_words(failure.kind)
+
+
+def kind_state_words(kind: ConnectionFailureKind) -> str:
+    """The same few words for a failure known by its kind alone."""
+    return _STATES[kind]
 
 
 def failure_state(failure: ConnectFailure) -> str:
