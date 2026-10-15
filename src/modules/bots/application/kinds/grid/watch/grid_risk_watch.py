@@ -87,6 +87,34 @@ class _Pending:
     divergence: PositionDivergence
     #: On the bot's monotonic clock.
     due_at: float
+    #: The latest `due_at` a newer report may move the re-read to: the first report's time plus
+    #: `MAX_RECHECK_DELAYS` delays. A stream that never goes quiet must still get its re-read.
+    latest_due_at: float
+    #: A newer report moved this re-read, so fills were landing when it was set up.
+    moved: bool = False
+    #: The re-read that follows a mismatch found after such a burst (`BUG-218`).
+    second_look: bool = False
+
+    def moved_to(self, divergence: PositionDivergence, due_at: float) -> _Pending:
+        # `second_look` is kept: a report that arrives during the second look must not turn it
+        # back into a first look, or a divergence that persists while fills keep reporting is
+        # re-read every few seconds and never halts.
+        return _Pending(
+            divergence,
+            min(due_at, self.latest_due_at),
+            self.latest_due_at,
+            moved=True,
+            second_look=self.second_look,
+        )
+
+    def looked_at_again(
+        self, divergence: PositionDivergence, due_at: float
+    ) -> _Pending:
+        return _Pending(divergence, due_at, due_at, moved=True, second_look=True)
+
+
+#: How many recheck delays a run of reports may keep one re-read waiting.
+MAX_RECHECK_DELAYS = 3
 
 
 _DIVERGENCE_HALTS = {
@@ -113,22 +141,34 @@ class GridRiskWatch:
         return self._level
 
     def on_divergence(self, divergence: PositionDivergence) -> None:
-        """Trading reported a divergence: confirm it after the recheck delay."""
-        if (
-            self._pending is not None
-            and self._pending.divergence.cause == divergence.cause
-        ):
+        """Trading reported a divergence: confirm it after the recheck delay.
+
+        One re-read is pending at a time (`BUG-218`): a report of the same figures is the same
+        divergence, and a report of new figures while one is pending (a burst of fills reports a
+        new pair at each) moves that one re-read to the quiet after the last of them, at most
+        `MAX_RECHECK_DELAYS` delays after the first, instead of adding a re-read and a line to
+        the log for each. The re-read is the only thing here that costs weight: it registers the
+        budget again."""
+        pending = self._pending
+        if pending is not None and pending.divergence.cause == divergence.cause:
             return
         delay = self._parts.thresholds.position_recheck_delay.total_seconds()
-        self._pending = _Pending(divergence, self._context.monotonic.seconds() + delay)
-        logger.info(
+        due_at = self._context.monotonic.seconds() + delay
+        self._pending = (
+            _Pending(divergence, due_at, due_at + (MAX_RECHECK_DELAYS - 1) * delay)
+            if pending is None
+            else pending.moved_to(divergence, due_at)
+        )
+        log = logger.info if pending is None else logger.debug
+        log(
             "Bot %s: the exchange's position %s differs from the bot's %s (%s); "
-            "re-reading in %.0f s before acting [position-divergence]",
+            "re-reading in %.0f s before acting%s [position-divergence]",
             self._context.state.bot_id,
             divergence.exchange,
             divergence.derived,
             divergence.kind.value,
             delay,
+            "" if pending is None else " (the pending re-read moved)",
         )
 
     def check(self) -> None:
@@ -164,6 +204,20 @@ class GridRiskWatch:
                 "Bot %s: the position agrees again after the re-read; left running "
                 "[position-divergence]",
                 self._context.state.bot_id,
+            )
+            return
+        if pending.moved and not pending.second_look:
+            # Fills were landing while this re-read waited, and one can land between the two
+            # reads it makes: a mismatch found now may be that fill. Look once more; halt only
+            # if it persists (`BUG-218`, the confirm-twice rule of the missed-fill reconcile).
+            delay = self._parts.thresholds.position_recheck_delay.total_seconds()
+            due_at = self._context.monotonic.seconds() + delay
+            self._pending = pending.looked_at_again(still, due_at)
+            logger.info(
+                "Bot %s: the position still differs after a re-read that followed a burst "
+                "of reports; looking once more in %.0f s [position-divergence]",
+                self._context.state.bot_id,
+                delay,
             )
             return
         detail = (
