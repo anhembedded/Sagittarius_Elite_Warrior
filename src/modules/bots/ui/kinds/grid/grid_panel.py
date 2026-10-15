@@ -2,15 +2,12 @@
 
 Every parameter is a field the user owns (the user's rule, 2026-10-03: the
 parameters are the user's; the bot judges them, never fixes them). The two
-suggestions are the one exception to "never fills a field", and only when
-asked: they copy the planner's ATR or Bollinger range into the range fields,
-rounded to the symbol's tick, and the user may change them again.
+suggestions are the one exception, and only when asked: they write a whole plan
+(`suggest_plan`, `BUG-211`: the range and any price exit it invalidates), say what
+moved, and the user may change it again.
 
-They are the Grid's own commands (`EPIC-033K` stage 2; SPEC-014: "each bot
-type has its own toolbar"): two actions on the Grid toolbar at the top of
-this editor, which is shown only while a Grid is selected, and the same
-commands in the Bots menu (`kind_commands.py`). They were push buttons under
-the fields.
+They are the Grid's own commands (`EPIC-033K` stage 2; SPEC-014): two actions on the
+Grid toolbar, and the same commands in the Bots menu (`kind_commands.py`).
 
 The fields read and write the definition's strings (`GridParams.to_config`
 spells them): an exit is `off`, `price:<p>` or `percent:<n>`.
@@ -19,6 +16,7 @@ spells them): an exit is `off`, `price:<p>` or `percent:<n>`.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt
 from PySide6.QtGui import QAction
@@ -37,9 +35,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     SuggestedRange,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    SPOT_LIMITS,
     ExposureLimits,
     VenueProfile,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    AccountView,
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     ExitKind,
@@ -51,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_editor_parts import (
     EditedPlan,
+    PlanFacts,
     decimal_field,
     int_or,
     offer_suggestion,
@@ -106,7 +108,7 @@ class GridPanel(BotKindPanel):
         super().__init__(parent)
         self._market: PlannerMarket | None = None
         self._editable = True
-        self._limits: ExposureLimits = SPOT_LIMITS
+        self._facts = PlanFacts()
         self.lower_price = decimal_field("editGridLower")
         self.upper_price = decimal_field("editGridUpper")
         self.grid_count = QSpinBox()
@@ -166,9 +168,10 @@ class GridPanel(BotKindPanel):
         """Offers the rows `profile` lists. A row appears because the profile has something
         for it, never because a market is named here (`EPIC-039J`)."""
         self.exposure.set_profile(profile)
-        self._limits = ExposureLimits(
+        limits = ExposureLimits(
             profile.directions, profile.max_leverage, profile.exposure_kind
         )
+        self._facts = replace(self._facts, limits=limits)
         for key, shown in self.exposure.visible_rows().items():
             self._form.setRowVisible(self._rows[key], shown)
 
@@ -183,6 +186,11 @@ class GridPanel(BotKindPanel):
             "take_profit": self.take_profit.encode(),
             **self.exposure.config(),
         }
+
+    def set_plan_facts(
+        self, account: AccountView | None, risk: PlanRiskFacts | None
+    ) -> None:
+        self._facts = replace(self._facts, account=account, risk=risk)
 
     def set_planner_market(self, market: PlannerMarket | None) -> None:
         self._market = market
@@ -359,31 +367,27 @@ class GridPanel(BotKindPanel):
         self.stop_loss.edited.connect(self._emit)
         self.take_profit.edited.connect(self._emit)
         self.suggest_atr.triggered.connect(
-            lambda: self._apply_suggestion("ATR", self._atr())
+            lambda: self._apply_suggestion(
+                "ATR", self._market.atr_range if self._market else None
+            )
         )
         self.suggest_bollinger.triggered.connect(
-            lambda: self._apply_suggestion("Bollinger", self._bollinger())
+            lambda: self._apply_suggestion(
+                "Bollinger", self._market.bollinger if self._market else None
+            )
         )
-
-    def _atr(self) -> SuggestedRange | None:
-        return self._market.atr_range if self._market else None
-
-    def _bollinger(self) -> SuggestedRange | None:
-        return self._market.bollinger if self._market else None
 
     def _apply_suggestion(self, source: str, band: SuggestedRange | None) -> None:
-        """Writes the whole plan `suggest_plan` makes of `band` (`BUG-211`): the range, and the
-        exits it moved, then says what moved. The fields stay the user's to change again."""
+        """Writes the plan `suggest_plan` makes of `band` (`BUG-211`) and says what moved."""
         market = self._market
-        suggestion = suggest_for(
-            source, band, market, EditedPlan(self.config(), self._limits)
-        )
+        edited = EditedPlan(self.config(), self._facts)
+        suggestion = suggest_for(source, band, market, edited)
         if suggestion is None or market is None or band is None:
             return
         self.lower_price.setText(price_text(suggestion.lower))
         self.upper_price.setText(price_text(suggestion.upper))
         editors = {"stop_loss": self.stop_loss, "take_profit": self.take_profit}
-        for key, encoded in suggestion.exits.items():
+        for key, encoded in suggestion.exits:
             editors[key].show_encoded(encoded)
         self._emit()
         self.suggestion_note.setText(suggestion.panel_line)

@@ -8,13 +8,22 @@ Bollinger band, entirely above the price, refused Start (`PRICE_BELOW_RANGE`).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    ExposureKind,
+    ExposureLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
     ExchangeTerms,
     MarketView,
+    PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_suggestion import (
     PlanSuggestion,
@@ -23,6 +32,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_suggestion impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBracket,
+    LeverageBrackets,
 )
 
 _PRICE = Decimal("2368.155")
@@ -84,9 +103,9 @@ def test_an_exit_outside_the_new_range_moves_to_the_middle_of_the_advised_distan
     suggestion = _suggest("ATR", ("2227.92", "2515.54"))
 
     # 5.5% (the middle of 3%–8%) beyond each limit, on the tick.
-    assert suggestion.exits == {
+    assert dict(suggestion.exits) == {
         "stop_loss": "price:2105.38",
-        "take_profit": "price:2653.89",
+        "take_profit": "price:2653.9",
     }
     stop = suggestion.moves[0]
     assert (stop.old, stop.new) == (Decimal(2259), Decimal("2105.38"))
@@ -130,7 +149,7 @@ def test_an_exit_that_is_off_stays_off_and_a_percentage_follows_its_edge() -> No
         "ATR", ("2227.92", "2515.54"), stop_loss="off", take_profit="percent:5"
     )
 
-    assert suggestion.exits == {}
+    assert suggestion.exits == ()
     assert suggestion.moves == ()
     assert suggestion.panel_line == ""
     assert suggestion.blocking == ()
@@ -145,10 +164,78 @@ def test_an_exit_already_at_an_advised_distance_is_not_touched() -> None:
         take_profit="price:2666.47",
     )
 
-    assert suggestion.exits == {}
+    assert suggestion.exits == ()
 
 
 def test_a_blocking_check_the_suggestion_cannot_clear_is_named() -> None:
     suggestion = _suggest("ATR", ("2227.92", "2515.54"), capital_quote="3")
 
     assert suggestion.blocking
+
+
+def test_a_coarse_tick_does_not_carry_a_moved_exit_onto_the_range() -> None:
+    """Review of `BUG-211`: price 20 on a tick of 1 (under 20 ticks): the range 8–24 and a
+    stop loss rounded half-up to 8 was still `STOP_LOSS_INSIDE_RANGE`. Exits round away
+    from the range."""
+    inputs = BotKindInputs(
+        {
+            **_OWNER,
+            "capital_quote": "100",
+            "grid_count": "4",
+            "stop_loss": "price:20",
+            "take_profit": "price:23",
+        },
+        replace(_TERMS, tick_size=Decimal(1), step_size=Decimal("0.01")),
+        MarketView(Decimal(20), Decimal(2), base_asset="ETH", quote_asset="USDT"),
+    )
+
+    suggestion = suggest_plan(
+        SuggestionRequest(
+            "Bollinger", Decimal("7.60"), Decimal("23.54"), inputs, GridThresholds()
+        )
+    )
+
+    assert (suggestion.lower, suggestion.upper) == (Decimal(8), Decimal(24))
+    exits = dict(suggestion.exits)
+    assert Decimal(exits["stop_loss"].split(":")[1]) < suggestion.lower
+    assert Decimal(exits["take_profit"].split(":")[1]) > suggestion.upper
+    assert "STOP_LOSS_INSIDE_RANGE" not in suggestion.blocking
+    assert "TAKE_PROFIT_INSIDE_RANGE" not in suggestion.blocking
+
+
+def test_the_blocking_codes_include_the_risk_facts_the_plan_is_judged_with() -> None:
+    """Review of `BUG-211`: on a position venue the plan is also judged for liquidation; those
+    codes are in `blocking` only when the facts reach the request."""
+    base = BotKindInputs(
+        {
+            **_OWNER,
+            "direction": "LONG",
+            "leverage": "20",
+            "stop_loss": "off",
+            "take_profit": "off",
+        },
+        _TERMS,
+        MarketView(_PRICE, Decimal(160), base_asset="ETH", quote_asset="USDT"),
+        limits=ExposureLimits(frozenset(TradeDirection), 20, ExposureKind.POSITION),
+    )
+    facts = PlanRiskFacts(
+        FuturesSymbolSetting("ETHUSDT", 20, MarginType.ISOLATED, Decimal(10**9)),
+        LeverageBrackets(
+            "ETHUSDT",
+            (
+                LeverageBracket(
+                    1, 125, Decimal(0), Decimal(10**9), Decimal("0.004"), Decimal(0)
+                ),
+            ),
+        ),
+    )
+
+    def blocking(inputs: BotKindInputs) -> tuple[str, ...]:
+        request = SuggestionRequest(
+            "ATR", Decimal("2227.92"), Decimal("2515.54"), inputs, GridThresholds()
+        )
+        return suggest_plan(request).blocking
+
+    with_facts = blocking(replace(base, risk=facts))
+    assert with_facts != blocking(base)
+    assert any("LIQUIDATION" in code for code in with_facts)

@@ -281,7 +281,7 @@ def test_a_suggestion_says_which_exit_moved_and_the_note_goes_with_the_next_edit
     note = panel.suggestion_note
     assert not note.isHidden()
     assert "stop loss moved from 2259 to 2105.38" in note.text()
-    assert "take profit moved from 2805 to 2653.89" in note.text()
+    assert "take profit moved from 2805 to 2653.9" in note.text()
     panel.capital.textEdited.emit("40")
     assert note.isHidden()
 

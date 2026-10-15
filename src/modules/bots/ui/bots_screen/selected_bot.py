@@ -88,7 +88,7 @@ class SelectedBot:
         #: What the Connect step answered (`EPIC-034D`); the step sets it, so
         #: selecting a bot never clears it. It carries the account the balance
         #: and key constraints read (`EPIC-034F`).
-        self.connection: ConnectionRead | None = None
+        self._connection: ConnectionRead | None = None
         #: What the exchange says about the selection (`BOT-174`): still being
         #: asked from the moment a bot is selected, so one bot's facts are never
         #: judged for another.
@@ -96,6 +96,21 @@ class SelectedBot:
         #: The symbol's liquidation facts on a position venue (`EPIC-039J`): none until
         #: read, and none for a bot whose venue carries no such risk.
         self.risk: PlanRiskFacts | None = None
+
+    @property
+    def connection(self) -> ConnectionRead | None:
+        return self._connection
+
+    @connection.setter
+    def connection(self, read: ConnectionRead | None) -> None:
+        self._connection = read
+        self._share_plan_facts()
+
+    def _share_plan_facts(self) -> None:
+        """The editor judges its suggestions with the account and risk the plan is judged with."""
+        if self.panel is not None:
+            account = self._connection.account if self._connection else None
+            self.panel.set_plan_facts(account, self.risk)
 
     def select(self, bot: BotSnapshot | None) -> BotKindPanel | None:
         """Starts afresh on `bot`; returns its kind's editor showing its parameters."""
@@ -108,6 +123,7 @@ class SelectedBot:
             if profile is not None:
                 self.panel.set_profile(profile)
             self.panel.set_config(bot.config)
+            self._share_plan_facts()
         return self.panel
 
     def take_bots(
@@ -126,6 +142,7 @@ class SelectedBot:
         """The liquidation facts the venue gave; what it could not give, or `None`, leaves
         none."""
         self.risk = read if isinstance(read, PlanRiskFacts) else None
+        self._share_plan_facts()
 
     def take_market(self, market: PlannerMarket) -> None:
         self.market = market

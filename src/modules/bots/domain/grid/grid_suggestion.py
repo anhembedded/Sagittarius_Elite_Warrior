@@ -92,7 +92,7 @@ class PlanSuggestion:
     lower: Decimal
     upper: Decimal
     #: The exits to write, by definition key, only for the ones that moved.
-    exits: dict[str, str]
+    exits: tuple[tuple[str, str], ...]
     moves: tuple[ExitMove, ...]
     #: How the band was adapted to hold the price; `""` when it already did.
     range_note: str
@@ -141,7 +141,7 @@ def suggest_plan(request: SuggestionRequest) -> PlanSuggestion:
         request.source,
         lower,
         upper,
-        {move.key: config[move.key] for move in moves},
+        tuple((move.key, config[move.key]) for move in moves),
         moves,
         note,
         tuple(verdict.code for verdict in verdicts if verdict.refuses),
@@ -187,7 +187,15 @@ def _moved_exit(
     high = request.thresholds.exit_distance_high
     if low <= distance <= high:
         return None
-    new = figures.snap(edge * (1 + sign * (low + high) / _TWO))
+    # Rounded away from the range: a coarse tick must not carry the exit onto the edge.
+    new = max(
+        _to_tick(
+            edge * (1 + sign * (low + high) / _TWO),
+            figures.tick,
+            ROUND_FLOOR if side.below else ROUND_CEILING,
+        ),
+        figures.tick,
+    )
     advised = f"{low:.0%}–{high:.0%}"
     reason = (
         f"it was at or inside the range's {side.edge_name} limit {figures.price(edge)}"
