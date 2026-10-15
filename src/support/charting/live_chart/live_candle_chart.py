@@ -229,8 +229,10 @@ class LiveCandleChart(QObject):
         return self._older
 
     def shutdown(self) -> None:
-        """Cancels the load in flight; the stream is left as it is. A failure
-        bar of this chart goes with it: its Retry would target a closed chart."""
+        """Cancels the load in flight and drops reports already queued (`BUG-213`);
+        the stream stays. Its failure bar goes too: Retry would hit a closed chart."""
+        self._token.cancel()
+        self._token = CancellationToken()
         self._token.cancel()
         self._older.reset()
         self._failures.clear()
@@ -380,11 +382,10 @@ class LiveCandleChart(QObject):
     def _on_history(
         self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
-        # The coordinator mapped the rows on its worker thread; they are
-        # drawn as they came (the PR 321 review). A window of a timeframe the
-        # chart has since left is not drawn: its bars would be the wrong width
-        # (the review of PR #366).
-        if symbol != self._symbol:
+        # Rows mapped on the worker thread are drawn as they came (PR 321). A
+        # window of a timeframe the chart has left is not: wrong bar width
+        # (PR #366). A shut-down chart's token is cancelled, its card gone.
+        if symbol != self._symbol or self._token.is_cancelled():
             return
         if klines and klines[0].interval != self._interval:
             return
