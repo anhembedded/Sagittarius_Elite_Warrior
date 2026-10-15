@@ -3,7 +3,7 @@
   0. **The start's own checks** (`FuturesStartChecks`): settings made the bot's, the plan's
      liquidation risk judged. Nothing is sent before they pass.
   1. **The opening** is the plan's `opening_quantity` (LONG: a market BUY of the SELL levels'
-     quantity; SHORT: a market SELL of the BUY levels'; NEUTRAL opens nothing), cut under the
+     quantity; SHORT: a market SELL of the BUY levels'; NEUTRAL opens nothing: no slice is sent), cut under the
      per-order cap like Spot's, but in base quantity: there is no quote-sized order on a position
      venue, and no base fee to net — a position's fee is paid in the quote asset.
   2. **Counted from the exchange**: trading registers the budget again, which derives the position
@@ -138,8 +138,13 @@ class PositionOpening(IOpeningStrategy):
             return False
         held = registration.position.quantity
         exits_side = OrderSide.SELL if plan.opening_quantity > 0 else OrderSide.BUY
+        # A NEUTRAL plan opens nothing and lays nothing reduce-only: no position is owed.
         exiting = sum(
-            (a.quantity for a in ladder_orders(plan) if a.side is exits_side),
+            (
+                a.quantity
+                for a in ladder_orders(plan)
+                if a.side is exits_side and plan.opening_quantity != 0
+            ),
             Decimal(0),
         )
         if held * (1 if plan.opening_quantity > 0 else -1) < exiting:
@@ -149,6 +154,13 @@ class PositionOpening(IOpeningStrategy):
                 "the opening is not in the exchange's record",
             )
             return False
+        if exiting == 0 and plan.opening_quantity == 0:
+            logger.info(
+                "Bot %s: nothing opened, nothing reduce-only: the ladder starts flat "
+                "[position-opened]",
+                state.bot_id,
+            )
+            return True
         logger.info(
             "Bot %s: opening counted from the exchange's record: a position of %s, the "
             "ladder's reduce-only %ss add up to %s [position-opened]",

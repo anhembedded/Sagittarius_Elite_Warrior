@@ -63,15 +63,21 @@ def test_a_resume_over_a_short_position_is_refused_in_words_and_nothing_is_queue
     assert runner.resumed == []
 
 
-def test_a_resume_of_a_short_grid_is_refused_even_over_a_flat_position(
-    world: ReadinessWorld,
+@pytest.mark.parametrize("direction", ["SHORT", "NEUTRAL"])
+def test_a_resume_of_a_short_or_neutral_grid_is_refused_even_over_a_flat_position(
+    world: ReadinessWorld, direction: str
 ) -> None:
     """`EPIC-039I` review: a resume sizes a long inventory, so over a flat short grid it would lay
-    only reduce-only BUYs the exchange refuses. The direction decides, not what is held."""
+    only reduce-only BUYs the exchange refuses, and a neutral grid holds either sign. The direction
+    decides, not what is held."""
     stored = world.store.load(BotId(BOT))
     definition = replace(
         stored.bot.definition,
-        config={**stored.bot.definition.config, "direction": "SHORT", "leverage": "2"},
+        config={
+            **stored.bot.definition.config,
+            "direction": direction,
+            "leverage": "2",
+        },
     )
     bot = Bot(
         stored.bot.bot_id, definition, stored.bot.lifecycle, stored.bot.created_at

@@ -90,11 +90,7 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         reason_detail=_text(data, "reason_detail"),
         sell_base_on_stop=_flag(data, "sell_base_on_stop"),
         # Absent from a file an earlier build wrote, and from every Spot and LONG one: BUY.
-        entry_side=(
-            _enum(OrderSide, data["entry_side"], "entry_side")
-            if "entry_side" in data
-            else OrderSide.BUY
-        ),
+        entry_side=_entry_side(data),
     )
 
 
@@ -189,7 +185,24 @@ def _entry_side_key(runtime: GridRuntime) -> dict[str, JsonValue]:
     reads and writes exactly what it did before `EPIC-039I`."""
     if runtime.entry_side is OrderSide.BUY:
         return {}
-    return {"entry_side": runtime.entry_side.value}
+    return {
+        "entry_side": _EITHER_SIDE
+        if runtime.entry_side is None
+        else runtime.entry_side.value
+    }
+
+
+_EITHER_SIDE = "EITHER"
+
+
+def _entry_side(data: Mapping[str, JsonValue]) -> OrderSide | None:
+    """Absent (a Spot or LONG file, or one an earlier build wrote): BUY. `EITHER` is a NEUTRAL
+    grid's, whose entries are on both sides."""
+    if "entry_side" not in data:
+        return OrderSide.BUY
+    if data["entry_side"] == _EITHER_SIDE:
+        return None
+    return _enum(OrderSide, data["entry_side"], "entry_side")
 
 
 def _optional(value: Decimal | None) -> str | None:

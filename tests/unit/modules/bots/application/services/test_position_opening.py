@@ -172,13 +172,16 @@ def test_a_plan_whose_risk_cannot_be_judged_is_refused_not_guessed() -> None:
     assert world.book.requests == []
 
 
-@pytest.mark.parametrize(("direction", "held"), [("SHORT", "-0.05"), ("SHORT", "0")])
-def test_a_resume_of_a_short_grid_proposes_nothing_and_says_why(
+@pytest.mark.parametrize(
+    ("direction", "held"),
+    [("SHORT", "-0.05"), ("SHORT", "0"), ("NEUTRAL", "0.05"), ("NEUTRAL", "0")],
+)
+def test_a_resume_over_a_short_or_neutral_grid_proposes_nothing_and_says_why(
     direction: str, held: str
 ) -> None:
-    """`EPIC-039I`: a resume sizes its ladder to a long inventory, so a short grid has no proposal
-    yet, whatever it holds (over a flat position it would lay only reduce-only BUYs); the halted
-    bot waits in words, nothing is cancelled or laid."""
+    """`EPIC-039I`: a resume sizes its ladder to a long inventory, so a short or neutral grid has
+    no proposal yet, whatever it holds; the halted bot waits in words, nothing is cancelled or
+    laid."""
     world, _ = a_position_world(
         state=S.HALTED, config={**CONFIG, "direction": direction, "leverage": "2"}
     )

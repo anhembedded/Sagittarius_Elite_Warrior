@@ -79,6 +79,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_exit_fill,
     book_market_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
@@ -204,10 +205,13 @@ class GridFacts(IBotFacts):
         level_fill = self._level_fill(fill)
         if state.runtime.level_of(fill.client_order_id) is None:
             if fill.client_order_id in self._context.off_ladder:
+                booked = (
+                    book_exit_fill
+                    if self._context.off_ladder.is_exit(fill.client_order_id)
+                    else book_market_fill
+                )
                 state.update(
-                    book_market_fill(
-                        state.runtime, fill.side, level_fill
-                    ).with_fill_commission(
+                    booked(state.runtime, fill.side, level_fill).with_fill_commission(
                         level_fill.base_fee, level_fill.quote_fee, level_fill.price
                     )
                 )

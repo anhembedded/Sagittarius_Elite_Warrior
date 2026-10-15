@@ -122,6 +122,24 @@ def test_a_neutral_plan_is_judged_on_both_sides() -> None:
     assert len(worst_case_positions(_inputs("NEUTRAL").plan)) == 2
 
 
+@pytest.mark.parametrize(
+    ("changes", "side"),
+    [({"lower": "64000"}, "short"), ({"upper": "66000"}, "long")],
+    ids=["the short side only", "the long side only"],
+)
+def test_neutral_is_refused_when_either_liquidation_is_inside_the_range(
+    changes: dict[str, str], side: str
+) -> None:
+    """A range lopsided around the price keeps one side's liquidation outside it: the plan is still
+    refused for the other side, and the verdict names the side (`EPIC-039I`)."""
+    verdicts = judge_futures_plan(_inputs("NEUTRAL", 30, thresholds=_WIDE, **changes))
+
+    inside = [v for v in verdicts if v.code == "LIQUIDATION_INSIDE_RANGE"]
+    assert [(v.subject, v.severity) for v in inside] == [
+        (side, VerdictSeverity.REFUSED)
+    ]
+
+
 def test_the_worst_case_is_the_far_edge_with_the_plans_average_entry() -> None:
     long_ = worst_case_positions(_inputs("LONG").plan)
     short = worst_case_positions(_inputs("SHORT").plan)
