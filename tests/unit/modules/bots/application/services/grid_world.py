@@ -139,8 +139,7 @@ VENUE = TradingVenue.SPOT_TESTNET
 STEP = Decimal("0.001")
 LAST_PRICE = Decimal(121)
 CAP = Decimal(300)
-#: Five levels 100…140, the price at 121: BUYs at 100 and 110, 120 left
-#: empty, SELLs at 130 and 140; 250 USDT a level, an opening of ~500 USDT.
+#: Five levels 100…140, price 121: BUYs at 100, 110, SELLs at 130, 140; 250 USDT a level.
 CONFIG = {
     "lower": "100",
     "upper": "140",
@@ -270,12 +269,13 @@ def terms_entry(
     status: str = "TRADING",
     tick: str = "0.01",
     min_notional: str = "5",
+    step: Decimal = STEP,
 ) -> OrderEntryTerms:
     return OrderEntryTerms(
         rules=SymbolOrderMetadata(
             symbol=SYMBOL,
             status=status,
-            step_size=STEP,
+            step_size=step,
             tick_size=Decimal(tick),
             min_notional=Decimal(min_notional),
             quantity_precision=None,
@@ -300,13 +300,15 @@ def grid_world(
     risk_watch: Callable[[GridRunContext], GridRiskWatch] | None = None,
     exposures: GridExposures | None = None,
     config: Mapping[str, str] | None = None,
+    step: Decimal = STEP,
+    last_price: Decimal = LAST_PRICE,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
     terms = FakeOrderEntryTerms(
-        terms_entry(market_step=market_step),
+        terms_entry(market_step=market_step, step=step),
         books={
-            SYMBOL: BestBidAsk(SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1))
+            SYMBOL: BestBidAsk(SYMBOL, last_price, Decimal(1), last_price, Decimal(1))
         }
         if book_readable
         else {},
