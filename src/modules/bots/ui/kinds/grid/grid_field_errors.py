@@ -116,7 +116,9 @@ def field_errors(verdicts: Iterable[Verdict]) -> dict[str, FieldError]:
     """The message of each field some verdict is about.
 
     A blocking verdict wins over advice on the same field, and the first of two
-    of the same class stays, so the field shows the most urgent thing once.
+    of the same class stays, so the field shows the most urgent thing once. A verdict
+    about several fields (both bounds of the range) is told once, under the first, the one
+    to change first (`BUG-210`): the same sentence under each read as two problems.
     """
     shown: dict[str, FieldError] = {}
     for verdict in verdicts:
@@ -125,7 +127,7 @@ def field_errors(verdicts: Iterable[Verdict]) -> dict[str, FieldError]:
         error = FieldError(
             f"{BLOCKS if verdict.refuses else ADVICE}{verdict.reason}", verdict.refuses
         )
-        for field in _fields_of(verdict):
+        for field in _fields_of(verdict)[:1]:
             current = shown.get(field)
             if current is None or (error.blocks and not current.blocks):
                 shown[field] = error

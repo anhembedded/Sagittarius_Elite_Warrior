@@ -146,7 +146,14 @@ def _verdicts(config: dict[str, str], atr: Decimal) -> tuple[Verdict, ...]:
         _BRACKETS,
     )
     limits = ExposureLimits(_PROFILE.directions, _PROFILE.max_leverage)
-    inputs = BotKindInputs(config, _TERMS, MarketView(_LAST, atr), None, limits, facts)
+    inputs = BotKindInputs(
+        config,
+        _TERMS,
+        MarketView(_LAST, atr, base_asset="BTC", quote_asset="USDT"),
+        None,
+        limits,
+        facts,
+    )
     return evaluate_grid(inputs, GridThresholds()).verdicts
 
 

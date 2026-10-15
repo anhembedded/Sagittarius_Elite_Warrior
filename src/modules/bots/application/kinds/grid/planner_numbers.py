@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavai
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    BUDGET_QUOTE_ASSET,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
@@ -80,11 +83,24 @@ def read_planner_numbers(
     ) as exc:
         return f"{symbol} on {venue.display_name}: {exc}"
     price: Decimal = (book.bid_price + book.ask_price) / 2
+    base_asset, quote_asset = _assets_of(symbol)
     return terms, MarketView(
         price,
         foreign_open_orders=_open_orders_on(ports.get(venue).account_activity, symbol),
         funding=funding_view_of(entry_terms, symbol) if profile.has_funding else None,
+        base_asset=base_asset,
+        quote_asset=quote_asset,
     )
+
+
+def _assets_of(symbol: str) -> tuple[str, str]:
+    """`(base, quote)` of a symbol quoted in the budget asset, the only quote the bots trade
+    (`OwnerBudgetRefusal.SYMBOL_NOT_SUPPORTED` refuses the rest); `("", "")` for any other, so a
+    sentence never names an asset it was not told (`BUG-210`)."""
+    base = symbol.removesuffix(BUDGET_QUOTE_ASSET)
+    if base == symbol or not base:
+        return "", ""
+    return base, BUDGET_QUOTE_ASSET
 
 
 def _open_orders_on(activity: IAccountActivity, symbol: str) -> int | None:

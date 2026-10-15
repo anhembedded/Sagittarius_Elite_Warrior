@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
@@ -170,3 +171,29 @@ def test_a_read_only_panel_offers_no_suggestion_when_the_planner_answers_late(
     panel.set_planner_market(_market(SuggestedRange(Decimal(1), Decimal(2)), None))
 
     assert not panel.suggest_atr.isEnabled()
+
+
+def test_a_price_is_shown_without_the_zeros_the_exchange_pads_it_with(qtbot) -> None:
+    """`BUG-210`: Binance publishes a tick of `0.01000000`; the suggested range was written
+    `2371.98000000`, and a saved draft carried that text back into the field."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.set_planner_market(
+        PlannerMarket(
+            replace(_TERMS, tick_size=Decimal("0.01000000")),
+            MarketView(Decimal(65000), Decimal(2500)),
+            SuggestedRange(Decimal("2371.9831"), Decimal("2824.1")),
+            None,
+        )
+    )
+
+    panel.suggest_atr.trigger()
+
+    assert (panel.config()["lower"], panel.config()["upper"]) == ("2371.98", "2824.1")
+    panel.set_config({**_CONFIG, "lower": "2371.98000000", "upper": "2824.11000000"})
+    assert (panel.lower_price.text(), panel.upper_price.text()) == (
+        "2371.98",
+        "2824.11",
+    )
+    panel.set_config({**_CONFIG, "lower": "2400.00", "upper": "2800"})
+    assert (panel.lower_price.text(), panel.upper_price.text()) == ("2400", "2800")

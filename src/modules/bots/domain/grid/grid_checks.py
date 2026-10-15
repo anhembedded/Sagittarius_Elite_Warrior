@@ -37,6 +37,18 @@ from __future__ import annotations
 
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
+    STOP_LOSS_SIDE,
+    TAKE_PROFIT_SIDE,
+    ExitSide,
+    arithmetic_spacing_advice,
+    exit_distance_advice,
+    foreign_orders_advice,
+    losing_grids_advice,
+    range_atr_advice,
+    suggested_atr_range,
+    thin_step_advice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
@@ -72,11 +84,16 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
         )
     if thinnest <= fees:
         losing = sum(1 for grid in inputs.derived.grids if grid.step_fraction <= fees)
+        advice, grids = losing_grids_advice(inputs, fees)
         return Verdict(
             WARNING,
             "SOME_GRIDS_LOSE",
-            f"{losing} grid(s) have a step at or below two maker fees and lose on each cycle",
-            {**numbers, "losing_grids": Decimal(losing)},
+            advice.text,
+            {
+                **numbers,
+                "losing_grids": Decimal(losing),
+                "suggested_grids": Decimal(grids),
+            },
         )
     return Verdict(OK, "BREAK_EVEN", "Every grid earns more than its fees", numbers)
 
@@ -175,14 +192,12 @@ def check_foreign_orders(inputs: GridCheckInputs) -> Verdict:
         "max_open_orders": Decimal(allowed),
     }
     if foreign > 0:
+        advice, fitting = foreign_orders_advice(foreign, orders, allowed)
         return Verdict(
             WARNING,
             "FOREIGN_OPEN_ORDERS",
-            f"{foreign} other order{'s are' if foreign != 1 else ' is'} already "
-            f"open on this symbol; with the plan's {orders} that is "
-            f"{orders + foreign} against a limit of {allowed}, and this bot "
-            "will not manage them",
-            numbers,
+            advice.text,
+            {**numbers, "suggested_grids": Decimal(fitting)},
         )
     return Verdict(
         OK, "NO_FOREIGN_ORDERS", "No other order is open on the symbol", numbers
@@ -257,11 +272,12 @@ def check_min_step(inputs: GridCheckInputs) -> Verdict:
     threshold = inputs.thresholds.min_step_fraction
     numbers = {"thinnest_step": thinnest, "threshold": threshold}
     if thinnest < threshold:
+        advice, grids = thin_step_advice(inputs)
         return Verdict(
             WARNING,
             "STEP_BELOW_MINIMUM",
-            f"The thinnest step is {thinnest:.4%}, below {threshold:.2%}; slippage can eat it",
-            numbers,
+            advice.text,
+            {**numbers, "suggested_grids": Decimal(grids)},
         )
     return Verdict(OK, "STEP_SIZE", "Every step leaves room for slippage", numbers)
 
@@ -282,12 +298,18 @@ def check_range_against_atr(inputs: GridCheckInputs) -> Verdict:
         "high": thresholds.range_atr_high,
     }
     if not thresholds.range_atr_low <= multiple <= thresholds.range_atr_high:
+        lower, upper = suggested_atr_range(inputs, daily_atr)
         return Verdict(
             WARNING,
             "RANGE_OUTSIDE_ATR_BAND",
-            f"The range is {multiple:.2f} daily ATRs wide, outside "
-            f"{thresholds.range_atr_low}–{thresholds.range_atr_high}",
-            numbers,
+            range_atr_advice(inputs, daily_atr, multiple).text,
+            {
+                **numbers,
+                "daily_atr": daily_atr,
+                "range_width": params.upper - params.lower,
+                "suggested_lower": lower,
+                "suggested_upper": upper,
+            },
         )
     return Verdict(OK, "RANGE_ATR", "The range is within the ATR band", numbers)
 
@@ -305,7 +327,7 @@ def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
             "below the range",
             {"stop_loss": stop, "lower": lower},
         )
-    return _exit_distance(inputs, "STOP_LOSS", (lower - stop) / lower)
+    return _exit_distance(inputs, STOP_LOSS_SIDE, stop, (lower - stop) / lower)
 
 
 def check_take_profit(inputs: GridCheckInputs) -> Verdict:
@@ -321,7 +343,7 @@ def check_take_profit(inputs: GridCheckInputs) -> Verdict:
             "it above the range",
             {"take_profit": target, "upper": upper},
         )
-    return _exit_distance(inputs, "TAKE_PROFIT", (target - upper) / upper)
+    return _exit_distance(inputs, TAKE_PROFIT_SIDE, target, (target - upper) / upper)
 
 
 def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
@@ -332,14 +354,16 @@ def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             WARNING,
             "ARITHMETIC_ON_WIDE_RANGE",
-            f"The range is {width:.1%} wide; arithmetic spacing leaves the upper grids "
-            "thin there, and geometric keeps every grid's percentage equal",
+            arithmetic_spacing_advice(inputs, limit).text,
             numbers,
         )
     return Verdict(OK, "SPACING", "The spacing suits the range", numbers)
 
 
-def _exit_distance(inputs: GridCheckInputs, name: str, distance: Decimal) -> Verdict:
+def _exit_distance(
+    inputs: GridCheckInputs, side: ExitSide, price: Decimal, distance: Decimal
+) -> Verdict:
+    code = side.name.upper().replace(" ", "_")
     low, high = (
         inputs.thresholds.exit_distance_low,
         inputs.thresholds.exit_distance_high,
@@ -348,14 +372,8 @@ def _exit_distance(inputs: GridCheckInputs, name: str, distance: Decimal) -> Ver
     if not low <= distance <= high:
         return Verdict(
             WARNING,
-            f"{name}_DISTANCE",
-            f"The {name.lower().replace('_', ' ')} is {distance:.2%} beyond the range, "
-            f"outside {low:.0%}–{high:.0%}",
+            f"{code}_DISTANCE",
+            exit_distance_advice(inputs, side, price, distance).text,
             numbers,
         )
-    return Verdict(
-        OK,
-        name,
-        f"The {name.lower().replace('_', ' ')} distance is within advice",
-        numbers,
-    )
+    return Verdict(OK, code, f"The {side.name} distance is within advice", numbers)
