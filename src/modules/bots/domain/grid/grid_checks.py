@@ -35,7 +35,7 @@ run (no candles for the ATR) says so as OK, never as a silent pass.
 
 from __future__ import annotations
 
-from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from decimal import ROUND_FLOOR, Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
     STOP_LOSS_SIDE,
@@ -51,6 +51,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts im
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
+    find_breach,
+    smallest_order,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridSpacing,
@@ -99,42 +103,28 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
-    """A SELL is sized net of the fee its buy paid in base, so the smallest
-    order the bot sends is the smallest level less the taker fee."""
-    smallest = min(level.notional for level in inputs.plan.order_levels)
-    net = smallest * (1 - inputs.terms.taker_fee)
+    """Every order the executor sends is worth the exchange's minimum (`BUG-211`).
+
+    The orders are sized by `grid_order_sizing`, the same function the executor lays its
+    ladder from: SELLs net of the opening's fee and floored to the step, and the counter
+    orders of each pair of levels."""
+    smallest = smallest_order(inputs.plan, inputs.terms)
     minimum = inputs.terms.min_notional
-    numbers = {
-        "smallest_order": smallest,
-        "smallest_after_fee": net,
-        "min_notional": minimum,
-    }
-    if net <= 0:
-        # A quantity rounded to nothing: no capital is "about" enough, so none is named.
+    numbers = {"min_notional": minimum}
+    if smallest is not None:
+        numbers["smallest_order"] = smallest.notional
+    breach = find_breach(inputs.params, inputs.plan, inputs.terms)
+    if breach is None:
         return Verdict(
-            REFUSED,
-            "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order rounds to nothing at the exchange's quantity step; the "
-            f"exchange minimum is {minimum}. Raise the capital or use fewer grids",
-            numbers,
+            OK, "MIN_NOTIONAL", "Every order clears the exchange minimum", numbers
         )
-    if net < minimum:
-        # Orders scale with the capital, so the capital that lifts the
-        # smallest one to the minimum is a proportion; the exchange's
-        # quantity rounding can move it by a step, hence "about".
-        needed = (inputs.params.capital_quote * minimum / net).quantize(
-            _CENT, rounding=ROUND_CEILING
-        )
-        return Verdict(
-            REFUSED,
-            "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order is worth {net:.2f} after the fee, below the "
-            f"exchange minimum of {minimum}; raise the capital to about {needed} "
-            "or use fewer grids",
-            {**numbers, "minimum_capital": needed},
-        )
+    if breach.minimum_capital is not None:
+        numbers["minimum_capital"] = breach.minimum_capital
     return Verdict(
-        OK, "MIN_NOTIONAL", "Every order clears the exchange minimum", numbers
+        REFUSED,
+        "LEVEL_BELOW_MIN_NOTIONAL",
+        breach.text(inputs.market.base_asset, inputs.market.quote_asset),
+        numbers,
     )
 
 

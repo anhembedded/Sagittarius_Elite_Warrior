@@ -137,17 +137,19 @@ def sells_net_of_opening_fee(
     plan: GridPlan, taker_fee: Decimal, step_size: Decimal
 ) -> GridPlan:
     """`plan` with each SELL level sized to its share net of the buy's fee."""
-    kept = 1 - taker_fee
     levels = tuple(
-        replace(
-            level,
-            quantity=_ROUNDING.round_quantity_down(level.quantity * kept, step_size),
-        )
+        replace(level, quantity=net_of_buy_fee(level.quantity, taker_fee, step_size))
         if level.side is LevelSide.SELL
         else level
         for level in plan.levels
     )
     return replace(plan, levels=levels)
+
+
+def net_of_buy_fee(quantity: Decimal, fee: Decimal, step_size: Decimal) -> Decimal:
+    """What a buy of `quantity` leaves to sell when Spot takes `fee` from the base it
+    buys, rounded down to the step: the one rule for a SELL's quantity (`BUG-211`)."""
+    return _ROUNDING.round_quantity_down(quantity * (1 - fee), step_size)
 
 
 def crossed_exit(
