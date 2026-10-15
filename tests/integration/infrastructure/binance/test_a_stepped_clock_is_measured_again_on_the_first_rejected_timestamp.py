@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
+    SpotSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
@@ -45,6 +48,8 @@ _STEP_MS = -3000
 _TIME = "/fapi/v1/time"
 _POSITIONS = "/fapi/v3/positionRisk"
 _LEVERAGE = "/fapi/v1/leverage"
+_SPOT_TIME = "/api/v3/time"
+_SPOT_OPEN_ORDERS = "/api/v3/openOrders"
 _TOLERANCE_MS = 500
 
 
@@ -121,3 +126,20 @@ def test_a_skew_the_measurement_cannot_cure_is_reported_as_clock_skew_and_not_lo
     )
     assert _count(urls, _TIME) == 2
     assert session.futures_position_information() is not None
+
+
+def test_a_spot_read_after_a_clock_step_is_sent_again_once_the_clock_is_measured(
+    urls: FakeServerUrls,
+) -> None:
+    """Spot measures with `get_server_time`, Futures with `futures_time`: a swapped flag in the
+    resync would pass the Futures tests, because the fake serves both from one clock."""
+    session = SpotSessionFactory().create_trading_client(_KEYS)
+    urls.clock.enforcing = True
+
+    with exchange_clock_skewed_by(_STEP_MS):
+        session.get_open_orders(symbol="BTCUSDT")
+
+    assert urls.clock.rejected == 1
+    assert _count(urls, _SPOT_OPEN_ORDERS) == 2
+    assert _count(urls, _SPOT_TIME) == 2
+    assert abs(session.timestamp_offset - _STEP_MS) < _TOLERANCE_MS
