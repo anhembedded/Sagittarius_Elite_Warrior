@@ -289,8 +289,7 @@ class BotOrderGateway:
         """Whether the exchange rejects the account's API key right now: a
         network read. An unreachable exchange, a clock skew or any other failed
         check is **not** a rejected key."""
-        status = self._ports.account_snapshot.check_connection()
-        return status.failure is ConnectionFailureKind.KEY_REJECTED
+        return self.connection_failure() is ConnectionFailureKind.KEY_REJECTED
 
     def connection_failure(self) -> ConnectionFailureKind | None:
         """Why the venue's account cannot be read now, or `None` when it can. A venue with
