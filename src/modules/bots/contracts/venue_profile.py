@@ -76,6 +76,11 @@ class VenueProfile:
     #: which a plan and a backtest may name). Futures runs all three (`EPIC-039I`). The start's preconditions and the readiness refuse a direction outside
     #: the set in one sentence (`exposure_refusal`).
     bot_directions: frozenset[TradeDirection] = frozenset({TradeDirection.LONG})
+    #: What a stopped bot is left holding, in the user's word: "base" for an inventory, "position"
+    #: for a signed position (`BUG-219`; a Short is bought back, never "sold").
+    held_word: str = "base"
+    #: The Stop choice that ends the exposure at market, worded for `held_word`.
+    close_at_market_label: str = "Sell the base at market"
 
 
 #: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
@@ -101,6 +106,8 @@ _FUTURES = VenueProfile(
     title_word=FUTURES_TITLE,
     max_leverage=_FUTURES_MAX_LEVERAGE,
     bot_directions=frozenset(TradeDirection),
+    held_word="position",
+    close_at_market_label="Close the position at market",
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.
@@ -136,6 +143,15 @@ def title_word_of(venue: TradingVenue) -> str:
     venue that trades no market is described as Spot, as every sentence did before Futures."""
     profile = venue_profile_of(venue)
     return profile.title_word if profile is not None else SPOT_TITLE
+
+
+def keep_on_stop_closed_reason(profile: VenueProfile) -> str | None:
+    """Why a bot on `profile`'s market cannot be stopped with what it holds kept, or `None` when
+    it can (`EPIC-039H`, decision O8). The Stop dialog disables "keep" with this sentence and the
+    Stop use case refuses it by the same test (`BUG-219`), so the two cannot disagree."""
+    if profile.exposure_kind is not ExposureKind.POSITION:
+        return None
+    return "needs a stop on the exchange, EPIC-039L"
 
 
 def is_in_markets(profile: VenueProfile, markets: frozenset[MarketType]) -> bool:

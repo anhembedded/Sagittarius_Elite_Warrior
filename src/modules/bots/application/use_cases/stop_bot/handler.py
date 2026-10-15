@@ -32,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    ExposureKind,
+    keep_on_stop_closed_reason,
     venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -67,7 +67,7 @@ class StopBotCommandHandler(ICommandHandler[StopBotCommand, BotCommandResult]):
         if isinstance(found, BotCommandResult):
             return found
         profile = venue_profile_of(found.bot.definition.venue)
-        if profile is None or profile.exposure_kind is not ExposureKind.POSITION:
+        if profile is None or keep_on_stop_closed_reason(profile) is None:
             return None
         return BotCommandResult.refused(
             BotRefusal.EXPOSURE_MUST_CLOSE,
