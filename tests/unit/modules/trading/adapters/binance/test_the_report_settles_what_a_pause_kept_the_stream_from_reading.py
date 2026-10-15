@@ -85,3 +85,33 @@ async def test_a_symbol_the_report_does_not_name_is_not_settled_from_it() -> Non
 
     assert stream._session_state.open_position_count("ETHUSDT") == 1
     assert closed == []
+
+
+async def test_a_handler_made_stale_while_its_read_was_refused_settles_nothing() -> (
+    None
+):
+    """`BUG-094`: `stop()`/`start()` may bump the generation during the read; the settlement
+    from the report is a write like any other and must not outlive the session it was heard on."""
+    client = Mock()
+
+    def refused_after_a_restart(symbol: str) -> None:
+        stream._generation += 1
+        raise ExchangeRateLimitedError(
+            timedelta(seconds=30), banned=False, raw_message="no request is sent"
+        )
+
+    client.get_positions.side_effect = refused_after_a_restart
+    stream, event_bus = _stream(client)
+    closed: list = []
+    event_bus.on(PositionClosedEvent, closed.append)
+    stream._session_state.reconcile_position("BTCUSDT", has_position=True)
+
+    await stream._handle_message(
+        _account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}])
+    )
+
+    assert stream._session_state.open_position_count("BTCUSDT") == 1
+    assert closed == []
+    assert stream._deferred.due_with([]) == [], (
+        "the stale handler defers nothing either"
+    )

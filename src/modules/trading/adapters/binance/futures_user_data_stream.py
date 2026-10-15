@@ -375,6 +375,9 @@ class FuturesUserDataStream(ManagedUserDataStream):
             except ExchangeRateLimitedError:
                 # `BUG-216` — a pause is not the socket's failure: out of the session it
                 # became "connection lost", and the reconnect a reconcile of every bot.
+                # `BUG-094` - fenced here too: a stale handler settles and defers nothing.
+                if generation != self._generation:
+                    return
                 self._deferred.defer(symbol)
                 if symbol in amounts:
                     settle_from_amount(
