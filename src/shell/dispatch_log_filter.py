@@ -23,8 +23,10 @@ own soft limit), every poll of the desktop is refused at once and the dispatcher
 of the owner's 2026-10-15 ban, none of them news after the one WARNING that began the pause
 (`ExchangeCallPolicy`). A failure whose text carries `EXCHANGE_PAUSE_TAG` is written at DEBUG
 instead: still in a `--dev` log, off a normal run's. A command refused by the pause (a manual order) is
-demoted too, on purpose: the desk tells its user of the refusal as a command failure, and the pause
-itself is a WARNING that is told again whenever it is extended or turns into a ban.
+demoted too, on purpose, because the desk tells its user itself: a WARNING from the presenter
+(`order_entry_presenter.py:362`), the panel's error line and a command-failure notice
+(`order_entry_failures.py:81` `submit_failed`), pinned by `test_order_entry_failures.py`. The
+pause itself is a WARNING that is told again whenever it is extended or turns into a ban.
 
 Retire when: the Engine lets a handler's exception choose its own log level.
 """
