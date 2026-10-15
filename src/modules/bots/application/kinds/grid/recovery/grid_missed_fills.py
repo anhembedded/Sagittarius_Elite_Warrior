@@ -5,12 +5,19 @@ What a saved order executed beyond what the bot counted is applied as a fill
 (its counter order held), and an order missing from the exchange that is not whole
 ends without filling, so its level is laid again once. `GridReconciler` calls
 `apply` for every saved order and `catch_up` for an order it adopts.
+
+`BUG-214`: `apply` applies the missed fills in the order the exchange filled them,
+read off the trade history, not in level order: a fill's counter is computed from
+the ladder as the fills before it left it, so a rung that filled second is applied
+second whatever its level (a lower rung applied first would send its counter to the
+level an unapplied higher rung still holds, a `DUPLICATE_LEVEL_ORDER` halt).
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
@@ -45,6 +52,35 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import
 logger = logging.getLogger("App.Bots.GridExecutor")
 
 
+@dataclass(frozen=True)
+class MissedFill:
+    """What one saved order executed beyond what the bot counted, with its trades."""
+
+    saved: LevelOrder
+    record: OrderRecord
+    missed: Decimal
+    trades: tuple[TradeRecord, ...]
+
+    @property
+    def happened_at(self) -> tuple[datetime, int] | None:
+        """When the exchange finished this fill: its newest trade's time, the
+        trade id breaking a tie (ids rise in the order trades happen). `None`
+        when history lists no trade for it."""
+        if not self.trades:
+            return None
+        newest = max(self.trades, key=lambda trade: (trade.time, trade.trade_id))
+        return newest.time, newest.trade_id
+
+
+def event_order(found: MissedFill) -> tuple[bool, datetime, int]:
+    """Sort key: fills the history dates, oldest first; the undated last, in the
+    level order they were given (a stable sort keeps it)."""
+    happened_at = found.happened_at
+    if happened_at is None:
+        return (True, datetime.max.replace(tzinfo=UTC), 0)
+    return (False, *happened_at)
+
+
 class GridMissedFills:
     """Applies the fills of a reconcile, on the bot's worker."""
 
@@ -61,12 +97,19 @@ class GridMissedFills:
         if since is None:
             return runtime
         open_ids = {order.client_order_id for order in open_orders}
-        for saved in runtime.open_orders:
-            record = records.get(saved.client_order_id)
-            applied = self.catch_up(runtime, saved, record, since)
+        saved_orders = runtime.open_orders
+        pending = [
+            found
+            for saved in saved_orders
+            if (found := self._missed(saved, records.get(saved.client_order_id), since))
+            is not None
+        ]
+        for found in sorted(pending, key=event_order):
+            applied = self._apply_missed(runtime, found)
             if isinstance(applied, ReconcileMismatch):
                 return applied
             runtime = applied
+        for saved in saved_orders:
             if saved.client_order_id not in open_ids:
                 ended = self._end_missing(runtime, saved)
                 if isinstance(ended, ReconcileMismatch):
@@ -84,11 +127,25 @@ class GridMissedFills:
         """What the order executed beyond what the bot counted, applied as a
         fill, whether the order is gone from the exchange or still resting
         (`BUG-188`: a partial fill of an open order missed in a gap)."""
+        found = self._missed(saved, record, since)
+        if found is None:
+            return runtime
+        return self._apply_missed(runtime, found)
+
+    def _missed(
+        self, saved: LevelOrder, record: OrderRecord | None, since: datetime
+    ) -> MissedFill | None:
         missed = (record.executed_quantity - saved.executed) if record else Decimal(0)
         if missed <= 0 or record is None:
-            return runtime
+            return None
         trades = self._context.gateway.order_trades(record.exchange_order_id, since)
-        fill = self._missed_fill(saved, record, missed, trades)
+        return MissedFill(saved, record, missed, trades)
+
+    def _apply_missed(
+        self, runtime: GridRuntime, found: MissedFill
+    ) -> GridRuntime | ReconcileMismatch:
+        saved, missed, trades = found.saved, found.missed, found.trades
+        fill = self._missed_fill(saved, found.record, missed, trades)
         reaction = on_fill(runtime, fill, self._context.terms.step_size, hold=True)
         halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
         if halt is not None:
