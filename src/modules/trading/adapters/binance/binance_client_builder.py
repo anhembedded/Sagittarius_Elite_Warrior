@@ -3,7 +3,8 @@ a trading venue, testnet or mainnet, Spot or Futures.
 
 @details A mainnet venue is its testnet twin with the endpoint and the key passed
 in (D11), so every session is opened the same way: a request timeout, and for a
-signed session a clock-corrected `timestamp_offset`. Before this there were four
+signed session a clock-corrected `timestamp_offset` (measured again by
+`sync_timestamp_offset` when the exchange rejects a timestamp, `BUG-221`). Before this there were four
 copies, one per factory method; a fifth was one edit away from disagreeing about
 the timeout or the offset. Only the venue differs between calls, and it supplies
 both the `testnet` flag and which API family measures the server's clock.
@@ -72,7 +73,7 @@ def new_client(
     # Before the clock is measured: the first request already goes through it.
     _mount_redaction(client)
     if credentials is not None:
-        _sync_timestamp_offset(client, futures)
+        sync_timestamp_offset(client, futures)
     return client
 
 
@@ -84,7 +85,10 @@ def _mount_redaction(client: Client) -> None:
     client.session.mount("http://", adapter)
 
 
-def _sync_timestamp_offset(client: Client, futures: bool) -> None:
+def sync_timestamp_offset(client: Client, futures: bool) -> None:
+    """Measure the exchange's clock against this machine's and store the difference on
+    `client`, which adds it to every signed request's timestamp. Called when the session is
+    opened and again by `ResilientSession` when the exchange answers `-1021` (`BUG-221`)."""
     local_before_ms = int(time.time() * 1000)
     server_time = client.futures_time() if futures else client.get_server_time()
     local_after_ms = int(time.time() * 1000)

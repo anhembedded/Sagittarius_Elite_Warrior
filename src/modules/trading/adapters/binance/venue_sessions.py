@@ -25,10 +25,13 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from functools import partial
+from typing import TYPE_CHECKING, cast
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.binance_client_builder import (
     new_client,
+    sync_timestamp_offset,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_policy import (
     SPOT_WEIGHT_LIMIT,
@@ -38,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limit_g
     RateLimitGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.resilient_session import (
+    ClockResync,
     ResilientSession,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
@@ -46,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+if TYPE_CHECKING:
+    from binance.client import Client
 
 #: How long a session's clock reading is trusted: ten minutes of drift is far
 #: below the second Binance tolerates, and a long-running bot re-measures.
@@ -118,7 +125,19 @@ class VenueSessions:
         client = self._policy.run_read(
             lambda: self._open_session(self._venue, credentials)
         )
-        return ResilientSession(client, self._policy)
+        return ResilientSession(
+            client, self._policy, self._clock_resync_of(client, credentials)
+        )
+
+    def _clock_resync_of(
+        self, client: object, credentials: ExchangeCredentials | None
+    ) -> ClockResync | None:
+        """How the session measures `client`'s clock again on a `-1021` (`BUG-221`): the
+        same measurement the open made, on the same client. The public session signs nothing."""
+        if credentials is None:
+            return None
+        futures = self._venue.market_type is MarketType.FUTURES_USD_M
+        return partial(sync_timestamp_offset, cast("Client", client), futures)
 
 
 def _default_policy(venue: TradingVenue) -> ExchangeCallPolicy:
