@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
@@ -118,13 +121,14 @@ class GridResumeSequence:
             return None
         registration = self._housekeeping.register()
         held = self._exposure.held(registration)
-        if not registration.registered or held is None:
+        sizes = self._context.params.direction is TradeDirection.LONG
+        if not registration.registered or held is None or not sizes:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
             detail = (
                 f"resume waits: the budget was refused: {refusal_text(registration)}"
                 if not registration.registered
-                else "resume waits: the bot holds a short position, which a resume cannot "
-                "size yet; stop it (it closes the position) and start a new run"
+                else "resume waits: a resume cannot size the position of a short or "
+                "neutral grid yet; stop the bot (it closes the position) and start a new run"
             )
             state.update(state.runtime.with_reason(reason, detail))
             return None

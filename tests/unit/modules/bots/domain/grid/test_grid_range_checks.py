@@ -101,3 +101,42 @@ def test_no_stop_loss_warning_and_no_default_stop_loss() -> None:
     off = _find(verdicts, "STOP_LOSS_OFF")
     assert off is not None and off.severity is VerdictSeverity.OK
     assert not [v for v in verdicts if v.code.startswith("STOP_LOSS") and v is not off]
+
+
+def test_the_refusal_prints_the_price_as_the_venue_gave_it_and_names_the_quote_asset() -> (
+    None
+):
+    """`BUG-211`: `2368.15500000` and "34.10 of the base asset" - the figure is a quote
+    amount (quantity x price), and the base asset has a name."""
+    refusal = _find(
+        _verdicts(
+            Decimal("2368.155"),
+            lower="2370.00000000",
+            upper="2825.29",
+            grid_count="6",
+            capital_quote="35",
+            stop_loss="off",
+            take_profit="off",
+        ),
+        _BELOW,
+    )
+
+    assert refusal is not None
+    assert "price 2368.155 " in refusal.reason
+    assert "lower bound 2370. " in refusal.reason
+    assert "base asset" not in refusal.reason
+    assert " USDT of BTC at market" in refusal.reason
+
+
+def test_an_exit_refusal_prints_plain_prices() -> None:
+    verdicts = _verdicts(
+        Decimal(65000),
+        stop_loss="price:61000.00000000",
+        take_profit="price:69000.00000000",
+    )
+
+    stop = _find(verdicts, "STOP_LOSS_INSIDE_RANGE")
+    take = _find(verdicts, "TAKE_PROFIT_INSIDE_RANGE")
+    assert stop is not None and take is not None
+    assert "stop loss 61000 is at or above the lower limit 60000;" in stop.reason
+    assert "take profit 69000 is at or below the upper limit 70000;" in take.reason

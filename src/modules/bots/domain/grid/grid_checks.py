@@ -36,10 +36,15 @@ run (no candles for the ATR) says so as OK, never as a silent pass.
 
 from __future__ import annotations
 
-from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from decimal import ROUND_FLOOR, Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import (
+    Figures,
+    plain,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
     arithmetic_spacing_advice,
+    figures_of,
     foreign_orders_advice,
     losing_grids_advice,
     range_atr_advice,
@@ -49,16 +54,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts im
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
+    find_breach,
+    largest_order,
+    smallest_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridSpacing,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
     LevelSizing,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.position_order_sizing import (
-    largest_order,
-    smallest_order,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
@@ -103,55 +109,36 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
-    """A Spot SELL is sized net of the fee its buy paid in base, so the smallest order the bot
-    sends is the smallest level less the taker fee. A position ladder pays its fee in the quote
-    asset, and any level can hold an order, so its smallest order is the plan's one quantity at
-    the lowest price (`position_order_sizing`, the executor's own judgement)."""
-    plan = inputs.plan
-    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY:
-        smallest = net = smallest_order(plan).notional
-    else:
-        smallest = min(level.notional for level in plan.order_levels)
-        net = smallest * (1 - inputs.terms.taker_fee)
+    """Every order the executor sends is worth the exchange's minimum (`BUG-212`).
+
+    The orders are sized by `grid_order_sizing`, the same function the executor lays its
+    ladder from: SELLs net of the opening's fee and floored to the step, and the counter
+    orders of each pair of levels."""
+    smallest = smallest_order(inputs.plan, inputs.terms)
     minimum = inputs.terms.min_notional
-    numbers = {
-        "smallest_order": smallest,
-        "smallest_after_fee": net,
-        "min_notional": minimum,
-    }
-    if net <= 0:
-        # A quantity rounded to nothing: no capital is "about" enough, so none is named.
+    numbers = {"min_notional": minimum}
+    if smallest is not None:
+        numbers["smallest_order"] = smallest.notional
+    breach = find_breach(inputs.params, inputs.plan, inputs.terms)
+    if breach is None:
         return Verdict(
-            REFUSED,
-            "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order rounds to nothing at the exchange's quantity step; the "
-            f"exchange minimum is {minimum}. Raise the capital or use fewer grids",
-            numbers,
+            OK, "MIN_NOTIONAL", "Every order clears the exchange minimum", numbers
         )
-    if net < minimum:
-        # Orders scale with the capital, so the capital that lifts the
-        # smallest one to the minimum is a proportion; the exchange's
-        # quantity rounding can move it by a step, hence "about".
-        needed = (inputs.params.capital_quote * minimum / net).quantize(
-            _CENT, rounding=ROUND_CEILING
-        )
-        return Verdict(
-            REFUSED,
-            "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order is worth {net:.2f} after the fee, below the "
-            f"exchange minimum of {minimum}; raise the capital to about {needed} "
-            "or use fewer grids",
-            {**numbers, "minimum_capital": needed},
-        )
+    if breach.minimum_capital is not None:
+        numbers["minimum_capital"] = breach.minimum_capital
     return Verdict(
-        OK, "MIN_NOTIONAL", "Every order clears the exchange minimum", numbers
+        REFUSED,
+        "LEVEL_BELOW_MIN_NOTIONAL",
+        breach.text(inputs.market.base_asset, inputs.market.quote_asset),
+        numbers,
     )
 
 
 def check_max_notional(inputs: GridCheckInputs) -> Verdict:
     plan = inputs.plan
-    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY:
-        largest = largest_order(plan).notional
+    biggest = largest_order(plan, inputs.terms)
+    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY and biggest is not None:
+        largest = biggest.notional
     else:
         largest = max(level.notional for level in plan.order_levels)
     cap = inputs.terms.max_notional_per_order
@@ -236,11 +223,21 @@ def check_price_band(inputs: GridCheckInputs) -> Verdict:
     }
     for level in inputs.plan.buy_levels:
         if not lowest_buy <= level.price <= highest_buy:
-            return _outside_band(level.price, "BUY", (lowest_buy, highest_buy), numbers)
+            return _outside_band(
+                figures_of(inputs),
+                level.price,
+                "BUY",
+                (lowest_buy, highest_buy),
+                numbers,
+            )
     for level in inputs.plan.sell_levels:
         if not lowest_sell <= level.price <= highest_sell:
             return _outside_band(
-                level.price, "SELL", (lowest_sell, highest_sell), numbers
+                figures_of(inputs),
+                level.price,
+                "SELL",
+                (lowest_sell, highest_sell),
+                numbers,
             )
     return Verdict(
         OK, "PRICE_BAND", "Every level is inside the venue's price band", numbers
@@ -248,6 +245,7 @@ def check_price_band(inputs: GridCheckInputs) -> Verdict:
 
 
 def _outside_band(
+    figures: Figures,
     price: Decimal,
     side: str,
     allowed: tuple[Decimal, Decimal],
@@ -257,9 +255,9 @@ def _outside_band(
     return Verdict(
         REFUSED,
         "LEVEL_OUTSIDE_PRICE_BAND",
-        f"A {side} level at {price} is outside the {low:f}–{high:f} the exchange "
-        f"accepts for a {side} at the current price {numbers['last_price']}; "
-        "narrow the range",
+        f"A {side} level at {plain(price)} is outside the "
+        f"{plain(low)}–{plain(high)} {figures.unit} the exchange accepts for a {side} at the current "
+        f"price {plain(numbers['last_price'])}; narrow the range",
         {**numbers, "level_price": price},
     )
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     GateOutcome,
     GateResult,
@@ -171,14 +172,20 @@ def test_a_plan_whose_risk_cannot_be_judged_is_refused_not_guessed() -> None:
     assert world.book.requests == []
 
 
-def test_a_resume_over_a_short_position_proposes_nothing_and_says_why() -> None:
-    """`EPIC-039I`: a resume sizes its ladder to a long inventory, so a held short has no
-    proposal yet; the halted bot waits in words, nothing is cancelled or laid."""
-    world, _ = a_position_world(state=S.HALTED)
-    world.session.register_owner_budget_answers(a_registration("-0.05"))
+@pytest.mark.parametrize(("direction", "held"), [("SHORT", "-0.05"), ("SHORT", "0")])
+def test_a_resume_of_a_short_grid_proposes_nothing_and_says_why(
+    direction: str, held: str
+) -> None:
+    """`EPIC-039I`: a resume sizes its ladder to a long inventory, so a short grid has no proposal
+    yet, whatever it holds (over a flat position it would lay only reduce-only BUYs); the halted
+    bot waits in words, nothing is cancelled or laid."""
+    world, _ = a_position_world(
+        state=S.HALTED, config={**CONFIG, "direction": direction, "leverage": "2"}
+    )
+    world.session.register_owner_budget_answers(a_registration(held))
 
     world.executor.resume()
 
     assert world.executor.proposal is None
-    assert "short position" in world.runtime().reason_detail
+    assert "short or neutral grid" in world.runtime().reason_detail
     assert world.book.requests == []

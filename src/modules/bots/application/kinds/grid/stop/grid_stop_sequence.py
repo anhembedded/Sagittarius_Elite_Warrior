@@ -83,6 +83,18 @@ _ENDS_THE_STOP: frozenset[OrderOutcomeKind] = frozenset(
 )
 
 
+def _may_stop_on(registration: OwnerBudgetRegistrationResult) -> bool:
+    """Whether the stop can go on with `registration`. A position no fill of the bot explains
+    refuses the registration but says the bot's own is flat (trading refuses only then): the
+    stop cancels the bot's orders and closes nothing of it, as any bot that is flat beside a
+    position by hand needs (a NEUTRAL one between cycles; a LONG or SHORT one whose exits all
+    filled, `EPIC-039I`). Only a position venue answers it; Spot's stop is as it was."""
+    return (
+        registration.registered
+        or registration.refusal is OwnerBudgetRefusal.FOREIGN_POSITION
+    )
+
+
 class GridStopSequence:
     """Cancels, keeps or sells, and confirms — or says why it waits."""
 
@@ -94,7 +106,7 @@ class GridStopSequence:
     def run(self, base: ExposureHandling, price: Decimal) -> StopProgress:
         """Run the stop; the bot is STOPPING. `price` references the exits."""
         registration = self._housekeeping.register()
-        if not registration.registered:
+        if not _may_stop_on(registration):
             return self._budget_refused(registration)
         ended = self._cancel_tagged()
         if ended is not None:
@@ -103,7 +115,7 @@ class GridStopSequence:
             # A fill that landed while cancelling changed what the bot holds:
             # derive it again before closing it (ADR D6).
             registration = self._housekeeping.register()
-            if not registration.registered:
+            if not _may_stop_on(registration):
                 return self._budget_refused(registration)
             ended = self._closer.close(registration, price)
             if ended is not None:

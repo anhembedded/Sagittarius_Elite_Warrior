@@ -12,7 +12,7 @@
    what was counted (`BUG-194`). The stream's later report of the same fill is not counted
    again (`OwnerBook.apply_fill`).
 3. **The ladder is sized net of the opening's fee**, which Spot takes from the base bought
-   (`sells_net_of_opening_fee`).
+   (`opening_ladder`, which the pre-start check judges too: `BUG-212`).
 """
 
 from __future__ import annotations
@@ -46,7 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy imp
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
-    sells_net_of_opening_fee,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
+    opening_ladder,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
@@ -71,7 +73,7 @@ class SpotOpening(IOpeningStrategy):
     def open(self, plan: GridPlan) -> OpeningResult:
         terms = self._context.terms
         self._earlier_runs.record()
-        ladder = sells_net_of_opening_fee(plan, terms.taker_fee, terms.step_size)
+        ladder = opening_ladder(plan, terms)
         if self._buy_opening(plan) and self._count_opening(ladder):
             return OpeningResult(ladder)
         return OpeningResult(None)

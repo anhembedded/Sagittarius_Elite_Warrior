@@ -47,6 +47,8 @@ class DirectionScenario:
     #: The side a trade by hand adds to the bot's position, and the side that reads "long"/"short".
     by_hand_side: OrderSide
     holds_word: str
+    #: Prices (one rung each) after which the bot is flat: its reduce-only exits have all filled.
+    prices_to_flat: tuple[Decimal, ...]
     #: The orders resting after a restart that missed the first exit-side fill
     #: (`price_missed_while_closed`), sorted.
     price_missed_while_closed: Decimal
@@ -86,6 +88,7 @@ LONG = DirectionScenario(
     D(64100),
     OrderSide.BUY,
     "long",
+    (D(65100), D(66100)),
     D(65100),
     (
         ("BUY", D(62000), False),
@@ -125,6 +128,7 @@ SHORT = DirectionScenario(
     D(63900),
     OrderSide.SELL,
     "short",
+    (D(62900), D(61900)),
     D(62900),
     (
         ("BUY", D(62000), True),

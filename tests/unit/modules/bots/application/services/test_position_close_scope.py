@@ -17,6 +17,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.stop_progress import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistrationResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
+    ForeignPosition,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     LAST_PRICE,
 )
@@ -52,6 +59,27 @@ def test_a_hand_added_position_beside_the_bots_is_left_open_and_only_the_bots_is
     assert all(
         r.reduce_only for r in world.book.requests if r.order_type is OrderType.MARKET
     )
+
+
+def test_a_flat_bot_beside_a_position_by_hand_closes_nothing_and_is_flat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`EPIC-039I`: trading refuses a registration as a foreign position only when the bot's own
+    fills add up to flat, which is a NEUTRAL bot's ordinary state between cycles. The close has
+    nothing of its own to send and ends; it never waits for a position it cannot derive."""
+    world, _ = a_position_world()
+    monkeypatch.setattr(
+        world.snapshot, "open_positions", lambda: (a_long_position("0.05"),)
+    )
+    foreign = OwnerBudgetRegistrationResult(
+        OwnerBudgetRefusal.FOREIGN_POSITION,
+        foreign_position=ForeignPosition("BTCUSDT", D("0.05")),
+    )
+
+    progress = closer_of(world).close(foreign, LAST_PRICE)
+
+    assert progress is None
+    assert world.book.requests == []
 
 
 def test_what_is_left_to_the_owner_is_said_in_words(

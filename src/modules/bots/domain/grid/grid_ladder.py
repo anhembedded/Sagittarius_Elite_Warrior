@@ -35,6 +35,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fee_netting import (
+    net_of_buy_fee,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridLevel,
     GridPlan,
@@ -143,12 +146,8 @@ def sells_net_of_opening_fee(
     plan: GridPlan, taker_fee: Decimal, step_size: Decimal
 ) -> GridPlan:
     """`plan` with each SELL level sized to its share net of the buy's fee."""
-    kept = 1 - taker_fee
     levels = tuple(
-        replace(
-            level,
-            quantity=_ROUNDING.round_quantity_down(level.quantity * kept, step_size),
-        )
+        replace(level, quantity=net_of_buy_fee(level.quantity, taker_fee, step_size))
         if level.side is LevelSide.SELL
         else level
         for level in plan.levels

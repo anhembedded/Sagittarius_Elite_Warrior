@@ -112,6 +112,30 @@ def test_a_futures_editor_shows_direction_leverage_margin_and_liquidation(
     assert offered == ["LONG", "SHORT", "NEUTRAL"]
 
 
+def test_a_direction_no_bot_runs_yet_is_listed_greyed_out_with_its_reason(
+    qtbot,
+) -> None:
+    """`EPIC-039I` review: never selectable and then refused at Start (the pattern of a closed
+    venue, `BUG-208`)."""
+    panel = _panel(qtbot, _FUTURES)
+    direction = panel.exposure.direction
+    model = direction.model()
+
+    states = {
+        direction.itemData(i): (
+            model.item(i).isEnabled(),
+            model.item(i).toolTip(),
+        )
+        for i in range(direction.count())
+    }
+
+    assert states["LONG"] == (True, "")
+    assert states["SHORT"] == (True, "")
+    enabled, reason = states["NEUTRAL"]
+    assert not enabled
+    assert "neutral grid cannot run on Futures yet" in reason
+
+
 def test_a_new_futures_grid_starts_long_at_two_times_and_writes_both_keys(
     qtbot,
 ) -> None:

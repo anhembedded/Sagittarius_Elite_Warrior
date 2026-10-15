@@ -2,21 +2,30 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from decimal import Decimal
 
+import pytest
 from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
     SuggestedRange,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    BotKindInputs,
     ExchangeTerms,
     MarketView,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
+    evaluate_grid,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     PARAMETERS_WITHOUT_A_DEFAULT,
     unset_parameters,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
@@ -181,7 +190,7 @@ def test_a_price_is_shown_without_the_zeros_the_exchange_pads_it_with(qtbot) -> 
     panel.set_planner_market(
         PlannerMarket(
             replace(_TERMS, tick_size=Decimal("0.01000000")),
-            MarketView(Decimal(65000), Decimal(2500)),
+            MarketView(Decimal(2500), Decimal(160)),
             SuggestedRange(Decimal("2371.9831"), Decimal("2824.1")),
             None,
         )
@@ -197,3 +206,121 @@ def test_a_price_is_shown_without_the_zeros_the_exchange_pads_it_with(qtbot) -> 
     )
     panel.set_config({**_CONFIG, "lower": "2400.00", "upper": "2800"})
     assert (panel.lower_price.text(), panel.upper_price.text()) == ("2400", "2800")
+
+
+_OWNER_PRICE = Decimal("2368.155")
+_OWNER_CONFIG = {
+    "lower": "2000",
+    "upper": "3000",
+    "grid_count": "6",
+    "spacing": "ARITHMETIC",
+    "capital_quote": "35",
+    "stop_loss": "price:2259",
+    "take_profit": "price:2805",
+}
+
+
+def _owner_panel(qtbot, source: str, band: SuggestedRange) -> GridPanel:
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.set_config(_OWNER_CONFIG)
+    market = _owner_panel_market()
+    ranges = {"ATR": (band, None), "Bollinger": (None, band)}[source]
+    panel.set_planner_market(PlannerMarket(_TERMS, market, *ranges))
+    return panel
+
+
+def _blocking(panel: GridPanel) -> list[str]:
+    """What the planner says blocks Start for the fields as the panel now holds them."""
+    market = _owner_panel_market()
+    evaluation = evaluate_grid(
+        BotKindInputs(panel.config(), _TERMS, market), GridThresholds()
+    )
+    return [verdict.code for verdict in evaluation.verdicts if verdict.refuses]
+
+
+def _owner_panel_market() -> MarketView:
+    return MarketView(_OWNER_PRICE, Decimal(160), base_asset="ETH", quote_asset="USDT")
+
+
+@pytest.mark.parametrize(
+    ("source", "band", "action"),
+    [
+        ("ATR", SuggestedRange(Decimal("2227.92"), Decimal("2515.54")), "suggest_atr"),
+        (
+            "Bollinger",
+            SuggestedRange(Decimal(2370), Decimal("2825.29")),
+            "suggest_bollinger",
+        ),
+    ],
+)
+def test_a_suggestion_writes_a_plan_that_start_does_not_refuse(
+    qtbot, source: str, band: SuggestedRange, action: str
+) -> None:
+    """`BUG-211`: the owner's stop loss 2259 and take profit 2805 survived the new range."""
+    panel = _owner_panel(qtbot, source, band)
+    assert _blocking(panel)  # the plan as the owner had it is refused
+
+    getattr(panel, action).trigger()
+
+    assert _blocking(panel) == []
+    config = panel.config()
+    # The stop loss would block Start and moves; the take profit 2805 is valid (advice only)
+    # and stays as the owner set it.
+    assert config["stop_loss"] != "price:2259" and config["take_profit"] == "price:2805"
+    assert Decimal(config["lower"]) <= _OWNER_PRICE <= Decimal(config["upper"])
+
+
+def test_a_suggestion_says_which_exit_moved_and_the_note_goes_with_the_next_edit(
+    qtbot,
+) -> None:
+    panel = _owner_panel(
+        qtbot, "ATR", SuggestedRange(Decimal("2227.92"), Decimal("2515.54"))
+    )
+
+    panel.suggest_atr.trigger()
+
+    note = panel.suggestion_note
+    assert not note.isHidden()
+    assert "stop loss moved from 2259 to 2105.38" in note.text()
+    assert "take profit" not in note.text()
+    panel.capital.textEdited.emit("40")
+    assert note.isHidden()
+
+
+def test_a_suggestion_leaves_an_off_exit_off(qtbot) -> None:
+    panel = _owner_panel(
+        qtbot, "ATR", SuggestedRange(Decimal("2227.92"), Decimal("2515.54"))
+    )
+    panel.stop_loss.show_encoded("off")
+
+    panel.suggest_atr.trigger()
+
+    assert panel.config()["stop_loss"] == "off"
+    assert "stop loss" not in panel.suggestion_note.text()
+
+
+def test_a_suggestion_is_logged_with_its_inputs_range_moves_and_readiness(
+    qtbot, caplog: pytest.LogCaptureFixture
+) -> None:
+    panel = _owner_panel(
+        qtbot, "Bollinger", SuggestedRange(Decimal(2370), Decimal("2825.29"))
+    )
+
+    with caplog.at_level(logging.INFO, logger="App.Bots.Grid"):
+        panel.suggest_bollinger.trigger()
+
+    lines = [r for r in caplog.records if "[grid-suggest]" in r.getMessage()]
+    assert len(lines) == 1 and lines[0].levelno == logging.INFO
+    text = lines[0].getMessage()
+    for fragment in (
+        "source=Bollinger",
+        "band=2370-2825.29",
+        "daily_atr=160",
+        "last_price=2368.155",
+        "tick=0.01",
+        f"range={panel.config()['lower']}-{panel.config()['upper']}",
+        "stop loss 2259->",
+        "blocking=0",
+    ):
+        assert fragment in text

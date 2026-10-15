@@ -13,6 +13,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
     SHORT_STOP_LOSS_SIDE,
     SHORT_TAKE_PROFIT_SIDE,
@@ -43,7 +44,7 @@ def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
             return Verdict(
                 REFUSED,
                 "STOP_LOSS_INSIDE_RANGE",
-                f"The stop loss {stop} is at or below the upper limit {upper}; put it "
+                f"The stop loss {plain(stop)} is at or below the upper limit {plain(upper)}; put it "
                 "above the range, where a short loses",
                 {"stop_loss": stop, "upper": upper},
             )
@@ -55,7 +56,7 @@ def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             REFUSED,
             "STOP_LOSS_INSIDE_RANGE",
-            f"The stop loss {stop} is at or above the lower limit {lower}; put it "
+            f"The stop loss {plain(stop)} is at or above the lower limit {plain(lower)}; put it "
             "below the range",
             {"stop_loss": stop, "lower": lower},
         )
@@ -73,7 +74,7 @@ def check_take_profit(inputs: GridCheckInputs) -> Verdict:
             return Verdict(
                 REFUSED,
                 "TAKE_PROFIT_INSIDE_RANGE",
-                f"The take profit {target} is at or above the lower limit {lower}; put "
+                f"The take profit {plain(target)} is at or above the lower limit {plain(lower)}; put "
                 "it below the range, where a short gains",
                 {"take_profit": target, "lower": lower},
             )
@@ -85,7 +86,7 @@ def check_take_profit(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             REFUSED,
             "TAKE_PROFIT_INSIDE_RANGE",
-            f"The take profit {target} is at or below the upper limit {upper}; put "
+            f"The take profit {plain(target)} is at or below the upper limit {plain(upper)}; put "
             "it above the range",
             {"take_profit": target, "upper": upper},
         )
