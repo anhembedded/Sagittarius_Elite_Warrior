@@ -19,7 +19,7 @@ spells them): an exit is `off`, `price:<p>` or `percent:<n>`.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt
 from PySide6.QtGui import QAction
@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QSpinBox,
-    QStyle,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -56,6 +55,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_exit_field im
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_exposure_fields import (
     ROW_LABELS,
     ExposureFields,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_display import (
+    marker_icon,
+    price_text,
+    snap_to_tick,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
     CAPITAL,
@@ -129,8 +133,8 @@ class GridPanel(BotKindPanel):
         """Programmatic writes emit nothing: every signal used below is a
         user-edit signal (`textEdited`, `activated`, and the count's
         `valueChanged`, which a write would also raise, so it is blocked)."""
-        self.lower_price.setText(config.get("lower", ""))
-        self.upper_price.setText(config.get("upper", ""))
+        self.lower_price.setText(price_text(config.get("lower", "")))
+        self.upper_price.setText(price_text(config.get("upper", "")))
         with QSignalBlocker(self.grid_count):
             self.grid_count.setValue(
                 _int_or(config.get("grid_count", ""), _DEFAULT_GRIDS)
@@ -274,7 +278,7 @@ class GridPanel(BotKindPanel):
 
     def _mark(self, key: str, error: FieldError | None) -> None:
         """A sign beside the sentence, from the platform's own icons: a stop sign
-        for what blocks Start, a warning for advice, and its words for a screen
+        for what blocks Start, information for advice, and its words for a screen
         reader. Colour is never the only signal."""
         marker = self._marker_labels[key]
         marker.setVisible(error is not None)
@@ -282,11 +286,7 @@ class GridPanel(BotKindPanel):
             marker.clear()
             marker.setAccessibleName("")
             return
-        icon = (
-            QStyle.StandardPixmap.SP_MessageBoxCritical
-            if error.blocks
-            else QStyle.StandardPixmap.SP_MessageBoxWarning
-        )
+        icon = marker_icon(error.blocks)
         size = marker.fontMetrics().height()
         marker.setPixmap(
             self.style()
@@ -359,8 +359,8 @@ class GridPanel(BotKindPanel):
             if self._market and self._market.terms
             else None
         )
-        self.lower_price.setText(str(_to_tick(suggested.lower, tick)))
-        self.upper_price.setText(str(_to_tick(suggested.upper, tick)))
+        self.lower_price.setText(price_text(snap_to_tick(suggested.lower, tick)))
+        self.upper_price.setText(price_text(snap_to_tick(suggested.upper, tick)))
         self._emit()
 
     def _emit(self, *_args: object) -> None:
@@ -379,12 +379,6 @@ def _offer(action: QAction, suggested: SuggestedRange | None, name: str) -> None
         action.setToolTip(_NO_RANGE_YET.format(name=name))
     else:
         action.setToolTip(f"Fill the range with {suggested.lower} – {suggested.upper}.")
-
-
-def _to_tick(price: Decimal, tick: Decimal | None) -> Decimal:
-    if tick is None or tick <= 0:
-        return price
-    return (price / tick).quantize(Decimal(1), rounding=ROUND_HALF_UP) * tick
 
 
 def _int_or(text: str, default: int) -> int:

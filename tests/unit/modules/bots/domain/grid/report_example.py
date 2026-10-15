@@ -47,5 +47,12 @@ def inputs(
     return BotKindInputs(
         {**CONFIG, **changes},
         terms,
-        MarketView(last_price, daily_atr, foreign_open_orders, funding),
+        MarketView(
+            last_price,
+            daily_atr,
+            foreign_open_orders,
+            funding,
+            base_asset="BTC",
+            quote_asset="USDT",
+        ),
     )

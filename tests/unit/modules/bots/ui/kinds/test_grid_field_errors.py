@@ -5,6 +5,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QStyle
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.exchange_rules import (
     CAPITAL_FIELD,
 )
@@ -17,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_constraints imp
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_display import (
+    marker_icon,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
     ADVICE,
@@ -80,11 +86,14 @@ def test_a_passing_verdict_marks_nothing() -> None:
     assert field_errors([_verdict("BALANCE", VerdictSeverity.OK)]) == {}
 
 
-def test_a_verdict_about_a_range_marks_both_limits() -> None:
-    shown = field_errors(
-        [_verdict("LEVEL_OUTSIDE_PRICE_BAND", VerdictSeverity.REFUSED)]
-    )
-    assert set(shown) == {"lower", "upper"}
+def test_a_verdict_about_a_range_is_told_once_under_the_lower_limit() -> None:
+    """`BUG-210`: the same sentence under both bounds read as two problems."""
+    for code, severity in (
+        ("LEVEL_OUTSIDE_PRICE_BAND", VerdictSeverity.REFUSED),
+        ("RANGE_OUTSIDE_ATR_BAND", VerdictSeverity.WARNING),
+    ):
+        shown = field_errors([_verdict(code, severity)])
+        assert set(shown) == {"lower"}, code
 
 
 def test_blocking_wins_over_advice_on_the_same_field_in_either_order() -> None:
@@ -129,3 +138,62 @@ def test_a_stop_loss_that_is_off_focuses_its_kind_not_its_disabled_value(qtbot) 
     panel.show()
     assert panel.focus_field("STOP_LOSS_INSIDE_RANGE")
     qtbot.waitUntil(lambda: panel.stop_loss.kind.hasFocus())
+
+
+def test_the_panel_tells_a_range_verdict_once_not_under_each_bound(qtbot) -> None:
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.show_verdicts(
+        (_verdict("RANGE_OUTSIDE_ATR_BAND", VerdictSeverity.WARNING, "wide"),)
+    )
+
+    assert panel.field_error_text("lower") == "Advice: wide"
+    assert panel.field_error_text("upper") == ""
+    assert panel.upper_price.toolTip() == ""
+
+
+def _marker_image(panel: GridPanel, key: str) -> QImage:
+    pixmap = panel._marker_labels[key].pixmap()
+    assert not pixmap.isNull()
+    return pixmap.toImage()
+
+
+def _icon_image(panel: GridPanel, icon: QStyle.StandardPixmap, key: str) -> QImage:
+    marker = panel._marker_labels[key]
+    size = marker.fontMetrics().height()
+    return (
+        panel.style()
+        .standardIcon(icon)
+        .pixmap(QSize(size, size), marker.devicePixelRatioF())
+        .toImage()
+    )
+
+
+def test_advice_wears_the_information_icon_and_a_block_does_not(qtbot) -> None:
+    """`BUG-210`: advice is not a warning; the triangle and the stop sign stay for what is
+    dangerous or blocks Start."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+    panel.show()
+
+    panel.show_verdicts(
+        (
+            _verdict("ARITHMETIC_ON_WIDE_RANGE", VerdictSeverity.WARNING),
+            _verdict("CAPITAL_ABOVE_BALANCE", VerdictSeverity.REFUSED),
+        )
+    )
+
+    information = QStyle.StandardPixmap.SP_MessageBoxInformation
+    assert _marker_image(panel, "spacing") == _icon_image(panel, information, "spacing")
+    assert panel._marker_labels["spacing"].accessibleName() == "Advice"
+    assert _marker_image(panel, "capital_quote") != _icon_image(
+        panel, information, "capital_quote"
+    )
+    assert panel._marker_labels["capital_quote"].accessibleName() == "Blocks Start"
+
+
+def test_the_icon_is_chosen_where_severity_becomes_an_icon() -> None:
+    assert marker_icon(blocks=False) is QStyle.StandardPixmap.SP_MessageBoxInformation
+    assert marker_icon(blocks=True) is QStyle.StandardPixmap.SP_MessageBoxCritical

@@ -137,6 +137,11 @@ class MarketView:
     #: a `FundingView` whose rate is `None` where the venue charges it and it could not
     #: be read. The two are different facts, so neither is a zero.
     funding: FundingView | None = None
+    #: The symbol's two assets, so a sentence can say `ETH` and `USDT` where a number is
+    #: money or a quantity (`BUG-210`). `""` when they are not known; a sentence then
+    #: falls back to "the asset" and "quote" rather than guess a name.
+    base_asset: str = ""
+    quote_asset: str = ""
 
     def __post_init__(self) -> None:
         if self.last_price <= 0:

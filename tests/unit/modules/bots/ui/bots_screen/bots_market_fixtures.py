@@ -133,11 +133,19 @@ def daily_candles(days: int = 30) -> FakeHistoricalKlines:
     klines = FakeHistoricalKlines()
     klines.seed(
         [
-            candle(
-                SYMBOL,
-                minutes=day * 1440,
-                interval=TimeFrame.ONE_DAY,
-                close_price=65000.0,
+            # The shared builder's open/high/low are 100/110/90, so a 65000 close
+            # makes every true range ~65000: an ATR as wide as the price, and advice
+            # under the Lower field in every screen test. A BTC day moves ~2500.
+            dataclasses.replace(
+                candle(
+                    SYMBOL,
+                    minutes=day * 1440,
+                    interval=TimeFrame.ONE_DAY,
+                    close_price=65000.0,
+                ),
+                open_price=65000.0,
+                high_price=66250.0,
+                low_price=63750.0,
             )
             for day in range(days)
         ],
