@@ -44,10 +44,5 @@ HTTP_BANNED = 418
 #: One-way, `BOTH`, to an account that is in Hedge mode now).
 POSITION_SIDE_MISMATCH_CODE = -4061
 
-#: The tag the text of every call refused by the exchange's pause ends with, so a log line that
-#: carries the exception's words can tell "refused by the pause" from a real failure without
-#: parsing prose (`BUG-216`).
-EXCHANGE_PAUSE_TAG = "[exchange-pause]"
-
 #: The codes only the operator can fix; a restart repeats the refused request.
 OPERATOR_FIXABLE_CODES = frozenset({*KEY_REJECTED_CODES, BAD_SIGNATURE_CODE})

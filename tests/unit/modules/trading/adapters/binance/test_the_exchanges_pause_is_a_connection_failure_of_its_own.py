@@ -80,19 +80,16 @@ def test_every_way_the_exchange_asks_for_a_pause_is_one_kind(exc: Exception) -> 
     )
 
 
-def test_a_pause_is_not_logged_as_a_failure_and_an_unknown_code_still_is(
+def test_a_pause_is_not_an_unclassified_exception_and_an_unknown_code_still_is(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
 
     classify_connection_failure(_answer(-1003, 429, "30"), _LABEL)
-    quiet = [r for r in caplog.records if r.levelno >= logging.INFO]
+    assert [r for r in caplog.records if r.levelno >= logging.ERROR] == []
     classify_connection_failure(_answer(-9999, 400), _LABEL)
     loud = [r for r in caplog.records if r.levelno >= logging.ERROR]
 
-    assert quiet == [], (
-        "a poll meets the pause every few seconds; the policy told it once"
-    )
     assert len(loud) == 1
     assert "unclassified exception" in loud[0].getMessage()
 

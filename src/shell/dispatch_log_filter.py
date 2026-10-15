@@ -1,5 +1,4 @@
-"""The Engine's dispatcher lines the app reshapes: the per-dispatch `Executing query:` line, and the
-failure line of a call the exchange's pause refused.
+"""The Engine's per-dispatch `Executing query:` line, shown only in developer mode.
 
 `Dispatcher.dispatch` (Engine, `kernel/dispatcher.py`) logs `Executing query: <name>`
 at INFO on the shared `App` logger for every dispatch. The desktop polls (the bots'
@@ -16,15 +15,6 @@ payload and completion lines (DEBUG) are not matched.
 
 Retire when: the Engine logs the query line at DEBUG (the patch is in `BOT-178`'s
 implementation notes); this module and its installer call go with it.
-
-The second filter is `BUG-216`'s. While the exchange's pause runs (a 429, `-1003`, or the app's
-own soft limit), every poll of the desktop is refused at once and the dispatcher writes
-`<Query> failed: ...` at ERROR for each: four lines every five seconds for the minute and a half
-of the owner's 2026-10-15 ban, none of them news after the one WARNING that began the pause
-(`ExchangeCallPolicy`). A failure whose text carries `EXCHANGE_PAUSE_TAG` is written at DEBUG
-instead: still in a `--dev` log, off a normal run's.
-
-Retire when: the Engine lets a handler's exception choose its own log level.
 """
 
 from __future__ import annotations
@@ -32,16 +22,12 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
-    EXCHANGE_PAUSE_TAG,
-)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 #: What the Engine's `StdLogger` stores `extra=` under, and the dispatcher's tag.
 _EXTRA_ATTRIBUTE = "extra"
 _DISPATCHER = "Dispatcher"
 _QUERY_LINE_PREFIX = "Executing query: "
-_FAILED = " failed: "
 _decision_log = logging.getLogger("App.LogFilter")
 
 
@@ -57,22 +43,6 @@ class QueryDispatchFilter(logging.Filter):
         return not str(record.msg).startswith(_QUERY_LINE_PREFIX)
 
 
-class PausedCallFailureFilter(logging.Filter):
-    """Writes the Engine's ERROR for a call the exchange's pause refused at DEBUG."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if record.levelno != logging.ERROR:
-            return True
-        extra = getattr(record, _EXTRA_ATTRIBUTE, None)
-        if not isinstance(extra, dict) or extra.get("submodule") != _DISPATCHER:
-            return True
-        text = str(record.msg)
-        if _FAILED in text and EXCHANGE_PAUSE_TAG in text:
-            record.levelno = logging.DEBUG
-            record.levelname = logging.getLevelName(logging.DEBUG)
-        return True
-
-
 def quiet_query_dispatch_outside_developer_mode(config: IConfig) -> None:
     """Put the filter on the `App` logger unless this run is in developer mode.
 
@@ -83,16 +53,11 @@ def quiet_query_dispatch_outside_developer_mode(config: IConfig) -> None:
     never stacks it.
     """
     logger = logging.getLogger("App")
-    for installed in [
-        f
-        for f in logger.filters
-        if isinstance(f, QueryDispatchFilter | PausedCallFailureFilter)
-    ]:
+    for installed in [f for f in logger.filters if isinstance(f, QueryDispatchFilter)]:
         logger.removeFilter(installed)
     developer = bool(config.get(ConfigKeys.DEV_MODE.value, False))
     if not developer:
         logger.addFilter(QueryDispatchFilter())
-    logger.addFilter(PausedCallFailureFilter())
     # `logging-rule.md` §2: the decision is logged, the disabled case included.
     _decision_log.info(
         "[log-filter] dispatcher query lines %s (dev.mode %s)",

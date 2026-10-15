@@ -19,13 +19,6 @@ from collections.abc import Iterator
 
 import pytest
 from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
-from Sagittarius_Elite_Warrior.src.shell.dispatch_log_filter import (
-    PausedCallFailureFilter,
-    QueryDispatchFilter,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
-    EXCHANGE_PAUSE_TAG,
-)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.cqrs import ICommand, IQuery
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -41,15 +34,6 @@ class PollStatusQuery(IQuery):
 class FailingStatusQuery(IQuery):
     def execute(self, dto: object) -> str:
         raise RuntimeError("exchange did not answer")
-
-
-class PausedStatusQuery(IQuery):
-    """A poll the exchange's pause refuses, worded as `RateLimitedApiException` words it."""
-
-    def execute(self, dto: object) -> str:
-        raise RuntimeError(
-            f"APIError(code=-1003): no request is sent for another 32 s {EXCHANGE_PAUSE_TAG}"
-        )
 
 
 class StartBotCommand(ICommand):
@@ -98,12 +82,7 @@ def _app(capture: _Capture, *, developer: bool) -> App:
     app = create_app(config)
     logging.getLogger("App").addHandler(capture)
     container = app.context.container
-    for handler_class in (
-        PollStatusQuery,
-        FailingStatusQuery,
-        PausedStatusQuery,
-        StartBotCommand,
-    ):
+    for handler_class in (PollStatusQuery, FailingStatusQuery, StartBotCommand):
         container.singleton(handler_class, handler_class())
     return app
 
@@ -169,9 +148,7 @@ def test_the_filter_is_installed_once_however_often_the_graph_is_built(
     app = _app(captured, developer=False)
     app.dispatch(PollStatusQuery, None)
 
-    installed = logging.getLogger("App").filters
-    assert [type(f) for f in installed].count(QueryDispatchFilter) == 1
-    assert [type(f) for f in installed].count(PausedCallFailureFilter) == 1
+    assert len(logging.getLogger("App").filters) == 1
     assert captured.lines(logging.INFO) == []
 
 
@@ -198,33 +175,3 @@ def test_the_decision_is_logged_when_the_graph_is_built(
         child.setLevel(logging.NOTSET)
 
     assert captured.lines(logging.INFO) == [expected]
-
-
-def test_a_call_the_exchanges_pause_refused_is_not_an_error_outside_developer_mode(
-    captured: _Capture,
-) -> None:
-    """`BUG-216`: the Engine writes `<Query> failed: ...` at ERROR for each poll a pause
-    refuses; during the owner's ban that was four lines every five seconds for 90 s."""
-    app = _app(captured, developer=False)
-
-    with pytest.raises(RuntimeError):
-        app.dispatch(PausedStatusQuery, None)
-
-    assert captured.lines(logging.ERROR) == []
-    assert [r.levelno for r in captured.records if "failed" in r.getMessage()] == [
-        logging.DEBUG
-    ]
-
-
-def test_a_failure_that_is_not_the_pause_is_still_an_error_whatever_its_text_says(
-    captured: _Capture,
-) -> None:
-    """The demotion keys on the tag the pause's own exception carries, not on its words."""
-    app = _app(captured, developer=False)
-
-    with pytest.raises(RuntimeError):
-        app.dispatch(FailingStatusQuery, None)
-
-    assert captured.lines(logging.ERROR) == [
-        "FailingStatusQuery failed: exchange did not answer"
-    ]

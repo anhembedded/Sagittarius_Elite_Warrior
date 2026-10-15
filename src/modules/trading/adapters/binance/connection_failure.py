@@ -171,14 +171,6 @@ def classify_connection_failure(
             type(exc).__name__,
             exc,
         )
-    elif kind is ConnectionFailureKind.RATE_LIMITED:
-        # The pause was announced once, when it began (`ExchangeCallPolicy`); a check that meets
-        # it again says nothing new, and a poll meets it every few seconds.
-        logger.debug(
-            "%s connection check met the exchange's pause (code %s) [rate-limit-pause]",
-            venue_label,
-            getattr(exc, "code", None),
-        )
     else:
         logger.info(
             "%s connection check rejected: Binance code %s -> %s [connection-failure]",
