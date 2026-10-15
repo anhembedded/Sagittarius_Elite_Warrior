@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot, BotLifecycle
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
@@ -305,7 +308,9 @@ def test_a_paused_mainnet_resume_reopens_no_session_and_needs_no_confirmation() 
 
 def test_a_resume_whose_market_numbers_are_still_being_read_waits() -> None:
     outcome = assess_resume(
-        ResumeInputs(CONFIG, None, OwnerInventory(HELD, Decimal(500)), loaded())
+        ResumeInputs(
+            CONFIG, None, OwnerInventory(HELD, Decimal(500)), loaded(), SPOT_PROFILE
+        )
     )
 
     (item,) = outcome.items
@@ -317,7 +322,13 @@ def test_a_resume_whose_market_could_not_be_read_says_why() -> None:
     market = PlannerMarket(None, None, None, None, "no book for BTCUSDT")
 
     (item,) = assess_resume(
-        ResumeInputs(CONFIG, market, OwnerInventory(HELD, Decimal(500)), loaded())
+        ResumeInputs(
+            CONFIG,
+            market,
+            OwnerInventory(HELD, Decimal(500)),
+            loaded(),
+            SPOT_PROFILE,
+        )
     ).items
 
     assert item.code == "RUN_PLAN_UNREADABLE"
@@ -329,7 +340,9 @@ def test_a_resume_whose_parameters_cannot_be_read_is_named_not_passed() -> None:
     market = PlannerMarket(TERMS, grid_inputs().market, None, None)
 
     (item,) = assess_resume(
-        ResumeInputs({}, market, OwnerInventory(HELD, Decimal(500)), loaded())
+        ResumeInputs(
+            {}, market, OwnerInventory(HELD, Decimal(500)), loaded(), SPOT_PROFILE
+        )
     ).items
 
     assert item.code == "RUN_PLAN_UNREADABLE"
@@ -341,7 +354,11 @@ def test_a_plan_that_cannot_be_drawn_does_not_hide_the_snapshots_own_state() -> 
         item.code
         for item in assess_resume(
             ResumeInputs(
-                CONFIG, None, OwnerInventory(HELD, Decimal(500)), ExchangeChecking()
+                CONFIG,
+                None,
+                OwnerInventory(HELD, Decimal(500)),
+                ExchangeChecking(),
+                SPOT_PROFILE,
             )
         ).items
     ]
