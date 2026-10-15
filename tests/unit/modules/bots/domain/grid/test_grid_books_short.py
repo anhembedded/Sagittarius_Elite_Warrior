@@ -12,6 +12,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_exit_fill,
     book_market_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
@@ -193,3 +194,41 @@ def test_a_neutral_completion_books_the_cycle_whichever_side_it_is_and_owes_an_u
         3,
         None,
     )
+
+
+def test_an_exit_fill_never_opens_a_position_the_runtime_did_not_count() -> None:
+    """Review of #523: a halt after fills the runtime never applied closes what the exchange
+    holds; booked as a trade, that exit would leave a phantom position of the other sign."""
+    flat = replace(empty_ladder(), entry_side=None)
+
+    after = book_exit_fill(flat, OrderSide.BUY, LevelFill("x", D(100), D(2)))
+
+    assert after.inventory == 0
+    assert after.cost == 0
+    assert after.realised_total == 0
+
+
+def test_an_exit_fill_reduces_what_the_runtime_holds_and_stops_at_zero() -> None:
+    short = book_market_fill(
+        replace(empty_ladder(), entry_side=None),
+        OrderSide.SELL,
+        LevelFill("o", D(110), D(1)),
+    )
+
+    after = book_exit_fill(
+        short, OrderSide.BUY, LevelFill("x", D(100), D(3), quote_fee=D(3))
+    )
+
+    assert after.inventory == 0
+    assert after.realised_total == D(9), "1 covered at +10, a third of the fee"
+
+
+def test_a_long_runtimes_exit_is_booked_as_it_always_was() -> None:
+    long_ = book_market_fill(
+        empty_ladder(), OrderSide.BUY, LevelFill("o", D(100), D(2))
+    )
+
+    after = book_exit_fill(long_, OrderSide.SELL, LevelFill("x", D(110), D(2)))
+
+    assert after.inventory == 0
+    assert after.realised_total == D(20)

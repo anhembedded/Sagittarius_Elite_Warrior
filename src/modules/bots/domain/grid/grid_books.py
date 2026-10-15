@@ -16,7 +16,7 @@ Plausible extension cases: a hedged pair of positions (two books behind the same
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -42,6 +42,30 @@ def book_market_fill(
     return book_inventory(runtime, side, fill)
 
 
+def book_exit_fill(
+    runtime: GridRuntime, side: OrderSide, fill: LevelFill
+) -> GridRuntime:
+    """The runtime after a fill of an exit slice, which closes and never opens (`EPIC-039I`).
+
+    A signed book (SHORT, NEUTRAL) books only the part that reduces the position it holds, so an
+    exit sent for a position the runtime never counted (fills missed across a restart, then a halt
+    that closes what the exchange holds) cannot leave a phantom position of the other sign. A
+    Spot or LONG runtime is booked as `book_market_fill` always did: its sells already stop at
+    what is held."""
+    if runtime.entry_side is OrderSide.BUY:
+        return book_inventory(runtime, side, fill)
+    held = runtime.inventory
+    if held == 0 or (held > 0) == (side is OrderSide.BUY):
+        return runtime
+    covered = min(fill.quantity, abs(held))
+    share = covered / fill.quantity
+    return book_inventory(
+        runtime,
+        side,
+        replace(fill, quantity=covered, quote_fee=fill.quote_fee * share),
+    )
+
+
 def book_inventory(
     runtime: GridRuntime, side: OrderSide, fill: LevelFill
 ) -> GridRuntime:
@@ -65,6 +89,15 @@ def book_inventory(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _Deal:
+    """What one side of a fill trades: a price, a quantity and the quote fee that goes with it."""
+
+    price: Decimal
+    quantity: Decimal
+    fee: Decimal
+
+
 def _book_signed(runtime: GridRuntime, side: OrderSide, fill: LevelFill) -> GridRuntime:
     """A fill against a signed position (a SHORT or NEUTRAL grid, on a venue whose fees are all
     in the quote asset). A fill on the side of the position (or against none) deepens it at its
@@ -74,7 +107,7 @@ def _book_signed(runtime: GridRuntime, side: OrderSide, fill: LevelFill) -> Grid
     held = runtime.inventory
     sign = 1 if side is OrderSide.BUY else -1
     if held == 0 or (held > 0) == (sign > 0):
-        return _deepen(runtime, side, fill.quantity, fill)
+        return _deepen(runtime, side, _Deal(fill.price, fill.quantity, fill.quote_fee))
     covered = min(fill.quantity, abs(held))
     share = covered / fill.quantity
     average = runtime.average_cost or _ZERO
@@ -89,29 +122,23 @@ def _book_signed(runtime: GridRuntime, side: OrderSide, fill: LevelFill) -> Grid
     left = fill.quantity - covered
     if left == 0:
         return reduced
-    return _deepen(reduced, side, left, fill, fee_share=1 - share)
+    return _deepen(reduced, side, _Deal(fill.price, left, fill.quote_fee * (1 - share)))
 
 
-def _deepen(
-    runtime: GridRuntime,
-    side: OrderSide,
-    quantity: Decimal,
-    fill: LevelFill,
-    fee_share: Decimal = Decimal(1),
-) -> GridRuntime:
-    """The position grown by `quantity` at the fill's price: a long adds its fee to its cost, a
-    short takes it off its proceeds (so a fee always lowers the profit)."""
-    fee = fill.quote_fee * fee_share
+def _deepen(runtime: GridRuntime, side: OrderSide, deal: _Deal) -> GridRuntime:
+    """The position grown by `deal`: a long adds its fee to its cost, a short takes it off its
+    proceeds (so a fee always lowers the profit)."""
+    worth = deal.price * deal.quantity
     if side is OrderSide.BUY:
         return replace(
             runtime,
-            inventory=runtime.inventory + quantity,
-            cost=runtime.cost + fill.price * quantity + fee,
+            inventory=runtime.inventory + deal.quantity,
+            cost=runtime.cost + worth + deal.fee,
         )
     return replace(
         runtime,
-        inventory=runtime.inventory - quantity,
-        cost=runtime.cost + fill.price * quantity - fee,
+        inventory=runtime.inventory - deal.quantity,
+        cost=runtime.cost + worth - deal.fee,
     )
 
 

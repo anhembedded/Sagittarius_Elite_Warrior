@@ -9,9 +9,13 @@ closes. The owner decided this in the coordinator session on 2026-10-13 (~13:01 
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotOrderFill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.stop_progress import (
     StopProgress,
 )
@@ -80,6 +84,21 @@ def test_a_flat_bot_beside_a_position_by_hand_closes_nothing_and_is_flat(
 
     assert progress is None
     assert world.book.requests == []
+
+
+def test_the_fill_of_an_exit_slice_does_not_open_a_position_in_a_flat_runtime() -> None:
+    """Review of #523, wiring: the fact that an exit slice filled reaches the runtime through
+    `GridFacts`, which books it as an exit (`book_exit_fill`), not as a trade that could open."""
+    world, _ = a_position_world()
+    context = world.executor._context
+    context.state.update(replace(context.state.runtime, entry_side=None))
+    context.off_ladder.add_exit("exit-1")
+
+    world.executor.facts.on_fill(
+        BotOrderFill("exit-1", OrderSide.SELL, D(100), D("0.012"), D(0), "USDT")
+    )
+
+    assert world.runtime().inventory == 0
 
 
 def test_what_is_left_to_the_owner_is_said_in_words(

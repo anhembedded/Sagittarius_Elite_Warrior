@@ -180,3 +180,46 @@ def test_out_of_range_the_bot_closes_whichever_way_it_stands_when_asked_to(
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0
         assert app.resting() == {}
+
+
+def test_the_take_profit_closes_a_real_short_whole_and_stops_flat(
+    futures: FakeExchange,
+) -> None:
+    """The short leg's loss exit (decision of 039B): the mark through the take profit closes the
+    position the bot holds, reduce-only, and the bot ends flat with nothing resting."""
+    with booted_futures_bots(futures) as app:
+        bot_id = _started(app, NEUTRAL.config)  # take profit at 66,500
+        app.move_price(65100)
+        app.move_price(66100)
+        assert app.position() == -2 * _Q
+
+        app.move_price(66600)  # the mark through the take profit
+        app.ticker.fire()
+        app.deliver()
+
+        assert app.runtime(bot_id).reason is GridReason.TAKE_PROFIT
+        assert app.bot(bot_id).state is S.STOPPED
+        assert app.position() == 0
+        assert app.resting() == {}
+        assert app.runtime(bot_id).inventory == 0
+
+
+def test_the_stop_loss_closes_a_real_long_whole_and_stops_flat(
+    futures: FakeExchange,
+) -> None:
+    """The long leg's loss exit: the mark through the stop loss closes the position held."""
+    with booted_futures_bots(futures) as app:
+        bot_id = _started(app, {**NEUTRAL.config, "stop_loss": "price:61500"})
+        app.move_price(62900)
+        app.move_price(61900)
+        assert app.position() == 2 * _Q
+
+        app.move_price(61400)  # the mark through the stop loss
+        app.ticker.fire()
+        app.deliver()
+
+        assert app.runtime(bot_id).reason is GridReason.STOP_LOSS
+        assert app.bot(bot_id).state is S.STOPPED
+        assert app.position() == 0
+        assert app.resting() == {}
+        assert app.runtime(bot_id).inventory == 0

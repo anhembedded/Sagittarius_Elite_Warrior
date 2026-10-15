@@ -154,6 +154,13 @@ class PositionOpening(IOpeningStrategy):
                 "the opening is not in the exchange's record",
             )
             return False
+        if exiting == 0 and plan.opening_quantity == 0:
+            logger.info(
+                "Bot %s: nothing opened, nothing reduce-only: the ladder starts flat "
+                "[position-opened]",
+                state.bot_id,
+            )
+            return True
         logger.info(
             "Bot %s: opening counted from the exchange's record: a position of %s, the "
             "ladder's reduce-only %ss add up to %s [position-opened]",
