@@ -11,6 +11,8 @@ clock and a recording sleep; nothing waits.
 
 from __future__ import annotations
 
+import logging
+import time
 from datetime import timedelta
 
 import pytest
@@ -225,3 +227,41 @@ def test_a_weight_header_that_is_not_a_number_is_ignored() -> None:
     world.policy.note_used_weight_header("many")
     world.policy.note_used_weight_header(None)
     assert world.gate.remaining() == 0.0
+
+
+def _policy_at(world: _World, wall: list[float]) -> ExchangeCallPolicy:
+    return ExchangeCallPolicy(
+        world.gate,
+        sleep=world.sleeps.append,
+        weight_limit=1200,
+        wall_seconds=lambda: wall[0],
+    )
+
+
+def test_a_pause_is_told_once_when_it_begins_with_its_end_and_once_when_it_is_over(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`BUG-216`: four ERRORs every five seconds for a minute and a half was the same
+    news told 72 times. One WARNING at the start (with the instant it ends) and one INFO at
+    the first request after it say all of it."""
+    world = _World()
+    wall = [600.0 + 45.0]
+    policy = _policy_at(world, wall)
+    caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
+
+    policy.note_used_weight(900)
+    policy.note_used_weight(950)  # answers still in flight when the gate closed
+    for _ in range(3):
+        with pytest.raises(RateLimitedApiException):
+            policy.run_read(world.call)
+    world.at += 17.0
+    wall[0] += 17.0
+    assert policy.run_read(world.call) == "answer"
+    assert policy.run_read(world.call) == "answer"
+
+    told = [(r.levelname, r.getMessage()) for r in caplog.records if r.levelno > 10]
+    assert [level for level, _ in told] == ["WARNING", "INFO"], told
+    ends = time.strftime("%H:%M:%S", time.localtime(645.0 + 16.0))
+    assert f"until {ends}" in told[0][1], "15 s left of the minute, +1: it ends at 661"
+    assert "[rate-limit-soft]" in told[0][1]
+    assert "[rate-limit-end]" in told[1][1]
