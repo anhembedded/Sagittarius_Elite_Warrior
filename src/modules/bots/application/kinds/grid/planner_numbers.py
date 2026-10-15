@@ -109,7 +109,7 @@ def _open_orders_on(activity: IAccountActivity, symbol: str) -> int | None:
     and is managed by it). `None` when the read failed: advice must not turn a plan unjudgeable, and an
     unread count is not a zero."""
     try:
-        orders = activity.open_orders()
+        orders = activity.open_orders(symbol)
     except Exception as exc:  # noqa: BLE001 - converted at the seam: the count is advice, and any failed read (network, rate limit) leaves it unread
         logger.debug("Open orders on %s not read: %s", symbol, exc)
         return None

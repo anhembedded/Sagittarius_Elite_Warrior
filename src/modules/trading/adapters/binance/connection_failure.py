@@ -32,9 +32,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
     BAD_SIGNATURE_CODE,
     CLOCK_SKEW_CODE,
+    HTTP_BANNED,
+    HTTP_RATE_LIMITED,
     KEY_FORMAT_CODE,
     KEY_REJECTED_CODE,
     KEY_REJECTED_CODES,
+    RATE_LIMIT_CODES,
     UNKNOWN_KEY_ID_CODE,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
@@ -53,6 +56,9 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
     #: the key: a testnet key pasted for mainnet, or the reverse) and "API-key
     #: format invalid". All are about the key, never the network.
     **dict.fromkeys(KEY_REJECTED_CODES, ConnectionFailureKind.KEY_REJECTED),
+    #: `BUG-216`: `-1003` and `-1015` are the exchange asking for a pause. The account and the
+    #: network are fine, so a caller waits where `NETWORK` would have it stop.
+    **dict.fromkeys(RATE_LIMIT_CODES, ConnectionFailureKind.RATE_LIMITED),
 }
 
 #: `BUG-175`: what to do about the key codes, in plain words. `describe_failure`
@@ -142,6 +148,8 @@ def named_failure_kind(exc: BaseException) -> ConnectionFailureKind | None:
     if is_non_json_answer(exc):
         return ConnectionFailureKind.MAINTENANCE
     if isinstance(exc, BinanceAPIException):
+        if exc.status_code in (HTTP_RATE_LIMITED, HTTP_BANNED):
+            return ConnectionFailureKind.RATE_LIMITED
         return _ERROR_CODE_TO_FAILURE_KIND.get(exc.code)
     return None
 

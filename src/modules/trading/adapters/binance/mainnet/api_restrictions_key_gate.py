@@ -74,7 +74,11 @@ ACCEPTED_FOR_SECONDS = 300.0
 _THE_KEY = "the key's permissions"
 #: The kinds that say the exchange did not answer, not that it answered about the key.
 _NOT_ANSWERING = frozenset(
-    {ConnectionFailureKind.NETWORK, ConnectionFailureKind.MAINTENANCE}
+    {
+        ConnectionFailureKind.NETWORK,
+        ConnectionFailureKind.MAINTENANCE,
+        ConnectionFailureKind.RATE_LIMITED,
+    }
 )
 _NETWORK_FAILURES = (BinanceAPIException, BinanceRequestException, RequestException)
 _PARSE_FAILURES = (KeyError, TypeError, ValueError, InvalidOperation)

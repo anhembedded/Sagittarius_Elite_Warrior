@@ -180,11 +180,15 @@ class SimulatedActivity(IAccountActivity):
     def summary(self) -> AccountSummary | None:
         return None
 
-    def open_orders(self) -> tuple[Order, ...]:
+    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
         self.open_order_reads += 1
         if self.open_orders_error is not None:
             raise self.open_orders_error
-        return tuple(self._book.open.values())
+        return tuple(
+            order
+            for order in self._book.open.values()
+            if symbol in (None, order.symbol)
+        )
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         if self.history_unavailable:

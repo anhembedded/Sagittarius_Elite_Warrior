@@ -17,7 +17,7 @@ Every request a venue sends passes `run_read` or `run_once`:
     its ban window.
 
 The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
-(`note_used_weight_header`): at 90 % of the venue's per-minute weight the gate
+(`note_used_weight_header`): at 70 % of the venue's per-minute weight the gate
 closes to the end of the minute, before the exchange has to say so.
 """
 
@@ -51,8 +51,12 @@ T = TypeVar("T")
 READ_RETRY_DELAYS_SECONDS: tuple[float, ...] = (0.5, 1.0, 2.0)
 #: Binance's per-minute request weight for a Spot IP; a Futures venue passes 2400.
 SPOT_WEIGHT_LIMIT = 6000
-#: The share of the minute's weight at which the gate closes to the minute's end.
-SOFT_WEIGHT_RATIO = 0.9
+#: The share of the minute's weight at which the gate closes to the minute's end. 70 %, because
+#: the header is read after an answer and a Grid's chains (a register is ~100 weight, a burst of
+#: fills sends several at once) are already in flight when it closes: the owner's gate closed at
+#: 2,168 of 2,400 and the exchange limited the IP in the same second (`BUG-216`). The 30 % left
+#: is ~720 weight of such chains.
+SOFT_WEIGHT_RATIO = 0.7
 _SECONDS_PER_MINUTE = 60.0
 
 

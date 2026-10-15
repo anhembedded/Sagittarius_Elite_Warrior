@@ -13,6 +13,12 @@ import logging
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position import (
     PositionDivergence,
     PositionDivergenceKind,
@@ -24,6 +30,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.test
 )
 
 D = Decimal
+S = BotLifecycleState
 
 
 def _reported(figure: int) -> PositionDivergence:
@@ -80,3 +87,56 @@ def test_only_the_first_report_of_a_pending_re_read_is_told_at_info(
 
     told = [r for r in caplog.records if "re-reading in" in r.getMessage()]
     assert [r.levelno for r in told] == [logging.INFO] + [logging.DEBUG] * 4
+
+
+def _after_a_burst_the_first_re_read_is_due(rig: _Rig) -> None:
+    """Two reports one second apart move the re-read; the beat at second 6 makes it."""
+    for second in range(2):
+        rig.world.executor.facts.on_position_divergence(_reported(second))
+        _advance(rig, 1)
+    _advance(rig, 4)
+    rig.beat()
+
+
+def test_a_fill_that_lands_between_the_reads_of_a_burst_does_not_halt_the_bot() -> None:
+    """Review of PR #529: a re-read made while fills are still landing can find a mismatch
+    that is only the next fill. After a burst it looks once more before it halts."""
+    rig = _Rig()
+    rig.exchange.still_diverged = _reported(9)
+
+    _after_a_burst_the_first_re_read_is_due(rig)
+    assert rig.exchange.rechecks == 1
+    assert rig.world.state() is S.RUNNING, "not halted on the first look"
+    rig.exchange.still_diverged = None  # the fill landed: the figures agree again
+    _advance(rig, 5)
+    rig.beat()
+
+    assert rig.exchange.rechecks == 2
+    assert rig.world.state() is S.RUNNING
+
+
+def test_a_mismatch_that_persists_through_both_looks_after_a_burst_still_halts() -> (
+    None
+):
+    rig = _Rig()
+    rig.exchange.still_diverged = _reported(9)
+
+    _after_a_burst_the_first_re_read_is_due(rig)
+    _advance(rig, 5)
+    rig.beat()
+
+    assert rig.exchange.rechecks == 2
+    assert rig.world.state() is S.HALTED
+    assert rig.world.runtime().reason is GridReason.FOREIGN_FILL
+
+
+def test_a_single_report_is_halted_on_after_one_re_read_as_before() -> None:
+    rig = _Rig()
+    rig.exchange.still_diverged = _reported(9)
+
+    rig.world.executor.facts.on_position_divergence(_reported(0))
+    _advance(rig, 5)
+    rig.beat()
+
+    assert rig.exchange.rechecks == 1
+    assert rig.world.state() is S.HALTED

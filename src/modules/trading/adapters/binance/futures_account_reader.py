@@ -54,6 +54,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
     classify_connection_failure,
     missing_key_failure,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_failure import (
+    rate_limit_pause_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    PositionModeMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -196,6 +202,7 @@ class FuturesAccountReader(ITradingAccountReader):
         credentials_provider: IExchangeCredentialsProvider,
         clock: Callable[[], float] = time.monotonic,
         venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
+        position_mode: PositionModeMemory | None = None,
     ) -> None:
         """@param venue The Futures venue this reader reads; the factory it is
         given opens that venue's sessions (`EPIC-034` D11)."""
@@ -206,6 +213,8 @@ class FuturesAccountReader(ITradingAccountReader):
         #: `EPIC-028O` — the last mode read and when; a failed read is never
         #: cached.
         self._asset_mode_read: tuple[AssetMode, float] | None = None
+        #: `BUG-216` - the One-way answer kept for a minute, shared with the order path.
+        self._position_mode = position_mode or PositionModeMemory(clock)
         #: `EPIC-028D` — whether the current run of unreadable summaries has
         #: been reported. The account is read every few seconds; a USDT
         #: asset that lacks a figure for good is one WARNING, not one per
@@ -229,7 +238,7 @@ class FuturesAccountReader(ITradingAccountReader):
             client = self._session_factory.create_trading_client(resolution.credentials)
             client.futures_ping()
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
-            return self._status(failure=self._classify(exc))
+            return self._status(failure=self._classify(exc), cause=exc)
 
         server_time_skew_ms: int | None = None
         try:
@@ -238,13 +247,14 @@ class FuturesAccountReader(ITradingAccountReader):
                 server_time["serverTime"]
             )
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
-            return self._status(failure=self._classify(exc))
+            return self._status(failure=self._classify(exc), cause=exc)
 
         try:
             account = client.futures_account()
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
             return self._status(
                 failure=self._classify(exc),
+                cause=exc,
                 server_time_skew_ms=server_time_skew_ms,
             )
 
@@ -253,20 +263,17 @@ class FuturesAccountReader(ITradingAccountReader):
         margin_type = _infer_margin_type(open_positions)
 
         try:
-            position_mode_payload = client.futures_get_position_mode()
+            hedge = self._is_hedge_mode(client)
         except (BinanceAPIException, BinanceRequestException, RequestException) as exc:
             return self._status(
                 failure=self._classify(exc),
+                cause=exc,
                 server_time_skew_ms=server_time_skew_ms,
                 usdt_balance=usdt_balance,
                 margin_type=margin_type,
                 open_position_count=len(open_positions),
             )
-        position_mode = (
-            PositionMode.HEDGE
-            if position_mode_payload.get("dualSidePosition")
-            else PositionMode.ONE_WAY
-        )
+        position_mode = PositionMode.HEDGE if hedge else PositionMode.ONE_WAY
 
         failure = (
             ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED
@@ -316,6 +323,18 @@ class FuturesAccountReader(ITradingAccountReader):
             logger.info("Futures account summary readable again")
         return summary
 
+    def _is_hedge_mode(self, client: ITradingSessionClient) -> bool:
+        """Whether the account is in Hedge Mode: a One-way answer kept by
+        `PositionModeMemory` is reused, anything else is read now."""
+        if self._position_mode.one_way_is_current():
+            return False
+        hedge = bool(client.futures_get_position_mode().get("dualSidePosition"))
+        if hedge:
+            self._position_mode.forget()
+        else:
+            self._position_mode.remember_one_way()
+        return hedge
+
     def _asset_mode(self, client: ITradingSessionClient) -> AssetMode:
         """The mode read at most `ASSET_MODE_TTL_SECONDS` ago, or read now."""
         now = self._clock()
@@ -355,8 +374,12 @@ class FuturesAccountReader(ITradingAccountReader):
         open_position_count: int | None = None,
         summary: FuturesAccountSummary | None = None,
         can_trade: bool | None = None,
+        cause: Exception | None = None,
     ) -> ExchangeConnectionStatus:
+        pause = None if cause is None else rate_limit_pause_of(cause)
         return ExchangeConnectionStatus(
+            retry_after=None if pause is None else pause.retry_after,
+            banned=pause is not None and pause.banned,
             venue=self._venue,
             reachable=reachable,
             failure=failure,

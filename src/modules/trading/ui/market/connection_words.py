@@ -54,6 +54,11 @@ _FAILURES = EnumLabels(
             "the account is in Hedge Mode. Switch it to One-way Mode on Binance "
             "and check again."
         ),
+        ConnectionFailureKind.RATE_LIMITED: (
+            "the exchange asked this app to slow down; no request is sent until "
+            "its pause ends. The key and the network are fine. Check again in a "
+            "minute."
+        ),
     },
 )
 

@@ -31,5 +31,18 @@ BAD_SIGNATURE_CODE = -1022
 #: unlike the codes above a restart can outlast it.
 CLOCK_SKEW_CODE = -1021
 
+#: `-1003` too many requests (the weight limit), `-1015` too many new orders; and the HTTP
+#: statuses that say the same: 429 a rate limit, 418 an IP ban. Every one names a pause, never
+#: a fault of the request or of the account (`BUG-216`).
+RATE_LIMIT_CODE = -1003
+ORDER_COUNT_CODE = -1015
+RATE_LIMIT_CODES = frozenset({RATE_LIMIT_CODE, ORDER_COUNT_CODE})
+HTTP_RATE_LIMITED = 429
+HTTP_BANNED = 418
+
+#: `-4061`: the order's `positionSide` does not match the account's mode (an order sent as
+#: One-way, `BOTH`, to an account that is in Hedge mode now).
+POSITION_SIDE_MISMATCH_CODE = -4061
+
 #: The codes only the operator can fix; a restart repeats the refused request.
 OPERATOR_FIXABLE_CODES = frozenset({*KEY_REJECTED_CODES, BAD_SIGNATURE_CODE})

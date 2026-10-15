@@ -12,6 +12,7 @@ reader's benefit.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -69,6 +70,10 @@ class ConnectionFailureKind(str, Enum):
     #: (none of which mean "connected fine, but this account can't trade
     #: here").
     HEDGE_MODE_UNSUPPORTED = "hedge_mode_unsupported"
+    #: `BUG-216` — HTTP 429, `-1003` or `-1015`, or this app's own gate closed for one: the
+    #: exchange is reachable and the key is fine, it asked for a pause (`retry_after` says how
+    #: long). Not `NETWORK`: nothing is down, so a caller waits where it would otherwise stop.
+    RATE_LIMITED = "rate_limited"
 
 
 class PositionMode(str, Enum):
@@ -115,3 +120,13 @@ class ExchangeConnectionStatus:
     #: for the key's account (Spot and USD-M Futures both report it). `None`
     #: when the check never reached the account or the payload carries none.
     can_trade: bool | None = None
+    #: `BUG-216` — for `RATE_LIMITED`: how long the exchange asked for, and whether it is a ban.
+    retry_after: timedelta | None = None
+    banned: bool = False
+
+    def __post_init__(self) -> None:
+        if (
+            self.failure is ConnectionFailureKind.RATE_LIMITED
+            and self.retry_after is None
+        ):
+            raise ValueError("a RATE_LIMITED connection status names its pause")

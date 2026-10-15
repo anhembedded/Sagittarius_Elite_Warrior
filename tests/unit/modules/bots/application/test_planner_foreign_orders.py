@@ -59,7 +59,7 @@ def _order(symbol: str, client_order_id: str) -> Order:
 
 
 class _OfflineActivity(FakeAccountActivity):
-    def open_orders(self) -> tuple[Order, ...]:
+    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
         raise ConnectionError("the exchange did not answer")
 
 

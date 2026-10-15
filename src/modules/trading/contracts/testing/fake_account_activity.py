@@ -83,11 +83,13 @@ class FakeAccountActivity(IAccountActivity):
     def summary(self) -> AccountSummary | None:
         return self._summary
 
-    def open_orders(self) -> tuple[Order, ...]:
+    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
         self.open_order_reads += 1
         if self._open_orders_error is not None:
             raise self._open_orders_error
-        return self._open_orders
+        return tuple(
+            order for order in self._open_orders if symbol in (None, order.symbol)
+        )
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         self.order_requests.append(request)

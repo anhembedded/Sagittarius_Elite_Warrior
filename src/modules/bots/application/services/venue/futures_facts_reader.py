@@ -139,7 +139,7 @@ class FuturesFactsReader(IVenueFacts):
                 f"{definition.venue.display_name} has no leverage to read"
             )
         on_symbol = tuple(
-            o for o in ports.account_activity.open_orders() if o.symbol == symbol
+            o for o in ports.account_activity.open_orders(symbol) if o.symbol == symbol
         )
         own = sum(1 for o in on_symbol if tag_of(o.client_order_id) == bot.bot_id.value)
         position = sum(
