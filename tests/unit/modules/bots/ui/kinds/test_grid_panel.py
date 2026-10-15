@@ -265,7 +265,9 @@ def test_a_suggestion_writes_a_plan_that_start_does_not_refuse(
 
     assert _blocking(panel) == []
     config = panel.config()
-    assert config["stop_loss"] != "price:2259" and config["take_profit"] != "price:2805"
+    # The stop loss would block Start and moves; the take profit 2805 is valid (advice only)
+    # and stays as the owner set it.
+    assert config["stop_loss"] != "price:2259" and config["take_profit"] == "price:2805"
     assert Decimal(config["lower"]) <= _OWNER_PRICE <= Decimal(config["upper"])
 
 
@@ -281,7 +283,7 @@ def test_a_suggestion_says_which_exit_moved_and_the_note_goes_with_the_next_edit
     note = panel.suggestion_note
     assert not note.isHidden()
     assert "stop loss moved from 2259 to 2105.38" in note.text()
-    assert "take profit moved from 2805 to 2653.9" in note.text()
+    assert "take profit" not in note.text()
     panel.capital.textEdited.emit("40")
     assert note.isHidden()
 
@@ -319,7 +321,6 @@ def test_a_suggestion_is_logged_with_its_inputs_range_moves_and_readiness(
         "tick=0.01",
         f"range={panel.config()['lower']}-{panel.config()['upper']}",
         "stop loss 2259->",
-        "take profit 2805->",
         "blocking=0",
     ):
         assert fragment in text

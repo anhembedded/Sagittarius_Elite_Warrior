@@ -7,10 +7,12 @@ here once, for every source (ATR, Bollinger, any later one), and the panel only 
 
   · the range holds the current price: a band that does not is recentred on the price at the
     same width, and the plan says so;
-  · an exit given as a price that the new range makes invalid, or leaves outside the advised
-    distance, moves to the middle of the advised distance and the plan says which, from what to
-    what, and why. An exit that is `off`, or given as a percentage beyond the edge (it follows
-    the edge by itself), is never touched;
+  · an exit given as a price that the new range makes invalid (at or inside the range, so Start
+    refuses it) moves to the middle of the advised distance and the plan says which, from what
+    to what, and why. An exit that is still valid stays exactly as the owner set it, even
+    outside the advised distance: that is advice and its line still shows (owner's decision of
+    2026-10-15, option A). An exit that is `off`, or given as a percentage beyond the edge (it
+    follows the edge by itself), is never touched;
   · the result is judged by `evaluate_grid`, with the thresholds unchanged, and the blocking
     codes it still carries are part of the answer (the market facts the panel holds exclude
     the account, so account-only checks are not among them).
@@ -182,11 +184,10 @@ def _moved_exit(
         return None
     edge = range_[0] if side.below else range_[1]
     sign = -1 if side.below else 1
-    distance = sign * (level.value - edge) / edge
+    if sign * (level.value - edge) / edge > 0:
+        return None  # still on the right side of the range: the owner's price stands
     low = request.thresholds.exit_distance_low
     high = request.thresholds.exit_distance_high
-    if low <= distance <= high:
-        return None
     # Rounded away from the range: a coarse tick must not carry the exit onto the edge.
     new = max(
         _to_tick(
@@ -196,12 +197,8 @@ def _moved_exit(
         ),
         figures.tick,
     )
-    advised = f"{low:.0%}–{high:.0%}"
     reason = (
         f"it was at or inside the range's {side.edge_name} limit {figures.price(edge)}"
-        if distance <= 0
-        else f"it was {distance:.2%} from the {side.edge_name} limit "
-        f"{figures.price(edge)}, outside the advised {advised}"
     )
     middle = f"{(low + high) / _TWO:.2%}"
     return ExitMove(key, side.name, level.value, new, f"{reason}; now {middle} away")
