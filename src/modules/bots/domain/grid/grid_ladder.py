@@ -32,6 +32,9 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fee_netting import (
+    net_of_buy_fee,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridLevel,
     GridPlan,
@@ -144,12 +147,6 @@ def sells_net_of_opening_fee(
         for level in plan.levels
     )
     return replace(plan, levels=levels)
-
-
-def net_of_buy_fee(quantity: Decimal, fee: Decimal, step_size: Decimal) -> Decimal:
-    """What a buy of `quantity` leaves to sell when Spot takes `fee` from the base it
-    buys, rounded down to the step: the one rule for a SELL's quantity (`BUG-212`)."""
-    return _ROUNDING.round_quantity_down(quantity * (1 - fee), step_size)
 
 
 def crossed_exit(

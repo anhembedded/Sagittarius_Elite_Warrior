@@ -11,19 +11,40 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
+    ExchangeTerms,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_evaluation import (
+    evaluate_grid,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    GridThresholds,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     GridWorld,
     grid_world,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
+    inputs,
+)
 
 D = Decimal
+_ETHUSDT = ExchangeTerms(
+    tick_size=D("0.01"),
+    step_size=D("0.0001"),
+    min_notional=D(5),
+    maker_fee=D("0.001"),
+    taker_fee=D("0.001"),
+    max_notional_per_order=D(300),
+    max_open_orders=100,
+)
 _OWNER = {
     "lower": "2348",
     "upper": "2667",
@@ -84,3 +105,21 @@ def test_whatever_the_executor_sends_meets_the_exchange_minimum(
         assert all(r.quantity * r.reference_price >= 5 for r in limits)
     else:
         assert world.book.requests == []
+
+
+def test_a_plan_that_passed_at_the_planned_price_is_refused_when_the_price_moved_before_start() -> (
+    None
+):
+    """A SELL's quantity depends on the price it was bought at (`grid_plan.py`), so a Plan's
+    verdict holds for the price it was computed at. The executor plans again at the price it
+    reads when it starts and judges that plan before the opening buy: nothing is spent."""
+    config = {**_OWNER, "capital_quote": "38.11"}
+    planned = evaluate_grid(inputs(_ETHUSDT, D("2578.79"), **config), GridThresholds())
+    assert not [v for v in planned.verdicts if v.code == "LEVEL_BELOW_MIN_NOTIONAL"]
+    world = grid_world(config=config, step=D("0.0001"), last_price=D("2593.79"))
+
+    world.executor.start()
+
+    assert world.book.requests == []
+    assert world.runtime().reason is GridReason.START_REFUSED
+    assert "minimum of 5" in world.runtime().reason_detail

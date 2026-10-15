@@ -17,6 +17,11 @@ Both now ask this module:
     rounds to nothing, with the capital that would clear it. The check refuses with it before
     Start; the executor refuses with the same value before it spends anything.
 
+The counter SELL is `grid_fee_netting.sellable_after_buy`, the function `grid_reactions._counter`
+calls on the real fill; the counter BUY is the level's `buy_quantity`, which `_counter` reads. A test
+fills every laid order through the real reactions and holds the two to each other
+(`test_grid_counter_sizing_matches_reactions.py`).
+
 Not covered, by design: a counter sized from a partial fill is sized by `grid_reactions` from what
 filled and dropped when under the minimum (`_settle_short`); the exchange's `minQty` is not part of
 `ExchangeTerms` (the minimum notional is the binding filter at every price the bots trade).
@@ -32,8 +37,10 @@ from itertools import pairwise
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fee_netting import (
     net_of_buy_fee,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     runtime_from_plan,
     sells_net_of_opening_fee,
 )
