@@ -19,6 +19,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
@@ -76,9 +79,10 @@ FIELDS_OF_CODE: Mapping[str, tuple[str, ...]] = MappingProxyType(
     }
 )
 
-#: The exit that closes a side at a loss, by the verdict's `subject`: a long's is the stop
-#: loss below the range, a short's the exit above it (`futures_grid_checks.py`). A code in
-#: `EXIT_CODES` marks only that side's field when its verdict names the side.
+#: The exit that closes a side of a NEUTRAL grid at a loss, by the verdict's `subject`: the long
+#: side's is the stop loss below the range, the short side's the take profit above it
+#: (`futures_grid_checks.py`). A LONG or SHORT grid has the stop loss alone. A code in
+#: `EXIT_CODES` marks only that exit's field when its verdict names the side.
 EXIT_OF_SIDE: Mapping[str, str] = MappingProxyType(
     {"long": STOP_LOSS, "short": TAKE_PROFIT}
 )
@@ -112,7 +116,9 @@ class FieldError:
     blocks: bool
 
 
-def field_errors(verdicts: Iterable[Verdict]) -> dict[str, FieldError]:
+def field_errors(
+    verdicts: Iterable[Verdict], direction: TradeDirection = TradeDirection.LONG
+) -> dict[str, FieldError]:
     """The message of each field some verdict is about.
 
     A blocking verdict wins over advice on the same field, and the first of two
@@ -127,16 +133,20 @@ def field_errors(verdicts: Iterable[Verdict]) -> dict[str, FieldError]:
         error = FieldError(
             f"{BLOCKS if verdict.refuses else ADVICE}{verdict.reason}", verdict.refuses
         )
-        for field in _fields_of(verdict)[:1]:
+        for field in _fields_of(verdict, direction)[:1]:
             current = shown.get(field)
             if current is None or (error.blocks and not current.blocks):
                 shown[field] = error
     return shown
 
 
-def _fields_of(verdict: Verdict) -> tuple[str, ...]:
-    """The fields a verdict marks: an exit verdict that names its side marks that side's exit."""
+def _fields_of(verdict: Verdict, direction: TradeDirection) -> tuple[str, ...]:
+    """The fields a verdict marks: an exit verdict that names its side marks that side's exit,
+    which is the direction's: a LONG or SHORT grid has one loss exit, its stop loss; a NEUTRAL
+    one ends its short side at the take profit over the range (`EPIC-039I`)."""
     if verdict.code in EXIT_CODES and verdict.subject in EXIT_OF_SIDE:
+        if direction is not TradeDirection.NEUTRAL:
+            return (STOP_LOSS,)
         return (EXIT_OF_SIDE[verdict.subject],)
     return FIELDS_OF_CODE.get(verdict.code, ())
 

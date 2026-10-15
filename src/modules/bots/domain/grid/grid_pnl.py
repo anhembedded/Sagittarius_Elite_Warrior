@@ -19,6 +19,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 _ZERO = Decimal(0)
 
@@ -66,7 +67,7 @@ def pnl_summary(runtime: GridRuntime, capital: Decimal | None) -> PnlSummary:
 
 
 def _unrealised(runtime: GridRuntime) -> Decimal | None:
-    if runtime.inventory <= 0:
+    if runtime.inventory == 0:
         return _ZERO
     average = runtime.average_cost
     if runtime.mark_price is None or average is None:
@@ -78,4 +79,6 @@ def _hodl(runtime: GridRuntime, capital: Decimal | None) -> Decimal | None:
     start, mark = runtime.start_price, runtime.mark_price
     if capital is None or start is None or mark is None or start <= 0:
         return None
-    return capital / start * mark - capital
+    held = capital / start * mark - capital
+    # A SHORT grid's benchmark is the same capital held short from the start (`EPIC-039I`).
+    return -held if runtime.entry_side is OrderSide.SELL else held

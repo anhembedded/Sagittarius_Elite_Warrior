@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
     exchange_terms_for,
 )
@@ -37,7 +38,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
     OwnerBudgetCaps,
 )
 
-from .futures_bots_world import GRID, OPENING_QUANTITY, booted_futures_bots
+from .futures_bots_world import booted_futures_bots
+from .futures_direction_scenarios import SCENARIOS, DirectionScenario
 from .futures_fake_exchange import FUTURES, SYMBOL
 from .grid_fake_exchange import FakeExchange
 from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import _started
@@ -45,35 +47,33 @@ from .test_a_futures_grid_halts_and_recovers_on_the_fake_exchange import _starte
 D = Decimal
 S = BotLifecycleState
 
-#: Each price crosses one order of the ladder (62,000 and 63,000 buy, 65,000 and 66,000 sell, the
-#: counters follow the fills): a buy, its counter sell, the next sell, the next, a counter buy.
-_PATH = [D(62900), D(64100), D(65100), D(66100), D(64900)]
 
-
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.direction.name)
 def test_the_model_and_the_executor_hold_the_same_position_after_every_price(
-    futures: FakeExchange,
+    futures: FakeExchange, scenario: DirectionScenario
 ) -> None:
+    """Each price of the path crosses one order of the ladder (a fill, its counter, the next...)."""
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = _started(app, scenario.config)
         container = app.engine.context.container
         ports = container.resolve(IVenueTradingPorts).get(FUTURES)
         terms = exchange_terms_for(
             ports.order_entry_terms, SYMBOL, container.resolve(OwnerBudgetCaps)
         )
         planned = plan(
-            GridParams.from_config(GRID),
+            GridParams.from_config(scenario.config),
             terms,
             D(64000),
             LevelSizing.EQUAL_QUANTITY,
         )
-        assert planned.opening_quantity == OPENING_QUANTITY, "the same ladder"
-        # The model prices the opening at the plan's last price; the fake fills the market BUY
-        # at the ask, one tick above it.
-        opening_slippage = OPENING_QUANTITY * terms.tick_size
+        assert planned.opening_quantity == scenario.opening, "the same ladder"
+        # The model prices the opening at the plan's last price; the fake fills the market order
+        # at the ask (a BUY) or the bid (a SELL), one tick away from it.
+        opening_slippage = abs(scenario.opening) * terms.tick_size
 
-        for step, price in enumerate(_PATH, start=1):
+        for step, price in enumerate(scenario.model_path, start=1):
             app.move_price(price)
-            modelled = model_position_along(planned, _PATH[:step])
+            modelled = model_position_along(planned, scenario.model_path[:step])
 
             assert app.bot(bot_id).state is S.RUNNING
             assert app.position() == modelled.position, f"exchange at {price}"

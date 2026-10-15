@@ -9,14 +9,17 @@ HODL benchmark is what the same capital would be worth held since the start.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_market_fill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import (
     pnl_summary,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     LevelFill,
-    book_market_fill,
     on_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -110,6 +113,15 @@ def test_the_hodl_benchmark_is_the_capital_held_from_the_start_price() -> None:
     )
 
     assert pnl_summary(runtime, capital=Decimal(1000)).hodl == Decimal(250)
+
+
+def test_a_short_grids_hodl_benchmark_is_the_capital_held_short() -> None:
+    runtime = replace(
+        GridRuntime((), start_price=Decimal(100), mark_price=Decimal(125)),
+        entry_side=OrderSide.SELL,
+    )
+
+    assert pnl_summary(runtime, capital=Decimal(1000)).hodl == Decimal(-250)
 
 
 def test_hodl_needs_a_start_price_and_a_current_one() -> None:

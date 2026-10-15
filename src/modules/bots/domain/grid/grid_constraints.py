@@ -44,6 +44,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_checks import (
     check_price_band,
     check_range_against_atr,
     check_spacing_for_range,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_exit_checks import (
     check_stop_loss,
     check_take_profit,
 )

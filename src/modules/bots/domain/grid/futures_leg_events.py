@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_ladder import Ladder
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     StopReason,
@@ -44,6 +47,8 @@ class LegSituation:
     stop_loss: Decimal | None
     take_profit: Decimal | None
     tick: Decimal
+    #: A SHORT grid's stop loss sits above the range and its take profit below (`EPIC-039I`).
+    direction: TradeDirection = TradeDirection.LONG
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,22 +86,23 @@ def _liquidation(situation: LegSituation, actions: LegActions) -> LegEvent | Non
 
 
 def _exit(situation: LegSituation, actions: LegActions) -> LegEvent | None:
+    """The exit the leg reaches: a falling leg reaches what sits below the range (a LONG grid's
+    stop loss, a SHORT grid's take profit), a rising one what sits above it."""
     step = situation.step
+    short = situation.direction is TradeDirection.SHORT
     if situation.falling:
-        stop = situation.stop_loss
-        if stop is None or step.low > stop:
+        level = situation.take_profit if short else situation.stop_loss
+        reason = StopReason.TAKE_PROFIT if short else StopReason.STOP_LOSS
+        if level is None or step.low > level:
             return None
-        price = min(stop, step.open)
-        return LegEvent(
-            stop, lambda: actions.exit(StopReason.STOP_LOSS, price, step.time)
-        )
-    take = situation.take_profit
-    if take is None or step.high < take:
-        return None
-    price = max(take, step.open)
-    return LegEvent(
-        take, lambda: actions.exit(StopReason.TAKE_PROFIT, price, step.time)
-    )
+        price = min(level, step.open)
+    else:
+        level = situation.stop_loss if short else situation.take_profit
+        reason = StopReason.STOP_LOSS if short else StopReason.TAKE_PROFIT
+        if level is None or step.high < level:
+            return None
+        price = max(level, step.open)
+    return LegEvent(level, lambda: actions.exit(reason, price, step.time))
 
 
 def _fill(

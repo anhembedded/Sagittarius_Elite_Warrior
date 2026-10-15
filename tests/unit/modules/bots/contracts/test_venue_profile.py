@@ -63,17 +63,19 @@ def test_the_spot_profile_allows_long_only_with_no_leverage(
 
 
 @pytest.mark.parametrize("venue", _FUTURES, ids=lambda v: v.value)
-def test_the_futures_profile_supports_every_direction_but_runs_long_for_now(
+def test_the_futures_profile_supports_every_direction_and_runs_long_and_short_for_now(
     venue: TradingVenue,
 ) -> None:
     profile = venue_profile_of(venue)
 
     assert profile is not None
     assert profile.market_type is MarketType.FUTURES_USD_M
-    # The market supports all three, which a plan and a backtest may name; a bot runs LONG only
-    # until `EPIC-039I` builds the short and neutral openings (`exposure_refusal` says so).
+    # The market supports all three, which a plan and a backtest may name; a bot runs LONG and
+    # SHORT until `EPIC-039I` builds the neutral opening (`exposure_refusal` says so).
     assert profile.directions == frozenset(TradeDirection)
-    assert profile.bot_directions == frozenset({TradeDirection.LONG})
+    assert profile.bot_directions == frozenset(
+        {TradeDirection.LONG, TradeDirection.SHORT}
+    )
     assert profile.margin_modes == frozenset({MarginMode.ISOLATED}), (
         "Cross is a later epic"
     )
@@ -184,15 +186,18 @@ def test_a_venue_bots_run_on_has_its_profiles_exposure_limits() -> None:
         limits = exposure_limits_of(venue, GRID_MARKETS)
         assert limits.exposure_kind is ExposureKind.POSITION
         assert limits.max_leverage > 1
-        assert limits.directions == frozenset({TradeDirection.LONG})
+        assert limits.directions == frozenset(
+            {TradeDirection.LONG, TradeDirection.SHORT}
+        )
 
 
 def test_a_plan_is_judged_on_what_the_market_allows_and_a_bot_on_what_it_runs() -> None:
-    """`EPIC-039K` backtests and `EPIC-039J` plans a SHORT; a start refuses it until `EPIC-039I`."""
+    """`EPIC-039K` backtests and `EPIC-039J` plans a NEUTRAL; a start refuses it until `EPIC-039I`
+    opens it."""
     for venue in _FUTURES:
         assert plan_limits_of(venue).directions == frozenset(TradeDirection)
         assert exposure_limits_of(venue, GRID_MARKETS).directions == frozenset(
-            {TradeDirection.LONG}
+            {TradeDirection.LONG, TradeDirection.SHORT}
         )
     for venue in _SPOT:
         assert plan_limits_of(venue) == exposure_limits_of(venue, GRID_MARKETS)

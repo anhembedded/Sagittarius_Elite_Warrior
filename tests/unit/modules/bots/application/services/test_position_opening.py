@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     GateOutcome,
     GateResult,
@@ -35,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_position impo
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
+    CONFIG,
     GridWorld,
 )
 
@@ -87,6 +89,21 @@ def test_the_opening_is_a_market_buy_in_base_quantity_and_the_ladder_follows_red
     assert [request.owner_id for request in gate.requests] == [f"bot.{BOT}"]
 
 
+def test_a_ladder_with_an_order_below_the_minimum_is_refused_before_any_order_or_setting() -> (
+    None
+):
+    """`BUG-212`'s lesson for a position venue: the executor judges the sizing the plan was
+    judged by (`first_breach`) before it touches the venue's settings or sends the opening."""
+    world, gate = a_position_world(config={**CONFIG, "capital_quote": "20"})
+
+    world.executor.start()
+
+    _refused_and_stopped(world)
+    assert "below the exchange minimum" in world.runtime().reason_detail
+    assert world.book.requests == []
+    assert gate.requests == [], "the venue's settings were not touched"
+
+
 def test_a_registration_that_returned_a_divergence_is_never_traded_on() -> None:
     world, _ = a_position_world()
     divergence = PositionDivergence(
@@ -112,7 +129,7 @@ def test_a_position_that_does_not_cover_the_sells_lays_no_ladder() -> None:
     _start(world, a_registration("0.001"))
 
     _refused_and_stopped(world)
-    assert "the ladder's SELLs need" in world.runtime().reason_detail
+    assert "the ladder's reduce-only SELLs need" in world.runtime().reason_detail
     assert [r for r in world.book.requests if r.order_type is OrderType.LIMIT] == []
 
 
@@ -152,4 +169,23 @@ def test_a_plan_whose_risk_cannot_be_judged_is_refused_not_guessed() -> None:
 
     _refused_and_stopped(world)
     assert "could not be judged" in world.runtime().reason_detail
+    assert world.book.requests == []
+
+
+@pytest.mark.parametrize(("direction", "held"), [("SHORT", "-0.05"), ("SHORT", "0")])
+def test_a_resume_of_a_short_grid_proposes_nothing_and_says_why(
+    direction: str, held: str
+) -> None:
+    """`EPIC-039I`: a resume sizes its ladder to a long inventory, so a short grid has no proposal
+    yet, whatever it holds (over a flat position it would lay only reduce-only BUYs); the halted
+    bot waits in words, nothing is cancelled or laid."""
+    world, _ = a_position_world(
+        state=S.HALTED, config={**CONFIG, "direction": direction, "leverage": "2"}
+    )
+    world.session.register_owner_budget_answers(a_registration(held))
+
+    world.executor.resume()
+
+    assert world.executor.proposal is None
+    assert "short or neutral grid" in world.runtime().reason_detail
     assert world.book.requests == []

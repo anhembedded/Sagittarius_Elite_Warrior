@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import Sto
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
     IVenueFacts,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_PROFILE,
     VenueProfile,
@@ -68,6 +71,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_MARKETS,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    GridParamsError,
+    exposure_of_a_saved_definition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -85,6 +92,15 @@ _UNREADABLE_RECORD = ReadinessItem(
     "The bot's record of its run cannot be read, so what the resume needs is not known",
     ReadinessFix.NONE,
     BotRefusal.UNREADABLE,
+)
+
+_SHORT_POSITION = ReadinessItem(
+    ReadinessStep.RUN,
+    "RUN_SHORT_RESUME_UNAVAILABLE",
+    "A resume cannot size the position of a short or neutral grid yet: stop the bot (it "
+    "closes the position) and start a new run",
+    ReadinessFix.NONE,
+    BotRefusal.VENUE_NOT_READY,
 )
 
 
@@ -167,6 +183,8 @@ class ResumeReadinessReader:
         inventory = _inventory_of(stored)
         if inventory is None:
             return RuleOutcome((_UNREADABLE_RECORD,))
+        if inventory.quantity < 0 or not _resumes_long(definition.config):
+            return RuleOutcome((_SHORT_POSITION,))
         numbers = read_planner_numbers(
             self._ports, self._caps, definition.venue, definition.symbol
         )
@@ -192,6 +210,16 @@ class ResumeReadinessReader:
             ", ".join(item.code for item in outcome.items) or "none",
         )
         return outcome
+
+
+def _resumes_long(config: Mapping[str, str]) -> bool:
+    """Whether the definition is a LONG grid, the only direction a resume sizes (`EPIC-039I`); a
+    definition that cannot be read is judged by the readiness that reads it."""
+    try:
+        direction, _leverage = exposure_of_a_saved_definition(config)
+    except GridParamsError:
+        return True
+    return direction is TradeDirection.LONG
 
 
 def _inventory_of(stored: StoredBot) -> OwnerInventory | None:

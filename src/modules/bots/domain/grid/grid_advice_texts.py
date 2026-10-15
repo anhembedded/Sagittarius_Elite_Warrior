@@ -208,10 +208,17 @@ class ExitSide:
     name: str
     edge_name: str
     below: bool
+    #: Whether it is the exit that limits a loss; the advice is about the loss or the gain
+    #: whichever side of the range it sits on (`EPIC-039I`: a SHORT stop loss sits above).
+    is_stop_loss: bool
 
 
-STOP_LOSS_SIDE = ExitSide("stop loss", "lower", below=True)
-TAKE_PROFIT_SIDE = ExitSide("take profit", "upper", below=False)
+STOP_LOSS_SIDE = ExitSide("stop loss", "lower", below=True, is_stop_loss=True)
+TAKE_PROFIT_SIDE = ExitSide("take profit", "upper", below=False, is_stop_loss=False)
+SHORT_STOP_LOSS_SIDE = ExitSide("stop loss", "upper", below=False, is_stop_loss=True)
+SHORT_TAKE_PROFIT_SIDE = ExitSide(
+    "take profit", "lower", below=True, is_stop_loss=False
+)
 
 
 def exit_distance_advice(
@@ -219,7 +226,7 @@ def exit_distance_advice(
 ) -> Advice:
     figures, thresholds = figures_of(inputs), inputs.thresholds
     low, high = thresholds.exit_distance_low, thresholds.exit_distance_high
-    edge = inputs.params.lower if side.below else inputs.params.upper
+    edge = inputs.params.lower if side.edge_name == "lower" else inputs.params.upper
     direction = -1 if side.below else 1
     nearest, farthest = (edge * (1 + direction * share) for share in (low, high))
     advised = figures.span(min(nearest, farthest), max(nearest, farthest))
@@ -237,7 +244,7 @@ def exit_distance_advice(
 
 
 def _exit_consequence(side: ExitSide, *, too_close: bool) -> str:
-    if side.below:
+    if side.is_stop_loss:
         return (
             "Ordinary price movement can reach it and close the bot early."
             if too_close

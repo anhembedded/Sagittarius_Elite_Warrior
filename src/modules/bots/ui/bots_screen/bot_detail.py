@@ -51,7 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_PROFILE,
     bot_profile_of,
     exposure_limits_of,
-    plan_limits_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     PlanRiskFacts,
@@ -129,7 +128,11 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
             inputs.kind,
             config,
             inputs.market,
-            PlanWorld(connection.account, plan_limits_of(bot.venue), inputs.risk),
+            PlanWorld(
+                connection.account,
+                exposure_limits_of(bot.venue, GRID_MARKETS),
+                inputs.risk,
+            ),
         )
         if inputs.kind is not None
         else JudgedPlan()
