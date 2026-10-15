@@ -173,7 +173,8 @@ def test_a_plan_whose_risk_cannot_be_judged_is_refused_not_guessed() -> None:
 
 
 @pytest.mark.parametrize(
-    ("direction", "held"), [("SHORT", "-0.05"), ("NEUTRAL", "0.05"), ("NEUTRAL", "0")]
+    ("direction", "held"),
+    [("SHORT", "-0.05"), ("SHORT", "0"), ("NEUTRAL", "0.05"), ("NEUTRAL", "0")],
 )
 def test_a_resume_over_a_short_or_neutral_grid_proposes_nothing_and_says_why(
     direction: str, held: str

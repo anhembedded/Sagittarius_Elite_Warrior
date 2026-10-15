@@ -5,8 +5,8 @@ of 2026-10-15 (Spot). A position ladder gives every order one quantity, but any 
 order sooner or later: a fill owes its counter at the neighbouring rung, so the rung left EMPTY at
 start takes one too. These tests fill a ladder through the **real reaction code** (`on_fill`,
 `on_end`) along seeded walks and hold every order it emits to the exchange's filters; a plan the
-shared sizing (`position_order_sizing`) accepts must never emit one that breaks them, and the
-plan's verdicts and the executor's `first_breach` must say the same thing about the same plan.
+shared sizing (`grid_order_sizing`) accepts must never emit one that breaks them, and the
+plan's verdicts and the executor's `find_breach` and `find_cap_breach` must say the same thing about the same plan.
 """
 
 from __future__ import annotations
@@ -36,13 +36,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
     runtime_from_plan,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
+    find_breach,
+    find_cap_breach,
+    smallest_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
-    LevelSizing,
-    plan,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     LadderRules,
@@ -61,15 +64,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.position_order_sizing import (
-    BreachKind,
-    first_breach,
-    sized_orders,
-    smallest_order,
-)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     CONFIG,
-    LAST_PRICE,
     TERMS,
     inputs,
 )
@@ -122,6 +118,13 @@ def _plan(direction: str, last: str, minimum: str, **changes: str) -> GridPlan:
     return evaluated.plan
 
 
+def _breach(ladder: GridPlan, direction: str, last: str, minimum: str) -> object | None:
+    """What the executor's opening asks of the one sizing module before it sends anything."""
+    params = GridParams.from_config(_kind_inputs(direction, last, minimum).config)
+    terms = _terms(minimum)
+    return find_breach(params, ladder, terms) or find_cap_breach(ladder, terms)
+
+
 def _refused_codes(direction: str, last: str, minimum: str, **changes: str) -> set[str]:
     verdicts = evaluate_grid(
         _kind_inputs(direction, last, minimum, **changes), GridThresholds()
@@ -136,11 +139,11 @@ def test_the_rung_left_empty_at_start_is_judged_like_any_other() -> None:
     ladder = _plan("LONG", "62010", "375")
 
     assert ladder.levels[0].side.value == "EMPTY"
-    assert smallest_order(ladder).notional == D("372.000")
+    smallest = smallest_order(ladder, _terms("375"))
+    assert smallest is not None and smallest.notional == D("372.000")
+    assert smallest.level_index == 0
     assert "LEVEL_BELOW_MIN_NOTIONAL" in _refused_codes("LONG", "62010", "375")
-    breach = first_breach(ladder, _terms("375"))
-    assert breach is not None and breach.kind is BreachKind.BELOW_MINIMUM
-    assert breach.order.level_index == 0
+    assert _breach(ladder, "LONG", "62010", "375") is not None
 
 
 @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
@@ -148,7 +151,7 @@ def test_a_ladder_whose_every_rung_clears_the_minimum_is_not_refused(
     direction: str,
 ) -> None:
     assert "LEVEL_BELOW_MIN_NOTIONAL" not in _refused_codes(direction, "62010", "300")
-    assert first_breach(_plan(direction, "62010", "300"), _terms("300")) is None
+    assert _breach(_plan(direction, "62010", "300"), direction, "62010", "300") is None
 
 
 def _walk(ladder: GridPlan, terms: ExchangeTerms, seed: int) -> list[PlaceOrder]:
@@ -232,7 +235,7 @@ def test_a_plan_the_shared_sizing_accepts_never_makes_the_reactions_send_a_break
     refused = _refused_codes(direction, last, minimum)
 
     # The plan's verdicts and the executor's judgement are one decision.
-    breach = first_breach(ladder, terms)
+    breach = _breach(ladder, direction, last, minimum)
     judged = {"LEVEL_BELOW_MIN_NOTIONAL", "LEVEL_ABOVE_MAX_NOTIONAL"} & refused
     assert bool(judged) == (breach is not None), (judged, breach)
     if breach is not None:
@@ -252,17 +255,8 @@ def test_the_walk_does_send_a_breaking_order_when_the_sizing_is_not_consulted() 
     """The walk can fail: over the plan the old check passed, it reaches the cheap rung."""
     ladder = _plan("LONG", "62010", "375")
     terms = _terms("375")
-    assert first_breach(ladder, terms) is not None
+    assert _breach(ladder, "LONG", "62010", "375") is not None
 
     sent = [a for seed in range(1, 6) for a in _walk(ladder, terms, seed)]
 
     assert any(a.price * a.quantity < terms.min_notional for a in sent)
-
-
-def test_an_equal_capital_plan_is_sized_by_the_orders_it_lays() -> None:
-    spot_like = plan(GridParams.from_config(CONFIG), TERMS, LAST_PRICE)
-
-    assert spot_like.level_sizing is LevelSizing.EQUAL_CAPITAL
-    assert {o.level_index for o in sized_orders(spot_like)} == {
-        lv.index for lv in spot_like.order_levels
-    }

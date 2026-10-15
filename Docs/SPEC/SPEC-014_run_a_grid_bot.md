@@ -76,8 +76,13 @@ sound, I start it, and I watch what it does."*
    assertion that answers with its numbers, judged beside the account the Connect step read; the
    verdicts, the field messages and the drawn levels follow each edit.
    **Suggest from ATR** or **Suggest from Bollinger**, the Grid's own commands (Bots menu, and the
-   Grid toolbar at the top of the editor, shown while a Grid is selected), fills the range only
-   when chosen, rounded to the tick; while the parameters cannot be edited, both are disabled. **Save bot**
+   Grid toolbar at the top of the editor, shown while a Grid is selected), writes a whole plan only
+   when chosen (`BUG-211`): the range rounded to the tick and holding the current price (a band that
+   misses the price is recentred on it at the same width), and any stop loss or take profit given as
+   a price that the new range makes invalid (so Start would refuse it) moved to the middle of the advised
+   distance, with one line on the panel saying which exit moved, from what and why. An exit that is
+   still valid stays exactly as typed, even outside the advised distance: that is advice and its line
+   still shows (owner's decision, 2026-10-15). An exit that is off, or given as a percentage, is never touched; while the parameters cannot be edited, both are disabled. **Save bot**
    (Ctrl+S) stores the edits for a draft; Start does not wait for it (step 6). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
 5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
@@ -224,7 +229,7 @@ dialog offers Spot venues only until `EPIC-039J`, and Futures **mainnet** is not
    halt's own (decision O8). Restart, a stream gap and a position that differs from the bot's own
    fills are reconciled against `positionRisk` (`POSITION_MISMATCH`), never traded over.
 
-What it does not do yet: a Resume over a held short or neutral position (it waits, in words: stop the
+What it does not do yet: a Resume of a short or neutral grid (it waits, in words: stop the
 bot, which closes the position, and start a new run), the screen's *On range exit* row (`EPIC-039J`), the
 exchange-side protective stop (`EPIC-039L`). The stop loss and take profit of a Futures bot follow the **mark**
 price, read once per beat of the price watch (up to one beat late); `on_range_exit` (`hold` by default, `close`
@@ -387,7 +392,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | :--- | :--- | :--- |
 | Every Futures direction (LONG, SHORT and NEUTRAL) opens its position, lays its reduce-only exits, owes a completion for each entry fill and a cycle that agrees with the exchange's realised profit, counts a repeated report once, stops flat, ends flat on a halt, recovers from a restart and a stream gap, closes only its own position, refuses a foreign one, and exits on the mark through its upper exit | `tests/integration/modules/bots/test_every_direction_passes_the_shared_journeys_on_the_fake_exchange.py` | integration (Futures fake) |
 | A NEUTRAL Futures grid opens nothing, lays entries on both sides, stays consistent with the position function while the price crosses its start repeatedly and ends flat, and holds or closes out of range | `tests/integration/modules/bots/test_a_neutral_futures_grid_on_the_fake_exchange.py` | integration (Futures fake) |
-| The Plan and the executor size a position ladder's orders with one function, and no order the real reactions emit breaks the exchange's filters | `tests/unit/modules/bots/domain/grid/test_position_orders_the_reactions_send.py` · `tests/unit/modules/bots/application/services/test_position_opening.py` | unit |
+| The Plan and the executor size a position ladder's orders with one function (`grid_order_sizing`), and no order the real reactions emit breaks the exchange's filters | `tests/unit/modules/bots/domain/grid/test_position_orders_the_reactions_send.py` · `tests/unit/modules/bots/application/services/test_position_opening.py` | unit |
 | A Futures Long opens its position, lays reduce-only SELLs, owes a reduce-only counter for each fill, books a cycle that agrees with the exchange's own realised profit, counts a repeated fill report once, books funding whole, stops flat, and refuses a "keep" stop | `tests/integration/modules/bots/test_a_futures_long_grid_on_the_fake_exchange.py` | integration (Futures fake) |
 | A halt ends flat with no orders; a restart in the middle of the ladder and a stream gap are reconciled against the position; a position added by hand halts the recovery; a start is refused for a foreign position, settings the venue will not make the bot's, and a refused liquidation risk | `tests/integration/modules/bots/test_a_futures_grid_halts_and_recovers_on_the_fake_exchange.py` | integration (Futures fake) |
 | The close is reduce-only, cut under the cap and confirmed flat; the opening is never traded over a divergence; the plan's risk and the venue's settings are settled before any order | `tests/unit/modules/bots/application/services/test_position_close.py` · `test_position_opening.py` · `test_position_venue_collaborators.py` | unit |
@@ -417,6 +422,7 @@ its fills; a position the owner opened by hand on the symbol stays open and is s
 | A violated constraint is said on its field with its number, blocking apart from advice; every code decides its field; the plan's levels are drawn on the chart and follow each edit | `tests/unit/modules/bots/ui/kinds/test_grid_field_errors.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_design_step.py` | unit (real bots graph) |
 | Start with the price outside the range (below refused, above advised, the bounds themselves neither); levels that round to one price are refused; a running bot publishes one event per change of place against the range, once per exit and re-armed on return | `tests/unit/modules/bots/domain/grid/test_grid_range_checks.py` · `test_grid_level_checks.py` · `tests/unit/modules/bots/application/services/test_grid_range_exit.py` · `tests/unit/modules/bots/application/test_start_bot_readiness.py` | unit |
 | Suggestions fill only on a click, rounded to the tick; none while read-only | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
+| A suggested plan passes every blocking check for the current price (range holds the price, stale price exits move and are named, off exits stay off), and one `[grid-suggest]` line records it | `tests/unit/modules/bots/domain/grid/test_grid_suggestion.py` · `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
 | The Grid's commands are in the Bots menu, follow the Grid toolbar's actions, and are disabled with no Grid selected | `tests/unit/modules/bots/ui/bots_screen/test_kind_commands.py` | unit (real bots graph) |
 | Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |

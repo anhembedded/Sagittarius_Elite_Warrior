@@ -210,6 +210,21 @@ def bot_closed_reason(venue: TradingVenue) -> str | None:
     )
 
 
+def direction_closed_reason(
+    profile: VenueProfile, direction: TradeDirection
+) -> str | None:
+    """Why a bot cannot run `direction` on `profile`'s market yet, or `None` when it can (or the
+    market does not offer it at all). A direction a plan and a backtest may name before a bot may
+    run it is shown greyed out with this sentence, never selectable and then refused at Start
+    (`EPIC-039I`, the pattern of `bot_closed_reason`)."""
+    if direction not in profile.directions or direction in profile.bot_directions:
+        return None
+    return (
+        f"A {direction.value} grid cannot run on {profile.title_word} yet; a plan and a "
+        "backtest may name it."
+    )
+
+
 def plan_limits_of(venue: TradingVenue) -> ExposureLimits:
     """The limits of `venue`'s market whether or not a bot may run there yet; Spot's for a venue
     that trades no market.

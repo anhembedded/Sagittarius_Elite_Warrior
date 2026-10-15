@@ -86,8 +86,9 @@ _ENDS_THE_STOP: frozenset[OrderOutcomeKind] = frozenset(
 def _may_stop_on(registration: OwnerBudgetRegistrationResult) -> bool:
     """Whether the stop can go on with `registration`. A position no fill of the bot explains
     refuses the registration but says the bot's own is flat (trading refuses only then): the
-    stop cancels the bot's orders and closes nothing of it, as a NEUTRAL bot between cycles
-    needs (`EPIC-039I`). Only a position venue answers it; Spot's stop is as it was."""
+    stop cancels the bot's orders and closes nothing of it, as any bot that is flat beside a
+    position by hand needs (a NEUTRAL one between cycles; a LONG or SHORT one whose exits all
+    filled, `EPIC-039I`). Only a position venue answers it; Spot's stop is as it was."""
     return (
         registration.registered
         or registration.refusal is OwnerBudgetRefusal.FOREIGN_POSITION

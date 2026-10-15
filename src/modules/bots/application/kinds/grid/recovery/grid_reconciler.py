@@ -173,8 +173,9 @@ class GridReconciler:
         open_orders = self._context.gateway.tagged_open_orders()
         registration = self._housekeeping.register()
         if registration.refusal is OwnerBudgetRefusal.FOREIGN_POSITION:
-            # A position no fill of the bot explains (a flat NEUTRAL bot has none of its own
-            # to compare it with): halting says so by name, a wait would call it a switch-off.
+            # A position no fill of the bot explains, beside a bot that is flat (its exits all
+            # filled; a NEUTRAL bot between cycles): halting says so by name, a wait would call it
+            # a switch-off.
             return ReconcileMismatch(
                 GridReason.FOREIGN_FILL, refusal_text(registration)
             )

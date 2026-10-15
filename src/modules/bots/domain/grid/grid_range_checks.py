@@ -15,6 +15,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import plain
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
+    figures_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs import (
     GridCheckInputs,
 )
@@ -33,6 +37,7 @@ _PERCENT = Decimal(100)
 def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
     params, plan = inputs.params, inputs.plan
     last = plan.last_price
+    figures = figures_of(inputs)
     opening_quote = plan.opening_buy_quantity * last
     numbers = {
         "last_price": last,
@@ -46,17 +51,19 @@ def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
             return Verdict(
                 VerdictSeverity.REFUSED,
                 "PRICE_BELOW_RANGE",
-                f"The price {last} is below the range's lower bound {params.lower}. "
-                f"Starting now would buy about {opening_quote:.2f} of the base asset "
-                f"at market, {share:.0f}% of the capital. Lower the range to "
-                "include the price, or wait for it to return",
+                f"The price {plain(last)} is below the range's lower bound "
+                f"{plain(params.lower)}. Starting now would buy about "
+                f"{figures.money(opening_quote)} of {figures.base} at market, "
+                f"{share:.0f}% of the capital. Lower the range to include the price, "
+                "or wait for it to return",
                 numbers,
             )
         case RangePosition.ABOVE:
             return Verdict(
                 VerdictSeverity.WARNING,
                 "PRICE_ABOVE_RANGE",
-                f"The price {last} is above the range's upper bound {params.upper}. "
+                f"The price {plain(last)} is above the range's upper bound "
+                f"{plain(params.upper)}. "
                 "The bot starts with nothing bought and places BUY orders only; it "
                 "trades once the price falls into the range",
                 numbers,

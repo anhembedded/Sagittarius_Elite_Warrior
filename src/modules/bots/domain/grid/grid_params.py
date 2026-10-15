@@ -318,6 +318,14 @@ def _leverage(config: Mapping[str, str]) -> int:
     return value
 
 
+def exit_level_of(config: Mapping[str, str], key: str) -> ExitLevel:
+    """The stop loss or take profit `config` holds under `key`.
+
+    @raise GridParamsError The key is missing or is not `off`, `price:<p>` or `percent:<n>`.
+    """
+    return _exit(config, key)
+
+
 def _exit(config: Mapping[str, str], key: str) -> ExitLevel:
     text = _text(config, key).lower()
     if text == ExitKind.OFF.value:

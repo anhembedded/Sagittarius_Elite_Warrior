@@ -50,6 +50,8 @@ class DirectionScenario:
     #: Why a bot halts when the owner added a position by hand while the app was closed: a bot
     #: with a position of its own sees a mismatch, a flat one (NEUTRAL) a position it did not open.
     by_hand_reason: GridReason
+    #: Prices (one rung each) after which the bot is flat: its reduce-only exits have all filled.
+    prices_to_flat: tuple[Decimal, ...]
     #: The orders resting after a restart that missed the first exit-side fill
     #: (`price_missed_while_closed`), sorted.
     price_missed_while_closed: Decimal
@@ -90,6 +92,7 @@ LONG = DirectionScenario(
     OrderSide.BUY,
     "long",
     GridReason.POSITION_MISMATCH,
+    (D(65100), D(66100)),
     D(65100),
     (
         ("BUY", D(62000), False),
@@ -130,6 +133,7 @@ SHORT = DirectionScenario(
     OrderSide.SELL,
     "short",
     GridReason.POSITION_MISMATCH,
+    (D(62900), D(61900)),
     D(62900),
     (
         ("BUY", D(62000), True),
@@ -170,6 +174,7 @@ NEUTRAL = DirectionScenario(
     OrderSide.BUY,
     "long",
     GridReason.FOREIGN_FILL,
+    (),
     D(65100),
     (
         ("BUY", D(62000), False),

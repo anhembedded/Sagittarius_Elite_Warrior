@@ -11,6 +11,7 @@ must agree: a difference is an input one of them builds differently.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -36,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.accou
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
@@ -46,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_account_snapshot import (
     VenueAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.readiness_world import (
     ReadinessWorld,
@@ -140,3 +145,48 @@ def test_the_scenarios_are_not_all_the_same_answer() -> None:
         answers.add(tuple(_starts_items(world)))
 
     assert len(answers) >= 4
+
+
+def test_the_plan_judges_with_the_limits_a_bot_runs_with() -> None:
+    """`EPIC-039I` review: the bot's Plan is judged against what a bot may run
+    (`exposure_limits_of`), not what the market allows a plan to name, so a saved definition
+    that names a direction no bot runs shows a refused Plan and not a passing one that Start then
+    refuses. Every direction runs on Futures now, so the case here is a NEUTRAL one the Plan
+    accepts; a Spot-only kind on a Futures venue is judged by Spot's limits (the same function)."""
+    world = readiness_world()
+    stored = world.store.load(BotId(BOT))
+    futures = replace(
+        stored.bot.definition,
+        venue=TradingVenue.FUTURES_TESTNET,
+        config={
+            **stored.bot.definition.config,
+            "direction": "NEUTRAL",
+            "leverage": "2",
+        },
+    )
+    snapshot = BotSnapshot.of(
+        Bot(stored.bot.bot_id, futures, stored.bot.lifecycle, stored.bot.created_at),
+        None,
+    )
+    # The world's market numbers are the Spot venue's; the judgement under test is the limits.
+    numbers = read_planner_numbers(
+        world.ports, world.caps, stored.bot.definition.venue, snapshot.symbol
+    )
+    assert not isinstance(numbers, str)
+
+    detail = detail_for(
+        DetailInputs(
+            snapshot,
+            world.kinds.kind("grid"),
+            PlannerMarket(numbers[0], numbers[1], None, None),
+            world.clock.now(),
+            None,
+            ConnectionRead(ConnectionState.READING, ""),
+            BotRunFactsReader(world.ports, world.caps).read(
+                BOT, snapshot.venue, snapshot.symbol, snapshot.config, None
+            ),
+            world.facts.read(stored.bot),
+        )
+    )
+
+    assert "DIRECTION_NOT_ALLOWED" not in [v.code for v in detail.verdicts]

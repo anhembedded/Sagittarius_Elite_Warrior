@@ -18,12 +18,14 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation
 
 from PySide6.QtCore import QSignalBlocker
+from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QComboBox, QLabel, QSpinBox, QWidget
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     VenueProfile,
+    direction_closed_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_field_errors import (
@@ -88,6 +90,7 @@ class ExposureFields:
         for direction in TradeDirection:
             if direction in profile.directions:
                 self.direction.addItem(direction.value.capitalize(), direction.name)
+                self._close_if_not_yet_runnable(profile, direction)
         with QSignalBlocker(self.leverage):
             self.leverage.setRange(1, max(profile.max_leverage, 1))
             self.leverage.setValue(self._start_leverage())
@@ -95,6 +98,20 @@ class ExposureFields:
             ", ".join(mode.value.capitalize() for mode in sorted(profile.margin_modes))
         )
         self.liquidation.setText(NOT_ESTIMATED)
+
+    def _close_if_not_yet_runnable(
+        self, profile: VenueProfile, direction: TradeDirection
+    ) -> None:
+        """A direction the market offers but a bot may not run yet is listed greyed out, with its
+        reason as the tooltip, so it is never selected and then refused at Start."""
+        reason = direction_closed_reason(profile, direction)
+        model = self.direction.model()
+        if reason is None or not isinstance(model, QStandardItemModel):
+            return
+        item = model.item(self.direction.count() - 1)
+        if item is not None:
+            item.setEnabled(False)
+            item.setToolTip(reason)
 
     def config(self) -> dict[str, str]:
         """`direction` and `leverage` for a venue with a position only: a Spot definition

@@ -297,6 +297,33 @@ def test_a_position_added_by_hand_halts_the_recovery_and_only_the_bots_own_is_cl
 
 
 @every_direction
+def test_a_flat_bot_beside_a_position_by_hand_halts_and_stops_leaving_it_open(
+    futures: FakeExchange, scenario: DirectionScenario
+) -> None:
+    """A bot whose exits all filled (or a NEUTRAL one between cycles) is flat; trading then
+    refuses a position it finds as one the bot did not open. The recovery halts in words (a
+    foreign fill, not a switch-off), the stop cancels the bot's orders, closes none of the
+    foreign position and ends STOPPED."""
+    with booted_futures_bots(futures) as first:
+        bot_id = _started(first, scenario.config)
+        for price in scenario.prices_to_flat:
+            first.move_price(price)
+        assert first.position() == 0
+    with booted_futures_bots(futures) as second:
+        _by_hand(second, scenario, "0.003")
+        second.engine.event_bus.emit(
+            TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=FUTURES)
+        )
+
+        runtime = second.runtime(bot_id)
+        assert runtime.reason is GridReason.FOREIGN_FILL
+        assert second.bot(bot_id).state is S.STOPPED
+        assert abs(second.position()) == D("0.003"), "the foreign position is left open"
+        assert second.resting() == {}
+        assert "did not open" in runtime.reason_detail
+
+
+@every_direction
 def test_a_start_is_refused_for_a_position_the_bot_did_not_open(
     futures: FakeExchange, scenario: DirectionScenario
 ) -> None:
