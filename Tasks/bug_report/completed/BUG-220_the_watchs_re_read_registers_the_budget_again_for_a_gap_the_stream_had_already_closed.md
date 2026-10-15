@@ -1,4 +1,4 @@
-# BUG-219 — A divergence the stream had already closed was still confirmed by registering the budget again, and a position the pause kept from being read stayed unknown until the next update
+# BUG-220 — A divergence the stream had already closed was still confirmed by registering the budget again, and a position the pause kept from being read stayed unknown until the next update
 
 - **Reported:** 2026-10-15 (the second part of `BUG-216`, owner's Futures testnet log, Long Grid `djwx0w`; the reviewer of PR #528 noted the deferred-read gap as N2)
 - **Severity:** 🟡 P2. Cost, not loss: each re-read after a transient ordering gap spent ~20 of the minute's request weight, in the minute the exchange was already limiting the IP, and a pause left the session's belief about an open or closed position stale until the next `ACCOUNT_UPDATE`.
