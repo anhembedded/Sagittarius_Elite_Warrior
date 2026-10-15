@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.bot_exchange_terms import (
     exchange_terms_for,
 )
@@ -34,6 +35,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_position_model 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -223,3 +228,38 @@ def test_the_stop_loss_closes_a_real_long_whole_and_stops_flat(
         assert app.position() == 0
         assert app.resting() == {}
         assert app.runtime(bot_id).inventory == 0
+
+
+@pytest.mark.parametrize(
+    ("missed", "position"),
+    [((D(63900),), D(0)), ((D(63900), D(62900)), _Q)],
+    ids=["back to flat", "through zero to long"],
+)
+def test_a_restart_that_missed_fills_crossing_zero_leaves_a_runtime_that_reads_the_exchange(
+    futures: FakeExchange, missed: tuple[Decimal, ...], position: Decimal
+) -> None:
+    """Review of #523 (the probe behind `BUG-214`): short after the 65,000 sell, the app closes;
+    the 64,000 buy (the completion) fills, then maybe the 63,000 buy (an entry). Applied in the
+    order they happened, the bot recovers and its runtime reads what the exchange holds, flat or
+    long, with the cycle booked."""
+    with booted_futures_bots(futures) as first:
+        bot_id = _started(first, NEUTRAL.config)
+        first.move_price(65100)
+        assert first.position() == -_Q
+
+    book = futures.urls.futures_book
+    for price in missed:
+        book.move_price(SYMBOL, price)
+    book.drain_user_data_events()
+
+    with booted_futures_bots(futures) as second:
+        second.engine.event_bus.emit(
+            TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=FUTURES)
+        )
+
+        runtime = second.runtime(bot_id)
+        assert second.bot(bot_id).state is S.RUNNING, runtime.reason_detail
+        assert second.position() == position
+        assert runtime.inventory == second.position(), "the runtime reads the exchange"
+        assert runtime.completed_cycles == 1
+        assert {o.client_order_id for o in runtime.open_orders} == set(second.resting())
