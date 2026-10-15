@@ -146,3 +146,26 @@ def test_a_ban_is_told_even_when_it_ends_before_the_pause_that_was_running(
     assert len(told) == 2, told
     assert "[rate-limit-ban]" in told[1]
     assert gate.banned
+    soft_end = told[0].split("until ")[1].split(" ")[0]
+    assert f"until {soft_end}" in told[1], "the end the gate holds, not the ban's own"
+
+
+def test_a_ban_is_told_again_in_the_next_pause_once_the_first_has_ended(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gate_now = [0.0]
+    gate = RateLimitGate(lambda: gate_now[0])
+    policy = ExchangeCallPolicy(gate, weight_limit=1200, wall_seconds=lambda: _WALL)
+    caplog.set_level(logging.DEBUG, logger="App.TradingAdapter")
+    _refuse_with(policy, rate_limited(418, retry_after="10"))
+    gate_now[0] += 11.0
+    assert policy.run_read(lambda: "answer") == "answer"  # the pause is over
+
+    _refuse_with(
+        policy,
+        rate_limited(418, retry_after="5"),
+        while_in_flight=lambda: policy.note_used_weight(900),
+    )
+
+    bans = [m for m in _told(caplog) if "[rate-limit-ban]" in m]
+    assert len(bans) == 2, "the first ban's flag must not outlive its pause"

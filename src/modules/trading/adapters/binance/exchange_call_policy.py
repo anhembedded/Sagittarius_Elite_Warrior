@@ -20,9 +20,11 @@ The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
 (`note_used_weight_header`): at 70 % of the venue's per-minute weight the gate
 closes to the end of the minute, before the exchange has to say so.
 
-A pause is told twice and no more (`BUG-217`): one WARNING when it begins, with the instant it
-ends, and one INFO at the first request after it. The calls that meet it in between raise at
-once and say nothing here; what they fail with is theirs to word, at DEBUG when it is the pause.
+A pause is told once and no more (`BUG-217`): one WARNING when it begins, with the instant it
+ends, and one INFO at the first request after it. It is told again, with the end the gate now
+holds, only when it escalates: a later answer moves the end further out or turns it into a ban.
+The calls that meet it in between raise at once and say nothing here; what they fail with is
+theirs to word, at DEBUG when it is the pause.
 """
 
 from __future__ import annotations
