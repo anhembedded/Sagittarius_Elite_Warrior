@@ -198,7 +198,7 @@ def test_no_stop_loss_at_leverage_one_only_warns() -> None:
 
 
 def test_a_short_is_judged_against_the_exit_above_the_range() -> None:
-    verdicts = judge_futures_plan(_inputs("SHORT", 5, take_profit="off"))
+    verdicts = judge_futures_plan(_inputs("SHORT", 5, stop_loss="off"))
 
     assert _severity(verdicts, "STOP_LOSS_NEEDED") is VerdictSeverity.REFUSED
 

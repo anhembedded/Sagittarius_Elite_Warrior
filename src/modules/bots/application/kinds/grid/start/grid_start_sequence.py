@@ -55,6 +55,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
     find_breach,
+    find_cap_breach,
     smallest_order,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
@@ -97,13 +98,21 @@ class GridStartSequence:
             state.transition(BotLifecycleEvent.LADDER_READY)
 
     def _ladder_is_placeable(self, plan: GridPlan) -> bool:
-        """Refuse the start, before any opening buy, when an order of the ladder it would lay
-        is under the exchange's minimum (`BUG-212`). The orders are sized by
-        `grid_order_sizing`, the function the pre-start check judges with."""
+        """Refuse the start, before any opening, when an order of the ladder it would lay is under
+        the exchange's minimum (`BUG-212`) or, on a position venue, worth more than trading's
+        per-order cap (`EPIC-039I`). The orders are sized by `grid_order_sizing`, the function the
+        pre-start check judges with."""
         context = self._context
         terms = context.terms
         bot_id = context.state.bot_id
         breach = find_breach(context.params, plan, terms)
+        over_cap = find_cap_breach(plan, terms)
+        if breach is None and over_cap is not None:
+            return self._refuse_unplaceable(
+                f"the {over_cap.label} order is worth {over_cap.notional:.2f} "
+                f"{BUDGET_QUOTE_ASSET}, above trading's cap of "
+                f"{terms.max_notional_per_order} per order; use fewer grids or a smaller capital"
+            )
         smallest = smallest_order(plan, terms)
         if breach is None:
             if smallest is not None:
@@ -118,7 +127,13 @@ class GridStartSequence:
                     terms.min_notional,
                 )
             return True
-        detail = breach.text(context.base_asset, BUDGET_QUOTE_ASSET)
+        return self._refuse_unplaceable(
+            breach.text(context.base_asset, BUDGET_QUOTE_ASSET)
+        )
+
+    def _refuse_unplaceable(self, detail: str) -> bool:
+        context = self._context
+        bot_id = context.state.bot_id
         logger.warning(
             "Bot %s: start refused before any order, %s [order-below-minimum]",
             bot_id,

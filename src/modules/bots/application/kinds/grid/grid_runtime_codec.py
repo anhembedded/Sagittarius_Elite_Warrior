@@ -53,6 +53,7 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
         "reason": runtime.reason.value if runtime.reason else None,
         "reason_detail": runtime.reason_detail,
         "sell_base_on_stop": runtime.sell_base_on_stop,
+        **_entry_side_key(runtime),
     }
 
 
@@ -88,6 +89,12 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         reason=_enum(GridReason, reason, "reason") if reason is not None else None,
         reason_detail=_text(data, "reason_detail"),
         sell_base_on_stop=_flag(data, "sell_base_on_stop"),
+        # Absent from a file an earlier build wrote, and from every Spot and LONG one: BUY.
+        entry_side=(
+            _enum(OrderSide, data["entry_side"], "entry_side")
+            if "entry_side" in data
+            else OrderSide.BUY
+        ),
     )
 
 
@@ -175,6 +182,14 @@ def _realised_total(data: Mapping[str, JsonValue]) -> Decimal:
     already booked, a floor that keeps the total from reading below its own part."""
     stored = _optional_decimal(data, "realised_total")
     return stored if stored is not None else _decimal(data, "realised_profit")
+
+
+def _entry_side_key(runtime: GridRuntime) -> dict[str, JsonValue]:
+    """The entry side, written only when it is not the default, so a Spot or LONG runtime
+    reads and writes exactly what it did before `EPIC-039I`."""
+    if runtime.entry_side is OrderSide.BUY:
+        return {}
+    return {"entry_side": runtime.entry_side.value}
 
 
 def _optional(value: Decimal | None) -> str | None:

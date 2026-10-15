@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     PRICE_STALENESS_HALTS,
     BotLifecycleState,
@@ -145,14 +148,14 @@ class GridPriceReaction:
     ) -> None:
         params = self._context.params
         stop, take = params.stop_loss_price, params.take_profit_price
-        reason = crossed_exit_in_range(low, high, stop, take)
+        reason = crossed_exit_in_range(low, high, stop, take, params.direction)
         if reason is None:
             return
         detail = f"{what} {tick.last}"
-        if crossed_exit(tick.last, stop, take) is not reason:
+        if crossed_exit(tick.last, stop, take, params.direction) is not reason:
             # Once: the Stop this starts leaves every state that watches exits.
-            extreme, threshold = (
-                (low, stop) if reason is GridReason.STOP_LOSS else (high, take)
+            word, extreme, threshold = _wick_of(
+                reason, params.direction, low, high, stop, take
             )
             detail = f"{what} {tick.last}, traded to {extreme}"
             logger.info(
@@ -161,7 +164,7 @@ class GridPriceReaction:
                 self._context.state.bot_id,
                 reason.value,
                 tick.last,
-                "low" if reason is GridReason.STOP_LOSS else "high",
+                word,
                 extreme,
                 threshold,
             )
@@ -188,3 +191,27 @@ class GridPriceReaction:
         elif (detail := age.stale_detail()) is not None:
             age.arm()
             halt_with(state, GridReason.PRICE_FEED_STALE, detail)
+
+
+def _wick_of(
+    reason: GridReason,
+    direction: TradeDirection,
+    low: Decimal,
+    high: Decimal,
+    stop: Decimal | None,
+    take: Decimal | None,
+) -> tuple[str, Decimal, Decimal | None]:
+    """Which extreme of the beat reached the exit that fired, and the exit's price: a stop loss
+    is reached by the low for a LONG grid and by the high for a SHORT one, a take profit by the
+    other (`EPIC-039I`)."""
+    stop_hit = reason is GridReason.STOP_LOSS
+    by_low = stop_hit is (direction is not TradeDirection.SHORT)
+    return (
+        ("low", low, stop if stop_hit else take)
+        if by_low
+        else (
+            "high",
+            high,
+            stop if stop_hit else take,
+        )
+    )

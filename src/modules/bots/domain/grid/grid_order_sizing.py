@@ -150,6 +150,25 @@ def smallest_order(plan: GridPlan, terms: ExchangeTerms) -> SizedOrder | None:
     return min(sized_orders(plan, terms), key=lambda o: o.notional, default=None)
 
 
+def largest_order(plan: GridPlan, terms: ExchangeTerms) -> SizedOrder | None:
+    """The order of most worth that `plan` sends, or `None` for a plan with none."""
+    return max(sized_orders(plan, terms), key=lambda o: o.notional, default=None)
+
+
+def find_cap_breach(plan: GridPlan, terms: ExchangeTerms) -> SizedOrder | None:
+    """The largest order when it is worth more than trading's per-order cap, which trading would
+    reject (`EPIC-039I`: a position ladder's orders all carry the quantity sized at the highest
+    level, and any level may hold one). The pre-start check and the start sequence both ask this.
+    `None` for an equal-capital (Spot) ladder, whose orders are each at most their share of the
+    capital and which no cap check of the start ever judged."""
+    if plan.level_sizing is not LevelSizing.EQUAL_QUANTITY:
+        return None
+    largest = largest_order(plan, terms)
+    if largest is None or largest.notional <= terms.max_notional_per_order:
+        return None
+    return largest
+
+
 def find_breach(
     params: GridParams, plan: GridPlan, terms: ExchangeTerms
 ) -> MinimumBreach | None:

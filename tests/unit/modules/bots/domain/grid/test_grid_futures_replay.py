@@ -258,16 +258,29 @@ def test_a_stop_loss_closes_the_position_at_market_and_ends_the_run() -> None:
     assert {state for _, state in result.final_states} == {LevelState.EMPTY}
 
 
-def test_a_take_profit_closes_a_short_at_market_too() -> None:
-    config = position_config("SHORT", leverage=2, take_profit="percent:5")
+def test_a_stop_loss_closes_a_short_at_market_above_the_range() -> None:
+    config = position_config("SHORT", leverage=2, stop_loss="percent:5")
     bars = [_QUIET[0], bar(1, "65000", "74000", "64900", "73800")]
 
     result = replay(bars, config)
 
-    assert result.stop_reason is StopReason.TAKE_PROFIT
+    assert result.stop_reason is StopReason.STOP_LOSS
     assert _futures(result).final_position == 0
     assert result.fills[-1].side is OrderSide.BUY
-    assert result.fills[-1].price == D("73500")
+    assert result.fills[-1].price == D("73500")  # 5 % above the 70,000 upper edge
+
+
+def test_a_take_profit_closes_a_short_at_market_below_the_range() -> None:
+    config = position_config("SHORT", leverage=2, take_profit="percent:5")
+    bars = [_QUIET[0], bar(1, "65000", "65100", "56000", "56500")]
+
+    result = replay(bars, config)
+
+    # 57,000 is 5 % below the 60,000 lower edge: the fall covers every reduce-only BUY on the way,
+    # so the run ends flat and the take profit has nothing left to close.
+    assert result.stop_reason is StopReason.TAKE_PROFIT
+    assert _futures(result).final_position == 0
+    assert {f.side for f in result.fills if f.label != "Open"} == {OrderSide.BUY}
 
 
 def test_the_candles_one_second_klines_order_what_the_replay_fills() -> None:

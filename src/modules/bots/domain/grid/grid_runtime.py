@@ -14,8 +14,10 @@ compares this record's inventory with that derivation (`INVENTORY_MISMATCH`).
   · **`buy_quantity`** is what a BUY at the level buys: its share of the
     capital at its own price, rounded down to the step. Every level has one,
     because a SELL level becomes a BUY level when the price comes back.
-  · **`paired_buy_price`** on a SELL says what its base cost at the level
-    below, so the completed cycle's profit is booked once, when it sells.
+  · **`paired_buy_price`** on a completing order says what the cycle's entry traded at, so
+    the completed cycle's profit is booked once, when it completes: a SELL that pairs the buy
+    below it, or (a SHORT grid, `EPIC-039I`) a BUY that pairs the sell above it. The name is the
+    stored key of the Spot-first design; the price is the *entry's*.
   · **`held`** are the counter orders a pause kept back; resume places them.
 """
 
@@ -239,6 +241,11 @@ class GridRuntime:
     #: choice, or forced by a stop loss or take profit) or keep it. Kept so a
     #: stop that waits through a switch-off or a restart finishes as asked.
     sell_base_on_stop: bool = False
+    #: `EPIC-039I` - the side whose fills open a cycle: BUY for Spot and a LONG grid, SELL for a
+    #: SHORT grid. The other side completes the cycle (and books its profit). `inventory` is
+    #: signed on a position venue: negative is a short position, and `cost` is then the proceeds
+    #: of what is held (the magnitude), so `average_cost` is the average entry either way.
+    entry_side: OrderSide = OrderSide.BUY
 
     def level_of(self, client_order_id: str) -> RuntimeLevel | None:
         for level in self.levels:
@@ -284,4 +291,4 @@ class GridRuntime:
 
     @property
     def average_cost(self) -> Decimal | None:
-        return self.cost / self.inventory if self.inventory > 0 else None
+        return self.cost / abs(self.inventory) if self.inventory != 0 else None
