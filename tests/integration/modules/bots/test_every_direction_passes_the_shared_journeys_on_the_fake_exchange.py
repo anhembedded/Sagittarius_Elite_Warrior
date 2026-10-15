@@ -297,6 +297,27 @@ def test_a_position_added_by_hand_halts_the_recovery_and_only_the_bots_own_is_cl
 
 
 @every_direction
+def test_an_order_worth_more_than_tradings_cap_is_caught_in_the_plan_not_at_start(
+    futures: FakeExchange, scenario: DirectionScenario
+) -> None:
+    """900 of margin at 3x gives each of four orders 675 against trading's 500: the Plan's
+    verdict refuses, so Start is refused in the Plan's words and nothing is sent. (The start
+    sequence's own guard, for a plan that reaches it anyway, is a unit test:
+    `test_grid_start_cap.py`.)"""
+    config = {**scenario.config, "capital_quote": "900"}
+    with booted_futures_bots(futures) as app:
+        bot_id = _created(app, config)
+
+        started = _start(app, bot_id)
+
+        assert not started.accepted
+        assert "cap" in started.message
+        assert app.position() == 0
+        assert app.resting() == {}
+        assert app.bot(bot_id).state is S.DRAFT
+
+
+@every_direction
 def test_a_flat_bot_beside_a_position_by_hand_halts_and_stops_leaving_it_open(
     futures: FakeExchange, scenario: DirectionScenario
 ) -> None:

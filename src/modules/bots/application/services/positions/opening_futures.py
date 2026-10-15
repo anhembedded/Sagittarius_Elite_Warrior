@@ -48,17 +48,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy imp
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
-    find_breach,
-    find_cap_breach,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     base_slices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
-    BUDGET_QUOTE_ASSET,
     OwnerBudgetRefusal,
 )
 
@@ -74,39 +69,12 @@ class PositionOpening(IOpeningStrategy):
         self._housekeeping = GridHousekeeping(context)
 
     def open(self, plan: GridPlan) -> OpeningResult:
-        detail = self._sizing_breach(plan)
-        if detail is not None:
-            logger.warning(
-                "Bot %s: an order of the ladder breaks the exchange's filters: %s "
-                "[order-breach]",
-                self._context.state.bot_id,
-                detail,
-            )
-            return self._refuse(
-                detail, "an order of the ladder would be refused by the exchange"
-            )
         refusal = self._checks.refusal(plan)
         if refusal is not None:
             return self._refuse(refusal, "the start was refused")
         if self._open_position(plan) and self._count_opening(plan):
             return OpeningResult(plan)
         return OpeningResult(None)
-
-    def _sizing_breach(self, plan: GridPlan) -> str | None:
-        """The sentence for an order of the ladder the exchange or trading would refuse, judged
-        by `grid_order_sizing`, the function the pre-start checks judge the plan with."""
-        context = self._context
-        minimum = find_breach(context.params, plan, context.terms)
-        if minimum is not None:
-            return minimum.text(context.base_asset, BUDGET_QUOTE_ASSET)
-        cap = find_cap_breach(plan, context.terms)
-        if cap is None:
-            return None
-        return (
-            f"the {cap.label} order is worth {cap.notional:.2f} {BUDGET_QUOTE_ASSET}, above "
-            f"trading's cap of {context.terms.max_notional_per_order} per order; use fewer grids "
-            "or a smaller capital"
-        )
 
     def _refuse(self, detail: str, what: str) -> OpeningResult:
         fail_with(
