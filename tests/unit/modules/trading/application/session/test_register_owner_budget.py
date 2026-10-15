@@ -283,7 +283,7 @@ def _filling_while_open_orders_are_read(
     """The venue's stream reports a fill of `order` while the handler reads
     the open orders: after the history read, before the book is installed."""
 
-    def read() -> list[Order]:
+    def read(symbol: str | None = None) -> list[Order]:
         fill = (Decimal(50000), order.quantity)
         state.owner_books.apply_fill(order, fill, None, trade_id)
         return []

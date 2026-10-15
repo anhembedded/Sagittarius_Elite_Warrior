@@ -296,9 +296,8 @@ class BotOrderGateway:
         """The account's open orders on the bot's symbol that carry its tag."""
         return tuple(
             order
-            for order in self._ports.account_activity.open_orders()
-            if order.symbol == self._identity.symbol
-            and tag_of(order.client_order_id) == self._identity.tag
+            for order in self._ports.account_activity.open_orders(self._identity.symbol)
+            if tag_of(order.client_order_id) == self._identity.tag
         )
 
     def _request(

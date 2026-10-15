@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
     FuturesTradingClientFactory,
 )
@@ -18,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
@@ -143,6 +148,31 @@ class TestSafetyGates:
         handler = _handler(status=bad_status)
         result = handler.execute(_cancel())
         assert result.blocked_by is ExecuteOrderSafetyGate.CONNECTION_NOT_READY
+
+    def test_a_cancel_met_by_the_exchanges_pause_raises_the_pause_not_a_gate(
+        self,
+    ) -> None:
+        """`BUG-216` - the pause is neither "trading is off" nor "the connection is not
+        ready": the key and the network are fine. It is told as a rejected submit tells
+        it, so a bot waits `retry_after` where `CONNECTION_NOT_READY` would have stopped it."""
+        paused = ExchangeConnectionStatus(
+            venue=TradingVenue.FUTURES_TESTNET,
+            reachable=False,
+            failure=ConnectionFailureKind.RATE_LIMITED,
+            server_time_skew_ms=None,
+            usdt_balance=None,
+            position_mode=None,
+            margin_type=None,
+            open_position_count=None,
+            retry_after=timedelta(seconds=32),
+        )
+        handler = _handler(status=paused)
+
+        with pytest.raises(ExchangeRateLimitedError) as raised:
+            handler.execute(_cancel())
+
+        assert raised.value.retry_after == timedelta(seconds=32)
+        assert raised.value.banned is False
 
     def test_a_rejected_key_is_its_own_gate(self) -> None:
         """`EPIC-035F` — a cancel the exchange would refuse for the key says so."""

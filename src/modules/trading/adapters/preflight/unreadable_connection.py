@@ -53,6 +53,13 @@ _WORDS: dict[ConnectionFailureKind, tuple[str, str]] = {
         "the account is in Hedge Mode",
         "Switch the account to One-way mode.",
     ),
+    ConnectionFailureKind.RATE_LIMITED: (
+        "the exchange asked this host for a pause (a rate limit)",
+        (
+            "Wait for the pause to end and retry; if it recurs, a second process "
+            "is sharing this IP's request weight."
+        ),
+    ),
 }
 
 

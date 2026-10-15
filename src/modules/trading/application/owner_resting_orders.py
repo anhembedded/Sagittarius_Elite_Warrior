@@ -30,7 +30,7 @@ def resting_orders(
     @throws AccountHistoryUnavailableError The venue did not answer."""
     client = scope.ports.client_factory.create(OrderSubmissionMode.VALIDATE_ONLY)
     try:
-        open_orders = client.get_open_orders()
+        open_orders = client.get_open_orders(registration.symbol)
     # Converted at the seam: `ITradingClient` names no exception type, and
     # any failure of this read means the venue did not answer.
     except Exception as exc:

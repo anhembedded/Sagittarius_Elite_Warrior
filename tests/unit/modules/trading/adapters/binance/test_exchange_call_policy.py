@@ -211,9 +211,11 @@ def test_used_weight_near_the_limit_pauses_to_the_end_of_the_minute() -> None:
         wall_seconds=lambda: 600.0 + 45.0,
     )
 
-    policy.note_used_weight(1079)
-    assert world.gate.remaining() == 0.0
-    policy.note_used_weight(1080)
+    policy.note_used_weight(839)
+    assert world.gate.remaining() == 0.0, (
+        "70 % of 1,200 is 840: just under it, no pause"
+    )
+    policy.note_used_weight(840)
 
     assert world.gate.remaining() == pytest.approx(16.0), "15 s left of the minute, +1"
 

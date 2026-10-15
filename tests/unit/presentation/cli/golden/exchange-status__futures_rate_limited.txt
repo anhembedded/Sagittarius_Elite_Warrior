@@ -1,0 +1,2 @@
+Venue: FUTURES_TESTNET   Connection: ✘  RATE_LIMITED
+→ The exchange asked this app to slow down and is not being asked until its pause ends. The key and the network are fine; try again in a minute.

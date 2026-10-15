@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_ord
     CancelOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection_gate import (
-    connection_block,
+    order_connection_block,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
@@ -79,4 +79,4 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
     ) -> ExecuteOrderSafetyGate | None:
         if not scope.session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
-        return connection_block(scope.ports.account_reader.check_connection())
+        return order_connection_block(scope)

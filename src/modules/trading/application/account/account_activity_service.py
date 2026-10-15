@@ -62,8 +62,8 @@ class AccountActivityService(IAccountActivity):
             return None
         return _typed(query, answer, AccountSummary)
 
-    def open_orders(self) -> tuple[Order, ...]:
-        query = GetOpenOrdersQuery(venue=self._venue)
+    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+        query = GetOpenOrdersQuery(venue=self._venue, symbol=symbol)
         return _typed(
             query, self._dispatcher.dispatch(GetOpenOrdersQuery, query), tuple
         )
