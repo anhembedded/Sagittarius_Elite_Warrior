@@ -37,12 +37,17 @@ from __future__ import annotations
 
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice import (
+    Figures,
+    plain,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
     STOP_LOSS_SIDE,
     TAKE_PROFIT_SIDE,
     ExitSide,
     arithmetic_spacing_advice,
     exit_distance_advice,
+    figures_of,
     foreign_orders_advice,
     losing_grids_advice,
     range_atr_advice,
@@ -222,11 +227,21 @@ def check_price_band(inputs: GridCheckInputs) -> Verdict:
     }
     for level in inputs.plan.buy_levels:
         if not lowest_buy <= level.price <= highest_buy:
-            return _outside_band(level.price, "BUY", (lowest_buy, highest_buy), numbers)
+            return _outside_band(
+                figures_of(inputs),
+                level.price,
+                "BUY",
+                (lowest_buy, highest_buy),
+                numbers,
+            )
     for level in inputs.plan.sell_levels:
         if not lowest_sell <= level.price <= highest_sell:
             return _outside_band(
-                level.price, "SELL", (lowest_sell, highest_sell), numbers
+                figures_of(inputs),
+                level.price,
+                "SELL",
+                (lowest_sell, highest_sell),
+                numbers,
             )
     return Verdict(
         OK, "PRICE_BAND", "Every level is inside the venue's price band", numbers
@@ -234,6 +249,7 @@ def check_price_band(inputs: GridCheckInputs) -> Verdict:
 
 
 def _outside_band(
+    figures: Figures,
     price: Decimal,
     side: str,
     allowed: tuple[Decimal, Decimal],
@@ -243,9 +259,9 @@ def _outside_band(
     return Verdict(
         REFUSED,
         "LEVEL_OUTSIDE_PRICE_BAND",
-        f"A {side} level at {price} is outside the {low:f}–{high:f} the exchange "
-        f"accepts for a {side} at the current price {numbers['last_price']}; "
-        "narrow the range",
+        f"A {side} level at {plain(price)} is outside the "
+        f"{plain(low)}–{plain(high)} {figures.unit} the exchange accepts for a {side} at the current "
+        f"price {plain(numbers['last_price'])}; narrow the range",
         {**numbers, "level_price": price},
     )
 
@@ -323,8 +339,8 @@ def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             REFUSED,
             "STOP_LOSS_INSIDE_RANGE",
-            f"The stop loss {stop} is at or above the lower limit {lower}; put it "
-            "below the range",
+            f"The stop loss {plain(stop)} is at or above the lower limit "
+            f"{plain(lower)}; put it below the range",
             {"stop_loss": stop, "lower": lower},
         )
     return _exit_distance(inputs, STOP_LOSS_SIDE, stop, (lower - stop) / lower)
@@ -339,8 +355,8 @@ def check_take_profit(inputs: GridCheckInputs) -> Verdict:
         return Verdict(
             REFUSED,
             "TAKE_PROFIT_INSIDE_RANGE",
-            f"The take profit {target} is at or below the upper limit {upper}; put "
-            "it above the range",
+            f"The take profit {plain(target)} is at or below the upper limit "
+            f"{plain(upper)}; put it above the range",
             {"take_profit": target, "upper": upper},
         )
     return _exit_distance(inputs, TAKE_PROFIT_SIDE, target, (target - upper) / upper)
