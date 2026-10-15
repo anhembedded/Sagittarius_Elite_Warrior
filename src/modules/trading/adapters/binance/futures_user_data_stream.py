@@ -60,6 +60,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_orde
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.managed_user_data_stream import (
     ManagedUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_reading_effects import (
+    apply_positions,
+    settle_from_amount,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_event_parser import (
     ACCOUNT_UPDATE,
     ORDER_TRADE_UPDATE,
@@ -86,7 +90,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_state_reconciler import (
     cross_check_owner_positions,
-    reconcile_position_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
@@ -102,9 +105,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
     ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
-    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -344,25 +344,42 @@ class FuturesUserDataStream(ManagedUserDataStream):
 
         # `EPIC-039D` - a budgeted Futures owner's derived position is checked
         # against the amount **this event** reports, not a later REST read.
-        for symbol, amount in account_update_position_amounts(payload).items():
+        amounts = account_update_position_amounts(payload)
+        for symbol, amount in amounts.items():
             for divergence in cross_check_owner_positions(
                 self._session_state, symbol, amount
             ):
                 self._events.position_diverged(divergence)
 
+        await self._reread_positions(
+            self._trading_client,
+            self._deferred.due_with(account_update_changed_symbols(payload)),
+            amounts,
+        )
+
+    async def _reread_positions(
+        self,
+        client: ITradingClient,
+        symbols: list[str],
+        amounts: dict[str, Decimal],
+    ) -> None:
+        """Read each symbol's position back and apply it; a symbol the pause refuses is
+        kept for the next update, and what the report's amount settles is settled now."""
         generation = self._generation
-        for symbol in self._deferred.due_with(account_update_changed_symbols(payload)):
+        for symbol in symbols:
             # `BOT-145` — off the loop: `get_positions()` blocks on REST I/O.
             # `BUG-094` — re-fenced after the await: `stop()`/`start()` may
             # bump the generation mid-call; a stale handler must not write.
             try:
-                positions = await asyncio.to_thread(
-                    self._trading_client.get_positions, symbol
-                )
+                positions = await asyncio.to_thread(client.get_positions, symbol)
             except ExchangeRateLimitedError:
                 # `BUG-216` — a pause is not the socket's failure: out of the session it
                 # became "connection lost", and the reconnect a reconcile of every bot.
                 self._deferred.defer(symbol)
+                if symbol in amounts:
+                    settle_from_amount(
+                        self._session_state, self._events, symbol, amounts[symbol]
+                    )
                 logger.debug(
                     "ACCOUNT_UPDATE  %s  position re-read waits for the exchange's pause",
                     symbol,
@@ -370,28 +387,4 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 continue
             if generation != self._generation:
                 return
-            self._apply_positions(symbol, positions)
-
-    def _apply_positions(self, symbol: str, positions: list[LivePosition]) -> None:
-        """What the exchange's reading of `symbol`'s position changes here: the session's
-        belief, and the event that says the position moved or closed."""
-        reconcile_position_state(
-            self._session_state, symbol, has_position=bool(positions)
-        )
-        if positions:
-            self._events.position_changed(positions[0])
-            # `BUG-095` — `DEBUG`, same reasoning as the equity line
-            # above: one per changed position, per `ACCOUNT_UPDATE`.
-            logger.debug(
-                "ACCOUNT_UPDATE  %s  pos %s  entry %s  uPnL %s",
-                symbol,
-                positions[0].position_amt,
-                positions[0].entry_price,
-                positions[0].unrealized_pnl,
-            )
-        else:
-            # `BUG-086` — closing is a real change, carried by a dedicated
-            # event: `LivePosition` forbids `position_amt == 0`, so
-            # `PositionChangedEvent` cannot. `BUG-095` — `DEBUG` as above.
-            self._events.position_closed(symbol)
-            logger.debug("ACCOUNT_UPDATE  %s  position closed", symbol)
+            apply_positions(self._session_state, self._events, symbol, positions)

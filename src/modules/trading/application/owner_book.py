@@ -122,6 +122,9 @@ class OwnerBook(IOwnerBook):
     def held_position(self) -> OwnerPosition | None:
         return None
 
+    def agrees_with_last_report(self) -> bool:
+        return False
+
     def cross_check(self, exchange_quantity: Decimal) -> PositionDivergence | None:
         """Spot has no position to compare: its inventory is checked against
         the venue's history when it is derived."""

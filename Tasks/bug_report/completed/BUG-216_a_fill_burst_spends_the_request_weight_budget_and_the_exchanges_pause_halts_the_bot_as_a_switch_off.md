@@ -62,7 +62,5 @@ Regression tests red on the original `src/` and green after (above). Commit tier
 
 Unverified: the owner's exact ~2,170 (the fake reproduces the shape, not the figure: the owner's UI polls and the testnet's report order are not modelled), and anything on the real Futures Testnet. A soak on the testnet is `EPIC-039L`'s.
 
-## Second part (not in this change)
-A re-read the pause deferred (`DeferredRereads`) waits for the next `ACCOUNT_UPDATE` and has no timer of its own, so `known_open_symbols` and the desk's position event can stay stale until then (conservative both ways: an order sent always marks its symbol open). Closing that gap depends on this part: settling from the stream payload without REST.
-
-Settle the `ORDER_TRADE_UPDATE` / `ACCOUNT_UPDATE` ordering without REST: the re-read compares the in-memory book with the stream's latest figure before it registers the budget again, so a transient ordering gap costs no weight at all. Listed as open in `EPIC-039L`; this log is evidence for it.
+## Second part
+Done in [BUG-219](BUG-219_the_watchs_re_read_registers_the_budget_again_for_a_gap_the_stream_had_already_closed.md): the watch's re-read compares the book with the stream's last figure before it registers the budget again, and a re-read the pause deferred leaves no stale belief for what the payload's amount settles.

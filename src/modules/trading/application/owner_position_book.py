@@ -178,6 +178,13 @@ class OwnerPositionBook(IOwnerBook):
     def held_position(self) -> OwnerPosition | None:
         return self._position
 
+    def agrees_with_last_report(self) -> bool:
+        reported = self._last_exchange
+        return (
+            reported is not None
+            and abs(reported - self._position.quantity) <= self._step
+        )
+
     def cross_check(self, exchange_quantity: Decimal) -> PositionDivergence | None:
         derived = self._position.quantity
         moved_unordered = (

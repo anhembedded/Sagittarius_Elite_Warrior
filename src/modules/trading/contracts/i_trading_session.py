@@ -186,6 +186,19 @@ class ITradingSession(ABC):
         """
 
     @abstractmethod
+    def owner_position_agrees_with_the_stream(self, owner_id: str, tag: str) -> bool:
+        """`BUG-216` - whether `owner_id`'s Futures book holds the position the exchange's
+        stream last reported for it.
+
+        @details Local and pure (no exchange round trip, nothing changed). A report of the
+        account can outrun the report of the fill that explains it, and the book then differs
+        from the exchange for the seconds between the two; this answers whether that gap has
+        closed, which a caller otherwise learns by registering the budget again (several
+        weighted reads). `False` means "not known to agree", never "known to differ": no figure
+        reported yet, a different figure, a Spot book, an owner with no budget.
+        """
+
+    @abstractmethod
     def earlier_runs_inventory(
         self, request: EarlierRunsRequest
     ) -> EarlierRunsInventory:

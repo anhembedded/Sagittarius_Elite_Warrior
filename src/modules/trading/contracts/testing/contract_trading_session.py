@@ -255,6 +255,11 @@ class OwnerBudgetContract:
     ) -> None:
         impl.clear_owner_budget("nobody")
 
+    def test_an_owner_with_no_budget_is_not_known_to_agree_with_the_stream(
+        self, impl: ITradingSession
+    ) -> None:
+        assert impl.owner_position_agrees_with_the_stream("nobody", "ffffff") is False
+
     def test_nobody_holds_a_symbol_nobody_claimed(self, impl: ITradingSession) -> None:
         assert impl.lease_holder("BTCUSDT") is None
 
