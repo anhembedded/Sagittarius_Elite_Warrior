@@ -158,8 +158,11 @@ def largest_order(plan: GridPlan, terms: ExchangeTerms) -> SizedOrder | None:
 def find_cap_breach(plan: GridPlan, terms: ExchangeTerms) -> SizedOrder | None:
     """The largest order when it is worth more than trading's per-order cap, which trading would
     reject (`EPIC-039I`: a position ladder's orders all carry the quantity sized at the highest
-    level, and any level may hold one). The pre-start check and the position venue's opening
-    both ask this."""
+    level, and any level may hold one). The pre-start check and the start sequence both ask this.
+    `None` for an equal-capital (Spot) ladder, whose orders are each at most their share of the
+    capital and which no cap check of the start ever judged."""
+    if plan.level_sizing is not LevelSizing.EQUAL_QUANTITY:
+        return None
     largest = largest_order(plan, terms)
     if largest is None or largest.notional <= terms.max_notional_per_order:
         return None
