@@ -4,7 +4,7 @@
 about a minute, set off by the price crossing three levels back and forth, and the exchange banned
 the IP (`-1003`). The fake exchange charges every request its Binance weight (`WeightMeter`) and
 reports the minute's total in `X-MBX-USED-WEIGHT-1M`, as the exchange does, so what a journey
-costs is a figure a test can bound. Measured before the fix, a burst of 12 fills cost 1,038:
+costs is a figure a test can bound. Measured before the fix, a burst of 12 fills cost 948:
 720 of it `positionSide/dual` (30 a read), read by the connection check that gates every order and
 every cancel; a reconcile or a re-read added 80 for two unfiltered open-orders reads.
 

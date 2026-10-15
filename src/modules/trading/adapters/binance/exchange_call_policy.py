@@ -108,18 +108,21 @@ class ExchangeCallPolicy:
     def note_used_weight(self, used: int) -> None:
         if used < self._weight_limit * SOFT_WEIGHT_RATIO:
             return
-        if self._gate.remaining() > 0:
-            # Answers still in flight when the gate closed: the pause is already told.
+        into_minute = self._wall_seconds() % _SECONDS_PER_MINUTE
+        pause = _SECONDS_PER_MINUTE - into_minute + 1.0
+        # Always to the minute's end: a shorter pause already running (`-1015` is 10 s) must
+        # not let the gate reopen inside a minute at 70 % or more. `block` keeps the longer.
+        # Only the telling is skipped when a pause is already told (answers in flight).
+        began = self._gate.remaining() <= 0
+        self._gate.block(pause)
+        if began:
+            self._announce_pause_began(
+                f"Used weight {used} of {self._weight_limit}", pause, "rate-limit-soft"
+            )
+        else:
             logger.debug(
                 "Used weight %d of %d, inside a pause", used, self._weight_limit
             )
-            return
-        into_minute = self._wall_seconds() % _SECONDS_PER_MINUTE
-        pause = _SECONDS_PER_MINUTE - into_minute + 1.0
-        self._gate.block(pause)
-        self._announce_pause_began(
-            f"Used weight {used} of {self._weight_limit}", pause, "rate-limit-soft"
-        )
 
     def _run(self, call: Callable[[], T], delays: tuple[float, ...]) -> T:
         retries = iter(delays)

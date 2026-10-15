@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_orde
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    PositionModeMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -46,7 +49,9 @@ class FuturesTradingClientFactory(ITradingClientFactory):
         session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
+        position_mode: PositionModeMemory | None = None,
     ) -> None:
+        self._position_mode = position_mode
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
@@ -60,4 +65,5 @@ class FuturesTradingClientFactory(ITradingClientFactory):
             self._credentials_provider,
             self._metadata_provider,
             mode,
+            self._position_mode,
         )

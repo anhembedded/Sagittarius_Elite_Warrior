@@ -40,6 +40,10 @@ RATE_LIMIT_CODES = frozenset({RATE_LIMIT_CODE, ORDER_COUNT_CODE})
 HTTP_RATE_LIMITED = 429
 HTTP_BANNED = 418
 
+#: `-4061`: the order's `positionSide` does not match the account's mode (an order sent as
+#: One-way, `BOTH`, to an account that is in Hedge mode now).
+POSITION_SIDE_MISMATCH_CODE = -4061
+
 #: The tag the text of every call refused by the exchange's pause ends with, so a log line that
 #: carries the exception's words can tell "refused by the pause" from a real failure without
 #: parsing prose (`BUG-216`).

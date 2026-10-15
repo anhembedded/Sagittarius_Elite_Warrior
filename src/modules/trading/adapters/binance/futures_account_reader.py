@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_failure import (
     rate_limit_pause_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    PositionModeMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AssetMode,
     FuturesAccountSummary,
@@ -85,13 +88,6 @@ _USDT_ASSET = "USDT"
 
 #: How long a read Multi-Assets mode is trusted before it is read again.
 ASSET_MODE_TTL_SECONDS = 300.0
-#: `BUG-216`: how long a One-way position mode is trusted before it is read again. It weighs 30
-#: like the asset mode, and the check runs per order, per cancel, per fill's summary refresh and
-#: every few seconds besides: 81 % of the weight of a check (37), the largest single spender of
-#: the owner's 2026-10-15 minute. The app never changes the mode; the user does, on the
-#: exchange, and a gate that answers late says so with an order the exchange refuses by name. A
-#: minute bounds that window; a Hedge mode is never kept, so the switch back shows at once.
-POSITION_MODE_TTL_SECONDS = 60.0
 
 #: What reading the Multi-Assets mode can raise: the SDK, the network, or an
 #: answer of another shape.
@@ -206,6 +202,7 @@ class FuturesAccountReader(ITradingAccountReader):
         credentials_provider: IExchangeCredentialsProvider,
         clock: Callable[[], float] = time.monotonic,
         venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
+        position_mode: PositionModeMemory | None = None,
     ) -> None:
         """@param venue The Futures venue this reader reads; the factory it is
         given opens that venue's sessions (`EPIC-034` D11)."""
@@ -216,8 +213,8 @@ class FuturesAccountReader(ITradingAccountReader):
         #: `EPIC-028O` — the last mode read and when; a failed read is never
         #: cached.
         self._asset_mode_read: tuple[AssetMode, float] | None = None
-        #: `BUG-216` - when a One-way answer was last read; Hedge and a failed read are never kept.
-        self._one_way_read_at: float | None = None
+        #: `BUG-216` - the One-way answer kept for a minute, shared with the order path.
+        self._position_mode = position_mode or PositionModeMemory(clock)
         #: `EPIC-028D` — whether the current run of unreadable summaries has
         #: been reported. The account is read every few seconds; a USDT
         #: asset that lacks a figure for good is one WARNING, not one per
@@ -327,14 +324,15 @@ class FuturesAccountReader(ITradingAccountReader):
         return summary
 
     def _is_hedge_mode(self, client: ITradingSessionClient) -> bool:
-        """Whether the account is in Hedge Mode: a One-way answer read at most
-        `POSITION_MODE_TTL_SECONDS` ago is reused, anything else is read now."""
-        now = self._clock()
-        read_at = self._one_way_read_at
-        if read_at is not None and 0 <= now - read_at < POSITION_MODE_TTL_SECONDS:
+        """Whether the account is in Hedge Mode: a One-way answer kept by
+        `PositionModeMemory` is reused, anything else is read now."""
+        if self._position_mode.one_way_is_current():
             return False
         hedge = bool(client.futures_get_position_mode().get("dualSidePosition"))
-        self._one_way_read_at = None if hedge else now
+        if hedge:
+            self._position_mode.forget()
+        else:
+            self._position_mode.remember_one_way()
         return hedge
 
     def _asset_mode(self, client: ITradingSessionClient) -> AssetMode:

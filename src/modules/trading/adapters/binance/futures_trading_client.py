@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_send_f
     raise_for_failed_send,
     raise_rejection,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    PositionModeMemory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
     RateLimitedApiException,
     contract_error_of,
@@ -83,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    POSITION_SIDE_MISMATCH_CODE,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
@@ -109,7 +115,9 @@ class FuturesTradingClient(ITradingClient):
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
         submission_mode: OrderSubmissionMode,
+        position_mode: PositionModeMemory | None = None,
     ) -> None:
+        self._position_mode = position_mode
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
@@ -143,8 +151,19 @@ class FuturesTradingClient(ITradingClient):
                 return order
             response = client.futures_create_order(**params)
         except SEND_FAILURES as exc:
+            self._forget_a_mode_the_exchange_refused(exc)
             raise_for_failed_send(order, exc, live=self._is_live)
         return as_accepted(order, response)
+
+    def _forget_a_mode_the_exchange_refused(self, exc: Exception) -> None:
+        """`BUG-216`: `-4061` says the account is not One-way any more; the next
+        connection check must read the mode, not trust the minute's memory."""
+        refused = (
+            isinstance(exc, BinanceAPIException)
+            and exc.code == POSITION_SIDE_MISMATCH_CODE
+        )
+        if refused and self._position_mode is not None:
+            self._position_mode.forget()
 
     def find_order(self, symbol: str, client_order_id: str) -> Order | None:
         """@details A regular order by `origClientOrderId`; an id that is not
@@ -243,6 +262,7 @@ class FuturesTradingClient(ITradingClient):
         try:
             client.futures_create_algo_order(**params)
         except SEND_FAILURES as exc:
+            self._forget_a_mode_the_exchange_refused(exc)
             raise_for_failed_send(order, exc, live=True)
 
     @staticmethod

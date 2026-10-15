@@ -148,7 +148,7 @@ def named_failure_kind(exc: BaseException) -> ConnectionFailureKind | None:
     if is_non_json_answer(exc):
         return ConnectionFailureKind.MAINTENANCE
     if isinstance(exc, BinanceAPIException):
-        if getattr(exc, "status_code", None) in (HTTP_RATE_LIMITED, HTTP_BANNED):
+        if exc.status_code in (HTTP_RATE_LIMITED, HTTP_BANNED):
             return ConnectionFailureKind.RATE_LIMITED
         return _ERROR_CODE_TO_FAILURE_KIND.get(exc.code)
     return None

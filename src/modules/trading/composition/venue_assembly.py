@@ -2,17 +2,14 @@
 
 @details Absorbs the `TradingVenue` branches `adapter_bindings.py` carried one
 per port (`EPIC-027G`–`027L`). Each part is built on first use and cached, so
-asking for one venue's metadata provider never builds its user data stream —
-and never resolves `IEventBus`/`ITaskManager`, which a caller that only wants
-rounding rules may not have bound (a Spot client factory resolves the bus: it
-reports fills through it, `BOT-173`).
+asking for one venue's metadata provider never builds its user data stream or
+resolves `IEventBus`/`ITaskManager` (a Spot client factory resolves the bus:
+it reports fills through it, `BOT-173`).
 
-Everything a venue owns is its own: credentials for its own env-var pair, its
-own metadata cache (a Futures and a Spot `BTCUSDT` are different
-instruments), its own `TradingSessionState` and `EquityCurveRecorder` wired
-into its own user data stream (the state itself is owned by
-`VenueSessionStates`, `EPIC-028B`). `DISABLED` builds the Futures-shaped read-only
-adapters the process has always bound while trading is off.
+Everything a venue owns is its own: credentials, metadata cache (a Futures and
+a Spot `BTCUSDT` are different instruments), `TradingSessionState` and
+`EquityCurveRecorder` (owned by `VenueSessionStates`, `EPIC-028B`).
+`DISABLED` builds the Futures-shaped read-only adapters.
 """
 
 from __future__ import annotations
@@ -71,6 +68,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.api_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.key_gated_credentials import (
     KeyGatedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    PositionModeMemory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
@@ -177,9 +177,8 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 @dataclass(frozen=True)
 class SharedVenueInputs:
-    """What every venue's assembly shares: the stateless session factories,
-    the secrets-file path and the registry that owns each venue's session
-    state. The container is only asked for `IEventBus`/`ITaskManager`, and
+    """What every venue's assembly shares: the secrets-file path and the registry
+    of session states. The container is asked for `IEventBus`/`ITaskManager`
     only when a user data stream is built."""
 
     container: IContainer
@@ -209,10 +208,12 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def _futures_sessions(self) -> FuturesSessionFactory:
-        """This venue's own session factory (`EPIC-034` D11): the venue is what
-        tells it which exchange to open sessions on, so Futures Testnet and
-        Futures Mainnet are this class with one argument different."""
+        """This venue's own session factory (`EPIC-034` D11)."""
         return FuturesSessionFactory(self._venue)
+
+    @LockedCachedProperty
+    def _position_mode(self) -> PositionModeMemory:
+        return PositionModeMemory()
 
     @LockedCachedProperty
     def _spot_sessions(self) -> SpotSessionFactory:
@@ -220,11 +221,10 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def credentials_provider(self) -> IExchangeCredentialsProvider:
-        """The venue's stored key, as it is: what Options saves to and what the
-        desk asks "is there a key" of. Adapters resolve `order_credentials`."""
+        """The venue's stored key, as it is (Options saves it); adapters resolve
+        `order_credentials`."""
         if self._venue.is_mainnet:
-            # `EPIC-034` D10/D11 — a real-money secret is never in a file the app
-            # owns; `EPIC-038E` — it comes from the stores in their one order.
+            # `EPIC-034` D10/D11, `EPIC-038E` — a real-money secret is never in a file.
             return MainnetCredentialsProvider(self._shared.secret_store, self._venue)
         return EnvFirstCredentialsProvider(
             SecretsFileSource(self._shared.secrets_file_path), self._venue
@@ -241,9 +241,8 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def order_credentials(self) -> IExchangeCredentialsProvider:
-        """What every adapter of this venue resolves its key from: the stored
-        key, and on a mainnet venue only while the key gate accepts it, so no
-        read and no order goes out on a key that can withdraw."""
+        """What every adapter resolves its key from: the stored key, and on
+        mainnet only while the key gate accepts it."""
         gate = self.key_gate
         if gate is None:
             return self.credentials_provider
@@ -270,7 +269,10 @@ class VenueAssembly:
             )
             if self._is_spot
             else FuturesTradingClientFactory(
-                self._futures_sessions, self.order_credentials, self.metadata_provider
+                self._futures_sessions,
+                self.order_credentials,
+                self.metadata_provider,
+                self._position_mode,
             )
         )
         return guarded_client_factory(factory, self._shared.instance)
@@ -282,13 +284,15 @@ class VenueAssembly:
                 self._spot_sessions, self.order_credentials, self._venue
             )
         return FuturesAccountReader(
-            self._futures_sessions, self.order_credentials, venue=self._venue
+            self._futures_sessions,
+            self.order_credentials,
+            venue=self._venue,
+            position_mode=self._position_mode,
         )
 
     @LockedCachedProperty
     def history_reader(self) -> IAccountHistoryReader:
-        # `EPIC-028Q` — paging re-reads the whole span; the cache bounds the
-        # request weight that costs.
+        # `EPIC-028Q` — the cache bounds the weight of re-reading a span.
         if self._is_spot:
             return CachedAccountHistoryReader(
                 SpotHistoryReader(
@@ -311,9 +315,7 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def account_control(self) -> IFuturesAccountControl | None:
-        """`EPIC-028F` — Spot has no leverage or margin mode, so it has no
-        control; `DISABLED` keeps the Futures shape it has always had, and the
-        handlers refuse it before reaching here."""
+        """`EPIC-028F` — Spot has no leverage or margin mode, so no control."""
         if self._is_spot:
             return None
         return guarded_account_control(
@@ -329,8 +331,7 @@ class VenueAssembly:
 
     @LockedCachedProperty
     def mark_price_reader(self) -> IMarkPriceReader | None:
-        """`EPIC-028O` — Spot has no mark price, so it has no reader, as it
-        has no `account_control`."""
+        """`EPIC-028O` — Spot has no mark price, so no reader."""
         if self._is_spot:
             return None
         return FuturesMarkPriceReader(self._futures_sessions)
@@ -343,8 +344,7 @@ class VenueAssembly:
 
     @property
     def session_state(self) -> TradingSessionState:
-        """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
-        act on this venue and its user data stream share one object."""
+        """Owned by `VenueSessionStates` (`EPIC-028B`), shared with the stream."""
         return self._shared.session_states.session_state(self._venue)
 
     @property

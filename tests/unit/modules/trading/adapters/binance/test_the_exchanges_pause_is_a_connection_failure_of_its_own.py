@@ -21,8 +21,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
     classify_connection_failure,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
-    POSITION_MODE_TTL_SECONDS,
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
+    TTL_SECONDS as POSITION_MODE_TTL_SECONDS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.rate_limited_api_exception import (
     RateLimitedApiException,
