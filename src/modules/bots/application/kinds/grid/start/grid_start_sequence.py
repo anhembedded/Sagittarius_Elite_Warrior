@@ -1,5 +1,8 @@
 """`EPIC-029E` / `EPIC-039H` — the start of a Grid: the opening, then the ladder (ADR §3.1, §3.4).
 
+  0. **Before anything is bought**, the ladder the opening will feed is sized and judged against
+     the exchange's minimum by `grid_order_sizing`, the function the pre-start check judges
+     with (`BUG-212`): an order under it refuses the start with nothing spent.
   1. **The opening** is the venue profile's (`IOpeningStrategy`): Spot buys the base the SELL
      levels will sell and sizes them net of the fee (`opening_spot.py`); a position venue
      opens its signed quantity (`opening_futures.py`). Either way the exchange's own record of
@@ -35,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     OrderOutcome,
+    OrderOutcomeKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy import (
     IOpeningStrategy,
@@ -49,6 +53,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
     runtime_from_plan,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_order_sizing import (
+    find_breach,
+    smallest_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     PlaceOrder,
@@ -57,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerInventory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    BUDGET_QUOTE_ASSET,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -78,10 +89,47 @@ class GridStartSequence:
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""
         state = self._context.state
+        if not self._ladder_is_placeable(plan):
+            return
         state.update(runtime_from_plan(plan, self._context.terms.step_size))
         opened = self._opening.open(plan)
         if opened.ladder is not None and self._place_ladder(opened.ladder):
             state.transition(BotLifecycleEvent.LADDER_READY)
+
+    def _ladder_is_placeable(self, plan: GridPlan) -> bool:
+        """Refuse the start, before any opening buy, when an order of the ladder it would lay
+        is under the exchange's minimum (`BUG-212`). The orders are sized by
+        `grid_order_sizing`, the function the pre-start check judges with."""
+        context = self._context
+        terms = context.terms
+        bot_id = context.state.bot_id
+        breach = find_breach(context.params, plan, terms)
+        smallest = smallest_order(plan, terms)
+        if breach is None:
+            if smallest is not None:
+                logger.info(
+                    "Bot %s: ladder sized, smallest order %s %s x %s = %s (minimum %s) "
+                    "[ladder-sizing]",
+                    bot_id,
+                    smallest.label,
+                    smallest.quantity,
+                    smallest.price,
+                    smallest.notional,
+                    terms.min_notional,
+                )
+            return True
+        detail = breach.text(context.base_asset, BUDGET_QUOTE_ASSET)
+        logger.warning(
+            "Bot %s: start refused before any order, %s [order-below-minimum]",
+            bot_id,
+            detail,
+        )
+        fail_with(
+            context.state,
+            OrderOutcome(OrderOutcomeKind.REFUSED, detail=detail),
+            "the ladder cannot be placed",
+        )
+        return False
 
     def place_ladder(self, plan: GridPlan, inventory: OwnerInventory) -> None:
         """Lay `plan`'s ladder without an opening buy (a confirmed resume, D13).

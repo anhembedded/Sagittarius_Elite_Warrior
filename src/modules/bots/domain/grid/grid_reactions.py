@@ -35,6 +35,9 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fee_netting import (
+    sellable_after_buy,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelEvent,
     LevelState,
@@ -326,8 +329,8 @@ def _counter(
 ) -> PlaceOrder | Halt | None:
     if filled.side is OrderSide.BUY:
         target = index + 1
-        quantity = _ROUNDING.round_quantity_down(
-            filled.total_executed - filled.total_base_fee, step_size
+        quantity = sellable_after_buy(
+            filled.total_executed, filled.total_base_fee, step_size
         )
         fee_quote = filled.quote_fee + filled.total_base_fee * filled.price
         paired: tuple[Decimal | None, Decimal] = (filled.price, fee_quote)
