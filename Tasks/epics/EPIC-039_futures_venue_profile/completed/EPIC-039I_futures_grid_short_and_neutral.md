@@ -1,6 +1,6 @@
 # EPIC-039I — The Futures Grid also runs Short and Neutral
 
-**Status:** 🟡 Both pull requests open — **Short** (first) and **Neutral** (second, stacked on it); moves to `completed/` when the owner merges the second
+**Status:** ✅ Done (2026-10-15) — delivered in two pull requests: Short (#521, `e67189d`) and Neutral (#523, `7c6a27b`)
 **Source:** the owner, 2026-10-10; [DESIGN §5](../DESIGN_2026-10-10_futures_venue_profile.md).
 **Risk:** 🔴 — Short mirrors a Long that has been proven; Neutral has no Spot oracle and a net position that crosses zero
 **Complexity:** L — mostly planner-driven and already tested in 039B; the executor and the guard learn two more cases
@@ -86,4 +86,4 @@ Not done, with the reason: Neutral (second pull request); a resume over a short 
 Verification (physically run): see the pull request. Mutation: with `completes_a_cycle` reading the side for a NEUTRAL runtime, the Neutral cycle journeys go red; reverting the stop's `_may_stop_on` leaves the hand-added-position journey in STOPPING.
 
 ## Resume
-Both pull requests are open. What is left is the owner's: merge Short, then Neutral (retargeted onto `master-warrior`), then move this file to `completed/` with `✅ Done (date)`, and try each on Futures Testnet (desktop, and the headless host with `--start-planned`). A later task: a resume that sizes a short or neutral position, and the Futures backtest's replay of `on_range_exit=close` (039K hand-off) is unchanged.
+Both pull requests are merged. What is left is the owner's: try each direction on Futures Testnet (desktop, and the headless host with `--start-planned`). A later task: a resume that sizes a short or neutral position, and the Futures backtest's replay of `on_range_exit=close` (039K hand-off) is unchanged.
