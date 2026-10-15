@@ -17,14 +17,19 @@ Every request a venue sends passes `run_read` or `run_once`:
     its ban window.
 
 The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
-(`note_used_weight_header`): at 90 % of the venue's per-minute weight the gate
+(`note_used_weight_header`): at 70 % of the venue's per-minute weight the gate
 closes to the end of the minute, before the exchange has to say so.
+
+A pause is told twice and no more (`BUG-216`): one WARNING when it begins, with the instant it
+ends, and one INFO at the first request after it. The calls that meet it in between raise at
+once and say nothing here; what they fail with is theirs to word, at DEBUG when it is the pause.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+import threading
 import time
 from collections.abc import Callable
 from datetime import timedelta
@@ -51,8 +56,12 @@ T = TypeVar("T")
 READ_RETRY_DELAYS_SECONDS: tuple[float, ...] = (0.5, 1.0, 2.0)
 #: Binance's per-minute request weight for a Spot IP; a Futures venue passes 2400.
 SPOT_WEIGHT_LIMIT = 6000
-#: The share of the minute's weight at which the gate closes to the minute's end.
-SOFT_WEIGHT_RATIO = 0.9
+#: The share of the minute's weight at which the gate closes to the minute's end. 70 %, because
+#: the header is read after an answer and a Grid's chains (a register is ~100 weight, a burst of
+#: fills sends several at once) are already in flight when it closes: the owner's gate closed at
+#: 2,168 of 2,400 and the exchange limited the IP in the same second (`BUG-216`). The 30 % left
+#: is ~720 weight of such chains.
+SOFT_WEIGHT_RATIO = 0.7
 _SECONDS_PER_MINUTE = 60.0
 
 
@@ -68,6 +77,10 @@ class ExchangeCallPolicy:
         weight_limit: int = SPOT_WEIGHT_LIMIT,
     ) -> None:
         self._gate = gate
+        self._pause_lock = threading.Lock()
+        #: When the pause last announced is due to end, on the wall clock; `None` once the
+        #: end has been announced (or none began).
+        self._announced_pause_end: float | None = None
         # Resolved at the call, so a test can replace `time.sleep` itself.
         self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
@@ -95,15 +108,18 @@ class ExchangeCallPolicy:
     def note_used_weight(self, used: int) -> None:
         if used < self._weight_limit * SOFT_WEIGHT_RATIO:
             return
+        if self._gate.remaining() > 0:
+            # Answers still in flight when the gate closed: the pause is already told.
+            logger.debug(
+                "Used weight %d of %d, inside a pause", used, self._weight_limit
+            )
+            return
         into_minute = self._wall_seconds() % _SECONDS_PER_MINUTE
         pause = _SECONDS_PER_MINUTE - into_minute + 1.0
-        logger.warning(
-            "Used weight %d of %d: no request for %.0f s [rate-limit-soft]",
-            used,
-            self._weight_limit,
-            pause,
-        )
         self._gate.block(pause)
+        self._announce_pause_began(
+            f"Used weight {used} of {self._weight_limit}", pause, "rate-limit-soft"
+        )
 
     def _run(self, call: Callable[[], T], delays: tuple[float, ...]) -> T:
         retries = iter(delays)
@@ -127,7 +143,9 @@ class ExchangeCallPolicy:
 
     def _raise_if_closed(self) -> None:
         remaining = self._gate.remaining()
-        if remaining > 0:
+        if remaining <= 0:
+            self._announce_pause_ended()
+        else:
             raise RateLimitedApiException(
                 timedelta(seconds=remaining),
                 banned=self._gate.banned,
@@ -139,13 +157,16 @@ class ExchangeCallPolicy:
         self, failure: ExchangeFailure, cause: Exception
     ) -> RateLimitedApiException:
         banned = failure.kind is FailureKind.BANNED
+        began = self._gate.remaining() <= 0
         self._gate.block(failure.pause_seconds, banned=banned)
-        logger.warning(
-            "Exchange %s: no request for %.0f s [rate-limit-%s]",
-            "banned this IP" if banned else "rate-limited the app",
-            failure.pause_seconds,
-            "ban" if banned else "pause",
-        )
+        if began:
+            self._announce_pause_began(
+                "Exchange banned this IP"
+                if banned
+                else "Exchange rate-limited the app",
+                failure.pause_seconds,
+                "rate-limit-ban" if banned else "rate-limit-pause",
+            )
         return RateLimitedApiException(
             timedelta(seconds=failure.pause_seconds),
             banned=banned,
@@ -155,6 +176,29 @@ class ExchangeCallPolicy:
                 f"{math.ceil(failure.pause_seconds)} s"
             ),
         )
+
+    def _announce_pause_began(self, why: str, pause: float, tag: str) -> None:
+        """The one WARNING of a pause, with the instant it ends."""
+        ends = self._wall_seconds() + pause
+        with self._pause_lock:
+            self._announced_pause_end = ends
+        logger.warning(
+            "%s: no request is sent for %.0f s, until %s [%s]",
+            why,
+            pause,
+            time.strftime("%H:%M:%S", time.localtime(ends)),
+            tag,
+        )
+
+    def _announce_pause_ended(self) -> None:
+        """The one INFO after a pause, at the first request that finds the gate open."""
+        with self._pause_lock:
+            ended = self._announced_pause_end
+            self._announced_pause_end = None
+        if ended is not None:
+            logger.info(
+                "The exchange's pause is over: requests resume [rate-limit-end]"
+            )
 
     def _server_now_ms(self) -> int:
         return int(self._wall_seconds() * 1000)

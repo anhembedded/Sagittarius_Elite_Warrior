@@ -51,6 +51,9 @@ from binance import AsyncClient, BinanceSocketManager
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.algo_update_parser import (
     ALGO_UPDATE,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.deferred_rereads import (
+    DeferredRereads,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_updates import (
     FuturesOrderUpdates,
 )
@@ -91,11 +94,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
     ITradingClientFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -173,6 +182,8 @@ class FuturesUserDataStream(ManagedUserDataStream):
         #: the account is flat, so an empty dict is always the correct
         #: starting point, never a stale carryover from a previous session.
         self._unrealized_pnl_by_symbol: dict[str, Decimal] = {}
+        #: `BUG-216` - re-reads the exchange's pause kept from being made.
+        self._deferred = DeferredRereads()
         #: `ORDER_TRADE_UPDATE` and, since `EPIC-028R`, `ALGO_UPDATE`.
         self._order_updates = FuturesOrderUpdates(events)
 
@@ -180,6 +191,7 @@ class FuturesUserDataStream(ManagedUserDataStream):
         # `BUG-092`: a stream is only ever started on a flat account, so an
         # empty dict is the correct starting point.
         self._unrealized_pnl_by_symbol = {}
+        self._deferred.clear()
 
     async def _run_stream(self, token: CancellationToken, generation: int) -> None:
         # Resolved here, not cached at construction time: `EnsureSessionReadyCommand`
@@ -339,32 +351,47 @@ class FuturesUserDataStream(ManagedUserDataStream):
                 self._events.position_diverged(divergence)
 
         generation = self._generation
-        for symbol in account_update_changed_symbols(payload):
+        for symbol in self._deferred.due_with(account_update_changed_symbols(payload)):
             # `BOT-145` — off the loop: `get_positions()` blocks on REST I/O.
             # `BUG-094` — re-fenced after the await: `stop()`/`start()` may
             # bump the generation mid-call; a stale handler must not write.
-            positions = await asyncio.to_thread(
-                self._trading_client.get_positions, symbol
-            )
+            try:
+                positions = await asyncio.to_thread(
+                    self._trading_client.get_positions, symbol
+                )
+            except ExchangeRateLimitedError:
+                # `BUG-216` — a pause is not the socket's failure: out of the session it
+                # became "connection lost", and the reconnect a reconcile of every bot.
+                self._deferred.defer(symbol)
+                logger.debug(
+                    "ACCOUNT_UPDATE  %s  position re-read waits for the exchange's pause",
+                    symbol,
+                )
+                continue
             if generation != self._generation:
                 return
-            reconcile_position_state(
-                self._session_state, symbol, has_position=bool(positions)
+            self._apply_positions(symbol, positions)
+
+    def _apply_positions(self, symbol: str, positions: list[LivePosition]) -> None:
+        """What the exchange's reading of `symbol`'s position changes here: the session's
+        belief, and the event that says the position moved or closed."""
+        reconcile_position_state(
+            self._session_state, symbol, has_position=bool(positions)
+        )
+        if positions:
+            self._events.position_changed(positions[0])
+            # `BUG-095` — `DEBUG`, same reasoning as the equity line
+            # above: one per changed position, per `ACCOUNT_UPDATE`.
+            logger.debug(
+                "ACCOUNT_UPDATE  %s  pos %s  entry %s  uPnL %s",
+                symbol,
+                positions[0].position_amt,
+                positions[0].entry_price,
+                positions[0].unrealized_pnl,
             )
-            if positions:
-                self._events.position_changed(positions[0])
-                # `BUG-095` — `DEBUG`, same reasoning as the equity line
-                # above: one per changed position, per `ACCOUNT_UPDATE`.
-                logger.debug(
-                    "ACCOUNT_UPDATE  %s  pos %s  entry %s  uPnL %s",
-                    symbol,
-                    positions[0].position_amt,
-                    positions[0].entry_price,
-                    positions[0].unrealized_pnl,
-                )
-            else:
-                # `BUG-086` — closing is a real change, carried by a dedicated
-                # event: `LivePosition` forbids `position_amt == 0`, so
-                # `PositionChangedEvent` cannot. `BUG-095` — `DEBUG` as above.
-                self._events.position_closed(symbol)
-                logger.debug("ACCOUNT_UPDATE  %s  position closed", symbol)
+        else:
+            # `BUG-086` — closing is a real change, carried by a dedicated
+            # event: `LivePosition` forbids `position_amt == 0`, so
+            # `PositionChangedEvent` cannot. `BUG-095` — `DEBUG` as above.
+            self._events.position_closed(symbol)
+            logger.debug("ACCOUNT_UPDATE  %s  position closed", symbol)

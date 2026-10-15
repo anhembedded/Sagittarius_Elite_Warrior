@@ -85,6 +85,11 @@ _FAILURE_GUIDANCE = EnumLabels(
             "switch it back under Binance Futures > Settings > Position Mode "
             "on the Binance web/app, then check the connection again."
         ),
+        ConnectionFailureKind.RATE_LIMITED: (
+            "The exchange asked this app to slow down and is not being asked "
+            "until its pause ends. The key and the network are fine; try again "
+            "in a minute."
+        ),
     },
 )
 

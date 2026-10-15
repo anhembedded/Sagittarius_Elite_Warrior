@@ -70,7 +70,11 @@ _UNREAD_REASON = "the account could not be read"
 #: An exchange that does not answer fails every read of the desk at once; each
 #: of the others carries the one bar and its Retry.
 _TOLD_ELSEWHERE = frozenset(
-    {ConnectionFailureKind.NETWORK, ConnectionFailureKind.MAINTENANCE}
+    {
+        ConnectionFailureKind.NETWORK,
+        ConnectionFailureKind.MAINTENANCE,
+        ConnectionFailureKind.RATE_LIMITED,
+    }
 )
 
 

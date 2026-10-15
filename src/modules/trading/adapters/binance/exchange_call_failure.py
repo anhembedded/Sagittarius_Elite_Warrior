@@ -23,13 +23,21 @@ from __future__ import annotations
 
 import math
 import re
+import time
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_failure import (
     is_non_json_answer,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    HTTP_BANNED,
+    HTTP_RATE_LIMITED,
+    ORDER_COUNT_CODE,
+    RATE_LIMIT_CODES,
 )
 
 #: The pause when the exchange rate-limits a request without saying for how long
@@ -43,10 +51,6 @@ DEFAULT_BAN_PAUSE_SECONDS = 120.0
 MAX_PAUSE_SECONDS = 3 * 24 * 3600.0
 
 _BUSY_CODES = frozenset({-1001, -1006, -1007})
-_ORDER_COUNT_CODE = -1015
-_RATE_LIMIT_CODES = frozenset({-1003, _ORDER_COUNT_CODE})
-_HTTP_RATE_LIMITED = 429
-_HTTP_BANNED = 418
 _FIRST_SERVER_ERROR_STATUS = 500
 _BANNED_UNTIL = re.compile(r"banned until (\d{10,})")
 
@@ -65,6 +69,14 @@ class ExchangeFailure:
     kind: FailureKind
     pause_seconds: float = 0.0
 
+    @property
+    def retry_after(self) -> timedelta:
+        return timedelta(seconds=self.pause_seconds)
+
+    @property
+    def banned(self) -> bool:
+        return self.kind is FailureKind.BANNED
+
 
 def classify_exchange_failure(
     exc: BaseException, server_now_ms: int
@@ -78,11 +90,20 @@ def classify_exchange_failure(
     return ExchangeFailure(FailureKind.OTHER)
 
 
+def rate_limit_pause_of(exc: BaseException) -> ExchangeFailure | None:
+    """The pause `exc` names when it is a rate limit or a ban, else `None`: what a
+    connection check files under `ConnectionFailureKind.RATE_LIMITED` (`BUG-216`)."""
+    failure = classify_exchange_failure(exc, int(time.time() * 1000))
+    if failure.kind in (FailureKind.RATE_LIMITED, FailureKind.BANNED):
+        return failure
+    return None
+
+
 def _classify_answer(exc: BinanceAPIException, server_now_ms: int) -> ExchangeFailure:
     status = getattr(exc, "status_code", None)
-    if status == _HTTP_BANNED:
+    if status == HTTP_BANNED:
         return ExchangeFailure(FailureKind.BANNED, _ban_seconds(exc, server_now_ms))
-    if status == _HTTP_RATE_LIMITED or exc.code in _RATE_LIMIT_CODES:
+    if status == HTTP_RATE_LIMITED or exc.code in RATE_LIMIT_CODES:
         return ExchangeFailure(FailureKind.RATE_LIMITED, _limit_seconds(exc))
     if exc.code in _BUSY_CODES or (
         is_non_json_answer(exc) and _is_gateway_status(status)
@@ -99,7 +120,7 @@ def _limit_seconds(exc: BinanceAPIException) -> float:
     stated = _retry_after_seconds(exc)
     if stated is not None:
         return stated
-    if exc.code == _ORDER_COUNT_CODE:
+    if exc.code == ORDER_COUNT_CODE:
         return DEFAULT_ORDER_COUNT_PAUSE_SECONDS
     return DEFAULT_RATE_LIMIT_PAUSE_SECONDS
 

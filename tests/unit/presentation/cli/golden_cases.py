@@ -11,6 +11,7 @@ a `ConnectionFailureKind` added without a golden case fails there.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -77,6 +78,11 @@ def _unreachable(
         position_mode=None,
         margin_type=None,
         open_position_count=None,
+        retry_after=(
+            timedelta(seconds=60)
+            if kind is ConnectionFailureKind.RATE_LIMITED
+            else None
+        ),
     )
 
 

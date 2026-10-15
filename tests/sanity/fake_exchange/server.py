@@ -24,6 +24,7 @@ from urllib.parse import parse_qsl
 
 from .futures_routes import handle as handle_futures
 from .order_book_state import OrderBookState
+from .request_weight import WeightMeter
 from .sapi_routes import ApiRestrictions
 from .sapi_routes import handle as handle_sapi
 from .spot_account_state import SpotAccountState
@@ -118,8 +119,12 @@ class _Handler(BaseHTTPRequestHandler):
     api_restrictions: ApiRestrictions
     keys: KeyPolicy
     faults: FaultPlan
+    #: `BUG-216` — what each request weighs; the minute's total goes back in the
+    #: `X-MBX-USED-WEIGHT-1M` header, as the exchange does.
+    weights: WeightMeter
     #: The fault this request was given, if any (one handler instance per request).
     _fault: FaultAnswer | None = None
+    _used_weight: int = 0
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -148,6 +153,7 @@ class _Handler(BaseHTTPRequestHandler):
         self, method: str, path: str, params: dict[str, str]
     ) -> tuple[int, object] | None:
         self.requests.append((method, path))
+        self._used_weight = self.weights.charge(method, path, params)
         self._fault = self.faults.take(path)
         if self._fault is not None:
             return self._fault.status, self._fault.body
@@ -190,6 +196,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html" if is_page else "application/json")
         self.send_header("Content-Length", str(len(payload)))
+        self.send_header("X-MBX-USED-WEIGHT-1M", str(self._used_weight))
         for name, value in (self._fault.headers if self._fault else {}).items():
             self.send_header(name, value)
         self.end_headers()
@@ -225,6 +232,8 @@ class FakeServerUrls:
     #: `EPIC-035D` — queue wrong answers (a 429 with `Retry-After`, a dropped
     #: connection) for the next requests that match.
     faults: FaultPlan = field(default_factory=FaultPlan)
+    #: `BUG-216` — the weight of every request answered, per path and per minute.
+    weights: WeightMeter = field(default_factory=WeightMeter)
 
 
 @contextmanager
@@ -242,6 +251,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     handler.api_restrictions = ApiRestrictions()
     handler.keys = KeyPolicy()
     handler.faults = FaultPlan()
+    handler.weights = WeightMeter()
     server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -258,6 +268,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             api_restrictions=handler.api_restrictions,
             keys=handler.keys,
             faults=handler.faults,
+            weights=handler.weights,
         )
     finally:
         server.shutdown()

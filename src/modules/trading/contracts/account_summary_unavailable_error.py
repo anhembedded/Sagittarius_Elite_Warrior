@@ -12,6 +12,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+)
 
 
 class AccountSummaryUnavailableError(RuntimeError):
@@ -20,4 +23,9 @@ class AccountSummaryUnavailableError(RuntimeError):
     def __init__(self, failure: ConnectionFailureKind) -> None:
         self.failure = failure
         self.reason = f"the account could not be read ({failure.value})"
-        super().__init__(f"Account summary could not be read: {failure.value}")
+        paused = (
+            f" {EXCHANGE_PAUSE_TAG}"
+            if failure is ConnectionFailureKind.RATE_LIMITED
+            else ""
+        )
+        super().__init__(f"Account summary could not be read: {failure.value}{paused}")

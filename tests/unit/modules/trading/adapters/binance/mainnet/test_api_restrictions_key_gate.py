@@ -357,12 +357,23 @@ def test_an_answer_that_cannot_be_read_refuses_even_an_accepted_key() -> None:
 def test_a_key_never_judged_is_refused_while_the_exchange_does_not_answer() -> None:
     """Also what a restart is: the standing is in memory only (`EPIC-034` D5), so a
     new gate has judged nothing and an outage refuses the key."""
-    gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(-1003))
+    gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(-1001))
 
     refused = gate.check()
 
     assert refused is not None
     assert refused.kind is ConnectionFailureKind.NETWORK
+
+
+def test_a_key_never_judged_is_refused_while_the_exchange_asks_for_a_pause() -> None:
+    """`BUG-216`: `-1003` is the exchange asking for a pause, not an exchange that did not
+    answer: the refusal says so, so nobody is sent to fix the network."""
+    gate, _, _ = _gate(TradingVenue.SPOT_MAINNET, _api_error(-1003))
+
+    refused = gate.check()
+
+    assert refused is not None
+    assert refused.kind is ConnectionFailureKind.RATE_LIMITED
 
 
 def test_another_key_does_not_borrow_the_accepted_ones_standing() -> None:

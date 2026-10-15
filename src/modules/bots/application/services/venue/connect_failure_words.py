@@ -52,6 +52,10 @@ _FAILURES: dict[ConnectionFailureKind, str] = {
     ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: (
         "The account is in Hedge Mode. Switch it to One-way Mode on Binance."
     ),
+    ConnectionFailureKind.RATE_LIMITED: (
+        "The exchange asked this app to slow down and is not being asked "
+        "until its pause ends. Nothing is wrong with the key or the network."
+    ),
 }
 
 #: What each kind is in a few words, for the surfaces that are not the bar.
@@ -64,6 +68,7 @@ _STATES: dict[ConnectionFailureKind, str] = {
     ConnectionFailureKind.MAINTENANCE: "exchange under maintenance",
     ConnectionFailureKind.WITHDRAWAL_ENABLED: "key can withdraw",
     ConnectionFailureKind.HEDGE_MODE_UNSUPPORTED: "Hedge Mode is on",
+    ConnectionFailureKind.RATE_LIMITED: "exchange asked for a pause",
 }
 
 _MISSING = [

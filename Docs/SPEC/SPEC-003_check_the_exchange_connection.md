@@ -106,7 +106,7 @@ real balances and a real order. That is the owner's manual check.
   (`EPIC-038B`). `exchange-status` exits `0` on a healthy connection, `5` when the operator must
   change the configuration (`NOT_CONFIGURED`, `WITHDRAWAL_ENABLED`, `HEDGE_MODE_UNSUPPORTED`) and
   `6` when the exchange itself refused or could not be reached (`KEY_REJECTED`, `BAD_SIGNATURE`,
-  `CLOCK_SKEW`, `NETWORK`, `MAINTENANCE`); the table is `Docs/OPERATIONS/exit_codes.md`. The text
+  `CLOCK_SKEW`, `NETWORK`, `MAINTENANCE`, `RATE_LIMITED`); the table is `Docs/OPERATIONS/exit_codes.md`. The text
   report is unchanged, byte for byte. `--json` (short for `--format json`) prints one JSON document,
   `{"schema": "sew.exchange-status/1", "generated_at": …, "data": {…}}`, and nothing else on
   standard output; a failed connection still prints its document, then exits `5` or `6`. The
@@ -126,7 +126,9 @@ real balances and a real order. That is the owner's manual check.
 | The machine's clock is too far from the exchange's | `CLOCK_SKEW`, with the measured skew in milliseconds | Binance `-1021`. The number is shown because the fix is the actor's clock, and they need to see how far off it is |
 | The exchange rejected the key (a mainnet or other-venue key, an IP off the allowlist, a missing permission) | `KEY_REJECTED` | Binance `-2015` covers all three and names none; the app is testnet-only, so a mainnet key is unknown there. The words list the causes and never say "expired" |
 | DNS, TCP, TLS or a timeout — or any error code without a narrower name | `NETWORK` | The honest bucket. It is named `NETWORK` rather than `UNKNOWN` because that is what it is from the actor's side |
+| The exchange asked the app to slow down (HTTP 429, `-1003`, `-1015`) or banned its IP (418), or the app's own request gate is closed for such a pause (it closes at 70 % of the minute's request weight) | `RATE_LIMITED`, with the pause the exchange asked for. Not logged as a failure: the pause was told once when it began | The key and the network are fine, so it is not `NETWORK`. A caller that can wait does (a bot halts for exactly the pause and resumes by itself, SPEC-014); an order is never told "the connection is not ready" for it (`BUG-216`) |
 | The account is in Hedge mode | `HEDGE_MODE_UNSUPPORTED` — reachable, but not usable | This app's order model assumes One-way. "Connected fine, but this account cannot trade here" is not one of the other five, so it is its own answer |
+| The Futures position mode was read less than a minute ago and was One-way | The kept answer; Hedge and a failed read are never kept | The mode weighs 30 of a check's 37 and the check runs per order and every few seconds; only the user changes the mode, and a switch shows within a minute (`BUG-216`) |
 | The Futures asset mode cannot be read (no answer, or an answer of another shape) | Reachable, no failure, and no account summary; one WARNING until it is readable again | The connection is fine; only which figures to show is unknown, and a guessed mode would mislabel them (`EPIC-028O`) |
 
 ## 6. What this use case does NOT promise

@@ -31,5 +31,19 @@ BAD_SIGNATURE_CODE = -1022
 #: unlike the codes above a restart can outlast it.
 CLOCK_SKEW_CODE = -1021
 
+#: `-1003` too many requests (the weight limit), `-1015` too many new orders; and the HTTP
+#: statuses that say the same: 429 a rate limit, 418 an IP ban. Every one names a pause, never
+#: a fault of the request or of the account (`BUG-216`).
+RATE_LIMIT_CODE = -1003
+ORDER_COUNT_CODE = -1015
+RATE_LIMIT_CODES = frozenset({RATE_LIMIT_CODE, ORDER_COUNT_CODE})
+HTTP_RATE_LIMITED = 429
+HTTP_BANNED = 418
+
+#: The tag the text of every call refused by the exchange's pause ends with, so a log line that
+#: carries the exception's words can tell "refused by the pause" from a real failure without
+#: parsing prose (`BUG-216`).
+EXCHANGE_PAUSE_TAG = "[exchange-pause]"
+
 #: The codes only the operator can fix; a restart repeats the refused request.
 OPERATOR_FIXABLE_CODES = frozenset({*KEY_REJECTED_CODES, BAD_SIGNATURE_CODE})

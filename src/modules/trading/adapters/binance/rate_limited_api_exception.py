@@ -24,10 +24,12 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
     ExchangeRateLimitedError,
 )
-
-_RATE_LIMIT_CODE = -1003
-_HTTP_RATE_LIMITED = 429
-_HTTP_BANNED = 418
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+    HTTP_BANNED,
+    HTTP_RATE_LIMITED,
+    RATE_LIMIT_CODE,
+)
 
 
 class RateLimitedApiException(BinanceAPIException):
@@ -35,9 +37,11 @@ class RateLimitedApiException(BinanceAPIException):
 
     def __init__(self, retry_after: timedelta, *, banned: bool, note: str) -> None:
         seconds = math.ceil(retry_after.total_seconds())
-        body = json.dumps({"code": _RATE_LIMIT_CODE, "msg": note})
+        body = json.dumps(
+            {"code": RATE_LIMIT_CODE, "msg": f"{note} {EXCHANGE_PAUSE_TAG}"}
+        )
         response = SimpleNamespace(text=body, headers={"Retry-After": str(seconds)})
-        super().__init__(response, _HTTP_BANNED if banned else _HTTP_RATE_LIMITED, body)
+        super().__init__(response, HTTP_BANNED if banned else HTTP_RATE_LIMITED, body)
         self.retry_after = retry_after
         self.banned = banned
 

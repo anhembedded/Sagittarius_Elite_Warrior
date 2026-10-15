@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
@@ -89,6 +90,11 @@ def test_every_failure_kind_has_guidance_text():
             position_mode=None,
             margin_type=None,
             open_position_count=None,
+            retry_after=(
+                timedelta(seconds=60)
+                if kind is ConnectionFailureKind.RATE_LIMITED
+                else None
+            ),
         )
         text = format_exchange_connection_status(status)
         assert kind.name in text

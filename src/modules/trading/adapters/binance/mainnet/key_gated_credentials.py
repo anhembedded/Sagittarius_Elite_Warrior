@@ -41,6 +41,9 @@ _REFUSAL_WORDS = {
         "the exchange could not be asked what the key may do"
     ),
     ConnectionFailureKind.MAINTENANCE: "the exchange is unavailable",
+    ConnectionFailureKind.RATE_LIMITED: (
+        "the exchange asked for a pause before the key could be checked"
+    ),
 }
 
 

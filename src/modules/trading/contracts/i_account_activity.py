@@ -49,9 +49,13 @@ class IAccountActivity(ABC):
         connection status names why."""
 
     @abstractmethod
-    def open_orders(self) -> tuple[Order, ...]:
-        """Every order open on the account, on every symbol, whoever placed
-        it."""
+    def open_orders(self, symbol: str | None = None) -> tuple[Order, ...]:
+        """Every order open on the account, whoever placed it: on `symbol`
+        alone when it is given, on every symbol when it is `None`.
+
+        A caller that wants one symbol's orders names it: the exchange charges
+        an unfiltered read 40 weight for each of the regular and the algo
+        orders, and 1 for a named symbol (`BUG-216`)."""
 
     @abstractmethod
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:

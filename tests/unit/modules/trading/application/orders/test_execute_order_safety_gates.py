@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
     FuturesTradingClientFactory,
 )
@@ -18,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
@@ -219,6 +223,30 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
         assert result.limit_context is None
         assert result.limits is None
+
+    def test_an_order_met_by_the_exchanges_pause_raises_the_pause_and_not_a_gate(
+        self,
+    ) -> None:
+        """`BUG-216` - the owner's bot was `HALTED on switch_off` by a `-1003` the connection
+        check filed under `NETWORK`. The pause is told as a rejected submit tells it
+        (`ExchangeRateLimitedError`), which a bot answers by waiting, not by stopping."""
+        paused = ExchangeConnectionStatus(
+            venue=TradingVenue.FUTURES_TESTNET,
+            reachable=False,
+            failure=ConnectionFailureKind.RATE_LIMITED,
+            server_time_skew_ms=None,
+            usdt_balance=None,
+            position_mode=None,
+            margin_type=None,
+            open_position_count=None,
+            retry_after=timedelta(seconds=32),
+        )
+        handler, _ = make_handler(status=paused)
+
+        with pytest.raises(ExchangeRateLimitedError) as raised:
+            handler.execute(ExecuteOrderCommand(order_request=order_request()))
+
+        assert raised.value.retry_after == timedelta(seconds=32)
 
     def test_blocked_when_connection_not_ready(self) -> None:
         bad_status = ExchangeConnectionStatus(

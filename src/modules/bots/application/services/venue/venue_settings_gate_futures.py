@@ -229,7 +229,9 @@ def _busy_symbol(ports: VenueTradingPorts, request: GateRequest) -> GateResult |
     """Why a change cannot be asked yet, or `None` when the symbol is known to be flat."""
     symbol = request.symbol
     try:
-        orders = [o for o in ports.account_activity.open_orders() if o.symbol == symbol]
+        orders = [
+            o for o in ports.account_activity.open_orders(symbol) if o.symbol == symbol
+        ]
         held = [
             p for p in ports.account_snapshot.open_positions() if p.symbol == symbol
         ]

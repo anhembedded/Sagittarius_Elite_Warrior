@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.connection_f
     classify_connection_failure,
     missing_key_failure,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_failure import (
+    rate_limit_pause_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_parsing import (
     parse_holdings,
 )
@@ -105,7 +108,7 @@ class SpotAccountReader(ITradingAccountReader):
             client = self._session_factory.create_account_client(resolution.credentials)
             client.ping()
         except _NETWORK_EXCEPTIONS as exc:
-            return self._status(failure=self._classify(exc))
+            return self._status(failure=self._classify(exc), cause=exc)
 
         server_time_skew_ms: int | None = None
         try:
@@ -114,13 +117,14 @@ class SpotAccountReader(ITradingAccountReader):
                 server_time["serverTime"]
             )
         except _NETWORK_EXCEPTIONS as exc:
-            return self._status(failure=self._classify(exc))
+            return self._status(failure=self._classify(exc), cause=exc)
 
         try:
             account = client.get_account()
         except _NETWORK_EXCEPTIONS as exc:
             return self._status(
                 failure=self._classify(exc),
+                cause=exc,
                 server_time_skew_ms=server_time_skew_ms,
             )
 
@@ -205,8 +209,12 @@ class SpotAccountReader(ITradingAccountReader):
         equity: Decimal | None = None,
         summary: SpotAccountSummary | None = None,
         can_trade: bool | None = None,
+        cause: Exception | None = None,
     ) -> ExchangeConnectionStatus:
+        pause = None if cause is None else rate_limit_pause_of(cause)
         return ExchangeConnectionStatus(
+            retry_after=None if pause is None else pause.retry_after,
+            banned=pause is not None and pause.banned,
             venue=self._venue,
             reachable=reachable,
             failure=failure,

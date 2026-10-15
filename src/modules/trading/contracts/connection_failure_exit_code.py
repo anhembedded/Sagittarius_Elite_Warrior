@@ -49,6 +49,7 @@ EXIT_CODE_FOR_FAILURE: dict[ConnectionFailureKind, ExitCode] = {
     ConnectionFailureKind.CLOCK_SKEW: ExitCode.EXCHANGE,
     ConnectionFailureKind.NETWORK: ExitCode.EXCHANGE,
     ConnectionFailureKind.MAINTENANCE: ExitCode.EXCHANGE,
+    ConnectionFailureKind.RATE_LIMITED: ExitCode.EXCHANGE,
 }
 
 

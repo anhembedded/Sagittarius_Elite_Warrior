@@ -107,7 +107,7 @@ class ExchangeFactsReader(IVenueFacts):
         if status.holdings is None or _available_of(status) is None:
             return self._unavailable(bot, "the account's balances were not read")
         try:
-            orders = ports.account_activity.open_orders()
+            orders = ports.account_activity.open_orders(definition.symbol)
         except Exception as exc:  # noqa: BLE001 - converted at the seam: any failed read (network, rate limit, key) is an unavailable snapshot, never a thrown error and never an empty list
             logger.debug("Open orders of %s not read: %s", definition.symbol, exc)
             return self._unavailable(bot, f"the open orders were not read ({exc})")
