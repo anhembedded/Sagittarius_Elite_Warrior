@@ -285,12 +285,13 @@ class BotOrderGateway:
             Decimal(0),
         )
 
-    def key_rejected(self) -> bool:
-        """Whether the exchange rejects the account's API key right now: a
-        network read. An unreachable exchange, a clock skew or any other failed
-        check is **not** a rejected key."""
-        status = self._ports.account_snapshot.check_connection()
-        return status.failure is ConnectionFailureKind.KEY_REJECTED
+    def connection_failure(self) -> ConnectionFailureKind | None:
+        """Why the venue's account cannot be read now, or `None` when it can: a network
+        read. A venue with no key answers at once, without a request; a caller that reads
+        the account only to report asks this first, so a state the operator fixes is never
+        an exception. Only `KEY_REJECTED` is a rejected key: an unreachable exchange or a
+        clock skew is not."""
+        return self._ports.account_snapshot.check_connection().failure
 
     def tagged_open_orders(self) -> tuple[Order, ...]:
         """The account's open orders on the bot's symbol that carry its tag."""
