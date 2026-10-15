@@ -27,7 +27,7 @@ FAILED …/test_composition_root.py::test_every_navigable_route_constructs[marke
 ```
 The regression test shows the same error with its traceback (`QAction` at `live_state_chip.py:100`, the first widget `show_state` touches; the `QLabel` is the next line, `_label.setText`).
 
-Not established: which of the two queued reports (stream opened and history are the candidates) the CI run delivered; both end in this mechanism.
+Not established: which queued report the CI run delivered, and which `QLabel` it named. Reproductions of the same race name whichever freed object a slot touches first: `QAction` (`live_state_chip.py:100`), `FastCandlestickItem` (`candlestick_item.py:97`), `LogListModel` (`desk_view_model.py:118`, through `chart.logged`). A `QLabel` is reachable from the same slots (`LiveStateChip._label`, `live_state_chip.py:115`; the Desk's status label, `desk_view.py:223`, through `liveStateChanged` → `desk_presenter.py:260`), but no run here produced one.
 
 ## Root cause
 - `LiveCandleChart.shutdown()` (`live_candle_chart.py`) cancels `self._token` but does not replace it. The slots `_on_stream_opened`, `_on_stream_lost`, `_on_load_lost` and `_on_load_settled` (`live_candle_chart.py`) accepted a report when `token is self._token`, which is still true for the cancelled token; `_on_history` carries no token and checked only the symbol and interval.
@@ -38,9 +38,13 @@ Not established: which of the two queued reports (stream opened and history are 
 ## Fix
 - **`live_candle_chart.py`:** `shutdown()` cancels the token and replaces it with a fresh one, cancelled at once. A worker holds the token of its own request, never the new one, so the identity test the four tokened slots already make (`token is self._token`) fails for every report queued before the shutdown, with no edit to the slots; `_on_history`, which carries no token, returns while `self._token.is_cancelled()`. A shut-down chart draws nothing and tells no failure (its bar was cleared by `shutdown()`; a late one would have a Retry for a closed chart). The seam is shared by the Market, desk and bot charts, so all three are fixed; no other receiver in `src/` matches by token identity alone.
 
+- **`logged` fan-out (found while checking the QLabel):** the coordinator's `log` callback was `self.logged.emit`, so a line queued by a worker reached every owner's slot (Desk `desk_presenter.py:256`, Market `market_presenter.py:297`, Bots `bot_chart_host.py:134`) after the window was freed; with the fix above in place a real-window probe still raised `LogListModel already deleted` at `desk_presenter.py:347`. The callback is now `_worker_said`, a queued signal whose slot re-emits `logged` only while the token is not cancelled.
+- **`live_stream_action.py` (new):** the Live stream `QAction` and its "mirror without reporting it as the user's choice" flag moved out of `live_candle_chart.py` (at the 400-line ceiling) into `LiveStreamAction`; behaviour unchanged.
+
 ## Regression test
 - `tests/unit/support/charting/live_chart/test_live_candle_chart_after_shutdown.py::test_a_report_queued_before_shutdown_draws_nothing_on_the_deleted_card[stream opened | stream lost | history]`: a real `ChartCard` and `LiveCandleChart` (owner outside the card), chart `Connecting`, the report emitted from a real thread (so queued), `shutdown()`, the card really freed (`sendPostedEvents(DeferredDelete)`, `shiboken6.isValid` asserted false), then `processEvents()` under `qtbot.capture_exceptions()`. No sleep.
 - Red before the fix, all three, with `RuntimeError: … already deleted` at `live_state_chip.py:100` (stream) and `candlestick_item.py:97` (history). Green after.
+- `…::test_a_line_queued_before_shutdown_does_not_reach_the_owners_freed_log`: a consumer object freed with the card, a line queued from a real thread; red when `_on_worker_said`'s gate is removed.
 - Mutation: removing the token swap in `shutdown()` turns the two stream cases red; removing `_on_history`'s `is_cancelled()` turns the history case red.
 
 ## Verification

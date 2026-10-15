@@ -111,3 +111,24 @@ def test_a_report_queued_before_shutdown_draws_nothing_on_the_deleted_card(
         qapp.processEvents()
 
     assert [str(error) for _kind, error, _tb in caught] == []
+
+
+def test_a_line_queued_before_shutdown_does_not_reach_the_owners_freed_log(
+    qapp, qtbot
+) -> None:
+    """The Desk, Market and Bots owners connect to `logged` and write a model or
+    label that goes with the window; a line the worker queued before the
+    shutdown must not reach it."""
+    owner = QObject()
+    chart, card = _chart_held_by_an_owner(owner)
+    chart.show_symbol(_SYMBOL)
+    sink = QObject(card)
+    chart.logged.connect(lambda line: sink.objectName())
+    _emit_from_a_worker(chart._worker_said, "Live for BTCUSDT.")
+
+    chart.shutdown()
+    _delete_now(card)
+    with qtbot.capture_exceptions() as caught:
+        qapp.processEvents()
+
+    assert [str(error) for _kind, error, _tb in caught] == []
