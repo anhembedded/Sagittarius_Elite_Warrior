@@ -124,6 +124,17 @@ def test_a_short_grids_hodl_benchmark_is_the_capital_held_short() -> None:
     assert pnl_summary(runtime, capital=Decimal(1000)).hodl == Decimal(-250)
 
 
+def test_a_neutral_grids_hodl_benchmark_is_the_capital_left_idle() -> None:
+    """As in its backtest (`futures_outcome.py`): a NEUTRAL grid opens nothing, so the benchmark
+    is no gain and no loss, whichever way the price went."""
+    runtime = replace(
+        GridRuntime((), start_price=Decimal(100), mark_price=Decimal(125)),
+        entry_side=None,
+    )
+
+    assert pnl_summary(runtime, capital=Decimal(1000)).hodl == 0
+
+
 def test_hodl_needs_a_start_price_and_a_current_one() -> None:
     no_start = GridRuntime(started_ladder().levels, mark_price=Decimal(125))
     no_mark = GridRuntime(started_ladder().levels, start_price=Decimal(100))

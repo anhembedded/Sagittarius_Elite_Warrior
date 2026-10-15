@@ -9,9 +9,13 @@ closes. The owner decided this in the coordinator session on 2026-10-13 (~13:01 
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotOrderFill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.stop_progress import (
     StopProgress,
 )
@@ -80,6 +84,38 @@ def test_a_flat_bot_beside_a_position_by_hand_closes_nothing_and_is_flat(
 
     assert progress is None
     assert world.book.requests == []
+
+
+def test_the_close_marks_each_slice_it_sends_as_an_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Review of #523: `book_exit_fill` is reached only for an order the close marked as an exit
+    (`OffLadderOrders.add_exit`, in `send_exit_slices`). Without the mark the guard is dead code:
+    this holds the production call site, which the wiring test below (it marks by hand) does not."""
+    world, _ = a_position_world()
+    exchange_holds_less_after_each_sale(world, monkeypatch, "0.05")
+
+    closer_of(world).close(a_registration("0.03"), LAST_PRICE)
+
+    sent = world.book.submitted
+    assert sent, "the close must have sent something to prove anything"
+    off_ladder = world.executor._context.off_ladder
+    assert all(off_ladder.is_exit(order_id) for order_id in sent)
+
+
+def test_the_fill_of_an_exit_slice_does_not_open_a_position_in_a_flat_runtime() -> None:
+    """Review of #523, wiring: the fact that an exit slice filled reaches the runtime through
+    `GridFacts`, which books it as an exit (`book_exit_fill`), not as a trade that could open."""
+    world, _ = a_position_world()
+    context = world.executor._context
+    context.state.update(replace(context.state.runtime, entry_side=None))
+    context.off_ladder.add_exit("exit-1")
+
+    world.executor.facts.on_fill(
+        BotOrderFill("exit-1", OrderSide.SELL, D(100), D("0.012"), D(0), "USDT")
+    )
+
+    assert world.runtime().inventory == 0
 
 
 def test_what_is_left_to_the_owner_is_said_in_words(

@@ -48,7 +48,7 @@ def send_exit_slices(
     remaining = sum(slices, Decimal(0))
     for index, piece in enumerate(slices, start=1):
         outcome = send(piece)
-        context.off_ladder.add(outcome.client_order_id)
+        context.off_ladder.add_exit(outcome.client_order_id)
         logger.info(
             "Bot %s: exit slice %d of %s -> %s %s",
             context.state.bot_id,

@@ -147,11 +147,12 @@ def test_the_scenarios_are_not_all_the_same_answer() -> None:
     assert len(answers) >= 4
 
 
-def test_the_plan_refuses_a_direction_a_bot_cannot_run_as_start_does() -> None:
+def test_the_plan_judges_with_the_limits_a_bot_runs_with() -> None:
     """`EPIC-039I` review: the bot's Plan is judged against what a bot may run
     (`exposure_limits_of`), not what the market allows a plan to name, so a saved definition
-    that names a direction no bot runs yet shows a refused Plan and not a passing one that
-    Start then refuses."""
+    that names a direction no bot runs shows a refused Plan and not a passing one that Start then
+    refuses. Every direction runs on Futures now, so the case here is a NEUTRAL one the Plan
+    accepts; a Spot-only kind on a Futures venue is judged by Spot's limits (the same function)."""
     world = readiness_world()
     stored = world.store.load(BotId(BOT))
     futures = replace(
@@ -188,4 +189,4 @@ def test_the_plan_refuses_a_direction_a_bot_cannot_run_as_start_does() -> None:
         )
     )
 
-    assert "DIRECTION_NOT_ALLOWED" in [v.code for v in detail.verdicts if v.refuses]
+    assert "DIRECTION_NOT_ALLOWED" not in [v.code for v in detail.verdicts]
