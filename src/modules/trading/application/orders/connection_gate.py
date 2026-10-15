@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+)
 
 
 def connection_block(status: ExchangeConnectionStatus) -> ExecuteOrderSafetyGate | None:
@@ -56,5 +59,5 @@ def _pause_of(status: ExchangeConnectionStatus) -> ExchangeRateLimitedError:
     return ExchangeRateLimitedError(
         status.retry_after,
         banned=status.banned,
-        raw_message="the connection check met the exchange's pause",
+        raw_message=f"the connection check met the exchange's pause {EXCHANGE_PAUSE_TAG}",
     )

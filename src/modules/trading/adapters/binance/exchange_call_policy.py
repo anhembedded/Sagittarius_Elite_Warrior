@@ -19,12 +19,19 @@ Every request a venue sends passes `run_read` or `run_once`:
 The used-weight header (`X-MBX-USED-WEIGHT-1M`) is read after each answer
 (`note_used_weight_header`): at 70 % of the venue's per-minute weight the gate
 closes to the end of the minute, before the exchange has to say so.
+
+A pause is told once and no more (`BUG-217`): one WARNING when it begins, with the instant it
+ends, and one INFO at the first request after it. It is told again, with the end the gate now
+holds, only when it escalates: a later answer moves the end further out or turns it into a ban.
+The calls that meet it in between raise at once and say nothing here; what they fail with is
+theirs to word, at DEBUG when it is the pause.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+import threading
 import time
 from collections.abc import Callable
 from datetime import timedelta
@@ -58,6 +65,8 @@ SPOT_WEIGHT_LIMIT = 6000
 #: is ~720 weight of such chains.
 SOFT_WEIGHT_RATIO = 0.7
 _SECONDS_PER_MINUTE = 60.0
+#: Two pauses whose ends differ by less than this are the same pause to the log.
+_SAME_END_SECONDS = 1.0
 
 
 class ExchangeCallPolicy:
@@ -72,6 +81,11 @@ class ExchangeCallPolicy:
         weight_limit: int = SPOT_WEIGHT_LIMIT,
     ) -> None:
         self._gate = gate
+        self._pause_lock = threading.Lock()
+        #: When the pause last announced is due to end, on the wall clock; `None` once the
+        #: end has been announced (or none began).
+        self._announced_pause_end: float | None = None
+        self._announced_ban = False
         # Resolved at the call, so a test can replace `time.sleep` itself.
         self._sleep = sleep or (lambda seconds: time.sleep(seconds))
         self._wall_seconds = wall_seconds
@@ -101,13 +115,17 @@ class ExchangeCallPolicy:
             return
         into_minute = self._wall_seconds() % _SECONDS_PER_MINUTE
         pause = _SECONDS_PER_MINUTE - into_minute + 1.0
-        logger.warning(
-            "Used weight %d of %d: no request for %.0f s [rate-limit-soft]",
-            used,
-            self._weight_limit,
-            pause,
-        )
+        # Always to the minute's end: a shorter pause already running (`-1015` is 10 s) must
+        # not let the gate reopen inside a minute at 70 % or more. `block` keeps the longer.
+        # It is told again only when it moves the announced end or turns the pause into a ban.
         self._gate.block(pause)
+        told = self._tell_pause(
+            f"Used weight {used} of {self._weight_limit}", pause, "rate-limit-soft"
+        )
+        if not told:
+            logger.debug(
+                "Used weight %d of %d, inside a pause", used, self._weight_limit
+            )
 
     def _run(self, call: Callable[[], T], delays: tuple[float, ...]) -> T:
         retries = iter(delays)
@@ -131,7 +149,9 @@ class ExchangeCallPolicy:
 
     def _raise_if_closed(self) -> None:
         remaining = self._gate.remaining()
-        if remaining > 0:
+        if remaining <= 0:
+            self._announce_pause_ended()
+        else:
             raise RateLimitedApiException(
                 timedelta(seconds=remaining),
                 banned=self._gate.banned,
@@ -144,11 +164,11 @@ class ExchangeCallPolicy:
     ) -> RateLimitedApiException:
         banned = failure.kind is FailureKind.BANNED
         self._gate.block(failure.pause_seconds, banned=banned)
-        logger.warning(
-            "Exchange %s: no request for %.0f s [rate-limit-%s]",
-            "banned this IP" if banned else "rate-limited the app",
+        self._tell_pause(
+            "Exchange banned this IP" if banned else "Exchange rate-limited the app",
             failure.pause_seconds,
-            "ban" if banned else "pause",
+            "rate-limit-ban" if banned else "rate-limit-pause",
+            banned=banned,
         )
         return RateLimitedApiException(
             timedelta(seconds=failure.pause_seconds),
@@ -159,6 +179,48 @@ class ExchangeCallPolicy:
                 f"{math.ceil(failure.pause_seconds)} s"
             ),
         )
+
+    def _tell_pause(
+        self, why: str, pause: float, tag: str, *, banned: bool = False
+    ) -> bool:
+        """Tell a pause that begins, or one that moves the announced end later or turns the
+        running pause into a ban (a burst's answers in flight escalate that way: a soft
+        pause, then a 429, then a 418). The WARNING names the end the gate now holds.
+        Decided under the lock, so threads that meet the same pause tell it once.
+        @return Whether it was told."""
+        ends = self._wall_seconds() + pause
+        with self._pause_lock:
+            known = self._announced_pause_end
+            worth = (
+                known is None
+                or ends > known + _SAME_END_SECONDS
+                or (banned and not self._announced_ban)
+            )
+            if worth:
+                self._announced_pause_end = ends if known is None else max(ends, known)
+                self._announced_ban = self._announced_ban or banned
+            shown = self._announced_pause_end
+        if not worth or shown is None:
+            return False
+        logger.warning(
+            "%s: no request is sent for %.0f s, until %s [%s]",
+            why,
+            max(shown - self._wall_seconds(), 0.0),
+            time.strftime("%H:%M:%S", time.localtime(shown)),
+            tag,
+        )
+        return True
+
+    def _announce_pause_ended(self) -> None:
+        """The one INFO after a pause, at the first request that finds the gate open."""
+        with self._pause_lock:
+            ended = self._announced_pause_end
+            self._announced_pause_end = None
+            self._announced_ban = False
+        if ended is not None:
+            logger.info(
+                "The exchange's pause is over: requests resume [rate-limit-end]"
+            )
 
     def _server_now_ms(self) -> int:
         return int(self._wall_seconds() * 1000)
