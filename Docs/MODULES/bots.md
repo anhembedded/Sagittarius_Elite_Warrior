@@ -172,7 +172,7 @@ The constants that decide when a bot waits, retries, pauses or halts:
 | Sleep: heartbeat; a gap over this is a sleep; fresh-price attempts and spacing | 15 s; 60 s; 4 × 15 s | `src/modules/bots/application/services/watches/sleep_watch.py:60-66` |
 | Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py:53-59` |
 | Rate-limit pause: margin, longest wait, most automatic resumes | 2 s; 1 h; 5 | `src/modules/bots/domain/grid/rate_limit_pause.py:21-23` |
-| A position divergence is re-read after; a run of reports may keep that one re-read waiting at most | 5 s; 3 × that | `src/modules/bots/domain/grid/grid_thresholds.py:47` · `src/modules/bots/application/kinds/grid/watch/grid_risk_watch.py` (`MAX_RECHECK_DELAYS`) |
+| A position divergence is re-read after (nothing is read when the book already agrees with the stream's last figure, `BUG-220`); a run of reports may keep that one re-read waiting at most | 5 s; 3 × that | `src/modules/bots/domain/grid/grid_thresholds.py:47` · `src/modules/bots/application/kinds/grid/watch/grid_risk_watch.py` (`MAX_RECHECK_DELAYS`) |
 | The request gate closes at this share of the minute's weight (2,400 on Futures); a One-way position mode is kept | 70 %; 60 s | `src/modules/trading/adapters/binance/exchange_call_policy.py` (`SOFT_WEIGHT_RATIO`) · `src/modules/trading/adapters/binance/position_mode_memory.py` (`TTL_SECONDS`) |
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py:113` |
 

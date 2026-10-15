@@ -216,6 +216,17 @@ class OwnerBooks:
                 if inventory is not None
             )
 
+    def agrees_with_last_report(self, tag: str, owner_id: str) -> bool:
+        """@brief Whether `owner_id`'s book under `tag` holds what the exchange last reported
+        (`BUG-216`); `False` when `tag` has no book or another owner holds it."""
+        with self._lock:
+            book = self._by_tag.get(tag)
+            return (
+                book is not None
+                and book.owner_id == owner_id
+                and book.agrees_with_last_report()
+            )
+
     def cross_check_owner(
         self, tag: str, exchange_quantity: Decimal
     ) -> PositionDivergence | None:

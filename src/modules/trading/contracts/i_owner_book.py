@@ -89,6 +89,14 @@ class IOwnerBook(ABC):
         `None` for a book that holds an inventory instead."""
 
     @abstractmethod
+    def agrees_with_last_report(self) -> bool:
+        """@brief Whether the position the book holds matches, to within a step, the last
+        figure the exchange reported for it (`BUG-216`). Pure: it changes nothing and reads no
+        venue.
+        @return `False` when the exchange has reported no figure yet, when they differ, and for
+        a book that holds no position."""
+
+    @abstractmethod
     def cross_check(self, exchange_quantity: Decimal) -> PositionDivergence | None:
         """@brief Compares what the book holds with `exchange_quantity`
         (`positionRisk`'s signed amount on the symbol, zero when flat).

@@ -4,7 +4,9 @@
     price `positionRisk` reports on the bot's symbol, with the mark price from `premiumIndex`
     (read for a flat symbol too). The liquidation price is the exchange's, never computed here.
   · **`PositionRechecks`** (`IPositionRecheck`): the second look before the bot halts on a
-    divergence. It registers the budget again, which derives the position from the exchange's
+    divergence. If the book has caught up with the figure the stream last reported, the
+    divergence has healed and nothing is read (`BUG-216`). Otherwise it registers the budget
+    again, which derives the position from the exchange's
     record of the bot's fills afresh and compares it with a fresh `positionRisk`; a registration
     that the exchange's position makes `FOREIGN_POSITION` (the bot's fills are flat and a position
     stands) is the same disagreement, said in the divergence's own terms.
@@ -88,6 +90,14 @@ class PositionRechecks(IPositionRecheck):
         self._housekeeping = GridHousekeeping(context)
 
     def recheck(self, divergence: PositionDivergence) -> PositionDivergence | None:
+        if self._context.session.owner_position_agrees_with_the_stream(
+            divergence.owner_id, divergence.tag
+        ):
+            # The report of the account outran the report of the fill and the fill has
+            # landed since: both streams say the same, and the registration below (several
+            # weighted reads) would only confirm it. A disagreement is never settled here:
+            # the exchange decides it (`BUG-216`).
+            return None
         try:
             registration = self._housekeeping.register()
         except Exception as exc:

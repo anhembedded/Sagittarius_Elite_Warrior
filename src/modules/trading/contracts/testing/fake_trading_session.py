@@ -62,6 +62,8 @@ class FakeTradingSession(ITradingSession):
         self._stop_result: EmergencyStopResult | None = None
         self._ready_error: Exception | None = None
         self._stop_error: Exception | None = None
+        #: What `owner_position_agrees_with_the_stream` answers for every owner.
+        self.position_agrees_with_the_stream = False
         #: How many times each call was made. Named separately because a
         #: screen calling `snapshot()` per repaint is a defect a test should
         #: be able to see, and it looks nothing like calling `ensure_ready()` twice.
@@ -167,6 +169,9 @@ class FakeTradingSession(ITradingSession):
         if self._ready_result.ready:
             self.set_enabled(enabled=True)
         return self._ready_result
+
+    def owner_position_agrees_with_the_stream(self, owner_id: str, tag: str) -> bool:
+        return self.position_agrees_with_the_stream
 
     def register_owner_budget(
         self, registration: OwnerBudgetRegistration
