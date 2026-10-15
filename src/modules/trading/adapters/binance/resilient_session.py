@@ -13,18 +13,36 @@ What a method is called decides how it is sent (`call_mode_of`):
     method nobody classified. A name has to be added to the read list on purpose
     to be repeated, so a new method defaults to the safe side.
 
+A request the exchange rejects for its timestamp (`-1021`) is the one failure the session
+repairs itself (`BUG-221`): the clock offset the client measured when it was opened has
+gone stale (the machine's clock stepped), so the session measures it again on **that
+client** and sends the request once more. `-1021` is answered before the exchange looks at
+the request, so sending an order again cannot duplicate it. A second `-1021` is a skew the
+measurement cannot cure and goes to the caller as it came (`CLOCK_SKEW`); the session never
+loops.
+
 Attributes pass through (`timestamp_offset` is read by the history readers).
 After each answer the client's last response is asked for its used-weight header.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from enum import Enum
 
+from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.exchange_call_policy import (
     ExchangeCallPolicy,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    CLOCK_SKEW_CODE,
+)
+
+logger = logging.getLogger("App.TradingAdapter")
+
+#: Measures the exchange's clock again and stores it on the client this is bound to.
+ClockResync = Callable[[], None]
 
 _WEIGHT_HEADER = "x-mbx-used-weight-1m"
 
@@ -79,9 +97,17 @@ def call_mode_of(method_name: str) -> CallMode:
 class ResilientSession:
     """Forwards a client's methods through the policy and its attributes as they are."""
 
-    def __init__(self, client: object, policy: ExchangeCallPolicy) -> None:
+    def __init__(
+        self,
+        client: object,
+        policy: ExchangeCallPolicy,
+        resync_clock: ClockResync | None = None,
+    ) -> None:
+        """@param resync_clock Re-measures `client`'s clock offset; `None` for a session
+        that signs nothing (the public one), which the exchange never rejects for a timestamp."""
         self._client = client
         self._policy = policy
+        self._resync_clock = resync_clock
 
     def __getattr__(self, name: str) -> object:
         attribute = getattr(self._client, name)
@@ -95,11 +121,37 @@ class ResilientSession:
         )
 
         def resilient(*args: object, **kwargs: object) -> object:
-            answer = run(lambda: method(*args, **kwargs))
+            answer = run(lambda: self._sent(name, method, args, kwargs))
             self._policy.note_used_weight_header(self._used_weight_header())
             return answer
 
         return resilient
+
+    def _sent(
+        self,
+        name: str,
+        method: Callable[..., object],
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+    ) -> object:
+        """One request, and once more after the clock is measured again when the exchange
+        rejected its timestamp.
+        @raise BinanceAPIException `-1021` twice, or any other failure."""
+        try:
+            return method(*args, **kwargs)
+        except BinanceAPIException as exc:
+            if exc.code != CLOCK_SKEW_CODE or self._resync_clock is None:
+                raise
+            before = getattr(self._client, "timestamp_offset", None)
+            self._resync_clock()
+            logger.warning(
+                "Exchange rejected the timestamp of %s (-1021); clock offset measured again "
+                "(%s ms -> %s ms), sending it once more [clock-resync]",
+                name,
+                before,
+                getattr(self._client, "timestamp_offset", None),
+            )
+        return method(*args, **kwargs)
 
     def _used_weight_header(self) -> str | None:
         response = getattr(self._client, "response", None)

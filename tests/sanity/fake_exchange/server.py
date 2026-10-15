@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qsl
 
 from .futures_routes import handle as handle_futures
+from .history_log import now_ms
 from .order_book_state import OrderBookState
 from .request_weight import WeightMeter
 from .sapi_routes import ApiRestrictions
@@ -103,6 +104,41 @@ class KeyPolicy:
         return None
 
 
+class ClockPolicy:
+    """Binance's timestamp rule on signed requests (`BUG-221`), off until a test turns it on.
+
+    With `enforcing` on, a signed request whose `timestamp` is more than 1000 ms ahead of the
+    exchange's clock (`history_log.now_ms`, which `exchange_clock_skewed_by` moves), or older
+    than its `recvWindow` (5000 ms by default), answers `-1021` as Binance does. Binance's
+    message always says "1000ms ahead", whatever the real gap.
+    """
+
+    AHEAD_LIMIT_MS = 1000
+    DEFAULT_RECV_WINDOW_MS = 5000
+
+    def __init__(self) -> None:
+        self.enforcing = False
+        #: Signed requests refused with `-1021`, to say what a step of the clock cost.
+        self.rejected = 0
+
+    def rejection(self, params: dict[str, str]) -> tuple[int, object] | None:
+        if not self.enforcing or "signature" not in params or "timestamp" not in params:
+            return None
+        server_ms = now_ms()
+        sent_ms = int(params["timestamp"])
+        window_ms = int(params.get("recvWindow", self.DEFAULT_RECV_WINDOW_MS))
+        if (
+            sent_ms < server_ms + self.AHEAD_LIMIT_MS
+            and server_ms - sent_ms <= window_ms
+        ):
+            return None
+        self.rejected += 1
+        return 400, {
+            "code": -1021,
+            "msg": "Timestamp for this request was 1000ms ahead of the server's time.",
+        }
+
+
 class _Handler(BaseHTTPRequestHandler):
     #: Set per-server-instance by `run_binance_fake_server()` via
     #: `HTTPServer`'s own `RequestHandlerClass` attribute-sharing —
@@ -119,6 +155,7 @@ class _Handler(BaseHTTPRequestHandler):
     api_restrictions: ApiRestrictions
     keys: KeyPolicy
     faults: FaultPlan
+    clock: ClockPolicy
     #: `BUG-216` — what each request weighs; the minute's total goes back in the
     #: `X-MBX-USED-WEIGHT-1M` header, as the exchange does.
     weights: WeightMeter
@@ -160,6 +197,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self.maintenance.on:
             return 503, MAINTENANCE_PAGE
         if "signature" in params:
+            stale = self.clock.rejection(params)
+            if stale is not None:
+                return stale
             rejection = self.keys.rejection(self.headers.get("X-MBX-APIKEY"))
             if rejection is not None:
                 return rejection
@@ -234,6 +274,8 @@ class FakeServerUrls:
     faults: FaultPlan = field(default_factory=FaultPlan)
     #: `BUG-216` — the weight of every request answered, per path and per minute.
     weights: WeightMeter = field(default_factory=WeightMeter)
+    #: `BUG-221` — set `.enforcing` to make a stale timestamp answer `-1021`, as Binance does.
+    clock: ClockPolicy = field(default_factory=ClockPolicy)
 
 
 @contextmanager
@@ -252,6 +294,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     handler.keys = KeyPolicy()
     handler.faults = FaultPlan()
     handler.weights = WeightMeter()
+    handler.clock = ClockPolicy()
     server = HTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -269,6 +312,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             keys=handler.keys,
             faults=handler.faults,
             weights=handler.weights,
+            clock=handler.clock,
         )
     finally:
         server.shutdown()
