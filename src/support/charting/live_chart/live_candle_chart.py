@@ -21,7 +21,6 @@ import logging
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QAction
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
@@ -57,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports 
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_state_chip import (
     LiveStateChip,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_stream_action import (
+    LiveStreamAction,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.older_candles_backfill import (
     BackfillHooks,
     OlderCandlesBackfill,
@@ -75,6 +77,8 @@ class LiveCandleChart(QObject):
     #: The chart's live state changed (`LiveChartState`).
     liveStateChanged = Signal(object)
 
+    #: A line from the worker thread, queued to the Qt thread, then `logged`.
+    _worker_said = Signal(str)
     _history = Signal(str, list, list, list)
     #: A first window's load settled (drawn, empty or failed), with its token.
     _load_settled = Signal(object)
@@ -96,7 +100,6 @@ class LiveCandleChart(QObject):
         self._failures = ChartFailureChannel.of(ports, self.logged.emit)
         self._clock: Callable[[], float] = ports.clock
         self._state = LiveChartState.HISTORY
-        self._syncing_stream_action = False
         self._error = ""
         self._last_update: float | None = None
         self._token = CancellationToken()
@@ -123,16 +126,18 @@ class LiveCandleChart(QObject):
                 load_failed=self._load_lost.emit,
                 older_ready=self._older.deliver_ready,
                 older_failed=self._older.deliver_failed,
-                log=self.logged.emit,
+                log=self._worker_said.emit,
             ),
             ports.stream_owner,
         )
+        self._worker_said.connect(self._on_worker_said)
         self._history.connect(self._on_history)
         self._load_settled.connect(self._on_load_settled)
         self._stream_opened.connect(self._on_stream_opened)
         self._stream_lost.connect(self._on_stream_lost)
         self._load_lost.connect(self._on_load_lost)
-        self.live_stream_action = self._stream_action()
+        self._stream_mirror = LiveStreamAction(self._on_stream_toggled, self)
+        self.live_stream_action = self._stream_mirror.action
         self._chip = LiveStateChip(self.last_update_age)
         self._chip.commandRequested.connect(self.run_command)
         if ports.live_commands:
@@ -141,18 +146,14 @@ class LiveCandleChart(QObject):
         chart.toolbar.set_active(self._interval)
         chart.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
 
-    def _stream_action(self) -> QAction:
-        """The mode's Live stream menu command, checked while the chart
-        connects or is live (`live_stream_command.py`)."""
-        action = QAction("&Live stream", self)
-        action.setCheckable(True)
-        action.toggled.connect(self._on_stream_toggled)
-        return action
-
     def _on_stream_toggled(self, checked: bool) -> None:
-        if self._syncing_stream_action or checked == self._streaming:
-            return
-        self.run_command(STATE_COMMAND[self._state])
+        if checked != self._streaming:
+            self.run_command(STATE_COMMAND[self._state])
+
+    def _on_worker_said(self, text: str) -> None:
+        # Queued from the worker: a chart shut down meanwhile has no one to tell.
+        if not self._token.is_cancelled():
+            self.logged.emit(text)
 
     @property
     def _streaming(self) -> bool:
@@ -229,8 +230,10 @@ class LiveCandleChart(QObject):
         return self._older
 
     def shutdown(self) -> None:
-        """Cancels the load in flight; the stream is left as it is. A failure
-        bar of this chart goes with it: its Retry would target a closed chart."""
+        """Cancels the load in flight and drops reports already queued (`BUG-213`);
+        the stream stays. Its failure bar goes too: Retry would hit a closed chart."""
+        self._token.cancel()
+        self._token = CancellationToken()
         self._token.cancel()
         self._older.reset()
         self._failures.clear()
@@ -334,9 +337,7 @@ class LiveCandleChart(QObject):
         if target is not LiveChartState.ERROR:
             self._failures.clear()
         self._state = target
-        self._syncing_stream_action = True
-        self.live_stream_action.setChecked(self._streaming)
-        self._syncing_stream_action = False
+        self._stream_mirror.mirror(self._streaming)
         self._chip.show_state(target, self._error)
         self.liveStateChanged.emit(target)
         return True
@@ -380,11 +381,10 @@ class LiveCandleChart(QObject):
     def _on_history(
         self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
-        # The coordinator mapped the rows on its worker thread; they are
-        # drawn as they came (the PR 321 review). A window of a timeframe the
-        # chart has since left is not drawn: its bars would be the wrong width
-        # (the review of PR #366).
-        if symbol != self._symbol:
+        # Rows mapped on the worker thread are drawn as they came (PR 321). A
+        # window of a timeframe the chart has left is not: wrong bar width
+        # (PR #366). A shut-down chart's token is cancelled, its card gone.
+        if symbol != self._symbol or self._token.is_cancelled():
             return
         if klines and klines[0].interval != self._interval:
             return
