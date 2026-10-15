@@ -17,12 +17,14 @@ payload and completion lines (DEBUG) are not matched.
 Retire when: the Engine logs the query line at DEBUG (the patch is in `BOT-178`'s
 implementation notes); this module and its installer call go with it.
 
-The second filter is `BUG-216`'s. While the exchange's pause runs (a 429, `-1003`, or the app's
+The second filter is `BUG-217`'s. While the exchange's pause runs (a 429, `-1003`, or the app's
 own soft limit), every poll of the desktop is refused at once and the dispatcher writes
 `<Query> failed: ...` at ERROR for each: four lines every five seconds for the minute and a half
 of the owner's 2026-10-15 ban, none of them news after the one WARNING that began the pause
 (`ExchangeCallPolicy`). A failure whose text carries `EXCHANGE_PAUSE_TAG` is written at DEBUG
-instead: still in a `--dev` log, off a normal run's.
+instead: still in a `--dev` log, off a normal run's. A command refused by the pause (a manual order) is
+demoted too, on purpose: the desk tells its user of the refusal as a command failure, and the pause
+itself is a WARNING that is told again whenever it is extended or turns into a ban.
 
 Retire when: the Engine lets a handler's exception choose its own log level.
 """

@@ -46,7 +46,7 @@ POSITION_SIDE_MISMATCH_CODE = -4061
 
 #: The tag the text of every call refused by the exchange's pause ends with, so a log line that
 #: carries the exception's words can tell "refused by the pause" from a real failure without
-#: parsing prose (`BUG-216`).
+#: parsing prose (`BUG-217`).
 EXCHANGE_PAUSE_TAG = "[exchange-pause]"
 
 #: The codes only the operator can fix; a restart repeats the refused request.

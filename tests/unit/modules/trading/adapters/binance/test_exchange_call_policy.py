@@ -241,7 +241,7 @@ def _policy_at(world: _World, wall: list[float]) -> ExchangeCallPolicy:
 def test_a_pause_is_told_once_when_it_begins_with_its_end_and_once_when_it_is_over(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """`BUG-216`: four ERRORs every five seconds for a minute and a half was the same
+    """`BUG-217`: four ERRORs every five seconds for a minute and a half was the same
     news told 72 times. One WARNING at the start (with the instant it ends) and one INFO at
     the first request after it say all of it."""
     world = _World()
