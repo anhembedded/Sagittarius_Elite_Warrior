@@ -94,24 +94,33 @@ def test_the_owners_plan_has_no_blocking_verdict_from_either_source(
 
     assert suggestion.blocking == ()
     assert suggestion.lower <= _PRICE <= suggestion.upper
-    assert {move.key for move in suggestion.moves} == {"stop_loss", "take_profit"}
+    # Only the stop loss became invalid; the take profit 2805 is valid, so it stays.
+    assert {move.key for move in suggestion.moves} == {"stop_loss"}
 
 
-def test_an_exit_outside_the_new_range_moves_to_the_middle_of_the_advised_distance() -> (
+def test_an_exit_the_new_range_invalidates_moves_to_the_middle_of_the_advised_distance() -> (
     None
 ):
     suggestion = _suggest("ATR", ("2227.92", "2515.54"))
 
-    # 5.5% (the middle of 3%–8%) beyond each limit, on the tick.
-    assert dict(suggestion.exits) == {
-        "stop_loss": "price:2105.38",
-        "take_profit": "price:2653.9",
-    }
+    # 5.5% (the middle of 3%-8%) below the lower limit, on the tick.
+    assert dict(suggestion.exits) == {"stop_loss": "price:2105.38"}
     stop = suggestion.moves[0]
     assert (stop.old, stop.new) == (Decimal(2259), Decimal("2105.38"))
     assert "2259" in suggestion.panel_line and "2105.38" in suggestion.panel_line
     assert "stop loss" in suggestion.panel_line
-    assert "take profit" in suggestion.panel_line
+    assert "take profit" not in suggestion.panel_line
+
+
+def test_a_valid_exit_outside_the_advised_distance_stays_as_the_owner_set_it() -> None:
+    """Owner's decision, 2026-10-15 (option A): only an exit that would block Start moves.
+    The take profit 2805 is 11.5% above the ATR range's upper limit: advice, not a block."""
+    suggestion = _suggest("ATR", ("2227.92", "2515.54"), stop_loss="price:2000")
+
+    assert suggestion.exits == ()
+    assert suggestion.moves == ()
+    assert suggestion.panel_line == ""
+    assert suggestion.blocking == ()
 
 
 @pytest.mark.parametrize(

@@ -79,9 +79,10 @@ sound, I start it, and I watch what it does."*
    Grid toolbar at the top of the editor, shown while a Grid is selected), writes a whole plan only
    when chosen (`BUG-211`): the range rounded to the tick and holding the current price (a band that
    misses the price is recentred on it at the same width), and any stop loss or take profit given as
-   a price that the new range makes invalid or leaves outside the advised distance moved to the middle
-   of that distance, with one line on the panel saying which exit moved, from what and why (an exit
-   that is off, or given as a percentage, is never touched); while the parameters cannot be edited, both are disabled. **Save bot**
+   a price that the new range makes invalid (so Start would refuse it) moved to the middle of the advised
+   distance, with one line on the panel saying which exit moved, from what and why. An exit that is
+   still valid stays exactly as typed, even outside the advised distance: that is advice and its line
+   still shows (owner's decision, 2026-10-15). An exit that is off, or given as a percentage, is never touched; while the parameters cannot be edited, both are disabled. **Save bot**
    (Ctrl+S) stores the edits for a draft; Start does not wait for it (step 6). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
 5. **Blocking or advice** (decision D7). A constraint that states the exchange's rules or money **blocks
