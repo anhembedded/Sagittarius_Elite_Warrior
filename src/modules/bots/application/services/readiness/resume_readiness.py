@@ -111,8 +111,9 @@ class ResumeInputs:
     market: PlannerMarket | None
     inventory: OwnerInventory
     exchange: VenueSnapshot
-    #: The profile of the bot's venue (`EPIC-039H`); Spot's where none is given.
-    profile: VenueProfile = SPOT_PROFILE
+    #: The profile of the bot's venue (`EPIC-039H`): the caller names it, as a default would judge
+    #: a Futures bot's facts with Spot's rules (`BUG-215`).
+    profile: VenueProfile
 
 
 def assess_resume(inputs: ResumeInputs) -> RuleOutcome:

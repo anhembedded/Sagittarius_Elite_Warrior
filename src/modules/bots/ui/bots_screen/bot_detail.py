@@ -49,6 +49,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_PROFILE,
+    VenueProfile,
     bot_profile_of,
     exposure_limits_of,
 )
@@ -148,7 +149,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
                 inputs.market,
                 inputs.run,
                 inputs.exchange,
-                profile=bot_profile_of(bot.venue, GRID_MARKETS) or SPOT_PROFILE,
+                profile=_profile_of(bot),
                 limits=exposure_limits_of(bot.venue, GRID_MARKETS),
             )
         )
@@ -185,11 +186,17 @@ def _resume_blocked_by(inputs: DetailInputs) -> str:
             market,
             _recorded_inventory(bot),
             inputs.exchange,
+            _profile_of(bot),
         )
     ).items
     return (
         "Resume is blocked: " + "; ".join(item.reason for item in left) if left else ""
     )
+
+
+def _profile_of(bot: BotSnapshot) -> VenueProfile:
+    """The profile of the bot's venue, which judges the exchange facts read for that venue."""
+    return bot_profile_of(bot.venue, GRID_MARKETS) or SPOT_PROFILE
 
 
 def _recorded_inventory(bot: BotSnapshot) -> OwnerInventory:

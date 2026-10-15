@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.r
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
 )
@@ -75,6 +78,7 @@ def _readiness(config: dict[str, str]):
             market=_MARKET,
             run=RunFacts(),
             exchange=loaded(),
+            profile=SPOT_PROFILE,
         )
     )
 

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import (
     ExchangeSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     AccountView,
 )
@@ -71,6 +74,7 @@ def _assess(
             market=market,
             run=run,
             exchange=exchange or loaded(),
+            profile=SPOT_PROFILE,
         )
     )
 
@@ -201,6 +205,7 @@ def test_a_kind_nobody_knows_is_one_design_item() -> None:
             connection=CONNECTED,
             market=_MARKET,
             run=RunFacts(),
+            profile=SPOT_PROFILE,
         )
     )
 

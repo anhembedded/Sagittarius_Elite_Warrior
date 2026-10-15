@@ -62,7 +62,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_LIMITS,
-    SPOT_PROFILE,
     ExposureLimits,
     VenueProfile,
 )
@@ -124,8 +123,9 @@ class ReadinessInputs:
     #: `BOT-174` — what the exchange says; still being asked until it answers.
     exchange: VenueSnapshot = field(default_factory=ExchangeChecking)
     #: The profile of the bot's venue (`EPIC-039H`): which rules judge the exchange's facts and
-    #: what the plan asks of the account. Spot's where no venue speaks, as the plan's limits are.
-    profile: VenueProfile = SPOT_PROFILE
+    #: what the plan asks of the account. The caller names it (`BUG-215`): a default would judge a
+    #: Futures bot's facts with Spot's rules.
+    profile: VenueProfile = field(kw_only=True)
     #: What the venue lets the parameters ask for, for the kind's own judgement.
     limits: ExposureLimits = SPOT_LIMITS
 
