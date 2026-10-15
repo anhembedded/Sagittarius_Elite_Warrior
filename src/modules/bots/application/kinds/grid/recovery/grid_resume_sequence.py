@@ -122,6 +122,9 @@ class GridResumeSequence:
             reason = state.runtime.reason or GridReason.SWITCH_OFF
             detail = (
                 f"resume waits: the budget was refused: {refusal_text(registration)}"
+                if not registration.registered
+                else "resume waits: the bot holds a short position, which a resume cannot "
+                "size yet; stop it (it closes the position) and start a new run"
             )
             state.update(state.runtime.with_reason(reason, detail))
             return None

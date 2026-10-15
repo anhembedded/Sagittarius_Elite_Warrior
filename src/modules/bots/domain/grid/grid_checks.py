@@ -25,7 +25,8 @@ says which codes block and which advise, and a test holds every check to it):
   · `STOP_LOSS_INSIDE_RANGE` / `TAKE_PROFIT_INSIDE_RANGE` — an exit on the
     wrong side of the range: a stop at or above the lower limit would fire
     inside the grid, a take profit at or below the upper limit would close it
-    while it still earns (`EPIC-034F`; they advised only before D7).
+    while it still earns (`EPIC-034F`; they advised only before D7). These two checks live in
+    `grid_exit_checks.py` and read the direction's side of the range.
 
 The account's constraints (the balance, the key) are `grid_account_checks.py`.
 
@@ -38,11 +39,7 @@ from __future__ import annotations
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_advice_texts import (
-    STOP_LOSS_SIDE,
-    TAKE_PROFIT_SIDE,
-    ExitSide,
     arithmetic_spacing_advice,
-    exit_distance_advice,
     foreign_orders_advice,
     losing_grids_advice,
     range_atr_advice,
@@ -55,7 +52,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_check_inputs im
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridSpacing,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
+    GridPlan,
+    LevelSizing,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.position_order_sizing import (
+    largest_order,
+    smallest_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
@@ -99,10 +103,16 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
-    """A SELL is sized net of the fee its buy paid in base, so the smallest
-    order the bot sends is the smallest level less the taker fee."""
-    smallest = min(level.notional for level in inputs.plan.order_levels)
-    net = smallest * (1 - inputs.terms.taker_fee)
+    """A Spot SELL is sized net of the fee its buy paid in base, so the smallest order the bot
+    sends is the smallest level less the taker fee. A position ladder pays its fee in the quote
+    asset, and any level can hold an order, so its smallest order is the plan's one quantity at
+    the lowest price (`position_order_sizing`, the executor's own judgement)."""
+    plan = inputs.plan
+    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY:
+        smallest = net = smallest_order(plan).notional
+    else:
+        smallest = min(level.notional for level in plan.order_levels)
+        net = smallest * (1 - inputs.terms.taker_fee)
     minimum = inputs.terms.min_notional
     numbers = {
         "smallest_order": smallest,
@@ -139,9 +149,13 @@ def check_min_notional(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_max_notional(inputs: GridCheckInputs) -> Verdict:
-    largest = max(level.notional for level in inputs.plan.order_levels)
+    plan = inputs.plan
+    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY:
+        largest = largest_order(plan).notional
+    else:
+        largest = max(level.notional for level in plan.order_levels)
     cap = inputs.terms.max_notional_per_order
-    largest_capital = largest_capital_within_cap(inputs.plan, cap)
+    largest_capital = largest_capital_within_cap(plan, cap, inputs.params.leverage)
     numbers = {"largest_order": largest, "cap": cap, "largest_capital": largest_capital}
     if largest > cap:
         return Verdict(
@@ -250,7 +264,9 @@ def _outside_band(
     )
 
 
-def largest_capital_within_cap(plan: GridPlan, cap: Decimal) -> Decimal:
+def largest_capital_within_cap(
+    plan: GridPlan, cap: Decimal, leverage: int = 1
+) -> Decimal:
     """The largest capital whose every order stays at or under `cap`.
 
     A BUY level's order is worth at most its capital. A SELL level's base was
@@ -258,7 +274,13 @@ def largest_capital_within_cap(plan: GridPlan, cap: Decimal) -> Decimal:
     more than its capital: the highest SELL level is the binding one. Rounding
     quantities down only shrinks an order, so the answer, floored to a cent,
     always passes this check (PR #318 review: `cap × levels` did not).
+
+    A position ladder's orders all carry the quantity sized at the highest level, so each is worth
+    at most its share of the capital reached: `capital × leverage / orders` (`EPIC-039I`).
     """
+    if plan.level_sizing is LevelSizing.EQUAL_QUANTITY:
+        reached = cap * len(plan.order_levels)
+        return (reached / leverage).quantize(_CENT, rounding=ROUND_FLOOR)
     markup = max(
         (level.price / plan.last_price for level in plan.sell_levels),
         default=Decimal(1),
@@ -314,38 +336,6 @@ def check_range_against_atr(inputs: GridCheckInputs) -> Verdict:
     return Verdict(OK, "RANGE_ATR", "The range is within the ATR band", numbers)
 
 
-def check_stop_loss(inputs: GridCheckInputs) -> Verdict:
-    stop = inputs.params.stop_loss_price
-    lower = inputs.params.lower
-    if stop is None:
-        return Verdict(OK, "STOP_LOSS_OFF", "No stop loss is set")
-    if stop >= lower:
-        return Verdict(
-            REFUSED,
-            "STOP_LOSS_INSIDE_RANGE",
-            f"The stop loss {stop} is at or above the lower limit {lower}; put it "
-            "below the range",
-            {"stop_loss": stop, "lower": lower},
-        )
-    return _exit_distance(inputs, STOP_LOSS_SIDE, stop, (lower - stop) / lower)
-
-
-def check_take_profit(inputs: GridCheckInputs) -> Verdict:
-    target = inputs.params.take_profit_price
-    upper = inputs.params.upper
-    if target is None:
-        return Verdict(OK, "TAKE_PROFIT_OFF", "No take profit is set")
-    if target <= upper:
-        return Verdict(
-            REFUSED,
-            "TAKE_PROFIT_INSIDE_RANGE",
-            f"The take profit {target} is at or below the upper limit {upper}; put "
-            "it above the range",
-            {"take_profit": target, "upper": upper},
-        )
-    return _exit_distance(inputs, TAKE_PROFIT_SIDE, target, (target - upper) / upper)
-
-
 def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
     params, limit = inputs.params, inputs.thresholds.arithmetic_max_range_fraction
     width = (params.upper - params.lower) / params.lower
@@ -358,22 +348,3 @@ def check_spacing_for_range(inputs: GridCheckInputs) -> Verdict:
             numbers,
         )
     return Verdict(OK, "SPACING", "The spacing suits the range", numbers)
-
-
-def _exit_distance(
-    inputs: GridCheckInputs, side: ExitSide, price: Decimal, distance: Decimal
-) -> Verdict:
-    code = side.name.upper().replace(" ", "_")
-    low, high = (
-        inputs.thresholds.exit_distance_low,
-        inputs.thresholds.exit_distance_high,
-    )
-    numbers = {"distance": distance, "low": low, "high": high}
-    if not low <= distance <= high:
-        return Verdict(
-            WARNING,
-            f"{code}_DISTANCE",
-            exit_distance_advice(inputs, side, price, distance).text,
-            numbers,
-        )
-    return Verdict(OK, code, f"The {side.name} distance is within advice", numbers)

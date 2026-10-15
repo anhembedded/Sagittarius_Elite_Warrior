@@ -235,8 +235,17 @@ def test_a_leverage_verdict_marks_the_leverage_field(qtbot) -> None:
     assert panel.focus_field("LEVERAGE_ABOVE_CEILING")
 
 
-def test_an_exit_verdict_marks_the_exit_of_the_side_it_names(qtbot) -> None:
+def _choose(panel: GridPanel, direction: str) -> None:
+    panel.exposure.direction.setCurrentIndex(
+        panel.exposure.direction.findData(direction)
+    )
+
+
+def test_a_neutral_grids_exit_verdict_marks_the_exit_of_the_side_it_names(
+    qtbot,
+) -> None:
     panel = _panel(qtbot, _FUTURES)
+    _choose(panel, "NEUTRAL")
     needed = Verdict(
         VerdictSeverity.REFUSED, "STOP_LOSS_NEEDED", "no exit", subject="short"
     )
@@ -245,3 +254,16 @@ def test_an_exit_verdict_marks_the_exit_of_the_side_it_names(qtbot) -> None:
 
     assert panel.field_error_text("take_profit") != ""
     assert panel.field_error_text("stop_loss") == ""
+
+
+def test_a_short_grids_loss_exit_is_its_stop_loss_above_the_range(qtbot) -> None:
+    panel = _panel(qtbot, _FUTURES)
+    _choose(panel, "SHORT")
+    needed = Verdict(
+        VerdictSeverity.REFUSED, "STOP_LOSS_NEEDED", "no exit", subject="short"
+    )
+
+    panel.show_verdicts((needed,))
+
+    assert panel.field_error_text("stop_loss") != ""
+    assert panel.field_error_text("take_profit") == ""

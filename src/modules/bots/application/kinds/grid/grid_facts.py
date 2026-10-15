@@ -78,11 +78,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_market_fill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     LadderRules,
     LevelEnd,
     LevelFill,
-    book_market_fill,
     drop_order,
     on_end,
     on_fill,

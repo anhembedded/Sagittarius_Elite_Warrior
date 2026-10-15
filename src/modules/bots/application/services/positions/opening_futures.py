@@ -3,16 +3,17 @@
   0. **The start's own checks** (`FuturesStartChecks`): settings made the bot's, the plan's
      liquidation risk judged. Nothing is sent before they pass.
   1. **The opening** is the plan's `opening_quantity` (LONG: a market BUY of the SELL levels'
-     quantity), cut under the per-order cap like Spot's, but in base quantity: there is no
-     quote-sized order on a position venue, and no base fee to net — a position's fee is paid in the
-     quote asset.
+     quantity; SHORT: a market SELL of the BUY levels'; NEUTRAL opens nothing), cut under the
+     per-order cap like Spot's, but in base quantity: there is no quote-sized order on a position
+     venue, and no base fee to net — a position's fee is paid in the quote asset.
   2. **Counted from the exchange**: trading registers the budget again, which derives the position
      from the exchange's record of the bot's fills and checks it against `positionRisk`. The ladder
-     is laid only when the position covers the reduce-only SELLs, and **never over a registration
+     is laid only when the position covers the reduce-only orders (LONG's SELLs, SHORT's BUYs), and **never over a registration
      that returned a divergence** (the exchange's position differs from the bot's own fills: the
      start is refused, nothing is laid, and the guard — `EPIC-039F` — has the say once running).
 
-Only LONG opens here (`EPIC-039I` adds the rest); a plan opening on the other side is refused.
+The direction is data of the plan (`GridPlan.opening_quantity` is signed): this class reads the
+sign and nothing else, so the three directions share one path.
 """
 
 from __future__ import annotations
@@ -48,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.position_order_sizing import (
+    first_breach,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     base_slices,
 )
@@ -68,14 +72,21 @@ class PositionOpening(IOpeningStrategy):
         self._housekeeping = GridHousekeeping(context)
 
     def open(self, plan: GridPlan) -> OpeningResult:
+        breach = first_breach(plan, self._context.terms)
+        if breach is not None:
+            logger.warning(
+                "Bot %s: an order of the ladder breaks the exchange's filters: %s "
+                "[order-breach]",
+                self._context.state.bot_id,
+                breach.describe(self._context.terms),
+            )
+            return self._refuse(
+                breach.describe(self._context.terms),
+                "an order of the ladder would be refused by the exchange",
+            )
         refusal = self._checks.refusal(plan)
         if refusal is not None:
             return self._refuse(refusal, "the start was refused")
-        if plan.opening_quantity < 0:
-            return self._refuse(
-                "this bot would open a short position, which is not available yet",
-                "the opening is not available",
-            )
         if self._open_position(plan) and self._count_opening(plan):
             return OpeningResult(plan)
         return OpeningResult(None)
@@ -90,8 +101,9 @@ class PositionOpening(IOpeningStrategy):
 
     def _open_position(self, plan: GridPlan) -> bool:
         context = self._context
+        side = OrderSide.BUY if plan.opening_quantity > 0 else OrderSide.SELL
         slices = base_slices(
-            plan.opening_quantity,
+            abs(plan.opening_quantity),
             plan.last_price,
             context.cap,
             context.terms.market_step,
@@ -99,7 +111,7 @@ class PositionOpening(IOpeningStrategy):
         for index, piece in enumerate(slices, start=1):
             if stop_asked(context):
                 return False
-            outcome = context.gateway.market_buy_base(piece, plan.last_price)
+            outcome = context.gateway.market_base(side, piece, plan.last_price)
             context.off_ladder.add(outcome.client_order_id)
             logger.info(
                 "Bot %s: opening slice %d of %s -> %s %s",
@@ -140,22 +152,24 @@ class PositionOpening(IOpeningStrategy):
             )
             return False
         held = registration.position.quantity
-        selling = sum(
-            (a.quantity for a in ladder_orders(plan) if a.side is OrderSide.SELL),
+        exits_side = OrderSide.SELL if plan.opening_quantity > 0 else OrderSide.BUY
+        exiting = sum(
+            (a.quantity for a in ladder_orders(plan) if a.side is exits_side),
             Decimal(0),
         )
-        if held < selling:
+        if held * (1 if plan.opening_quantity > 0 else -1) < exiting:
             self._refuse(
                 f"the exchange's record of the opening holds {held} {self._context.base_asset}, "
-                f"the ladder's SELLs need {selling}; nothing was laid",
+                f"the ladder's reduce-only {exits_side.value}s need {exiting}; nothing was laid",
                 "the opening is not in the exchange's record",
             )
             return False
         logger.info(
             "Bot %s: opening counted from the exchange's record: a position of %s, the "
-            "ladder sells %s [position-opened]",
+            "ladder's reduce-only %ss add up to %s [position-opened]",
             state.bot_id,
             held,
-            selling,
+            exits_side.value,
+            exiting,
         )
         return True

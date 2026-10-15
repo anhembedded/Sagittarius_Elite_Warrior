@@ -67,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule impor
     PriceBar,
     PriceStep,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
+    crossed_exit_in_range,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
 )
@@ -135,11 +138,8 @@ class FuturesReplay(ReplayEngine):
     def may_trade_in(self, low: Decimal, high: Decimal) -> bool:
         if self._ladder.reaches(low, high):
             return True
-        stop_loss = self._params.stop_loss_price
-        take_profit = self._params.take_profit_price
-        if (stop_loss is not None and low <= stop_loss) or (
-            take_profit is not None and high >= take_profit
-        ):
+        stop, take = self._params.stop_loss_price, self._params.take_profit_price
+        if crossed_exit_in_range(low, high, stop, take, self._params.direction):
             return True
         limit = self._liquidation_limit()
         if limit is None:
@@ -268,6 +268,7 @@ class FuturesReplay(ReplayEngine):
                 stop_loss=self._params.stop_loss_price,
                 take_profit=self._params.take_profit_price,
                 tick=self._terms.tick_size,
+                direction=self._params.direction,
             ),
             self._ladder,
             LegActions(self._liquidate, self._exit, self._fill),

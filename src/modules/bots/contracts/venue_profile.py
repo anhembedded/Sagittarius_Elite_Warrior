@@ -73,9 +73,9 @@ class VenueProfile:
     #: bracket narrows it further (`EPIC-039E`).
     max_leverage: int = 1
     #: The directions a bot may **run** today, a subset of `directions` (what the market supports,
-    #: which a plan and a backtest may name). Futures runs LONG only until `EPIC-039I` builds the
-    #: short and neutral openings; the start's preconditions and the readiness refuse the other
-    #: two in one sentence meanwhile (`exposure_refusal`).
+    #: which a plan and a backtest may name). Futures runs LONG and SHORT; NEUTRAL joins with the
+    #: rest of `EPIC-039I`. The start's preconditions and the readiness refuse a direction outside
+    #: the set in one sentence (`exposure_refusal`).
     bot_directions: frozenset[TradeDirection] = frozenset({TradeDirection.LONG})
 
 
@@ -101,6 +101,7 @@ _FUTURES = VenueProfile(
     needs_reduce_only_exits=True,
     title_word=FUTURES_TITLE,
     max_leverage=_FUTURES_MAX_LEVERAGE,
+    bot_directions=frozenset({TradeDirection.LONG, TradeDirection.SHORT}),
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.

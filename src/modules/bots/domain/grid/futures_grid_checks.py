@@ -27,6 +27,9 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.futures_notional_cap import (
     allowed_notional,
 )
@@ -201,12 +204,13 @@ def _estimate(inputs: PlanRiskInputs, step: LadderStep) -> Decimal | None:
 
 
 def _loss_exit(inputs: PlanRiskInputs, side: PositionSide) -> Decimal | None:
+    """The exit that limits a loss on `side`'s leg. A LONG or SHORT grid has one, its stop loss
+    (below or above the range); a NEUTRAL grid's long leg ends at the stop loss under the range
+    and its short leg at the take profit over it (`EPIC-039B`)."""
     params = inputs.params
-    return (
-        params.stop_loss_price
-        if side is PositionSide.LONG
-        else params.take_profit_price
-    )
+    if params.direction is TradeDirection.NEUTRAL and side is PositionSide.SHORT:
+        return params.take_profit_price
+    return params.stop_loss_price
 
 
 def _inside_range(

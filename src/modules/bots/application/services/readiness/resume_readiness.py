@@ -87,6 +87,15 @@ _UNREADABLE_RECORD = ReadinessItem(
     BotRefusal.UNREADABLE,
 )
 
+_SHORT_POSITION = ReadinessItem(
+    ReadinessStep.RUN,
+    "RUN_SHORT_RESUME_UNAVAILABLE",
+    "The bot holds a short position, which a resume cannot size yet: stop it (it closes the "
+    "position) and start a new run",
+    ReadinessFix.NONE,
+    BotRefusal.VENUE_NOT_READY,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ResumeInputs:
@@ -167,6 +176,8 @@ class ResumeReadinessReader:
         inventory = _inventory_of(stored)
         if inventory is None:
             return RuleOutcome((_UNREADABLE_RECORD,))
+        if inventory.quantity < 0:
+            return RuleOutcome((_SHORT_POSITION,))
         numbers = read_planner_numbers(
             self._ports, self._caps, definition.venue, definition.symbol
         )

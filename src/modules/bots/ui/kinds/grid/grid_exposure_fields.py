@@ -106,6 +106,15 @@ class ExposureFields:
             LEVERAGE_KEY: str(self.leverage.value()),
         }
 
+    def selected_direction(self) -> TradeDirection:
+        """The direction the editor shows; LONG where the venue has no direction to offer."""
+        name = self.direction.currentData()
+        return (
+            TradeDirection[name]
+            if self.exposes_position and name
+            else TradeDirection.LONG
+        )
+
     def show_config(self, config: Mapping[str, str]) -> None:
         """A saved definition's direction and leverage; the start (long, 2×) when it names
         none, as a new bot's rows start. Emits nothing."""

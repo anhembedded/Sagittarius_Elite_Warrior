@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result
     BacktestFill,
     StopReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_market_fill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
     Leg,
     PriceBar,
@@ -59,7 +62,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
     LevelFill,
     PlaceOrder,
     accepted,
-    book_market_fill,
     on_fill,
     placed,
 )

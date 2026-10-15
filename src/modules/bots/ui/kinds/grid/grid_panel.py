@@ -267,7 +267,7 @@ class GridPanel(BotKindPanel):
     # -- constraints on the fields (EPIC-034F) ----------------------------- #
 
     def show_verdicts(self, verdicts: tuple[Verdict, ...]) -> None:
-        shown = field_errors(verdicts)
+        shown = field_errors(verdicts, self.exposure.selected_direction())
         for key, label in self._error_labels.items():
             error = shown.get(key)
             label.setText(error.text if error else "")

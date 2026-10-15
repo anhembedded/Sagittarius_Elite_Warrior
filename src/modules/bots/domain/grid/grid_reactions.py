@@ -35,6 +35,10 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_books import (
+    book_cycle,
+    book_inventory,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelEvent,
     LevelState,
@@ -53,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 
 _ROUNDING = OrderQuantityRoundingPolicy()
 _ZERO = Decimal(0)
+_OPPOSITE = {OrderSide.BUY: OrderSide.SELL, OrderSide.SELL: OrderSide.BUY}
 #: Two ends at one level inside this window halt the bot (ADR §3.2).
 LEVEL_END_WINDOW = timedelta(minutes=1)
 
@@ -162,13 +167,13 @@ def on_fill(
         base_fee=level.order.base_fee + fill.base_fee,
         quote_fee=level.order.quote_fee + fill.quote_fee,
     )
-    after = _book_inventory(runtime, order.side, fill)
+    after = book_inventory(runtime, order.side, fill)
     if not order.is_filled:
         return Reaction(after.with_level(level.moved(LevelEvent.PARTIAL_FILL, order)))
     filled = level.moved(LevelEvent.FULL_FILL, order)
     after = after.with_level(filled.moved(LevelEvent.SETTLED, None))
-    if order.side is OrderSide.SELL:
-        after = _book_cycle(after, order, fill.price)
+    if order.side is not runtime.entry_side:
+        after = book_cycle(after, order, fill.price)
     counter = _counter(after, level.index, order, step_size)
     if counter is None:
         return Reaction(after)
@@ -223,8 +228,8 @@ def _settle_short(
     done for what it executed: a SELL books its cycle, and the counter order
     goes out if it clears the minimum (else the executed part stays in the
     inventory with no level, and a stop sells or keeps it)."""
-    if order.side is OrderSide.SELL:
-        runtime = _book_cycle(runtime, order, order.price)
+    if order.side is not runtime.entry_side:
+        runtime = book_cycle(runtime, order, order.price)
     counter = _counter(runtime, index, order, rules.step_size)
     if counter is None:
         return Reaction(runtime)
@@ -276,67 +281,24 @@ def adopted(runtime: GridRuntime, index: int, order: LevelOrder) -> GridRuntime:
     return replace(after, held=tuple(h for h in after.held if h.level_index != index))
 
 
-def book_market_fill(
-    runtime: GridRuntime, side: OrderSide, fill: LevelFill
-) -> GridRuntime:
-    """The inventory after a fill of one of the bot's market orders (the
-    opening buy, an exit slice): no level holds it, and it owes no counter."""
-    return _book_inventory(runtime, side, fill)
-
-
-def _book_inventory(
-    runtime: GridRuntime, side: OrderSide, fill: LevelFill
-) -> GridRuntime:
-    if side is OrderSide.BUY:
-        return replace(
-            runtime,
-            inventory=runtime.inventory + fill.quantity - fill.base_fee,
-            cost=runtime.cost + fill.price * fill.quantity + fill.quote_fee,
-        )
-    average = runtime.average_cost or _ZERO
-    sold = min(fill.quantity + fill.base_fee, runtime.inventory)
-    earned = fill.price * fill.quantity - fill.quote_fee - average * sold
-    return replace(
-        runtime,
-        inventory=runtime.inventory - sold,
-        cost=runtime.cost - average * sold,
-        realised_total=runtime.realised_total + earned,
-    )
-
-
-def _book_cycle(runtime: GridRuntime, sell: LevelOrder, price: Decimal) -> GridRuntime:
-    if sell.paired_buy_price is None:
-        return runtime
-    quantity = sell.total_executed
-    sell_fee_quote = sell.quote_fee + sell.total_base_fee * price
-    profit = (
-        (sell.price - sell.paired_buy_price) * quantity
-        - sell_fee_quote
-        - sell.paired_buy_fee_quote
-    )
-    return replace(
-        runtime,
-        realised_profit=runtime.realised_profit + profit,
-        completed_cycles=runtime.completed_cycles + 1,
-    )
-
-
 def _counter(
     runtime: GridRuntime, index: int, filled: LevelOrder, step_size: Decimal
 ) -> PlaceOrder | Halt | None:
-    if filled.side is OrderSide.BUY:
-        target = index + 1
+    """The order a full fill owes: the neighbouring level, on the other side. A fill of the
+    entry side owes its completion, sized to what it executed and paired with its price; a
+    completion owes a fresh entry of the level's own quantity (`EPIC-039I`: for a SHORT grid the
+    entry side is the SELL, so the same rule reads mirrored)."""
+    target = index + 1 if filled.side is OrderSide.BUY else index - 1
+    side = _OPPOSITE[filled.side]
+    if filled.side is runtime.entry_side:
         quantity = _ROUNDING.round_quantity_down(
             filled.total_executed - filled.total_base_fee, step_size
         )
         fee_quote = filled.quote_fee + filled.total_base_fee * filled.price
         paired: tuple[Decimal | None, Decimal] = (filled.price, fee_quote)
-        side = OrderSide.SELL
     else:
-        target = index - 1
         quantity = runtime.levels[target].buy_quantity if target >= 0 else _ZERO
         paired = (None, _ZERO)
-        side = OrderSide.BUY
     if not 0 <= target < len(runtime.levels) or quantity <= 0:
         return None
     level: RuntimeLevel = runtime.levels[target]

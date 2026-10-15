@@ -198,10 +198,17 @@ class GridParams:
 
     @property
     def stop_loss_price(self) -> Decimal | None:
+        """Where the stop loss sits: below the range for a grid that wins when price rises
+        (Spot, LONG, NEUTRAL's long side), above it for a SHORT grid (`EPIC-039I`)."""
+        if self.direction is TradeDirection.SHORT:
+            return self.stop_loss.above(self.upper)
         return self.stop_loss.below(self.lower)
 
     @property
     def take_profit_price(self) -> Decimal | None:
+        """Where the take profit sits: above the range, or below it for a SHORT grid."""
+        if self.direction is TradeDirection.SHORT:
+            return self.take_profit.below(self.lower)
         return self.take_profit.above(self.upper)
 
 

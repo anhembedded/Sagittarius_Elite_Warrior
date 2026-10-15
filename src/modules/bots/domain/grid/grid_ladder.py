@@ -32,6 +32,9 @@ from __future__ import annotations
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
+    TradeDirection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridLevel,
     GridPlan,
@@ -74,6 +77,9 @@ def runtime_from_plan(plan: GridPlan, step_size: Decimal) -> GridRuntime:
             for level in plan.levels
         ),
         start_price=plan.last_price,
+        entry_side=OrderSide.SELL
+        if plan.direction is TradeDirection.SHORT
+        else OrderSide.BUY,
     )
 
 
@@ -151,10 +157,13 @@ def sells_net_of_opening_fee(
 
 
 def crossed_exit(
-    price: Decimal, stop_loss: Decimal | None, take_profit: Decimal | None
+    price: Decimal,
+    stop_loss: Decimal | None,
+    take_profit: Decimal | None,
+    direction: TradeDirection = TradeDirection.LONG,
 ) -> GridReason | None:
     """`STOP_LOSS` or `TAKE_PROFIT` when `price` reached one, else `None`."""
-    return crossed_exit_in_range(price, price, stop_loss, take_profit)
+    return crossed_exit_in_range(price, price, stop_loss, take_profit, direction)
 
 
 def crossed_exit_in_range(
@@ -162,9 +171,19 @@ def crossed_exit_in_range(
     high: Decimal,
     stop_loss: Decimal | None,
     take_profit: Decimal | None,
+    direction: TradeDirection = TradeDirection.LONG,
 ) -> GridReason | None:
-    """`STOP_LOSS` when `low` reached the stop, else `TAKE_PROFIT` when `high`
-    reached the take profit (`BUG-191`): a range traded, not only a price."""
+    """`STOP_LOSS` when the range reached the stop, else `TAKE_PROFIT` when it reached the
+    take profit (`BUG-191`): a range traded, not only a price.
+
+    A LONG (and Spot) stop sits below the range and is reached by the low; a SHORT grid's sits
+    above it and is reached by the high, its take profit by the low (`EPIC-039I`)."""
+    if direction is TradeDirection.SHORT:
+        if stop_loss is not None and high >= stop_loss:
+            return GridReason.STOP_LOSS
+        if take_profit is not None and low <= take_profit:
+            return GridReason.TAKE_PROFIT
+        return None
     if stop_loss is not None and low <= stop_loss:
         return GridReason.STOP_LOSS
     if take_profit is not None and high >= take_profit:

@@ -176,6 +176,23 @@ def test_a_resume_whose_sells_the_free_base_covers_is_queued(
     assert runner.resumed == [BOT]
 
 
+def test_a_resume_over_a_short_position_is_refused_in_words_and_nothing_is_queued(
+    world: ReadinessWorld,
+) -> None:
+    """`EPIC-039I`: a resume sizes a ladder to a long inventory; a short has no such reading yet,
+    so the bot is not resumed over it. The user stops it (which closes the position)."""
+    stored = world.store.load(BotId(BOT))
+    short = GridRuntime((), inventory=-HELD, cost=Decimal(500))
+    world.store.save(StoredBot(stored.bot, encode_runtime(short)))
+    runner = _Runner()
+
+    result = _resume(world, runner)
+
+    assert not result.accepted
+    assert "short position" in result.message
+    assert runner.resumed == []
+
+
 def test_a_resume_one_step_short_of_base_is_refused_and_nothing_is_queued(
     world: ReadinessWorld,
 ) -> None:

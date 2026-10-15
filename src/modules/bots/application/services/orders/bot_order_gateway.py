@@ -175,13 +175,13 @@ class BotOrderGateway:
         )
         return self._submit(request)
 
-    def market_buy_base(
-        self, quantity: Decimal, reference_price: Decimal
+    def market_base(
+        self, side: OrderSide, quantity: Decimal, reference_price: Decimal
     ) -> OrderOutcome:
-        """A market BUY of `quantity` base: what a position venue sends, where there is no
-        quote-sized order (`EPIC-039H`)."""
+        """A market order of `quantity` base on `side`: what a position venue's opening sends,
+        where there is no quote-sized order (`EPIC-039H`; a SELL opens a short, `EPIC-039I`)."""
         return self._submit(
-            self._request(OrderSide.BUY, OrderType.MARKET, quantity, reference_price)
+            self._request(side, OrderType.MARKET, quantity, reference_price)
         )
 
     def market_sell(self, quantity: Decimal, reference_price: Decimal) -> OrderOutcome:
