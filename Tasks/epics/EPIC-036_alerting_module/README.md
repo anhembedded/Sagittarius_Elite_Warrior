@@ -1,10 +1,10 @@
 # EPIC-036 — An alerting module: alerts reach the owner on more than one channel, and the owner can see what was sent
 
-- **Status:** 🟡 In progress (1/6) — scaffolded 2026-10-08; `036A` done 2026-10-13
+- **Status:** 🟡 In progress (1/7) — scaffolded 2026-10-08; `036A` done 2026-10-13; re-planned 2026-10-15 around the walking skeleton `036G`
 - **Repositories:** Elite. No Engine change is expected; a need for one gets its own confirmation (`ONBOARDING.md` §2).
 - **Origin:** the owner's approval of the alerting design on 2026-10-08, relayed by the coordinator session: *"a bot that has trouble must reach me even when I am away from the machine; Discord first, Telegram exists, other channels later; many bots and many kinds of bot; leave room to control bots from Discord"* (paraphrased from the design page). It rewrites [`EPIC-035K`](../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md), which asked for one Discord adapter behind a bots-owned port.
-- **North star:** [`DESIGN_2026-10-08_alerting_module.md`](DESIGN_2026-10-08_alerting_module.md), the full English transcription of the owner-approved design (components, classes, four sequences, the many-bots table, the UI wireframes, N1–N8, the task split). The owner's page (Vietnamese, https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1, `master-warrior` `1f890e0`) is a private artifact and a secondary reference only. Research behind it: [`RESEARCH_2026-10-08_alerting_lessons.md`](RESEARCH_2026-10-08_alerting_lessons.md). The points every task must carry are in §1b.
-- **Decisions:** [`DECISION_2026-10-08_alerting_module.md`](DECISION_2026-10-08_alerting_module.md) — N1–N8 accepted.
+- **North star:** [`Docs/MODULES/alerting.md`](../../../Docs/MODULES/alerting.md), the module's current design in the seven views of `Docs/MODULES/README.md`, marking what is built and what is planned; its §8 is the walking skeleton (since 2026-10-15, `EPIC-041`'s standard). The design approved on 2026-10-08 stays as the record, superseded: [`DESIGN_2026-10-08_alerting_module.md`](DESIGN_2026-10-08_alerting_module.md), the full English transcription of the owner-approved design (components, classes, four sequences, the many-bots table, the UI wireframes, N1–N8, the task split). The owner's page (Vietnamese, https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1, `master-warrior` `1f890e0`) is a private artifact and a secondary reference only. Research behind it: [`RESEARCH_2026-10-08_alerting_lessons.md`](RESEARCH_2026-10-08_alerting_lessons.md). The points every task must carry are in §1b.
+- **Decisions:** [`DECISION_2026-10-08_alerting_module.md`](DECISION_2026-10-08_alerting_module.md) — N1–N8 accepted. [`DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md`](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md) — D1 Discord first, D2 the walking skeleton first, D4 a typed stop-gave-up event (accepted); D3 a channel's secret is a systemd credential on a headless host, D5 `alerting` answers the host's "is a channel carrying bot events?" (proposed, waiting for the owner).
 - **Tracking:** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:** Builds on `BOT-018` (the `INotificationChannel` port, the Telegram channel and `NotificationEventHandler`, wired at `src/shell/composition_root.py:262-270`) and on `EPIC-034E` (the keyring-backed `ISecretStore`). The heartbeat (`EPIC-036E`) reads the health snapshot of [`EPIC-035W`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md); remote control (`EPIC-036F`) comes after [`EPIC-035X`](../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035X_every_bot_decision_is_in_an_audit_trail.md). Replaces [`EPIC-035K`](../EPIC-035_spot_grid_unattended_safety/cancelled/EPIC-035K_alerts_reach_a_user_who_is_away.md) as the home of Phase 3's alerts: [`EPIC-035L`](../EPIC-035_spot_grid_unattended_safety/completed/EPIC-035L_range_exit_and_start_outside_the_range.md) delivered the range-exit *fact* (`BotRangeChangedEvent`) and waits on `EPIC-036B` for the alert.
 
@@ -20,6 +20,7 @@ All eight are the owner's, 2026-10-08, and are recorded in the [decision record]
 6. **N6** — remote control from Discord is a separate Phase-4 task after `EPIC-035X`; it reuses the UI's command handlers; commands are authorised by a user-ID allowlist, never through a webhook; the library is decided when the task starts and a new dependency needs owner approval.
 7. **N7** — a dead man's switch: an adapter pings an external service (healthchecks.io or a URL the owner picks); off by default.
 8. **N8** — CRITICAL goes to two channels when two or more are configured.
+9. **2026-10-15 (D1, D2)** — Discord is the first real channel; the walking skeleton `036G` is built first and `036B`, `036C`, `036E` widen it. D3 (the webhook from a systemd credential on a headless host, superseding N3's "keyring only" there) and D5 wait for the owner.
 
 ### 1b. What every task carries (the design's "lessons from real users")
 - **A typed `Alert`:** kind, severity, subject, title, detail, at, dedup key. `AlertSubject` carries bot id, name, kind, venue and symbol. The `AlertKind` catalog includes `STOP_FAILED`.
@@ -44,20 +45,22 @@ All eight are the owner's, 2026-10-08, and are recorded in the [decision record]
 | An app that died or a machine that went off | silent | an external service alerts the owner (the dead man's switch, off by default) |
 
 ## 3. Sub-tasks, ordered by risk
-Each child is one PR, done in the order the dependencies allow. `EPIC-036F` is Phase 4 and is the only one whose start needs an owner decision (the library).
+Each child is one PR, done in the order the dependencies allow. `EPIC-036G`, the walking skeleton, comes first (decision D2 of 2026-10-15); `036B`, `036C` and `036E` start from what it delivered. `EPIC-036G` needs the owner's go and answers on O1/O2; `EPIC-036F` is Phase 4 and needs the owner's choice of library.
 
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-036F](incomplete/EPIC-036F_remote_control_from_discord.md) | Remote control from Discord: `IRemoteCommandSource`, `RemoteCommandGate`, allowlist, command tiers, idempotency, audit (Phase 4) | Elite | 036A, 036C, 035X; library approved by the owner | 🔴 | Planned |
 | [EPIC-036A](completed/EPIC-036A_alerting_core.md) | Alerting core: module skeleton, `Alert`, `IAlertChannel`, `AlertHub`, SQLite outbox, per-channel `DeliveryWorker` lanes (`ISecretStore` lift delivered by `EPIC-038E`) | Elite | None | 🟡 | Done 2026-10-13 |
-| [EPIC-036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | Discord channel and Telegram migration: embeds, keyring, token migration, no-secret-in-logs, rate-limit tests | Elite | 036A | 🟡 | Planned |
-| [EPIC-036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | Heartbeat, dead man's switch and daily summary | Elite | 036A, 036C, 035W | 🟡 | Planned |
-| [EPIC-036B](incomplete/EPIC-036B_alert_sources.md) | Alert sources: `BotAlertSource`, `StreamAlertSource`, `SystemAlertSource` replacing `NotificationEventHandler` | Elite | 036A | 🟢 | Planned |
+| [EPIC-036G](incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md) | **Next. Walking skeleton:** a bot entering `HALTED` or `ERROR`, or giving up a stop, sends one CRITICAL alert through `AlertHub` and the outbox to one Discord webhook on the headless host; `Retry-After` honoured; no secret in any log; the webhook from a systemd credential (D3) | Elite | 036A; the owner's go; O1 and O2 of the 2026-10-15 decision | 🟡 | Planned |
+| [EPIC-036C](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | Discord channel and Telegram migration: embeds, pacing, Telegram moved, token migration, Send test and Rotate on the desktop | Elite | 036A, 036G | 🟡 | Planned |
+| [EPIC-036E](incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) | Heartbeat, dead man's switch and daily summary | Elite | 036A, 036G, 036C, 035W | 🟡 | Planned |
+| [EPIC-036B](incomplete/EPIC-036B_alert_sources.md) | Alert sources: the full bot table, `StreamAlertSource`, `SystemAlertSource` replacing `NotificationEventHandler` | Elite | 036A, 036G | 🟢 | Planned |
 | [EPIC-036D](incomplete/EPIC-036D_alerts_ui.md) | UI: Options page, Alerts dock, status-bar indicator, per-bot mute, with previews | Elite | 036A, 036C | 🟢 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
+| 0 — Walking skeleton | `036G` merged: a bot halting on the headless host reaches the owner's Discord once, through the outbox, with `Retry-After` honoured and no secret in a log | The end-to-end integration test with a fake Discord transport, red first; the owner's `alert test` on the VPS, recorded in the task. Not run |
 | 1 — Core and sources | `036A` and `036B` merged: an event from a bot reaches a fake channel as one typed alert; a second fake channel needs no application change; the old handler is gone | Each child's red-before tests (named in the task); the `-Full` run green on each head; a reviewer's read. Not run |
 | 2 — Real channels | `036C` merged: Discord and Telegram deliver, the token is in the keyring, no secret appears in a log or error, a 429 is never retried early | Per-child tests; a Discord webhook run and a Telegram run on the owner's own channels, recorded in the task. Not run |
 | 3 — Visible and watched | `036D` and `036E` merged: the owner configures channels, sends a test, reads the history and mutes a bot from the app; a heartbeat and the dead man's switch work | Preview screenshots; a run in which the app is killed and the external service alerts. Not run |
@@ -72,5 +75,6 @@ Each child is one PR, done in the order the dependencies allow. `EPIC-036F` is P
 - Any code. This epic is documentation until a child task is started.
 
 ## Notes (newest first)
+- **2026-10-15** — Re-planned on the owner's request (*"Discord. But do the design for this module first, as a walking skeleton"*, relayed in English): the design moves to [`Docs/MODULES/alerting.md`](../../../Docs/MODULES/alerting.md) under `EPIC-041`'s standard; design 036 is marked superseded; new child `036G` (the walking skeleton) comes first and `036B`, `036C`, `036E` are re-sequenced behind it ([decision of 2026-10-15](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). D3 (where the webhook comes from on the VPS) and D5 (the host's warning) wait for the owner. Documentation only.
 - **2026-10-13** — `EPIC-036A` done: the `alerting` module with the typed `Alert`, `IAlertChannel`, `AlertHub`, the SQLite outbox and a lane per channel. Owner decision the same day: `ISecretStore` is not lifted here; `EPIC-038E` delivers N3's lift.
 - **2026-10-08** — Epic scaffolded from the owner-approved design (N1–N8). `EPIC-035K` moved to `EPIC-035/cancelled/` as superseded. Documentation only; nothing started.
