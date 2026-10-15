@@ -22,11 +22,22 @@ class OffLadderOrders:
 
     def __init__(self) -> None:
         self._ids: set[str] = set()
+        self._exits: set[str] = set()
 
     def add(self, client_order_id: str | None) -> None:
         """Count `client_order_id`'s fills from now on (`None`: nothing sent)."""
         if client_order_id:
             self._ids.add(client_order_id)
+
+    def add_exit(self, client_order_id: str | None) -> None:
+        """As `add`, for a market order that closes (an exit slice): its fill may reduce the
+        bot's position and never open one (`EPIC-039I`)."""
+        if client_order_id:
+            self._ids.add(client_order_id)
+            self._exits.add(client_order_id)
+
+    def is_exit(self, client_order_id: str) -> bool:
+        return client_order_id in self._exits
 
     def __contains__(self, client_order_id: object) -> bool:
         return client_order_id in self._ids

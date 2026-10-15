@@ -79,6 +79,10 @@ def _hodl(runtime: GridRuntime, capital: Decimal | None) -> Decimal | None:
     start, mark = runtime.start_price, runtime.mark_price
     if capital is None or start is None or mark is None or start <= 0:
         return None
+    if runtime.entry_side is None:
+        # A NEUTRAL grid opens nothing, so its benchmark is the capital left idle, as in its
+        # backtest (`futures_outcome.py`).
+        return Decimal(0)
     held = capital / start * mark - capital
     # A SHORT grid's benchmark is the same capital held short from the start (`EPIC-039I`).
     return -held if runtime.entry_side is OrderSide.SELL else held

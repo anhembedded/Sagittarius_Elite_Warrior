@@ -47,6 +47,9 @@ class DirectionScenario:
     #: The side a trade by hand adds to the bot's position, and the side that reads "long"/"short".
     by_hand_side: OrderSide
     holds_word: str
+    #: Why a bot halts when the owner added a position by hand while the app was closed: a bot
+    #: with a position of its own sees a mismatch, a flat one (NEUTRAL) a position it did not open.
+    by_hand_reason: GridReason
     #: Prices (one rung each) after which the bot is flat: its reduce-only exits have all filled.
     prices_to_flat: tuple[Decimal, ...]
     #: The orders resting after a restart that missed the first exit-side fill
@@ -88,6 +91,7 @@ LONG = DirectionScenario(
     D(64100),
     OrderSide.BUY,
     "long",
+    GridReason.POSITION_MISMATCH,
     (D(65100), D(66100)),
     D(65100),
     (
@@ -128,6 +132,7 @@ SHORT = DirectionScenario(
     D(63900),
     OrderSide.SELL,
     "short",
+    GridReason.POSITION_MISMATCH,
     (D(62900), D(61900)),
     D(62900),
     (
@@ -143,4 +148,45 @@ SHORT = DirectionScenario(
     (D(65100), D(63900), D(62900), D(61900), D(63100)),
 )
 
-SCENARIOS: tuple[DirectionScenario, ...] = (LONG, SHORT)
+NEUTRAL = DirectionScenario(
+    TradeDirection.NEUTRAL,
+    _config(
+        "NEUTRAL",
+        stop_loss="price:50000",
+        take_profit="price:66500",
+    ),
+    D(0),
+    (
+        ("BUY", D(62000), False),
+        ("BUY", D(63000), False),
+        ("SELL", D(65000), False),
+        ("SELL", D(66000), False),
+    ),
+    D(62900),
+    ORDER_QUANTITY,
+    (
+        ("BUY", D(62000), False),
+        ("SELL", D(64000), False),
+        ("SELL", D(65000), False),
+        ("SELL", D(66000), False),
+    ),
+    D(64100),
+    OrderSide.BUY,
+    "long",
+    GridReason.FOREIGN_FILL,
+    (),
+    D(65100),
+    (
+        ("BUY", D(62000), False),
+        ("BUY", D(63000), False),
+        ("BUY", D(64000), False),
+        ("SELL", D(66000), False),
+    ),
+    -ORDER_QUANTITY,
+    "take_profit",
+    GridReason.TAKE_PROFIT,
+    D(66600),
+    (D(62900), D(64100), D(65100), D(63900), D(62900), D(61900), D(63100)),
+)
+
+SCENARIOS: tuple[DirectionScenario, ...] = (LONG, SHORT, NEUTRAL)

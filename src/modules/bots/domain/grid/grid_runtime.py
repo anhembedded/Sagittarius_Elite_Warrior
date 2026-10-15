@@ -242,10 +242,19 @@ class GridRuntime:
     #: stop that waits through a switch-off or a restart finishes as asked.
     sell_base_on_stop: bool = False
     #: `EPIC-039I` - the side whose fills open a cycle: BUY for Spot and a LONG grid, SELL for a
-    #: SHORT grid. The other side completes the cycle (and books its profit). `inventory` is
-    #: signed on a position venue: negative is a short position, and `cost` is then the proceeds
-    #: of what is held (the magnitude), so `average_cost` is the average entry either way.
-    entry_side: OrderSide = OrderSide.BUY
+    #: SHORT grid; `None` for a NEUTRAL grid, whose entries are on both sides (an order there
+    #: completes a cycle when it carries the entry it pairs, `completes_a_cycle`). The other side
+    #: completes the cycle and books its profit. `inventory` is signed on a position venue:
+    #: negative is a short position, and `cost` is then the proceeds of what is held (the
+    #: magnitude), so `average_cost` is the average entry either way.
+    entry_side: OrderSide | None = OrderSide.BUY
+
+    def completes_a_cycle(self, order: LevelOrder) -> bool:
+        """Whether a fill of `order` closes a cycle rather than opens one: the side that does not
+        open them, or (NEUTRAL, where either side may) an order that carries its entry's price."""
+        if self.entry_side is None:
+            return order.paired_buy_price is not None
+        return order.side is not self.entry_side
 
     def level_of(self, client_order_id: str) -> RuntimeLevel | None:
         for level in self.levels:

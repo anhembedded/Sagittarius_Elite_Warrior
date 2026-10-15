@@ -112,26 +112,30 @@ def test_a_futures_editor_shows_direction_leverage_margin_and_liquidation(
     assert offered == ["LONG", "SHORT", "NEUTRAL"]
 
 
-def test_a_direction_no_bot_runs_yet_is_listed_greyed_out_with_its_reason(
+def test_a_direction_a_bot_runs_is_listed_enabled_and_one_it_does_not_greyed_out(
     qtbot,
 ) -> None:
-    """`EPIC-039I` review: never selectable and then refused at Start (the pattern of a closed
-    venue, `BUG-208`)."""
-    panel = _panel(qtbot, _FUTURES)
-    direction = panel.exposure.direction
-    model = direction.model()
+    """`EPIC-039I` review: a direction no bot runs yet is never selectable and then refused at
+    Start (the pattern of a closed venue, `BUG-208`). All three run on Futures now, so the
+    greyed-out case is a profile that offers a direction it does not run."""
+    open_profile = _FUTURES
+    closed_profile = replace(
+        _FUTURES,
+        bot_directions=frozenset({TradeDirection.LONG, TradeDirection.SHORT}),
+    )
 
-    states = {
-        direction.itemData(i): (
-            model.item(i).isEnabled(),
-            model.item(i).toolTip(),
-        )
-        for i in range(direction.count())
-    }
+    def states(profile: VenueProfile) -> dict[str, tuple[bool, str]]:
+        direction = _panel(qtbot, profile).exposure.direction
+        model = direction.model()
+        return {
+            direction.itemData(i): (model.item(i).isEnabled(), model.item(i).toolTip())
+            for i in range(direction.count())
+        }
 
-    assert states["LONG"] == (True, "")
-    assert states["SHORT"] == (True, "")
-    enabled, reason = states["NEUTRAL"]
+    assert all(enabled for enabled, _ in states(open_profile).values())
+    closed = states(closed_profile)
+    assert closed["LONG"] == (True, "")
+    enabled, reason = closed["NEUTRAL"]
     assert not enabled
     assert "neutral grid cannot run on Futures yet" in reason
 
