@@ -12,7 +12,7 @@
    what was counted (`BUG-194`). The stream's later report of the same fill is not counted
    again (`OwnerBook.apply_fill`).
 3. **The ladder is sized net of the opening's fee**, which Spot takes from the base bought
-   (`opening_ladder`, which the pre-start check judges too: `BUG-211`).
+   (`opening_ladder`, which the pre-start check judges too: `BUG-212`).
 """
 
 from __future__ import annotations

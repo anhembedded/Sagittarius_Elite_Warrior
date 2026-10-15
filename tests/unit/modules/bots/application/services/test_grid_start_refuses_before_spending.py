@@ -1,4 +1,4 @@
-"""`BUG-211` - a start whose ladder the exchange would refuse spends nothing.
+"""`BUG-212` - a start whose ladder the exchange would refuse spends nothing.
 
 The owner's Spot MAINNET start (2348-2667, 7 grids, 35 USDT, price 2363.77, step 0.0001,
 minimum notional 5): the opening market buy went out, and only then did the first SELL come back

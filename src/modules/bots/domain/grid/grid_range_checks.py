@@ -47,9 +47,7 @@ def check_price_against_range(inputs: GridCheckInputs) -> Verdict:
                 VerdictSeverity.REFUSED,
                 "PRICE_BELOW_RANGE",
                 f"The price {last} is below the range's lower bound {params.lower}. "
-                f"Starting now would spend about {opening_quote:.2f} "
-                f"{inputs.market.quote_asset or 'of the quote asset'} buying "
-                f"{plan.opening_buy_quantity:f} {inputs.market.base_asset or 'of the base asset'} "
+                f"Starting now would buy about {opening_quote:.2f} of the base asset "
                 f"at market, {share:.0f}% of the capital. Lower the range to "
                 "include the price, or wait for it to return",
                 numbers,

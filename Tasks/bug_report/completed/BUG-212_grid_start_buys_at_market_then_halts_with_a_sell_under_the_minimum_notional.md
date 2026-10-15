@@ -1,4 +1,4 @@
-# BUG-211 — A Spot Grid the Plan called ready bought ~34.7 USDT at market, then halted with no ladder: its first SELL was under the 5 USDT minimum
+# BUG-212 — A Spot Grid the Plan called ready bought ~34.7 USDT at market, then halted with no ladder: its first SELL was under the 5 USDT minimum
 
 - **Reported:** 2026-10-15 (the owner, Spot MAINNET, bot `ke95g7` "Test_real_cash", real money)
 - **Severity:** 🔴 P1. Real money was spent at market on a start the Plan showed as ready, and the bot halted with nothing resting. The loss is the spread and fee of an unwanted round trip, and an exposure the user did not choose.
@@ -26,28 +26,24 @@ Frequency: deterministic for these inputs (reproduced in `grid_order_sizing` tes
 17:28:57,038 GridExecutor INFO Bot ke95g7: L1 SELL 0.00200000 @ 2393.58000000 -> min_notional
 17:28:57,048 GridExecutor WARNING Bot ke95g7: STARTING -> HALTED on start_refused (start_refused: L1 SELL: min_notional) [bot-transition]
 ```
-Also reported the same day: the price-band refusal said "would buy about 34.10 of the base asset", for a quote amount.
+Also reported the same day: the price-band refusal said "would buy about 34.10 of the base asset", for a quote amount. That wording is fixed by BUG-211 (PR #517), which rewrites the same message; this fix leaves it alone so the two do not conflict.
 
 ## Root cause
 Two sizings of one order. `check_min_notional` (`src/modules/bots/domain/grid/grid_checks.py`, before the fix) took the smallest `plan.order_levels` notional and multiplied it by `1 − taker_fee`: 0.0021 × 2393.58 = 5.03, × 0.999 = 5.02, so it passed. The executor lays `sells_net_of_opening_fee(plan, …)` (`opening_spot.py`, `grid_ladder.py`): each SELL quantity × (1 − fee) **floored to the step**: 0.0021 → 0.002099 → 0.0020, worth 4.79, which Binance refuses. The fee was modelled; the step floor was not. A second defect made the first costly: `GridStartSequence.run` sent the opening market buy (`SpotOpening._buy_opening`) before it knew the ladder it feeds could be placed, so the refusal came after the money was spent.
 
 The same class survives in the counters: a counter SELL after a BUY fills is the level's bought quantity net of the fee and floored (here 0.0019 ETH, 4.63 USDT), and the counter BUY after a SELL fills is the level's `buy_quantity`; neither was ever judged before Start.
 
-The price-band message called its quote figure `of the base asset` (`grid_range_checks.py`).
-
 ## Fix
 - `src/modules/bots/domain/grid/grid_order_sizing.py` (new): the one sizing. `opening_ladder` (the executor's ladder), `sized_orders` (those orders plus the first counter of each pair of levels), `find_breach` (the smallest start order, else the smallest counter, under the minimum, with the capital that clears it, found by searching the real sizing rather than by proportion).
 - `grid_checks.check_min_notional` judges `find_breach`; its refusal names the order, its worth, the minimum and the capital.
 - `SpotOpening.open` lays `opening_ladder`; `GridStartSequence.run` calls `find_breach` before the opening, and a breach is a WARNING `[order-below-minimum]` and a `start_refused` with nothing spent. An INFO `[ladder-sizing]` line states the smallest order's quantity, price and notional.
 - `grid_ladder.net_of_buy_fee` is the one rule for a SELL's quantity, used by `sells_net_of_opening_fee` and the counters.
-- The price-band message says what is spent in the quote asset and what is bought in the base.
 
 Searched and left as is: `grid_replay.py` (backtest) already lays `sells_net_of_opening_fee`, the same function the executor's ladder is built on; restart reconcile and a resume size from the inventory held and leave a level EMPTY under the minimum (`resized_for_inventory`, `buys_within_capital`); a counter sized from a partial fill is dropped under the minimum (`_settle_short`); the Futures opening lays the plan unchanged (its fee is paid in quote) and `opening_ladder` returns it unchanged.
 
 ## Regression test
 - `tests/unit/modules/bots/application/services/test_grid_start_refuses_before_spending.py::test_the_owners_start_is_refused_before_any_order_is_sent`: real `GridExecutor` on the simulated venue with the owner's numbers; failed before the fix because the book held the opening market buy, passes with an empty book. Its parametrised sibling is the property: over capitals × grid counts, a start either sends nothing or sends only orders at or above the minimum.
 - `tests/unit/modules/bots/domain/grid/test_grid_order_sizing.py`: the owner's plan is refused with `L1 SELL`, 4.79 and the minimum; the capital the refusal names passes; the refused order is one the executor lays; check-passes ⇒ every order meets min notional and step over capitals × grids × prices; a quantity rounding to nothing is a breach, not a skipped order. The first tier failed before the fix because the check returned no verdict at all for these inputs.
-- `test_grid_range_checks.py::test_the_below_range_refusal_states_a_quote_amount_and_a_base_quantity`.
 - `test_grid_checks.py` boundary test rewritten to the order as sent (the old one fixed the fee-only formula this bug removes).
 
 ## Verification

@@ -1,4 +1,4 @@
-"""`BUG-211` — the one place the orders a Grid sends are sized, for the judgement and the run.
+"""`BUG-212` — the one place the orders a Grid sends are sized, for the judgement and the run.
 
 The pre-start check and the executor used to size a SELL two ways: the check took the level's
 notional less the fee, the executor floored the quantity to the step after the fee. The owner's

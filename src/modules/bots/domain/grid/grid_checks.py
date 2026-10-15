@@ -103,7 +103,7 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
-    """Every order the executor sends is worth the exchange's minimum (`BUG-211`).
+    """Every order the executor sends is worth the exchange's minimum (`BUG-212`).
 
     The orders are sized by `grid_order_sizing`, the same function the executor lays its
     ladder from: SELLs net of the opening's fee and floored to the step, and the counter

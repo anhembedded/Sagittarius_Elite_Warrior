@@ -101,14 +101,3 @@ def test_no_stop_loss_warning_and_no_default_stop_loss() -> None:
     off = _find(verdicts, "STOP_LOSS_OFF")
     assert off is not None and off.severity is VerdictSeverity.OK
     assert not [v for v in verdicts if v.code.startswith("STOP_LOSS") and v is not off]
-
-
-def test_the_below_range_refusal_states_a_quote_amount_and_a_base_quantity() -> None:
-    """`BUG-211`: the figure is the quote spent, so it is not "of the base asset"."""
-    refusal = _find(_verdicts(Decimal(59000)), _BELOW)
-
-    assert refusal is not None
-    assert "spend about" in refusal.reason
-    assert "USDT" in refusal.reason
-    assert "BTC" in refusal.reason
-    assert "of the base asset" not in refusal.reason

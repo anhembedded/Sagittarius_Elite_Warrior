@@ -2,7 +2,7 @@
 
   0. **Before anything is bought**, the ladder the opening will feed is sized and judged against
      the exchange's minimum by `grid_order_sizing`, the function the pre-start check judges
-     with (`BUG-211`): an order under it refuses the start with nothing spent.
+     with (`BUG-212`): an order under it refuses the start with nothing spent.
   1. **The opening** is the venue profile's (`IOpeningStrategy`): Spot buys the base the SELL
      levels will sell and sizes them net of the fee (`opening_spot.py`); a position venue
      opens its signed quantity (`opening_futures.py`). Either way the exchange's own record of
@@ -98,7 +98,7 @@ class GridStartSequence:
 
     def _ladder_is_placeable(self, plan: GridPlan) -> bool:
         """Refuse the start, before any opening buy, when an order of the ladder it would lay
-        is under the exchange's minimum (`BUG-211`). The orders are sized by
+        is under the exchange's minimum (`BUG-212`). The orders are sized by
         `grid_order_sizing`, the function the pre-start check judges with."""
         context = self._context
         terms = context.terms

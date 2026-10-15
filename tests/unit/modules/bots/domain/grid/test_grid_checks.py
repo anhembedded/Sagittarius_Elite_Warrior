@@ -98,7 +98,7 @@ def _smallest_and_largest_order() -> tuple[Decimal, Decimal]:
 def test_min_notional_at_the_smallest_order_as_sent_passes_a_cent_more_refuses() -> (
     None
 ):
-    """The orders are sized as the executor sizes them (`BUG-211`): a SELL net of the
+    """The orders are sized as the executor sizes them (`BUG-212`): a SELL net of the
     opening's fee and floored to the step, so the smallest order the bot sends is the one
     `smallest_order` names; below the exchange minimum Binance would refuse it."""
     plan = _evaluate().plan

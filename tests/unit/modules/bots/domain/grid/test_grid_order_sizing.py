@@ -1,4 +1,4 @@
-"""`BUG-211` - the pre-start judgement and the executor size the Grid's orders the same way.
+"""`BUG-212` - the pre-start judgement and the executor size the Grid's orders the same way.
 
 The owner's Spot MAINNET start (ETHUSDT, 2348-2667, 7 grids, 35 USDT, price 2363.77): the
 check judged each level's notional less the fee, the executor floors the SELL quantity to the

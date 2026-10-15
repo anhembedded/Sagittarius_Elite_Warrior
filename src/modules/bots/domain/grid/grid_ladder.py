@@ -148,7 +148,7 @@ def sells_net_of_opening_fee(
 
 def net_of_buy_fee(quantity: Decimal, fee: Decimal, step_size: Decimal) -> Decimal:
     """What a buy of `quantity` leaves to sell when Spot takes `fee` from the base it
-    buys, rounded down to the step: the one rule for a SELL's quantity (`BUG-211`)."""
+    buys, rounded down to the step: the one rule for a SELL's quantity (`BUG-212`)."""
     return _ROUNDING.round_quantity_down(quantity * (1 - fee), step_size)
 
 
