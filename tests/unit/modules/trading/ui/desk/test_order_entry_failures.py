@@ -7,7 +7,14 @@ outcome is unknown is never worded as rejected.
 
 from __future__ import annotations
 
+import logging
+from datetime import timedelta
+
+import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
@@ -30,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trade.trade_screen import (
     TRADE_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_error_codes import (
+    EXCHANGE_PAUSE_TAG,
+)
 
 from .order_entry_fixtures import SYMBOL
 from .order_entry_presenter_fixtures import (
@@ -49,6 +59,33 @@ def _ready_buy() -> PresentedPanel:
     panel.vm.intents.set_quantity(EntrySide.BUY, "1")
     panel.submission.preview_answers(canned_preview(OrderSide.BUY, "1", "100"))
     return panel
+
+
+def test_an_order_the_exchanges_pause_refused_is_shown_to_the_user_and_logged_at_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`BUG-217`: the log filter writes the Engine's dispatcher ERROR for a call the pause
+    refused at DEBUG. That is only safe because the desk tells its user itself: a command
+    failure notice, the panel's own error line, and a WARNING from the presenter
+    (`order_entry_presenter._on_submitted`). This pins all three for a manual order."""
+    panel = _ready_buy()
+    pause = ExchangeRateLimitedError(
+        timedelta(seconds=30),
+        banned=False,
+        raw_message=f"no request is sent for another 30 s {EXCHANGE_PAUSE_TAG}",
+    )
+    panel.submission.submit_raises(pause)
+    caplog.set_level(logging.DEBUG)
+
+    panel.vm.intents.request_submit(EntrySide.BUY)
+
+    notice = panel.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert "could not be sent" in notice.headline
+    assert "could not be sent" in panel.vm.message
+    assert EXCHANGE_PAUSE_TAG in notice.detail
+    warned = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("order failed" in message for message in warned), warned
 
 
 def test_an_order_whose_outcome_is_unknown_says_it_may_be_live() -> None:
