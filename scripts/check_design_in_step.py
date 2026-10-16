@@ -12,7 +12,7 @@ promise. Whether the reason is *true*, and whether the touched files say the rig
 thing, is a reviewer's call (rubric K10); this script holds only that the question
 was answered.
 
-The changed paths come from `git diff --name-only BASE_SHA...HEAD_SHA` (the
+The changed paths come from `git diff --name-only --no-renames BASE_SHA...HEAD_SHA` (the
 workflow checks out the full history); the body arrives through `PR_BODY`, never
 interpolated into a shell command. Stdlib only, so it runs on the runner's Python;
 it reads `## ` sections with `check_fix_pr_body.sections`.
@@ -50,7 +50,9 @@ DESIGN = "Design"
 MODULES_SOURCE = "src/modules/"
 MODULES_DESIGN = "Docs/MODULES/"
 
-_NO_DESIGN_CHANGE = re.compile(r"^No design change: \S", re.IGNORECASE)
+# The reason is real text: not empty, and not the template's `<reason>` placeholder.
+_NO_DESIGN_CHANGE = re.compile(r"^No design change: (?!<reason>)\S", re.IGNORECASE)
+_FENCE = re.compile(r"^(`{3,}|~{3,})")
 _ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -70,9 +72,15 @@ def _module_of(path: str, prefix: str) -> str | None:
 
 
 def states_no_design_change(body: str) -> bool:
-    """True when the `## Design` section holds a `No design change: <reason>` line."""
-    lines = sections(body).get(DESIGN.lower(), [])
-    return any(_NO_DESIGN_CHANGE.match(line.strip()) for line in lines)
+    """True when `## Design` holds a `No design change: <reason>` line outside a code fence."""
+    inside_fence = False
+    for line in sections(body).get(DESIGN.lower(), []):
+        text = line.strip()
+        if _FENCE.match(text):
+            inside_fence = not inside_fence
+        elif not inside_fence and _NO_DESIGN_CHANGE.match(text):
+            return True
+    return False
 
 
 def problems(
@@ -95,9 +103,13 @@ def problems(
 
 
 def changed_paths(base: str, head: str, cwd: Path) -> list[str]:
-    """The paths the pull request changes: `git diff --name-only base...head`."""
+    """The paths the pull request changes: `git diff --name-only --no-renames base...head`.
+
+    `--no-renames` lists a moved file under both its old and its new path, so a
+    file moved out of `src/modules/<m>/` still counts as a change to that module.
+    """
     completed = subprocess.run(  # noqa: S603 - fixed argv, shas from the event payload
-        ["git", "diff", "--name-only", f"{base}...{head}"],  # noqa: S607 - git on PATH
+        ["git", "diff", "--name-only", "--no-renames", f"{base}...{head}"],  # noqa: S607 - git on PATH
         cwd=cwd,
         capture_output=True,
         text=True,

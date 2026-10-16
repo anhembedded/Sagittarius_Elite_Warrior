@@ -48,6 +48,16 @@ def test_the_waiver_outside_the_design_section_fails() -> None:
     assert len(problems([_CODE], body, _DOCUMENTED)) == 1
 
 
+def test_the_placeholder_reason_is_not_a_waiver() -> None:
+    body = "## Design\n\nNo design change: <reason>\n"
+    assert len(problems([_CODE], body, _DOCUMENTED)) == 1
+
+
+def test_a_waiver_inside_a_code_fence_is_not_a_waiver() -> None:
+    body = "## Design\n\n```text\nNo design change: quoted, not stated.\n```\n"
+    assert len(problems([_CODE], body, _DOCUMENTED)) == 1
+
+
 def test_the_template_comment_is_not_a_waiver() -> None:
     body = "## Design\n\n<!-- or one line `No design change: <reason>` -->\n"
     assert len(problems([_CODE], body, _DOCUMENTED)) == 1
@@ -114,6 +124,25 @@ def test_changed_paths_are_the_pull_requests_own(tmp_path: Path) -> None:
     _git(tmp_path, "commit", "-q", "-m", "later")
     base = _git(tmp_path, "rev-parse", "HEAD")
     assert changed_paths(base, head, tmp_path) == ["pr.txt"]
+
+
+def test_a_file_moved_out_of_a_module_counts_for_that_module(tmp_path: Path) -> None:
+    """A rename is listed under its old path too, so the module still owes its design."""
+    _git(tmp_path, "init", "-q", "-b", "base")
+    _git(tmp_path, "config", "user.email", "probe@example.invalid")
+    _git(tmp_path, "config", "user.name", "probe")
+    moved = tmp_path / "src" / "modules" / "alerting" / "hub.py"
+    moved.parent.mkdir(parents=True)
+    moved.write_text("class Hub:\n    pass\n" * 20, encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "a")
+    base = _git(tmp_path, "rev-parse", "HEAD")
+    _git(tmp_path, "mv", "src/modules/alerting/hub.py", "src/hub.py")
+    _git(tmp_path, "commit", "-q", "-m", "move")
+    head = _git(tmp_path, "rev-parse", "HEAD")
+    changed = changed_paths(base, head, tmp_path)
+    assert "src/modules/alerting/hub.py" in changed
+    assert len(problems(changed, "", _DOCUMENTED)) == 1
 
 
 def test_main_refuses_to_run_without_the_shas(monkeypatch: pytest.MonkeyPatch) -> None:
