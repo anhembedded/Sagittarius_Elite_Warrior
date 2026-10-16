@@ -109,7 +109,7 @@ counter order is laid. `HOLDS_ORDER` is the set of states with an order on the e
 ## Built: the protective stop's life cycle (Futures)
 
 `bots/domain/grid/protective_stop_fsm_matrix.py` → `ProtectiveStopState`, `ProtectiveStopEvent`,
-`PROTECTIVE_STOP_TRANSITIONS`: six states and ten events, one machine **per protective order**
+`PROTECTIVE_STOP_TRANSITIONS`: six states and eleven events, one machine **per protective order**
 (a LONG or SHORT grid has one; a NEUTRAL grid has up to two). Its record is `bots/domain/grid/protective_stop.py` →
 `ProtectiveStop`, kept in the Grid's runtime (`GridRuntime.protective_stops`) and written only when
 there is one, so a Spot runtime and one saved before this existed read and write what they did
@@ -129,6 +129,7 @@ the next save. Any pair the table does not list is refused: `next_protective_sto
 | `standing` | `expired` | `ended` |
 | `standing` | `exposure_closed` | `cancelling` |
 | `standing` | `missing_with_position` | `absent` |
+| `cancelling` | `exposure_reopened` | `standing` |
 | `cancelling` | `cancelled` | `ended` |
 | `cancelling` | `unknown_order` | `ended` |
 | `triggered` | `settled` | `ended` |
@@ -136,6 +137,7 @@ the next save. Any pair the table does not list is refused: `next_protective_sto
 
 The only way into `CANCELLING` is `exposure_closed` from `STANDING`: the bot's own exposure being
 closed is the one reason a stop may go (`test_a_stop_is_cancelled_only_through_exposure_closed`).
+A cancel that did not finish leaves `CANCELLING`; the next look ends the record when the order is gone, lets the very order go on standing (`exposure_reopened`) when the position is back on its side, and finishes the cancel otherwise, so no step takes a stop down before another stands (decision D7).
 A `STANDING` stop that is on no open list while a position stands is placed again
 (`missing_with_position`). With the account flat the order itself says how it ended, read by its
 client id with no cache (`bots/application/services/orders/bot_account_reads.py` →

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -127,6 +130,30 @@ class ProtectiveStopBook:
             stop.state.value,
             moved.state.value if moved else "dropped",
         )
+
+    def ran(self, stop: ProtectiveStop) -> bool:
+        """Whether the exchange ran `stop`: its status by client id says the trigger traded.
+        `EXPIRED`/`CANCELED` is the exchange ending it without a fill (check T2); a status that
+        cannot be read counts as ran, the side that ends flat and stops the bot."""
+        status = self._context.gateway.account_reads.order_status(stop.client_order_id)
+        if status in (OrderStatus.EXPIRED, OrderStatus.CANCELED):
+            logger.info(
+                "Bot %s: the exchange ended the protective stop %s as %s without a fill "
+                "[protective-stop]",
+                self._context.state.bot_id,
+                stop.client_order_id,
+                status.value,
+            )
+            return False
+        if status not in (OrderStatus.TRIGGERED, OrderStatus.FILLED):
+            logger.warning(
+                "Bot %s: how the protective stop %s ended could not be read (%s); taking it "
+                "as triggered [protective-stop]",
+                self._context.state.bot_id,
+                stop.client_order_id,
+                status,
+            )
+        return True
 
     def cancel(self, stop: ProtectiveStop) -> OrderOutcome:
         """Cancel `stop`'s order. Whether the exchange still holds it is read by the caller."""

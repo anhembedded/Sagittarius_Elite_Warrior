@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_matrix import (
+    ProtectiveStopState,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
     TradingSwitchChangedEvent,
@@ -29,7 +32,7 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .futures_bots_world import booted_futures_bots
 from .futures_direction_scenarios import LONG, NEUTRAL, SCENARIOS, DirectionScenario
-from .futures_fake_exchange import FUTURES
+from .futures_fake_exchange import FUTURES, SYMBOL
 from .futures_stop_helpers import started, stops
 from .grid_fake_exchange import FakeExchange
 
@@ -62,11 +65,44 @@ def test_a_mark_price_through_the_upper_exit_ends_flat_whichever_exit_acts_first
         assert app.resting() == {}
 
 
+def _logged(futures: FakeExchange) -> list[tuple[str, str]]:
+    """Every conditional order the exchange takes or cancels, in order: (what, side)."""
+    book = futures.urls.futures_book.algo
+    sequence: list[tuple[str, str]] = []
+    place, cancel = book.place, book.cancel
+
+    def logged_place(params: dict[str, str]) -> tuple[int, dict[str, object]]:
+        answer = place(params)
+        sequence.append(("place", params["side"]))
+        return answer
+
+    def logged_cancel(params: dict[str, str]) -> tuple[int, dict[str, object]]:
+        sides = {
+            str(o["clientAlgoId"]): str(o["side"]) for o in book.open_orders(SYMBOL)
+        }
+        sequence.append(("cancel", sides.get(params.get("clientAlgoId", ""), "?")))
+        return cancel(params)
+
+    book.place, book.cancel = logged_place, logged_cancel  # type: ignore[method-assign,assignment]
+    return sequence
+
+
+def _never_bare(sequence: list[tuple[str, str]]) -> None:
+    """No step took down a stop while it was the only one: before each cancel, a stop of the
+    other side had already been placed (decision D7, place then cancel)."""
+    for index, (what, side) in enumerate(sequence):
+        if what == "cancel":
+            assert any(w == "place" and sd != side for w, sd in sequence[:index]), (
+                sequence
+            )
+
+
 def test_a_neutral_grid_that_turns_short_keeps_only_the_stop_that_covers_it(
     futures: FakeExchange,
 ) -> None:
     """Until check T3 is recorded a close-all stop on the side with no position must not
     stand (decision D9): the long side's SELL stop goes once the BUY stop covers the short."""
+    sequence = _logged(futures)
     with booted_futures_bots(futures) as app:
         bot_id = started(app, NEUTRAL.config)
 
@@ -86,6 +122,7 @@ def test_a_neutral_grid_that_turns_short_keeps_only_the_stop_that_covers_it(
         assert app.position() < 0
         assert [stop["side"] for stop in stops(app)] == ["BUY"]
         assert {s.side for s in app.runtime(bot_id).protective_stops} == {OrderSide.BUY}
+        _never_bare(sequence)
 
 
 def test_a_stop_the_exchange_ended_without_a_fill_does_not_stop_a_healthy_grid(
@@ -111,11 +148,12 @@ def test_a_stop_the_exchange_ended_without_a_fill_does_not_stop_a_healthy_grid(
         assert heard == []
 
 
-def test_a_stop_left_cancelling_by_a_failed_cancel_is_finished_and_the_position_re_protected(
+def test_a_stop_left_cancelling_over_a_position_that_came_back_goes_on_standing(
     futures: FakeExchange,
 ) -> None:
-    """A record saved `CANCELLING` whose order still stands (the cancel did not go through)
-    ends on the next look, and the position that stands gets a new stop, not a resend of it."""
+    """A record saved `CANCELLING` whose order still stands, over a position that is on its
+    side again: the same order goes on standing. It is not cancelled and sent again, because
+    that would leave the position bare in between (decision D7)."""
     with booted_futures_bots(futures) as first:
         bot_id = started(first)
         (before,) = stops(first)
@@ -125,6 +163,7 @@ def test_a_stop_left_cancelling_by_a_failed_cancel_is_finished_and_the_position_
             saved.write_text(
                 text.replace('"standing"', '"cancelling"'), encoding="utf-8"
             )
+    sequence = _logged(futures)
 
     with booted_futures_bots(futures) as second:
         second.engine.event_bus.emit(
@@ -135,6 +174,9 @@ def test_a_stop_left_cancelling_by_a_failed_cancel_is_finished_and_the_position_
 
         assert second.bot(bot_id).state is S.RUNNING
         (after,) = stops(second)
-        assert after["clientAlgoId"] != before["clientAlgoId"]
+        assert after["clientAlgoId"] == before["clientAlgoId"]
         (saved_stop,) = second.runtime(bot_id).protective_stops
-        assert saved_stop.client_order_id == after["clientAlgoId"]
+        assert saved_stop.state is ProtectiveStopState.STANDING
+        assert [what for what, _ in sequence] == [], (
+            "no stop was cancelled or sent again"
+        )

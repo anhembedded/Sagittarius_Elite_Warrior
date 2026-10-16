@@ -20,6 +20,8 @@ bot's own exposure is closed. Every change of its state is a row of
     system" (STANDING → ENDED): nothing is left to protect, the next position gets a new one;
   · `exposure_closed` — the bot's own exposure is closed, so the stop may go (STANDING →
     CANCELLING);
+  · `exposure_reopened` — the cancel did not finish and the position is back on its side, so the
+    order that still stands goes on standing (CANCELLING → STANDING);
   · `cancelled`, `unknown_order` — the cancel is done, or the exchange has no such order any
     more (CANCELLING → ENDED);
   · `missing_with_position` — it is not among the open orders while a position stands (the
@@ -55,6 +57,7 @@ class ProtectiveStopEvent(str, Enum):
     TRIGGERED = "triggered"
     EXPIRED = "expired"
     EXPOSURE_CLOSED = "exposure_closed"
+    EXPOSURE_REOPENED = "exposure_reopened"
     CANCELLED = "cancelled"
     UNKNOWN_ORDER = "unknown_order"
     MISSING_WITH_POSITION = "missing_with_position"
@@ -87,6 +90,7 @@ PROTECTIVE_STOP_TRANSITIONS: dict[
     (_S.STANDING, _E.EXPIRED): _S.ENDED,
     (_S.STANDING, _E.EXPOSURE_CLOSED): _S.CANCELLING,
     (_S.STANDING, _E.MISSING_WITH_POSITION): _S.ABSENT,
+    (_S.CANCELLING, _E.EXPOSURE_REOPENED): _S.STANDING,
     (_S.CANCELLING, _E.CANCELLED): _S.ENDED,
     (_S.CANCELLING, _E.UNKNOWN_ORDER): _S.ENDED,
     (_S.TRIGGERED, _E.SETTLED): _S.ENDED,

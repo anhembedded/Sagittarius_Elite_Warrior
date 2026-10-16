@@ -70,9 +70,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_
     ProtectiveStopState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
-    OrderStatus,
-)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -127,9 +124,17 @@ class ProtectiveStopService(IExposureProtection):
         open_stops = self._open_stops()
         if open_stops is None:
             return ProtectionVerdict.OK
+        finishing = any(
+            s.state is ProtectiveStopState.CANCELLING for s in self._book.stops
+        )
         for stop in self._book.stops:
             if self._settle(stop, open_stops, position) is ProtectionVerdict.TRIGGERED:
                 return ProtectionVerdict.TRIGGERED
+        if finishing:
+            # A cancel was finished: the open list read above still names that order.
+            open_stops = self._open_stops()
+            if open_stops is None:
+                return ProtectionVerdict.OK
         if state.state is BotLifecycleState.RECOVERING:
             # Read only: trading takes a tagged order only under the bot's registered budget,
             # which the reconcile registers. What is missing is placed once it has.
@@ -203,7 +208,7 @@ class ProtectiveStopService(IExposureProtection):
         if stop.state is ProtectiveStopState.TRIGGERED:
             return ProtectionVerdict.TRIGGERED
         if stop.state is ProtectiveStopState.CANCELLING:
-            self._finish_cancelling(stop, open_stops)
+            self._finish_cancelling(stop, open_stops, position)
             return None
         if stop.client_order_id in open_stops:
             if stop.state is ProtectiveStopState.INTENDED:
@@ -212,17 +217,20 @@ class ProtectiveStopService(IExposureProtection):
         return self._explain_absence(stop, position)
 
     def _finish_cancelling(
-        self, stop: ProtectiveStop, open_stops: dict[str, Order]
+        self, stop: ProtectiveStop, open_stops: dict[str, Order], position: Decimal
     ) -> None:
         """A cancel that did not finish left the record `CANCELLING` (the bot's exposure was
-        closed then): the order is gone, or it is cancelled now. Either way the record ends, so
-        that a position that has come back is protected by a new stop and not by this one; the
-        order is dropped from `open_stops` so the adoption does not take it back."""
+        closed then). The order gone: the record ends, and a position that stands is protected
+        by a new stop. The order still open over a position it covers: the exposure came back,
+        so the very order that stands goes on standing (`exposure_reopened`), never cancelled
+        and sent again, which would leave the position bare in between (decision D7). Open and
+        no longer covering anything: the cancel is finished."""
         if stop.client_order_id not in open_stops:
             self._book.apply(stop, ProtectiveStopEvent.UNKNOWN_ORDER)
-            return
-        if self._cancel_cancelling(stop):
-            open_stops.pop(stop.client_order_id, None)
+        elif covers(self._context.params, stop.side, position):
+            self._book.apply(stop, ProtectiveStopEvent.EXPOSURE_REOPENED)
+        else:
+            self._cancel_cancelling(stop)
 
     def _explain_absence(
         self, stop: ProtectiveStop, position: Decimal
@@ -240,7 +248,7 @@ class ProtectiveStopService(IExposureProtection):
             stop.state.value,
             position,
         )
-        if standing and position == 0 and not self._ran(stop):
+        if standing and position == 0 and not self._book.ran(stop):
             self._book.apply(stop, ProtectiveStopEvent.EXPIRED)
             return None
         if standing and position == 0:
@@ -260,30 +268,6 @@ class ProtectiveStopService(IExposureProtection):
         elif position == 0:
             self._book.apply(stop, ProtectiveStopEvent.REJECTED)
         return None
-
-    def _ran(self, stop: ProtectiveStop) -> bool:
-        """Whether the exchange ran `stop`: its status by client id says the trigger traded.
-        `EXPIRED`/`CANCELED` is the exchange ending it without a fill (check T2); a status that
-        cannot be read counts as ran, the side that ends flat and stops the bot."""
-        status = self._context.gateway.account_reads.order_status(stop.client_order_id)
-        if status in (OrderStatus.EXPIRED, OrderStatus.CANCELED):
-            logger.info(
-                "Bot %s: the exchange ended the protective stop %s as %s without a fill "
-                "[protective-stop]",
-                self._context.state.bot_id,
-                stop.client_order_id,
-                status.value,
-            )
-            return False
-        if status not in (OrderStatus.TRIGGERED, OrderStatus.FILLED):
-            logger.warning(
-                "Bot %s: how the protective stop %s ended could not be read (%s); taking it "
-                "as triggered [protective-stop]",
-                self._context.state.bot_id,
-                stop.client_order_id,
-                status,
-            )
-        return True
 
     def _place_if_missing(self, want: WantedStop, open_stops: dict[str, Order]) -> bool:
         """Have a stop standing for `want`; `False` when it could not, the bot has moved."""
