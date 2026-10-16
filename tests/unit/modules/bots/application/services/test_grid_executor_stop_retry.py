@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
     PriceTick,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
+    BotStopGaveUpEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
@@ -205,3 +208,40 @@ def test_no_retry_is_scheduled_while_trading_is_off() -> None:
 
     assert world.state() is S.STOPPING
     assert world.retries.pending == []
+
+
+def _gave_up(world: GridWorld) -> list[BotStopGaveUpEvent]:
+    return [e for e in world.events.events if isinstance(e, BotStopGaveUpEvent)]
+
+
+def _run_every_retry(world: GridWorld) -> None:
+    while world.retries.pending:
+        world.retries.run_next()
+
+
+def test_a_stop_that_gives_up_publishes_one_typed_fact() -> None:
+    """`EPIC-036G` (D4) - the alert source reads this event, never the reason text."""
+    world = _running()
+    _stuck_open(world)
+
+    world.executor.stop(ExposureHandling.KEEP)
+    world.retries.run_next()
+
+    assert _gave_up(world) == []  # retries left: nothing has given up yet
+
+    _run_every_retry(world)
+
+    assert [e.bot_id for e in _gave_up(world)] == [BOT]
+    assert _gave_up(world)[0].retries == len(STOP_RETRY_DELAYS)
+
+
+def test_a_new_round_that_gives_up_again_publishes_again() -> None:
+    world = _running()
+    _stuck_open(world)
+    world.executor.stop(ExposureHandling.KEEP)
+    _run_every_retry(world)
+
+    world.executor.stop(ExposureHandling.KEEP)
+    _run_every_retry(world)
+
+    assert [e.bot_id for e in _gave_up(world)] == [BOT, BOT]
