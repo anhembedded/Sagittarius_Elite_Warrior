@@ -13,6 +13,7 @@ retargeted and its row here changes in the same commit.
 
 from __future__ import annotations
 
+from .scanned_roots_registry_documents import DOCUMENT_GUARDS
 from .scanned_roots_registry_module_dependencies import MODULE_DEPENDENCY_GUARDS
 from .scanned_roots_registry_order_paths import ORDER_PATH_GUARDS
 from .ui_trees import UI_TREE_PATHS
@@ -182,13 +183,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("tools", "*.py"),
         ),
     ),
-    # `CS-001`'s own index guard. `Docs/` rather than `src/`, and registered
-    # for the same reason as the rest: a case-study directory that moved would
-    # otherwise leave every check in that file passing over an empty scan.
-    (
-        "tests/unit/architecture/test_case_study_index_is_consistent.py",
-        (("Docs/CASE_STUDIES", "*.md"),),
-    ),
     # --- legacy presentation guards -----------------------------------------
     (
         "tests/unit/architecture/test_screen_layer_structure.py",
@@ -295,6 +289,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     *ORDER_PATH_GUARDS,
     *MODULE_DEPENDENCY_GUARDS,
+    *DOCUMENT_GUARDS,
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
     # Guard 3's cross-screen check used to register a second root here
@@ -346,10 +341,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         ((".claude/rules", "*.md"), (".claude/skills", "*.md")),
     ),
     ("tests/unit/test_task_board_is_consistent.py", (("Tasks", "*.md"),)),
-    (
-        "tests/unit/architecture/test_spec_index_is_consistent.py",
-        (("Docs/SPEC", "SPEC-*.md"),),
-    ),
     # `EPIC-027N` AC3 — every registered strategy's own `supported_directions`
     # is checked against its own source, not a hand-copied strategy list.
     (

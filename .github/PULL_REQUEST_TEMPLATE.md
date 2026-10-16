@@ -6,11 +6,11 @@
 
 ## Why
 
-<!-- The problem, with evidence (file:line, a measured number, the user's words quoted once). A design choice names the pattern it applies. -->
+<!-- The problem, with evidence (file:line at a named commit sha, a measured number, the user's words quoted once). A design choice names the pattern it applies. -->
 
 ## Root cause
 
-<!-- Required for `fix:`; delete otherwise. The mechanism, with `file:line`. -->
+<!-- Required for `fix:`; delete otherwise. The mechanism, with `file:line` at a named commit sha. -->
 
 ## Corrective action
 

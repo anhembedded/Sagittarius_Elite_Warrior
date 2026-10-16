@@ -8,7 +8,7 @@ source, or deciding whether the headless host can be left alone with real money.
 even if a channel is down, the platform asks us to wait, or the app restarts?*
 
 Each fact in this folder is marked **Built** (on `master-warrior`, delivered by `EPIC-036A` and the
-walking skeleton `EPIC-036G` and the Options page slice `EPIC-036D1`, cited `file:line`) or **Planned** (designed here, not written; the task
+walking skeleton `EPIC-036G` and the Options page slice `EPIC-036D1`, cited by path and symbol) or **Planned** (designed here, not written; the task
 that builds it is named). Paths are from the repository root; `alerting/` means
 `src/modules/alerting/`. The layout is the template's, [`../README.md`](../README.md).
 

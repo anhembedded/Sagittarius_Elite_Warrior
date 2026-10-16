@@ -2,9 +2,9 @@
 
 **Epic:** [EPIC-041](README.md)
 **Date:** 2026-10-16
-**Status:** Accepted
+**Status:** Accepted; the `file:line` form of citation in module designs superseded on 2026-10-16
 **Decided by:** the owner, on three questions the coordinator session put on 2026-10-16, relayed to this session: *"1. co / 2. dung / 3. ve tay theo high level. chu y la cac rule phai cap nhat khi change code hay fix bug thi can nhac update design"* ("1. yes / 2. right / 3. drawn by hand at a high level. Note: the rules must be updated so that changing code or fixing a bug makes the author consider updating the design"). On splitting diagrams the owner added, the same day: *"so do nao phuc tap, nhieu component thi nen tach ra nhe"* ("a diagram that is complex, with many components, should be split"). The questions were: (1) replace "one file per module" with one folder per module laid out arc42-style; (2) pilot on `alerting` first, then `bots`; (3) how diagrams are made. The file set and the mechanism are the agent's, under ONBOARDING §7.
-**Supersedes / superseded by (optional):** supersedes in part [`DECISION_2026-10-14_documentation_philosophy.md`](DECISION_2026-10-14_documentation_philosophy.md): D3 for module documents (their location and file naming) and D4 for diagrams of design (no generated class diagram). D2 stands; D3 for application documents, D4 for tables, and D8 stand.
+**Supersedes / superseded by (optional):** supersedes in part [`DECISION_2026-10-14_documentation_philosophy.md`](DECISION_2026-10-14_documentation_philosophy.md): D3 for module documents (their location and file naming) and D4 for diagrams of design (no generated class diagram). D2 stands; D3 for application documents, D4 for tables, and D8 stand. Superseded in part by [`DECISION_2026-10-16_cite_code_by_symbol.md`](DECISION_2026-10-16_cite_code_by_symbol.md): module designs cite code by path and symbol, not `file:line` (D2's template, D4's migration), and D5's clause no longer lists a `file:line` citation among the facts kept in step.
 
 | Label | Meaning |
 | :--- | :--- |

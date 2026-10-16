@@ -20,7 +20,7 @@ description: The format of a bug report under Tasks/bug_report/incomplete/ (crea
 {The real evidence, pasted: the traceback, the log lines, the screenshot path. What was expected instead.}
 
 ## Root cause
-{The mechanism with `file:line`, and why the fix resolves it without crossing a layer. When the gate was green: which net was silent, and whether a case study follows (`fix-bug-rule.md` §6.5).}
+{The mechanism with `file:line` at a named commit sha (`commit-rule.md` §1, "Citing code"), and why the fix resolves it without crossing a layer. When the gate was green: which net was silent, and whether a case study follows (`fix-bug-rule.md` §6.5).}
 
 ## Fix
 {What changed, per file, and why it is the mechanism and not the symptom (`fix-bug-rule.md` §2).}

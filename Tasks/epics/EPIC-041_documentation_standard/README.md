@@ -7,7 +7,7 @@
   - *"doc phải liên kết với rule"* ("docs must be linked to the rules");
   - *"phải có phần doc để thống kê data, dự đoán những data tương lai cần cho các phân tích kiểu system thinking, ví dụ như là layer test nào phát hiện bao nhiêu bug, bao nhiêu bug người dùng phát hiện, giai đoạn nào"* ("there must be docs that collect data, and anticipate the data future system-thinking analyses need: which test layer found how many bugs, how many the user found, at which stage").
 - **North star:** [`DECISION_2026-10-14_documentation_philosophy.md`](DECISION_2026-10-14_documentation_philosophy.md). The epic delivers it; the record holds the reasons.
-- **Decisions:** `DECISION_2026-10-14_documentation_philosophy.md` (D1–D10); `DECISION_2026-10-16_module_docs_one_folder_arc42.md` (D1–D5, supersedes the first's D3 and D4 in part for module documents).
+- **Decisions:** `DECISION_2026-10-14_documentation_philosophy.md` (D1–D10); `DECISION_2026-10-16_module_docs_one_folder_arc42.md` (D1–D5, supersedes the first's D3 and D4 in part for module documents); `DECISION_2026-10-16_cite_code_by_symbol.md` (D1–D5, supersedes the second's `file:line` citations in designs).
 - **Dependencies:** none blocking. `041E` turns the coordinator's bots explanatory page of 2026-10-14 into a repository document; `041F` feeds the `process-drift` audit.
 
 ---
@@ -36,6 +36,7 @@
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-041A](completed/EPIC-041A_docs_skeleton.md) | **First.** The skeleton: map, status lines, four homes with templates, the `bots` module-doc skeleton for EPIC-040 to fill, and the "Docs touched" rule | Elite | None | 🟢 | ✅ Done (2026-10-14) |
 | [EPIC-041J](completed/EPIC-041J_module_folder_layout_and_design_in_step.md) | One arc42 folder per module ([decision of 2026-10-16](DECISION_2026-10-16_module_docs_one_folder_arc42.md)); `alerting` migrated as the pilot; every change to a documented module answers for its design, checked in CI | Elite | 041A | 🟡 | ✅ Done (2026-10-16) |
+| [EPIC-041K](completed/EPIC-041K_cite_code_by_symbol.md) | A design cites code by path and symbol, never by line ([decision of 2026-10-16](DECISION_2026-10-16_cite_code_by_symbol.md)); a guard keeps every cited symbol real; a point-in-time record names its commit | Elite | 041J | 🟡 | ✅ Done (2026-10-16) |
 | [EPIC-041C](incomplete/EPIC-041C_decisions_index.md) | `Docs/DECISIONS` index of every decision, generated and guarded | Elite | 041A | 🟢 | Planned |
 | [EPIC-041B](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | Doc ↔ rule links checked in both directions by `rule_integrity` | Elite | 041A | 🟡 | Planned |
 | [EPIC-041F](incomplete/EPIC-041F_quality_metrics_data.md) | Bug fields, backfill, quality report and data dictionary | Elite | 041C | 🟡 | Planned |
@@ -60,6 +61,7 @@
 - A documentation site generator.
 
 ## Notes (newest first)
+- **2026-10-16** — `041K` done, on the owner's *"ok chốt hết theo đề xuất"*: designs cite code by path and symbol (`` `x.py` → `Symbol` ``), never by line; point-in-time records keep `file:line` at a named sha; `test_module_docs_cite_code_by_symbol.py` fails on a line citation or a symbol that no longer exists. All 220 design citations converted. `041E` follows it.
 - **2026-10-16** — `041J` done, on the owner's answers (*"1. co / 2. dung / 3. ve tay theo high level"*, and the rules must make a code change or a bug fix consider the design): one arc42 folder per module, `alerting` migrated with its 11 wrong citations corrected, `scripts/check_design_in_step.py` in `commit-lint`, rubric K10. `041E` uses the folder layout.
 - **2026-10-14** — `041A` done: `Docs/README.md`, a `Status:` line on all 51 documents under `Docs/`, the four home READMEs, the `bots` skeleton, and the "Docs touched" rule. The HLD/SDD files are `Historical` except HLD §11, which a rule cites.
 - **2026-10-14** — `041A` widened into the skeleton, aimed at `EPIC-040`: the owner will do only it now and the rest when credit allows (*"epic đó vẫn để như vậy, sau này dư dã AI credit tui sẽ làm"*).
