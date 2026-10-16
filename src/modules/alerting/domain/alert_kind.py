@@ -25,3 +25,6 @@ class AlertKind(Enum):
     HEARTBEAT = "heartbeat"
     DAILY_SUMMARY = "daily_summary"
     CHANNEL_FAILING = "channel_failing"
+    #: The owner's Send test (`alert test`, the Options page's button): proves a
+    #: channel reaches them, and is never a condition.
+    TEST = "test"

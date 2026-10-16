@@ -61,5 +61,11 @@ class Alert:
             title,
             detail,
             at,
-            f"{kind.name}:{subject.identity}:{reason}",
+            cls.condition_key(kind, subject, reason),
         )
+
+    @staticmethod
+    def condition_key(kind: AlertKind, subject: AlertSubject, reason: str = "") -> str:
+        """The `dedup_key` `raised` gives: what a source passes to
+        `condition_cleared` to end the condition it raised."""
+        return f"{kind.name}:{subject.identity}:{reason}"

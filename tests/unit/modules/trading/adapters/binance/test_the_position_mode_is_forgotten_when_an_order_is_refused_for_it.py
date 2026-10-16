@@ -23,9 +23,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
-    OrderedSecretStores,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.position_mode_memory import (
     TTL_SECONDS,
     PositionModeMemory,
@@ -45,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.ordered_secret_stores import (
+    OrderedSecretStores,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.adapters.binance.test_futures_trading_client import (

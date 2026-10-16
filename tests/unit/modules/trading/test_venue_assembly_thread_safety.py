@@ -19,9 +19,6 @@ import pytest
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
-    OrderedSecretStores,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -32,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly im
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.ordered_secret_stores import (
+    OrderedSecretStores,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 

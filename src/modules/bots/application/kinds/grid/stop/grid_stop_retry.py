@@ -11,8 +11,10 @@ indefinitely. Now:
   · the user can ask again: `stop` is declared in STOPPING and starts a fresh
     round, so a retry already scheduled by an earlier round is ignored;
   · after the last retry the bot stays STOPPING with a reason naming the next
-    action (press Stop), and the exhaustion is an ERROR log record with the bot
-    id until an alert channel exists (`EPIC-035K`).
+    action (press Stop), the exhaustion is an ERROR log record with the bot id,
+    and a `BotStopGaveUpEvent` is published once per round: the typed fact the
+    `STOP_FAILED` alert is built on (`EPIC-036G`, decision D4), so no reader
+    matches the reason's text.
 
 A wait on the order session (trading is off) is not retried on a timer: the
 switch-on event runs the stop again, and a timer would only be refused.
@@ -28,6 +30,9 @@ from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
+    BotStopGaveUpEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
@@ -120,6 +125,9 @@ class GridStopRetry:
             state.bot_id,
             len(STOP_RETRY_DELAYS),
             state.runtime.reason_detail,
+        )
+        self._context.events.publish(
+            BotStopGaveUpEvent(bot_id=state.bot_id, retries=len(STOP_RETRY_DELAYS))
         )
 
     def _append(self, text: str) -> None:

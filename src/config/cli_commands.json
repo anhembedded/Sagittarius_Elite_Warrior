@@ -314,6 +314,31 @@
         }
       ]
     },
+    "alert": {
+      "help": "Alerts that reach you when you are away: test sends a test message to every configured channel",
+      "subparsers": {
+        "dest": "action",
+        "required": true,
+        "commands": {
+          "test": {
+            "help": "Send one test message to every configured alert channel and say what each answered; writes nothing, so it runs beside a running host",
+            "read_only": true,
+            "args": [
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.alert/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          }
+        }
+      }
+    },
     "bot": {
       "help": "List, show, export and apply bots: list, show and export change no bot; apply makes the bots match a plan file",
       "subparsers": {

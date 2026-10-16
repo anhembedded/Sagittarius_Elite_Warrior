@@ -16,7 +16,7 @@ import ast
 import re
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.adapters.binance.mainnet.test_secret_store_contract import (
+from Sagittarius_Elite_Warrior.tests.unit.support.secrets.test_secret_store_contract import (
     covered_store_classes,
 )
 

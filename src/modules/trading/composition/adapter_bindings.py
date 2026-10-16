@@ -57,9 +57,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_re
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
-    build_secret_stores,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
     SharedVenueInputs,
     VenueAssembly,
@@ -99,6 +96,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import (
+    build_secret_stores,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer

@@ -21,12 +21,16 @@ from Sagittarius_Elite_Warrior.scripts.render_service_files import (
     NSSM_FILE,
     UNIT_FILE,
     UnitPaths,
+    alerting_credential_names,
     host_arguments,
     mainnet_credential_names,
     render_unit,
     supervisor_stop_wait_seconds,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import ExitCode
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
+    DISCORD_WEBHOOK_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_signals import (
     NOTIFY_SOCKET_VARIABLE,
 )
@@ -39,15 +43,15 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
     RunOptions,
     run_options_of,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.systemd_credential_store import (
-    CREDENTIALS_DIRECTORY_ENV,
-    SystemdCredentialStore,
-)
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
     EXIT_CODE_TABLE,
     SupervisorAction,
     non_restarting_codes,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
+    CREDENTIALS_DIRECTORY_ENV,
+    SystemdCredentialStore,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,
@@ -187,7 +191,9 @@ def test_the_unit_loads_every_mainnet_credential_under_the_name_the_store_reads(
     tmp_path: Path,
 ) -> None:
     loaded = dict(value.split(":", 1) for value in service()["LoadCredential"])
-    assert set(loaded) == set(mainnet_credential_names())
+    assert set(loaded) == set(mainnet_credential_names()) | set(
+        alerting_credential_names()
+    )
     for name, source in loaded.items():
         assert source.endswith(f"/credentials/{name}")
         (tmp_path / name).write_text(f"{_PLACEHOLDER}\n", encoding="utf-8")
@@ -293,3 +299,13 @@ def test_systemd_accepts_the_unit(tmp_path: Path) -> None:
     assert not re.search(
         r"(?i)unknown (key|section)|invalid|ignoring", result.stderr
     ), result.stderr
+
+
+def test_the_unit_loads_the_discord_webhook_under_the_name_the_channel_reads() -> None:
+    """`EPIC-036G` (D3): the credential's name is the secret's name the channel asks for."""
+    loaded = dict(value.split(":", 1) for value in service()["LoadCredential"])
+
+    assert DISCORD_WEBHOOK_SECRET in loaded
+    assert loaded[DISCORD_WEBHOOK_SECRET].endswith(
+        f"/credentials/{DISCORD_WEBHOOK_SECRET}"
+    )

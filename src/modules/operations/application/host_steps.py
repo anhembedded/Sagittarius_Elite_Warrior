@@ -4,8 +4,9 @@ Each step is an `IHostStep` the entry point hands the host in order; the host ru
 them and logs their names. They are the part of "start" that is about *this app's*
 bots and money rather than about being a host:
 
-  · `WarnWhenNoAlertChannel` - before `EPIC-036B` routes bot events to a person,
-    a halt at 3 a.m. is silent, and the log should say so at the top;
+  · `WarnWhenNoAlertChannel` - with no alert channel configured on this host (no
+    Discord webhook stored, `EPIC-036G`), a halt at 3 a.m. is silent, and the log
+    should say so at the top;
   · `ReportRecoveringBots` - decision O2: a restart leaves RUNNING and PAUSED bots
     RECOVERING and the host does **not** resume them; one WARNING each says whose
     move it is;

@@ -103,6 +103,16 @@ _COMPUTATION_SUB_PACKAGES = frozenset(
 #: refused by default rather than importable by omission (`EPIC-038F`).
 _HOST_SUPPORT_ZONES = frozenset({"support/cli_host"})
 
+#: `support/secrets` (`EPIC-036G`, decision D3 of `EPIC-036`'s 2026-10-15 record)
+#: holds the stores a secret is read from: a systemd credential, a
+#: permission-checked file, the keyring. Two modules need them (`trading` for the
+#: mainnet keys, `alerting` for the Discord webhook), and choosing an adapter is
+#: composition, so a module's `composition/` package may import the package whole.
+#: Nothing else of a module may: an `application/` or `domain/` file takes the
+#: `ISecretStore` port from `core/contracts` and never learns which store answered.
+#: The package imports no module (support never does), so no cycle can form.
+_SECRETS_SUPPORT_ZONES = frozenset({"support/secrets"})
+
 #: Nothing imports the shell — it is *Main*, so a dependency on it is a cycle by
 #: definition. The exception is an **entry point**: a module whose only job is to
 #: start the process. The GUI's still lives in the legacy tree and calls the
@@ -235,6 +245,11 @@ def _module_may_import(
         if (
             dst_zone in _HOST_SUPPORT_ZONES
             and sub_package_of(importing_module) == "cli"
+        ):
+            return True
+        if (
+            dst_zone in _SECRETS_SUPPORT_ZONES
+            and sub_package_of(importing_module) == "composition"
         ):
             return True
         return (

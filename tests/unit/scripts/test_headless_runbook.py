@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.scripts.render_service_files import (
+    alerting_credential_names,
     mainnet_credential_names,
     supervisor_stop_wait_seconds,
 )
@@ -67,14 +68,18 @@ def test_the_runbook_names_every_key_variable_and_credential_file() -> None:
         SPOT_ENV_API_KEY,
         SPOT_ENV_API_SECRET,
         *mainnet_credential_names(),
+        *alerting_credential_names(),
     ):
         assert name in _TEXT, name
 
 
-def test_the_first_page_says_what_is_not_supported_and_links_the_three_tasks() -> None:
+def test_the_first_page_says_what_is_not_supported_and_links_the_missing_tasks() -> (
+    None
+):
+    """`EPIC-036G` brought a halt to Discord; what is still missing stays on page one."""
     first_page = _TEXT.split("\n## 1.")[0]
     assert "not supported for unattended money" in first_page
-    for task in ("EPIC-036B", "EPIC-036C", "EPIC-036E"):
+    for task in ("EPIC-036B", "EPIC-036E", "EPIC-036G"):
         assert task in first_page, task
 
 

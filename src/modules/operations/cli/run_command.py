@@ -126,8 +126,9 @@ _NO_PLAN_APPLIED = (
 
 _NO_ALERT_FOR_RESUME = (
     "--resume-recovering resumes bots with nobody watching, and no alert channel carries "
-    "bot events yet (EPIC-036B). Nothing was started. Use it once bot events reach you, "
-    "or type --i-accept-silent-failures to say you accept that a halt will be silent."
+    "bot events on this host: no Discord webhook is stored (see the runbook). Nothing was "
+    "started. Store one, or type --i-accept-silent-failures to say you accept that a halt "
+    "will be silent."
 )
 
 

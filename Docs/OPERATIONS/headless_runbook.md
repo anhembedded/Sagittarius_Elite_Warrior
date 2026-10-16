@@ -6,15 +6,14 @@ Status: Current
 
 ## 0. Read this first: what is not supported yet
 
-**This host is not supported for unattended money.** Until all three of these have merged, a bot that halts at 3 a.m. reaches nobody, and a host that dies reaches nobody either:
+**This host is not supported for unattended money.** A bot that halts, errs or whose stop gives up reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
 
 | Missing | What it leaves you without | Task |
 | :--- | :--- | :--- |
-| Alert sources | no bot event (halt, stop loss, fill) is sent to any channel | [`EPIC-036B`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) |
-| Alert channel | no channel carries a bot event to you | [`EPIC-036C`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) |
-| Dead man's switch | nothing tells you the host stopped on its own | [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
+| The other alert sources | a stop loss or take profit hit, a lost user-data stream, a revoked key or a range exit is not sent to any channel | [`EPIC-036B`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036B_alert_sources.md) |
+| Dead man's switch | nothing tells you the host stopped on its own, or that the machine is off | [`EPIC-036E`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036E_heartbeat_dead_mans_switch_and_summary.md) |
 
-Until then, use the host on a **testnet** venue. The host says so itself: every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`.
+Until then, use the host on a **testnet** venue. The host says whether a channel is configured: with no webhook stored, every start writes the WARNING `no alert channel is configured for bot events; nothing will tell you if a bot halts`, and `--resume-recovering` refuses without `--i-accept-silent-failures`. With a webhook stored, the start says `an alert channel carries bot events` instead.
 
 Also true today, whatever the alerts:
 
@@ -84,15 +83,15 @@ BINANCE_SPOT_TESTNET_API_SECRET=<your spot testnet secret>
 
 A venue you do not use can be left out. The unit reads this file if it exists (`EnvironmentFile=-`).
 
-**The unit loads the four mainnet credential files even on a testnet-only server.** Its `LoadCredential=` lines name them, and systemd refuses to start the service when one is missing, with `status=243/CREDENTIALS` ("Failed to set up credentials"). This was observed on the first VPS install, on 2026-10-14 (systemd 255). A testnet-only server does one of two things:
+**The unit loads the four mainnet credential files and the Discord webhook's file even on a testnet-only server.** Its `LoadCredential=` lines name them, and systemd refuses to start the service when one is missing, with `status=243/CREDENTIALS` ("Failed to set up credentials"). This was observed on the first VPS install, on 2026-10-14 (systemd 255). A testnet-only server does one of two things:
 
-- **Create the four files empty**, the same command as for mainnet below. An empty credential reads as "no key". Use this when the server will later go to mainnet, because nothing changes then except filling the files in.
+- **Create the five files empty**, the same command as for mainnet below (and fill in the webhook, below, to get alerts). An empty credential reads as "no key". Use this when the server will later go to mainnet, because nothing changes then except filling the files in.
 - **Clear the list with a drop-in.** A `LoadCredential=` line with no value resets the unit's list, so the service starts without the files. Put it in the same drop-in as `--start-planned` (§8), and remove it before any mainnet venue.
 
 **Mainnet**: systemd credentials (decision O3). Each secret is a file only root can read; the unit hands it to the service through `LoadCredential=`, so it is not in the service's environment and not inherited by a child process. The unit names four files; create all four, **empty for a venue you do not use** (an empty credential reads as "no key"; a missing file would stop the unit from starting):
 
 ```bash
-for name in futures_mainnet_api_key futures_mainnet_api_secret spot_mainnet_api_key spot_mainnet_api_secret; do
+for name in futures_mainnet_api_key futures_mainnet_api_secret spot_mainnet_api_key spot_mainnet_api_secret alerting_discord_webhook; do
   sudo install -m 0600 -o root -g root /dev/null "/etc/sew/credentials/$name"
 done
 # For a venue you use, type the value without echoing it. `read -s` is bash (the shell you
@@ -103,6 +102,23 @@ printf '%s' "$v" | sudo tee /etc/sew/credentials/futures_mainnet_api_key > /dev/
 ```
 
 Mainnet bots are never started by the host without you typing the venue (`--confirm-venue`, decision O8); the unit passes none.
+
+**Upgrading an existing install** to a version whose unit names `alerting_discord_webhook`: create that file (empty is fine) **before** you install the regenerated unit and restart, or systemd refuses to start the service with `status=243/CREDENTIALS`:
+
+```bash
+sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
+```
+
+**Alerts to Discord** (`EPIC-036G`, decision D3 of the [2026-10-15 alerting record](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). The webhook is a secret like a key: whoever holds its URL can post to your channel. It is the systemd credential `alerting_discord_webhook`, read only by the service, never in an environment variable, a config file or a log line. In Discord: the channel's **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL** (a channel only you read is best). Then write it to its file and restart the service (`sudo systemctl restart sew-run`):
+
+```bash
+sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
+# Paste the URL without echoing it, as for a key above.
+read -rsp "Discord webhook URL: " v; echo
+printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_discord_webhook > /dev/null; unset v
+```
+
+An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the Discord webhook credential (alerting_discord_webhook) does not hold a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
 
 ## 4. Run the pre-flight
 
@@ -150,6 +166,17 @@ echo "exit $?"
 ```
 
 `status` opens no connection and takes no lock: it reads `state/health.json` and the lock. Exit `0` the host is running and healthy, `10` no host is running, `11` running but unhealthy (the snapshot is stale or a section is unavailable or degraded).
+
+**Send a test message to Discord.** `main.py alert test` sends one message to every configured channel and prints what each answered; it writes nothing and takes no lock, so it runs beside the running host. The webhook exists only inside the unit, so run it with the unit's credential:
+
+```bash
+sudo systemd-run --wait --pipe --quiet --uid=sew --gid=sew \
+  -p LoadCredential=alerting_discord_webhook:/etc/sew/credentials/alerting_discord_webhook \
+  -E PYTHONPATH=/opt/sew -E SEW_DATA_ROOT=/var/lib/sew \
+  /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py alert test
+```
+
+Exit `0` the message was taken (check that it arrived: "sent" means Discord accepted it, not that you read it), `5` no channel is configured or Discord refused the webhook (a 401 or 404: it was deleted; rotate it as in §3), `1` Discord did not answer or asked to wait. The answer names the status, never the URL.
 
 ## 6. Day to day
 
@@ -319,7 +346,7 @@ Signed: ____________________ date: ____________ machine: ____________________
 
 Guards in the test suite (`tests/unit/scripts/test_service_files.py`, `test_nssm_install_script.py`, `test_headless_runbook.py`, `test_runbook_shell_snippets.py`): the unit and the NSSM script equal their generator; `RestartPreventExitStatus` equals the exit-code table's non-restarting codes; `TimeoutStopSec` and `AppStopMethodConsole` exceed `--stop-timeout` + the host's grace and snapshot constants; the unit's arguments are accepted by the real command-line parser; no `log.file`, `--dev` or `--debug`; the credential names are the ones the store reads; the hardening leaves the data root and the notify socket open; `systemd-analyze verify` accepts the unit; the NSSM script parses as PowerShell and, run against a stand-in `nssm`, issues the settings above and installs nothing the second time; this runbook names those figures and every pre-flight check; every bash block in it parses and the key-provisioning step is run for real with a placeholder value. On the CI runner a missing `pwsh`, `systemd-analyze` or `bash` fails these tests rather than skipping them.
 
-**Not proven**: the unit under a running systemd (no systemd was PID 1 where it was written), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
+**Not proven**: `alert test` through `systemd-run` and a message reaching a real Discord channel (the owner's run, recorded in `EPIC-036G`), the unit under a running systemd (no systemd was PID 1 where it was written), the NSSM script on Windows, the reboot and `kill -9` rows above, and the Windows Credential Manager. The checklist is how they get proven.
 
 ## 13. Containers
 

@@ -3,8 +3,8 @@
 **The context's one question:** *how does an operator, or a supervisor, know
 this process is alive and well, and make it start and stop cleanly?* It listens
 to the other contexts and is depended on by none (`DESIGN_2026-10-09_headless_operation.md`
-§3). Its one declared dependency, `bots`, is a read of the bots' status report
-for `status`.
+§3). It declares two dependencies: `bots`, a read of the bots' status report for
+`status`, and `alerting`, whether a bot's halt has a channel (`EPIC-036G`).
 
 What it holds today:
 
@@ -59,6 +59,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     PreflightCheckDescriptor,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alerting_status import (
+    IAlertingStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.alerting_alert_channels import (
+    AlertingAlertChannels,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.data_root_writable_check import (
     DataRootWritableCheck,
 )
@@ -70,9 +76,6 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snaps
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.file_health_snapshot_source import (
     FileHealthSnapshotSource,
-)
-from Sagittarius_Elite_Warrior.src.modules.operations.adapters.no_alert_channels import (
-    NoAlertChannels,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.process_memory import (
     default_process_memory,
@@ -142,9 +145,9 @@ class OperationsModule(BoundedContextModule):
 
     module_id = "operations"
 
-    #: Reads no other context's `contracts/` but the bots' status report;
+    #: Reads the bots' status report and the alerting module's status (`EPIC-036G`);
     #: checked by `test_module_declarations.py`.
-    dependencies: list[str] = ["bots"]  # noqa: RUF012 — the Engine reads a plain attribute
+    dependencies: list[str] = ["bots", "alerting"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     _publishing: HealthPublishing | None = None
     _job: ScheduledJob | None = None
@@ -154,8 +157,11 @@ class OperationsModule(BoundedContextModule):
         container.singleton(IOperationsClock, SystemOperationsClock())
         # `EPIC-038D` - what `run` configures before the boot and the module reads in it.
         container.singleton(HealthCadence, HealthCadence())
-        # Until `EPIC-036B` routes bot events to a person, nothing would say a bot halted.
-        container.singleton(IAlertChannels, NoAlertChannels())
+        # `EPIC-036G` (D5): the alerting module says whether a bot's halt has a channel.
+        container.singleton(
+            IAlertChannels,
+            lambda resolver: AlertingAlertChannels(resolver.resolve(IAlertingStatus)),
+        )
         container.singleton(IProcessMemory, default_process_memory())
         container.singleton(
             IHealthSnapshotSource, FileHealthSnapshotSource(_snapshot_path())

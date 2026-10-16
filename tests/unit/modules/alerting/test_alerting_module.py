@@ -25,11 +25,12 @@ class _Recorder(IOperationsRegistry):
         raise AssertionError("alerting declares no health probe")
 
 
-def test_the_module_listens_and_depends_on_nothing_yet() -> None:
+def test_the_module_listens_to_the_bots_only() -> None:
+    """`EPIC-036G`: the bot source reads `bots/contracts`; `EPIC-036B` adds `trading`."""
     module = AlertingModule()
 
     assert module.module_id == "alerting"
-    assert module.dependencies == []
+    assert module.dependencies == ["bots"]
 
 
 def test_it_declares_one_health_section_named_alerting() -> None:
