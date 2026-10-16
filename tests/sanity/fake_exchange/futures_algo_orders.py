@@ -68,12 +68,21 @@ class FuturesAlgoOrders:
     """Every conditional order the fake account was sent, open or not."""
 
     def __init__(
-        self, held: Callable[[str], Decimal] = lambda _symbol: Decimal(0)
+        self,
+        held: Callable[[str], Decimal] = lambda _symbol: Decimal(0),
+        publish: Callable[[dict[str, Any], str | None], None] = lambda _o, _i: None,
+        peek_order_id: Callable[[], int] = lambda: 0,
     ) -> None:
         self._orders: dict[str, dict[str, Any]] = {}
         self._algo_ids = itertools.count(2_000_000)
         #: The signed position of a symbol, for the close-all stops (`EPIC-039L`).
         self._held = held
+        #: `ALGO_UPDATE` on the user-data stream: the order, and the id of the regular order it
+        #: placed (once triggered). A triggered order is announced **before** the order it
+        #: placed trades, so the app can link the fill to it (`DECISION_2026-10-16` T5 asks the
+        #: owner for the real order).
+        self._publish = publish
+        self._peek_order_id = peek_order_id
         self.reject_without_position = False
         self.expire_when_flat = False
 
@@ -88,7 +97,9 @@ class FuturesAlgoOrders:
         if refusal is not None:
             return refusal
         client_algo_id = params["clientAlgoId"]
-        if client_algo_id in self._orders:
+        # "A unique id among open orders" (New Algo Order, 2026-10-16): an id that ended is free.
+        held = self._orders.get(client_algo_id)
+        if held is not None and held["algoStatus"] == _NEW:
             return _refusal(-4116, "ClientOrderId is duplicated.")
         created = now_ms()
         order = {
@@ -113,6 +124,7 @@ class FuturesAlgoOrders:
             "triggerTime": 0,
         }
         self._orders[client_algo_id] = order
+        self._publish(order, None)
         return 200, dict(order)
 
     def _refused_close_position(
@@ -145,6 +157,7 @@ class FuturesAlgoOrders:
                 and order["algoStatus"] == _NEW
             ):
                 order.update(algoStatus=_EXPIRED, updateTime=now_ms())
+                self._publish(order, None)
 
     def get(self, params: dict[str, str]) -> tuple[int, dict[str, Any]]:
         order = self._find(params)
@@ -172,6 +185,7 @@ class FuturesAlgoOrders:
         if order is None or order["algoStatus"] != _NEW:
             return _refusal(-2011, "Unknown order sent.")
         order.update(algoStatus=_CANCELED, updateTime=now_ms())
+        self._publish(order, None)
         return 200, {
             "algoId": order["algoId"],
             "clientAlgoId": order["clientAlgoId"],
@@ -211,17 +225,7 @@ class FuturesAlgoOrders:
             }
             if regular_type == "LIMIT":
                 params.update(price=order["price"], timeInForce=order["timeInForce"])
-            status, placed = place_order(params)
-            if status != 200:
-                order.update(algoStatus=_CANCELED, updateTime=now_ms())
-                continue
-            triggered_at = now_ms()
-            order.update(
-                algoStatus=_TRIGGERED,
-                actualOrderId=str(placed["orderId"]),
-                triggerTime=triggered_at,
-                updateTime=triggered_at,
-            )
+            self._place_triggered(order, place_order, params)
 
     def _trigger_close_position(
         self, order: dict[str, Any], place_order: PlaceOrder
@@ -232,8 +236,11 @@ class FuturesAlgoOrders:
         closes = held > 0 if order["side"] == "SELL" else held < 0
         if not closes:
             order.update(algoStatus=_EXPIRED, updateTime=now_ms())
+            self._publish(order, None)
             return
-        status, placed = place_order(
+        self._place_triggered(
+            order,
+            place_order,
             {
                 "symbol": order["symbol"],
                 "side": order["side"],
@@ -242,18 +249,27 @@ class FuturesAlgoOrders:
                 "newClientOrderId": f"algo-{order['algoId']}",
                 "positionSide": order["positionSide"],
                 "reduceOnly": "True",
-            }
+            },
         )
+
+    def _place_triggered(
+        self, order: dict[str, Any], place_order: PlaceOrder, params: dict[str, str]
+    ) -> None:
+        """The order has triggered: it is announced as `TRIGGERED` with the id of the regular
+        order it places, then that order is placed (so the app links the fill to it)."""
+        expected = self._peek_order_id()
         triggered_at = now_ms()
-        if status != 200:
-            order.update(algoStatus=_CANCELED, updateTime=triggered_at)
-            return
         order.update(
             algoStatus=_TRIGGERED,
-            actualOrderId=str(placed["orderId"]),
+            actualOrderId=str(expected),
             triggerTime=triggered_at,
             updateTime=triggered_at,
         )
+        self._publish(order, str(expected))
+        status, _ = place_order(params)
+        if status != 200:
+            order.update(algoStatus=_CANCELED, actualOrderId="", updateTime=now_ms())
+            self._publish(order, None)
 
     def _find(self, params: dict[str, str]) -> dict[str, Any] | None:
         client_algo_id = params.get("clientAlgoId")

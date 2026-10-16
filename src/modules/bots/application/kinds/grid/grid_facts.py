@@ -70,7 +70,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
     PriceTick,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    ExposureHandling,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_facts import IBotFacts
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
+    ProtectionVerdict,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_fresh_price_reader import (
     FreshPriceUnavailableError,
 )
@@ -134,6 +141,8 @@ class GridFactParts:
     risk_watch: GridRiskWatch | None = None
     #: A position venue's stop loss and take profit on the mark price; `None` on Spot.
     mark_exit: GridMarkExit | None = None
+    #: A position venue's exchange-side protective stop (`EPIC-039L`); `None` on Spot.
+    protection: IExposureProtection | None = None
 
 
 class GridFacts(IBotFacts):
@@ -173,6 +182,8 @@ class GridFacts(IBotFacts):
             self._post("mark exit check", self._parts.mark_exit.check)
         if self._parts.risk_watch is not None:
             self._post("risk check", self._parts.risk_watch.check)
+        if self._parts.protection is not None:
+            self._post("protective stop check", self._supervise_protection)
 
     def on_position_divergence(self, divergence: PositionDivergence) -> None:
         watch = self._parts.risk_watch
@@ -215,6 +226,10 @@ class GridFacts(IBotFacts):
                         level_fill.base_fee, level_fill.quote_fee, level_fill.price
                     )
                 )
+                if self._is_protective_stop(fill.client_order_id):
+                    # The exchange ran the stop that stands over the position: the look at
+                    # the stops reads its status and the bot stops (`EPIC-039L`).
+                    self._supervise_protection()
             else:
                 logger.info(
                     "Bot %s: fill of %s ignored; no level holds it and the bot "
@@ -283,11 +298,42 @@ class GridFacts(IBotFacts):
         """Bring a RECOVERING bot level with the exchange and, if it is back to
         RUNNING, lay what was held. Runs on the worker: the switch-on event and
         the owner's Resume (`BUG-204`) both end here, so one reconcile serves both."""
+        # The stops first (`EPIC-039L`, decision D7): one that ran while the app was closed
+        # has left the account flat, which the reconcile would call a mismatch. This look only
+        # reads; a missing stop is put back once the reconcile has registered the budget.
+        self._supervise_protection()
+        if self._state() is not _S.RECOVERING:
+            return
         self._parts.reconciler.run()
-        # Read through the context again: run() moves the state, and a type
-        # checker keeps `state.state` narrowed to RECOVERING.
-        if self._context.state.state is _S.RUNNING:
+        # The reconcile moves the state, and has registered the budget: a stop that is missing is
+        # put back now, before anything held is laid.
+        if self._state() in (_S.RUNNING, _S.PAUSED):
+            self._supervise_protection()
+        if self._state() is _S.RUNNING:
             self._parts.placer.release_held()
+
+    def _state(self) -> BotLifecycleState:
+        """The bot's state now: read through here so a type checker does not keep the one it
+        narrowed to before a step that moves it."""
+        return self._context.state.state
+
+    def _is_protective_stop(self, client_order_id: str) -> bool:
+        return any(
+            stop.client_order_id == client_order_id
+            for stop in self._context.state.runtime.protective_stops
+        )
+
+    def _supervise_protection(self) -> None:
+        """Look at the protective stop; one that ran closed the position, so the bot stops."""
+        protection = self._parts.protection
+        if protection is None:
+            return
+        if protection.supervise() is ProtectionVerdict.TRIGGERED:
+            self._parts.stop.run(
+                ExposureHandling.CLOSE_AT_MARKET,
+                GridReason.PROTECTIVE_STOP_TRIGGERED,
+                "the stop standing on the exchange closed the position",
+            )
 
     def _reclaim_lease(self) -> None:
         """Leases live in memory: a restored bot takes its symbol back when

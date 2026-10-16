@@ -286,4 +286,11 @@ def test_both_stop_on_a_stop_loss_for_the_same_reason_with_nothing_resting(
     with _futures_world(futures) as long_:
         futures_outcome = _stopped_by_stop_loss(long_)
 
-    assert spot_outcome == futures_outcome == (S.STOPPED, GridReason.STOP_LOSS, 0)
+    assert spot_outcome == (S.STOPPED, GridReason.STOP_LOSS, 0)
+    # The Futures stop loss also stands on the exchange at the same price, and it may be the one
+    # that fires first: the bot ends in the same state under the reason that names it.
+    assert futures_outcome[0::2] == spot_outcome[0::2]
+    assert futures_outcome[1] in {
+        GridReason.STOP_LOSS,
+        GridReason.PROTECTIVE_STOP_TRIGGERED,
+    }

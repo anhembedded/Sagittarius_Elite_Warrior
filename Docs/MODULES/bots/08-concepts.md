@@ -20,7 +20,9 @@ kind's runtime as plain JSON (`bots/contracts/i_bot_store.py` → `IBotStore`, `
 A Grid's parameters are `GridParams` (`bots/domain/grid/grid_params.py` → `GridParams`), parsed from
 the definition's `config`, and what it has done so far is `GridRuntime`, with one `RuntimeLevel` per
 level and at most one `LevelOrder` on each (`bots/domain/grid/grid_runtime.py` → `GridRuntime`,
-`RuntimeLevel`, `LevelOrder`). A level's own lifecycle is the second table in
+`RuntimeLevel`, `LevelOrder`), and on a position venue the protective stops saved with it
+(`GridRuntime.protective_stops`, `bots/domain/grid/protective_stop.py` → `ProtectiveStop`), written
+only when there are some. A level's own lifecycle is the second table in
 [`state-machines.md`](state-machines.md). An order is the bot's when its client order id carries the
 bot's tag, which is how the reconcile finds and adopts it after a restart.
 

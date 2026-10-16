@@ -84,6 +84,7 @@ def _as_query(request: OrderRequest, venue: TradingVenue) -> PreviewOrderQuery:
         client_order_tag=request.client_order_tag,
         close_position=request.close_position,
         working_type=request.working_type,
+        client_order_id=request.client_order_id,
     )
 
 

@@ -374,11 +374,15 @@ def test_a_mark_price_through_the_upper_exit_closes_the_position_and_stops_the_b
         # The exchange's mark through it does, while the order there has not filled yet.
         futures.urls.futures_book.faults.hold_fills = True
         app.move_price(scenario.mark_through_upper_exit)
-        assert app.position() == scenario.opening
         app.ticker.fire()
         app.deliver()
 
-        assert app.runtime(bot_id).reason is scenario.upper_exit_reason
+        # Where the exit is the stop loss, the exchange-side protective stop stands at the same
+        # price and may flatten the position before the bot's own exit; either way the bot stops.
+        assert app.runtime(bot_id).reason in {
+            scenario.upper_exit_reason,
+            GridReason.PROTECTIVE_STOP_TRIGGERED,
+        }
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0
         assert app.resting() == {}

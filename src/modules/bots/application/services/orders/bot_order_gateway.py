@@ -35,10 +35,15 @@ recognises it in account-wide reads). Every order waits its turn on the pacer
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_account_reads import (
+    BotAccountReads,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_identity import (
+    BotIdentity,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_history import (
     BotOrderHistory,
 )
@@ -51,14 +56,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.orde
     fault_text,
     named_rejection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
+    ProtectiveStopOrder,
+    protective_stop_request,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.rate_limit_pause import (
     whole_seconds,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    tag_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
@@ -100,15 +106,6 @@ __all__ = [
 logger = logging.getLogger("App.Bots.GridExecutor")
 
 
-@dataclass(frozen=True, slots=True)
-class BotIdentity:
-    """Who the bot is to trading: its owner id, its tag, the symbol it trades."""
-
-    owner_id: str
-    tag: str
-    symbol: str
-
-
 class BotOrderGateway:
     """Places, cancels and lists one bot's orders on its venue."""
 
@@ -119,6 +116,7 @@ class BotOrderGateway:
         self._identity = identity
         self._pacer = pacer
         self._history = BotOrderHistory(ports.account_activity, identity.symbol)
+        self._reads = BotAccountReads(ports, identity)
         self._submissions = 0
         self._rate_limit: timedelta | None = None
 
@@ -255,51 +253,32 @@ class BotOrderGateway:
         return self._history.order_trades(exchange_order_id, since)
 
     def holding(self, asset: str) -> Decimal | None:
-        """The account's whole holding of `asset` (free and locked), or
-        `None` when the venue did not report holdings."""
-        status = self._ports.account_snapshot.check_connection()
-        if status.holdings is None:
-            return None
-        for held in status.holdings:
-            if held.asset == asset:
-                return held.free + held.locked
-        return Decimal(0)
+        """The account's whole holding of `asset`, or `None` (`BotAccountReads`)."""
+        return self._reads.holding(asset)
 
     def position(self) -> Decimal | None:
-        """The account's signed position on the bot's symbol (positive long, negative short,
-        zero flat), as the exchange reports it now; `None` when the read failed, which is not
-        a flat account (`EPIC-039H`: a close is confirmed from this and from nothing else)."""
-        try:
-            held = self._ports.account_snapshot.open_positions()
-        except (
-            Exception
-        ):  # converted at this seam: an unread position is `None`, never flat
-            logger.exception(
-                "Bot %s: the position of %s could not be read",
-                self._identity.tag,
-                self._identity.symbol,
-            )
-            return None
-        return sum(
-            (p.position_amt for p in held if p.symbol == self._identity.symbol),
-            Decimal(0),
-        )
+        """The account's signed position on the bot's symbol, `None` when the read failed
+        (`BotAccountReads`; `EPIC-039H`: a close is confirmed from this and nothing else)."""
+        return self._reads.position()
 
     def connection_failure(self) -> ConnectionFailureKind | None:
-        """Why the venue's account cannot be read now, or `None` when it can: a network
-        read. A venue with no key answers at once, without a request; a caller that reads
-        the account only to report asks this first, so a state the operator fixes is never
-        an exception. Only `KEY_REJECTED` is a rejected key: an unreachable exchange or a
-        clock skew is not."""
-        return self._ports.account_snapshot.check_connection().failure
+        """Why the venue's account cannot be read now, or `None` (`BotAccountReads`)."""
+        return self._reads.connection_failure()
 
     def tagged_open_orders(self) -> tuple[Order, ...]:
-        """The account's open orders on the bot's symbol that carry its tag."""
-        return tuple(
-            order
-            for order in self._ports.account_activity.open_orders(self._identity.symbol)
-            if tag_of(order.client_order_id) == self._identity.tag
-        )
+        """The bot's **ladder** orders that are open: those carrying its tag, without its
+        protective stops (`EPIC-039L`, decision D4: one seam, so no ladder read sees a stop)."""
+        return self._reads.ladder_orders()
+
+    def protective_orders(self) -> tuple[Order, ...]:
+        """The bot's protective stops that are open on the exchange (`EPIC-039L`)."""
+        return self._reads.protective_orders()
+
+    def place_protective_stop(self, stop: ProtectiveStopOrder) -> OrderOutcome:
+        """A stop that closes the whole position when the mark price reaches `stop`'s trigger
+        (`EPIC-039L`): sent as a protective order, so the trading limits that pace new trades
+        do not refuse it."""
+        return self._submit(protective_stop_request(stop, self._identity))
 
     def _request(
         self,

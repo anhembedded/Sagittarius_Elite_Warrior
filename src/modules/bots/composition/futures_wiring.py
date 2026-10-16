@@ -31,6 +31,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_expo
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protected_closer import (
+    ProtectedCloser,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_futures import (
+    ProtectiveStopService,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_risk_watch import (
     GridRiskWatch,
     RiskWatchParts,
@@ -115,12 +121,15 @@ def futures_exposure(
     def build(context: GridRunContext) -> GridExposure:
         reads = FuturesStartReads(context, ports, brackets, thresholds)
         checks = FuturesStartChecks(context, gate, guard, reads)
+        marks = ExchangeMarkSource(context, ports)
+        protection = ProtectiveStopService(context, marks)
         return GridExposure(
             PositionOpening(context, checks),
-            PositionExposureCloser(context),
+            ProtectedCloser(context, PositionExposureCloser(context), protection),
             PositionExposureCheck(context),
             PositionOrderFlags(context.params.direction),
-            exit_marks=ExchangeMarkSource(context, ports),
+            exit_marks=marks,
+            protection=protection,
         )
 
     return build

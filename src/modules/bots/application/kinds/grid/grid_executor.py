@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_task_guard import (
     GridTaskGuard,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_spot import (
+    NoProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_reconciler import (
     GridReconciler,
 )
@@ -137,7 +140,12 @@ class GridExecutor(IBotExecutor):
         the risk watch (`EPIC-039H`)."""
         self._context = context
         self._queue = queue
-        self._start = GridStartSequence(context, exposure.opening, exposure.flags)
+        self._start = GridStartSequence(
+            context,
+            exposure.opening,
+            exposure.flags,
+            exposure.protection or NoProtection(),
+        )
         self._stop = GridStopper(
             context,
             GridStopSequence(context, exposure.closer),
@@ -182,6 +190,7 @@ class GridExecutor(IBotExecutor):
                 GridMarkExit(exposure.exit_marks, self._prices, self.bot_id)
                 if exposure.exit_marks is not None
                 else None,
+                exposure.protection,
             ),
             self._post,
             self._forget_proposal,

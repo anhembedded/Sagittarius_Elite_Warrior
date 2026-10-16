@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+    tag_of,
     validate_client_order_tag,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -73,12 +75,21 @@ class PreviewOrderQuery:
     close_position: bool = field(default=False, kw_only=True)
     #: `EPIC-039L` — the price a stop triggers on (`WorkingType`).
     working_type: WorkingType = field(default=WorkingType.LAST_PRICE, kw_only=True)
+    #: `EPIC-039L` — the id the caller must know before sending (`OrderRequest.client_order_id`).
+    client_order_id: ClientOrderId | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         """@throws ValueError a field this order type cannot use, or one it
         needs, so an inconsistent order never reaches the exchange.
         @throws InvalidClientOrderTagError a malformed bot tag."""
         validate_client_order_tag(self.client_order_tag)
+        if self.client_order_id is not None and (
+            self.client_order_tag is None
+            or tag_of(self.client_order_id) != self.client_order_tag
+        ):
+            raise ValueError(
+                "a client order id the caller supplies must carry the order's tag"
+            )
         is_stop = self.order_type in TRIGGERED_ORDER_TYPES
         if is_stop and (self.stop_price is None or self.last_price is None):
             raise ValueError(

@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
     LevelState,
     next_level_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop import (
+    ProtectiveStop,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 _ZERO = Decimal(0)
@@ -114,6 +117,12 @@ class GridReason(str, Enum):
     POSITION_MISMATCH = "position_mismatch"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
+    #: The exchange-side protective stop triggered while the bot was watching or while the app
+    #: was down (`EPIC-039L`): the position was closed by the exchange, not by the bot.
+    PROTECTIVE_STOP_TRIGGERED = "protective_stop_triggered"
+    #: The exchange-side protective stop could not be placed or kept (`EPIC-039L`): the position
+    #: is never left bare, so the bot halts and closes it.
+    PROTECTIVE_STOP_FAILED = "protective_stop_failed"
     #: The mark price left the range and the bot was asked to close there (`EPIC-039H`, O6).
     RANGE_EXIT = "range_exit"
     USER_STOP = "user_stop"
@@ -248,6 +257,10 @@ class GridRuntime:
     #: negative is a short position, and `cost` is then the proceeds of what is held (the
     #: magnitude), so `average_cost` is the average entry either way.
     entry_side: OrderSide | None = OrderSide.BUY
+    #: `EPIC-039L` - the exchange-side protective stops of a Futures bot, saved before each is
+    #: sent (decision D5). Empty for Spot, for a bot that has none, and for a file an earlier
+    #: build wrote.
+    protective_stops: tuple[ProtectiveStop, ...] = ()
 
     def completes_a_cycle(self, order: LevelOrder) -> bool:
         """Whether a fill of `order` closes a cycle rather than opens one: the side that does not
@@ -290,6 +303,25 @@ class GridRuntime:
 
     def with_funding(self, funding: Decimal) -> GridRuntime:
         return replace(self, funding_total=self.funding_total + funding)
+
+    def with_stop(self, stop: ProtectiveStop) -> GridRuntime:
+        """The runtime holding `stop`, replacing the record of the same client id."""
+        others = tuple(
+            held
+            for held in self.protective_stops
+            if held.client_order_id != stop.client_order_id
+        )
+        return replace(self, protective_stops=(*others, stop))
+
+    def without_stop(self, client_order_id: str) -> GridRuntime:
+        return replace(
+            self,
+            protective_stops=tuple(
+                held
+                for held in self.protective_stops
+                if held.client_order_id != client_order_id
+            ),
+        )
 
     def with_reason(self, reason: GridReason, detail: str) -> GridRuntime:
         return replace(self, reason=reason, reason_detail=detail)

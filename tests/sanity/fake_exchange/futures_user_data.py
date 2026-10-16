@@ -21,6 +21,7 @@ from .futures_faults import MatchFaults
 from .history_log import now_ms
 
 ORDER_TRADE_UPDATE = "ORDER_TRADE_UPDATE"
+ALGO_UPDATE = "ALGO_UPDATE"
 ACCOUNT_UPDATE = "ACCOUNT_UPDATE"
 #: Expiry reasons (`er`): a reduce-only order knocked out, and an order on an account
 #: that was liquidated.
@@ -84,6 +85,34 @@ def order_update(
     if expiry_reason is not None:
         body["er"] = expiry_reason
     return {"e": ORDER_TRADE_UPDATE, "T": at, "E": at, "o": body}
+
+
+def algo_update(
+    algo: dict[str, Any], *, placed_order_id: str | int | None = None
+) -> dict[str, Any]:
+    """One `ALGO_UPDATE` (Binance's "Event Algo Order Update", read 2026-10-16 through the site's
+    search summary): the conditional order's state under `caid`, and once triggered `ai`, the id
+    of the regular order it placed. Keys as the app's parser reads them."""
+    at = now_ms()
+    body: dict[str, Any] = {
+        "caid": algo["clientAlgoId"],
+        "aid": algo["algoId"],
+        "at": "CONDITIONAL",
+        "o": algo["orderType"],
+        "s": algo["symbol"],
+        "S": algo["side"],
+        "ps": algo["positionSide"],
+        "f": algo["timeInForce"],
+        "q": algo["quantity"],
+        "X": algo["algoStatus"],
+        "tp": algo["triggerPrice"],
+        "p": algo["price"],
+        "wt": algo["workingType"],
+        "cp": algo["closePosition"],
+        "R": algo["reduceOnly"],
+        "ai": str(placed_order_id) if placed_order_id is not None else "",
+    }
+    return {"e": ALGO_UPDATE, "T": at, "E": at, "o": body}
 
 
 def position_row(

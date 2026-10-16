@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_spot import (
+    NoProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_sequence import (
     GridStartSequence,
 )
@@ -63,7 +66,9 @@ class _Opening(IOpeningStrategy):
 
 def _sequence(world: GridWorld, opening: IOpeningStrategy) -> GridStartSequence:
     context = replace(world.executor._context, limits=_POSITION)
-    return GridStartSequence(context, opening, PositionOrderFlags(TradeDirection.LONG))
+    return GridStartSequence(
+        context, opening, PositionOrderFlags(TradeDirection.LONG), NoProtection()
+    )
 
 
 def _ladder(world: GridWorld, leverage: str) -> GridPlan:

@@ -7,6 +7,9 @@
      levels will sell and sizes them net of the fee (`opening_spot.py`); a position venue
      opens its signed quantity (`opening_futures.py`). Either way the exchange's own record of
      it is counted before the ladder, and the sequence lays nothing when it is not there.
+  1a. **The protective stop** (`EPIC-039L`, a position venue's `IExposureProtection`): it stands
+     on the exchange, its id saved first, before the ladder is declared ready. One that cannot
+     stand halts the bot, which closes its position; the ladder is not laid over a bare one.
   2. **The ladder**, outward from the last price; the level nearest the price stays EMPTY.
      Each order carries the venue's flags (`IOrderFlags`: reduce-only counters on a position
      venue).
@@ -39,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     OrderOutcome,
     OrderOutcomeKind,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_opening_strategy import (
     IOpeningStrategy,
@@ -82,10 +88,12 @@ class GridStartSequence:
         context: GridRunContext,
         opening: IOpeningStrategy,
         flags: IOrderFlags,
+        protection: IExposureProtection,
     ) -> None:
         self._context = context
         self._opening = opening
         self._flags = flags
+        self._protection = protection
 
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""
@@ -94,7 +102,9 @@ class GridStartSequence:
             return
         state.update(runtime_from_plan(plan, self._context.terms.step_size))
         opened = self._opening.open(plan)
-        if opened.ladder is not None and self._place_ladder(opened.ladder):
+        if opened.ladder is None or not self._protection.protect(opened.ladder):
+            return
+        if self._place_ladder(opened.ladder):
             state.transition(BotLifecycleEvent.LADDER_READY)
 
     def _ladder_is_placeable(self, plan: GridPlan) -> bool:
