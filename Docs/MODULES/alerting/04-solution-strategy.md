@@ -7,7 +7,7 @@ Status: Current
 **Built** (`EPIC-036G`). The thinnest slice that is useful to the owner and passes through every
 seam the module has: an event from another module, a source, the hub, the persistent outbox, a lane,
 a real channel, a secret from the host, and the host's own report. It is `EPIC-036G`
-([task](../../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md));
+([task](../../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md));
 everything else in `EPIC-036` hangs off it ([ADR 036 of 2026-10-15](../../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md), D2).
 
 ## What it does

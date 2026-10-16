@@ -11,4 +11,4 @@ Status: Current
 | [Design 036 of 2026-10-08](../../../Tasks/epics/EPIC-036_alerting_module/DESIGN_2026-10-08_alerting_module.md) | The design the owner approved; superseded as the current design by this folder and kept as the record |
 | [Research 036](../../../Tasks/epics/EPIC-036_alerting_module/RESEARCH_2026-10-08_alerting_lessons.md) | The lessons the design was built from |
 | [EPIC-041, 2026-10-16](../../../Tasks/epics/EPIC-041_documentation_standard/DECISION_2026-10-16_module_docs_one_folder_arc42.md) | This folder's layout; `alerting` is its pilot |
-| [EPIC-036D1, 2026-10-16](../../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036D1_options_alerts_page_discord_webhook.md) | The Options page writes the keyring only; a first save or a removal takes effect after a restart, not by rebuilding the lanes (task §3) |
+| [EPIC-036D1, 2026-10-16](../../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036D1_options_alerts_page_discord_webhook.md) | The Options page writes the keyring only; a first save or a removal takes effect after a restart, not by rebuilding the lanes (task §3) |

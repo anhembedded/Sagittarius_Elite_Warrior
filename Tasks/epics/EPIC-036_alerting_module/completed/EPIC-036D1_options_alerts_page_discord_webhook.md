@@ -1,6 +1,6 @@
 # EPIC-036D1 — The owner configures the Discord webhook from Tools → Options → Alerts, and tests it
 
-**Status:** 🟡 In progress — built and verified on 2026-10-16 (every criterion but the last); waits for the owner's look at the page in the real window and for the merge
+**Status:** ✅ Done (2026-10-16)
 **Source:** the owner, 2026-10-16, relayed by the coordinator session `session_01PZn6EWxn6gytSGKwbuRJGg` in English: *"Today the desktop app has no place to configure alerting"*; the owner said yes (*"Có làm"*, "Yes, do it") to pulling a small slice of `036D` forward: a Tools → Options page "Alerts" with a masked Discord webhook field and Save and Remove, a Send test button, and a channel status line.
 **Risk:** 🟡 — it is a write path for a secret (N3) that can post in the owner's channel; no change to delivery, the outbox or any real-money behaviour
 **Complexity:** M — one use case for the secret, one for the test, a catalog builder, and a QtWidgets page with three off-thread actions
@@ -24,7 +24,7 @@ A desktop owner has no place to give the app a webhook: the channel is configure
 - [x] **A store that cannot be written, or that another store overrides, is told as such** ("the keyring cannot store a secret here, so nothing was saved"; "saved, but this machine reads the webhook from a systemd credential or secret file first, so the saved one is not used"). A save is never reported when the channel would not use it.
 - [x] **A preview**: `src/modules/alerting/ui/options/preview.py` (`PREVIEW_KEY = "alerts_options"`).
 - [x] **Design in step**: `Docs/MODULES/alerting/` changed in the same pull request (§6).
-- [ ] **The owner's look** at the page in the real window (Tools → Options → Alerts), a Save and a Send test against the owner's own webhook, recorded in the notes. Not run.
+- [x] **The owner's look** at the page in the real window (Tools → Options → Alerts), a Save and a Send test against the owner's own webhook, recorded in the notes. Done 2026-10-16 ("The owner's run in the real window" in the notes).
 
 ## 3. Design
 **The decision the owner asked to be recorded — restart, not a hot rebuild.** Read from the design: the Discord lane is a thread started once, at boot, for each id the catalog had (`ThreadedDeliveryHost`, `alerting/adapters/threaded_delivery_host.py:41-72`, bound at `alerting_bindings.py:203`); `AlertHub`, `ChannelDelivery` and `ChannelAlertingStatus` all hold the same catalog, immutable for the life of the run (`RegisteredChannelCatalog`, `registered_channel_catalog.py:15-28`); and the host's "does a channel carry bot events?" answer (`IAlertingStatus`, decision D5) reads it. Rebuilding the lane while the hub routes would need a mutable catalog, a lane started and stopped under the worker, and a status that changes under `operations`' warning: new concurrency on the delivery path, for a setting changed about once. **Chosen: a replaced webhook applies at the next send** (the channel reads its secret at each send, `discord_webhook_channel.py:51-52`), **a first save or a removal changes the lane after a restart, and the page says so** in the channel line. Rejected: (B) rebuild the lane in place (risk above, no owner need); (C) hide the difference and say "saved" (a lie the host's warning would contradict). If the owner wants no restart, it is its own task, with the delivery path in scope.
@@ -83,5 +83,9 @@ Tier per `ci-rule.md` §2: unit, offscreen Qt; the page over the real use cases,
 ## Implementation notes (written when done)
 Built 2026-10-16 on branch `claude/alerts-options-page-036d1`. Two guards asked for something in the same commit: `test_module_contribution_laziness.py` lists the contributing modules (`alerting` added), and `test_presenter_duplication_only_shrinks.py` measured 32 → 40 member names shared with Trading's page; they were renamed (`busy` → `is_working`, `_run` → `_work_on_pool`, `_tell_unexpected` → `_tell_failed`, …) back to 32 rather than raising the baseline. The new page's presenter logger is a real `ILogger` in the tests (a `Mock` logger would have made the "no URL in a log" tests vacuous; one of the first drafts did). `ruff` forbids mixedCase Qt names in a new file, so the view model uses snake_case signals and properties.
 
+**The owner's run in the real window (2026-10-16).** On Windows the owner saved a webhook on Tools → Options → Alerts and pressed Send test. Their Discord channel received: "INFO · Test message from Sagittarius Elite Warrior — The app — If you can read this, a halted bot reaches you here. A message in this channel is not proof that a bot has trouble: check the app. 2026-10-16 14:58:08 UTC", posted by the webhook named "Test Hook".
+
+**Not proven.** Only the message that arrived is recorded. The rest of the page (the status line, the "Saved webhook ending …" text, Remove's question, the restart notice after a first save) was not reported on, and no screenshot of the window is recorded.
+
 ## Resume
-Everything but the last criterion is built and tested. Next: the owner opens Tools → Options → Alerts (`scripts/preview-qml.ps1 alerts_options` renders it headless), saves the real webhook, presses Send test, restarts, and the result goes in these notes.
+Done 2026-10-16. Nothing left in this task; the rest of the Alerts UI is `EPIC-036D`.
