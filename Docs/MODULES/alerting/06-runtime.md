@@ -36,7 +36,46 @@ A halt written by the bots' store and lost before `publish` is not covered: the 
 last-seen states at boot without alerting, so the skeleton does not re-alert old halts on every
 restart. `EPIC-036B` decides whether a boot-time "still halted" summary is wanted.
 
+## Built: the Options page, Save and Send test
+
+The picture: [`diagrams/06-options-save-and-test.puml`](diagrams/06-options-save-and-test.puml).
+*Which thread does what, and where does the URL go?* Tools → Options → Alerts has one Discord
+webhook field, masked, and the buttons Save, Remove and Send test. Each acts at once and runs off the
+UI thread: the presenter begins an action (`alerts_settings_presenter.py:178-182`), the pool thread
+runs the use case (`:184-193`), and `AlertsActionRelay` delivers the answer on the UI thread, where
+the tracker checks the action is still the current one (`:195-215`; a stale or post-`shutdown()`
+answer is dropped, `:118-122`). The buttons are off while one runs.
+
+- **Save** puts the typed text in `DiscordWebhookSetup.save`: a value that is not a Discord webhook URL
+  is refused with a sentence and nothing is written; a valid one goes to the keyring, the field is
+  cleared and the page shows only the last four characters of the token
+  (`discord_webhook_setup.py:93-117`). A host that provisions the webhook elsewhere answers first on
+  read, so the page says "saved, but not used" and never "saved".
+- **Send test** builds the catalog again and sends one loud TEST alert straight to the channel, as
+  `alert test` does, so a webhook saved a moment ago is tested without a restart
+  (`send_test_to_configured_channels.py:31-37`). The page shows the channel's own sanitised reason
+  ("Discord refused the webhook message (404)").
+- **Remove** asks first, with its own verbs (Remove webhook / Keep webhook) and the safe one as the
+  default (`alerts_settings_view.py`, `confirm_removal`).
+
+**Restart or hot rebuild: restart.** The lanes are started once at boot from the catalog's ids
+(`threaded_delivery_host.py:41-72`, `alerting_bindings.py:203`), and the hub, the status port and the
+delivery pass hold the run's catalog, which is fixed for its life. A hot rebuild would need a mutable
+catalog, lanes started and stopped while the hub routes, and a status that changes under the host's
+warning: machinery on the delivery path, and a real-money-adjacent one, for a setting changed once. So
+a replaced webhook applies at the next send (the channel reads its secret at each send,
+`discord_webhook_channel.py:51-52`), but a first save or a removal changes the lane only after a
+restart, and the page says so in its channel line (`alerts_words.py:86-107`): "Saved, not sending yet:
+restart the app to start sending", "Removed, but this run still has the Discord channel: its alerts
+are refused until you restart the app". Whether the lane can start without a restart is a task of its
+own if the owner wants it (`EPIC-036D`).
+
+**No URL anywhere.** An unexpected exception raised under a save or a test can quote the webhook, so
+the page shows and logs the exception's type name only (`alerts_settings_presenter.py:184-193`,
+`:229-240`); `test_alerts_page_never_shows_the_url.py` locks the logs, the notice and the labels on
+every path.
+
 ## Planned
 
-Telegram, the Options page's Send test and the remote command are drawn in design 036 §9 and §11 and
-are drawn here when `EPIC-036C`, `036D` and `036F` build them.
+Telegram and the remote command are drawn in design 036 §9 and §11 and are drawn here when
+`EPIC-036C` and `036F` build them.

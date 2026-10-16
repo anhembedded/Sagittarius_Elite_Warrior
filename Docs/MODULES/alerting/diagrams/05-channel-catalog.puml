@@ -8,10 +8,17 @@ left to right direction
 [DiscordWebhookChannel] as D
 [ChannelAlertingStatus] as CS
 [SendTestMessage] as ST
+[DescriptorChannelCatalogBuilder] as DB
+[SendTestToConfiguredChannels] as OT
+[DiscordWebhookSetup] as WS
 [operations:\nAlertingAlertChannels] as OA
 CDS --> C : build_channel_catalog; a channel\nwith no webhook is left out
 C --> D : holds each configured channel
 CS --> C : in the catalog and not disabled
 OA --> CS : IAlertingStatus\ncarries_bot_events
 ST --> C : one TEST alert per channel,\nnever the outbox
+OT --> DB : the Options page's Send test asks for a catalog now
+DB --> CDS : build_channel_catalog again, a new catalog\nthat the run's one is not replaced by
+OT --> ST : one TEST alert per channel of that catalog
+WS --> C : running = the run has the Discord lane\n(read only, never changed)
 @enduml
