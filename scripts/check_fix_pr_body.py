@@ -41,9 +41,9 @@ def is_fix_title(title: str) -> bool:
     return _FIX_TITLE.match(title) is not None
 
 
-def _sections(body: str) -> dict[str, list[str]]:
+def sections(body: str) -> dict[str, list[str]]:
     """Level-2 sections by lower-cased heading; a `## ` line inside a fenced block is content."""
-    sections: dict[str, list[str]] = {}
+    by_heading: dict[str, list[str]] = {}
     current: list[str] | None = None
     fence = ""
     for line in _COMMENT.sub("", body).splitlines():
@@ -54,10 +54,10 @@ def _sections(body: str) -> dict[str, list[str]]:
             fence = ""
         heading = None if fence else _HEADING.match(line)
         if heading:
-            current = sections.setdefault(heading.group("name").lower(), [])
+            current = by_heading.setdefault(heading.group("name").lower(), [])
         elif current is not None:
             current.append(line)
-    return sections
+    return by_heading
 
 
 def _has_mermaid_sequence(lines: list[str]) -> bool:
@@ -81,10 +81,10 @@ def problems(title: str, body: str) -> list[str]:
     """What a `fix:` pull request is missing under `fix-bug-rule.md` §6.1; empty otherwise."""
     if not is_fix_title(title):
         return []
-    sections = _sections(body)
+    found_sections = sections(body)
     found: list[str] = []
     for heading in REQUIRED_HEADINGS:
-        lines = sections.get(heading.lower())
+        lines = found_sections.get(heading.lower())
         if lines is None:
             found.append(f"missing the `## {heading}` section")
         elif not _is_filled(lines):

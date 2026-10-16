@@ -6,7 +6,7 @@ name: commit-lint
 on:
   pull_request:
     branches: [master-warrior]
-    # `edited` re-runs the fix-body step when the description changes.
+    # `edited` re-runs the fix-body and design steps when the description changes.
     types: [opened, edited, synchronize, reopened]
 
 permissions:
@@ -32,3 +32,12 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: python3 scripts/check_fix_pr_body.py
+      # EPIC-041J — a pull request that changes `src/modules/<m>/` for a module
+      # with a `Docs/MODULES/<m>/` folder changes that folder too, or says under
+      # `## Design` why not (commit-rule.md §1, "Design in step").
+      - name: Check a documented module's design is kept in step
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/check_design_in_step.py
