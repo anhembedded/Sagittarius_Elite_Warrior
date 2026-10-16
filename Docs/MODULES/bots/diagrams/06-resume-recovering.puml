@@ -1,0 +1,24 @@
+' Question: how does the owner's Resume bring a RECOVERING bot back, or halt it?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-resume-recovering
+participant "ResumeBotCommandHandler" as UC
+participant BotRunner as R
+participant GridStartPreconditions as P
+participant "GridExecutor\n(bot's worker)" as G
+participant GridReconciler as RC
+participant trading as T
+
+UC -> UC : on a mainnet venue, ask for the real-money answer
+UC -> R : resume(bot_id)
+R -> P : open_session_for_resume(bot)
+P -> T : open the order session, or refuse
+R -> G : resume() (queued)
+G -> RC : run()
+RC -> T : open orders and order history
+RC -> RC : adopt each order's exchange quantity,\nbook a missed fill once, end a missing order
+alt the exchange agrees
+  RC -> G : RECOVERING --reconcile_ok--> prior state
+else a mismatch
+  RC -> G : RECOVERING --reconcile_mismatch--> HALTED
+end
+@enduml

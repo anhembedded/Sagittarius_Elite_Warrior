@@ -1,0 +1,15 @@
+' Question: what does a bot ask of other modules, and what does it hear back?
+' Explained by: ../03-context.md. Drawn by hand, high level.
+' Solid arrows are calls through a port; dashed arrows are events on the bus.
+@startuml 03-context-out
+skinparam componentStyle rectangle
+left to right direction
+[bots] as B
+[trading] as T
+[market_data] as M
+B --> T : IVenueTradingPorts\norders, owner budget, account
+B --> M : IMarketStream, candle sync
+T ..> B : fills, ends, rejections, funding,\nposition divergence, trading switch,\nuser-stream health
+M ..> B : MarketTickEvent
+note bottom of T : the only module that sends orders
+@enduml

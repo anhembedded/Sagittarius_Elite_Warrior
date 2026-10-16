@@ -1,0 +1,16 @@
+' Question: who reaches into the bots module, and through what?
+' Explained by: ../03-context.md, which cites each edge. Drawn by hand, high level.
+' An arrow's label is what crosses the edge; every one is in bots/contracts/ except the shell's.
+@startuml 03-context-in
+skinparam componentStyle rectangle
+left to right direction
+[shell] as SH
+[operations\n(headless run, status)] as OP
+[alerting] as AL
+[command line\n(bot verbs)] as CLI
+[bots] as B
+SH --> B : module.py only
+OP --> B : IBotPlan, host commands,\nGetBotStatusReportQuery
+AL --> B : BotChangedEvent, BotStopGaveUpEvent,\nGetBotStatusReportQuery
+CLI --> B : list, show, apply, export
+@enduml

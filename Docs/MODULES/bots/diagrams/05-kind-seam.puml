@@ -1,0 +1,15 @@
+' Question: where does a new kind of bot plug in?
+' Explained by: ../05-building-blocks.md. Drawn by hand, high level.
+@startuml 05-kind-seam
+skinparam componentStyle rectangle
+left to right direction
+[the shell of every kind\n(runner, store, use cases)] as SH
+[BotKindCatalog] as C
+[GridKind] as GK
+[GridExecutorFactory] as GF
+[a second kind\n(EPIC-040G)] as K2
+SH --> C : IBotKindCatalog.kind(kind_id)
+C --> GK : IBotKind
+C ..> K2 : IBotKind (Planned)
+GK --> GF : executor_factory()
+@enduml

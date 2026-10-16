@@ -1,0 +1,17 @@
+' Question: which thread runs what for the bots, and which one writes a running bot's file?
+' Explained by: ../07-deployment.md. Drawn by hand, high level.
+@startuml 07-threads
+skinparam componentStyle rectangle
+left to right direction
+[bus thread\n(trading, market_data events)] as BUS
+[BotEventRouter\n(copies and queues)] as RT
+[worker per bot\nThreadBotWorkQueue] as W
+[bots-ticker\nThreadBotTicker] as TK
+[retry scheduler\n(watches' heartbeat)] as SC
+[state/bots/<id>.json] as F
+BUS --> RT
+RT --> W : post
+TK --> W : post periodic checks
+SC --> W : post retries, reconciles
+W --> F : the one writer while the bot runs
+@enduml

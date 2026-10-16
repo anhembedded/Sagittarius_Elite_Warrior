@@ -1,0 +1,21 @@
+' Question: what happens when one of a bot's orders fills?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-fill
+participant trading as T
+participant BotEventRouter as RT
+participant "GridFacts\n(bot's worker)" as F
+participant GridLadderPlacer as L
+participant BotRunState as S
+participant IBotStore as ST
+
+T -> RT : OrderFilledEvent
+RT -> F : on_fill(fill), for the executor\nthat owns the client order id
+note over T, RT : the bus thread returns here
+F -> F : already counted? ignore [duplicate-fill]
+F -> F : level RESTING --full_fill--> FILLED
+F -> L : lay the counter order one level away
+L -> T : place
+F -> F : level FILLED --settled--> EMPTY
+F -> S : update(runtime)
+S -> ST : save(bot, runtime)
+@enduml

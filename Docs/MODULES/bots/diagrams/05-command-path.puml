@@ -1,0 +1,18 @@
+' Question: which components carry an owner's command to the exchange?
+' Explained by: ../05-building-blocks.md, which cites each component. Drawn by hand, high level.
+@startuml 05-command-path
+skinparam componentStyle rectangle
+left to right direction
+[use case\n(start, pause, resume, stop)] as UC
+[BotRunner] as R
+[BotExecutors] as X
+[GridExecutor\n(the bot's worker)] as G
+[BotOrderGateway] as O
+[trading] as T
+UC --> R : IBotRunner
+R --> X : the bot's executor
+X --> G : one per bot
+G --> O : place, cancel
+O --> T : IVenueTradingPorts
+note bottom of G : every call is queued and\nrun in order on the bot's thread
+@enduml

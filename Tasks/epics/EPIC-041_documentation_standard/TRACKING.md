@@ -22,6 +22,8 @@ gantt
 
     section Phase 1 - Map and links
     041A Docs skeleton (first)           :done,    a, after s1, 1d
+    041J arc42 folder per module         :done,    j, 2026-10-16, 1d
+    041K Cite code by symbol             :done,    k, 2026-10-16, 1d
     041B Doc to rule links checked        :         b, after a, 2d
     041C Decisions index                  :         c, after a, 1d
 
@@ -30,7 +32,7 @@ gantt
 
     section Phase 3 - App and module docs
     041D Context and module map           :         d, after b, 2d
-    041E Bots module doc                  :         e, after d, 2d
+    041E Bots module doc                  :done,    e, 2026-10-16, 1d
     041G Runtime, crosscutting, security  :         g, after d, 2d
 
     section Phase 4 - Clean-up
@@ -46,11 +48,12 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-041A | [Docs skeleton](completed/EPIC-041A_docs_skeleton.md) | `claude/epic-041a-docs-skeleton` | 🟢 | ✅ Done | 2026-10-14 |
+| EPIC-041J | [arc42 folder per module](completed/EPIC-041J_module_folder_layout_and_design_in_step.md) | — | 🟡 | ✅ Done | 2026-10-16 |
 | EPIC-041K | [Cite code by symbol](completed/EPIC-041K_cite_code_by_symbol.md) | `claude/epic-041k-cite-code-by-symbol` | 🟡 | ✅ Done | 2026-10-16 |
 | EPIC-041B | [Doc to rule links checked both ways](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-041C | [Decisions index](incomplete/EPIC-041C_decisions_index.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-041D | [App context and module map](incomplete/EPIC-041D_app_context_and_module_map.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-041E | [Bots module doc](incomplete/EPIC-041E_bots_module_doc.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-041E | [Bots module doc](completed/EPIC-041E_bots_module_doc.md) | `claude/epic-041e-bots-module-folder` | 🟡 | ✅ Done | 2026-10-16 |
 | EPIC-041F | [Quality metrics data](incomplete/EPIC-041F_quality_metrics_data.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-041G | [Runtime, crosscutting, security, quality](incomplete/EPIC-041G_runtime_crosscutting_security_quality.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-041H | [Dependency register, audit, licences](incomplete/EPIC-041H_dependency_register_audit_licences.md) | — | 🟡 | 🔵 Planned | — |

@@ -1,0 +1,45 @@
+' Question: what is a bot made of, and what does a Grid add?
+' Explained by: ../08-concepts.md. The domain only, a few defining members each. Drawn by hand.
+@startuml 05-domain
+class Bot <<frozen>> {
+  bot_id
+  created_at
+}
+class BotDefinition <<frozen>> {
+  name
+  kind
+  venue
+  symbol
+  config
+}
+class BotLifecycle <<frozen>> {
+  state
+  run_started_at
+  recovering_from
+}
+class GridParams <<frozen>> {
+  lower, upper
+  grid_count
+  capital_quote
+  stop_loss, take_profit
+}
+class GridRuntime <<frozen>> {
+  inventory
+  realised_profit
+}
+class RuntimeLevel <<frozen>> {
+  index
+  price
+  state
+}
+class LevelOrder <<frozen>> {
+  client_order_id
+  quantity
+  executed
+}
+Bot *-- BotDefinition
+Bot *-- BotLifecycle
+BotDefinition ..> GridParams : config, parsed
+GridRuntime *-- "levels" RuntimeLevel
+RuntimeLevel o-- "0..1" LevelOrder
+@enduml
