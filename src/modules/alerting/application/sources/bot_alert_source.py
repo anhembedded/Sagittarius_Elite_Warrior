@@ -19,8 +19,17 @@ alert. `EPIC-036B` grows the table to every (state, reason) pair with a test
 that each reason is mapped or ignored on purpose.
 
 **Thread.** Handlers run on whichever thread wrote the bot (the bus is
-synchronous); one lock keeps a bot's last state and its alert in step. Nothing
-here waits on a channel: `IAlertPublisher.publish` only records.
+synchronous); one lock covers the read of the bot, the compare with its last
+state and the alert, so two writers of one bot (its worker thread and the UI)
+cannot leave an older read recorded over a newer state (review of PR #537). The
+read is a local query of the bot store, which publishes only after it releases
+its own lock, so holding this one over it cannot deadlock. Nothing here waits on
+a channel: `IAlertPublisher.publish` only records.
+
+**A stop that gives up twice is told twice.** Its key is the same, but the hub's
+dedup window for a CRITICAL is one minute (`NoisePolicy`) and a round of stop
+retries lasts longer than that (`STOP_RETRY_DELAYS`, about nine minutes), so the
+second round's give-up is a new alert, not a count on the first.
 
 @par Extension cases
   · another state worth an alert — one entry in `ALERT_ON_ENTRY`;
@@ -115,10 +124,12 @@ class BotAlertSource:
             with self._lock:
                 self._states.pop(event.bot_id, None)
             return
-        entry = self._entry(event.bot_id)
-        if entry is None:
-            return
         with self._lock:
+            # The read is inside the lock: two writers of one bot (its worker and
+            # the UI) must not let an older read overwrite a newer state.
+            entry = self._entry(event.bot_id)
+            if entry is None:
+                return
             previous = self._states.get(entry.bot_id)
             self._states[entry.bot_id] = entry.state
             if previous == entry.state:

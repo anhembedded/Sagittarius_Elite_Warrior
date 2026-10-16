@@ -4,7 +4,10 @@ nothing; a return to RUNNING clears the condition."""
 
 from __future__ import annotations
 
+import threading
 from dataclasses import replace
+from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import 
     AlertSubject,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stop_retry import (
+    STOP_RETRY_DELAYS,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
     BotStatusReport,
@@ -41,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_u
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import build_rig
 
 BOT = "g3n092"
 
@@ -205,3 +212,85 @@ def test_every_state_the_source_names_is_a_lifecycle_state(state: str) -> None:
     """The source reads the contract's state text; a renamed state must fail here,
     not silence an alert."""
     assert BotLifecycleState(state).value == state
+
+
+class _InterleavingBots(_Bots):
+    """A second writer's event arrives while the first one's read is under way:
+    the store moves to `then` and that writer's handler runs, before the first
+    read returns what it saw."""
+
+    def __init__(self, entry: BotStatusEntry, then: str) -> None:
+        super().__init__(entry)
+        self.then = then
+        self.source: BotAlertSource | None = None
+        self._interleaved = False
+
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        seen = super().dispatch(handler_class, input_dto)
+        reads_one_bot = (
+            isinstance(input_dto, GetBotStatusReportQuery) and input_dto.bot_id
+        )
+        if reads_one_bot and not self._interleaved and self.source is not None:
+            self._interleaved = True
+            self.move(self.then)
+            second = threading.Thread(
+                target=self.source.on_bot_changed, args=(_changed(),)
+            )
+            second.start()
+            second.join(timeout=_SECOND_WRITER_WAIT_S)
+            self.second = second
+        return seen
+
+
+#: A bounded wait, not a timing assumption: with the read under the lock the second
+#: writer cannot read before the first finishes, so the wait runs out; without it
+#: the second writer is done long before. Either way the test then joins it.
+_SECOND_WRITER_WAIT_S = 0.2
+
+
+def test_a_second_writer_never_leaves_a_stale_remembered_state() -> None:
+    """Review finding (PR #537): the read of the bot and the record of its state
+    are one step, so a writer whose event comes second is judged on the state it
+    leaves, not overtaken by the first writer's older read."""
+    bots = _InterleavingBots(_entry("RUNNING"), then="RUNNING")
+    source, published = _source(bots)
+    bots.move("HALTED")
+    bots._interleaved = False  # the seed's read is not the one under test
+    bots.source = source
+
+    source.on_bot_changed(
+        _changed()
+    )  # writer A read HALTED; writer B's RUNNING lands meanwhile
+    bots.second.join()
+
+    # A's halt is told, and B's return to RUNNING clears it: the last remembered
+    # state is RUNNING, so the bot's next halt is an entry again.
+    assert [a.kind for a in published.published] == [AlertKind.BOT_HALTED]
+    assert published.cleared == [_key(AlertKind.BOT_HALTED), _key(AlertKind.BOT_ERROR)]
+    bots.move("HALTED")
+    source.on_bot_changed(_changed())
+    assert [a.kind for a in published.published] == [
+        AlertKind.BOT_HALTED,
+        AlertKind.BOT_HALTED,
+    ]
+
+
+def test_a_second_round_that_gives_up_is_told_again_through_the_real_hub(
+    tmp_path: Path,
+) -> None:
+    """Review question (PR #537): the hub's CRITICAL dedup window is one minute and
+    a round of stop retries lasts longer, so the owner hears the second give-up."""
+    rig = build_rig(tmp_path)
+    source = BotAlertSource(_Bots(_entry("STOPPING")), rig.hub, rig.clock)
+    source.seed()
+
+    source.on_stop_gave_up(BotStopGaveUpEvent(bot_id=BOT, retries=5))
+    rig.deliver_all()
+    rig.clock.advance(
+        sum(STOP_RETRY_DELAYS, timedelta())
+    )  # the owner presses Stop again
+    source.on_stop_gave_up(BotStopGaveUpEvent(bot_id=BOT, retries=5))
+    rig.deliver_all()
+    rig.outbox.close()
+
+    assert rig.received_kinds("phone") == [AlertKind.STOP_FAILED, AlertKind.STOP_FAILED]

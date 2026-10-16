@@ -103,6 +103,12 @@ printf '%s' "$v" | sudo tee /etc/sew/credentials/futures_mainnet_api_key > /dev/
 
 Mainnet bots are never started by the host without you typing the venue (`--confirm-venue`, decision O8); the unit passes none.
 
+**Upgrading an existing install** to a version whose unit names `alerting_discord_webhook`: create that file (empty is fine) **before** you install the regenerated unit and restart, or systemd refuses to start the service with `status=243/CREDENTIALS`:
+
+```bash
+sudo install -m 0600 -o root -g root /dev/null /etc/sew/credentials/alerting_discord_webhook
+```
+
 **Alerts to Discord** (`EPIC-036G`, decision D3 of the [2026-10-15 alerting record](../../Tasks/epics/EPIC-036_alerting_module/DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). The webhook is a secret like a key: whoever holds its URL can post to your channel. It is the systemd credential `alerting_discord_webhook`, read only by the service, never in an environment variable, a config file or a log line. In Discord: the channel's **Edit Channel → Integrations → Webhooks → New Webhook → Copy Webhook URL** (a channel only you read is best). Then write it to its file and restart the service (`sudo systemctl restart sew-run`):
 
 ```bash
@@ -112,7 +118,7 @@ read -rsp "Discord webhook URL: " v; echo
 printf '%s' "$v" | sudo tee /etc/sew/credentials/alerting_discord_webhook > /dev/null; unset v
 ```
 
-An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the value stored under 'alerting_discord_webhook' is not a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
+An empty file means no Discord channel, and the host warns at start as in §0. A value that is not a Discord webhook URL (`https://discord.com/api/webhooks/<id>/<token>`) is refused the same way, with the WARNING `[alert-channel] discord is off: the Discord webhook credential (alerting_discord_webhook) does not hold a Discord webhook URL`, which never quotes the value. **To rotate the webhook** (it leaked, or you deleted it in Discord): create a new one, run the block above again, and restart: systemd copies a credential when the service starts, so the running host keeps the old one until then. On Windows the webhook is a file named `alerting_discord_webhook` in the `SEW_SECRET_FILES_DIR` directory (§9), like the keys.
 
 ## 4. Run the pre-flight
 

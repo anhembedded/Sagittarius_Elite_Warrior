@@ -39,9 +39,10 @@ _SEVERITY_MARK = {
 }
 
 #: A webhook URL as Discord issues it: its own host (or a client channel's), the
-#: API path, an id and a token. Anything else is not sent to.
+#: API path, an id and a token. Anything else is not sent to. ASCII classes only
+#: (`[0-9]`, not `\d`, which also matches other scripts' digits).
 _WEBHOOK_URL = re.compile(
-    r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api(?:/v\d+)?/webhooks/\d+/[A-Za-z0-9_-]+"
+    r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api(?:/v[0-9]+)?/webhooks/[0-9]+/[A-Za-z0-9_-]+"
 )
 
 

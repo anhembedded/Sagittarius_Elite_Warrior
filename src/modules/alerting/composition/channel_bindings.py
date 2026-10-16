@@ -66,21 +66,24 @@ def discord_channel(resolver: PortResolver) -> IAlertChannel | None:
     """The Discord channel, when a Discord webhook is stored on this host."""
     secrets = resolver.resolve(ChannelSecrets).store
     webhook = (secrets.read(DISCORD_WEBHOOK_SECRET) or "").strip()
+    # The credential is named in the text, never passed to the logger: no value
+    # derived from the secret store reaches a log call (CodeQL
+    # py/clear-text-logging-sensitive-data).
     if not webhook:
         logger.info(
-            "[alert-channel] discord is off: no webhook is stored under %r",
-            DISCORD_WEBHOOK_SECRET,
+            "[alert-channel] discord is off: no webhook is stored in the Discord "
+            "webhook credential (alerting_discord_webhook)"
         )
         return None
     if not is_discord_webhook_url(webhook):
         logger.warning(
-            "[alert-channel] discord is off: the value stored under %r is not a "
-            "Discord webhook URL",
-            DISCORD_WEBHOOK_SECRET,
+            "[alert-channel] discord is off: the Discord webhook credential "
+            "(alerting_discord_webhook) does not hold a Discord webhook URL"
         )
         return None
     logger.info(
-        "[alert-channel] discord is on: webhook read from %r", DISCORD_WEBHOOK_SECRET
+        "[alert-channel] discord is on: webhook read from the Discord webhook "
+        "credential (alerting_discord_webhook)"
     )
     return DiscordWebhookChannel(secrets, resolver.resolve(IWebhookTransport))  # type: ignore[type-abstract]
 

@@ -79,6 +79,7 @@ def test_a_discord_webhook_url_is_recognised(value: str) -> None:
         "https://discord.com.evil.example/api/webhooks/123456/abc",
         "https://discord.com/api/webhooks/123456/abc?x=1",
         "https://discord.com/api/webhooks/abc/abc",  # the id is a number
+        "https://discord.com/api/webhooks/\u0661\u0662\u0663/abc",  # Arabic-Indic digits
         "https://hooks.slack.com/services/T/B/x",
         "",
     ],

@@ -91,7 +91,7 @@ def test_a_value_that_is_not_a_discord_webhook_turns_the_channel_off_without_quo
         catalog = build_channel_catalog(_Resolver(store))
 
     assert catalog.channel_ids() == ()
-    assert "not a Discord webhook URL" in caplog.text
+    assert "does not hold a Discord webhook URL" in caplog.text
     assert "s3cret" not in caplog.text
 
 
