@@ -202,11 +202,27 @@ class ProtectiveStopService(IExposureProtection):
         and the position with it."""
         if stop.state is ProtectiveStopState.TRIGGERED:
             return ProtectionVerdict.TRIGGERED
+        if stop.state is ProtectiveStopState.CANCELLING:
+            self._finish_cancelling(stop, open_stops)
+            return None
         if stop.client_order_id in open_stops:
             if stop.state is ProtectiveStopState.INTENDED:
                 self._book.apply(stop, ProtectiveStopEvent.ACCEPTED)
             return None
         return self._explain_absence(stop, position)
+
+    def _finish_cancelling(
+        self, stop: ProtectiveStop, open_stops: dict[str, Order]
+    ) -> None:
+        """A cancel that did not finish left the record `CANCELLING` (the bot's exposure was
+        closed then): the order is gone, or it is cancelled now. Either way the record ends, so
+        that a position that has come back is protected by a new stop and not by this one; the
+        order is dropped from `open_stops` so the adoption does not take it back."""
+        if stop.client_order_id not in open_stops:
+            self._book.apply(stop, ProtectiveStopEvent.UNKNOWN_ORDER)
+            return
+        if self._cancel_cancelling(stop):
+            open_stops.pop(stop.client_order_id, None)
 
     def _explain_absence(
         self, stop: ProtectiveStop, position: Decimal

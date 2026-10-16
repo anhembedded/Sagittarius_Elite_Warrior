@@ -20,11 +20,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 from .futures_bots_world import booted_futures_bots
 from .futures_direction_scenarios import LONG, NEUTRAL, SCENARIOS, DirectionScenario
+from .futures_fake_exchange import FUTURES
 from .futures_stop_helpers import started, stops
 from .grid_fake_exchange import FakeExchange
 
@@ -104,3 +109,32 @@ def test_a_stop_the_exchange_ended_without_a_fill_does_not_stop_a_healthy_grid(
         assert app.position() == 0
         assert app.bot(bot_id).state is S.RUNNING
         assert heard == []
+
+
+def test_a_stop_left_cancelling_by_a_failed_cancel_is_finished_and_the_position_re_protected(
+    futures: FakeExchange,
+) -> None:
+    """A record saved `CANCELLING` whose order still stands (the cancel did not go through)
+    ends on the next look, and the position that stands gets a new stop, not a resend of it."""
+    with booted_futures_bots(futures) as first:
+        bot_id = started(first)
+        (before,) = stops(first)
+    for saved in futures.tmp_path.rglob("*.json"):
+        text = saved.read_text(encoding="utf-8")
+        if str(before["clientAlgoId"]) in text:
+            saved.write_text(
+                text.replace('"standing"', '"cancelling"'), encoding="utf-8"
+            )
+
+    with booted_futures_bots(futures) as second:
+        second.engine.event_bus.emit(
+            TradingSwitchChangedEvent(True, TradingSwitchCause.ENABLED, venue=FUTURES)
+        )
+        second.ticker.fire()
+        second.deliver()
+
+        assert second.bot(bot_id).state is S.RUNNING
+        (after,) = stops(second)
+        assert after["clientAlgoId"] != before["clientAlgoId"]
+        (saved_stop,) = second.runtime(bot_id).protective_stops
+        assert saved_stop.client_order_id == after["clientAlgoId"]
