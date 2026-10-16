@@ -10,7 +10,7 @@ participant "exchange" as X
 E -> E : disable trading on the venue
 E -> BUS : TradingSwitchChangedEvent\n(off, EMERGENCY_STOP)
 BUS -> RT : on_switch
-RT -> F : on_switch(False, EMERGENCY_STOP),\nfor each bot on the venue
+RT -> F : on_switch(False, EMERGENCY_STOP),\nfor each bot on the venue (queued)
 F -> F : STARTING, RUNNING or PAUSED\n--switch_off--> HALTED
 E -> X : cancel every open order
 E -> X : close every position\n(Spot: sell above the session's baseline)

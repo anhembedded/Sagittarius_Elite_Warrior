@@ -10,16 +10,20 @@ hand; the steps below cite the code that runs them. The states named are the lif
 ## Built: Start
 
 [`diagrams/06-start.puml`](diagrams/06-start.puml) — *what happens, in order, when the owner starts a
-Grid bot?*
+Grid bot, and on which thread?*
 
 The use case (`bots/application/use_cases/start_bot/handler.py` → `StartBotCommandHandler.execute`)
 refuses a closed venue, an unconfirmed Mainnet start and an unready bot, then asks the runner to
-start (`.../bot_runner.py` → `BotRunner.start`). The Grid's preconditions
-(`.../grid_start_preconditions.py` → `GridStartPreconditions.check`) re-read the parameters, claim the
-symbol, open the order session (`.../order_session_opening.py` → `order_session_refusal`) and register
-the owner budget. The executor then plans and places the ladder (`.../grid_executor.py` →
-`GridExecutor._run_start`; `.../grid_start_sequence.py` → `GridStartSequence.run`), and `ladder_ready`
-moves the bot to `RUNNING`.
+start (`.../bot_runner.py` → `BotRunner.start`). The runner works **on the caller's thread**: it
+retires the earlier run's worker, so no task of that run can save over the new one, applies `start`
+(`STARTING`, not yet saved), and asks the Grid's preconditions (`.../grid_start_preconditions.py` →
+`GridStartPreconditions.check`) to re-read the parameters, claim the symbol, open the order session
+(`.../order_session_opening.py` → `order_session_refusal`) and register the owner budget. A refusal
+goes back to the caller with nothing saved and nothing queued. Only once they pass does the runner
+save the bot `STARTING` and queue `start` on a fresh worker. On the worker the executor plans and
+places the ladder (`.../grid_executor.py` → `GridExecutor._run_start`; `.../grid_start_sequence.py` →
+`GridStartSequence.run`), and `ladder_ready` moves the bot to `RUNNING`. The order-session opening and
+the budget registration are calls to `trading` the caller waits on.
 
 ## Built: a fill
 
@@ -63,10 +67,10 @@ stop again when trading is enabled (`GridStopper.after_switch_on`). An order a b
 session is closed is refused, and the bot halts rather than faults (`.../bot_order_gateway.py` →
 `BotOrderGateway`).
 
-## Built: restart, RECOVERING, Resume
+## Built: restart
 
-[`diagrams/06-restart-and-resume.puml`](diagrams/06-restart-and-resume.puml) — *what happens to a
-running bot when the app restarts, and how does the owner's Resume bring it back?*
+[`diagrams/06-restart.puml`](diagrams/06-restart.puml) — *what happens to a running bot when the app
+restarts?*
 
 `BotRestoreService` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) applies
 `app_restart` to every saved bot: `RUNNING` and `PAUSED` become `RECOVERING`, `STARTING` becomes
@@ -82,7 +86,13 @@ open-order list, or from history for an order that is gone. A smaller quantity i
 `[order-quantity]`; a larger one halts the bot (`order_quantity_mismatch`). A new order is saved at the
 quantity the exchange accepted, never the one asked for.
 
-**Resume from `RECOVERING`** (`BUG-204`, the desktop's way out): the use case asks for the real-money
+## Built: Resume from `RECOVERING`
+
+[`diagrams/06-resume-recovering.puml`](diagrams/06-resume-recovering.puml) — *how does the owner's
+Resume bring a `RECOVERING` bot back, or halt it?*
+
+`BUG-204`, the desktop's way out: the use case (`.../resume_bot/handler.py` →
+`ResumeBotCommandHandler`) asks for the real-money
 answer on a mainnet venue, `BotRunner.resume` (`.../bot_runner.py` → `BotRunner.resume`) opens the
 session (`.../grid_start_preconditions.py` → `GridStartPreconditions.open_session_for_resume`) or
 refuses in the session's words, and the executor reconciles (`.../grid_executor.py` →

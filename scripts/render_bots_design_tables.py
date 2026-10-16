@@ -32,6 +32,8 @@ from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BOT_LIFECYCLE_TRANSITIONS,
+    RECOVERABLE_STATES,
+    BotLifecycleState,
     BotLifecycleTarget,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
@@ -51,7 +53,11 @@ _SECONDS_PER_HOUR = 3600
 #: What a target that is not a state means, in the table's own words.
 _TARGET_NOTES: Mapping[BotLifecycleTarget, str] = {
     BotLifecycleTarget.REMOVED: "removed (the file is deleted)",
-    BotLifecycleTarget.PRIOR: "the state before the restart (`RUNNING` or `PAUSED`)",
+    BotLifecycleTarget.PRIOR: "the state before the restart ("
+    + " or ".join(
+        f"`{state.value}`" for state in BotLifecycleState if state in RECOVERABLE_STATES
+    )
+    + ")",
 }
 
 
@@ -149,8 +155,8 @@ def _recheck(values: tuple[object, ...]) -> str:
 
 
 def _gate(values: tuple[object, ...]) -> str:
-    ratio, ttl = values
-    return f"{float(str(ratio)) * 100:g} %; {seconds(ttl)}"
+    ratio, spot, futures, ttl = values
+    return f"{float(str(ratio)) * 100:g} % of {spot} on Spot, of {futures} on Futures; {seconds(ttl)}"
 
 
 _BOTS = "src/modules/bots"
@@ -265,12 +271,19 @@ TIMING: tuple[TimingRow, ...] = (
         _recheck,
     ),
     TimingRow(
-        "The request gate closes at this share of the minute's weight (2,400 on Futures); "
+        "The request gate closes at this share of the minute's weight; "
         "a One-way position mode is kept",
         (
             Constant(
                 f"{_TRADING}/adapters/binance/exchange_call_policy.py",
                 "SOFT_WEIGHT_RATIO",
+            ),
+            Constant(
+                f"{_TRADING}/adapters/binance/exchange_call_policy.py",
+                "SPOT_WEIGHT_LIMIT",
+            ),
+            Constant(
+                f"{_TRADING}/adapters/binance/venue_sessions.py", "FUTURES_WEIGHT_LIMIT"
             ),
             Constant(
                 f"{_TRADING}/adapters/binance/position_mode_memory.py", "TTL_SECONDS"

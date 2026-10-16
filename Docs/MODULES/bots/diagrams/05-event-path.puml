@@ -6,7 +6,7 @@ left to right direction
 [trading, market_data\n(events on the bus)] as EV
 [BotEventRouter] as RT
 [GridFacts\n(on the bot's worker)] as F
-[BotRunState\n(the one writer)] as S
+[BotRunState\n(the writer while the bot runs)] as S
 [NotifyingBotStore] as N
 [JsonBotStore] as J
 EV --> RT : fill, end, tick, switch, ...

@@ -22,6 +22,8 @@ gantt
 
     section Phase 1 - Map and links
     041A Docs skeleton (first)           :done,    a, after s1, 1d
+    041J arc42 folder per module         :done,    j, 2026-10-16, 1d
+    041K Cite code by symbol             :done,    k, 2026-10-16, 1d
     041B Doc to rule links checked        :         b, after a, 2d
     041C Decisions index                  :         c, after a, 1d
 
@@ -46,6 +48,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-041A | [Docs skeleton](completed/EPIC-041A_docs_skeleton.md) | `claude/epic-041a-docs-skeleton` | 🟢 | ✅ Done | 2026-10-14 |
+| EPIC-041J | [arc42 folder per module](completed/EPIC-041J_module_folder_layout_and_design_in_step.md) | — | 🟡 | ✅ Done | 2026-10-16 |
 | EPIC-041K | [Cite code by symbol](completed/EPIC-041K_cite_code_by_symbol.md) | `claude/epic-041k-cite-code-by-symbol` | 🟡 | ✅ Done | 2026-10-16 |
 | EPIC-041B | [Doc to rule links checked both ways](incomplete/EPIC-041B_doc_rule_links_checked_both_ways.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-041C | [Decisions index](incomplete/EPIC-041C_decisions_index.md) | — | 🟢 | 🔵 Planned | — |

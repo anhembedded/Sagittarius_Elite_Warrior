@@ -24,7 +24,7 @@ render. Do not edit it by hand.
 | Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py` → `STOP_RETRY_DELAYS` |
 | Rate-limit pause: margin, longest wait, most automatic resumes | 2 s; 1 h; 5 | `src/modules/bots/domain/grid/rate_limit_pause.py` → `AUTO_RESUME_MARGIN`, `MAX_AUTO_RESUME_WAIT`, `MAX_AUTO_RESUMES` |
 | A position divergence is re-read after (nothing is read when the book already agrees with the stream's last figure, `BUG-220`); a run of reports may keep that one re-read waiting at most | 5 s; 3 × that | `src/modules/bots/domain/grid/grid_thresholds.py` → `FuturesGridThresholds.position_recheck_delay` · `src/modules/bots/application/kinds/grid/watch/grid_risk_watch.py` → `MAX_RECHECK_DELAYS` |
-| The request gate closes at this share of the minute's weight (2,400 on Futures); a One-way position mode is kept | 70 %; 60 s | `src/modules/trading/adapters/binance/exchange_call_policy.py` → `SOFT_WEIGHT_RATIO` · `src/modules/trading/adapters/binance/position_mode_memory.py` → `TTL_SECONDS` |
+| The request gate closes at this share of the minute's weight; a One-way position mode is kept | 70 % of 6000 on Spot, of 2400 on Futures; 60 s | `src/modules/trading/adapters/binance/exchange_call_policy.py` → `SOFT_WEIGHT_RATIO`, `SPOT_WEIGHT_LIMIT` · `src/modules/trading/adapters/binance/venue_sessions.py` → `FUTURES_WEIGHT_LIMIT` · `src/modules/trading/adapters/binance/position_mode_memory.py` → `TTL_SECONDS` |
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py` → `FUNDING_INTERVAL` |
 <!-- end generated: timing -->
 

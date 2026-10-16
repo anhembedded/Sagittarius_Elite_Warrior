@@ -33,8 +33,10 @@ Exchange and market events arrive at `BotEventRouter`
 (`bots/application/event_handlers/bot_event_router.py` → `BotEventRouter`), which only copies and
 queues: it finds the executor that owns the client order id, or every executor on the venue for a
 switch, and hands the event to its `GridFacts` (`.../grid_facts.py` → `GridFacts`), which acts on the
-bot's worker. A bot's state has one writer, `BotRunState` (`.../bot_run_state.py` → `BotRunState`),
-and is stored through `IBotStore` (`bots/contracts/i_bot_store.py` → `IBotStore`): `NotifyingBotStore`
+bot's worker. While a bot has a worker, its state has one writer there, `BotRunState`
+(`.../bot_run_state.py` → `BotRunState`); who else writes a bot, and when, is in
+[`07-deployment.md`](07-deployment.md). Everything is stored through `IBotStore`
+(`bots/contracts/i_bot_store.py` → `IBotStore`): `NotifyingBotStore`
 (`.../notifying_bot_store.py` → `NotifyingBotStore`) publishes `BotChangedEvent` after each write and
 hands it on to `JsonBotStore` (`bots/adapters/persistence/json_bot_store.py` → `JsonBotStore`). A
 second copy of the app gets read-only wrappers instead (`.../read_only_bot_store.py` →

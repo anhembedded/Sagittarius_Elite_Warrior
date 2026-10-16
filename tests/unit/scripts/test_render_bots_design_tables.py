@@ -8,11 +8,13 @@ added to a `*_fsm_matrix.py` or a constant changed without regenerating fails he
 
 from __future__ import annotations
 
+import shutil
 from datetime import timedelta
 from enum import Enum
 from pathlib import Path
 
 import pytest
+from Sagittarius_Elite_Warrior.scripts import render_bots_design_tables as render
 from Sagittarius_Elite_Warrior.scripts.render_bots_design_tables import (
     TIMING,
     Constant,
@@ -33,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
     GRID_LEVEL_TRANSITIONS,
     LevelEvent,
     LevelState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudgetCaps,
 )
 
 _BLOCKS = blocks()
@@ -88,18 +93,59 @@ def test_targets_that_are_not_states_and_self_loops_are_named() -> None:
     assert "| `RECOVERING` | `resume` | `RECOVERING` (stays) |" in lifecycle
 
 
-def test_a_hand_edited_timing_value_no_longer_matches() -> None:
-    rendered = render_timing()
-    edited = rendered.replace("| 120 s; 300 s; 15 s |", "| 90 s; 300 s; 15 s |")
+@pytest.fixture
+def design_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The two generated documents copied to `tmp_path`, and the script pointed at them."""
+    for document in (render.STATE_MACHINES, render.QUALITY):
+        shutil.copy(document, tmp_path / document.name)
+    monkeypatch.setattr(render, "STATE_MACHINES", tmp_path / render.STATE_MACHINES.name)
+    monkeypatch.setattr(render, "QUALITY", tmp_path / render.QUALITY.name)
+    return tmp_path
 
-    assert edited != rendered
+
+def test_check_passes_on_the_committed_documents(design_copy: Path) -> None:
+    assert render.main(["--check"]) == 0
+
+
+def test_check_fails_on_a_hand_edited_value_and_write_repairs_it(
+    design_copy: Path,
+) -> None:
+    """The drift probe on the real document: one timing value edited by hand."""
+    quality = design_copy / render.QUALITY.name
+    text = quality.read_text(encoding="utf-8")
+    assert "| 120 s; 300 s; 15 s |" in text
+    quality.write_text(
+        text.replace("| 120 s; 300 s; 15 s |", "| 90 s; 300 s; 15 s |"),
+        encoding="utf-8",
+    )
+
+    assert render.main(["--check"]) == 1
+
+    assert render.main(["--write"]) == 0
+    assert render.main(["--check"]) == 0
+    assert quality.read_text(encoding="utf-8") == text
+
+
+def test_check_fails_on_a_dropped_transition_row(design_copy: Path) -> None:
+    machines = design_copy / render.STATE_MACHINES.name
+    text = machines.read_text(encoding="utf-8")
+    row = "| `FILLED` | `settled` | `EMPTY` |\n"
+    assert row in text
+    machines.write_text(text.replace(row, ""), encoding="utf-8")
+
+    assert render.main(["--check"]) == 1
 
 
 @pytest.mark.parametrize("row", TIMING, ids=[row.what[:40] for row in TIMING])
 def test_every_timing_constant_is_read_from_the_code(row: TimingRow) -> None:
-    """A renamed or deleted constant raises here rather than leaving a stale cell."""
+    """A renamed or deleted constant raises here rather than leaving a stale cell, and
+    each constant is a duration, a count, a ratio, a tuple of delays or the caps object."""
     for constant in row.constants:
-        assert constant.value() is not None
+        value = constant.value()
+        assert isinstance(value, timedelta | int | float | tuple | OwnerBudgetCaps), (
+            f"{constant.path} → {constant.name} is a {type(value).__name__}"
+        )
+    assert any(character.isdigit() for character in render_timing((row,)))
 
 
 def test_a_dataclass_default_is_read_from_its_field() -> None:

@@ -1,0 +1,19 @@
+' Question: what happens to a running bot when the app restarts?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-restart
+participant "BotsModule.boot" as M
+participant BotRestoreService as RS
+participant IBotStore as ST
+participant BotBootRecovery as BR
+participant "GridExecutor\n(bot's worker)" as G
+participant trading as T
+
+M -> RS : restore_all()
+RS -> RS : RUNNING, PAUSED --app_restart--> RECOVERING;\nSTARTING --app_restart--> HALTED
+RS -> ST : save each changed bot
+note over RS : nothing is placed; the order session\nis closed, so nothing listens to the exchange
+M -> BR : run()
+BR -> G : recover_after_restart() (queued)
+G -> T : read what the exchange holds
+G -> G : a RecoveryReport on the bot; read only, nothing placed
+@enduml

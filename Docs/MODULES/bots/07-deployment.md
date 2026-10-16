@@ -6,14 +6,14 @@ Status: Current
 the host runs it?*
 
 [`diagrams/07-threads.puml`](diagrams/07-threads.puml) — *which thread runs what for the bots, and
-what happens on a second copy of the app?*
+which one writes a running bot's file?*
 
 ## Built: threads
 
 Each bot has its own worker thread and FIFO queue, so one slow bot never delays another
 (`bots/adapters/thread_bot_work_queue.py` → `ThreadBotWorkQueue`, one queue per bot from the factory's
 `queues` argument, `bots/composition/executor_bindings.py` → `grid_executor_deps`). Everything that
-changes a bot runs there: the router on the bus thread only copies an event and queues it
+changes a running bot runs there: the router on the bus thread only copies an event and queues it
 ([`05-building-blocks.md`](05-building-blocks.md)). Periodic checks run on `ThreadBotTicker`
 (`bots/adapters/thread_bot_ticker.py` → `ThreadBotTicker`): one ticker, named `bots-ticker`
 (`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. The user-stream and
@@ -22,11 +22,19 @@ periods). `BotsModule.shutdown` (`bots/module.py` → `BotsModule.shutdown`) clo
 then the price streams, then every worker, each after running what is queued, so the app exits with
 no bot thread left and nothing half-written.
 
-## Built: files
+## Built: files, and who writes them
 
 Each bot is one file, `state/bots/<id>.json`, under the data root
 (`bots/composition/state_bindings.py` → `bots_directory`), written atomically by `JsonBotStore`; its
-shape is in [`08-concepts.md`](08-concepts.md).
+shape is in [`08-concepts.md`](08-concepts.md). Four writers call `IBotStore.save`, each in its own phase
+of the bot's life:
+
+| Writer | Thread | When it may write |
+| :--- | :--- | :--- |
+| `BotRunState` (`.../bot_run_state.py` → `BotRunState`) | the bot's worker | while the bot has a worker: every fill, transition and update of a run |
+| The create, edit and venue-change use cases (`.../create_bot/handler.py` → `CreateBotCommandHandler`; `.../edit_bot/handler.py` → `EditBotCommandHandler`; `.../change_bot_venue/handler.py` → `ChangeBotVenueCommandHandler`) | the caller's | a bot at rest only: the lifecycle admits `edit` in `DRAFT` and `STOPPED`, and a venue change in a Spot `DRAFT` that never ran (`bots/domain/bot.py` → `Bot.edited`, `Bot.moved_to`) |
+| `BotRunner.start` (`.../bot_runner.py` → `BotRunner.start`) | the caller's | once, the `STARTING` it saves after retiring the earlier run's worker and before it queues the new one ([`06-runtime.md`](06-runtime.md)) |
+| `BotRestoreService.restore_all` (`.../bot_restore_service.py` → `BotRestoreService.restore_all`) | boot | before any worker exists or any event is subscribed |
 
 ## Built: a second process
 

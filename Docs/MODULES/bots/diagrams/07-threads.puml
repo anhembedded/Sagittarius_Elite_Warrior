@@ -1,4 +1,4 @@
-' Question: which thread runs what for the bots, and what happens on a second copy of the app?
+' Question: which thread runs what for the bots, and which one writes a running bot's file?
 ' Explained by: ../07-deployment.md. Drawn by hand, high level.
 @startuml 07-threads
 skinparam componentStyle rectangle
@@ -13,5 +13,5 @@ BUS --> RT
 RT --> W : post
 TK --> W : post periodic checks
 SC --> W : post retries, reconciles
-W --> F : the only writer
+W --> F : the one writer while the bot runs
 @enduml
