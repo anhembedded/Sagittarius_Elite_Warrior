@@ -1,0 +1,15 @@
+' Question: what reaches into the alerting module, and through which port?
+' Explained by: ../03-context.md, which cites each arrow. Drawn by hand, high level.
+@startuml 03-context-in
+skinparam componentStyle rectangle
+left to right direction
+[shell] as SH
+[bots/contracts] as BC
+[operations:\nAlertingAlertChannels] as OA
+actor Owner as O
+[alerting] as A
+SH --> A : lists AlertingModule
+A ..> BC : reads BotChangedEvent,\nBotStopGaveUpEvent,\nGetBotStatusReportQuery
+OA --> A : IAlertingStatus\ncarries_bot_events
+O --> A : `alert test`,\nhealth snapshot
+@enduml

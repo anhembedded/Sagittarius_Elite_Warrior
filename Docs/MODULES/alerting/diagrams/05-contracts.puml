@@ -1,0 +1,33 @@
+' Question: which ports does a channel or a source build against?
+' Explained by: ../05-building-blocks.md and ../03-context.md. Contracts only; the domain types
+' they name are drawn in 05-domain.puml. Drawn by hand, never generated.
+@startuml 05-contracts
+interface IAlertPublisher {
+  publish(alert)
+  condition_cleared(dedup_key, at)
+}
+interface IAlertChannel {
+  deliver(alert, loudness) : DeliveryResult
+}
+class DeliveryResult <<frozen>> {
+  {static} sent()
+  {static} retry_later(after, reason)
+  {static} failed(reason)
+  {static} refused(reason)
+}
+interface IOutbox {
+  enqueue()
+  due()
+  mark()
+}
+interface IWebhookTransport {
+  post_json(url, body) : WebhookResponse
+}
+interface IAlertingStatus {
+  carries_bot_events() : bool
+}
+interface IAlertSettingsSource {
+  current() : AlertSettings
+}
+IAlertChannel ..> DeliveryResult
+@enduml

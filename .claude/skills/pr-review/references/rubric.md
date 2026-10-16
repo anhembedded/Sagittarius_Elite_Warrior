@@ -94,6 +94,7 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **K7** | Verify all navigation links and clickable markdown links resolve to valid targets. |
 | **K8** | Verify manifest table synchronization in `.claude/README.md`. |
 | **K9** | Verify path validity under `.claude/ONBOARDING.md` §13 via `check_skill_prompt_references.py`. |
+| **K10** | Verify the module design is kept in step: a change under `src/modules/<m>/`, for a module with `Docs/MODULES/<m>/`, updates the folder's file whose fact it changes (components, ports, edges, states, sequences, threads, stored fields, timing, `file:line` citations, Planned→Built), or its `## Design` line `No design change: <reason>` is true of the diff (`commit-rule.md` §1). `check_design_in_step.py` proves only that an answer exists. |
 | **L1** | Verify Conventional Commit format: `<type>(<scope>): <subject>`. |
 | **L2** | Verify commit body explains architectural reasoning and systemic impact (cites root cause for `fix:`). |
 | **L3** | Verify required trailers: `Co-Authored-By:` and session metadata where applicable. |

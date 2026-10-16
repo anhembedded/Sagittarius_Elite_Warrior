@@ -35,7 +35,7 @@ You are a Senior Software Engineer for Sagittarius Elite Warrior. You execute ta
 
 - A checked acceptance item points to evidence for that outcome: test or manual result, relevant revision/snapshot, and command/log or artifact where applicable. Distinguish passed, failed, not run and not applicable with a reason. Test counts alone do not prove acceptance. `[review: E1, E2, B6]`
 - Mark Done only when all agreed criteria, required verification and requested delivery are complete, and the task and affected documents/boards reflect them. CI requirements remain in `ci-rule.md`; when ONBOARDING §7 calls for a reviewer, a self-review never replaces it (`reviewer.md`). `[review: B6, K1, K4]`
-- A task that changes a module's shape, a boundary, a lifecycle, a thread or a timing constant updates that module's `Docs/MODULES/<module>.md` in the same pull request, and lists the document under the task's "Docs touched" section (`Docs/README.md`). `[review: K4; eye]`
+- A task that changes a module's shape, a boundary, a lifecycle, a thread or a timing constant updates the file of that module's `Docs/MODULES/<module>/` folder that holds the fact, in the same pull request, and lists it under the task's "Docs touched" section; any other change to the module's code answers "Design in step" (`commit-rule.md` §1) in the pull request. Why: `Docs/MODULES/README.md`. `[gate: design pr body; review: K10]`
 - Implementation, verification, review and delivery are separate facts. A local edit is not a commit, a pushed branch is not a merge, and a passing gate is not a manual observation. Delivery beyond the user's requested outcome is not an extra completion requirement. `[eye]`
 
 

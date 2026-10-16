@@ -1,0 +1,17 @@
+' Question: where is a channel registered, and who asks whether one is carried?
+' Explained by: ../05-building-blocks.md, which cites each component. Drawn by hand, high level.
+@startuml 05-channel-catalog
+skinparam componentStyle rectangle
+left to right direction
+[CHANNEL_DESCRIPTORS] as CDS
+[RegisteredChannelCatalog] as C
+[DiscordWebhookChannel] as D
+[ChannelAlertingStatus] as CS
+[SendTestMessage] as ST
+[operations:\nAlertingAlertChannels] as OA
+CDS --> C : build_channel_catalog; a channel\nwith no webhook is left out
+C --> D : holds each configured channel
+CS --> C : in the catalog and not disabled
+OA --> CS : IAlertingStatus\ncarries_bot_events
+ST --> C : one TEST alert per channel,\nnever the outbox
+@enduml

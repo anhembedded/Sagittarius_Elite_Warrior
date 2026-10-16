@@ -1,0 +1,15 @@
+' Question: what runs on the caller's thread when an alert is raised, and where does it stop?
+' Explained by: ../05-building-blocks.md, which cites each component. Drawn by hand, high level.
+' An arrow's label is the port it crosses; the box at its head implements it.
+@startuml 05-publish-path
+skinparam componentStyle rectangle
+left to right direction
+[BotAlertSource] as S
+[AlertHub] as H
+[InMemoryAlertSettings] as SET
+[SqliteOutbox] as O
+S --> H : IAlertPublisher\npublish, condition_cleared
+H --> SET : IAlertSettingsSource\ncurrent
+H --> O : IOutbox\nenqueue (one transaction)
+note bottom of H : inhibit, deduplicate, hold,\ngroup, route, admit;\nnever calls a channel
+@enduml

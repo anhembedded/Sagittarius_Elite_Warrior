@@ -1,0 +1,31 @@
+' Question: which thread does what, and where is the alert safe if the process dies?
+' Explained by: ../06-runtime.md. Drawn by hand; the steps are cited there and in ../05-building-blocks.md.
+@startuml 06-halt-to-discord
+participant "Bot runner\n(bot's thread)" as R
+participant BotAlertSource as S
+participant AlertHub as H
+participant SqliteOutbox as O
+participant "Lane\nalerting-lane-discord" as L
+participant DiscordWebhookChannel as D
+participant ISecretStore as K
+participant Discord as X
+
+R -> S : BotChangedEvent(bot_id)
+S -> S : GetBotStatusReportQuery(bot_id):\nstate HALTED, was RUNNING
+S -> H : publish(Alert BOT_HALTED, CRITICAL)
+H -> O : enqueue alert and one PENDING delivery\n(one transaction)
+H --> L : nudge
+note over R, H : the bot's thread returns here, nothing below can hold it
+L -> O : due(discord)
+L -> D : deliver(alert, LOUD)
+D -> K : read("alerting_discord_webhook")
+D -> X : POST
+X --> D : 429, retry_after 2 s
+D --> L : retry_later(2 s, "rate limited")
+L -> O : mark RETRYING, next attempt now + 2 s
+note over L : the channel is paused, no request before 2 s
+L -> D : deliver(alert, LOUD)
+D -> X : POST
+X --> D : 204
+L -> O : mark SENT
+@enduml

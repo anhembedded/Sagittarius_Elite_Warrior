@@ -57,7 +57,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-08 | Spec | Design approved by the owner (N1–N8); epic scaffolded with six children; `EPIC-035K` superseded. Documentation only. |
-| 2026-10-15 | Design | The design moves to `Docs/MODULES/alerting.md` (`EPIC-041`'s standard); walking skeleton `036G` added first, `036B`/`036C`/`036E` re-sequenced behind it ([decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). Documentation only. |
+| 2026-10-15 | Design | The design moves to `Docs/MODULES/alerting/` (`EPIC-041`'s standard); walking skeleton `036G` added first, `036B`/`036C`/`036E` re-sequenced behind it ([decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). Documentation only. |
 | 2026-10-16 | 036G | Walking skeleton built and verified (unit, sanity, integration; a real `alert test` reached Discord and got its 404 for a webhook that does not exist); the owner's run on the VPS is the open criterion. |
 
 ---

@@ -65,3 +65,6 @@ The **seam** (port, base class, place enum, the list a case is appended to) is b
 
 ### 7.3 No wriggling out via docstrings
 A docstring explains why; a type or a test is what breaks when reality changes. A decision that lives only in prose has nothing to detect that it stopped being true. `[eye]`
+
+### 7.4 The module's design moves with its code
+A module with a `Docs/MODULES/<m>/` folder has its components, ports, threads, sequences and timing drawn there. Before changing `src/modules/<m>/`, read the folder's file that holds what you are changing; the pull request then updates it or says why the design is unchanged (`commit-rule.md` §1, "Design in step"). `[gate: design pr body; review: K10]`

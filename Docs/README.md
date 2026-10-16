@@ -58,6 +58,6 @@ else does:
 ## Writing a document
 
 Name the reader and the question first. Leave out a section that has nothing to say. State a rule by
-citing it, never by copying it. Each home folder's `README.md` gives its layout. A task that changes a
-module's shape, a boundary, a lifecycle, a thread or a timing constant updates that module's document
-in the same pull request and lists it under "Docs touched" (`.claude/rules/task-execution-rule.md`).
+citing it, never by copying it. Each home folder's `README.md` gives its layout. A pull request that
+changes a module with a design folder updates that folder or says why not (`commit-rule.md` §1,
+"Design in step"; the layout is [`MODULES/README.md`](MODULES/README.md)).
