@@ -60,7 +60,7 @@ gantt
 | EPIC-039I | [Short and Neutral](completed/EPIC-039I_futures_grid_short_and_neutral.md) | `claude/epic-039i-futures-grid-short`, `claude/epic-039i-futures-grid-neutral` | 🔴 | ✅ Done 2026-10-15 (#521, #523) | — |
 | EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | `claude/epic-039j-futures-ui` | 🟡 | 🟡 In progress (implemented; pull request open; four items wait on 039H, 039K, 039L) | — |
 | EPIC-039K | [Futures backtest](completed/EPIC-039K_futures_backtest.md) | `claude/epic-039k-futures-backtest` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-039L | [Protective stop, mainnet gate, soak](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | — | 🔴 | 🔵 Planned; asks O7, O12; waits for `EPIC-026K` | — |
+| EPIC-039L | [Protective stop, mainnet gate, soak](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | — | 🔴 | 🟡 In progress: C1 design written ([decision](DECISION_2026-10-16_futures_protective_stop_minimum.md)); C2–C4 planned, one pull request each, in order | — |
 | EPIC-039M | [Kind conformance](incomplete/EPIC-039M_kind_conformance_for_profiles.md) | — | 🟢 | 🔵 Planned | — |
 
 ---
@@ -86,7 +86,7 @@ gantt
 | Owner decisions O1–O12 ([decision record §4](DECISION_2026-10-10_futures_venue_profile.md)) | 039B (O2), 039F (O3, O4), 039H (O1, O6, O8, O10), 039K (O9), 039L (O7, O12) | The owner answers when the task that needs it starts; recommendations are in the record | 🟡 Open |
 | Binance pages that did not render in the research session ([RESEARCH §8](RESEARCH_2026-10-10_futures_grid.md)) | 039C, 039E, 039F, 039G, 039L | Each task reads the official page first and records it | 🟡 Open |
 | `EPIC-029H` (Spot testnet soak) — how far the Spot executor is trusted as the model | 039H | The soak's result is read when 039H starts | 🟡 Open |
-| `EPIC-026K` (exchange-side protective stop) | 039L | Land 026K first, or 039L builds the minimum and 026K adopts it (owner decides) | 🟡 Open |
+| `EPIC-026K` (exchange-side protective stop) | 039L | Decided 2026-10-16 (D1): 039L builds the minimum; 026K, with no code, adopts the bot's stop mapping when it lands | ✅ Closed |
 | `EPIC-036B` alert kinds (`LIQUIDATION_RISK`, `MARGIN_LOW`, `SETTINGS_DRIFT`, `FOREIGN_FILL`) | 039F, 039L | Whichever lands second adds them once | 🟡 Open |
 | `EPIC-038` stop policy per profile (O12) | 039L, `EPIC-038D` | Recorded in both epics when answered | 🟡 Open |
 | A property-test library (`hypothesis`) is a new dependency (`EPIC-037E`, owner approval) | 039B | Seeded table-driven tests meanwhile | 🟡 Open |
