@@ -115,9 +115,41 @@ an Emergency Stop.
 
 ## Planned: EPIC-039L, the exchange-side protective stop
 
-The journey in which a Futures Grid places a protective stop on the exchange after its opening fill,
-cancels it only once the position is flat, and adopts or replaces it on a restart is designed by
-[`EPIC-039L`](../../../Tasks/epics/EPIC-039_futures_venue_profile/incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md)
-and written here by that task. Nothing in this folder designs it yet; the task's acceptance criteria
-and [design 039 §8](../../../Tasks/epics/EPIC-039_futures_venue_profile/DESIGN_2026-10-10_futures_venue_profile.md)
-are the current source.
+[`diagrams/06-protective-stop.puml`](diagrams/06-protective-stop.puml) — *how does a Futures Grid keep
+an exchange-side stop under its position, and what does a restart do with it?* Designed by `EPIC-039L`
+C1, built by C2 to C4; nothing below runs yet. The choices and what the documentation did not say are in
+[`DECISION_2026-10-16`](../../../Tasks/epics/EPIC-039_futures_venue_profile/DECISION_2026-10-16_futures_protective_stop_minimum.md).
+
+**Place.** At the first fill that makes the account position non-zero (the opening fill, or for a kind that opens flat the first ladder fill) and, for the opening fill, before the ladder is declared ready, the executor saves a record
+`INTENDED` (the stop's `clientAlgoId` and trigger price) in the bot's runtime, sends a `STOP_MARKET`
+conditional order with `closePosition=true` and `workingType=MARK_PRICE` through `trading`, and saves
+`STANDING` on the answer. A take profit, when the plan has one, is a second order of the same kind
+(`TAKE_PROFIT_MARKET`) with the same life. A bot with no stop-loss price places none and is
+*unprotected*. A lost answer is resolved by reading the order by its `clientAlgoId`; an id that does not
+exist is sent again with the same id: the id is unique among *open* orders, and a resend follows only a not-found read, so it cannot make a second open order.
+
+**Exit.** Every exit (Stop, stop loss, take profit, a halt that closes) runs the same close, and the stop
+is cancelled as one more step **after** the bot's own derived position is zero and the exchange's position
+of the symbol reads zero, a remainder below one market step, or the quantity the foreign-position rule
+already names. Any other reading, a close that failed or a read that failed leaves the stop standing.
+A stop that is kept (a halt that left the position, a Stop with *keep*, an unconfirmed close) stays under
+the bot's record and the symbol stays claimed; a custody check, run at every boot, before a start or
+resume on the symbol and on each position or algo event, cancels it once the bot's exposure is closed.
+A stop is told from a ladder order by one seam: the gateway's ladder read returns ladder orders only and
+a separate read returns the stops.
+
+**Restart.** The reconcile reads the symbol's position and the bot's protective orders (told from
+ladder orders by type and `closePosition`, not by their id) and applies one table: adopt a matching
+stop; replace a different one (the new stop stands before the old is cancelled); place one where a
+position has none and close the position if it cannot stand; cancel an orphan only after a second read
+confirms flat; a stop that triggered while the app was down returns the bot `STOPPED`, flat, with the
+reason `protective_stop_triggered`. A stop that disappears while a position stands (an `EXPIRED`
+from the exchange, a manual cancel) is placed again once, then the position is closed.
+
+**Halt.** Whether a halt closes or leaves the position is decided at the moment of the halt by reading
+the exchange: a position stays only under a stop that reads `NEW` and matches the record
+(`PositionExposureCloser.closes_on_halt` in `bots/application/services/positions/closer_futures.py`
+becomes a question about that moment, C3). The desk's Emergency Stop runs three steps (C3): it cancels the
+regular orders, closes the positions, then cancels the conditional orders of each symbol confirmed flat,
+so a close that fails leaves the stop.
+

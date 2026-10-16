@@ -108,8 +108,24 @@ counter order is laid. `HOLDS_ORDER` is the set of states with an order on the e
 
 ## Planned: EPIC-039L, the protective stop's life cycle
 
-A Futures Grid's exchange-side stop has a life of its own (placed after the opening fill, saved before
-the next step, cancelled only once the position is flat, adopted or replaced after a restart). Whether
-that is a third machine, or states and events added to the tables above, is decided and written here by
-[`EPIC-039L`](../../../Tasks/epics/EPIC-039_futures_venue_profile/incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md).
-Nothing in this file designs it yet.
+A third machine, one per protective order, declared as data in `bots/domain/grid/` when C2 builds it
+(`code/quality.md` §3); this table is the design, written by hand until the code exists and then
+replaced by a generated one like the two above. Any pair it does not list is refused.
+
+| From | Event | To |
+| :--- | :--- | :--- |
+| `ABSENT` | `intend` (the account position on the symbol is non-zero and the plan has a stop-loss price) | `INTENDED` |
+| `INTENDED` | `accepted` | `STANDING` |
+| `INTENDED` | `rejected` | `ABSENT`; the position is closed if one stands, nothing is closed if none does |
+| `INTENDED` | `lost_answer` | read by `clientAlgoId`: found, `STANDING`; not found, send again |
+| `STANDING` | `triggered` (from the algo status, read by `clientAlgoId`) | `TRIGGERED` |
+| `STANDING` | `exposure_closed` (the bot's position is zero and the exchange's is zero, dust or foreign) | `CANCELLING` |
+| `STANDING` | `expired` or `missing_with_position` | `ABSENT`; `intend` again when a position stands |
+| `CANCELLING` | `cancelled` or `unknown_order` | `ENDED` |
+| `TRIGGERED` | `settled` (flat confirmed, the sibling order cancelled) | `ENDED` |
+
+`ENDED` is terminal and the record is dropped on the next save. A `STANDING` stop outlives its run under
+custody (a kept position); the bot is `STOPPED` or `HALTED`, the record is not. The refused moves that
+matter: no `STANDING` to `CANCELLING` while the bot's exposure is not read closed; no cancel of a stop by the ladder's
+cancels. The reconcile table (position against stop) is in
+[`06-runtime.md`](06-runtime.md) and in the decision record §3.2.

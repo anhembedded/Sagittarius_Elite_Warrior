@@ -1,0 +1,36 @@
+' Question: how does a Futures Grid keep an exchange-side stop under its position, and what does a restart do with it? (Planned: EPIC-039L)
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-protective-stop
+participant "Grid executor\n(bot's worker)" as G
+participant "BotRunState /\nIBotStore" as S
+participant "trading\n(IOrderSubmission)" as T
+participant "exchange" as X
+
+== after the opening fill, before the ladder is ready ==
+G -> S : save record INTENDED\n(clientAlgoId, trigger price)
+G -> T : place STOP_MARKET closePosition,\nMARK_PRICE
+T -> X : POST algoOrder
+X --> T : algoId, NEW
+G -> S : save record STANDING
+note over G : only now is the ladder declared ready
+
+== a stop, in order: close first, cancel after flat ==
+G -> T : reduce-only close (IExposureCloser)
+G -> T : read position of the symbol
+alt the bot's derived position is zero and the exchange reads\nzero, dust or the foreign quantity
+  G -> T : cancel the stop
+  G -> S : record ENDED
+else a read fails, a close failed or the position is unexplained
+  note over G : the stop stays standing under custody:\nthe symbol stays claimed, a check runs at boot
+end
+
+== the app was down ==
+G -> T : read position and open algo orders
+alt position, no stop
+  G -> T : place the plan's stop; if it cannot stand,\nclose reduce-only
+else flat, stop standing (orphan)
+  G -> T : read again, then cancel the stop
+else flat, stop TRIGGERED
+  G -> S : STOPPED, protective_stop_triggered
+end
+@enduml

@@ -108,4 +108,7 @@ copied here.
 | :--- | :--- | :--- |
 | One kind-neutral backtest result and simulator port | `bots/application/`, `bots/contracts/` | `EPIC-040B` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
-| The protective stop's life cycle, owned by the Futures Grid | `bots/application/kinds/grid/` | `EPIC-039L` |
+| The protective stop's life cycle, owned by the Futures Grid: a service, the third state machine, optional fields in the runtime and its codec; the ladder's reads exclude it | `bots/application/kinds/grid/`, `bots/domain/grid/` | `EPIC-039L` C2 |
+| `Order.close_position` and `working_type`, carried by the existing Algo Order mapping | `trading/contracts/`, `trading/adapters/binance/` | `EPIC-039L` C2 |
+| The halt asks the exchange whether a stop stands; the Emergency Stop closes, then cancels conditional orders | `bots/application/services/positions/`, `trading/application/session/emergency_stop/` | `EPIC-039L` C3 |
+| The mainnet gate as a port, `IVenueOpening`, in place of `CLOSED_VENUES` | `bots/contracts/` | `EPIC-039L` C4 |
