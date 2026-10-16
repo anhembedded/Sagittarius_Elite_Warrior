@@ -1,0 +1,18 @@
+' Question: how does an exchange event reach the one bot it concerns, and where is the result kept?
+' Explained by: ../05-building-blocks.md. Drawn by hand, high level.
+@startuml 05-event-path
+skinparam componentStyle rectangle
+left to right direction
+[trading, market_data\n(events on the bus)] as EV
+[BotEventRouter] as RT
+[GridFacts\n(on the bot's worker)] as F
+[BotRunState\n(the one writer)] as S
+[NotifyingBotStore] as N
+[JsonBotStore] as J
+EV --> RT : fill, end, tick, switch, ...
+RT --> F : the executor that owns\nthe client order id
+F --> S : transition, update
+S --> N : IBotStore.save
+N --> J : IBotStore.save
+note bottom of N : publishes BotChangedEvent\nafter every save
+@enduml

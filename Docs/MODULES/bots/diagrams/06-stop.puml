@@ -1,0 +1,25 @@
+' Question: what does the owner's Stop do, and when is a bot really STOPPED?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-stop
+participant StopBotCommandHandler as UC
+participant BotRunner as R
+participant "GridStopper\n(bot's worker)" as GS
+participant GridStopSequence as Q
+participant trading as T
+
+UC -> R : stop(bot_id, keep or close)
+R -> GS : run(base, reason) (queued)
+GS -> GS : --stop--> STOPPING
+GS -> Q : run(base, price)
+Q -> T : register the budget again
+Q -> T : cancel every order carrying the bot's tag
+Q -> T : keep the exposure, or close it
+Q -> T : read the open orders again
+alt no tagged order left
+  Q --> GS : done
+  GS -> GS : STOPPING --stop_confirmed--> STOPPED
+else anything left, or trading is off
+  Q --> GS : not yet
+  note over GS : stays STOPPING, says why;\nretried on a timer or when trading is enabled
+end
+@enduml

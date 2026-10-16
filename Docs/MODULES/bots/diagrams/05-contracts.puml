@@ -1,0 +1,32 @@
+' Question: which ports does a caller or a new kind build against?
+' Explained by: ../05-building-blocks.md and ../03-context.md. The contracts only. Drawn by hand.
+@startuml 05-contracts
+interface IBotStore {
+  save(stored)
+  load(bot_id)
+  load_all()
+  delete(bot_id)
+}
+class StoredBot <<frozen>> {
+  bot
+  runtime
+}
+interface IBotRunner {
+  start(bot_id)
+  pause(bot_id)
+  resume(bot_id)
+  stop(bot_id, base)
+}
+interface IBotKind {
+  kind_id()
+  supported_profiles()
+  validate(inputs)
+  overlay(inputs)
+  executor_factory()
+}
+interface IBotExecutor
+class BotSnapshot <<frozen>>
+class BotChangedEvent
+IBotStore ..> StoredBot
+IBotKind ..> IBotExecutor : builds, through\nIBotExecutorFactory
+@enduml

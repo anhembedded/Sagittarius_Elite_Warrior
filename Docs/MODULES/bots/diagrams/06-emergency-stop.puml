@@ -1,0 +1,18 @@
+' Question: what does an Emergency Stop on the trading desk do to a running bot?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-emergency-stop
+participant "EmergencyStopCommandHandler\n(trading)" as E
+participant "bus" as BUS
+participant BotEventRouter as RT
+participant "GridFacts\n(bot's worker)" as F
+participant "exchange" as X
+
+E -> E : disable trading on the venue
+E -> BUS : TradingSwitchChangedEvent\n(off, EMERGENCY_STOP)
+BUS -> RT : on_switch
+RT -> F : on_switch(False, EMERGENCY_STOP),\nfor each bot on the venue
+F -> F : STARTING, RUNNING or PAUSED\n--switch_off--> HALTED
+E -> X : cancel every open order
+E -> X : close every position\n(Spot: sell above the session's baseline)
+note over F : a later Resume re-plans the ladder;\na STOPPING bot waits instead
+@enduml

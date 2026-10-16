@@ -1,0 +1,26 @@
+' Question: what happens to a running bot when the app restarts, and how does the owner's Resume bring it back?
+' Explained by: ../06-runtime.md. Drawn by hand, high level.
+@startuml 06-restart-and-resume
+participant "BotsModule.boot" as M
+participant BotRestoreService as RS
+participant BotRunner as R
+participant "GridExecutor\n(bot's worker)" as G
+participant GridReconciler as RC
+participant trading as T
+
+M -> RS : restore_all()
+RS -> RS : RUNNING, PAUSED --app_restart--> RECOVERING;\nSTARTING --app_restart--> HALTED
+note over RS : nothing is placed, and nothing listens\nto the exchange: the order session is closed
+M -> G : BotBootRecovery: recover_after_restart(),\nreport what the exchange holds (read only)
+...the owner presses Resume...
+R -> T : open the order session\n(open_session_for_resume), or refuse
+R -> G : resume() (queued)
+G -> RC : run()
+RC -> T : open orders and order history
+RC -> RC : adopt each order's exchange quantity,\nbook a missed fill once, end a missing order
+alt the exchange agrees
+  RC -> G : RECOVERING --reconcile_ok--> prior state
+else a mismatch
+  RC -> G : RECOVERING --reconcile_mismatch--> HALTED
+end
+@enduml

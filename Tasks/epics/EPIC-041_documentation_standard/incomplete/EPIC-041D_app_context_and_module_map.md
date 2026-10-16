@@ -17,6 +17,7 @@
 ## 2. Acceptance criteria
 - [ ] `Docs/ARCHITECTURE/context.md`: a C4 context and a container diagram in PlantUML, with a legend and a source line per element.
 - [ ] `Docs/ARCHITECTURE/module-map.md`: every module, its layer, its published contracts, and the allowed dependency directions, each direction citing the guard that enforces it (`test_module_boundaries.py`, `test_module_layers_point_inward.py`, `test_no_module_depends_on_operations.py`) and the rule clause that states it.
+- [ ] `Docs/MODULES/bots/README.md` (`EPIC-041E`) links up to `Docs/ARCHITECTURE/README.md` until this map exists; that link is retargeted to `module-map.md` here.
 - [ ] Module contracts exist in one place only; the duplicate sections in HLD 03 and SDD 05 are replaced by a link and marked `Superseded by`.
 - [ ] The checker from 041B passes on both files; the `Why:` lines of `architecture-rule.md` are repointed here.
 

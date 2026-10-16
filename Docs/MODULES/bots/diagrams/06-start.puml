@@ -1,0 +1,23 @@
+' Question: what happens, in order, when the owner starts a Grid bot?
+' Explained by: ../06-runtime.md, which cites each step. Drawn by hand, high level.
+@startuml 06-start
+participant "StartBotCommandHandler" as UC
+participant BotRunner as R
+participant "GridExecutor\n(bot's worker)" as G
+participant GridStartPreconditions as P
+participant GridStartSequence as S
+participant trading as T
+
+UC -> UC : refuse a closed venue, an unconfirmed\nMainnet start, an unready bot
+UC -> R : start(bot_id)
+R -> G : start() (queued)
+note over UC, R : the caller returns here; the bot's thread does the rest
+G -> P : check()
+P -> T : claim the symbol, open the order session,\nregister the owner budget
+G -> G : DRAFT or STOPPED --start--> STARTING
+G -> S : run(plan)
+S -> T : place the ladder, level by level
+T --> S : accepted
+S -> G : ladder_ready
+G -> G : STARTING --ladder_ready--> RUNNING
+@enduml
