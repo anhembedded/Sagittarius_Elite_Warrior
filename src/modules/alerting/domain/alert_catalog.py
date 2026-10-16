@@ -69,6 +69,7 @@ KIND_PROFILES = MappingProxyType(
         ),
         AlertKind.HEARTBEAT: KindProfile(AlertGroup.ROUTINE, _INFO, "Heartbeat"),
         AlertKind.DAILY_SUMMARY: KindProfile(AlertGroup.ROUTINE, _INFO, "Summary"),
+        AlertKind.TEST: KindProfile(AlertGroup.ROUTINE, _INFO, "Test message"),
     }
 )
 

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.scripts.render_service_files import (
+    alerting_credential_names,
     mainnet_credential_names,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
@@ -36,8 +37,9 @@ def _bash_blocks() -> list[str]:
     return _BLOCK.findall(_RUNBOOK.read_text(encoding="utf-8"))
 
 
-def _provisioning_block() -> str:
-    [block] = [b for b in _bash_blocks() if "read -rsp" in b]
+def _provisioning_block(name: str = "futures_mainnet_api_key") -> str:
+    """The block that types the secret called `name` into its credential file."""
+    [block] = [b for b in _bash_blocks() if "read -rsp" in b and f"/{name} " in b]
     return block
 
 
@@ -114,4 +116,38 @@ def test_the_provisioning_snippet_writes_the_typed_value_to_a_mode_600_file(
     for unused in set(mainnet_credential_names()) - {"futures_mainnet_api_key"}:
         assert (credentials / unused).read_bytes() == b""
     # The value never reached an argument list: sudo only ever saw paths.
+    assert _PLACEHOLDER not in calls.read_text(encoding="utf-8")
+
+
+def test_the_webhook_snippet_writes_the_typed_value_to_a_mode_600_file(
+    tmp_path: Path,
+) -> None:
+    """`EPIC-036G` - the Discord webhook is provisioned the way a mainnet key is."""
+    bash = require_tool("bash")
+    credentials = tmp_path / "credentials"
+    credentials.mkdir()
+    calls = tmp_path / "sudo-calls.log"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _stand_ins(bin_dir, calls)
+    [webhook] = alerting_credential_names()
+    snippet = _provisioning_block(webhook).replace(
+        _CREDENTIALS_DIRECTORY, str(credentials)
+    )
+    environment = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+
+    result = subprocess.run(
+        [bash, "-c", snippet],
+        input=f"{_PLACEHOLDER}\n",
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0, result.stderr
+    written = credentials / webhook
+    assert written.read_text(encoding="utf-8") == _PLACEHOLDER
+    assert stat.S_IMODE(written.stat().st_mode) == 0o600
     assert _PLACEHOLDER not in calls.read_text(encoding="utf-8")

@@ -43,7 +43,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-036A | [Alerting core](completed/EPIC-036A_alerting_core.md) | `claude/epic-036a-alerting-core` | 🟡 | ✅ Done (2026-10-13), awaiting merge | — |
-| EPIC-036G | [Walking skeleton: halt to one Discord webhook](incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md) | — | 🟡 | 🟡 In progress (owner's go 2026-10-16) | — |
+| EPIC-036G | [Walking skeleton: halt to one Discord webhook](incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md) | — | 🟡 | 🟡 Built 2026-10-16; waits for the owner's VPS run | — |
 | EPIC-036B | [Alert sources](incomplete/EPIC-036B_alert_sources.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-036C | [Discord channel and Telegram migration](incomplete/EPIC-036C_discord_channel_and_telegram_migration.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-036D | [UI](incomplete/EPIC-036D_alerts_ui.md) | — | 🟢 | 🔵 Planned | — |
@@ -58,6 +58,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-08 | Spec | Design approved by the owner (N1–N8); epic scaffolded with six children; `EPIC-035K` superseded. Documentation only. |
 | 2026-10-15 | Design | The design moves to `Docs/MODULES/alerting.md` (`EPIC-041`'s standard); walking skeleton `036G` added first, `036B`/`036C`/`036E` re-sequenced behind it ([decision](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). Documentation only. |
+| 2026-10-16 | 036G | Walking skeleton built and verified (unit, sanity, integration; a real `alert test` reached Discord and got its 404 for a webhook that does not exist); the owner's run on the VPS is the open criterion. |
 
 ---
 

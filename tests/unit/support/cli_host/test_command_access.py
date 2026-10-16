@@ -69,6 +69,8 @@ _READ_ONLY = {
     ("order-preview", None),
     # Always a VALIDATE_ONLY client, which a read-only copy lets through.
     ("order-dry-run", None),
+    # `EPIC-036G` - sends a test message through each channel; writes no outbox.
+    ("alert", "test"),
 }
 #: Writable on purpose (`EPIC-038C` note 15): they write market data, open the
 #: live feed, or place real orders, which a read-only copy refuses.

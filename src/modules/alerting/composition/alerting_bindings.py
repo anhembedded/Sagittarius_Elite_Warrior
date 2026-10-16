@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -27,16 +30,26 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.system_alert_clock 
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_host import (
     ThreadedDeliveryHost,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.urllib_webhook_transport import (
+    UrllibWebhookTransport,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.wake_signal import (
     WakeSignal,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.alert_hub import (
     AlertHub,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting_status import (
+    ChannelAlertingStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_delivery import (
     ChannelDelivery,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
+    BotAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
+    ChannelSecrets,
     build_channel_catalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
@@ -51,13 +64,22 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_publisher 
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
     IAlertSettingsSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alerting_status import (
+    IAlertingStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_wakeup import (
     IDeliveryWakeup,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
+    IWebhookTransport,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_policies import (
     DeliveryPolicy,
     NoisePolicy,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import (
+    build_secret_stores,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -78,7 +100,20 @@ def bind_alerting(container: IContainer) -> None:
     container.singleton(IAlertSettingsSource, InMemoryAlertSettings())
     container.singleton(WakeSignal, WakeSignal())
     container.singleton(IDeliveryWakeup, lambda resolver: resolver.resolve(WakeSignal))
+    # `EPIC-036G` (D3): the channels' secrets come from the stores the mainnet keys
+    # use, in their order; built when the catalog is first built, never here.
+    container.singleton(
+        ChannelSecrets, lambda _resolver: ChannelSecrets(build_secret_stores())
+    )
+    container.singleton(IWebhookTransport, UrllibWebhookTransport())
     container.singleton(IAlertChannelCatalog, build_channel_catalog)
+    container.singleton(
+        IAlertingStatus,
+        lambda resolver: ChannelAlertingStatus(
+            resolver.resolve(IAlertChannelCatalog),
+            resolver.resolve(IAlertSettingsSource),
+        ),
+    )
     container.singleton(IOutbox, lambda _resolver: SqliteOutbox(outbox_path()))
     container.singleton(DeliveryPolicy, DeliveryPolicy())
     container.singleton(NoisePolicy, NoisePolicy())
@@ -100,6 +135,14 @@ def bind_alerting(container: IContainer) -> None:
             NullAlertPublisher()
             if resolver.resolve(IInstanceAccess).read_only
             else resolver.resolve(AlertHub)
+        ),
+    )
+    container.singleton(
+        BotAlertSource,
+        lambda resolver: BotAlertSource(
+            resolver.resolve(ICommandDispatcher),
+            resolver.resolve(IAlertPublisher),
+            resolver.resolve(IAlertClock),
         ),
     )
     container.singleton(
