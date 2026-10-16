@@ -120,13 +120,13 @@ an exchange-side stop under its position, and what does a restart do with it?* D
 C1, built by C2 to C4; nothing below runs yet. The choices and what the documentation did not say are in
 [`DECISION_2026-10-16`](../../../Tasks/epics/EPIC-039_futures_venue_profile/DECISION_2026-10-16_futures_protective_stop_minimum.md).
 
-**Place.** After the opening fill and before the ladder is declared ready, the executor saves a record
+**Place.** At the first fill that makes the account position non-zero (the opening fill, or for a kind that opens flat the first ladder fill) and, for the opening fill, before the ladder is declared ready, the executor saves a record
 `INTENDED` (the stop's `clientAlgoId` and trigger price) in the bot's runtime, sends a `STOP_MARKET`
 conditional order with `closePosition=true` and `workingType=MARK_PRICE` through `trading`, and saves
 `STANDING` on the answer. A take profit, when the plan has one, is a second order of the same kind
 (`TAKE_PROFIT_MARKET`) with the same life. A bot with no stop-loss price places none and is
 *unprotected*. A lost answer is resolved by reading the order by its `clientAlgoId`; an id that does not
-exist is sent again, and Binance accepts the id once.
+exist is sent again with the same id: the id is unique among *open* orders, and a resend follows only a not-found read, so it cannot make a second open order.
 
 **Exit.** Every exit (Stop, stop loss, take profit, a halt that closes) runs the same close, and the stop
 is cancelled as one more step **after** the bot's own derived position is zero and the exchange's position
@@ -149,6 +149,7 @@ from the exchange, a manual cancel) is placed again once, then the position is c
 **Halt.** Whether a halt closes or leaves the position is decided at the moment of the halt by reading
 the exchange: a position stays only under a stop that reads `NEW` and matches the record
 (`PositionExposureCloser.closes_on_halt` in `bots/application/services/positions/closer_futures.py`
-becomes a question about that moment, C3). The desk's Emergency Stop closes the positions and then
-cancels the conditional orders (C3), so a close that fails leaves the stop.
+becomes a question about that moment, C3). The desk's Emergency Stop runs three steps (C3): it cancels the
+regular orders, closes the positions, then cancels the conditional orders of each symbol confirmed flat,
+so a close that fails leaves the stop.
 
