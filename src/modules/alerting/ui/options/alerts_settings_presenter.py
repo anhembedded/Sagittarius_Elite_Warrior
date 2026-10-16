@@ -11,7 +11,7 @@ screen or a log.** An unexpected failure is told by its type name alone
 (`type(exc).__name__`), because an exception raised under a webhook can quote the
 webhook (`ValueError("... https://discord.com/api/webhooks/…")`), and
 `failure_detail(exc)` would pass that text to Details… and a log's traceback would
-print it. `test_alerts_options_page.py` locks it on every path.
+print it. `test_alerts_page_never_shows_the_url.py` locks it on every path.
 
 The page has nothing pending (like Trading's): a webhook is saved by its button, so
 the page is never dirty and OK and Apply have nothing to do. Each action runs off the
@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     INotifier,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
+    DiscordChannelState,
     DiscordWebhookSetup,
     WebhookRemoval,
     WebhookSave,
@@ -141,8 +142,11 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
     # -- the state on the page ----------------------------------------------
 
-    def _publish_state(self) -> None:
-        state = self._setup.state()
+    def _publish_state(self, state: DiscordChannelState | None = None) -> None:
+        """Shows `state`; the page's first state is read here, on the UI thread, once.
+        Every later one is read by the worker beside its action, because reading
+        the stores can block on a locked keyring."""
+        state = state if state is not None else self._setup.state()
         self._settings_view_model.set_channel(
             alerts_words.channel_line(state),
             alerts_words.saved_line(state),
@@ -188,13 +192,16 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         (`BUG-031`'s class of defect); reports back through the relay. A failure is
         reported by its type name only (see the module docstring)."""
         try:
-            self._relay.hand_over((action_id, kind, work(), None))
+            result = work()
+            self._relay.hand_over((action_id, kind, result, self._setup.state(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is told in words, not lost to a pool thread
-            self._relay.hand_over((action_id, kind, None, type(exc).__name__))
+            self._relay.hand_over((action_id, kind, None, None, type(exc).__name__))
 
     def _on_action_done(self, payload: tuple) -> None:
-        """Runs on the UI thread with what the worker reported."""
-        action_id, kind, result, error_type = payload
+        """Runs on the UI thread with what the worker reported. The fence
+        (`is_current_pending`) is defence in depth: the buttons are off while an
+        action runs, so only `shutdown()` and a test can make an answer stale."""
+        action_id, kind, result, state, error_type = payload
         if not self._tracker.is_current_pending(action_id, kind):
             self._tracker.log_stale_callback(kind.value, action_id, kind)
             return
@@ -203,7 +210,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             action_id, ActionOutcome.FAILED if failed else ActionOutcome.SUCCEEDED
         )
         self._settings_view_model.set_working("")
-        self._publish_state()
+        if state is not None:
+            self._publish_state(state)
         if failed:
             self._tell_failed(kind, error_type)
         elif kind is _Kind.SAVE:

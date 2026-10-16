@@ -246,3 +246,13 @@ def test_no_log_record_carries_the_url_on_any_path(
         rendered = record.getMessage() + str(record.exc_text) + repr(record.args)
         assert "top_secret" not in rendered
         assert "1234567890" not in rendered
+
+
+def test_a_write_that_cannot_be_read_back_is_not_blamed_on_another_store() -> None:
+    """A keyring that writes but reads as nothing is unusable, not shadowed."""
+
+    class WriteOnly(InMemorySecretStore):
+        def read(self, name: str) -> str | None:
+            return None
+
+    assert setup_over(WriteOnly()).save(URL) is WebhookSave.STORE_UNAVAILABLE

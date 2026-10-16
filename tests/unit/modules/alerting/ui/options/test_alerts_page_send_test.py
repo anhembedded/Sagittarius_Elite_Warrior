@@ -224,3 +224,24 @@ def test_the_buttons_are_off_while_an_action_is_out_so_a_second_cannot_start(
     page.threads.held[0]()
     qapp.processEvents()
     assert page.button(SEND_TEST).isEnabled()
+
+
+def test_an_answer_for_a_superseded_action_changes_nothing(
+    request, monkeypatch, qapp
+) -> None:
+    """The fence is defence in depth (the buttons are off while an action runs), so it
+    is driven directly: an answer carrying another action id is ignored."""
+    page = stored_page(request, monkeypatch, running=True)
+    page.threads.held = []
+    page.click(SEND_TEST)
+    presenter = page.presenter
+    current = presenter._tracker.active_action
+    assert current is not None
+
+    presenter._on_action_done(
+        (current.action_id + 1, current.kind, (), presenter._setup.state(), None)
+    )
+
+    assert page.label("lblAlertsWorking"), "the real action is still out"
+    assert page.label(STATUS) == ""
+    assert not page.button(SEND_TEST).isEnabled()

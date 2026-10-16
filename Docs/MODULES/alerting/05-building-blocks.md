@@ -86,7 +86,7 @@ The Options page (`EPIC-036D1`) added:
   sentences (`alerts_words.py`). The module contributes it as the `Deferred` `_OPTIONS_PAGE`
   (`alerting/module.py:89`, `:108-115`), order 30 after Trading and Market Data.
 
-Every binding is in `alerting/composition/alerting_bindings.py:98-168` (the page's three at `:136-158`).
+Every binding is in `bind_alerting` in `alerting/composition/alerting_bindings.py:116-209` (the page's three at `:137-157`).
 
 ## Planned
 

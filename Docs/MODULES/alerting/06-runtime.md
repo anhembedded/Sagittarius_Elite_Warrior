@@ -41,10 +41,10 @@ restart. `EPIC-036B` decides whether a boot-time "still halted" summary is wante
 The picture: [`diagrams/06-options-save-and-test.puml`](diagrams/06-options-save-and-test.puml).
 *Which thread does what, and where does the URL go?* Tools → Options → Alerts has one Discord
 webhook field, masked, and the buttons Save, Remove and Send test. Each acts at once and runs off the
-UI thread: the presenter begins an action (`alerts_settings_presenter.py:178-182`), the pool thread
-runs the use case (`:184-193`), and `AlertsActionRelay` delivers the answer on the UI thread, where
-the tracker checks the action is still the current one (`:195-215`; a stale or post-`shutdown()`
-answer is dropped, `:118-122`). The buttons are off while one runs.
+UI thread: the presenter begins an action (`alerts_settings_presenter.py:182-187`), the pool thread
+runs the use case and reads the new state beside it, so a locked keyring never blocks the UI thread (`:188-199`), and `AlertsActionRelay` delivers the answer on the UI thread, where
+the tracker checks the action is still the current one (`:200-223`; a stale or post-`shutdown()`
+answer is dropped, `:119-123`). The buttons are off while one runs.
 
 - **Save** puts the typed text in `DiscordWebhookSetup.save`: a value that is not a Discord webhook URL
   is refused with a sentence and nothing is written; a valid one goes to the keyring, the field is
@@ -53,7 +53,7 @@ answer is dropped, `:118-122`). The buttons are off while one runs.
   read, so the page says "saved, but not used" and never "saved".
 - **Send test** builds the catalog again and sends one loud TEST alert straight to the channel, as
   `alert test` does, so a webhook saved a moment ago is tested without a restart
-  (`send_test_to_configured_channels.py:31-37`). The page shows the channel's own sanitised reason
+  (`send_test_to_configured_channels.py:31-34`). The page shows the channel's own sanitised reason
   ("Discord refused the webhook message (404)").
 - **Remove** asks first, with its own verbs (Remove webhook / Keep webhook) and the safe one as the
   default (`alerts_settings_view.py`, `confirm_removal`).
@@ -71,8 +71,8 @@ are refused until you restart the app". Whether the lane can start without a res
 own if the owner wants it (`EPIC-036D`).
 
 **No URL anywhere.** An unexpected exception raised under a save or a test can quote the webhook, so
-the page shows and logs the exception's type name only (`alerts_settings_presenter.py:184-193`,
-`:229-240`); `test_alerts_page_never_shows_the_url.py` locks the logs, the notice and the labels on
+the page shows and logs the exception's type name only (`alerts_settings_presenter.py:188-199`,
+`:237-250`); `test_alerts_page_never_shows_the_url.py` locks the logs, the notice and the labels on
 every path.
 
 ## Planned

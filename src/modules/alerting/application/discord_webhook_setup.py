@@ -112,7 +112,12 @@ class DiscordWebhookSetup:
             self._secrets.write(self._spec.secret_name, url)
         except SecretStoreUnavailableError:
             return self._saved_as(WebhookSave.STORE_UNAVAILABLE)
-        if self._stored() != url:
+        stored = self._stored()
+        if not stored:
+            # Written, yet nothing reads back: the store cannot be read here, which is
+            # not the same as another store answering first.
+            return self._saved_as(WebhookSave.STORE_UNAVAILABLE)
+        if stored != url:
             return self._saved_as(WebhookSave.OVERRIDDEN)
         return self._saved_as(WebhookSave.SAVED)
 
