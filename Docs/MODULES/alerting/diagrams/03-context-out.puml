@@ -1,0 +1,15 @@
+' Question: how does an alert leave the module, and where does its secret come from?
+' Explained by: ../03-context.md, which cites each arrow. Drawn by hand, high level.
+@startuml 03-context-out
+skinparam componentStyle rectangle
+left to right direction
+[alerting] as A
+interface IAlertChannel
+interface ISecretStore
+cloud Discord as D
+actor Owner as O
+A --> IAlertChannel : deliver(alert, loudness)
+IAlertChannel ..> ISecretStore : webhook, read by name
+IAlertChannel --> D : IWebhookTransport\nPOST
+D --> O
+@enduml

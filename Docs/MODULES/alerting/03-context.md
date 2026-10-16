@@ -30,8 +30,9 @@ The boundary guards under `tests/unit/architecture/boundaries/` hold the directi
 `trading` never import `alerting`. A module's `composition/` may import `support/secrets`, where the
 secret stores live (`tests/unit/architecture/boundaries/rules.py`, `_SECRETS_SUPPORT_ZONES`).
 
-The picture: [`diagrams/03-context.puml`](diagrams/03-context.puml). *What does the module talk to,
-and through which port?*
+Two pictures: [`diagrams/03-context-in.puml`](diagrams/03-context-in.puml) (*what reaches into the
+module, and through which port?*) and [`diagrams/03-context-out.puml`](diagrams/03-context-out.puml)
+(*how does an alert leave the module, and where does its secret come from?*).
 
 **Planned.** `EPIC-036B` adds `trading/contracts` (`UserStreamHealthEvent`) and the system
 failures; `EPIC-036F` adds the receive side, `IRemoteCommandSource`, which is not an `IAlertChannel`.

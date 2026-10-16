@@ -1,0 +1,34 @@
+' Question: what is an alert made of, and which values describe its delivery?
+' Explained by: ../08-concepts.md. The domain only, a few defining members each. Drawn by hand.
+@startuml 05-domain
+class Alert <<frozen>> {
+  kind
+  severity
+  subject
+  dedup_key
+  recovery
+  {static} raised()
+  {static} condition_key()
+}
+class AlertSubject <<frozen>> {
+  {static} bot()
+  {static} venue_wide()
+  {static} app()
+}
+enum AlertKind
+enum Severity
+enum Loudness
+enum DeliveryState {
+  PENDING
+  RETRYING
+  SENT
+  FAILED
+  EXPIRED
+  DROPPED
+}
+class AlertSettings <<frozen>>
+note bottom of AlertSettings : holds no secret
+Alert --> AlertSubject
+Alert --> AlertKind
+Alert --> Severity
+@enduml

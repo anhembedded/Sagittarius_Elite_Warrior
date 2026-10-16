@@ -63,7 +63,10 @@ it, and is removed then.
 A diagram is drawn by hand in PlantUML (decision D8 of 2026-10-14), kept in the module's `diagrams/`
 folder as `<arc42 number>-<what it shows>.puml`, and linked from the file that explains it. Each
 diagram answers one question, stated above the link. It shows components, ports and the arrows
-between them, never every class: `05-building-blocks.md`'s class diagram holds the domain types and
+between them, never every class. **A complex picture is split:** when one diagram needs more than
+about seven boxes, or carries two journeys or two questions, it becomes several diagrams, one question
+each (`05-publish-path.puml`, `05-delivery-path.puml` rather than one `05-components.puml`). A
+sequence keeps to one journey; `05-building-blocks.md`'s class diagrams hold the domain types and
 the contracts only, with their few defining members. A class diagram is never generated from the
 code (decision D3 of 2026-10-16): a generated picture of every class answers no question.
 

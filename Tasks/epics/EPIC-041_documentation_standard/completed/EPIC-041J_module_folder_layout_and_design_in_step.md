@@ -34,7 +34,7 @@ arc42's published order (P5) with one named deviation (`state-machines.md`, whic
 | :--- | :--- |
 | `DECISION_2026-10-16_module_docs_one_folder_arc42.md`, `DECISION_2026-10-14_documentation_philosophy.md` | New record; superseded parts marked |
 | `Docs/MODULES/README.md` | The folder template |
-| `Docs/MODULES/alerting/` (`README.md`, 03–10, `state-machines.md`, four `.puml`) | The migrated design; `Docs/MODULES/alerting.md` deleted |
+| `Docs/MODULES/alerting/` (`README.md`, 03–10, `state-machines.md`, eight `.puml`, split one question each) | The migrated design; `Docs/MODULES/alerting.md` deleted |
 | `scripts/check_design_in_step.py`, `tests/unit/scripts/test_check_design_in_step.py` | The check and its probes |
 | `scripts/check_fix_pr_body.py` | `_sections` → `sections`, shared |
 | `.github/workflows/commit-lint.yml`, `scripts/rule_integrity/tags.py` | The step; the `design pr body` gate tag |

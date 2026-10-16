@@ -4,13 +4,18 @@ Status: Current
 
 *Which classes carry an alert, which one calls which, and what are the domain types and contracts?*
 
-Two pictures, drawn by hand at a high level:
+Five pictures, drawn by hand at a high level, one question each:
 
-- [`diagrams/05-components.puml`](diagrams/05-components.puml) — *which component calls which, and
-  across which port?*
-- [`diagrams/05-domain-and-contracts.puml`](diagrams/05-domain-and-contracts.puml) — *which domain
-  types and contracts does a channel or a source build against?* The domain and the contracts only;
-  the application and adapter classes are the list below.
+- [`diagrams/05-publish-path.puml`](diagrams/05-publish-path.puml) — *what runs on the caller's
+  thread when an alert is raised, and where does it stop?*
+- [`diagrams/05-delivery-path.puml`](diagrams/05-delivery-path.puml) — *what runs on a channel's
+  lane, from the outbox to Discord?*
+- [`diagrams/05-channel-catalog.puml`](diagrams/05-channel-catalog.puml) — *where is a channel
+  registered, and who asks whether one is carried?*
+- [`diagrams/05-domain.puml`](diagrams/05-domain.puml) — *what is an alert made of, and which values
+  describe its delivery?*
+- [`diagrams/05-contracts.puml`](diagrams/05-contracts.puml) — *which ports does a channel or a
+  source build against?*
 
 ## Built: an alert's path, in classes
 
