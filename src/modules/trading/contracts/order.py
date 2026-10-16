@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import (
+    WorkingType,
+)
 
 
 @dataclass(frozen=True)
@@ -69,3 +72,11 @@ class Order:
     #: `quantity`, which then holds the preview's estimate of what it buys;
     #: Futures has no such parameter and refuses it.
     quote_quantity: Decimal | None = None
+    #: `EPIC-039L` — a Futures `STOP_MARKET`/`TAKE_PROFIT_MARKET` that closes the whole
+    #: position of the symbol when it triggers (Binance `closePosition=true`). It has no
+    #: quantity (`quantity` is zero) and is never `reduce_only`: the exchange refuses both
+    #: beside it, so the mapper sends neither.
+    close_position: bool = False
+    #: `EPIC-039L` — the price a conditional order triggers on; the last price unless the
+    #: caller chose otherwise (`WorkingType`).
+    working_type: WorkingType = WorkingType.LAST_PRICE

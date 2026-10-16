@@ -13,8 +13,20 @@ trigger: a buy stop at or above, a sell stop at or below. It then becomes
 `TRIGGERED`, and its regular order (a limit at its price, or a market order
 for the `_MARKET` types) is placed in the order book; `actualOrderId` names
 it. Answer shapes follow Binance's documentation of the Algo Order API; not
-modelled: `TRIGGERING`, `FINISHED`, `EXPIRED`, trailing stops and the user
-data stream's `ALGO_UPDATE`.
+modelled: `TRIGGERING`, `FINISHED`, trailing stops and the user data stream's
+`ALGO_UPDATE`.
+
+`EPIC-039L` — `closePosition=true` (a close-all stop, `STOP_MARKET` or
+`TAKE_PROFIT_MARKET` only) is sent with **no quantity and no `reduceOnly`**; the
+fake refuses both beside it, as the New Algo Order page says. When it triggers it
+closes the whole position of the symbol on its side, as a reduce-only market
+order. What Binance's pages do not say (`DECISION_2026-10-16` T1 to T3) is a switch
+here, off by default, so a journey can run each answer:
+
+  · `reject_without_position` — a close-all stop is refused when the symbol is flat;
+  · `expire_when_flat` — one is `EXPIRED` ("canceled by the system") when the
+    position goes to zero;
+  · a trigger with no position on its side does nothing and the order `EXPIRED`s.
 """
 
 from __future__ import annotations
@@ -29,6 +41,8 @@ from .history_log import HistoryQuery, now_ms
 _NEW = "NEW"
 _CANCELED = "CANCELED"
 _TRIGGERED = "TRIGGERED"
+_EXPIRED = "EXPIRED"
+_CLOSE_POSITION_TYPES = frozenset({"STOP_MARKET", "TAKE_PROFIT_MARKET"})
 #: The conditional type → the regular order type it places when triggered.
 _PLACES: dict[str, str] = {
     "STOP": "LIMIT",
@@ -53,9 +67,15 @@ def _refusal(code: int, msg: str) -> tuple[int, dict[str, Any]]:
 class FuturesAlgoOrders:
     """Every conditional order the fake account was sent, open or not."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, held: Callable[[str], Decimal] = lambda _symbol: Decimal(0)
+    ) -> None:
         self._orders: dict[str, dict[str, Any]] = {}
         self._algo_ids = itertools.count(2_000_000)
+        #: The signed position of a symbol, for the close-all stops (`EPIC-039L`).
+        self._held = held
+        self.reject_without_position = False
+        self.expire_when_flat = False
 
     def place(self, params: dict[str, str]) -> tuple[int, dict[str, Any]]:
         order_type = params.get("type", "")
@@ -63,6 +83,10 @@ class FuturesAlgoOrders:
             return _refusal(-1116, "Invalid orderType.")
         if "triggerPrice" not in params:
             return _refusal(-1102, "Mandatory parameter 'triggerPrice' was not sent.")
+        close_position = str(params.get("closePosition", "false")).lower() == "true"
+        refusal = self._refused_close_position(params, order_type, close_position)
+        if refusal is not None:
+            return refusal
         client_algo_id = params["clientAlgoId"]
         if client_algo_id in self._orders:
             return _refusal(-4116, "ClientOrderId is duplicated.")
@@ -76,7 +100,8 @@ class FuturesAlgoOrders:
             "side": params["side"],
             "positionSide": params.get("positionSide", "BOTH"),
             "timeInForce": params.get("timeInForce", "GTC"),
-            "quantity": params["quantity"],
+            "quantity": "0" if close_position else params["quantity"],
+            "closePosition": close_position,
             "algoStatus": _NEW,
             "triggerPrice": params["triggerPrice"],
             "price": params.get("price", "0"),
@@ -89,6 +114,37 @@ class FuturesAlgoOrders:
         }
         self._orders[client_algo_id] = order
         return 200, dict(order)
+
+    def _refused_close_position(
+        self, params: dict[str, str], order_type: str, close_position: bool
+    ) -> tuple[int, dict[str, Any]] | None:
+        """Binance's refusals of a close-all stop (`closePosition` page, `EPIC-039L`)."""
+        if not close_position:
+            if "quantity" in params:
+                return None
+            return _refusal(-1102, "Mandatory parameter 'quantity' was not sent.")
+        if order_type not in _CLOSE_POSITION_TYPES:
+            return _refusal(-1116, "Invalid orderType.")
+        if "quantity" in params:
+            return _refusal(-1106, "Parameter 'quantity' sent when not required.")
+        if "reduceOnly" in params:
+            return _refusal(-1106, "Parameter 'reduceOnly' sent when not required.")
+        if self.reject_without_position and self._held(params["symbol"]) == 0:
+            return _refusal(-2022, "ReduceOnly Order is rejected.")
+        return None
+
+    def after_position_change(self, symbol: str) -> None:
+        """A position of `symbol` changed: with `expire_when_flat`, the exchange cancels a
+        close-all stop of a symbol that is flat ("canceled by the system")."""
+        if not self.expire_when_flat or self._held(symbol) != 0:
+            return
+        for order in self._orders.values():
+            if (
+                order["symbol"] == symbol
+                and order["closePosition"]
+                and order["algoStatus"] == _NEW
+            ):
+                order.update(algoStatus=_EXPIRED, updateTime=now_ms())
 
     def get(self, params: dict[str, str]) -> tuple[int, dict[str, Any]]:
         order = self._find(params)
@@ -140,6 +196,9 @@ class FuturesAlgoOrders:
                 continue
             if not _crossed(order, price):
                 continue
+            if order["closePosition"]:
+                self._trigger_close_position(order, place_order)
+                continue
             regular_type = _PLACES[order["orderType"]]
             params = {
                 "symbol": symbol,
@@ -163,6 +222,38 @@ class FuturesAlgoOrders:
                 triggerTime=triggered_at,
                 updateTime=triggered_at,
             )
+
+    def _trigger_close_position(
+        self, order: dict[str, Any], place_order: PlaceOrder
+    ) -> None:
+        """A close-all stop closes the whole position of its side, reduce-only; with
+        none on that side nothing happens and the order is `EXPIRED`."""
+        held = self._held(order["symbol"])
+        closes = held > 0 if order["side"] == "SELL" else held < 0
+        if not closes:
+            order.update(algoStatus=_EXPIRED, updateTime=now_ms())
+            return
+        status, placed = place_order(
+            {
+                "symbol": order["symbol"],
+                "side": order["side"],
+                "type": "MARKET",
+                "quantity": str(abs(held)),
+                "newClientOrderId": f"algo-{order['algoId']}",
+                "positionSide": order["positionSide"],
+                "reduceOnly": "True",
+            }
+        )
+        triggered_at = now_ms()
+        if status != 200:
+            order.update(algoStatus=_CANCELED, updateTime=triggered_at)
+            return
+        order.update(
+            algoStatus=_TRIGGERED,
+            actualOrderId=str(placed["orderId"]),
+            triggerTime=triggered_at,
+            updateTime=triggered_at,
+        )
 
     def _find(self, params: dict[str, str]) -> dict[str, Any] | None:
         client_algo_id = params.get("clientAlgoId")

@@ -74,7 +74,7 @@ class OrderBookState:
         self.account = FuturesAccountState(self.symbol_config, self.market)
         self._trade_ids = itertools.count(5_000_000)
         #: `EPIC-028R` — the account's conditional orders.
-        self.algo = FuturesAlgoOrders()
+        self.algo = FuturesAlgoOrders(self.account.positions.amount)
         #: `EPIC-039C` — late, duplicated and rejected (all off).
         self.faults = MatchFaults()
         self._events = futures_user_data.UserDataQueue(self.account, self.faults)
@@ -260,6 +260,7 @@ class OrderBookState:
 
     def _after_position_change(self, symbol: str) -> None:
         """A reduce-only order that can no longer reduce is knocked out (reason 4)."""
+        self.algo.after_position_change(symbol)
         held = self.account.positions.amount(symbol)
         for order in list(self._orders.values()):
             if (

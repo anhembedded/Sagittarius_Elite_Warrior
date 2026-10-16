@@ -117,7 +117,13 @@ class OwnerOrderLedger:
     def record_sent(self, order: Order, notional: Decimal, when: datetime) -> None:
         """@brief `order` reached the venue at `when`; `notional` is the
         quote it commits (the preview's estimate). A fill or an end the
-        venue already reported for it is taken into account."""
+        venue already reported for it is taken into account.
+
+        `EPIC-039L` — a close-position stop commits nothing and paces nothing: it has
+        no quantity, so it is not among the open orders, and it takes no place in the
+        send window, so it never delays the bot's next order."""
+        if order.close_position:
+            return
         self._sends.append(when)
         horizon = when - self._window
         while self._sends and self._sends[0] <= horizon:
@@ -128,6 +134,8 @@ class OwnerOrderLedger:
         """@brief `order` was already resting on the venue when the budget
         was registered (a restart, a reconciliation): it commits as if sent,
         but takes no place in the send window."""
+        if order.close_position:
+            return
         self._open_unless_over(order, notional)
 
     def record_fill(self, order: Order, quantity: Decimal) -> None:

@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import (
+    WorkingType,
+)
 
 #: Who an order belongs to when the caller does not say: a human at a form.
 #:
@@ -98,6 +101,13 @@ class OrderRequest:
     #: a bot's or a strategy's late order after an Emergency Stop is refused
     #: (`TRADING_SWITCH_OFF`) instead of reopening what the stop closed.
     opens_session: bool = False
+    #: `EPIC-039L` — a Futures stop that closes the whole position of the symbol when it
+    #: triggers (`closePosition`): `quantity` is then ignored and the order is never
+    #: `reduce_only`. `PreviewOrderQuery` checks the combination.
+    close_position: bool = False
+    #: `EPIC-039L` — the price a stop triggers on; the last price unless the caller
+    #: chooses (a bot's protective stop chooses the mark price).
+    working_type: WorkingType = WorkingType.LAST_PRICE
 
     def __post_init__(self) -> None:
         """@raise InvalidClientOrderTagError `client_order_tag` is malformed."""
