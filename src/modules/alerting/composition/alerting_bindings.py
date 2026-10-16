@@ -15,6 +15,13 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_message import (
+    is_discord_webhook_url,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
+    DISCORD_CHANNEL_ID,
+    DISCORD_WEBHOOK_SECRET,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.memory_alert_settings import (
     InMemoryAlertSettings,
 )
@@ -45,11 +52,19 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_delivery import (
     ChannelDelivery,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
+    DiscordWebhookSetup,
+    WebhookChannelSpec,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
+    SendTestToConfiguredChannels,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
+    DescriptorChannelCatalogBuilder,
     build_channel_catalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
@@ -66,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_s
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alerting_status import (
     IAlertingStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_catalog_builder import (
+    IChannelCatalogBuilder,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_delivery_wakeup import (
     IDeliveryWakeup,
@@ -112,6 +130,29 @@ def bind_alerting(container: IContainer) -> None:
         lambda resolver: ChannelAlertingStatus(
             resolver.resolve(IAlertChannelCatalog),
             resolver.resolve(IAlertSettingsSource),
+        ),
+    )
+    # `EPIC-036D1`: the Options page's Save, Remove and Send test. The setup reads and
+    # writes the same stores the channel reads; the test builds a catalog afresh.
+    container.singleton(
+        IChannelCatalogBuilder,
+        lambda resolver: DescriptorChannelCatalogBuilder(resolver),
+    )
+    container.singleton(
+        DiscordWebhookSetup,
+        lambda resolver: DiscordWebhookSetup(
+            resolver.resolve(ChannelSecrets).store,
+            WebhookChannelSpec(
+                DISCORD_CHANNEL_ID, DISCORD_WEBHOOK_SECRET, is_discord_webhook_url
+            ),
+            resolver.resolve(IAlertChannelCatalog),
+        ),
+    )
+    container.singleton(
+        SendTestToConfiguredChannels,
+        lambda resolver: SendTestToConfiguredChannels(
+            resolver.resolve(IChannelCatalogBuilder),
+            resolver.resolve(IAlertClock),
         ),
     )
     container.singleton(IOutbox, lambda _resolver: SqliteOutbox(outbox_path()))

@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_message imp
     is_discord_webhook_url,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.discord_webhook_channel import (
+    DISCORD_CHANNEL_ID,
     DISCORD_WEBHOOK_SECRET,
     DiscordWebhookChannel,
 )
@@ -36,6 +37,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.registered_channel_
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel import (
     IAlertChannel,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_channel_catalog import (
+    IAlertChannelCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_channel_catalog_builder import (
+    IChannelCatalogBuilder,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
@@ -89,7 +96,7 @@ def discord_channel(resolver: PortResolver) -> IAlertChannel | None:
 
 
 CHANNEL_DESCRIPTORS: tuple[AlertChannelDescriptor, ...] = (
-    AlertChannelDescriptor("discord", discord_channel),
+    AlertChannelDescriptor(DISCORD_CHANNEL_ID, discord_channel),
 )
 
 
@@ -110,3 +117,14 @@ def build_channel_catalog(resolver: PortResolver) -> RegisteredChannelCatalog:
         if channel is not None:
             channels[descriptor.channel_id] = channel
     return RegisteredChannelCatalog(channels)
+
+
+class DescriptorChannelCatalogBuilder(IChannelCatalogBuilder):
+    """`IChannelCatalogBuilder` over `CHANNEL_DESCRIPTORS`: the boot's own function,
+    run again (`EPIC-036D1`)."""
+
+    def __init__(self, resolver: PortResolver) -> None:
+        self._resolver = resolver
+
+    def build(self) -> IAlertChannelCatalog:
+        return build_channel_catalog(self._resolver)
