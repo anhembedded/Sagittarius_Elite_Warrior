@@ -2,7 +2,7 @@
 
 `scripts/preview-qml.ps1 alerts_options` (`--list` names every preview) renders the
 page headless with no presenter: the view over a view model set to the states the
-owner meets — nothing saved, a saved webhook waiting for a restart, a refused test.
+owner meets — nothing saved, a saved webhook waiting for a restart, a refused test; this one shows the last two.
 The URL below is a made-up one; nothing here reads a secret store.
 """
 
@@ -11,6 +11,12 @@ from __future__ import annotations
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_setup import (
     DiscordChannelState,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
+    ChannelTestOutcome,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.delivery_result import (
+    DeliveryResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view import (
@@ -36,7 +42,11 @@ def build_preview() -> QWidget:
         can_remove=state.stored,
         can_test=state.usable,
     )
-    sentence, is_error = alerts_words.send_test_words(())
+    refused = ChannelTestOutcome(
+        "discord",
+        DeliveryResult.refused("Discord refused the webhook message (404)"),
+    )
+    sentence, is_error = alerts_words.send_test_words((refused,))
     view_model.set_status(sentence, is_error)
     view = AlertsSettingsView()
     view.set_view_model(view_model)
