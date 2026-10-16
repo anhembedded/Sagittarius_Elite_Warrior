@@ -16,11 +16,13 @@ Two checks, each the half the other leaves open:
    `x.py:12-30`, `x.py:41,55`, `x.py#L12`, the same on any other file
    (`sew-run.service:48`), or a bare `` `:56-72` `` continuing the previous
    citation.
-2. **Every cited symbol exists.** A citation is written
-   `` `<path>.py` → `<symbol>` ``, optionally followed by more symbols of the
-   same file (`` , `<symbol>` ``). The path resolves to exactly one file under
-   `src/`, `scripts/` or `tests/` (a leading `.../` is dropped and the rest matched as a
-   path suffix); each dotted part of the symbol (`AlertHub.publish`, a trailing
+2. **Every cited file and symbol exists.** Every backticked `.py` path must
+   name a file: exactly one when it has a directory, at least one when it is a
+   bare file name (`handler.py` is often meant as one of several). A symbol
+   is checked when it is written `` `<path>.py` → `<symbol>` ``, optionally
+   followed by more symbols of the same file (`` , `<symbol>` ``): the path
+   resolves to exactly one file under `src/`, `scripts/` or `tests/` (a leading
+   `.../` is dropped and the rest matched as a path suffix); each dotted part of the symbol (`AlertHub.publish`, a trailing
    `()` ignored) must be defined somewhere in that file's AST: a class, a
    function, or an assigned name. A renamed or deleted function turns this red,
    so a name citation cannot rot silently the way a line did.
@@ -55,12 +57,26 @@ _SRC = _REPO_ROOT / "src"
 _SCRIPTS = _REPO_ROOT / "scripts"
 _TESTS = _REPO_ROOT / "tests"
 
-#: A line citation: `x.py:12`, `x.py:12-30`, `x.py:41,55`, `x.py#L12`, the same on
-#: any other file (`sew-run.service:48`), or a bare `` `:56-72` `` that continues
-#: the citation before it.
-_LINE_CITATION = re.compile(
-    r"\.[A-Za-z][A-Za-z0-9]{0,7}(?::\d+|#L\d+)|`:\d+(?:[-,]\d+)*`"
+#: The extensions a design may cite a file by. Named, rather than any `.<word>`,
+#: so a host and port (`localhost.local:8080`) is not taken for a line.
+_EXTENSIONS = (
+    r"(?:py|pyi|ps1|psm1|sh|service|timer|toml|ini|cfg|json|ya?ml|puml|md|txt|qml|sql)"
 )
+#: A cited file's name, its closing backtick optional: `x.py`, `` `x.py` ``.
+_FILE = r"\." + _EXTENSIONS + r"(?![A-Za-z0-9])`?"
+
+#: A line citation, in every form a reader would recognise as one: `x.py:12`,
+#: `x.py:12-30`, `x.py:41,55`, `` `x.py`:12 ``, `x.py: 12`, `x.py:L12`, `x.py#L12`,
+#: `` `x.py` (L12) ``, `` `x.py` line 12 ``, the same on any other cited file
+#: (`sew-run.service:48`), or a bare `` `:56-72` `` that continues the citation
+#: before it.
+_LINE_CITATION = re.compile(
+    _FILE + r"(?:\s*:\s*L?\d+|#L\d+|\s*\(\s*L\d+|\s+lines?\s+\d+)"
+    r"|`:L?\d+(?:[-,]\d+)*`"
+)
+
+#: A backticked repository path to a Python file, cited with or without a symbol.
+_CITED_PATH = re.compile(r"`([A-Za-z0-9_.-]*(?:/[A-Za-z0-9_.-]+)*\.py)`")
 
 #: `` `<path>.py` → `<symbol>` `` and any further `` , `<symbol>` `` of the same
 #: file. Group 1 is the path, group 2 the run of backticked symbols.
@@ -159,6 +175,22 @@ def symbol_problems(text: str, files: Iterable[Path], root: Path) -> list[str]:
     return problems
 
 
+def path_problems(text: str, files: Iterable[Path], root: Path) -> list[str]:
+    """Why each backticked `.py` path in `text` names no file, if it names none.
+
+    A path with a directory (`alerting/module.py`) must name exactly one file; a
+    bare file name (`module.py`, `handler.py`) is often meant as one of several,
+    so it must name at least one. Either way a renamed or deleted file is caught.
+    """
+    candidates = tuple(files)
+    problems: list[str] = []
+    for cited in sorted(set(_CITED_PATH.findall(text))):
+        found = len(resolve(cited, candidates, root))
+        if found == 0 or ("/" in cited.removeprefix(".../") and found > 1):
+            problems.append(f"`{cited}` names {found} files")
+    return problems
+
+
 def _design_files() -> list[Path]:
     return sorted(p for p in _MODULE_DOCS.rglob("*") if p.is_file())
 
@@ -199,9 +231,11 @@ def test_a_design_cites_no_line_number(design: Path) -> None:
     ids=lambda p: p.relative_to(_MODULE_DOCS).as_posix(),
 )
 def test_every_cited_symbol_exists(design: Path) -> None:
-    problems = symbol_problems(
-        design.read_text(encoding="utf-8"), _source_files(), _REPO_ROOT
-    )
+    text = design.read_text(encoding="utf-8")
+    problems = [
+        *path_problems(text, _source_files(), _REPO_ROOT),
+        *symbol_problems(text, _source_files(), _REPO_ROOT),
+    ]
 
     assert problems == [], (
         f"{design.relative_to(_REPO_ROOT).as_posix()} cites what the code does not "
@@ -221,14 +255,31 @@ def test_every_cited_symbol_exists(design: Path) -> None:
         "`threaded_delivery_host.py:33-34`, `:56-72`",
         "see `x.py#L12`",
         "(`deploy/linux/sew-run.service:48`)",
+        "`x.py:L12`",
+        "`x.py`:12",
+        "`x.py`: 12",
+        "`x.py` (L12)",
+        "`x.py` line 12",
+        "`x.py` lines 12-30",
+        "`run.ps1`:7",
+        "and `:L56`",
     ],
 )
 def test_the_line_check_catches_every_form(planted: str) -> None:
     assert line_citations(f"Some text {planted} more.\n") != []
 
 
-def test_the_line_check_leaves_a_symbol_citation_alone() -> None:
-    assert line_citations("`alerting/module.py` → `AlertingModule.dependencies`") == []
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "`alerting/module.py` → `AlertingModule.dependencies`",
+        "the host `localhost.local:8080` answers",
+        "the level label L6 · range top",
+        "`grid.md` lists 12 states",
+    ],
+)
+def test_the_line_check_leaves_other_text_alone(prose: str) -> None:
+    assert line_citations(prose) == []
 
 
 def _planted_repository(tmp_path: Path) -> list[Path]:
@@ -259,6 +310,23 @@ def test_a_present_symbol_passes(tmp_path: Path, citation: str) -> None:
     files = _planted_repository(tmp_path)
 
     assert symbol_problems(citation, files, tmp_path) == []
+
+
+def test_a_bare_path_that_names_no_file_is_caught(tmp_path: Path) -> None:
+    files = _planted_repository(tmp_path)
+
+    assert path_problems("`alerting/application/gone.py`", files, tmp_path) != []
+    assert path_problems("`gone.py`", files, tmp_path) != []
+
+
+def test_a_bare_path_is_held_to_one_file_only_when_it_has_a_directory(
+    tmp_path: Path,
+) -> None:
+    files = _planted_repository(tmp_path)
+
+    assert path_problems("`alert_hub.py`", files, tmp_path) == []
+    assert path_problems("`application/alert_hub.py`", files, tmp_path) != []
+    assert path_problems("`alerting/application/alert_hub.py`", files, tmp_path) == []
 
 
 @pytest.mark.parametrize(

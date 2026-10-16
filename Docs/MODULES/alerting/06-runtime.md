@@ -60,7 +60,7 @@ answer is dropped, `AlertsSettingsPresenter.shutdown`). The buttons are off whil
   (`send_test_to_configured_channels.py` → `SendTestToConfiguredChannels.run`). The page shows the
   channel's own sanitised reason ("Discord refused the webhook message (404)").
 - **Remove** asks first, with its own verbs (Remove webhook / Keep webhook) and the safe one as the
-  default (`alerts_settings_view.py`, `confirm_removal`).
+  default (`alerts_settings_view.py` → `confirm_removal`).
 
 **Restart or hot rebuild: restart.** The lanes are started once at boot from the catalog's ids
 (`threaded_delivery_host.py` → `ThreadedDeliveryHost.start`; `alerting_bindings.py` →

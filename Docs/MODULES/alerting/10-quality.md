@@ -13,7 +13,7 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | A repeat is the same alert for: CRITICAL; WARNING and INFO | 1 min; 15 min | `alerting/domain/alert_policies.py` → `NoisePolicy.critical_dedup_window`, `NoisePolicy.other_dedup_window` |
 | Same kind and venue are grouped within | 10 s | `alerting/domain/alert_policies.py` → `NoisePolicy.coalesce_window` |
 | A venue-down alert stops hiding its bots' alerts after | 1 h | `alerting/domain/alert_policies.py` → `NoisePolicy.inhibition_ttl` |
-| Attempts before a delivery fails; back-off from, doubling, capped at | 5; 5 s; 5 min | `alerting/domain/alert_policies.py` → `DeliveryPolicy.max_attempts`, `DeliveryPolicy.backoff_cap`, `DeliveryPolicy.backoff_after` |
+| Attempts before a delivery fails; back-off from, doubling, capped at | 5; 5 s; 5 min | `alerting/domain/alert_policies.py` → `DeliveryPolicy.max_attempts`, `DeliveryPolicy.backoff_base`, `DeliveryPolicy.backoff_cap` |
 | A CRITICAL fails over when the channel asks to wait longer than | 5 min | `alerting/domain/alert_policies.py` → `DeliveryPolicy.failover_after` |
 | An alert older than this expires instead of being sent | 24 h | `alerting/domain/alert_policies.py` → `DeliveryPolicy.expiry` |
 | Queue per channel (CRITICAL is admitted beyond it) | 200 | `alerting/domain/alert_policies.py` → `DeliveryPolicy.capacity` |

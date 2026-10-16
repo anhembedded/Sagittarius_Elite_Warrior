@@ -27,7 +27,7 @@ command-line verbs are `list`, `show`, `apply` and `export` of a plan
 (`src/modules/bots/cli/bot_verbs.py` → `BOT_VERBS`). `alerting` reads `BotChangedEvent`, `BotStopGaveUpEvent` and the status report
 through `bots/contracts` (`EPIC-036G`; [`alerting/03-context.md`](alerting/03-context.md)). Writing a plan is
 shared by every bot kind and by two callers: the Bots mode's **Export plan…** (a menu item and a toolbar
-button, one `QAction`: `bots_commands.py` `EXPORT_PLAN`; dialog and flow in
+button, one `QAction`: `bots_commands.py` → `EXPORT_PLAN`; dialog and flow in
 `ui/bots_screen/export_plan_dialog.py`, `plan_export_flow.py`) and `bot export` both dispatch
 `ExportBotPlanQuery` (`application/queries/export_bot_plan/`) and write through `adapters/plan_file.py`.
 Nothing on that path names a kind: `BotSnapshot.kind` and `config` pass through as opaque data and only
@@ -54,7 +54,7 @@ change in `EPIC-040B` (one kind-neutral result and simulator port); the strategy
 `IBotKind` in `EPIC-040G`.
 
 **Where the code lives.** The application services are split first by kind, then by feature
-(`BOT-177`). A path written `.../name.py` above is the file of that name in one of these
+(`BOT-177`). A path written `.../<name>.py` above is the file of that name in one of these
 packages. Under `src/modules/bots/application/`:
 
 - `services/` is the shell every bot kind shares, and nothing sits loose in it:
@@ -118,7 +118,7 @@ owing, and `GridReconciler` compares a `RECOVERING` bot with the exchange (`.../
 `GridReconciler.run`), and only once the venue's order session is open: until then nothing listens to the
 exchange and the Orders panel shows the ladder as saved, with a note saying so. The reconcile also brings
 each saved order's quantity level with the exchange's, **before** it applies any missed fill
-(`recovery/grid_order_quantities.py`, `adopt_exchange_quantities`; `BUG-205`): from the open-order list,
+(`recovery/grid_order_quantities.py` → `adopt_exchange_quantities`; `BUG-205`): from the open-order list,
 or from history for an order that is gone. A smaller quantity is adopted and logged `[order-quantity]`; a
 larger one halts the bot (`order_quantity_mismatch`). A new order is saved at the quantity the exchange
 accepted, never the one asked for. **Resume from `RECOVERING`** (`BUG-204`, the desktop's way out): the
@@ -185,8 +185,8 @@ The constants that decide when a bot waits, retries, pauses or halts:
 | Sleep: heartbeat; a gap over this is a sleep; fresh-price attempts and spacing | 15 s; 60 s; 4 × 15 s | `src/modules/bots/application/services/watches/sleep_watch.py` → `SleepLimits.check_every`, `SleepLimits.gap_over`, `SleepLimits.price_attempts`, `SleepLimits.price_retry_every` |
 | Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py` → `STOP_RETRY_DELAYS` |
 | Rate-limit pause: margin, longest wait, most automatic resumes | 2 s; 1 h; 5 | `src/modules/bots/domain/grid/rate_limit_pause.py` → `AUTO_RESUME_MARGIN`, `MAX_AUTO_RESUME_WAIT`, `MAX_AUTO_RESUMES` |
-| A position divergence is re-read after (nothing is read when the book already agrees with the stream's last figure, `BUG-220`); a run of reports may keep that one re-read waiting at most | 5 s; 3 × that | `src/modules/bots/domain/grid/grid_thresholds.py` → `FuturesGridThresholds.position_recheck_delay` · `src/modules/bots/application/kinds/grid/watch/grid_risk_watch.py` (`MAX_RECHECK_DELAYS`) |
-| The request gate closes at this share of the minute's weight (2,400 on Futures); a One-way position mode is kept | 70 %; 60 s | `src/modules/trading/adapters/binance/exchange_call_policy.py` (`SOFT_WEIGHT_RATIO`) · `src/modules/trading/adapters/binance/position_mode_memory.py` (`TTL_SECONDS`) |
+| A position divergence is re-read after (nothing is read when the book already agrees with the stream's last figure, `BUG-220`); a run of reports may keep that one re-read waiting at most | 5 s; 3 × that | `src/modules/bots/domain/grid/grid_thresholds.py` → `FuturesGridThresholds.position_recheck_delay` · `src/modules/bots/application/kinds/grid/watch/grid_risk_watch.py` → `MAX_RECHECK_DELAYS` |
+| The request gate closes at this share of the minute's weight (2,400 on Futures); a One-way position mode is kept | 70 %; 60 s | `src/modules/trading/adapters/binance/exchange_call_policy.py` → `SOFT_WEIGHT_RATIO` · `src/modules/trading/adapters/binance/position_mode_memory.py` → `TTL_SECONDS` |
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py` → `FUNDING_INTERVAL` |
 
 By decision D4 this table becomes generated from the constants, in the task that fills this view.

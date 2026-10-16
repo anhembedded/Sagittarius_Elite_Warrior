@@ -100,4 +100,5 @@ A citation names a symbol, never a line (`commit-rule.md` §1, "Citing code";
 `` `alerting/composition/channel_bindings.py` → `discord_channel` ``. A symbol changes only when the
 code it names changes, which is when the design should be read again.
 `tests/unit/architecture/test_module_docs_cite_code_by_symbol.py` fails on a line citation anywhere
-in this folder and on a cited symbol that its file no longer defines.
+in this folder, on a cited path that names no file, and on a symbol cited in the arrow form that its
+file no longer defines; a symbol named any other way is not checked.
