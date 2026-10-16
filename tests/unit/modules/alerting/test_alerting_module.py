@@ -8,6 +8,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     IOperationsRegistry,
     PreflightCheckDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.module import AlertingModule
 
 
@@ -41,3 +44,28 @@ def test_it_declares_one_health_section_named_alerting() -> None:
     assert [(d.name, d.contributor_id) for d in recorder.health] == [
         ("alerting", "alerting")
     ]
+
+
+class _OptionsRecorder:
+    """The one method of `IContributionRegistry` the module uses; any other call fails."""
+
+    def __init__(self) -> None:
+        self.pages: list[OptionsPageContribution] = []
+
+    def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
+        self.pages.append(contribution)
+
+    def __getattr__(self, name: str) -> object:
+        raise AssertionError(f"alerting contributes only an options page, not {name}")
+
+
+def test_it_contributes_the_alerts_page_of_tools_options_after_trading_and_market_data() -> (
+    None
+):
+    """`EPIC-036D1`: orders 10 (trading) and 20 (market data) come first."""
+    registry = _OptionsRecorder()
+
+    AlertingModule().contribute(registry)  # type: ignore[arg-type]
+
+    [page] = registry.pages
+    assert (page.contributor_id, page.order) == ("alerting", 30)

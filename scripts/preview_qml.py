@@ -67,6 +67,7 @@ _UI_ROOTS = (
     _REPO_ROOT / "src" / "modules" / "trading" / "ui",
     _REPO_ROOT / "src" / "modules" / "backtesting" / "ui",
     _REPO_ROOT / "src" / "modules" / "bots" / "ui",
+    _REPO_ROOT / "src" / "modules" / "alerting" / "ui",
     _REPO_ROOT / "src" / "shell",
 )
 

@@ -65,6 +65,7 @@ UI_TREES: tuple[Path, ...] = (
     _REPO_ROOT / "src" / "support" / "charting",
     _REPO_ROOT / "src" / "modules" / "trading" / "ui",
     _REPO_ROOT / "src" / "modules" / "strategy" / "ui",
+    _REPO_ROOT / "src" / "modules" / "alerting" / "ui",
 )
 
 #: The same list as repository-relative POSIX strings, for
