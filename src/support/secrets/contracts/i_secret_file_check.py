@@ -8,12 +8,6 @@ required group) is a class and an entry in the list the store is built with.
 A verdict carries **words about the file, never its contents**: the problem is
 stated in terms of the path, a mode or an account, and the fix is the command
 that repairs it. Both may reach a log line, a pre-flight report and `--json`.
-
-Capability: Decide whether a secret file may be read
-    Also: file permission, owner-only, ACL, icacls, chmod, git work tree
-    Use: ISecretFileCheck, SecretFileVerdict
-    User: src/modules/trading/adapters/binance/mainnet/permission_checked_file_store.py
-    Status: stable
 """
 
 from __future__ import annotations

@@ -28,14 +28,14 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
     HostSignalName,
     StopPolicyName,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
-    SECRET_FILES_DIRECTORY_ENV,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
     non_restarting_codes,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import (
+    SECRET_FILES_DIRECTORY_ENV,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

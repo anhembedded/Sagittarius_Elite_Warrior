@@ -5,8 +5,8 @@ credentials, a permission-checked file, the operating system's keyring). They si
 in this list in the order they are asked; the first that holds the secret answers
 and is named, so a status page and `preflight` can say where a key came from
 without ever saying what it is. Adding a way to provision a key is one class
-behind `ISecretStore` and one `SecretBackend` in the list the shell builds
-(`trading/composition/secret_store_order.py`); nothing here changes.
+behind `ISecretStore` and one `SecretBackend` in the order list
+(`secret_store_order.py`, beside this file); nothing here changes.
 
 The list is itself an `ISecretStore` (and an `ISourcedSecretStore`, the port the
 provider reads), so what only needs to read or save a secret takes it as it takes

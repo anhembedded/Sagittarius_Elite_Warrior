@@ -117,6 +117,18 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("modules.bots.application.x", "support.cli_host.report_output", False),
         ("modules.operations.application.x", "support.ui_kit.page_shell", False),
         ("support.cli_host.report_output", "modules.trading.contracts.x", False),
+        # `EPIC-036G` — a module's composition chooses the secret store; nothing
+        # else of a module reaches the stores, and the package reaches no module.
+        ("modules.alerting.composition.x", "support.secrets.secret_store_order", True),
+        ("modules.trading.composition.x", "support.secrets.secret_store_order", True),
+        ("modules.alerting.adapters.x", "support.secrets.secret_store_order", False),
+        (
+            "modules.alerting.application.x",
+            "support.secrets.adapters.keyring_secret_store",
+            False,
+        ),
+        ("modules.trading.domain.x", "support.secrets.secret_store_order", False),
+        ("support.secrets.secret_store_order", "modules.trading.contracts.x", False),
         ("modules.trading.application.x", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "modules.trading.contracts.order", False),

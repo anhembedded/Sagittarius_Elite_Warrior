@@ -17,9 +17,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.errors import ReadOnlyInstance
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_access import (
     InstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
-    OrderedSecretStores,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.read_only_account_control import (
     ReadOnlyAccountControl,
 )
@@ -38,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_c
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.ordered_secret_stores import (
+    OrderedSecretStores,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import InMemorySecretStore
 

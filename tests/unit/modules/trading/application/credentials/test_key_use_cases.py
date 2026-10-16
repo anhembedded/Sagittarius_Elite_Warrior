@@ -9,10 +9,6 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
-    OrderedSecretStores,
-    SecretBackend,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.credentials.enrol_key import (
     EnrolKeyCommand,
     EnrolKeyCommandHandler,
@@ -56,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.ordered_secret_stores import (
+    OrderedSecretStores,
+    SecretBackend,
 )
 from Sagittarius_Elite_Warrior.tests.secret_stores import (
     InMemorySecretStore,

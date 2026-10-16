@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.posix_secret_file_permission_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.posix_secret_file_permission_check import (
     FileFacts,
     PosixSecretFilePermissionCheck,
     facts_of_descriptor,

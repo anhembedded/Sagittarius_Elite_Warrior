@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.windows_secret_file_permission_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.windows_secret_file_permission_check import (
     WindowsSecretFilePermissionCheck,
     icacls_encoding,
     icacls_output,

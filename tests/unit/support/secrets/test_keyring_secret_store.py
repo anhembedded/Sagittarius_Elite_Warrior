@@ -13,7 +13,7 @@ from keyring.errors import PasswordDeleteError
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.keyring_secret_store import (
     SERVICE,
     KeyringSecretStore,
 )

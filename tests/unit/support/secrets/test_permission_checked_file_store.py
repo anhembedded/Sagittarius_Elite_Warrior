@@ -14,10 +14,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.permission_checked_file_store import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.permission_checked_file_store import (
     PermissionCheckedFileStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.contracts.i_secret_file_check import (
     ISecretFileCheck,
     SecretFileVerdict,
 )

@@ -17,7 +17,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.contracts.i_secret_file_check import (
     ISecretFileCheck,
     SecretFileVerdict,
 )

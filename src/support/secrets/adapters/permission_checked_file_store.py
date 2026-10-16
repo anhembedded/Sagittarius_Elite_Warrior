@@ -30,10 +30,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     ISecretStore,
     SecretStoreUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.contracts.i_secret_file_check import (
     ISecretFileCheck,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.secret_file_name import (
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_file_name import (
     MAX_SECRET_BYTES,
     file_in,
     secret_from_bytes,

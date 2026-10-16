@@ -29,33 +29,33 @@ from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import ISecretStore
 from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.keyring_secret_store import (
-    KeyringSecretStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.ordered_secret_stores import (
-    OrderedSecretStores,
-    SecretBackend,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.permission_checked_file_store import (
-    PermissionCheckedFileStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.posix_secret_file_permission_check import (
-    PosixSecretFilePermissionCheck,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.secret_file_placement_check import (
-    SecretFilePlacementCheck,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.systemd_credential_store import (
-    SystemdCredentialStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.windows_secret_file_permission_check import (
-    WindowsSecretFilePermissionCheck,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_secret_file_check import (
-    ISecretFileCheck,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.keyring_secret_store import (
+    KeyringSecretStore,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.permission_checked_file_store import (
+    PermissionCheckedFileStore,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.posix_secret_file_permission_check import (
+    PosixSecretFilePermissionCheck,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.secret_file_placement_check import (
+    SecretFilePlacementCheck,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
+    SystemdCredentialStore,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.windows_secret_file_permission_check import (
+    WindowsSecretFilePermissionCheck,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.contracts.i_secret_file_check import (
+    ISecretFileCheck,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.ordered_secret_stores import (
+    OrderedSecretStores,
+    SecretBackend,
 )
 
 #: The directory of secret files; unset or empty means there is no file store.

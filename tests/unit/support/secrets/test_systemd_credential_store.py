@@ -10,7 +10,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_secret_store import (
     SecretStoreUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.systemd_credential_store import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
     CREDENTIALS_DIRECTORY_ENV,
     SystemdCredentialStore,
 )

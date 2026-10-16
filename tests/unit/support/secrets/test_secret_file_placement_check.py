@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.secret_file_placement_check import (
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.secret_file_placement_check import (
     SecretFilePlacementCheck,
 )
 

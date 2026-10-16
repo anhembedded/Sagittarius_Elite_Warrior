@@ -39,15 +39,15 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
     RunOptions,
     run_options_of,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.systemd_credential_store import (
-    CREDENTIALS_DIRECTORY_ENV,
-    SystemdCredentialStore,
-)
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
     EXIT_CODE_TABLE,
     SupervisorAction,
     non_restarting_codes,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
+    CREDENTIALS_DIRECTORY_ENV,
+    SystemdCredentialStore,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,

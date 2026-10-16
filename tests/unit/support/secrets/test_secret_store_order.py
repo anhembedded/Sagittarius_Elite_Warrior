@@ -9,15 +9,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.mainnet.systemd_credential_store import (
-    CREDENTIALS_DIRECTORY_ENV,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
-    SECRET_FILES_DIRECTORY_ENV,
-    build_secret_stores,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.adapters.systemd_credential_store import (
+    CREDENTIALS_DIRECTORY_ENV,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import (
+    SECRET_FILES_DIRECTORY_ENV,
+    build_secret_stores,
 )
 
 

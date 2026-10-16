@@ -21,11 +21,11 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.run_host_parts
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_options import (
     DEFAULT_STOP_TIMEOUT_SECONDS,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import (
-    SECRET_FILES_DIRECTORY_ENV,
-)
 from Sagittarius_Elite_Warrior.src.support.cli_host.exit_code_table import (
     non_restarting_codes,
+)
+from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import (
+    SECRET_FILES_DIRECTORY_ENV,
 )
 from Sagittarius_Elite_Warrior.tests.unit.scripts.service_files_world import (
     FORBIDDEN_IN_A_SERVICE,

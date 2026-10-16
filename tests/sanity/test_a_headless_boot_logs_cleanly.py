@@ -214,7 +214,7 @@ _READ_THE_PROVISIONED_CANARY = """
 import atexit
 
 def _resolve_provisioned():
-    from Sagittarius_Elite_Warrior.src.modules.trading.composition.secret_store_order import build_secret_stores
+    from Sagittarius_Elite_Warrior.src.support.secrets.secret_store_order import build_secret_stores
     from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import MainnetCredentialsProvider
     from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import TradingVenue
 
