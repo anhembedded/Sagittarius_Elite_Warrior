@@ -17,11 +17,11 @@ note over G : only now is the ladder declared ready
 == a stop, in order: close first, cancel after flat ==
 G -> T : reduce-only close (IExposureCloser)
 G -> T : read position of the symbol
-alt exchange position is zero
+alt the bot's derived position is zero and the exchange reads\nzero, dust or the foreign quantity
   G -> T : cancel the stop
   G -> S : record ENDED
-else a read fails, or a close failed
-  note over G : the stop stays standing
+else a read fails, a close failed or the position is unexplained
+  note over G : the stop stays standing under custody:\nthe symbol stays claimed, a check runs at boot
 end
 
 == the app was down ==

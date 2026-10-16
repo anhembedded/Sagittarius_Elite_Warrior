@@ -129,8 +129,14 @@ conditional order with `closePosition=true` and `workingType=MARK_PRICE` through
 exist is sent again, and Binance accepts the id once.
 
 **Exit.** Every exit (Stop, stop loss, take profit, a halt that closes) runs the same close, and the stop
-is cancelled as one more step **after** the exchange's position of the symbol reads zero and the bot's
-own derived position is zero. A close that failed, or a read that failed, leaves the stop standing.
+is cancelled as one more step **after** the bot's own derived position is zero and the exchange's position
+of the symbol reads zero, a remainder below one market step, or the quantity the foreign-position rule
+already names. Any other reading, a close that failed or a read that failed leaves the stop standing.
+A stop that is kept (a halt that left the position, a Stop with *keep*, an unconfirmed close) stays under
+the bot's record and the symbol stays claimed; a custody check, run at every boot, before a start or
+resume on the symbol and on each position or algo event, cancels it once the bot's exposure is closed.
+A stop is told from a ladder order by one seam: the gateway's ladder read returns ladder orders only and
+a separate read returns the stops.
 
 **Restart.** The reconcile reads the symbol's position and the bot's protective orders (told from
 ladder orders by type and `closePosition`, not by their id) and applies one table: adopt a matching

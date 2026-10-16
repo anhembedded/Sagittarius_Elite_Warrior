@@ -114,17 +114,18 @@ replaced by a generated one like the two above. Any pair it does not list is ref
 
 | From | Event | To |
 | :--- | :--- | :--- |
-| `ABSENT` | `intend` (a position stands and the plan has a stop-loss price) | `INTENDED` |
+| `ABSENT` | `intend` (the account position on the symbol is non-zero and the plan has a stop-loss price) | `INTENDED` |
 | `INTENDED` | `accepted` | `STANDING` |
-| `INTENDED` | `rejected` | `ABSENT`, and the position is closed |
+| `INTENDED` | `rejected` | `ABSENT`; the position is closed if one stands, nothing is closed if none does |
 | `INTENDED` | `lost_answer` | read by `clientAlgoId`: found, `STANDING`; not found, send again |
-| `STANDING` | `triggered` | `TRIGGERED` |
-| `STANDING` | `cancel_after_flat` | `CANCELLING` |
-| `STANDING` | `expired` or `missing_with_position` | `ABSENT`, then `intend` again once |
+| `STANDING` | `triggered` (from the algo status, read by `clientAlgoId`) | `TRIGGERED` |
+| `STANDING` | `exposure_closed` (the bot's position is zero and the exchange's is zero, dust or foreign) | `CANCELLING` |
+| `STANDING` | `expired` or `missing_with_position` | `ABSENT`; `intend` again when a position stands |
 | `CANCELLING` | `cancelled` or `unknown_order` | `ENDED` |
 | `TRIGGERED` | `settled` (flat confirmed, the sibling order cancelled) | `ENDED` |
 
-`ENDED` is terminal and the record is dropped on the next save. The refused moves that matter: no
-`STANDING` to `CANCELLING` while the position is not read flat; no cancel of a stop by the ladder's
+`ENDED` is terminal and the record is dropped on the next save. A `STANDING` stop outlives its run under
+custody (a kept position); the bot is `STOPPED` or `HALTED`, the record is not. The refused moves that
+matter: no `STANDING` to `CANCELLING` while the bot's exposure is not read closed; no cancel of a stop by the ladder's
 cancels. The reconcile table (position against stop) is in
 [`06-runtime.md`](06-runtime.md) and in the decision record §3.2.
