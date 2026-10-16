@@ -13,8 +13,11 @@ bot's own exposure is closed. Every change of its state is a row of
     closed, the bot is never left bare. A send with no answer leaves the record INTENDED: the
     next look finds the order among the open ones (`accepted`) or sends it again under the same
     id, which the exchange takes once it is not open;
-  · `triggered` — its algo status says `TRIGGERED`/`FINISHED` (STANDING → TRIGGERED), decided
-    from the algo order, never from attributing a fill;
+  · `triggered` — it is on no open list, the account is flat and its status read by client id
+    says the trigger traded (STANDING → TRIGGERED); the order itself is asked, never the
+    history or the attribution of a fill;
+  · `expired` — the same absence, but the exchange ended it without a fill, "canceled by the
+    system" (STANDING → ENDED): nothing is left to protect, the next position gets a new one;
   · `exposure_closed` — the bot's own exposure is closed, so the stop may go (STANDING →
     CANCELLING);
   · `cancelled`, `unknown_order` — the cancel is done, or the exchange has no such order any
@@ -50,6 +53,7 @@ class ProtectiveStopEvent(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     TRIGGERED = "triggered"
+    EXPIRED = "expired"
     EXPOSURE_CLOSED = "exposure_closed"
     CANCELLED = "cancelled"
     UNKNOWN_ORDER = "unknown_order"
@@ -80,6 +84,7 @@ PROTECTIVE_STOP_TRANSITIONS: dict[
     (_S.INTENDED, _E.ACCEPTED): _S.STANDING,
     (_S.INTENDED, _E.REJECTED): _S.ABSENT,
     (_S.STANDING, _E.TRIGGERED): _S.TRIGGERED,
+    (_S.STANDING, _E.EXPIRED): _S.ENDED,
     (_S.STANDING, _E.EXPOSURE_CLOSED): _S.CANCELLING,
     (_S.STANDING, _E.MISSING_WITH_POSITION): _S.ABSENT,
     (_S.CANCELLING, _E.CANCELLED): _S.ENDED,

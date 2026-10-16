@@ -2,30 +2,30 @@
 
 @details The policy of decisions D4 to D8 of `DECISION_2026-10-16`. The bot's stop-loss price
 becomes a `STOP_MARKET` that closes the whole position of the symbol on the mark price. For a
-LONG grid it is a SELL under the range, for a SHORT grid a BUY over it; a NEUTRAL grid has both
-(its stop loss under the range, its take profit over it, which is the exit it has above), but the one on the side with no position is placed only once the owner has recorded that the
-exchange does nothing with it (check T3, `NEUTRAL_BOTH_SIDES_VERIFIED`), because a close-all
-order that could open a position is the hazard of `EPIC-026K`.
+LONG grid it is a SELL under the range, for a SHORT grid a BUY over it; a NEUTRAL grid stands only
+the one that covers its position until the owner has recorded check T3 (`protective_stop_plan.py`).
 
   · **Place** (`protect`, and `supervise` for a stop that is missing): the record is saved
     first, then the order is sent; a refusal by name drops the record and halts the bot, which
     closes its position (it is never left bare); the order is never sent while the account
     holds no position, because it would stand over nothing.
   · **Keep** (`supervise`, on the price watch's beat and after a reconcile): a stop that was
-    standing and is on no open list is judged by the position alone: flat means the exchange
-    ran it (`TRIGGERED`, the verdict the bot stops on), a position standing means it is placed
-    again. A stop on a symbol the second read shows flat is cancelled (an orphan would open a
-    position).
+    standing and is on no open list, with the position flat, is judged by the order itself, read
+    by its client id: it ran (`TRIGGERED`, the verdict the bot stops on) or the exchange ended
+    it without a fill (the record is dropped); an answer that cannot be read counts as ran, the
+    side that ends flat. With a position standing it is placed again. A stop on a symbol the
+    second read shows flat is cancelled (an orphan would open a position), and a stop that no
+    longer covers the position (a NEUTRAL grid whose position changed sign) goes once the
+    covering one stands.
   · **Cancel** (`release`): only once the bot's own exposure is closed, never before; a cancel
     that did not go through leaves the stop and the stop of the bot waits.
 
-A look that cannot read the position, the mark or the history changes nothing and says so.
+A look that cannot read the position or the mark changes nothing and says so.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_order_failure import (
@@ -38,6 +38,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protective_stop_book import (
     ProtectiveStopBook,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protective_stop_plan import (
+    WantedStop,
+    covers,
+    wanted_stops,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_stop_event import (
     BotProtectiveStopEvent,
     ProtectiveStopChange,
@@ -49,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     IMarkSource,
     MarkReadError,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
-    TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -68,14 +70,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_
     ProtectiveStopState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
-
-#: Whether a close-all order on the side with no position is known to do nothing (check T3 of
-#: `DECISION_2026-10-16`, on Futures testnet). `False` until the owner has recorded it: then a
-#: NEUTRAL grid stands only the stop that covers its position. Flipping it is a reviewed change.
-NEUTRAL_BOTH_SIDES_VERIFIED = False
 
 #: The states in which the bot holds or lays orders, or is about to again (a restored bot, before
 #: its reconcile), and so keeps its position protected.
@@ -88,14 +87,6 @@ _SUPERVISED = frozenset(
 )
 
 
-@dataclass(frozen=True, slots=True)
-class _Wanted:
-    """A stop the plan asks for: which side it closes and where it triggers."""
-
-    side: OrderSide
-    trigger_price: Decimal
-
-
 class ProtectiveStopService(IExposureProtection):
     """The protective stop of one Futures Grid."""
 
@@ -105,7 +96,7 @@ class ProtectiveStopService(IExposureProtection):
         self._book = ProtectiveStopBook(context)
 
     def protect(self, plan: GridPlan) -> bool:
-        wanted = self._wanted()
+        wanted = wanted_stops(self._context.params)
         if not wanted:
             logger.warning(
                 "Bot %s: the plan has no stop loss, so no stop stands on the exchange and "
@@ -123,7 +114,7 @@ class ProtectiveStopService(IExposureProtection):
 
     def supervise(self) -> ProtectionVerdict:
         state = self._context.state
-        if state.state not in _SUPERVISED or not self._wanted():
+        if state.state not in _SUPERVISED or not wanted_stops(self._context.params):
             return ProtectionVerdict.OK
         position = self._context.gateway.position()
         if position is None:
@@ -134,6 +125,8 @@ class ProtectiveStopService(IExposureProtection):
             )
             return ProtectionVerdict.OK
         open_stops = self._open_stops()
+        if open_stops is None:
+            return ProtectionVerdict.OK
         for stop in self._book.stops:
             if self._settle(stop, open_stops, position) is ProtectionVerdict.TRIGGERED:
                 return ProtectionVerdict.TRIGGERED
@@ -160,12 +153,29 @@ class ProtectiveStopService(IExposureProtection):
         stop of the bot's that stands; `False` when one could not stand, the bot has moved."""
         stood = all(
             self._place_if_missing(want, open_stops)
-            for want in self._wanted()
-            if self._covers(want.side, position)
+            for want in wanted_stops(self._context.params)
+            if covers(self._context.params, want.side, position)
         )
         if stood:
             self._cancel_untracked(open_stops)
+            self._release_uncovered(position)
         return stood
+
+    def _release_uncovered(self, position: Decimal) -> None:
+        """A recorded stop whose side no longer covers `position` (a NEUTRAL grid whose position
+        changed sign while the other side's stop stays unverified, check T3) goes, now that the
+        one that covers it stands: left, it would close the position of the other side or open
+        one."""
+        for stop in self._book.stops:
+            if not covers(self._context.params, stop.side, position):
+                logger.warning(
+                    "Bot %s: the protective stop %s no longer covers the position %s; "
+                    "cancelling it [protective-stop]",
+                    self._context.state.bot_id,
+                    stop.client_order_id,
+                    position,
+                )
+                self._release(stop)
 
     def _cancel_untracked(self, open_stops: dict[str, Order]) -> None:
         """A protective stop of the bot's that no record names and that is not the plan's (an
@@ -201,10 +211,10 @@ class ProtectiveStopService(IExposureProtection):
     def _explain_absence(
         self, stop: ProtectiveStop, position: Decimal
     ) -> ProtectionVerdict | None:
-        """The stop is on no open list. The decision needs the position alone, not the
-        history (which the trading side serves up to 15 s old, and which names a fill by an id
-        the stream may not have linked, decision D4): a stop that was standing and an account that
-        is flat means the exchange ran it; with a position standing it is placed again."""
+        """The stop is on no open list. With a position standing it is placed again. With the
+        account flat the order itself says how it ended (`_ran`): not the history, which the
+        trading side serves up to 15 s old and which names a fill by an id the stream may not
+        have linked (decision D4)."""
         standing = stop.state is ProtectiveStopState.STANDING
         logger.info(
             "Bot %s: protective stop %s %s is on no open list and the position is %s "
@@ -214,6 +224,9 @@ class ProtectiveStopService(IExposureProtection):
             stop.state.value,
             position,
         )
+        if standing and position == 0 and not self._ran(stop):
+            self._book.apply(stop, ProtectiveStopEvent.EXPIRED)
+            return None
         if standing and position == 0:
             self._book.apply(stop, ProtectiveStopEvent.TRIGGERED)
             self._announce(
@@ -232,46 +245,41 @@ class ProtectiveStopService(IExposureProtection):
             self._book.apply(stop, ProtectiveStopEvent.REJECTED)
         return None
 
-    def _place_if_missing(self, want: _Wanted, open_stops: dict[str, Order]) -> bool:
+    def _ran(self, stop: ProtectiveStop) -> bool:
+        """Whether the exchange ran `stop`: its status by client id says the trigger traded.
+        `EXPIRED`/`CANCELED` is the exchange ending it without a fill (check T2); a status that
+        cannot be read counts as ran, the side that ends flat and stops the bot."""
+        status = self._context.gateway.account_reads.order_status(stop.client_order_id)
+        if status in (OrderStatus.EXPIRED, OrderStatus.CANCELED):
+            logger.info(
+                "Bot %s: the exchange ended the protective stop %s as %s without a fill "
+                "[protective-stop]",
+                self._context.state.bot_id,
+                stop.client_order_id,
+                status.value,
+            )
+            return False
+        if status not in (OrderStatus.TRIGGERED, OrderStatus.FILLED):
+            logger.warning(
+                "Bot %s: how the protective stop %s ended could not be read (%s); taking it "
+                "as triggered [protective-stop]",
+                self._context.state.bot_id,
+                stop.client_order_id,
+                status,
+            )
+        return True
+
+    def _place_if_missing(self, want: WantedStop, open_stops: dict[str, Order]) -> bool:
         """Have a stop standing for `want`; `False` when it could not, the bot has moved."""
         held = next((s for s in self._book.stops if s.side is want.side), None)
         if held is not None and held.state is ProtectiveStopState.STANDING:
             return True
         if held is None:
-            adopted = self._adopt(want, open_stops)
+            adopted = self._book.adopt(want.side, want.trigger_price, open_stops)
             if adopted:
                 return True
             held = self._book.intend(want.side, want.trigger_price)
         return self._send(held)
-
-    def _adopt(self, want: _Wanted, open_stops: dict[str, Order]) -> bool:
-        """A stop of the right side already stands but the record lost it (the app died after
-        the order and before the save): it is taken back, never placed twice."""
-        tick = self._context.terms.tick_size
-        for order in open_stops.values():
-            if (
-                order.side is want.side
-                and order.stop_price is not None
-                and abs(order.stop_price - want.trigger_price) <= tick
-                and order.client_order_id
-                not in {s.client_order_id for s in self._book.stops}
-            ):
-                stop = ProtectiveStop(
-                    order.client_order_id, order.side, order.stop_price
-                )
-                self._context.off_ladder.add_exit(stop.client_order_id)
-                self._context.state.update(
-                    self._context.state.runtime.with_stop(
-                        stop.moved(ProtectiveStopEvent.ACCEPTED) or stop
-                    )
-                )
-                logger.info(
-                    "Bot %s: adopted the protective stop %s [protective-stop]",
-                    self._context.state.bot_id,
-                    stop.client_order_id,
-                )
-                return True
-        return False
 
     def _send(self, stop: ProtectiveStop) -> bool:
         try:
@@ -299,12 +307,20 @@ class ProtectiveStopService(IExposureProtection):
         self._announce(ProtectiveStopChange.FAILED, detail)
         halt_with(self._context.state, GridReason.PROTECTIVE_STOP_FAILED, detail)
 
-    def _open_stops(self) -> dict[str, Order]:
-        """The bot's protective stops that stand on the exchange, by client id."""
-        return {
-            str(order.client_order_id): order
-            for order in self._context.gateway.protective_orders()
-        }
+    def _open_stops(self) -> dict[str, Order] | None:
+        """The bot's protective stops that stand on the exchange, by client id; `None` when the
+        exchange's open orders could not be read, which is not "none stand"."""
+        try:
+            orders = self._context.gateway.account_reads.protective_orders()
+        except (
+            Exception
+        ):  # converted at this seam: an unread list is `None`, never empty
+            logger.exception(
+                "Bot %s: the open protective stops could not be read [protective-stop]",
+                self._context.state.bot_id,
+            )
+            return None
+        return {str(order.client_order_id): order for order in orders}
 
     # -- cancelling ---------------------------------------------------------
 
@@ -340,8 +356,8 @@ class ProtectiveStopService(IExposureProtection):
         if outcome.done:
             self._book.apply(stop, ProtectiveStopEvent.CANCELLED)
             return True
-        still_open = set(self._open_stops())
-        if stop.client_order_id not in still_open:
+        still_open = self._open_stops()
+        if still_open is not None and stop.client_order_id not in still_open:
             self._book.apply(stop, ProtectiveStopEvent.UNKNOWN_ORDER)
             return True
         logger.warning(
@@ -363,37 +379,3 @@ class ProtectiveStopService(IExposureProtection):
                 detail=detail,
             )
         )
-
-    # -- what is wanted -----------------------------------------------------
-
-    def _wanted(self) -> tuple[_Wanted, ...]:
-        params = self._context.params
-        if params.direction is TradeDirection.NEUTRAL:
-            # A NEUTRAL grid has no stop loss over the range: its exit above is the take
-            # profit (`GridReason.TAKE_PROFIT`), so the short side's stop stands there.
-            return tuple(
-                _Wanted(side, price)
-                for side, price in (
-                    (OrderSide.SELL, params.stop_loss_price),
-                    (OrderSide.BUY, params.take_profit_price),
-                )
-                if price is not None
-            )
-        price = params.stop_loss_price
-        if price is None:
-            return ()
-        side = (
-            OrderSide.BUY
-            if params.direction is TradeDirection.SHORT
-            else OrderSide.SELL
-        )
-        return (_Wanted(side, price),)
-
-    def _covers(self, side: OrderSide, position: Decimal) -> bool:
-        """Whether a stop of `side` closes `position` (SELL a long, BUY a short); a NEUTRAL
-        grid's other side waits for check T3."""
-        if self._context.params.direction is TradeDirection.NEUTRAL and (
-            NEUTRAL_BOTH_SIDES_VERIFIED
-        ):
-            return True
-        return position > 0 if side is OrderSide.SELL else position < 0

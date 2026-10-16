@@ -24,6 +24,7 @@ order. What Binance's pages do not say (`DECISION_2026-10-16` T1 to T3) is a swi
 here, off by default, so a journey can run each answer:
 
   · `reject_without_position` — a close-all stop is refused when the symbol is flat;
+  · `hold_triggers` — no order triggers (a stop that is late or missing);
   · `expire_when_flat` — one is `EXPIRED` ("canceled by the system") when the
     position goes to zero;
   · a trigger with no position on its side does nothing and the order `EXPIRED`s.
@@ -85,6 +86,9 @@ class FuturesAlgoOrders:
         self._peek_order_id = peek_order_id
         self.reject_without_position = False
         self.expire_when_flat = False
+        #: No conditional order triggers: the exchange's stop is missing or late, so a test can
+        #: show the bot's own exit working alone.
+        self.hold_triggers = False
 
     def place(self, params: dict[str, str]) -> tuple[int, dict[str, Any]]:
         order_type = params.get("type", "")
@@ -205,6 +209,8 @@ class FuturesAlgoOrders:
     def trigger(self, symbol: str, price: Decimal, place_order: PlaceOrder) -> None:
         """Triggers every open conditional order on `symbol` that `price`
         crosses, placing its regular order through `place_order`."""
+        if self.hold_triggers:
+            return
         for order in list(self._orders.values()):
             if order["symbol"] != symbol or order["algoStatus"] != _NEW:
                 continue

@@ -190,6 +190,10 @@ class SimulatedActivity(IAccountActivity):
             if symbol in (None, order.symbol)
         )
 
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        order = self._book.open.get(client_order_id)
+        return order if order is not None and order.symbol == symbol else None
+
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         if self.history_unavailable:
             raise AccountHistoryUnavailableError("allOrders timed out")

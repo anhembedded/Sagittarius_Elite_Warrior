@@ -109,7 +109,7 @@ counter order is laid. `HOLDS_ORDER` is the set of states with an order on the e
 ## Built: the protective stop's life cycle (Futures)
 
 `bots/domain/grid/protective_stop_fsm_matrix.py` → `ProtectiveStopState`, `ProtectiveStopEvent`,
-`PROTECTIVE_STOP_TRANSITIONS`: six states and nine events, one machine **per protective order**
+`PROTECTIVE_STOP_TRANSITIONS`: six states and ten events, one machine **per protective order**
 (a LONG or SHORT grid has one; a NEUTRAL grid has up to two). Its record is `bots/domain/grid/protective_stop.py` →
 `ProtectiveStop`, kept in the Grid's runtime (`GridRuntime.protective_stops`) and written only when
 there is one, so a Spot runtime and one saved before this existed read and write what they did
@@ -126,6 +126,7 @@ the next save. Any pair the table does not list is refused: `next_protective_sto
 | `intended` | `accepted` | `standing` |
 | `intended` | `rejected` | `absent` |
 | `standing` | `triggered` | `triggered` |
+| `standing` | `expired` | `ended` |
 | `standing` | `exposure_closed` | `cancelling` |
 | `standing` | `missing_with_position` | `absent` |
 | `cancelling` | `cancelled` | `ended` |
@@ -135,8 +136,11 @@ the next save. Any pair the table does not list is refused: `next_protective_sto
 
 The only way into `CANCELLING` is `exposure_closed` from `STANDING`: the bot's own exposure being
 closed is the one reason a stop may go (`test_a_stop_is_cancelled_only_through_exposure_closed`).
-A `STANDING` stop that is on no open list is judged by the position alone: flat means the
-exchange ran it (`triggered`), a position standing means it is placed again
-(`missing_with_position`). The Grid does not read the order history to tell an expired stop from a
-cancelled one: trading serves it up to 15 s old, and the position says what the bot needs
-(`DECISION_2026-10-16` D4).
+A `STANDING` stop that is on no open list while a position stands is placed again
+(`missing_with_position`). With the account flat the order itself says how it ended, read by its
+client id with no cache (`bots/application/services/orders/bot_account_reads.py` →
+`BotAccountReads.order_status`): a trigger that traded is `triggered`; the exchange ending it
+without a fill ("canceled by the system", check T2) is `expired`, and the record is dropped; an
+answer that cannot be read counts as `triggered`, the side that ends flat. The Grid does not read the
+order history for this: trading serves it up to 15 s old and does not attribute a conditional
+order's fill to the bot (`DECISION_2026-10-16` D4, §8 A2).

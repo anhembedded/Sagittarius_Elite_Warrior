@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_accou
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_orders.query import (
     GetOpenOrdersQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order.query import (
+    GetOrderQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history.query import (
     GetOrderHistoryQuery,
 )
@@ -67,6 +70,13 @@ class AccountActivityService(IAccountActivity):
         return _typed(
             query, self._dispatcher.dispatch(GetOpenOrdersQuery, query), tuple
         )
+
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        query = GetOrderQuery(
+            venue=self._venue, symbol=symbol, client_order_id=client_order_id
+        )
+        answer = self._dispatcher.dispatch(GetOrderQuery, query)
+        return None if answer is None else _typed(query, answer, Order)
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         query = GetOrderHistoryQuery(

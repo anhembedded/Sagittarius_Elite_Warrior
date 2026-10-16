@@ -91,6 +91,16 @@ class FakeAccountActivity(IAccountActivity):
             order for order in self._open_orders if symbol in (None, order.symbol)
         )
 
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        return next(
+            (
+                order
+                for order in self._open_orders
+                if order.symbol == symbol and order.client_order_id == client_order_id
+            ),
+            None,
+        )
+
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         self.order_requests.append(request)
         rows = [r for r in self._order_rows if _kept(r.order.symbol, request)]

@@ -25,12 +25,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
     ProtectiveStopOrder,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
-    CreateBotCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
-    StartBotCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
     StopBotCommand,
 )
@@ -69,32 +63,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
-from .futures_bots_world import GRID, BootedFuturesBots, booted_futures_bots
+from .futures_bots_world import BootedFuturesBots, booted_futures_bots
 from .futures_fake_exchange import FUTURES, SYMBOL
+from .futures_stop_helpers import STOP_LOSS, started, stops
 from .grid_fake_exchange import FakeExchange
 
 S = BotLifecycleState
 D = Decimal
-#: The stop loss of `GRID` (`price:50000`), under the range and far from liquidation.
-STOP_LOSS = D(50000)
-
-
-def _started(app: BootedFuturesBots, config: dict[str, str] | None = None) -> str:
-    created = app.engine.dispatch(
-        CreateBotCommand,
-        CreateBotCommand("futures grid", "grid", FUTURES, SYMBOL, config or GRID),
-    )
-    assert isinstance(created, BotCommandResult)
-    assert created.bot_id is not None, created.message
-    started = app.engine.dispatch(StartBotCommand, StartBotCommand(created.bot_id))
-    assert isinstance(started, BotCommandResult)
-    assert started.accepted, started.message
-    return created.bot_id
-
-
-def _stops(app: BootedFuturesBots) -> list[dict[str, object]]:
-    """The conditional orders standing on the exchange, as the fake holds them."""
-    return app.exchange.urls.futures_book.algo.open_orders(SYMBOL)
 
 
 def _resumed(app: BootedFuturesBots) -> None:
@@ -107,15 +82,15 @@ def test_the_stop_stands_before_the_ladder_is_ready_and_its_id_is_in_the_saved_r
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = started(app)
 
         assert app.bot(bot_id).state is S.RUNNING
-        (stop,) = _stops(app)
+        (stop,) = stops(app)
         assert stop["closePosition"] is True
         assert (stop["orderType"], stop["side"]) == ("STOP_MARKET", "SELL")
         assert D(str(stop["triggerPrice"])) == STOP_LOSS
         assert stop["workingType"] == "MARK_PRICE"
-        assert "quantity" not in {"quantity": None} or stop["quantity"] == "0"
+        assert D(str(stop["quantity"])) == 0
         (saved,) = app.runtime(bot_id).protective_stops
         assert saved.client_order_id == stop["clientAlgoId"]
         assert (saved.state, saved.side, saved.trigger_price) == (
@@ -149,9 +124,9 @@ def test_the_stops_id_is_in_the_saved_runtime_before_the_order_is_sent(
     with booted_futures_bots(futures) as app:
         holder["app"] = app
 
-        _started(app)
+        started(app)
 
-        (stop,) = _stops(app)
+        (stop,) = stops(app)
         assert seen == [(stop["clientAlgoId"], ProtectiveStopState.INTENDED)]
 
 
@@ -159,8 +134,8 @@ def test_stop_cancels_the_protective_stop_only_after_the_position_is_flat(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
-        assert len(_stops(app)) == 1
+        bot_id = started(app)
+        assert len(stops(app)) == 1
 
         stopped = app.engine.dispatch(
             StopBotCommand, StopBotCommand(bot_id, ExposureHandling.CLOSE_AT_MARKET)
@@ -170,13 +145,13 @@ def test_stop_cancels_the_protective_stop_only_after_the_position_is_flat(
         assert isinstance(stopped, BotCommandResult) and stopped.accepted
         assert app.bot(bot_id).state is S.STOPPED
         assert app.position() == 0
-        assert _stops(app) == []
+        assert stops(app) == []
         assert app.runtime(bot_id).protective_stops == ()
 
 
 def test_a_close_that_fails_leaves_the_stop_standing(futures: FakeExchange) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = started(app)
         # Every reduce-only market order the close sends is refused by the exchange.
         for _ in range(40):
             futures.urls.futures_book.faults.reject_next_order(
@@ -189,7 +164,7 @@ def test_a_close_that_fails_leaves_the_stop_standing(futures: FakeExchange) -> N
         app.deliver()
 
         assert app.position() > 0, "the close did not go through"
-        assert len(_stops(app)) == 1, "so the stop still stands over the position"
+        assert len(stops(app)) == 1, "so the stop still stands over the position"
         assert app.bot(bot_id).state is not S.STOPPED
 
 
@@ -197,15 +172,15 @@ def test_a_restart_adopts_the_standing_stop_and_places_no_second_one(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as first:
-        bot_id = _started(first)
-        (before,) = _stops(first)
+        bot_id = started(first)
+        (before,) = stops(first)
 
     with booted_futures_bots(futures) as second:
         assert second.bot(bot_id).state is S.RECOVERING
         _resumed(second)
 
         assert second.bot(bot_id).state is S.RUNNING
-        (after,) = _stops(second)
+        (after,) = stops(second)
         assert after["clientAlgoId"] == before["clientAlgoId"]
 
 
@@ -213,7 +188,7 @@ def test_a_position_without_a_stop_after_a_crash_is_re_protected(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as first:
-        bot_id = _started(first)
+        bot_id = started(first)
     # The app died between the fill and the stop: nothing stands (the record is saved, the
     # order is gone).
     futures.urls.futures_book.algo.cancel_all(SYMBOL)
@@ -222,7 +197,7 @@ def test_a_position_without_a_stop_after_a_crash_is_re_protected(
         _resumed(second)
 
         assert second.bot(bot_id).state is S.RUNNING
-        (stop,) = _stops(second)
+        (stop,) = stops(second)
         assert D(str(stop["triggerPrice"])) == STOP_LOSS
         (saved,) = second.runtime(bot_id).protective_stops
         assert saved.state is ProtectiveStopState.STANDING
@@ -233,7 +208,7 @@ def test_the_stop_triggers_while_the_app_is_down_and_the_bot_returns_flat(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as first:
-        bot_id = _started(first)
+        bot_id = started(first)
 
     # While the app is closed the mark falls through the stop: the exchange closes the position.
     futures.urls.futures_book.move_price(SYMBOL, STOP_LOSS - 100)
@@ -247,7 +222,7 @@ def test_the_stop_triggers_while_the_app_is_down_and_the_bot_returns_flat(
         assert second.bot(bot_id).state is S.STOPPED
         assert runtime.reason is GridReason.PROTECTIVE_STOP_TRIGGERED
         assert second.position() == 0
-        assert _stops(second) == []
+        assert stops(second) == []
         assert second.resting() == {}
 
 
@@ -255,7 +230,7 @@ def test_the_stop_triggers_in_the_session_and_the_bot_stops_flat_and_says_why(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = started(app)
         # The ladder's resting buys would fill on the way down, and their reports would reach
         # the bot ahead of the stop's: this journey is the stop's own.
         futures.urls.futures_book.faults.hold_fills = True
@@ -265,7 +240,7 @@ def test_the_stop_triggers_in_the_session_and_the_bot_stops_flat_and_says_why(
         assert app.position() == 0
         assert app.bot(bot_id).state is S.STOPPED
         assert app.runtime(bot_id).reason is GridReason.PROTECTIVE_STOP_TRIGGERED
-        assert _stops(app) == []
+        assert stops(app) == []
         assert app.resting() == {}
 
 
@@ -273,15 +248,15 @@ def test_a_stop_over_a_symbol_the_owner_flattened_is_cancelled_not_left_to_open_
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = started(app)
         # The owner closes the whole position by hand on the exchange's page.
         app.client().place_order(_flatten(app))
         assert app.position() == 0
-        assert len(_stops(app)) == 1
+        assert len(stops(app)) == 1
 
         app.ticker.fire()  # the price watch's beat
 
-        assert _stops(app) == [], (
+        assert stops(app) == [], (
             "a stop over nothing is cancelled: it could open a position"
         )
         assert app.runtime(bot_id).protective_stops == ()
@@ -303,15 +278,15 @@ def test_a_stop_of_the_bots_that_the_plan_does_not_ask_for_is_taken_down_after_i
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
-        (own,) = _stops(app)
+        bot_id = started(app)
+        (own,) = stops(app)
         # An old stop of this bot's, at another trigger, that nothing in its record names.
         app.client().place_order(_stray_stop(bot_id))
-        assert len(_stops(app)) == 2
+        assert len(stops(app)) == 2
 
         app.ticker.fire()  # the price watch's beat
 
-        (left,) = _stops(app)
+        (left,) = stops(app)
         assert left["clientAlgoId"] == own["clientAlgoId"]
 
 
@@ -333,7 +308,7 @@ def test_a_stop_that_ran_is_announced_for_the_alert_module(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        _started(app)
+        started(app)
         heard: list[BotProtectiveStopEvent] = []
         app.engine.context.container.resolve(IEventBus).on(
             BotProtectiveStopEvent, heard.append
@@ -350,7 +325,7 @@ def test_a_stop_that_went_missing_is_announced_and_placed_again(
     futures: FakeExchange,
 ) -> None:
     with booted_futures_bots(futures) as app:
-        bot_id = _started(app)
+        bot_id = started(app)
         heard: list[BotProtectiveStopEvent] = []
         app.engine.context.container.resolve(IEventBus).on(
             BotProtectiveStopEvent, heard.append
@@ -362,7 +337,7 @@ def test_a_stop_that_went_missing_is_announced_and_placed_again(
         app.ticker.fire()
 
         assert [event.change for event in heard] == [ProtectiveStopChange.MISSING]
-        (stop,) = _stops(app)
+        (stop,) = stops(app)
         assert stop["clientAlgoId"] in {
             s.client_order_id for s in app.runtime(bot_id).protective_stops
         }

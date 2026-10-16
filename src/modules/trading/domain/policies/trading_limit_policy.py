@@ -123,9 +123,10 @@ class TradingLimitPolicy:
         # `EPIC-039L` — a position owner's order that only reduces (a protective stop) is
         # not a new trade to pace or to count among the open orders: it can add no
         # position, and refusing it for the spacing of the bot's own ladder would leave
-        # the position bare.
-        paced = not (context.purpose.only_reduces and facts.position is not None)
-        return (notional, *_owner_budget_checks(facts, context.order_notional, paced))
+        # the position bare. It still answers to the exposure checks.
+        if context.purpose.only_reduces and facts.position is not None:
+            return (notional, *_exposure_checks(facts, context.order_notional))
+        return (notional, *_owner_budget_checks(facts, context.order_notional))
 
     def first_violation(
         self, context: TradingLimitContext
@@ -137,36 +138,39 @@ class TradingLimitPolicy:
 
 
 def _owner_budget_checks(
-    facts: OwnerBudgetFacts, order_notional: Decimal, paced: bool = True
+    facts: OwnerBudgetFacts, order_notional: Decimal
 ) -> tuple[TradingLimitCheck, ...]:
     """@brief ADR D6's five checks. Each counts the order being sent, so a
     figure exactly at its ceiling passes and the next order is refused. The
     middle two are Spot's exposure and inventory checks, or, for a Futures
     owner (`EPIC-039D`), the position's notional and margin."""
     budget = facts.budget
-    exposure_checks = (
-        _position_checks(facts, order_notional)
-        if facts.position is not None
-        else _inventory_checks(facts, order_notional)
-    )
     return (
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_OPEN_ORDERS,
-            passed=not paced or facts.open_order_count + 1 <= budget.max_open_orders,
+            passed=facts.open_order_count + 1 <= budget.max_open_orders,
         ),
-        *exposure_checks,
+        *_exposure_checks(facts, order_notional),
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_SPACING,
-            passed=not paced
-            or facts.time_since_last_order is None
+            passed=facts.time_since_last_order is None
             or facts.time_since_last_order >= budget.min_order_spacing,
         ),
         TradingLimitCheck(
             TradingLimitViolation.OWNER_BUDGET_RATE,
-            passed=not paced
-            or facts.orders_in_window + 1 <= budget.max_orders_per_window,
+            passed=facts.orders_in_window + 1 <= budget.max_orders_per_window,
         ),
     )
+
+
+def _exposure_checks(
+    facts: OwnerBudgetFacts, order_notional: Decimal
+) -> tuple[TradingLimitCheck, TradingLimitCheck]:
+    """The two checks on what the order adds: a Futures owner's position notional and margin,
+    else Spot's exposure and inventory."""
+    if facts.position is not None:
+        return _position_checks(facts, order_notional)
+    return _inventory_checks(facts, order_notional)
 
 
 def _inventory_checks(

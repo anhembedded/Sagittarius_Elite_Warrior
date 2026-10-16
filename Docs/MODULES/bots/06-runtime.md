@@ -131,7 +131,7 @@ with `closePosition=true` and `workingType=MARK_PRICE` through trading, as a pro
 owner's pacing checks do not refuse, and saves `STANDING` on the answer (`ProtectiveStopBook.send`).
 A LONG grid's stop is a SELL at its stop-loss price, a SHORT grid's a BUY; a NEUTRAL grid's other side
 is its take profit, placed only for the side that covers the position until the owner has recorded
-check T3 (`protection_futures.py` → `NEUTRAL_BOTH_SIDES_VERIFIED`). A plan with no stop loss places
+check T3 (`protective_stop_plan.py` → `NEUTRAL_BOTH_SIDES_VERIFIED`). A plan with no stop loss places
 none and is *unprotected*, said in a warning. A stop that cannot stand halts the bot, which closes its
 position (it is never left bare); an opening that left the account flat has nothing to protect yet,
 and the first beat that finds a position places it. A send with no answer leaves the record
@@ -140,11 +140,16 @@ and the first beat that finds a position places it. A send with no answer leaves
 
 **Keep.** On the price watch's beat (`bots/application/kinds/grid/grid_facts.py` →
 `GridFacts.on_price_age_check`, `GridFacts._supervise_protection`) the service compares its records
-with the open protective orders and the position: a record that is on no open list is judged by the
-position alone (flat: the exchange ran it, the verdict `TRIGGERED`, and the bot stops with
-`GridReason.PROTECTIVE_STOP_TRIGGERED`; a position standing: it is placed again); an untracked stop of
-the right side and trigger is adopted; a stop standing over a flat symbol is cancelled after a second
-read, because it could open a position. The fill of a stop reaches the bot under its id when the
+with the open protective orders and the position: a record that is on no open list is placed again
+when a position stands; with the account flat the order is read by its client id (no cache), and
+`TRIGGERED` — it ran, the verdict the bot stops on with `GridReason.PROTECTIVE_STOP_TRIGGERED` —
+is told from the exchange ending it without a fill (the record is dropped, the bot runs on); an
+answer that cannot be read counts as ran. An untracked stop of the right side and trigger is adopted;
+a stop standing over a flat symbol is cancelled after a second read, because it could open a
+position; a recorded stop that no longer covers the position (a NEUTRAL grid whose position changed
+sign, while check T3 is unrecorded) goes once the covering one stands. A beat costs about two or three
+REST reads per Futures bot: the position, the open protective orders and, only when a stop has
+vanished with the account flat, the one order. The fill of a stop reaches the bot under its id when the
 stream has linked it, and then runs the same look at once.
 
 **Exit.** Every exit (Stop, stop loss, take profit, a halt that closes) runs the same close, and the

@@ -270,9 +270,11 @@ class BotOrderGateway:
         protective stops (`EPIC-039L`, decision D4: one seam, so no ladder read sees a stop)."""
         return self._reads.ladder_orders()
 
-    def protective_orders(self) -> tuple[Order, ...]:
-        """The bot's protective stops that are open on the exchange (`EPIC-039L`)."""
-        return self._reads.protective_orders()
+    @property
+    def account_reads(self) -> BotAccountReads:
+        """The bot's reads of its account beyond the ladder: its protective stops and how one
+        order ended (`EPIC-039L`). A property, so the gateway's own surface stays small."""
+        return self._reads
 
     def place_protective_stop(self, stop: ProtectiveStopOrder) -> OrderOutcome:
         """A stop that closes the whole position when the mark price reaches `stop`'s trigger

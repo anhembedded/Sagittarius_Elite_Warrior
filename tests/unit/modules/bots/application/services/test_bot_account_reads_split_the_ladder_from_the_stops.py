@@ -77,4 +77,4 @@ def test_every_ladder_read_of_the_gateway_goes_through_the_seam() -> None:
     gateway = BotOrderGateway(_ports(*_ALL), _IDENTITY, Mock())
 
     assert gateway.tagged_open_orders() == (_LADDER,)
-    assert gateway.protective_orders() == (_STOP,)
+    assert gateway.account_reads.protective_orders() == (_STOP,)

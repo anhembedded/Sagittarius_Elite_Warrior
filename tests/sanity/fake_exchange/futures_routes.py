@@ -34,6 +34,7 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/premiumIndex    `futures_mark_price()` (`EPIC-028O`)
     GET    /fapi/v1/ticker/bookTicker  `futures_orderbook_ticker()` (`EPIC-028O`)
     GET    /fapi/v1/multiAssetsMargin  `futures_get_multi_assets_mode()` (`EPIC-028O`)
+    GET    /fapi/v1/order           `futures_get_order()` (`EPIC-039L`: how an order ended)
     POST   /fapi/v1/algoOrder       `futures_create_algo_order()` (`EPIC-028R`)
     GET    /fapi/v1/algoOrder       `futures_get_algo_order()` (`EPIC-028R`)
     GET    /fapi/v1/openAlgoOrders  `futures_get_open_algo_orders()` (`EPIC-028R`)
@@ -177,6 +178,13 @@ def _handle_get(
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":
         return 200, state.open_orders(params.get("symbol"))
+    if path == "/fapi/v1/order":
+        found = state.history.find(
+            params.get("symbol", ""), params.get("origClientOrderId", "")
+        )
+        if found is None:
+            return 400, {"code": -2013, "msg": "Order does not exist."}
+        return 200, found
     if path == "/fapi/v2/account":
         return 200, state.account.account()
     if path == "/fapi/v3/positionRisk":

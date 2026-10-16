@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_accou
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_orders import (
     GetOpenOrdersQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order import (
+    GetOrderQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history import (
     GetOrderHistoryQuery,
 )
@@ -118,3 +121,13 @@ def test_another_page_keeps_the_span() -> None:
     first = HistoryRequest(symbol=None, since=_SINCE)
 
     assert first.at_page(3) == HistoryRequest(symbol=None, since=_SINCE, page=3)
+
+
+def test_one_order_is_read_by_its_client_id_from_the_services_venue() -> None:
+    dispatcher = _AnsweringDispatcher({})
+    service = AccountActivityService(dispatcher, _SPOT)
+
+    assert service.find_order("BTCUSDT", "SEW-x") is None
+    assert dispatcher.dispatched == [
+        GetOrderQuery(venue=_SPOT, symbol="BTCUSDT", client_order_id="SEW-x")
+    ]

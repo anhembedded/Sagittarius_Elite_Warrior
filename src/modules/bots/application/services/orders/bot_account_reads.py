@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
     VenueTradingPorts,
 )
@@ -85,6 +88,22 @@ class BotAccountReads:
     def protective_orders(self) -> tuple[Order, ...]:
         """The account's open protective stops on the bot's symbol that carry its tag."""
         return tuple(order for order in self._tagged() if order.close_position)
+
+    def order_status(self, client_order_id: str) -> OrderStatus | None:
+        """How the exchange holds one of the bot's orders now, read by its client id (a regular
+        order, else a conditional one); `None` when it holds none or could not be asked."""
+        try:
+            order = self._ports.account_activity.find_order(
+                self._identity.symbol, client_order_id
+            )
+        except Exception:  # converted at this seam: an unread order is `None`
+            logger.exception(
+                "Bot %s: the order %s could not be read",
+                self._identity.tag,
+                client_order_id,
+            )
+            return None
+        return None if order is None else order.status
 
     def _tagged(self) -> tuple[Order, ...]:
         return tuple(

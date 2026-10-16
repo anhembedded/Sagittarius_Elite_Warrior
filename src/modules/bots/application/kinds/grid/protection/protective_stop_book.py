@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
     ClientOrderId,
     generate_client_order_id,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -68,6 +69,33 @@ class ProtectiveStopBook:
             stop.trigger_price,
         )
         return stop
+
+    def adopt(
+        self, side: OrderSide, trigger_price: Decimal, open_stops: dict[str, Order]
+    ) -> bool:
+        """A stop of the right side already stands but the record lost it (the app died after
+        the order and before the save): it is taken back, never placed twice."""
+        tick = self._context.terms.tick_size
+        known = {s.client_order_id for s in self.stops}
+        for order in open_stops.values():
+            if (
+                order.side is side
+                and order.stop_price is not None
+                and abs(order.stop_price - trigger_price) <= tick
+                and order.client_order_id not in known
+            ):
+                stop = ProtectiveStop(
+                    order.client_order_id, order.side, order.stop_price
+                )
+                self._context.off_ladder.add_exit(stop.client_order_id)
+                self._save(stop.moved(ProtectiveStopEvent.ACCEPTED) or stop)
+                logger.info(
+                    "Bot %s: adopted the protective stop %s [protective-stop]",
+                    self._context.state.bot_id,
+                    stop.client_order_id,
+                )
+                return True
+        return False
 
     def send(self, stop: ProtectiveStop, mark: Decimal) -> OrderOutcome:
         """Send `stop`, whose record is already saved. Accepted: it is `STANDING`; refused by
