@@ -60,4 +60,6 @@ else does:
 Name the reader and the question first. Leave out a section that has nothing to say. State a rule by
 citing it, never by copying it. Each home folder's `README.md` gives its layout. A pull request that
 changes a module with a design folder updates that folder or says why not (`commit-rule.md` §1,
-"Design in step"; the layout is [`MODULES/README.md`](MODULES/README.md)).
+"Design in step"; the layout is [`MODULES/README.md`](MODULES/README.md)). A design cites code by
+path and symbol, never by line; a point-in-time record may cite a line at a named commit
+(`commit-rule.md` §1, "Citing code").

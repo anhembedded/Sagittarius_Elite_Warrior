@@ -24,7 +24,7 @@ theirs as their own task, with this template.
 | :--- | :--- |
 | The files below, for one module | The app's shape or other modules' internals: [`../ARCHITECTURE/`](../ARCHITECTURE/README.md) |
 | Reasons and trade-offs the code cannot show, with a link to the decision record | The decision's full argument: [`../DECISIONS/`](../DECISIONS/README.md), or the record in its epic |
-| `file:line` citations to the code that owns each fact | A copy of the code, a rule, or a contract's member list: cite them |
+| Citations by path and symbol to the code that owns each fact: `` `<path>.py` → `<symbol>` `` | A line number: it moves with every unrelated edit. A copy of the code, a rule, or a contract's member list: cite them |
 | A link to the use case | The use case itself: [`../SPEC/`](../SPEC/README.md) |
 | A term used as defined | The term's definition: [`../VOCABULARY/`](../VOCABULARY/README.md) |
 
@@ -94,3 +94,10 @@ A pull request that changes `src/modules/<module>/` for a module that has a fold
 folder too, or writes `No design change: <reason>` under its `## Design` section. The rule is
 `commit-rule.md` §1 ("Design in step"); `scripts/check_design_in_step.py` holds it on every pull
 request, and review check K10 judges whether the answer is true.
+
+A citation names a symbol, never a line (`commit-rule.md` §1, "Citing code";
+[decision of 2026-10-16](../../Tasks/epics/EPIC-041_documentation_standard/DECISION_2026-10-16_cite_code_by_symbol.md)):
+`` `alerting/composition/channel_bindings.py` → `discord_channel` ``. A symbol changes only when the
+code it names changes, which is when the design should be read again.
+`tests/unit/architecture/test_module_docs_cite_code_by_symbol.py` fails on a line citation anywhere
+in this folder and on a cited symbol that its file no longer defines.

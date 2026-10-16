@@ -13,7 +13,7 @@ description: The format of a decision record (ADR, Nygard 2011) inside an epic �
 
 | Label | Meaning |
 | :--- | :--- |
-| ✅ Established | confirmed on the real code tree; cited as `file:line` |
+| ✅ Established | confirmed on the real code tree at the commit §1 names; cited as `file:line` there (`commit-rule.md` §1, "Citing code") |
 | 🔵 Proposed | an option awaiting a decision; not accepted |
 | 🟢 User decision | decided by the user; quoted verbatim, then translated |
 | 🤖 Default, owner may veto | an owner question settled on its recommendation under ONBOARDING §7: its Constitution check shows every invariant passes; reverted if the owner vetoes |

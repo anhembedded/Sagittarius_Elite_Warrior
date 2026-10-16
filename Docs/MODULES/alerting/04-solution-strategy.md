@@ -12,13 +12,13 @@ everything else in `EPIC-036` hangs off it ([ADR 036 of 2026-10-15](../../../Tas
 
 ## What it does
 
-A bot that enters `HALTED` or `ERROR`, or whose stop gives up after its automatic
-retries (it stays `STOPPING`, `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py:117-132`),
-produces exactly one CRITICAL alert (`BOT_HALTED`, `BOT_ERROR`, `STOP_FAILED`), stored in the outbox
-before any send, and delivered to one Discord webhook. A 429 is answered by waiting the time Discord
-names and never less. No log line, exception text or outbox row holds the webhook URL or any part of
-it. It works on the headless VPS host, where the webhook comes from a systemd credential file. The
-journey, drawn: [`06-runtime.md`](06-runtime.md).
+A bot that enters `HALTED` or `ERROR`, or whose stop gives up after its automatic retries (it stays
+`STOPPING`, `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py` →
+`GridStopRetry._exhausted`), produces exactly one CRITICAL alert (`BOT_HALTED`, `BOT_ERROR`,
+`STOP_FAILED`), stored in the outbox before any send, and delivered to one Discord webhook. A 429 is
+answered by waiting the time Discord names and never less. No log line, exception text or outbox row
+holds the webhook URL or any part of it. It works on the headless VPS host, where the webhook comes
+from a systemd credential file. The journey, drawn: [`06-runtime.md`](06-runtime.md).
 
 ## What is real and what stands in
 

@@ -19,7 +19,7 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 ---
 
 ## 1. Context and problem
-{The real situation with evidence: `file:line`, a measured number, the symptom. Why now.}
+{The real situation with evidence: `file:line` at a named commit sha, a measured number, the symptom. Why now.}
 
 ## 2. Acceptance criteria
 - [ ] {An observable outcome, including the conditions under which it must hold.}
