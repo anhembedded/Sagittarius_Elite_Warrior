@@ -7,6 +7,7 @@
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet; a journey "set up an alert channel" is added by this task.
 **Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §3, §4, §7.
+**Split:** the Discord webhook field with Save and Remove, the Send test and the channel status line of the Options page are [EPIC-036D1](EPIC-036D1_options_alerts_page_discord_webhook.md) (owner, 2026-10-16). This task keeps the rest: the channels table with Add, Edit and Rotate, the routing matrix, the schedule, the dock, the indicator and the per-bot mute; its Options page extends the page 036D1 created in `src/modules/alerting/ui/options/` and does not start a second one.
 **Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (settings, outbox history), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md) (channels to configure and test).
 
 ---

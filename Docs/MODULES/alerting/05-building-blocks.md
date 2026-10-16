@@ -66,7 +66,27 @@ The walking skeleton (`EPIC-036G`) added:
   (`alerting/cli/alert_cli_handler.py:59`): `alert test`, one loud `TEST` alert per channel, straight
   to the channel and never through the outbox (design 036 §9).
 
-Every binding is in `alerting/composition/alerting_bindings.py:98-168`.
+The Options page (`EPIC-036D1`) added:
+
+- **`DiscordWebhookSetup`** (`alerting/application/discord_webhook_setup.py:82`), the only write path
+  the app has for a channel's secret: `save` strips and validates with `is_discord_webhook_url`
+  (injected through `WebhookChannelSpec`, `:44`, so the application layer imports no adapter), writes
+  through `ISecretStore` and reads back to catch a store that answers first (`OVERRIDDEN`, `:103-117`);
+  `remove` does the same for deletion (`:119-128`); `state` answers `DiscordChannelState` (`:71`):
+  stored, usable, the last four characters of the token, and whether this run has the lane
+  (`:93-101`). It returns enums and a hint, never the URL.
+- **`SendTestToConfiguredChannels`** (`alerting/application/send_test_to_configured_channels.py:26`)
+  is `SendTestMessage` over a catalog built again for each test, by **`IChannelCatalogBuilder`**
+  (`alerting/contracts/i_channel_catalog_builder.py`) and its adapter
+  **`DescriptorChannelCatalogBuilder`** (`alerting/composition/channel_bindings.py:122`), which runs
+  `build_channel_catalog` again. The run's own catalog is not touched.
+- **The page**, in `alerting/ui/options/`: `AlertsSettingsPresenter`
+  (`alerts_settings_presenter.py:93`, an `OptionsSectionPresenter` that is never dirty), its view and
+  view model, `AlertsActionRelay` (`alerts_action_relay.py:15`, a `UiThreadRelay`) and the page's
+  sentences (`alerts_words.py`). The module contributes it as the `Deferred` `_OPTIONS_PAGE`
+  (`alerting/module.py:89`, `:108-115`), order 30 after Trading and Market Data.
+
+Every binding is in `bind_alerting` in `alerting/composition/alerting_bindings.py:116-209` (the page's three at `:137-157`).
 
 ## Planned
 
@@ -74,6 +94,6 @@ Every binding is in `alerting/composition/alerting_bindings.py:98-168`.
 | :--- | :--- | :--- |
 | `StreamAlertSource`, `SystemAlertSource` (replaces `NotificationEventHandler`) | `alerting/application/sources/` | `EPIC-036B` |
 | `TelegramChannel` (moved), the token migration, the embed layout, pacing, `RotateSecret` | `alerting/adapters/`, `alerting/application/` | `EPIC-036C` |
-| The Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; a persisted `IAlertSettingsSource` | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
+| The channels table, routing matrix and schedule of the Options page, the Alerts dock, the status-bar indicator, the per-bot menu item; a persisted `IAlertSettingsSource` | `alerting/ui/`, `alerting/adapters/` | `EPIC-036D` |
 | `HeartbeatService`, the dead man's switch pinger | `alerting/application/`, `alerting/adapters/` | `EPIC-036E` |
 | `IRemoteCommandSource`, `RemoteCommandGate` | `alerting/` | `EPIC-036F` |

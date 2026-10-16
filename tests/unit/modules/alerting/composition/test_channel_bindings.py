@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.channel_alerting
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings import (
     ChannelSecrets,
+    DescriptorChannelCatalogBuilder,
     build_channel_catalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
@@ -118,3 +119,22 @@ def test_a_disabled_channel_carries_nothing() -> None:
     )
 
     assert not ChannelAlertingStatus(catalog, settings).carries_bot_events()
+
+
+def test_the_builder_sees_a_webhook_saved_after_the_run_began() -> None:
+    """`EPIC-036D1`: the run's catalog is fixed at boot; the Send test is not."""
+    store = InMemorySecretStore()
+    builder = DescriptorChannelCatalogBuilder(_Resolver(store))
+    assert builder.build().channel_ids() == ()
+
+    store.write(DISCORD_WEBHOOK_SECRET, WEBHOOK)
+
+    assert builder.build().channel_ids() == ("discord",)
+
+
+def test_the_builder_builds_a_new_catalog_each_time() -> None:
+    builder = DescriptorChannelCatalogBuilder(
+        _Resolver(InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}))
+    )
+
+    assert builder.build() is not builder.build()

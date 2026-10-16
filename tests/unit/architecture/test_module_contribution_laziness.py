@@ -192,7 +192,7 @@ def test_the_modules_that_contribute_are_the_ones_that_say_they_do() -> None:
     contributors = {
         descriptor.contributor_id for descriptor in registry.descriptors
     } | {page.contributor_id for page in registry.options_pages}
-    assert contributors == {"trading", "market_data"}, (
+    assert contributors == {"trading", "market_data", "alerting"}, (
         "The set of contributing modules changed. That is allowed — update "
         "this assertion in the same commit, so the guard keeps a subject."
     )

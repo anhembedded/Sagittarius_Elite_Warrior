@@ -1,0 +1,35 @@
+' Question: what runs on which thread when the owner saves a webhook or sends a test from Tools > Options > Alerts?
+' Explained by: ../06-runtime.md. Drawn by hand; the steps are cited there and in ../05-building-blocks.md.
+@startuml 06-options-save-and-test
+participant "Alerts page\n(UI thread)" as P
+participant "Pool thread" as W
+participant DiscordWebhookSetup as S
+participant "ISecretStore\n(keyring)" as K
+participant SendTestToConfiguredChannels as T
+participant DescriptorChannelCatalogBuilder as B
+participant DiscordWebhookChannel as D
+participant Discord as X
+
+== Save ==
+P -> P : begin action n (ActionOwnershipTracker),\nbuttons off, "Saving the webhook..."
+P -> W : submit(save(text))
+W -> S : save(text)
+S -> S : strip, is_discord_webhook_url?\nno: REFUSED, nothing written
+S -> K : write("alerting_discord_webhook", url)
+S -> K : read(...) must equal url, else OVERRIDDEN
+W --> P : relay: (n, SAVE, WebhookSave)
+P -> P : still action n? then clear the field,\nshow the sentence and the 4-character hint
+
+== Send test ==
+P -> W : submit(run())
+W -> T : run()
+T -> B : build()
+B -> K : read(...) via discord_channel(): no webhook, no channel
+T -> D : deliver(TEST alert, LOUD)
+D -> X : POST
+X --> D : 404
+D --> T : refused("Discord refused the webhook message (404)")
+W --> P : relay: (n, TEST, outcomes)
+P -> P : still action n? then show the sanitised reason
+note over P, W : the URL crosses only P -> S and S -> K -> D -> X;\nan exception from the worker is shown by its type name alone
+@enduml

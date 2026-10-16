@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.loudness import Loudn
 
 logger = logging.getLogger("App.Alerting")
 
+#: The id the settings, the catalog and the lane name this channel by.
+DISCORD_CHANNEL_ID = "discord"
+
 #: The secret's name in every store: the systemd credential's name in the unit
 #: file, the keyring entry's name on a desktop.
 DISCORD_WEBHOOK_SECRET = "alerting_discord_webhook"  # noqa: S105 - the name of a secret, not a secret

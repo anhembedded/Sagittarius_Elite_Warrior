@@ -37,6 +37,9 @@ restart, on purpose: after a restart a repeat is heard twice, never zero times
 
 The skeleton (`EPIC-036G`) stores nothing new in the outbox. The Discord webhook is a secret named
 `alerting_discord_webhook` (`discord_webhook_channel.py:43`), read by name at each send and never
-written by the app on a headless host (ADR 036 of 2026-10-15, D3). The per-bot last-seen state of
+written by the app on a headless host (ADR 036 of 2026-10-15, D3). On a desktop the only writer is
+the Options page, through `DiscordWebhookSetup`, to the keyring entry of that name
+(`discord_webhook_setup.py:103-128`); the page keeps nothing of the URL but the last four characters
+of its token, read back each time (`:93-101`), and the line edit is cleared once the webhook is saved. The per-bot last-seen state of
 `BotAlertSource` is in memory and is seeded from the bots' report at boot, without alerting
 (`bot_alert_source.py:108-120`).

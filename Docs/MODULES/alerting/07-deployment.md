@@ -19,6 +19,12 @@ one bot and call `publish`, under one lock (`bot_alert_source.py:122-138`). The 
 the lane `alerting-lane-discord`, so a slow Discord never holds a bot; one POST waits at most
 `REQUEST_TIMEOUT_S` (`alerting/adapters/urllib_webhook_transport.py:31`).
 
+The Options page's actions (`EPIC-036D1`) run on the application's thread pool (`IThreadManager`), one at
+a time, and their answers return to the UI thread through a queued signal
+(`alerting/ui/options/alerts_action_relay.py`). They add no thread of their own and touch no lane: a
+Send test posts from the pool thread, beside the lane, to the same webhook, which Discord rate-limits
+per webhook, so it is a loud message the owner asked for and not a stream.
+
 ## Built: the outbox file and its lifetime
 
 The outbox is one connection shared behind a lock, one short transaction per call, WAL journal

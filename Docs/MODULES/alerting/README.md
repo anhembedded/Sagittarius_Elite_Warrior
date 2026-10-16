@@ -8,7 +8,7 @@ source, or deciding whether the headless host can be left alone with real money.
 even if a channel is down, the platform asks us to wait, or the app restarts?*
 
 Each fact in this folder is marked **Built** (on `master-warrior`, delivered by `EPIC-036A` and the
-walking skeleton `EPIC-036G`, cited `file:line`) or **Planned** (designed here, not written; the task
+walking skeleton `EPIC-036G` and the Options page slice `EPIC-036D1`, cited `file:line`) or **Planned** (designed here, not written; the task
 that builds it is named). Paths are from the repository root; `alerting/` means
 `src/modules/alerting/`. The layout is the template's, [`../README.md`](../README.md).
 
@@ -34,6 +34,7 @@ that builds it is named). Paths are from the repository root; `alerting/` means
 | The bot source, the Discord channel, `alert test`, the host's warning | **Built** | `EPIC-036G` (waits for the owner's VPS run) |
 | Stream and system sources | Planned | `EPIC-036B` |
 | Telegram moved in, embeds, pacing, secret rotation | Planned | `EPIC-036C` |
-| The Options page, the Alerts dock, persisted settings | Planned | `EPIC-036D` |
+| Tools → Options → Alerts: the Discord webhook, Save, Remove, Send test | **Built** | `EPIC-036D1` (waits for the owner's look at the real window) |
+| The rest of the Options page (channels table, routing matrix, schedule), the Alerts dock, persisted settings | Planned | `EPIC-036D` |
 | The heartbeat and the dead man's switch | Planned | `EPIC-036E` |
 | Remote control from Discord | Planned | `EPIC-036F` |

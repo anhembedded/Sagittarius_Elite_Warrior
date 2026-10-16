@@ -56,6 +56,7 @@ def test_the_pages_are_each_modules_then_developer(qapp, app_engine) -> None:
     assert [page.title for page in _pages(app_engine)] == [
         "Trading",
         "Market Data",
+        "Alerts",
         "Developer",
     ]
 

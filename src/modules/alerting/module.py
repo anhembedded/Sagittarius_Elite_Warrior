@@ -19,7 +19,9 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
     CRITICAL alert;
   - one channel, Discord, configured when its webhook is stored
     (`composition/channel_bindings.py` is where a channel is added);
-  - `alert test`, the command-line Send test.
+  - `alert test`, the command-line Send test;
+  - Tools → Options → Alerts: the Discord webhook, Save, Remove and Send test
+    (`EPIC-036D1`; `ui/options/`).
 
 A read-only copy of the data root opens no outbox, starts no lane and subscribes
 no source.
@@ -32,9 +34,13 @@ import logging
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     CliCommandDescriptor,
     ICliRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
@@ -42,6 +48,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_operations_registry import (
     HealthContributorDescriptor,
     IOperationsRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_options_section import (
+    IOptionsSection,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.adapters.threaded_delivery_host import (
     ThreadedDeliveryHost,
@@ -73,6 +85,12 @@ from sagittarius_engine.interfaces.i_engine_context import IEngineContext
 
 logger = logging.getLogger("App.Alerting")
 
+#: Tools → Options → Alerts (`EPIC-036D1`), built when the shell assembles the dialog's pages.
+_OPTIONS_PAGE: Deferred[IOptionsSection] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_options_page"
+    ":build_alerts_options_page"
+)
+
 
 class AlertingModule(BoundedContextModule):
     """The outbox, the hub and the lanes that carry alerts to channels."""
@@ -86,6 +104,15 @@ class AlertingModule(BoundedContextModule):
 
     def register(self, context: IEngineContext) -> None:
         bind_alerting(context.container)
+
+    def contribute(self, registry: IContributionRegistry) -> None:
+        """The Alerts page of Tools → Options: the Discord webhook and its Send test
+        (`EPIC-036D1`). A `Deferred`, so no widget module is imported at boot."""
+        registry.contribute_options_page(
+            OptionsPageContribution(
+                contributor_id=self.module_id, order=30, factory=_OPTIONS_PAGE
+            )
+        )
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`alert test`: the Send test a headless host has instead of a page."""
