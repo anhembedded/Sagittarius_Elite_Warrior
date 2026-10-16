@@ -6,7 +6,7 @@ listens to `bots/contracts` (`EPIC-036G`; `EPIC-036B` adds `trading` and the
 system); only `operations` reads it, through `alerting/contracts`, so a new kind
 of bot changes nothing here.
 
-What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting.md`):
+What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`):
 
   - the typed `Alert`, `IAlertChannel` and the `AlertHub` that dedups, groups,
     inhibits, holds for quiet hours and routes;

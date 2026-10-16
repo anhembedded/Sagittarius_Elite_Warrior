@@ -1,0 +1,34 @@
+' Question: what does the alerting module talk to, and through which port?
+' Explained by: ../03-context.md, which cites each arrow. Drawn by hand, high level.
+@startuml 03-context
+left to right direction
+package "bots" {
+  [bots/contracts] as BC
+}
+package "operations" {
+  [AlertingAlertChannels] as OA
+}
+package "alerting" {
+  [AlertingModule] as AM
+  interface IAlertPublisher
+  interface IAlertingStatus
+  interface IAlertChannel
+}
+package "core / support" {
+  interface ISecretStore
+}
+actor "Owner" as O
+cloud "Discord" as D
+[shell] as SH
+
+SH --> AM : lists the module
+AM ..> BC : BotChangedEvent,\nBotStopGaveUpEvent,\nGetBotStatusReportQuery
+OA ..> IAlertingStatus : carries_bot_events()
+AM - IAlertPublisher
+AM - IAlertingStatus
+AM --> IAlertChannel : deliver(alert, loudness)
+IAlertChannel ..> ISecretStore : webhook by name
+IAlertChannel --> D : webhook POST
+D --> O
+O --> AM : `alert test`
+@enduml

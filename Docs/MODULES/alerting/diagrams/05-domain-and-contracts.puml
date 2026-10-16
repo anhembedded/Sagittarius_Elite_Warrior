@@ -1,0 +1,72 @@
+' Question: which domain types and contracts does a channel or a source build against?
+' Explained by: ../05-building-blocks.md and ../08-concepts.md. Domain and contracts only;
+' a few defining members each. Drawn by hand, never generated.
+@startuml 05-domain-and-contracts
+package "alerting/domain" {
+  class Alert <<frozen>> {
+    kind
+    severity
+    subject
+    dedup_key
+    recovery
+    {static} raised()
+    {static} condition_key()
+  }
+  class AlertSubject <<frozen>> {
+    {static} bot()
+    {static} venue_wide()
+    {static} app()
+  }
+  enum AlertKind
+  enum Severity
+  enum Loudness
+  enum DeliveryState {
+    PENDING
+    RETRYING
+    SENT
+    FAILED
+    EXPIRED
+    DROPPED
+  }
+  class AlertSettings <<frozen>>
+  note bottom of AlertSettings : holds no secret
+}
+package "alerting/contracts" {
+  interface IAlertPublisher {
+    publish(alert)
+    condition_cleared(dedup_key, at)
+  }
+  interface IAlertChannel {
+    deliver(alert, loudness) : DeliveryResult
+  }
+  class DeliveryResult <<frozen>> {
+    {static} sent()
+    {static} retry_later(after, reason)
+    {static} failed(reason)
+    {static} refused(reason)
+  }
+  interface IOutbox {
+    enqueue()
+    due()
+    mark()
+  }
+  interface IWebhookTransport {
+    post_json(url, body) : WebhookResponse
+  }
+  interface IAlertingStatus {
+    carries_bot_events() : bool
+  }
+  interface IAlertSettingsSource {
+    current() : AlertSettings
+  }
+}
+Alert --> AlertSubject
+Alert --> AlertKind
+Alert --> Severity
+IAlertPublisher ..> Alert
+IAlertChannel ..> Alert
+IAlertChannel ..> Loudness
+IAlertChannel ..> DeliveryResult
+IOutbox ..> DeliveryState
+IAlertSettingsSource ..> AlertSettings
+@enduml

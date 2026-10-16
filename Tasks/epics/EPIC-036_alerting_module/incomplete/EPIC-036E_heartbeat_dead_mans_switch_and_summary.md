@@ -6,7 +6,7 @@
 **Complexity:** M
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet.
-**Design:** [`Docs/MODULES/alerting.md`](../../../../Docs/MODULES/alerting.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §10.
+**Design:** [`Docs/MODULES/alerting/`](../../../../Docs/MODULES/alerting/README.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §10.
 **Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md), [EPIC-036C](EPIC-036C_discord_channel_and_telegram_migration.md); [EPIC-035W](../../EPIC-035_spot_grid_unattended_safety/incomplete/EPIC-035W_the_bots_health_is_visible_on_screen.md) for the health snapshot.
 
 > **Note, 2026-10-15 — re-sequenced behind the walking skeleton** ([decision D2, D5](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). After `EPIC-036G` a halt reaches Discord, but an app that dies is still silent: this task is what the generated unit file's header then still names as missing. The dead man's switch URL is a secret and follows the skeleton's route (D3): a systemd credential on a headless host.

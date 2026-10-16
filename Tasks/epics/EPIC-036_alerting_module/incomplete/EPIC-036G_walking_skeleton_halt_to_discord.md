@@ -6,7 +6,7 @@
 **Complexity:** M — one source, one channel, one transport, one status port, one verb, and a move of the venue-neutral secret stores; the hub, outbox and lanes are reused unchanged
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md): the alert a halting bot raises is added there
-**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (done). Design: [`Docs/MODULES/alerting.md`](../../../../Docs/MODULES/alerting.md) §8. Decisions: D1–D5 of [`DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md`](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md); N1–N8 of [`DECISION_2026-10-08_alerting_module.md`](../DECISION_2026-10-08_alerting_module.md).
+**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (done). Design: [`Docs/MODULES/alerting/04-solution-strategy.md`](../../../../Docs/MODULES/alerting/04-solution-strategy.md). Decisions: D1–D5 of [`DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md`](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md); N1–N8 of [`DECISION_2026-10-08_alerting_module.md`](../DECISION_2026-10-08_alerting_module.md).
 
 ---
 
@@ -28,7 +28,7 @@ The alerting core sends nothing: its channel list is empty (`src/modules/alertin
 - [ ] **Owner's run on the VPS**, recorded in the notes: the credential file provisioned, the unit regenerated and restarted, `alert test` arriving in the owner's Discord channel, and `run` starting without the "no alert channel" warning.
 
 ## 3. Design
-A walking skeleton (Cockburn; the shape of `PRO-004` and `Docs/HLD/06_enforcement_and_migration.md` §6.3): one path through every seam, each part as thin as it can be while real. An anti-corruption layer at the edge (`BotAlertSource` translates a `bots` fact into the alerting vocabulary, DDD); the adapter pattern behind `IAlertChannel`, with the HTTP transport injected so tests use a fake and never the network (`ci-rule.md` §2). The source reads the one bot through the contract query `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py:51-69`) and the lifecycle state's value, never `bots`' domain types. The secret stores move rather than being copied (P3; O2's recommendation): the target package is the one the boundary guards allow both modules to import, decided at the start and recorded here. Nothing in the hub, the outbox or the lanes changes: if the skeleton needs a change there, stop and record why. Full picture: `Docs/MODULES/alerting.md` §8.
+A walking skeleton (Cockburn; the shape of `PRO-004` and `Docs/HLD/06_enforcement_and_migration.md` §6.3): one path through every seam, each part as thin as it can be while real. An anti-corruption layer at the edge (`BotAlertSource` translates a `bots` fact into the alerting vocabulary, DDD); the adapter pattern behind `IAlertChannel`, with the HTTP transport injected so tests use a fake and never the network (`ci-rule.md` §2). The source reads the one bot through the contract query `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py:51-69`) and the lifecycle state's value, never `bots`' domain types. The secret stores move rather than being copied (P3; O2's recommendation): the target package is the one the boundary guards allow both modules to import, decided at the start and recorded here. Nothing in the hub, the outbox or the lanes changes: if the skeleton needs a change there, stop and record why. Full picture: `Docs/MODULES/alerting/04-solution-strategy.md`.
 
 ## 3a. Reuse
 Checked against `.claude/rules/capabilities.md` and `src/` on 2026-10-16. No UI need.
@@ -73,7 +73,7 @@ Tier per `ci-rule.md` §2; every test red before the change.
 Run 2026-10-16; results in the notes below.
 
 ## 6. Docs touched
-- `Docs/MODULES/alerting.md`: views 1–7 move the skeleton's parts from Planned to Built with their `file:line`; §8 records the proof.
+- `Docs/MODULES/alerting/`: views 1–7 move the skeleton's parts from Planned to Built with their `file:line`; the skeleton section (now `04-solution-strategy.md`) records the proof.
 - `Docs/OPERATIONS/headless_runbook.md`: §0 (what is still unsupported), §3 (the webhook credential, rotation, Windows), §5 (`alert test` through `systemd-run`), §12 (not proven).
 - `Docs/SPEC/SPEC-014_run_a_grid_bot.md`: §5, the alert a halting bot raises and the stop-gave-up event; §8, its proof.
 - `.claude/rules/capabilities.md`: regenerated (the `support/secrets` row).
