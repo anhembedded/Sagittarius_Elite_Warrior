@@ -26,6 +26,9 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.connect_failure_words import (
+    kind_state_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -63,6 +66,13 @@ class GridRecoveryReader:
 
     def read(self) -> RecoveryReport:
         state = self._context.state
+        failure = self._context.gateway.connection_failure()
+        if failure is not None:
+            # `BUG-222` - an account that cannot be read (no key, a refused key) is a state
+            # to report, not a request to make: the failed query logs an ERROR of its own.
+            reason = kind_state_words(failure)
+            logger.info("Bot %s: [boot-recovery] not read: %s", state.bot_id, reason)
+            return RecoveryReport.unreadable_because(reason)
         try:
             return self._count()
         except AccountHistoryUnavailableError as error:

@@ -4,7 +4,7 @@ A revoked API key gave no sign until the next order failed its connection check;
 the bot's orders kept resting on an exchange that would no longer take a cancel.
 Every beat of the price watch (`IBotFacts.on_price_age_check`, a task on the
 bot's own queue) the bot asks, once per `KEY_PROBE_EVERY_SECONDS`, whether the
-exchange still accepts its key (`BotOrderGateway.key_rejected`: the venue's
+exchange still accepts its key (`BotOrderGateway.connection_failure`: the venue's
 connection check, one account read). A rejection halts the bot with
 `KEY_REJECTED` (see `grid_order_failure.key_rejected_detail`) and, being that
 reason, `GridTaskGuard` does not try to park a ladder it cannot cancel.
@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ConnectionFailureKind,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -63,7 +66,10 @@ class GridKeyProbe:
             return
         self._next_at = now + KEY_PROBE_EVERY_SECONDS
         try:
-            rejected = self._context.gateway.key_rejected()
+            rejected = (
+                self._context.gateway.connection_failure()
+                is ConnectionFailureKind.KEY_REJECTED
+            )
         # Converted at the seam: a probe that raised (the venue did not answer)
         # says nothing about the key; it is logged and asked again.
         except Exception:
