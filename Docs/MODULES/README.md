@@ -6,10 +6,11 @@ Status: Current
 its threads and its clocks in one place. **Question it answers:** *how does this module work, and what
 must I not break?*
 
-One module, one file: `Docs/MODULES/<module>.md`, never inside `src/` (decision D3). Only `bots` has one,
-as a skeleton that `EPIC-040` and `EPIC-041E` fill: [`bots.md`](bots.md). The other six modules
-(`alerting`, `backtesting`, `market_data`, `operations`, `strategy`, `trading`) each get theirs as their
-own task, with this template.
+One module, one file: `Docs/MODULES/<module>.md`, never inside `src/` (decision D3). Two modules have
+one: `bots`, as a skeleton that `EPIC-040` and `EPIC-041E` fill ([`bots.md`](bots.md)), and `alerting`,
+the module's design before most of it is built, marking each fact built or planned
+([`alerting.md`](alerting.md), `EPIC-036`). The other five modules (`backtesting`, `market_data`,
+`operations`, `strategy`, `trading`) each get theirs as their own task, with this template.
 
 ## What belongs here, and what does not
 

@@ -6,8 +6,10 @@
 **Complexity:** M
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** [SPEC-014](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md), updated by this task for the alerts a running bot raises.
-**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §8, §9.
-**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (`Alert`, `AlertHub`).
+**Design:** [`Docs/MODULES/alerting.md`](../../../../Docs/MODULES/alerting.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §8, §9.
+**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (`Alert`, `AlertHub`), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md) (the walking skeleton: `BotAlertSource` with its first three mappings).
+
+> **Note, 2026-10-15 — re-sequenced behind the walking skeleton** ([decision D2](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). `EPIC-036G` delivers `BotAlertSource` with three mappings (`HALTED` → `BOT_HALTED`, `ERROR` → `BOT_ERROR`, a stop that gave up → `STOP_FAILED`, the last from a typed `bots` event, D4), the recovery on a return to `RUNNING`, and `bots` in `AlertingModule.dependencies`. This task starts from that source and widens it to the full (state, reason) table with its completeness test; the criteria below that the skeleton meets are checked against its tests, not rebuilt.
 
 ---
 

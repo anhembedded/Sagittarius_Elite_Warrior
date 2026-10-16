@@ -6,8 +6,10 @@
 **Complexity:** L
 **Epic:** [EPIC-036](../README.md)
 **SPEC:** none yet.
-**Design:** [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md) (the design of record; the owner's page is a secondary reference). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §1, §2, §5, §7.
-**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (`IAlertChannel`, the worker, `ISecretStore` in core).
+**Design:** [`Docs/MODULES/alerting.md`](../../../../Docs/MODULES/alerting.md) (the module's current design, since 2026-10-15); the design approved on 2026-10-08 is kept as the record in [`DESIGN_2026-10-08_alerting_module.md`](../DESIGN_2026-10-08_alerting_module.md). **Research:** [`RESEARCH_2026-10-08_alerting_lessons.md`](../RESEARCH_2026-10-08_alerting_lessons.md) §1, §2, §5, §7.
+**Depends on:** [EPIC-036A](../completed/EPIC-036A_alerting_core.md) (`IAlertChannel`, the worker, `ISecretStore` in core), [EPIC-036G](EPIC-036G_walking_skeleton_halt_to_discord.md) (the walking skeleton: the Discord channel, its transport and its secret read).
+
+> **Note, 2026-10-15 — re-sequenced behind the walking skeleton** ([decision D1, D2, D3](../DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md)). `EPIC-036G` delivers a plain `DiscordWebhookChannel` over an injected transport: the 429 → `retry_after` mapping, the permanent refusals, the silent flag, the no-secret red-flag test, and the webhook read as a secret in the order systemd credential → permission-checked file → keyring (D3, if the owner accepts it; N3's "keyring only" is then superseded for a headless host). This task keeps the embed and its colours, grouped layout, pacing under Discord's limit, Telegram's move and token migration, `SendTest` and `RotateSecret` for the desktop, and the shared channel contract test.
 
 ---
 

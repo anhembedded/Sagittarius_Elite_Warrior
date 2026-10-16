@@ -1,9 +1,11 @@
+Status: Superseded by [`Docs/MODULES/alerting.md`](../../../Docs/MODULES/alerting.md)
+
 # DESIGN — Alerting and remote control (the alerting module)
 
 **Epic:** [EPIC-036](README.md)
 **Date:** 2026-10-08
-**Status:** Approved by the owner (decisions N1–N8, [decision record](DECISION_2026-10-08_alerting_module.md))
-**Source:** an English transcription of the owner-approved design page (Vietnamese, written against `master-warrior` `1f890e0`). The page is a private artifact that a later session may not be able to open (secondary reference only: https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1). **This file is the design of record.** The research behind it is in [`RESEARCH_2026-10-08_alerting_lessons.md`](RESEARCH_2026-10-08_alerting_lessons.md). Names that do not exist in the code yet are proposals.
+**Status:** Approved by the owner on 2026-10-08 (decisions N1–N8, [decision record](DECISION_2026-10-08_alerting_module.md)); superseded on 2026-10-15 as the module's design by [`Docs/MODULES/alerting.md`](../../../Docs/MODULES/alerting.md), which holds what is built and what is planned. Kept as the record of what the owner approved; the task order of §14 is replaced by [`DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md`](DECISION_2026-10-15_walking_skeleton_and_headless_secrets.md) D2
+**Source:** an English transcription of the owner-approved design page (Vietnamese, written against `master-warrior` `1f890e0`). The page is a private artifact that a later session may not be able to open (secondary reference only: https://claude.ai/artifact/Q6J7i4FCLEhHXZiQtruAm1). **This file was the design of record until 2026-10-15.** The research behind it is in [`RESEARCH_2026-10-08_alerting_lessons.md`](RESEARCH_2026-10-08_alerting_lessons.md). Names that do not exist in the code yet are proposals.
 
 | Label | Meaning |
 | :--- | :--- |
