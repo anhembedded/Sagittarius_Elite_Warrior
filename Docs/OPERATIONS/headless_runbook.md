@@ -6,7 +6,7 @@ Status: Current
 
 ## 0. Read this first: what is not supported yet
 
-**This host is not supported for unattended money.** A bot that halts, errs or whose stop gives up reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/incomplete/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
+**This host is not supported for unattended money.** A bot that halts, errs or whose stop gives up reaches your Discord channel once you store a webhook (§3, [`EPIC-036G`](../../Tasks/epics/EPIC-036_alerting_module/completed/EPIC-036G_walking_skeleton_halt_to_discord.md)). Until both of these have merged, the rest reaches nobody:
 
 | Missing | What it leaves you without | Task |
 | :--- | :--- | :--- |
