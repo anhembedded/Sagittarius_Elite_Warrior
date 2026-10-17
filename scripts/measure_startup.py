@@ -133,7 +133,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("words", nargs="+", help="after --: the command, e.g. bot list")
     args = parser.parse_args(argv)
     checkouts = [_CHECKOUT] + ([args.against.resolve()] if args.against else [])
-    print(report(measure(checkouts, args.words, args.runs)))
+    sys.stdout.write(report(measure(checkouts, args.words, args.runs)) + "\n")
     return 0
 
 
