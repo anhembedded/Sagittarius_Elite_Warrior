@@ -95,6 +95,7 @@ from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_acces
 from Sagittarius_Elite_Warrior.src.infrastructure.single_instance.instance_probe import (
     FileLockInstanceProbe,
 )
+from Sagittarius_Elite_Warrior.src.shell.cli_log_routing import CliLogRouting
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
@@ -216,12 +217,15 @@ def _log_instance(instance: IInstanceAccess | None) -> None:
 
 
 def create_app(
-    config_manager: ConfigManager, instance: IInstanceAccess | None = None
+    config_manager: ConfigManager,
+    instance: IInstanceAccess | None = None,
+    cli_log: CliLogRouting | None = None,
 ) -> App:
     """Builds the object graph. `instance` says whether this copy of the app
     may trade (`EPIC-035H`): the entry points pass what `single_instance`
     decided; a run that is not the app's own (a test, a script) passes nothing
-    and is writable, since it holds no data root against anyone."""
+    and is writable, since it holds no data root against anyone. `cli_log`
+    (`BOT-185`): a quiet read-only command's log goes to its file, warnings stay."""
     container = StdLibContainer()
 
     # EPIC-008G §4 — bus nhận logger tường minh, không để `None`.
@@ -238,6 +242,9 @@ def create_app(
     # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
     # handler theo cùng config.
     app_logger = StdLogger(config_manager)
+    if cli_log is not None:
+        cli_log.apply()
+        cli_log.log_decision()
     # `BOT-178` — the Engine's per-query INFO line is developer detail.
     quiet_query_dispatch_outside_developer_mode(config_manager)
     # `EPIC-035H` — said here because the run log exists only from this point,
@@ -323,6 +330,9 @@ def create_app(
     app.use(DependencyValidatorExtension(["sqlalchemy"]))
 
     app.use(LoggerExtension())
+    if cli_log is not None:
+        # The extension built a second `StdLogger`, which cleared the handlers.
+        cli_log.apply()
     app.use(ThreadManagerExtension())
 
     # The bounded contexts, in the order `shell/modules.py` lists them — that

@@ -17,6 +17,21 @@ A command whose stdout carries a machine-readable report (`--json`, `--format <n
 
 A service unit or wrapper therefore sets **no `log.file`** and passes neither `--dev` nor `--debug`: both write a full session log to `<data root>/logs/` (`logging-rule.md` §7), which is right for a developer reproducing a bug and wrong for a process that runs for months.
 
+## 1b. A command that only reads logs to a file of its own (`BOT-185`)
+
+A command declared `"read_only": true` in `cli_commands.json` boots the whole application to print one table. Its console shows that result only. Its records go to `<data root>/logs/cli-<UTC timestamp>-<pid>.log` and `--verbose` (accepted on every command, at any position) puts them on the console as `StdLogger` always did. WARNING, ERROR and CRITICAL records are also written to **standard error** in the same format, whatever the command, so a failure is visible and a `--json` document owns standard output. `run`, `sync`, `bot start` and the other commands that may change something keep the log on stdout as §1 says.
+
+| Why this shape | |
+| :--- | :--- |
+| One file per process | Several short commands run at once. Python's `RotatingFileHandler` is not safe across processes: two renames of one file lose records, and on Windows the rename raises `PermissionError` while another process holds the file, which `logging` prints to stderr. A file per process has no writer to race with. |
+| Bounded by pruning | At start the command deletes the oldest `cli-*` files beyond the newest 39, then adds its own: 40 files at most (`FILES_KEPT`). Two commands pruning together may both delete one file (the second finds it gone) or leave a few extra until the next start. |
+| Bounded per file | Each file is a `RotatingFileHandler` capped at 512 KiB with one backup (`MAX_FILE_BYTES`), single-process so race-free: 20 MiB in all, in practice about 7 KB a run. |
+| Rejected: one rotating file | Cross-process rotation above. |
+| Rejected: a file per day | Safe to append, but a day's size is the number of runs times 7 KB with no cap, and it needs a pruning rule of its own. |
+| Rejected: `logrotate` on the file | Needs `copytruncate` and a root-owned stanza for a file an operator's own account writes. |
+
+If `<data root>/logs` cannot be created or written (a service account's data root seen from another user), the command still runs: it logs one WARNING `[cli-log] no log file (<reason>)` to stderr and shows warnings and errors only. A `log.file` set in the configuration is left alone and written as before, beside this file. Code: `src/shell/cli_log_routing.py`; the entry point decides in `main._quiet_log_for`.
+
 ## 2. If you set `log.file` anyway
 
 **`log.file` grows without bound**: the Engine's file handler is a plain `logging.FileHandler` with no rotation and no size cap, until the Engine gains rotation (decision O7: a separate Engine proposal, not part of this epic). A full disk stops the database write, not the network call, so its symptoms are strange.

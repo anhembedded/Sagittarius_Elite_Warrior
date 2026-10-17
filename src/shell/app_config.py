@@ -49,6 +49,12 @@ USER_CONFIG_FILE = _CONFIG_DIR / "user_config.json"
 CLI_COMMANDS_FILE = _CONFIG_DIR / "cli_commands.json"
 
 
+def log_directory() -> Path:
+    """Where the session logs go: `<data root>/logs`. Resolved per call, not at
+    import: `SEW_DATA_ROOT` may be set after this module is imported."""
+    return data_root() / _LOG_DIR_NAME
+
+
 def load_app_config(argv: Sequence[str]) -> tuple[ConfigManager, DevMode]:
     """The application's configuration and what this run decided about
     developer mode. `argv` is the real command line, so `--dev` and `--debug`
@@ -59,10 +65,7 @@ def load_app_config(argv: Sequence[str]) -> tuple[ConfigManager, DevMode]:
     with suppress(FileNotFoundError):
         config_manager.load_json(str(CLI_COMMANDS_FILE))
 
-    # Resolved per call, not at import: `SEW_DATA_ROOT` may be set after this
-    # module is imported (a test session sets it once collection is done).
-    log_dir = data_root() / _LOG_DIR_NAME
-    dev_mode = resolve_dev_mode(config_manager, argv, str(log_dir))
+    dev_mode = resolve_dev_mode(config_manager, argv, str(log_directory()))
     overrides = dev_mode.config_overrides()
     if overrides:
         config_manager.load_dict(overrides)
