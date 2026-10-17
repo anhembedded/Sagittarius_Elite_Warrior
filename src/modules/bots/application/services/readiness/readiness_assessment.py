@@ -14,7 +14,7 @@ shown (a race, reported in the same words).
     kind's own judgement (`IBotKind.validate`, with the account) supplies one
     item per blocking verdict; advice is never an item.
   · **Run** — nothing else stands in the way: the venue trades Spot, no other
-    bot is active (ADR D20), nobody else holds the symbol, the owner budget
+    bot is active on that venue (ADR D20), nobody else holds the symbol, the owner budget
     fits trading's caps. These are listed whether or not an earlier step is
     open, so the count is what is known to be left.
 
@@ -100,7 +100,7 @@ class RunFacts:
 
     #: Why the venue cannot run a Spot Grid.
     venue_problem: str = ""
-    #: The id of another bot that is still active (ADR D20).
+    #: The id of another bot of the same venue that is still active (ADR D20).
     other_active_bot: str = ""
     #: Who else holds the symbol's lease.
     lease_holder: str = ""
@@ -262,6 +262,7 @@ def _design_items(inputs: ReadinessInputs) -> tuple[ReadinessItem, ...]:
 
 def _run_items(inputs: ReadinessInputs, connected: bool) -> tuple[ReadinessItem, ...]:
     run = inputs.run
+    title = inputs.connection.venue_title
 
     def item(
         code: str,
@@ -283,9 +284,9 @@ def _run_items(inputs: ReadinessInputs, connected: bool) -> tuple[ReadinessItem,
         items.append(
             item(
                 "RUN_OTHER_BOT_ACTIVE",
-                f"Bot {run.other_active_bot} is still active; stop it before "
-                "starting another",
-                BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK,
+                f"A bot on {title} is still active ({run.other_active_bot}); stop it "
+                f"before starting another on {title}",
+                BotRefusal.ONE_ACTIVE_BOT_PER_VENUE,
                 ReadinessFix.STOP_OTHER_BOT,
                 run.other_active_bot,
             )

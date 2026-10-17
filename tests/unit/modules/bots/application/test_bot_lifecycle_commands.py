@@ -52,8 +52,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import (
     BotId,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RUN_STARTING_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers import (
     seed,
@@ -189,10 +193,25 @@ def test_a_second_bot_cannot_start_while_one_is_active(
     _ready(world.store, "aaa111", other)
     _ready(world.store, "bbb222", S.DRAFT)
     result = _start(world, runner, "bbb222")
-    assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
+    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
     assert "aaa111" in result.message
     assert state_of(world.store, "bbb222") is S.DRAFT
     assert runner.sent == []
+
+
+@pytest.mark.parametrize("other", [s for s in S if s not in RUN_STARTING_STATES])
+def test_a_bot_active_on_another_venue_does_not_block_a_start(
+    world: ReadinessWorld, runner: _RecordingRunner, other: S
+) -> None:
+    """`EPIC-029J` J1a: one active bot per venue, so a Futures bot leaves Spot free."""
+    seed(world.store, "aaa111", other, CONFIG, venue=TradingVenue.FUTURES_TESTNET)
+    _ready(world.store, "bbb222", S.DRAFT)
+
+    result = _start(world, runner, "bbb222")
+
+    assert result.accepted
+    assert state_of(world.store, "bbb222") is S.STARTING
+    assert state_of(world.store, "aaa111") is other
 
 
 def test_an_unreadable_file_counts_as_an_active_bot(
@@ -201,7 +220,7 @@ def test_an_unreadable_file_counts_as_an_active_bot(
     world.store.refuse_file(BotId("aaa111"), "unknown schema_version 2")
     _ready(world.store, "bbb222", S.DRAFT)
     result = _start(world, runner, "bbb222")
-    assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
+    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
 
 
 @pytest.mark.parametrize("other", [S.DRAFT, S.STOPPED])
@@ -250,7 +269,7 @@ def test_two_starts_racing_let_exactly_one_bot_start(world: ReadinessWorld) -> N
     second.join(timeout=5)
 
     assert results["aaa111"].accepted
-    assert results["bbb222"].refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
+    assert results["bbb222"].refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
 
 
 @pytest.mark.parametrize("bot_id", ["zzz999", "NOT-AN-ID"])

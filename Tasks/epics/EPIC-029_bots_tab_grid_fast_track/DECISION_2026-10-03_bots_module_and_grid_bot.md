@@ -184,7 +184,7 @@ Revised after the review of PR #317 (round 1). Changes from the first draft carr
 | D17 | **ATR and Bollinger Bands** are pure functions over candle sequences in `src/support/indicators/`. | ✅ Accepted | 🤖 agent | They need high, low and close; `IIndicator.update(value)` takes one value. |
 | D18 | **Buy-and-hold** is computed in `bots/domain`. | ✅ Accepted | 🤖 agent | No dependency on `backtesting`. |
 | D19 | **The route is `bots`**, NAVIGATION item 18. | ✅ Accepted | 🤖 agent | `test_screen_wiring.py` changes in three places (029F). |
-| D20 | **At most one Running bot during the fast track**, as a runtime check. `EPIC-029J` lifts it. | ✅ Accepted | 🤖 agent | "Many by design, one at a time first" (🟢). |
+| D20 | **At most one Running bot during the fast track**, as a runtime check. `EPIC-029J` lifts it. **Note 2026-10-17 (owner, via `EPIC-029J1a`): the cap is now one active bot per venue**, not one in the app; bots on different venues run together. Several bots on one venue wait for `EPIC-029J1b`. | ✅ Accepted | 🤖 agent | "Many by design, one at a time first" (🟢). 2026-10-17: *"còn chuyện multibot thì làm J1a trước đi"*; the venues share no lease, budget, stream or credentials (`EPIC-029J1a` §3a). |
 
 **What D6 consists of.**
 

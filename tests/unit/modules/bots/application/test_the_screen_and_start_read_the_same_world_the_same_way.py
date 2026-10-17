@@ -82,7 +82,11 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
         snapshot.config,
         other_active_bot(
             BOT,
-            ((s.bot.bot_id.value, s.bot.state) for s in reading.bots),
+            snapshot.venue,
+            (
+                (s.bot.bot_id.value, s.bot.definition.venue, s.bot.state)
+                for s in reading.bots
+            ),
             (refused.name for refused in reading.refused),
         ),
     )
@@ -117,6 +121,9 @@ SCENARIOS: dict[str, Callable[[ReadinessWorld], None]] = {
     "ready": lambda world: None,
     "capital above the balance": _poor,
     "another bot is active": lambda world: add_bot(world, "zzz999", S.RUNNING),
+    "a bot on another venue is active": lambda world: add_bot(
+        world, "zzz999", S.RUNNING, venue=TradingVenue.FUTURES_TESTNET
+    ),
     "the symbol is leased": lambda world: world.session.claim_symbol(
         SYMBOL, "strategy.1"
     ),

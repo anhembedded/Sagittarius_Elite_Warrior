@@ -5,7 +5,7 @@
 **Risk:** 🟡 — moves strategy arming behind the bot shell; DCA reuses but extends the ladder.
 **Complexity:** L — two new `IBotKind` implementations, migration of saved strategy configs, retirement of desk arming.
 **Epic:** [EPIC-029](../README.md)
-**Depends on:** `EPIC-029I`, `EPIC-029J`.
+**Depends on:** `EPIC-029I`, `EPIC-029J1b`.
 
 **Note (2026-10-14):** the signal half of this task moved to [`EPIC-040G`](../../EPIC-040_backtest_workbench/incomplete/EPIC-040G_strategy_bot_kind.md) at the owner's request. The strategy bot is designed there as a kind of its own on the shared shell. This task keeps the DCA kind and the retirement of desk arming once `040G` exists. The first and second criteria below are now `040G`'s.
 

@@ -221,9 +221,12 @@ def test_another_active_bot_is_an_item_whose_fix_is_to_stop_it() -> None:
 
     (item,) = readiness.items
     assert item.step is ReadinessStep.RUN
-    assert item.reason == "Bot aaa111 is still active; stop it before starting another"
+    assert item.reason == (
+        "A bot on Spot Testnet is still active (aaa111); stop it before "
+        "starting another on Spot Testnet"
+    )
     assert (item.fix, item.target) == (ReadinessFix.STOP_OTHER_BOT, "aaa111")
-    assert item.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
+    assert item.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
 
 
 def test_a_symbol_held_by_another_owner_is_an_item() -> None:
@@ -275,7 +278,7 @@ def test_every_item_across_the_steps_is_counted_and_worded() -> None:
     assert readiness.summary == "3 things left"
     assert not readiness.can_start
     assert readiness.message().startswith("3 things left: ")
-    assert "Bot aaa111 is still active" in readiness.message()
+    assert "A bot on Spot Testnet is still active (aaa111)" in readiness.message()
     assert [s.status for s in readiness.steps] == [
         StepStatus.DONE,
         StepStatus.OPEN,

@@ -13,8 +13,10 @@ hand; the steps below cite the code that runs them. The states named are the lif
 Grid bot, and on which thread?*
 
 The use case (`bots/application/use_cases/start_bot/handler.py` → `StartBotCommandHandler.execute`)
-refuses a closed venue, an unconfirmed Mainnet start and an unready bot, then asks the runner to
-start (`.../bot_runner.py` → `BotRunner.start`). The runner works **on the caller's thread**: it
+refuses a closed venue, an unconfirmed Mainnet start and an unready bot (among the readiness items: a
+bot of the **same venue** that is not at rest, `.../lifecycle/other_active_bot.py` → `other_active_bot`,
+ADR 029 D20 as `EPIC-029J1a` made it per venue; a bot on another venue does not count, and a file the store
+refused counts on every venue), then asks the runner to start (`.../bot_runner.py` → `BotRunner.start`). The runner works **on the caller's thread**: it
 retires the earlier run's worker, so no task of that run can save over the new one, applies `start`
 (`STARTING`, not yet saved), and asks the Grid's preconditions (`.../grid_start_preconditions.py` →
 `GridStartPreconditions.check`) to re-read the parameters, claim the symbol, open the order session
