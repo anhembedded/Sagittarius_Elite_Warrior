@@ -55,7 +55,7 @@ gantt
 | EPIC-038G | [Logging for unattended runs](completed/EPIC-038G_logging_for_unattended_runs.md) | — | 🟡 | ✅ Done 2026-10-12 | — |
 | EPIC-038H | [Service units and runbook](completed/EPIC-038H_service_units_and_runbook.md) | `claude/epic-038h-service-units` | 🟢 | ✅ Done 2026-10-13; checklist unsigned | — |
 | EPIC-038I | [Bot plan files](completed/EPIC-038I_bot_plan_files.md) | `claude/epic-038i-bot-plan` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-038J | [Control of a running host](incomplete/EPIC-038J_control_of_a_running_host.md) | — | 🔴 | 🔵 Planned; gated on O4 and `EPIC-036F` | — |
+| EPIC-038J | [Control of a running host](completed/EPIC-038J_control_of_a_running_host.md) | `claude/epic-038j-control-running-host` | 🔴 | ✅ Done 2026-10-17; review round 1 pending | — |
 
 ---
 
@@ -79,7 +79,7 @@ gantt
 | :--- | :--- | :--- | :-: |
 | Owner decisions O1 (resting orders at stop), O2 (resume after restart), O8 (mainnet on first release) | 038D | The owner answers; recommendations are in the decision record | 🟡 Open |
 | Owner decision O3 (secret backend) — a backend that holds secrets is a security decision | 038E | Decided 2026-10-12 (§4a); the Windows Credential Manager under a service account is still unverified | 🟢 Decided |
-| Owner decision O4 (control channel for a running host) | 038J | The owner answers; default is none in v1 | 🟡 Open |
+| Owner decision O4 (control channel for a running host) | 038J | Answered "A" (a local command directory) on 2026-10-17 | 🟢 Decided |
 | Owner decisions O5 (Windows supervisor), O6 (a headless requirements file — dependency change), O7 (Engine changes) | 038H, 038A, 038G | The owner answers | 🟡 Open |
 | Alerting: bot events reaching the owner (`EPIC-036B`, `036C`) and the dead man's switch (`036E`) | the "supported unattended" claim of 038D and 038H | Land `EPIC-036` first, or ship without the claim | 🟡 Open |
 | `ISecretStore` lift to `core/contracts` (`EPIC-036A`) | 038E | Done by 038E, first commit (decision D11) | 🟢 Done |
