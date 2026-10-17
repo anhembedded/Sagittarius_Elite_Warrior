@@ -172,8 +172,8 @@ class ResumeHaltedBots(IHostStep):
         for bot in result.bots:
             if bot.resumed:
                 logger.info(
-                    "[resume-halted] bot %s (%s, was %s): resume confirmed; "
-                    "its worker lays the ladder",
+                    "[resume-halted] bot %s (%s, was %s): resume confirmed and queued; "
+                    "its worker lays the ladder unless the price moved past the tolerance",
                     bot.bot_id,
                     bot.venue,
                     bot.was,

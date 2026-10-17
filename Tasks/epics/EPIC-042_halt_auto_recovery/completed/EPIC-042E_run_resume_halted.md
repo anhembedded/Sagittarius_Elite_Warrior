@@ -18,14 +18,14 @@
 - [x] A host step resumes every bot in `HALTED` or `AWAITING_RECOVERY` (no other state) through `ResumeBotCommand` then `ConfirmBotResumeCommand`, so the ladder is the GUI's.
 - [x] A mainnet venue is resumed only when `--confirm-venue` names it; otherwise the bots are skipped, said so, and stay as they are.
 - [x] Refused when no alert channel is configured (the existing "nobody watching" check), with the flag named in the sentence.
-- [x] The step's outcome is a line per bot (`[resume-halted]`) and in the host's health snapshot as `--resume-recovering`'s is.
+- [x] The step's outcome is a line per bot (`[resume-halted]`), and the flag is in the `[run]` line as `--resume-recovering`'s is. (The health snapshot file carries no step outcome for either flag, so there was nothing to match there.)
 - [x] A venue whose session will not open leaves its bots untouched, with the reason in the session's words.
 
 ## 3. Design
 Mirrors `ResumeRecoveringBots` in `host_steps.py` and `StartBotForHostCommandHandler`. The step is the host's; the bot module owns the per-bot command, so `operations` imports only `bots/contracts`.
 
 ## 3a. Reuse
-Used `order_session_refusal_words`, `closed_venue_refusal`, `BotLookup`, the host-step list, `emit_report`.
+Used the screen's `ResumeBotCommand` and `ConfirmBotResumeCommand` (which open the order session through `order_session_refusal_words`), `IBotRunner`, the host-step list and `IMonotonicClock`. `closed_venue_refusal` was named here at the draft and no longer exists (EPIC-039L C4-lite).
 
 ## 4. Changes, per file
 `operations/cli/run_options.py`, `run_command.py`, `cli_commands.json`, `operations/application/host_steps.py`, `bots/contracts/host_bot_requests.py`, a `resume_halted_for_host` use case, `Docs/OPERATIONS/`, `Docs/MODULES/bots/06-runtime.md`.
@@ -43,3 +43,4 @@ Unit: option parsing, the mainnet refusal. Integration: the host with a `HALTED`
 - **Master moved (EPIC-039L C4-lite).** Futures mainnet is open; it is resumed under the same rule as Spot mainnet.
 - **Health snapshot.** The task said "in the host's health snapshot as `--resume-recovering`'s is": `--resume-recovering` appears only in the `[run]` line and its own `[resume-recovering]` lines, so `--resume-halted` is in the same two places; the snapshot file has no per-step field.
 - **Not verified here:** the owner's Testnet run (phase 3 exit), recorded by the owner.
+- **Latent, tied to D20.** The Resume opens the venue's order session, whose switch-on reconciles every RECOVERING bot on that venue, so `--resume-halted` touches no other state only while the fast track keeps a second bot from starting beside a HALTED one (`ONE_RUNNING_BOT_DURING_FAST_TRACK`, probed on the fake exchange by the reviewer). Lifting D20 re-opens whether a halted-bot resume may reconcile a RECOVERING bot the owner left for `--resume-recovering` (O2).
