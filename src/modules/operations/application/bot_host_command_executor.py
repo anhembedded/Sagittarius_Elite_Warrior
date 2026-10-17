@@ -70,6 +70,13 @@ _REQUESTS: dict[HostControlAction, _Request] = {
 }
 
 
+def _accepted_words(command: HostCommand, result: BotCommandResult) -> str:
+    """The host's own sentence for an edit (it names what changed); the fixed words for every other action."""
+    if command.action is HostControlAction.EDIT and result.message:
+        return result.message
+    return _ACCEPTED_WORDS[command.action]
+
+
 class BotHostCommandExecutor(IHostCommandExecutor):
     def __init__(self, dispatcher: ICommandDispatcher) -> None:
         self._dispatcher = dispatcher
@@ -80,7 +87,5 @@ class BotHostCommandExecutor(IHostCommandExecutor):
             BotCommandResult, self._dispatcher.dispatch(type(request), request)
         )
         if result.accepted:
-            return ExecutionOutcome(
-                True, result.message or _ACCEPTED_WORDS[command.action]
-            )
+            return ExecutionOutcome(True, _accepted_words(command, result))
         return ExecutionOutcome(False, result.message)

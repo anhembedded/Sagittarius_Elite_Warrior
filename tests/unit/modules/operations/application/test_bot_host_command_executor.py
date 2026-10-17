@@ -129,3 +129,14 @@ def test_an_accepted_edit_without_a_sentence_still_says_the_bot_is_draft() -> No
     )
 
     assert outcome.accepted and "DRAFT" in outcome.message
+
+
+def test_only_an_edit_speaks_the_hosts_own_sentence_every_other_action_keeps_its_fixed_words() -> (
+    None
+):
+    said = BotCommandResult(accepted=True, bot_id=BOT, message="something else")
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(command(action=HostControlAction.START))
+
+    assert outcome.message == "the bot is STARTING (see `bot show`)"

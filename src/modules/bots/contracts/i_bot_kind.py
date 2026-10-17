@@ -85,7 +85,7 @@ class IBotKind(ABC):
         question (a bot at rest is edited without a venue session), and a bot is still judged against
         the exchange when it starts (`validate`), so passing here promises a readable value, not a
         startable bot. An unknown key is refused. Only `changed` is judged: a key the bot already
-        held is not this edit's doing. A sentence for the operator that never repeats a value.
+        held is not this edit's doing. A sentence for the operator; it may quote the offending value (`GridParamsError` does), which is harmless because a setting's value is limited to 1-64 characters of `[A-Za-z0-9_.:+-]` (`ParameterSetting`) before it reaches here.
 
         Concrete and **closed by default**, so a kind that has not declared its parameters is
         edited by no command line and no implementer changes (a port gaining an `@abstractmethod`

@@ -10,6 +10,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_parameter_check import (
     GRID_PARAMETER_KEYS,
     grid_parameter_problem,
@@ -145,11 +148,16 @@ def test_direction_and_leverage_are_judged_as_the_pair_they_are() -> None:
     assert only_one is not None and "direction is missing" in only_one
 
 
-def test_no_message_repeats_the_value_it_refuses() -> None:
-    problem = _after(_SPOT, lower="sECRET")
+def test_a_message_may_quote_the_value_which_the_setting_shape_has_already_limited() -> (
+    None
+):
+    """`GridParamsError` quotes what it cannot read (`{text!r}`). That is why the shape of a setting's
+    value (1-64 characters of `[A-Za-z0-9_.:+-]`, `ParameterSetting`) is judged before the kind sees it."""
+    setting = ParameterSetting("lower", "sECRET")
 
-    assert problem is not None
-    assert "sECRET" not in problem.replace("lower is not a number: 'sECRET'", "")
+    problem = _after(_SPOT, **{setting.key: setting.value})
+
+    assert problem == "lower is not a number: 'sECRET'"
 
 
 @pytest.mark.parametrize("held", [_SPOT, _FUTURES])
