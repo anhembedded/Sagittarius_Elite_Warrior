@@ -71,6 +71,8 @@ _READ_ONLY = {
     ("bot", "pause"),
     ("bot", "resume"),
     ("bot", "start"),
+    # `EPIC-038L` - the same: a command file for the host, which changes the bot, never this process.
+    ("bot", "edit"),
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),

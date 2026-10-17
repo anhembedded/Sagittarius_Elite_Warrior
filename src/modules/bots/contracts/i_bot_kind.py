@@ -7,6 +7,8 @@ that runs it:
   · `supported_profiles()` — the markets it can run on (`EPIC-039A`);
   · `validate()` — a verdict per check (the user's rule: parameters are the
     user's; the kind computes and judges, it never fixes them);
+  · `parameter_problem()` — whether a set of parameters being changed can be stored, judged
+    without the exchange (`bot edit`, `EPIC-038L`);
   · `overlay()` — what the bot's chart draws;
   · `executor_factory()` — what builds the executor that runs one bot.
 
@@ -27,6 +29,7 @@ store and the lifecycle do not change.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Collection, Mapping
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
@@ -72,6 +75,25 @@ class IBotKind(ABC):
     @abstractmethod
     def executor_factory(self) -> IBotExecutorFactory:
         """What builds the executor that runs one bot of this kind."""
+
+    def parameter_problem(
+        self, config: Mapping[str, str], changed: Collection[str]
+    ) -> str | None:
+        """Why `config`, in which the keys `changed` were just set, cannot be stored; `None` when it can.
+
+        Judged from the parameters alone: no exchange, no account, no price. That is `bot edit`'s
+        question (a bot at rest is edited without a venue session), and a bot is still judged against
+        the exchange when it starts (`validate`), so passing here promises a readable value, not a
+        startable bot. An unknown key is refused. Only `changed` is judged: a key the bot already
+        held is not this edit's doing. A sentence for the operator that never repeats a value.
+
+        Concrete and **closed by default**, so a kind that has not declared its parameters is
+        edited by no command line and no implementer changes (a port gaining an `@abstractmethod`
+        would change every one, `BUG-026`)."""
+        return (
+            f"a bot of kind {self.kind_id!r} declares no parameters that a command line may "
+            "change; use the Bots tab"
+        )
 
     def recovery_layer(self) -> RecoveryLayer:
         """The kind's layer of the halt-recovery policy (`EPIC-042`, ADR 042 §2.3): reasons only

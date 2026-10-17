@@ -15,6 +15,9 @@ from enum import StrEnum
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 
 #: The schema string a command document must carry.
 HOST_COMMAND_SCHEMA = "sew.host-command/1"
@@ -34,6 +37,8 @@ class HostCommand:
     issued_at: datetime
     #: A stop that closes the position at market (`BUG-224`); absent from older files.
     close_position: bool = False
+    #: The `--set key=value` of an edit (`EPIC-038L`); absent from older files and from every other action.
+    settings: tuple[ParameterSetting, ...] = ()
 
 
 class ControlVerdict(StrEnum):

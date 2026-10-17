@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
@@ -16,7 +18,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlRequest,
     HostControlStatus,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    MAX_SETTINGS_PER_EDIT,
+    ParameterSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    EditBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
     StartBotVerb,
@@ -27,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.i_bot_verb import IBotVerb
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
 )
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
@@ -37,6 +45,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.cli.verb_world import (
     RecordingHostControl,
     verb_world,
 )
+from sagittarius_engine.interfaces.i_config import IConfig
 
 _PRINTER = ReportPrinter(ReportFormats.default())
 S = HostControlStatus
@@ -92,7 +101,9 @@ def test_a_stop_carries_the_close_position_flag_to_the_host() -> None:
 
 
 def test_the_verbs_are_registered_under_the_words_the_operator_types() -> None:
-    assert {"stop", "pause", "resume", "start"} <= {verb.name for verb in BOT_VERBS}
+    assert {"stop", "pause", "resume", "start", "edit"} <= {
+        verb.name for verb in BOT_VERBS
+    }
 
 
 def test_resume_carries_the_venue_the_operator_typed() -> None:
@@ -180,3 +191,132 @@ def test_a_refused_start_exits_two_in_the_screens_words() -> None:
     assert (
         outcome.message == "bot start 44wa1x: Bot 44wa1x is HALTED: run --resume-halted"
     )
+
+
+# ---- EPIC-038L: bot edit -----------------------------------------------------------------------
+
+
+def _edit(
+    host: RecordingHostControl, *sets: str, **values: object
+) -> CliOutcome | None:
+    return _run(EditBotVerb(), host, **{"set": list(sets)} | values)
+
+
+def test_edit_sends_the_settings_in_the_order_typed_and_no_venue() -> None:
+    host = RecordingHostControl()
+
+    _edit(host, "lower=81000", "upper=90000", wait=4.0)
+
+    assert host.sent == [
+        (
+            HostControlRequest(
+                HostControlAction.EDIT,
+                "44wa1x",
+                None,
+                settings=(
+                    ParameterSetting("lower", "81000"),
+                    ParameterSetting("upper", "90000"),
+                ),
+            ),
+            4.0,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ("given", "says"),
+    [
+        ([], "at least one --set"),
+        (["lower"], "--set 1: it is not key=value"),
+        (["lower=81000", "=5"], "--set 2"),
+        (["lower="], "--set 1"),
+        (["Lower=1"], "--set 1"),
+        (["lower=1 2"], "--set 1"),
+        (["lower=1", "lower=2"], "lower is given more than once"),
+        ([f"p{i}=1" for i in range(MAX_SETTINGS_PER_EDIT + 1)], "at most"),
+    ],
+)
+def test_a_set_that_is_not_sound_is_a_usage_error_and_asks_the_host_nothing(
+    given: list[str], says: str
+) -> None:
+    host = RecordingHostControl()
+
+    outcome = _edit(host, *given)
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert says in outcome.message
+    assert host.sent == []
+
+
+def test_a_usage_error_never_repeats_what_was_typed_as_a_value() -> None:
+    outcome = _edit(RecordingHostControl(), "lower=sec ret")
+
+    assert isinstance(outcome, CliOutcome)
+    assert "sec ret" not in outcome.message
+
+
+def test_no_set_at_all_is_a_usage_error_even_when_the_parser_gave_none() -> None:
+    host = RecordingHostControl()
+
+    outcome = _run(EditBotVerb(), host, set=None)
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert host.sent == []
+
+
+def test_an_accepted_edit_prints_the_hosts_old_to_new_words(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    host = RecordingHostControl(
+        HostControlReply(S.DONE, "lower 81305 -> 81000. The bot is DRAFT", "c" * 32)
+    )
+
+    outcome = _edit(host, "lower=81000")
+
+    document = json.loads(capsys.readouterr().out)
+    assert outcome is None
+    assert document["data"]["action"] == "edit"
+    assert document["data"]["message"].startswith("lower 81305 -> 81000")
+
+
+def test_a_refused_edit_exits_two_in_the_screens_words() -> None:
+    host = RecordingHostControl(
+        HostControlReply(
+            S.REFUSED, "Bot 44wa1x is RUNNING: only a DRAFT or STOPPED bot"
+        )
+    )
+
+    outcome = _edit(host, "lower=81000")
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert outcome.message.startswith("bot edit 44wa1x: Bot 44wa1x is RUNNING")
+
+
+def test_the_shipped_declaration_parses_repeated_sets_in_order() -> None:
+    """`--set` is `append` in `cli_commands.json`: the verb receives every one, as a list."""
+    path = Path(__file__).resolve().parents[5] / "src/config/cli_commands.json"
+    config = Mock(spec=IConfig)
+    config.get.return_value = json.loads(path.read_text(encoding="utf-8"))[
+        "CLI_COMMANDS"
+    ]
+
+    args = build_parser(config).parse_args(
+        ["bot", "edit", "44wa1x", "--set", "lower=81000", "--set", "upper=90000"]
+    )
+
+    assert (args.command, args.action, args.bot_id) == ("bot", "edit", "44wa1x")
+    assert args.set == ["lower=81000", "upper=90000"]
+    assert args.wait == 15
+
+
+def test_the_help_of_edit_tells_the_operator_the_plan_file_is_theirs_to_update() -> (
+    None
+):
+    path = Path(__file__).resolve().parents[5] / "src/config/cli_commands.json"
+    edit = json.loads(path.read_text(encoding="utf-8"))["CLI_COMMANDS"]["bot"][
+        "subparsers"
+    ]["commands"]["edit"]
+
+    assert "plan file" in edit["help"] and "bot apply" in edit["help"]
+    assert "NOT updated" in edit["help"]
+    assert edit["read_only"] is True
