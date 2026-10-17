@@ -146,6 +146,5 @@ What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery
 | One kind-neutral backtest result and simulator port | `bots/application/`, `bots/contracts/` | `EPIC-040B` |
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | A halt that leaves the position under a standing stop (D10) and the custody of that stop (D13) | `bots/application/services/positions/` | `EPIC-039L`, deferred from C3 |
-| The Futures mainnet lock removed (the owner's O2) | `bots/contracts/venue_profile.py` | `EPIC-039L` C4 |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
 | The grid rate-limit resume moves onto that mechanism | `bots/application/kinds/grid/watch/` | `EPIC-042F` |

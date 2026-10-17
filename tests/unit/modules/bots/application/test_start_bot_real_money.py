@@ -54,6 +54,8 @@ class _CountingRunner(IBotRunner):
     def confirm_resume(self, bot_id: str) -> None:
         raise NotImplementedError
 
+    def withdraw_resume_proposal(self, bot_id: str) -> None: ...
+
     def has_resume_proposal(self, bot_id: str) -> bool:
         return False
 

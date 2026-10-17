@@ -57,6 +57,8 @@ class _Executor(IBotExecutor):
 
     def confirm_resume(self) -> None: ...
 
+    def withdraw_resume_proposal(self) -> None: ...
+
     def has_resume_proposal(self) -> bool:
         return False
 

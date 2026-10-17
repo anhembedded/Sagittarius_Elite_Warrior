@@ -77,6 +77,8 @@ class _RecordingRunner(IBotRunner):
     def confirm_resume(self, bot_id: str) -> None:
         self.sent.append(("confirm_resume", bot_id))
 
+    def withdraw_resume_proposal(self, bot_id: str) -> None: ...
+
     def has_resume_proposal(self, bot_id: str) -> bool:
         return False
 

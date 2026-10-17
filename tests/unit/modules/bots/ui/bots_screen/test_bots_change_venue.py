@@ -20,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
     ReadinessState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.venue_choice import (
-    CLOSED,
     KEY_SAVED,
     NO_KEY,
     NOT_ENABLED,
@@ -197,7 +196,7 @@ def test_new_bot_offers_every_venue_bots_run_on_with_its_connection_state(
         f"Spot Testnet — {KEY_SAVED}",
         f"Spot Mainnet — {KEY_SAVED}",
         f"Futures Testnet — {NOT_ENABLED}",
-        f"Futures Mainnet — {CLOSED}",
+        f"Futures Mainnet — {NOT_ENABLED}",
     ]
     assert NO_KEY not in " ".join(answers.offered)
 

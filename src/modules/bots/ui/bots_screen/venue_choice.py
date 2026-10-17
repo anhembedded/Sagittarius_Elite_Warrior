@@ -2,9 +2,10 @@
 
 @details New bot and the Plan's Venue field offer the same list: every venue a bot kind
 runs on, each in its market's words. A kind is offered a venue only when it declares the
-venue's market (`IBotKind.supported_profiles`). A venue the owner has not opened (Futures
-mainnet until `EPIC-039L`) is listed too, closed and with the reason, never silently left out
-(`BUG-208`). The state is what is known without a network call: whether the venue has an
+venue's market (`IBotKind.supported_profiles`). A venue a build closes is listed too, greyed
+out with its reason (`VenueChoice.closed_reason`), never silently left out (`BUG-208`); no
+venue is closed today (Futures mainnet was opened by `EPIC-039L`, the owner's decision of
+2026-10-17). The state is what is known without a network call: whether the venue has an
 API key (`credentials_provider` is the stored key, ungated — it never reaches the
 exchange). Whether the key *works* is the Connect step's read, made once a bot is
 on the venue, and its failure is told once, in the message bar (`BUG-181`).
@@ -19,7 +20,6 @@ from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QComboBox
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    bot_closed_reason,
     plan_market_of,
     runs_bots_on,
     venue_profile_of,
@@ -34,7 +34,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 KEY_SAVED = "API key saved"
 NO_KEY = "no API key"
 NOT_ENABLED = "not enabled"
-CLOSED = "closed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,9 +84,6 @@ def _runs_bots(venue: TradingVenue) -> bool:
 def _choice_of(
     contexts: IVenueContexts, venue: TradingVenue, enabled: tuple[TradingVenue, ...]
 ) -> VenueChoice:
-    reason = bot_closed_reason(venue)
-    if reason is not None:
-        return VenueChoice(venue, CLOSED, reason)
     return VenueChoice(venue, _connection_of(contexts, venue, enabled))
 
 

@@ -45,5 +45,8 @@ class ReadOnlyBotRunner(IBotRunner):
     def confirm_resume(self, bot_id: str) -> None:
         raise ReadOnlyInstanceError(self._reason)
 
+    def withdraw_resume_proposal(self, bot_id: str) -> None:
+        raise ReadOnlyInstanceError(self._reason)
+
     def has_resume_proposal(self, bot_id: str) -> bool:
         raise ReadOnlyInstanceError(self._reason)

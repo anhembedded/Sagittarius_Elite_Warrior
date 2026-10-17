@@ -57,6 +57,11 @@ class IBotExecutor(ABC):
         """Lay the ladder a resume from HALTED proposed (ADR D13, O2)."""
 
     @abstractmethod
+    def withdraw_resume_proposal(self) -> None:
+        """Queue the withdrawal of a held resume proposal (`EPIC-042E`); runs after a Resume
+        already queued, so one that has not been proposed yet is withdrawn too."""
+
+    @abstractmethod
     def has_resume_proposal(self) -> bool:
         """A resume from HALTED proposed a ladder that awaits confirmation."""
 

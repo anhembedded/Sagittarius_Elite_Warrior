@@ -52,6 +52,12 @@ class IBotRunner(ABC):
         """Queue the confirmation of a HALTED bot's resume proposal (O2)."""
 
     @abstractmethod
+    def withdraw_resume_proposal(self, bot_id: str) -> None:
+        """Queue the withdrawal of the bot's resume proposal, after whatever the executor already
+        holds in its queue (`EPIC-042E`): a caller that gave up waiting for a proposal must not
+        leave one behind for a later Confirm or to block the automatic recovery."""
+
+    @abstractmethod
     def has_resume_proposal(self, bot_id: str) -> bool:
         """The bot's executor holds a resume proposal to confirm. A proposal
         lives in memory only: after a restart there is none."""

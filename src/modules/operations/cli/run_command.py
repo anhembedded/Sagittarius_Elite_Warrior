@@ -282,10 +282,13 @@ class RunCommand:
             WarnWhenNoAlertChannel(self._alerts),
             ReportRecoveringBots(self._dispatcher),
         ]
-        if options.resume_recovering:
-            steps.append(ResumeRecoveringBots(self._dispatcher, options.confirm_venue))
+        # Halted first: the bots it resumes are the ones that were halted before this start. The
+        # recovering step opens a session whose reconcile may halt a bot of its own, and that halt
+        # is for the owner to read, not for this start to re-plan (`BUG-204`).
         if options.resume_halted:
             steps.append(ResumeHaltedBots(self._dispatcher, options.confirm_venue))
+        if options.resume_recovering:
+            steps.append(ResumeRecoveringBots(self._dispatcher, options.confirm_venue))
         if options.start_planned:
             steps.append(
                 StartPlannedBots(self._plan, self._dispatcher, options.confirm_venue)

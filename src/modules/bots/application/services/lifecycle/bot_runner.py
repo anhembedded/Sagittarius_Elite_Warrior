@@ -104,6 +104,9 @@ class BotRunner(IBotRunner):
     def confirm_resume(self, bot_id: str) -> None:
         self._executor(bot_id).confirm_resume()
 
+    def withdraw_resume_proposal(self, bot_id: str) -> None:
+        self._executor(bot_id).withdraw_resume_proposal()
+
     def has_resume_proposal(self, bot_id: str) -> bool:
         return self._executor(bot_id).has_resume_proposal()
 

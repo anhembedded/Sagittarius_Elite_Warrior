@@ -2,7 +2,7 @@
 
 @details The business promise: the kind is "Grid" whatever venue is chosen (the venue says
 Spot or Futures, the table's Venue column too), and the Venue list never silently drops a
-venue the app trades on: Futures Mainnet is listed, greyed out, with the reason it is closed.
+venue the app trades on: Futures Mainnet is listed and selectable.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     PROFILE_MARKETS,
-    bot_closed_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
@@ -123,37 +122,36 @@ def test_the_kind_is_grid_whatever_venue_is_chosen(qtbot) -> None:
     assert kind_title("grid") == "Grid"
 
 
-def test_futures_mainnet_is_listed_closed_with_the_reason() -> None:
+def test_every_venue_is_listed_open_since_futures_mainnet_was_opened() -> None:
+    """The owner opened Futures mainnet on 2026-10-17 (`EPIC-039L`, decision O2)."""
     by_venue = {choice.venue: choice for choice in _choices()}
 
-    closed = by_venue[TradingVenue.FUTURES_MAINNET]
-    assert closed.closed_reason == bot_closed_reason(TradingVenue.FUTURES_MAINNET)
-    assert closed.closed_reason
-    assert "closed" in closed.option_text
-    for venue in (
-        TradingVenue.FUTURES_TESTNET,
-        TradingVenue.SPOT_TESTNET,
-        TradingVenue.SPOT_MAINNET,
-    ):
-        assert by_venue[venue].closed_reason is None
-        assert by_venue[venue].connection == NOT_ENABLED
+    assert TradingVenue.FUTURES_MAINNET in by_venue
+    for choice in by_venue.values():
+        assert choice.closed_reason is None
+        assert choice.connection == NOT_ENABLED
 
 
-def test_a_closed_venue_is_listed_last_so_the_preselected_one_can_start() -> None:
-    venues = [choice.venue for choice in _choices()]
-
-    assert venues[-1] is TradingVenue.FUTURES_MAINNET
+_CLOSED_BY_A_BUILD = "closed by this build for a test"
 
 
-def test_the_dialog_shows_a_closed_venue_greyed_out_with_its_reason(qtbot) -> None:
-    dialog = _dialog(qtbot, _choices())
+def test_the_dialog_shows_a_venue_a_build_closes_greyed_out_with_its_reason(
+    qtbot,
+) -> None:
+    """No venue is closed today, but the picker keeps the seam (`BUG-208`): a build that closes
+    one lists it greyed out, with the reason as the tooltip, and never preselects it."""
+    choices = tuple(
+        VenueChoice(choice.venue, "closed", _CLOSED_BY_A_BUILD)
+        if choice.venue is TradingVenue.FUTURES_MAINNET
+        else choice
+        for choice in _choices()
+    )
+    dialog = _dialog(qtbot, choices)
 
     index = dialog.venue.findData(TradingVenue.FUTURES_MAINNET)
     assert index >= 0
     model = dialog.venue.model()
     item = model.index(index, 0)
     assert not model.flags(item) & Qt.ItemFlag.ItemIsEnabled
-    assert model.data(item, Qt.ItemDataRole.ToolTipRole) == bot_closed_reason(
-        TradingVenue.FUTURES_MAINNET
-    )
+    assert model.data(item, Qt.ItemDataRole.ToolTipRole) == _CLOSED_BY_A_BUILD
     assert dialog.venue.currentIndex() != index
