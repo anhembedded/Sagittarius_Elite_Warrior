@@ -57,6 +57,7 @@ gantt
 | EPIC-038I | [Bot plan files](completed/EPIC-038I_bot_plan_files.md) | `claude/epic-038i-bot-plan` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-038J | [Control of a running host](completed/EPIC-038J_control_of_a_running_host.md) | `claude/epic-038j-control-running-host` | 🔴 | ✅ Done 2026-10-17; review round 1 pending | — |
 | EPIC-038K | [Start on a running host](completed/EPIC-038K_start_on_a_running_host.md) | `claude/epic-038k-start-delete-running-host` | 🔴 | ✅ Done 2026-10-17; review pending | — |
+| EPIC-038L | [Edit on a running host](completed/EPIC-038L_edit_on_a_running_host.md) | `claude/bot-edit-on-running-host-EPIC-038L` | 🔴 | ✅ Done 2026-10-17; review pending | — |
 
 ---
 

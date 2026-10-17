@@ -1,6 +1,6 @@
 """The operator's side of control: write a command file, read the host's answer (`EPIC-038J`).
 
-Runs in the second process (`bot stop`, `bot pause`, `bot resume`), which is a read-only copy and
+Runs in the second process (`bot stop`, `bot pause`, `bot resume`, `bot start`, `bot edit`), which is a read-only copy and
 changes nothing itself. In order:
 
   1. no copy holds the data root's lock -> `NOT_RUNNING`, and **nothing is written**;
@@ -108,6 +108,7 @@ class DirectoryHostControl(IHostControl):
             request.confirmed_venue,
             self._clock.now(),
             request.close_position,
+            request.settings,
         )
         written = self._write(command)
         if written is not None:

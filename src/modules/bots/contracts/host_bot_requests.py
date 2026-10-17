@@ -8,7 +8,7 @@ the host adds no way to start or stop a bot, only a way to ask for one by name.
 
 Both answer a `BotCommandResult`, so a refusal reaches the host with the words
 the screen would show. `EPIC-038J` adds two more of the same kind, pause and resume, for the
-commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too.
+commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too; `EPIC-038L` adds `EditBotForHostCommand`.
 
 @par `StartBotForHostCommand.confirmed_venue` (decision O8)
 The screen asks the question that names real money. A command line cannot ask,
@@ -22,6 +22,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     ExposureHandling,
 )
@@ -83,6 +86,19 @@ class StartBotForHostCommand:
 
     bot_id: str
     confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EditBotForHostCommand:
+    """Change these parameters of this bot, which is at rest (DRAFT or STOPPED) (`EPIC-038L`).
+
+    A setting names a parameter and the text to store; every other parameter keeps its value. An
+    edit places no order and asks no venue (decision O8 is the question at `bot start`, which is
+    untouched): the bot lands on DRAFT, as after the Bots tab's Save, and starts only by a Start.
+    """
+
+    bot_id: str
+    settings: tuple[ParameterSetting, ...]
 
 
 @dataclass(frozen=True, slots=True)

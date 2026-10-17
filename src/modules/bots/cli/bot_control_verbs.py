@@ -1,6 +1,6 @@
-"""`bot stop`, `bot pause`, `bot resume` and `bot start` (`EPIC-038J`, `EPIC-038K`, decision O4, channel A).
+"""`bot stop`, `bot pause`, `bot resume`, `bot start` and `bot edit` (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, decision O4, channel A).
 
-Four verbs of the `bot` command that change a bot **in another process**: the running `run`
+Five verbs of the `bot` command that change a bot **in another process**: the running `run`
 host. This process is a read-only copy (`"read_only": true` in `cli_commands.json`) and changes
 nothing; each verb hands a request to `IHostControl`, which writes it where the host reads it,
 and waits for the host's recorded answer. The bot is changed by the host, through the command
@@ -17,7 +17,8 @@ the Bots tab dispatches - there is no second implementation of Stop here.
 
 @par Extension cases
   · a new verb (`bot archive`) - a `HostControlAction` member, a row in the host's executor, one
-    class here and one `BOT_VERBS` entry; `start` (`EPIC-038K`) was added so.
+    class here and one `BOT_VERBS` entry; `start` (`EPIC-038K`) was added so, and `edit`
+    (`EPIC-038L`) too, with a `_request_of` of its own for the settings it carries.
 """
 
 from __future__ import annotations
@@ -34,6 +35,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlReply,
     HostControlRequest,
     HostControlStatus,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    MAX_SETTINGS_PER_EDIT,
+    ParameterSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_reports import (
     control_report,
@@ -58,16 +63,21 @@ class _ControlVerb(IBotVerb):
             return CliOutcome(
                 ExitCode.USAGE, "--wait must be a finite number of seconds, 0 or more"
             )
-        request = HostControlRequest(
+        request = self._request_of(args)
+        if isinstance(request, CliOutcome):
+            return request
+        reply = world.host_control.send(request, args.wait)
+        if reply.status is HostControlStatus.DONE:
+            return world.printer.print_report(control_report(request, reply), args)
+        return _failure(request, reply)
+
+    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+        return HostControlRequest(
             self.action,
             args.bot_id,
             getattr(args, "confirm_venue", None),
             getattr(args, "close_position", False),
         )
-        reply = world.host_control.send(request, args.wait)
-        if reply.status is HostControlStatus.DONE:
-            return world.printer.print_report(control_report(request, reply), args)
-        return _failure(request, reply)
 
 
 def _failure(request: HostControlRequest, reply: HostControlReply) -> CliOutcome:
@@ -95,3 +105,42 @@ class ResumeBotVerb(_ControlVerb):
 class StartBotVerb(_ControlVerb):
     name = "start"
     action = HostControlAction.START
+
+
+class EditBotVerb(_ControlVerb):
+    """`bot edit <id> --set key=value ...`: the screen's Save, for one bot at rest, on the running host.
+
+    Everything the operator typed is judged here for its *shape* before a file is written, so a typo
+    never reaches the host; whether a key exists and a value is readable is the bot kind's answer,
+    given by the host in words (`IBotKind.parameter_problem`). The usage refusals never repeat a
+    value: a value typed in the wrong place may be a secret, and this is a terminal that logs.
+    """
+
+    name = "edit"
+    action = HostControlAction.EDIT
+
+    def _request_of(self, args: argparse.Namespace) -> HostControlRequest | CliOutcome:
+        given: list[str] = args.set or []
+        if not given:
+            return CliOutcome(
+                ExitCode.USAGE, "bot edit needs at least one --set key=value"
+            )
+        if len(given) > MAX_SETTINGS_PER_EDIT:
+            return CliOutcome(
+                ExitCode.USAGE,
+                f"bot edit takes at most {MAX_SETTINGS_PER_EDIT} --set, not {len(given)}",
+            )
+        settings: list[ParameterSetting] = []
+        for position, text in enumerate(given, start=1):
+            try:
+                settings.append(ParameterSetting.parse(text))
+            except ValueError as invalid:
+                return CliOutcome(ExitCode.USAGE, f"--set {position}: {invalid}")
+        keys = [setting.key for setting in settings]
+        repeated = sorted({key for key in keys if keys.count(key) > 1})
+        if repeated:
+            return CliOutcome(
+                ExitCode.USAGE,
+                f"{', '.join(repeated)} is given more than once; set each parameter once",
+            )
+        return HostControlRequest(self.action, args.bot_id, settings=tuple(settings))

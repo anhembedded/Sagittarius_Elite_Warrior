@@ -102,10 +102,11 @@ class GetBotStatusReportQueryHandler(
             self._dispatcher.dispatch(GetBotQuery, GetBotQuery(query.bot_id)),
         )
         if snapshot is not None:
-            # The one-bot read carries the recovery table; a listing stays small.
+            # The one-bot read carries the recovery table and the parameters; a listing stays small.
             entry = replace(
                 _entry_of(snapshot),
                 recovery=recovery_table_of(snapshot, self._kinds, self._clock.now()),
+                parameters=dict(snapshot.config),
             )
             return BotStatusReport(bots=(entry,))
         # No readable bot has this id: it is either unknown or a refused file.

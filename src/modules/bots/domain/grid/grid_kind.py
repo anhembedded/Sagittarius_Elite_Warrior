@@ -8,6 +8,8 @@ The executor factory is given to the kind, not built by it: the executor is
 
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
+
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     IBotExecutorFactory,
@@ -28,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
     GridOverlaySource,
     grid_overlay,
     liquidation_marks,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_parameter_check import (
+    grid_parameter_problem,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
@@ -71,6 +76,11 @@ class GridKind(IBotKind):
 
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:
         return evaluate_grid(inputs, self._thresholds).verdicts
+
+    def parameter_problem(
+        self, config: Mapping[str, str], changed: Collection[str]
+    ) -> str | None:
+        return grid_parameter_problem(config, changed)
 
     def overlay(self, inputs: BotKindInputs) -> BotOverlay:
         """The planner preview's overlay: the plan, its range and exits, and

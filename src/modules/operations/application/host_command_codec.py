@@ -9,19 +9,29 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume" | "start"
+  action          "stop" | "pause" | "resume" | "start" | "edit"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
   close_position  optional boolean, absent means false (`BUG-224`): a stop that closes the
                   position at market. It is written only when true, so a file that does not
                   ask for the close is byte-for-byte the document an older host reads.
+  set             an edit's `--set key=value` pairs (`EPIC-038L`): an object of 1 to
+                  `MAX_SETTINGS_PER_EDIT` text values, keys and values of the shape
+                  `ParameterSetting` states. Required for "edit", refused for any other action.
+                  An edit asks no venue: `confirmed_venue` must be null.
 
 @par Older hosts (`EPIC-038K`)
   `start` is a new `action` word, not a new key. An older host holds the closed set
   "stop | pause | resume" and reads a document with that word as *malformed* ("action is not
   one of ..."): it audits that, removes the file and executes nothing, so the operator gets
   REJECTED and no bot changes. A new host reads every document an older host wrote.
+
+@par Older hosts (`EPIC-038L`)
+  `edit` is a new `action` word *and* `set` is a new key. An older host checks the keys first and
+  reads the document as *malformed* ("it has an unknown key (set)"): audited, removed, executed
+  never, so the operator gets REJECTED and the bot keeps its parameters. A new host reads every
+  document an older host wrote, because `set` is absent from them.
 """
 
 from __future__ import annotations
@@ -33,6 +43,10 @@ from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    MAX_SETTINGS_PER_EDIT,
+    ParameterSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HOST_COMMAND_SCHEMA,
@@ -51,6 +65,7 @@ _KEYS = frozenset(
         "confirmed_venue",
         "issued_at",
         "close_position",
+        "set",
     }
 )
 
@@ -74,6 +89,8 @@ def encode_command(command: HostCommand) -> str:
     }
     if command.close_position:
         document["close_position"] = True
+    if command.settings:
+        document["set"] = {setting.key: setting.value for setting in command.settings}
     return json.dumps(document, sort_keys=True)
 
 
@@ -95,6 +112,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         confirmed_venue=document["confirmed_venue"],
         issued_at=datetime.fromisoformat(document["issued_at"]),
         close_position=document.get("close_position", False),
+        settings=_settings_of(document.get("set")),
     )
 
 
@@ -129,6 +147,9 @@ def _problem_of(document: dict[str, object]) -> str | None:
         return "close_position is not true or false"
     if close and action != "stop":
         return "close_position belongs to a stop"
+    problem = _edit_problem(document, action, venue)
+    if problem is not None:
+        return problem
     return _timestamp_problem(document.get("issued_at"))
 
 
@@ -140,3 +161,40 @@ def _timestamp_problem(value: object) -> str | None:
     except ValueError:
         return "issued_at is not a timestamp"
     return None if moment.tzinfo is not None else "issued_at has no time zone"
+
+
+def _edit_problem(
+    document: dict[str, object], action: str, venue: object
+) -> str | None:
+    """`set` is an edit's and only an edit's, and an edit places no order, so it names no venue."""
+    if "set" not in document:
+        return "an edit needs set" if action == "edit" else None
+    if action != "edit":
+        return "set belongs to an edit"
+    if venue is not None:
+        return "an edit asks no venue: confirmed_venue must be null"
+    settings = document["set"]
+    if (
+        not isinstance(settings, dict)
+        or not 1 <= len(settings) <= MAX_SETTINGS_PER_EDIT
+    ):
+        return f"set is not an object of 1 to {MAX_SETTINGS_PER_EDIT} settings"
+    try:
+        for key, value in settings.items():
+            _setting(key, value)
+    except (TypeError, ValueError) as invalid:
+        return f"set is not sound: {invalid}"
+    return None
+
+
+def _setting(key: object, value: object) -> ParameterSetting:
+    if not isinstance(key, str) or not isinstance(value, str):
+        raise TypeError("a setting is text and text")
+    return ParameterSetting(key, value)
+
+
+def _settings_of(raw: object) -> tuple[ParameterSetting, ...]:
+    """The settings of a document `_problem_of` found sound (absent for every action but an edit)."""
+    if not isinstance(raw, dict):
+        return ()
+    return tuple(_setting(key, value) for key, value in raw.items())

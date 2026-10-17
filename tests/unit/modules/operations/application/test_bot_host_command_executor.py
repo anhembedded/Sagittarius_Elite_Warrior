@@ -8,11 +8,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
     StartBotForHostCommand,
@@ -43,13 +47,20 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
     executor = BotHostCommandExecutor(dispatcher)
 
     for action in HostControlAction:
-        executor.execute(command(action=action, confirmed_venue="spot_mainnet"))
+        executor.execute(
+            command(
+                action=action,
+                confirmed_venue="spot_mainnet",
+                settings=(ParameterSetting("lower", "81000"),),
+            )
+        )
 
     assert dispatcher.dispatched == [
         StopBotForOperatorCommand(BOT, "spot_mainnet"),
         PauseBotForHostCommand(BOT),
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
         StartBotForHostCommand(BOT, "spot_mainnet"),
+        EditBotForHostCommand(BOT, (ParameterSetting("lower", "81000"),)),
     ]
 
 
@@ -91,3 +102,41 @@ def test_an_accepted_start_says_the_bot_is_starting() -> None:
     outcome = executor.execute(command(action=HostControlAction.START))
 
     assert outcome.accepted and "STARTING" in outcome.message
+
+
+def test_an_accepted_edit_speaks_the_hosts_own_sentence_naming_what_changed() -> None:
+    said = BotCommandResult(accepted=True, bot_id=BOT, message="lower 81305 -> 81000.")
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(
+        command(
+            action=HostControlAction.EDIT,
+            settings=(ParameterSetting("lower", "81000"),),
+        )
+    )
+
+    assert outcome.accepted and outcome.message == "lower 81305 -> 81000."
+
+
+def test_an_accepted_edit_without_a_sentence_still_says_the_bot_is_draft() -> None:
+    executor = BotHostCommandExecutor(_Dispatcher(BotCommandResult.done(BOT)))
+
+    outcome = executor.execute(
+        command(
+            action=HostControlAction.EDIT,
+            settings=(ParameterSetting("lower", "81000"),),
+        )
+    )
+
+    assert outcome.accepted and "DRAFT" in outcome.message
+
+
+def test_only_an_edit_speaks_the_hosts_own_sentence_every_other_action_keeps_its_fixed_words() -> (
+    None
+):
+    said = BotCommandResult(accepted=True, bot_id=BOT, message="something else")
+    executor = BotHostCommandExecutor(_Dispatcher(said))
+
+    outcome = executor.execute(command(action=HostControlAction.START))
+
+    assert outcome.message == "the bot is STARTING (see `bot show`)"
