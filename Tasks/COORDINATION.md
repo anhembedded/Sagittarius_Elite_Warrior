@@ -20,8 +20,8 @@ This file holds state, not rules. Rules live in `.claude/`; decisions live in th
 | Stream | Next step | Author session | Reviewer session | PR | Blocked on |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | EPIC-042 halt auto-recovery | 042C: Grid wiring (director, probe, recovery run, exit re-check, stalled alert); then 042D, 042E, 042G; 042F later | `session_01YZUEpBwUKchEsxe4BfVP3s` | spawned per PR by the author | not yet open | nothing |
-| EPIC-039L protective stop | C3: Emergency Stop order and halt wording | `session_016ToGGUVsE8ESa454e3eb1T` | `session_013qujYEUXXBMxX3baEEzexX` | [#550](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/550) | reviewer verdict |
-| EPIC-039L C4-lite | Remove the Futures mainnet lock (`CLOSED_VENUES`); stashed as `c4-lite-wip` in the 039L session | same | — | — | the owner granting Bash permission in that session; recommended after C3 merges |
+| EPIC-039L protective stop | C3: Emergency Stop order and halt wording; round-1 should-fix items pushed at f237317, re-review requested; commit-lint red on that head | `session_016ToGGUVsE8ESa454e3eb1T` | `session_013qujYEUXXBMxX3baEEzexX` | [#550](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/550) | commit-lint fix, re-review |
+| EPIC-039L C4-lite | Futures mainnet lock removed (O2); gates green on 6219d5b | same | `session_012XC79LLm2DLs5XrUNhAkyQ` | [#551](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/551) | reviewer verdict; merge after #550 (both touch `Docs/MODULES/bots/06-runtime.md`) |
 
 Deferred: EPIC-039L D10 and D13 (a halt that leaves the position, stop custody).
 
@@ -29,7 +29,6 @@ Deferred: EPIC-039L D10 and D13 (a halt that leaves the position, stop custody).
 
 - Sync the Windows clock. It was 127 s ahead on 2026-10-17. Then Stop and Start the Futures Testnet bot again after pulling BUG-223.
 - Check Binance Testnet for leftover `SEW-djwx0w` orders.
-- Grant permission for C4-lite when the Futures mainnet should open.
 
 ## Backlog worth remembering
 
