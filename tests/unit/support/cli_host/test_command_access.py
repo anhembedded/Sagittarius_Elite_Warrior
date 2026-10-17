@@ -69,6 +69,7 @@ _READ_ONLY = {
     ("bot", "stop"),
     ("bot", "pause"),
     ("bot", "resume"),
+    ("bot", "start"),
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),

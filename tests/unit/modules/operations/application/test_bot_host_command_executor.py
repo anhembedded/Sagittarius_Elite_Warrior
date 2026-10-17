@@ -15,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
+    StartBotForHostCommand,
     StopBotForOperatorCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_host_command_executor import (
@@ -48,6 +49,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         StopBotForOperatorCommand(BOT, "spot_mainnet"),
         PauseBotForHostCommand(BOT),
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
+        StartBotForHostCommand(BOT, "spot_mainnet"),
     ]
 
 
@@ -81,3 +83,11 @@ def test_a_refusal_carries_the_bots_own_words() -> None:
 
     assert not outcome.accepted
     assert outcome.message == "Bot 44wa1x is STOPPED; stop is not possible"
+
+
+def test_an_accepted_start_says_the_bot_is_starting() -> None:
+    executor = BotHostCommandExecutor(_Dispatcher(BotCommandResult.done(BOT)))
+
+    outcome = executor.execute(command(action=HostControlAction.START))
+
+    assert outcome.accepted and "STARTING" in outcome.message
