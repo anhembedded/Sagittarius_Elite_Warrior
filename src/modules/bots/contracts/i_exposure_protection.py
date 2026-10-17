@@ -17,8 +17,8 @@ Spot has none (`NoProtection`). Decision record `DECISION_2026-10-16`, D4 to D8.
 
 Plausible extensions, each a local change: a take profit on the exchange (O3) is a second order
 of the same kind in the service's list; a Coin-M venue is its own implementation; the halt
-policy that leaves a position under a standing stop (`EPIC-039L` C3) asks the service whether
-one stands, one more method here.
+policy that leaves a position under a standing stop (decision D10, deferred from C3) asks the
+service whether one stands, which `describe_stop` already reads for the halt's words.
 """
 
 from __future__ import annotations
@@ -49,6 +49,12 @@ class IExposureProtection(ABC):
     @abstractmethod
     def supervise(self) -> ProtectionVerdict:
         """Look at the stops against the exchange and the position, and put right what can be."""
+
+    @abstractmethod
+    def describe_stop(self) -> str:
+        """Whether the bot's protective stop stands on the exchange now, in words for a halt that
+        cannot close the position ("its protective stop stands on the exchange"); empty where the
+        venue has no stop (Spot). Reads the exchange; an unread answer says so."""
 
     @abstractmethod
     def release(self) -> bool:

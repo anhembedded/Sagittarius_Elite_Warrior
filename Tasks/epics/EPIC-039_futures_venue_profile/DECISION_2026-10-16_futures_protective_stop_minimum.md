@@ -120,14 +120,23 @@ The code will declare this as a transition table in `bots/domain/grid/` (`code/q
 | T4 | Is the trigger rejected when already beyond the mark (the code and the words)? | C2 | owner |
 | T5 | `ORDER_TRADE_UPDATE` vs `ACCOUNT_UPDATE` for one trade, single fills and a burst (handed on by 039D); **and** the order of a triggered stop's regular-order `ORDER_TRADE_UPDATE` against the `ALGO_UPDATE` carrying `ai` (a fill that arrives first reads as foreign, `AlgoOrderLinks` is in memory only) | C4 soak checklist | owner |
 
+### Owner decisions, 2026-10-17 (relayed by the coordinating session; quoted)
+
+| # | The owner's words | Effect |
+| :-- | :--- | :--- |
+| O1 | "O1 ok" | D11 accepted: the Emergency Stop cancels the regular orders, closes, confirms flat per symbol, then cancels the conditional orders. Built in C3 |
+| O2 | "O2 mở luôn, ko cần thêm cơ chế gì, tui tự quản rủi ro" | The Futures mainnet gate is removed outright: no `IVenueOpening`, no state file, no subcommand, no setting. The owner manages the risk. D12 is revised to this (C4) |
+| O3 | "O3 b" | The take profit stays in-app until after the soak. C2 already does this (A5) |
+
 ## 7. Implementation evidence
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D1 | [EPIC-039L](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) C1 | Verified | the task's Resume and `TRACKING.md` record it |
 | D2–D9 | EPIC-039L C2 | Built on the fake; testnet checks T1–T5 open (the owner's) | [§8](#8-what-c2-built-and-where-it-departs-from-the-text-above) and the journeys in `tests/integration/modules/bots/test_a_futures_grid_keeps_a_protective_stop_on_the_fake_exchange.py` |
-| D13 | EPIC-039L C3 | Moved from C2 (§8) | — |
-| D10, D11 | EPIC-039L C3 | Not started | — |
+| D13 | EPIC-039L, later task | **Deferred** out of C3 with D10 (moved from C2, §8): a halt that can close still closes, so no stop outlives its run yet | — |
+| D11 | EPIC-039L C3 | Built on the fake. Departures: "flat" is any non-zero position, not D6's dust rule (the stop stays over dust; foreign positions are closed by the Emergency Stop anyway), and a symbol whose regular orders still rest keeps its stop even when flat (review of #550) | `tests/unit/modules/trading/application/session/test_emergency_stop_protective_stop.py` and the two journeys `test_the_emergency_stop_closes_the_position_then_takes_the_stop_down`, `test_an_emergency_stop_whose_close_failed_leaves_the_stop_over_the_position` in `tests/integration/modules/bots/test_a_futures_grid_stop_meets_the_exchange_stop_and_the_bots_own_exits.py` |
+| D10 | EPIC-039L C3 | **Deferred**: a halt that can close still closes (O8); leaving a position needs D13's custody and is the larger real-money risk. C3 builds only the halt's words (criterion 9): `test_a_switch_off_halt_says_the_stop_stands_over_the_position_it_cannot_close` and its by-hand-cancel twin | — |
 | D12 | EPIC-039L C4-lite | **Revised by the owner's O2 (2026-10-17: "O2 mở luôn, ko cần thêm cơ chế gì, tui tự quản rủi ro")**: the lock is removed, no port or state file; the real-money confirmations stay; the soak is the optional runbook [`futures_testnet_soak.md`](../../../Docs/OPERATIONS/futures_testnet_soak.md). The user also confirmed in session: "xác nhận mở khóa". O12 (a Futures-aware shutdown policy) is awaiting the owner. The risk of unproven checks T1–T5 and `NEUTRAL_BOTH_SIDES_VERIFIED=False` is accepted by the owner | `tests/integration/modules/bots/test_futures_mainnet_asks_for_the_real_money_confirmation_on_every_path.py` |
 
 ## 8. What C2 built, and where it departs from the text above

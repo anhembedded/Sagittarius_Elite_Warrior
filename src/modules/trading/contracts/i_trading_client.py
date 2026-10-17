@@ -71,6 +71,22 @@ class ITradingClient(ABC):
         """
 
     @abstractmethod
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        """@brief Cancels every open **regular** order on `symbol` and leaves its
+        conditional orders (a Futures protective stop) standing: the first step of an
+        Emergency Stop, so the ladder cannot refill while a position is closed
+        (`EPIC-039L`, decision D11).
+        @return The orders that were canceled. Empty if none were open.
+        """
+
+    @abstractmethod
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        """@brief Cancels every open **conditional** order on `symbol` (Futures algo
+        orders), leaving the regular ones. A venue with no conditional orders answers empty.
+        @return The orders that were canceled. Empty if none were open.
+        """
+
+    @abstractmethod
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         """@brief Lists every currently-open order on `symbol`, or on
         every symbol at once when `symbol` is omitted — `EPIC-021G`'s

@@ -59,7 +59,12 @@ The stop is `trading`'s (`src/modules/trading/application/session/emergency_stop
 `EmergencyStopCommandHandler`): it disables trading on the venue, publishes
 `TradingSwitchChangedEvent` with the cause `EMERGENCY_STOP` before any order is read (ADR 029 D7, so a
 bot learns of it before its cancels reach it), cancels every open order and closes every position (on
-Spot, sells what was bought above the session's baseline). The router hands the switch to every bot on
+Spot, sells what was bought above the session's baseline). On Futures the order is the safety
+(`.../emergency_stop/futures_stop_steps.py` → `cancel_regular_orders`, `close_all_futures_positions`,
+`cancel_conditional_orders_of_flat_symbols`): the regular orders first, so the ladder cannot refill; then
+the close; then the conditional orders of each symbol a fresh read shows flat. A close that fails leaves
+the protective stop standing over the position and the result names the symbol (decision D11, the owner's
+O1). The router hands the switch to every bot on
 the venue (`.../bot_event_router.py` → `BotEventRouter.on_switch`), and a bot that is `STARTING`,
 `RUNNING` or `PAUSED` goes `switch_off` → `HALTED`, its reason naming the Emergency Stop
 (`.../grid_facts.py` → `GridFacts._apply_switch`). A `STOPPING` bot waits in `STOPPING` and runs its
@@ -204,20 +209,32 @@ probe means a tick heard since the halt, younger than 15 s. A restart is not a r
 the bot is `HALTED` with its ledger, and the owner resumes it from the GUI or with `run --resume-halted`
 (`EPIC-042E`).
 
-## Planned: EPIC-039L C3 and C4
+## Built: what a halt that cannot close says (EPIC-039L C3)
 
-**Halt (C3).** Whether a halt closes or leaves the position is decided at the moment of the halt by
-reading the exchange: a position stays only under a stop that reads standing and matches the record
-(`PositionExposureCloser.closes_on_halt` in `bots/application/services/positions/closer_futures.py`
-becomes a question about that moment). That also needs the custody of decision D13: a stop kept under
-a stopped or halted bot keeps the symbol claimed, and a check at boot cancels it once the exposure is
-closed. The desk's Emergency Stop runs three steps: it cancels the regular orders, closes the
-positions, then cancels the conditional orders of each symbol confirmed flat, so a close that fails
-leaves the stop. Today a Futures position is never kept (`keep_on_stop_closed_reason`), so no path
-leaves a stop standing under a stopped bot.
+A switch-off, a rejected key or a rate limit halts a Futures bot without a cancel or a close, so its
+position stays open. The halt's words now say whether the protective stop stands, read from the exchange
+at that moment (`bots/application/kinds/grid/grid_parking.py` → `GridParking.left_open_words`; the question is
+`bots/contracts/i_exposure_protection.py` → `IExposureProtection.describe_stop`; the words are
+`bots/application/kinds/grid/protection/stop_words.py` → `stop_words`): "its protective stop stands on the
+exchange", "is not on the exchange" (the record says one stands and the exchange does not list it),
+"no protective stop stands over it", or "could not be read", never "none" for an unread list.
+
+## Built: the mainnet lock removed (EPIC-039L C4-lite)
 
 **The mainnet gate (C4-lite), built.** Futures mainnet is open to bots since the owner's O2
 (2026-10-17): `CLOSED_VENUES` is gone and every path asks only the real-money confirmation
 (`TradingVenue.is_mainnet`). No port, no state file, no setting. The 14-day soak and checks T1–T5 are an
 optional runbook (`Docs/OPERATIONS/futures_testnet_soak.md`), not enforced by code; the owner manages the
 risk.
+
+## Planned: EPIC-039L, a halt that leaves the position (D10, D13)
+
+**Halt that leaves the position (D10) and custody (D13), deferred.** Whether a halt closes or leaves the
+position would be decided at the moment of the halt by reading the exchange: a position stays only under
+a stop that reads standing and matches the record (`PositionExposureCloser.closes_on_halt` in
+`bots/application/services/positions/closer_futures.py` becomes a question about that moment). That also
+needs the custody of decision D13: a stop kept under a stopped or halted bot keeps the symbol claimed,
+and a check at boot cancels it once the exposure is closed. Today a Futures position is never kept
+(`keep_on_stop_closed_reason`), so no path leaves a stop standing under a stopped bot, and a halt that
+can close does close (O8). Not built in C3: leaving real-money positions is the larger risk and the owner
+has not asked for it.
