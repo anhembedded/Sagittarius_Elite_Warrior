@@ -5,7 +5,7 @@
 **Risk:** 🟢 — two new alert kinds and two source arms; no bot behaviour
 **Complexity:** S — one event, one kind, one handler, one reason text
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md)
 
 ---
 
@@ -26,7 +26,7 @@ Applies `BotStopGaveUpEvent` and its handler; the source reads `bots/contracts` 
 Used `BotAlertSource`, `AlertKind`/`KIND_PROFILES`, `IAlertPublisher`.
 
 ## 4. Changes, per file
-`bots/contracts/events/bot_auto_recovered_event.py` (new), `alerting/domain/alert_kind.py`, `alert_catalog.py`, `alerting/application/sources/bot_alert_source.py`, `bots/module.py` or its composition (publish), `Docs/MODULES/alerting/`, `Docs/MODULES/bots/03-context.md`.
+`bots/contracts/events/bot_auto_recovered_event.py` (new), `bots/contracts/events/bot_recovery_stalled_event.py` (new), `alerting/domain/alert_kind.py`, `alert_catalog.py`, `alerting/application/sources/bot_alert_source.py`, `bots/module.py` or its composition (publish), `Docs/MODULES/alerting/`, `Docs/MODULES/bots/03-context.md`.
 
 ## 5. Testing
 Unit: the source with a fake publisher; catalog completeness. Integration: the recovery on the fake exchange publishes the event once.

@@ -194,7 +194,7 @@ The table makes the enable-rules, `PRICE_STREAM_STATES`, `restarts_into_recoveri
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D3, D7, D8, D9, D14, D15 (types, merge, printing function) | [`EPIC-042B`](incomplete/EPIC-042B_awaiting_recovery_state_and_ledger.md) | Not started | Not yet verified |
+| D3, D7, D8, D9, D14, D15 (types, merge, printing function) | [`EPIC-042B`](completed/EPIC-042B_awaiting_recovery_state_and_ledger.md) | Built, no halt uses it yet | Verified on the pull request: the table, the layers, the ledger, the codec and the consumers of §2.4 have tests, mutation-checked; the generated tables are fresh (2026-10-17) |
 | D1, D4, D5, D10, D11, D12 | [`EPIC-042C`](incomplete/EPIC-042C_grid_halt_recovery.md) | Not started | Not yet verified |
 | D15 (`bot show`) | [`EPIC-042G`](incomplete/EPIC-042G_bot_show_prints_the_recovery_table.md) | Not started | Not yet verified |
 | D1 (alerts) | [`EPIC-042D`](incomplete/EPIC-042D_recovery_alerts.md) | Not started | Not yet verified |

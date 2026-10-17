@@ -45,6 +45,7 @@ _LINE_STATES = (
     "error",
     "starting",
     "stopping",
+    "awaiting_recovery",
 )
 
 

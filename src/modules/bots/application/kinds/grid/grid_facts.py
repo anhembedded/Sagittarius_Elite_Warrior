@@ -115,6 +115,13 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 _S = BotLifecycleState
 _E = BotLifecycleEvent
 
+#: The states an Emergency Stop or a switch-off moves to HALTED (`switch_off` is declared in
+#: each). A bot waiting in AWAITING_RECOVERY is one: trading off ends the wait before any
+#: automatic attempt (ADR 042 §2.4).
+_SWITCHED_OFF_FROM: frozenset[BotLifecycleState] = frozenset(
+    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.AWAITING_RECOVERY}
+)
+
 _SWITCH_OFF_DETAIL = {
     TradingSwitchCause.EMERGENCY_STOP: (
         "Emergency Stop cancelled every order and sold what was bought since "
@@ -279,7 +286,7 @@ class GridFacts(IBotFacts):
         state = self._context.state
         if not enabled:
             self._forget_proposal()
-            if state.state in (_S.STARTING, _S.RUNNING, _S.PAUSED):
+            if state.state in _SWITCHED_OFF_FROM:
                 state.transition(
                     _E.SWITCH_OFF, GridReason.SWITCH_OFF, _SWITCH_OFF_DETAIL[cause]
                 )

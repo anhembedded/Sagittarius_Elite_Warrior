@@ -11,6 +11,7 @@ every other action.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
@@ -31,7 +32,7 @@ def accepted_words(
     label: str, action: BotAction | None, state: BotLifecycleState | None
 ) -> str:
     """The status line for `label`, accepted, for a bot that was in `state`."""
-    if action is BotAction.RESUME and state is BotLifecycleState.HALTED:
+    if action is BotAction.RESUME and state in RESUME_PROPOSES_STATES:
         return f"{label}: {_PROPOSED}"
     if action is BotAction.CONFIRM_RESUME:
         return f"{label}: {_CONFIRMED}"

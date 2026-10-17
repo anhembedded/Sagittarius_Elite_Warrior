@@ -98,6 +98,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
     IBotWorkQueue,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
 )
@@ -301,7 +302,7 @@ class GridExecutor(IBotExecutor):
                 state.state.value,
             )
             return
-        if state.state is _S.HALTED:
+        if state.state in RESUME_PROPOSES_STATES:
             self._proposal = self._resume.propose(self._price())
             return
         if state.state is _S.RECOVERING:
@@ -320,7 +321,7 @@ class GridExecutor(IBotExecutor):
 
     def _run_confirm(self) -> None:
         proposal, self._proposal = self._proposal, None
-        if self._context.state.state is not _S.HALTED or proposal is None:
+        if self._context.state.state not in RESUME_PROPOSES_STATES or proposal is None:
             logger.info(
                 "Bot %s: nothing to confirm in %s",
                 self.bot_id,

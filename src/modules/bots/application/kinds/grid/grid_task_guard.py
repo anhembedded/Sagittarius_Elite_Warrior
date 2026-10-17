@@ -68,7 +68,11 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 #: The states a bot takes its ladder off the exchange on entering, unless
 #: trading switched off.
 _PARKED: frozenset[BotLifecycleState] = frozenset(
-    {BotLifecycleState.HALTED, BotLifecycleState.ERROR}
+    {
+        BotLifecycleState.HALTED,
+        BotLifecycleState.AWAITING_RECOVERY,
+        BotLifecycleState.ERROR,
+    }
 )
 
 #: Halts that come from a closed order session, where a cancel would be refused:

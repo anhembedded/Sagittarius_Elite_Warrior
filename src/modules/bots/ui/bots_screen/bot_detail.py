@@ -57,8 +57,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     PlanRiskFacts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     RUN_STARTING_STATES,
-    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
@@ -178,7 +178,7 @@ def _resume_blocked_by(inputs: DetailInputs) -> str:
     """What the exchange's facts leave in a HALTED bot's Resume's way (`BOT-174`):
     the same rules and words the Resume use case refuses with."""
     bot, market = inputs.bot, inputs.market
-    if bot.state is not BotLifecycleState.HALTED:
+    if bot.state not in RESUME_PROPOSES_STATES:
         return ""
     left = assess_resume(
         ResumeInputs(

@@ -5,7 +5,7 @@
 **Risk:** 🟡 — it lays ladders on real money at a command line; the venue must be named
 **Complexity:** M — one flag, one host step, one host command handler
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md)
 
 ---
 
@@ -14,7 +14,7 @@
 
 ## 2. Acceptance criteria
 - [ ] `--resume-halted` is declared in `cli_commands.json` and read into `RunOptions.resume_halted`; with neither it nor `--resume-recovering` the host does what it does now.
-- [ ] `ResumeBotCommandHandler.execute` and `IBotRunner` treat `AWAITING_RECOVERY` as `HALTED`: the mainnet real-money confirmation and the readiness check apply, and the order session is reopened (`_RESUMES_AFTER_A_CLOSED_SESSION`); `GridExecutor._run_resume` and `_run_confirm` accept the state. A test resumes a waiting mainnet-venue bot without the confirmation and expects the refusal.
+- [x] Done in `042B` (`RESUME_PROPOSES_STATES`): `ResumeBotCommandHandler`, `BotRunner` and `GridExecutor` treat `AWAITING_RECOVERY` as `HALTED`, so the mainnet real-money confirmation and the readiness check apply. This task's host command inherits it and adds the flag's own test.
 - [ ] A host step resumes every bot in `HALTED` or `AWAITING_RECOVERY` (no other state) through `ResumeBotCommand` then `ConfirmBotResumeCommand`, so the ladder is the GUI's.
 - [ ] A mainnet venue is resumed only when `--confirm-venue` names it; otherwise the bots are skipped, said so, and stay as they are.
 - [ ] Refused when no alert channel is configured (the existing "nobody watching" check), with the flag named in the sentence.

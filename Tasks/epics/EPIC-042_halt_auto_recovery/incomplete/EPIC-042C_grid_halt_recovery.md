@@ -5,7 +5,7 @@
 **Risk:** 🔴 — real money: it lays a ladder with no person present; the three-per-24 h budget and the exits re-check are the guards
 **Complexity:** L — the director, the recovery run, the Grid's rule and probe, the wiring of the halt, the exits re-check
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md); rebases onto `EPIC-039L` C3 / C4-lite if they land first
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md); rebases onto `EPIC-039L` C3 / C4-lite if they land first
 
 ---
 
@@ -15,10 +15,11 @@
 ## 2. Acceptance criteria
 - [ ] A Spot Grid halted for `price_feed_stale` or `user_stream_down` in `RUNNING` enters `AWAITING_RECOVERY`; in `PAUSED` it enters `HALTED` (D8); on a Futures venue it enters `HALTED` (D5). The shared probes are the price watch's and the user-stream watch's (`bots/application/services/watches/`), not Grid code.
 - [ ] After the probe has said *clear* for 120 s without a gap, the attempt is saved, the exits are re-checked on the fresh price, `propose` and `confirm` run, and the bot is `RUNNING` with a fresh ladder.
-- [ ] **The ladder is off the exchange on entering the state**: `AWAITING_RECOVERY` is in `GridTaskGuard._PARKED`, the `_NOT_PARKED` reasons behave as before, and a test places a ladder, halts transiently and asserts zero tagged orders rest.
+- [ ] **The ladder is off the exchange on entering the state**: done in `042B` for a hand-driven transition (`GridTaskGuard._PARKED`); here the real halt does it, with a test that drives `price_feed_stale` from RUNNING and asserts zero tagged orders rest.
 - [ ] A gap inside the dwell restarts the dwell. The probe is a tick heard since the halt and younger than `RECOVERY_TICK_MAX_AGE_SECONDS` (15 s), read from the last tick, never from `GridPriceAge.stale_detail`; a feed silent since the halt never clears (test), and a feed of two ticks a minute never clears (test).
-- [ ] An Emergency Stop (`switch_off`) in the state moves the bot to `HALTED` before any attempt (`GridFacts._apply_switch`), and the recovery run does nothing with trading off.
+- [ ] An Emergency Stop in the state ends the wait (`GridFacts._apply_switch`, done in `042B`); the recovery run does nothing with trading off.
 - [ ] A person's Resume in the state ends the wait and is not counted; the automatic run does not start while a person's proposal is held; the refusal table of the decision's §2.1 holds, row by row.
+- [ ] If the park on entering the state fails (the cancel is refused during the outage, "its orders may still rest"), the bot retries it before an attempt, or the attempt's `propose` cancels every tagged order first; a test refuses the entry cancel and asserts no ladder is laid over resting orders.
 - [ ] A fill missed while `user_stream_down` is reconciled: the Resume path books it from exchange evidence before laying (test on the fake exchange).
 - [ ] A stop loss or take profit crossed during the wait, or on the fresh price at the attempt, ends the bot as Stop with *sell base* forced, and no ladder is laid (a test per exit and per direction the Spot Grid runs).
 - [ ] The fourth halt inside 24 h is `HALTED` with a reason that says the three recoveries are used up; the ledger survives a restart (the bot file is reloaded in the test).
@@ -40,7 +41,6 @@ Used `GridResumeSequence.propose/confirm`, `GridPriceAge`, `IMonotonicClock`, `G
 | `.../services/lifecycle/halt_recovery_director.py` (new), `bot_run_state.py` | the decision and the ledger write |
 | `.../kinds/grid/watch/grid_price_reaction.py`, `grid_price_age.py` | route the halt, probe, `_WATCHES_EXITS` |
 | `.../kinds/grid/recovery/grid_halt_recovery.py` (new), `grid_resume_sequence.py` | the run; `confirm(proposal, event)` |
-| `.../kinds/grid/watch/grid_rate_limit_pause.py` | `_HALTED_BY_A_LIMIT` |
 | `.../services/watches/bot_price_watch.py`, `user_stream_watch.py` | the two probes (common reasons, shared by every kind) |
 | Module docs | Planned → Built |
 

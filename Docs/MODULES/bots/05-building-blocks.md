@@ -115,6 +115,22 @@ the request (`.../protective_stop_request.py` → `protective_stop_request`). In
 gains `close_position` and `working_type` (`trading/contracts/order.py` → `Order`), carried by the
 existing Algo Order mapping.
 
+## Built: the halt-recovery policy and ledger
+
+*Which halts are transient, and how many attempts has a bot used?* Plain data and pure functions in the
+domain, no behaviour yet (`EPIC-042B`; the halt that uses them is `EPIC-042C`).
+`bots/domain/halt_recovery_policy.py` → `HaltRecoveryRule`, `RuleChange`, `RecoveryLayer`, `COMMON_LAYER`,
+`EffectivePolicy`, `effective_policy` is the layered policy of [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.3. A kind
+contributes its layer through `bots/contracts/i_bot_kind.py` → `IBotKind.recovery_layer` (concrete, empty
+by default; the Grid's is `bots/domain/grid/grid_kind.py` → `GRID_RECOVERY_LAYER`), a market through
+`bots/contracts/venue_profile.py` → `VenueProfile` (field `recovery_layer`; Futures sets
+`clears_lower_layers`). The attempts live in the bot's lifecycle, `bots/domain/bot.py` →
+`BotLifecycle` (field `recovery_attempts`), counted by `bots/domain/recovery_ledger.py` →
+`RecoveryAttempt`, `attempts_within`, `budget_left`, `recorded`. The state they serve is in
+[`state-machines.md`](state-machines.md); the effective table is in [`10-quality.md`](10-quality.md).
+`bots/domain/bot_lifecycle_fsm_matrix.py` → `RESUME_PROPOSES_STATES` is the one answer to "does a Resume
+re-plan here", asked by the resume use case, the runner, the executor and the screen.
+
 ## Planned
 
 | Change | Where | Task |
@@ -123,6 +139,6 @@ existing Algo Order mapping.
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | The halt asks the exchange whether a stop stands; the Emergency Stop closes, then cancels conditional orders | `bots/application/services/positions/`, `trading/application/session/emergency_stop/` | `EPIC-039L` C3 |
 | The mainnet gate as a port, `IVenueOpening`, in place of `CLOSED_VENUES` | `bots/contracts/` | `EPIC-039L` C4 |
-| The halt-recovery mechanism: the state `AWAITING_RECOVERY`, the director that picks `halt` or `halt_transient`, the recovery policy composed as data from a common, a kind and a venue layer (`COMMON_LAYER`, `IBotKind.recovery_layer`, `VenueProfile.recovery_layer`), the probe that says a reason has cleared, and the attempt ledger in the bot record | `bots/domain/`, `bots/application/services/lifecycle/`, `bots/contracts/i_bot_kind.py` | `EPIC-042B`, `EPIC-042C` |
+| The halt-recovery director that picks `halt` or `halt_transient`, the probe that says a reason has cleared and the recovery run on the bot's worker | `bots/application/services/lifecycle/`, `bots/application/kinds/grid/` | `EPIC-042C` |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
 | The grid rate-limit resume moves onto that mechanism | `bots/application/kinds/grid/watch/` | `EPIC-042F` |

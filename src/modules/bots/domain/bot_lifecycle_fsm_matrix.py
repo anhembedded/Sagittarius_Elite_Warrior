@@ -30,6 +30,11 @@ the order session, which a restart leaves closed, opens with it, and the session
 opening has the bot reconcile. It is a self-loop, since the reconcile decides the next
 state (`reconcile_ok` or `reconcile_mismatch`), not the click.
 
+`AWAITING_RECOVERY` **(added by `EPIC-042B`)** is a halt a kind named transient: the
+ladder is off, the base is kept, the exits are watched, and the bot waits for the cause
+to stay clear for the dwell, then resumes through the person's Resume path
+(`condition_cleared`). Its events and why each row is there: ADR 042 §2.1.
+
 `halt` also answers a quiet price feed (`EPIC-035A`, `PRICE_FEED_STALE`), which
 can be heard in any state that holds or lays orders: STARTING and RECOVERING
 gained the cell for it, RUNNING and PAUSED already had it. STOPPING has one but
@@ -50,6 +55,7 @@ class BotLifecycleState(str, Enum):
     PAUSED = "PAUSED"
     RECOVERING = "RECOVERING"
     HALTED = "HALTED"
+    AWAITING_RECOVERY = "AWAITING_RECOVERY"
     STOPPING = "STOPPING"
     STOPPED = "STOPPED"
     ERROR = "ERROR"
@@ -73,6 +79,9 @@ class BotLifecycleEvent(str, Enum):
     FAULT = "fault"
     APP_RESTART = "app_restart"
     HALT = "halt"
+    HALT_TRANSIENT = "halt_transient"
+    CONDITION_CLEARED = "condition_cleared"
+    BUDGET_EXHAUSTED = "budget_exhausted"
 
 
 class BotLifecycleTarget(str, Enum):
@@ -110,6 +119,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.STARTING, _E.LADDER_READY): _S.RUNNING,
     (_S.STARTING, _E.START_REFUSED): _S.HALTED,
     (_S.STARTING, _E.HALT): _S.HALTED,
+    (_S.STARTING, _E.HALT_TRANSIENT): _S.AWAITING_RECOVERY,
     (_S.STARTING, _E.STOP): _S.STOPPING,
     (_S.STARTING, _E.SWITCH_OFF): _S.HALTED,
     (_S.STARTING, _E.FAULT): _S.ERROR,
@@ -120,6 +130,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.RUNNING, _E.SWITCH_OFF): _S.HALTED,
     (_S.RUNNING, _E.FAULT): _S.ERROR,
     (_S.RUNNING, _E.HALT): _S.HALTED,
+    (_S.RUNNING, _E.HALT_TRANSIENT): _S.AWAITING_RECOVERY,
     (_S.RUNNING, _E.APP_RESTART): _S.RECOVERING,
     # --- PAUSED ---
     (_S.PAUSED, _E.RESUME): _S.RUNNING,
@@ -145,6 +156,19 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.HALTED, _E.SWITCH_OFF): _S.HALTED,
     (_S.HALTED, _E.FAULT): _S.ERROR,
     (_S.HALTED, _E.APP_RESTART): _S.HALTED,
+    # --- AWAITING_RECOVERY --- (`EPIC-042`, ADR 042 §2.1: a halt a kind named transient,
+    # waiting for its cause to stay clear for the dwell. Only RUNNING and STARTING enter
+    # it: PAUSED and RECOVERING have no `halt_transient` cell, so the owner's Pause and a
+    # restart's closed order session are never undone by a machine, D8.)
+    (_S.AWAITING_RECOVERY, _E.CONDITION_CLEARED): _S.STARTING,
+    (_S.AWAITING_RECOVERY, _E.RESUME): _S.STARTING,
+    (_S.AWAITING_RECOVERY, _E.BUDGET_EXHAUSTED): _S.HALTED,
+    (_S.AWAITING_RECOVERY, _E.HALT): _S.HALTED,
+    (_S.AWAITING_RECOVERY, _E.STOP): _S.STOPPING,
+    (_S.AWAITING_RECOVERY, _E.SWITCH_OFF): _S.HALTED,
+    (_S.AWAITING_RECOVERY, _E.FAULT): _S.ERROR,
+    # A restart is not a person's confirmation and closes the order session (D9, O1 a).
+    (_S.AWAITING_RECOVERY, _E.APP_RESTART): _S.HALTED,
     # --- STOPPING --- (waits while the switch is off; never STOPPED early;
     # `stop` again is a retry, `EPIC-035C`)
     (_S.STOPPING, _E.STOP): _S.STOPPING,
@@ -182,6 +206,15 @@ PRICE_STREAM_STATES: frozenset[BotLifecycleState] = frozenset(_S) - {
 #: re-plans a ladder), and not HALTED or ERROR (they already place nothing).
 PRICE_STALENESS_HALTS: frozenset[BotLifecycleState] = frozenset(
     {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.RECOVERING}
+)
+
+#: The states whose Resume re-plans: it cancels the bot's tagged orders and proposes a
+#: fresh ladder, which a person (or the host's `--resume-halted`) confirms. HALTED has
+#: always been one; AWAITING_RECOVERY is the same re-plan, run by a person ahead of the
+#: automatic one (`EPIC-042`). Every consumer that treated "HALTED" as "Resume re-plans"
+#: asks here, so the second state is answered in one place.
+RESUME_PROPOSES_STATES: frozenset[BotLifecycleState] = frozenset(
+    {_S.HALTED, _S.AWAITING_RECOVERY}
 )
 
 #: The states `reconcile_ok` may return to; `Bot` records one on entering RECOVERING.

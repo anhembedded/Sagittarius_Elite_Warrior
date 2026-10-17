@@ -41,7 +41,13 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
 
 #: The states that need the person's attention. The state is a word in its
 #: cell, so the emphasis is bold, never a colour (`ui-presentation-rule.md` §1).
-_ATTENTION_STATES = frozenset({BotLifecycleState.HALTED, BotLifecycleState.ERROR})
+_ATTENTION_STATES = frozenset(
+    {
+        BotLifecycleState.HALTED,
+        BotLifecycleState.AWAITING_RECOVERY,
+        BotLifecycleState.ERROR,
+    }
+)
 
 
 def state_text(state: BotLifecycleState) -> str:

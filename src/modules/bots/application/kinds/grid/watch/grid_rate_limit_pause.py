@@ -61,7 +61,14 @@ _S = BotLifecycleState
 #: itself (a resume the user asked for that met the limit). Not STOPPING (its stop
 #: waits out the pause, `GridStopSequence`), not ERROR, which only Stop leaves.
 _HALTED_BY_A_LIMIT: frozenset[BotLifecycleState] = frozenset(
-    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.RECOVERING, _S.HALTED}
+    {
+        _S.STARTING,
+        _S.RUNNING,
+        _S.PAUSED,
+        _S.RECOVERING,
+        _S.HALTED,
+        _S.AWAITING_RECOVERY,
+    }
 )
 
 

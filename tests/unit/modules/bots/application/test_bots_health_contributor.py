@@ -112,3 +112,19 @@ def test_a_read_only_copy_asks_the_lock() -> None:
 
 def test_an_unknown_state_of_the_world_is_not_running() -> None:
     assert BotStatusReport().app_running is False
+
+
+def test_the_section_counts_the_bots_waiting_to_recover() -> None:
+    """`EPIC-042B`: a bot waiting for its cause to clear is neither running nor halted."""
+    store = FakeBotStore()
+    seed(store, "aaaaaa", BotLifecycleState.AWAITING_RECOVERY)
+    seed(store, "bbbbbb", BotLifecycleState.AWAITING_RECOVERY)
+    seed(store, "cccccc", BotLifecycleState.HALTED)
+
+    section = BotsHealthContributor(BotQueryDispatcher(store)).snapshot()
+
+    assert (section["awaiting_recovery"], section["halted"], section["running"]) == (
+        2,
+        1,
+        0,
+    )

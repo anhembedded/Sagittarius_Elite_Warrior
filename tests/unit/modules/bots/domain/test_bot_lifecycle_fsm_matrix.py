@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BOT_LIFECYCLE_TRANSITIONS,
     PRICE_STALENESS_HALTS,
     PRICE_STREAM_STATES,
+    RESUME_PROPOSES_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
     BotLifecycleTarget,
@@ -34,6 +35,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.STARTING, E.LADDER_READY): S.RUNNING,
     (S.STARTING, E.START_REFUSED): S.HALTED,
     (S.STARTING, E.HALT): S.HALTED,
+    (S.STARTING, E.HALT_TRANSIENT): S.AWAITING_RECOVERY,
     (S.STARTING, E.STOP): S.STOPPING,
     (S.STARTING, E.SWITCH_OFF): S.HALTED,
     (S.STARTING, E.FAULT): S.ERROR,
@@ -43,6 +45,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.RUNNING, E.SWITCH_OFF): S.HALTED,
     (S.RUNNING, E.FAULT): S.ERROR,
     (S.RUNNING, E.HALT): S.HALTED,
+    (S.RUNNING, E.HALT_TRANSIENT): S.AWAITING_RECOVERY,
     (S.RUNNING, E.APP_RESTART): S.RECOVERING,
     (S.PAUSED, E.RESUME): S.RUNNING,
     (S.PAUSED, E.STOP): S.STOPPING,
@@ -63,6 +66,14 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.HALTED, E.SWITCH_OFF): S.HALTED,
     (S.HALTED, E.FAULT): S.ERROR,
     (S.HALTED, E.APP_RESTART): S.HALTED,
+    (S.AWAITING_RECOVERY, E.CONDITION_CLEARED): S.STARTING,
+    (S.AWAITING_RECOVERY, E.RESUME): S.STARTING,
+    (S.AWAITING_RECOVERY, E.BUDGET_EXHAUSTED): S.HALTED,
+    (S.AWAITING_RECOVERY, E.HALT): S.HALTED,
+    (S.AWAITING_RECOVERY, E.STOP): S.STOPPING,
+    (S.AWAITING_RECOVERY, E.SWITCH_OFF): S.HALTED,
+    (S.AWAITING_RECOVERY, E.FAULT): S.ERROR,
+    (S.AWAITING_RECOVERY, E.APP_RESTART): S.HALTED,
     (S.STOPPING, E.STOP): S.STOPPING,
     (S.STOPPING, E.STOP_CONFIRMED): S.STOPPED,
     (S.STOPPING, E.SWITCH_OFF): S.STOPPING,
@@ -146,3 +157,36 @@ def test_a_stopping_bot_is_not_halted_by_a_quiet_feed() -> None:
     would turn the user's Stop into a resume that re-plans a ladder."""
     assert S.STOPPING in PRICE_STREAM_STATES
     assert S.STOPPING not in PRICE_STALENESS_HALTS
+
+
+@pytest.mark.parametrize("state", [S.PAUSED, S.RECOVERING])
+def test_a_paused_or_recovering_bot_never_halts_transiently(state: S) -> None:
+    """ADR 042 D8: the owner's Pause is never undone by a machine, and a restart's closed
+    order session cannot take the Resume path a recovery runs."""
+    assert not is_declared(state, E.HALT_TRANSIENT)
+
+
+def test_awaiting_recovery_is_left_by_a_person_a_stop_or_a_new_cause() -> None:
+    """ADR 042 §2.1: every way out of the wait is declared, and none leads to RUNNING."""
+    leaving = {
+        event: next_target(S.AWAITING_RECOVERY, event)
+        for event in E
+        if is_declared(S.AWAITING_RECOVERY, event)
+    }
+    assert S.RUNNING not in leaving.values()
+    assert leaving[E.STOP] is S.STOPPING
+    assert leaving[E.APP_RESTART] is S.HALTED
+
+
+def test_the_waiting_state_owns_a_price_stream_and_is_not_halted_again_by_a_quiet_feed() -> (
+    None
+):
+    """The wait watches its exits, so it keeps the stream; a quiet feed is why it waits,
+    so it must not halt it a second time."""
+    assert S.AWAITING_RECOVERY in PRICE_STREAM_STATES
+    assert S.AWAITING_RECOVERY not in PRICE_STALENESS_HALTS
+
+
+def test_a_resume_re_plans_from_halted_and_from_the_wait_only() -> None:
+    assert {S.HALTED, S.AWAITING_RECOVERY} == RESUME_PROPOSES_STATES
+    assert all(is_declared(state, E.RESUME) for state in RESUME_PROPOSES_STATES)

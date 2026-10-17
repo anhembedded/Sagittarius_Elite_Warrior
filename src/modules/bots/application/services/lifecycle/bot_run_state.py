@@ -61,6 +61,7 @@ FAILED_SAVES_BEFORE_PAUSE = 3
 #: target is a plain decision, INFO.
 _LEVEL_OF_TARGET = {
     BotLifecycleState.HALTED: logging.WARNING,
+    BotLifecycleState.AWAITING_RECOVERY: logging.WARNING,
     BotLifecycleState.ERROR: logging.ERROR,
 }
 

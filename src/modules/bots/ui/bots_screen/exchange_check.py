@@ -33,8 +33,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
     FuturesLoaded,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     RUN_STARTING_STATES,
-    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     BotQueries,
@@ -51,7 +51,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot impo
 logger = logging.getLogger("App.Bots.Screen")
 
 #: The states whose next step (a Start, a Resume) the exchange's facts judge.
-CHECKED_STATES = RUN_STARTING_STATES | {BotLifecycleState.HALTED}
+CHECKED_STATES = RUN_STARTING_STATES | RESUME_PROPOSES_STATES
 
 
 class ExchangeCheck:

@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    RecoveryLayer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 GRID_KIND_ID = "grid"
@@ -39,6 +42,12 @@ GRID_KIND_ID = "grid"
 #: The markets a Grid runs on (`EPIC-039H`): the one declaration every Grid-specific caller
 #: of `bot_profile_of` passes and `GridKind.supported_profiles` answers.
 GRID_MARKETS: frozenset[MarketType] = SPOT_MARKETS | FUTURES_MARKETS
+
+
+#: The Grid's layer of the halt-recovery policy (`EPIC-042`). Empty today: the Grid recovers the
+#: common reasons only. `rate_limited` joins it when `EPIC-042F` moves the rate-limit resume
+#: onto the mechanism (until then `GridRateLimitPause` owns that reason).
+GRID_RECOVERY_LAYER = RecoveryLayer(GRID_KIND_ID)
 
 
 class GridKind(IBotKind):
@@ -56,6 +65,9 @@ class GridKind(IBotKind):
 
     def supported_profiles(self) -> frozenset[MarketType]:
         return GRID_MARKETS
+
+    def recovery_layer(self) -> RecoveryLayer:
+        return GRID_RECOVERY_LAYER
 
     def validate(self, inputs: BotKindInputs) -> tuple[Verdict, ...]:
         return evaluate_grid(inputs, self._thresholds).verdicts

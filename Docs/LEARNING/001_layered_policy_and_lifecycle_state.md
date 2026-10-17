@@ -2,7 +2,7 @@ Status: Current
 
 # 001 — Layered policy and a lifecycle state for halt recovery
 
-Teaches the design of ADR 042, `Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md`, proposed in [PR #546](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/546) on 2026-10-17. Until `EPIC-042` is built, the code below is the design, not the tree. Update this page when it lands.
+Teaches the design of ADR 042, `Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md`, designed in [PR #546](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/546) (merged 2026-10-17). `EPIC-042B` built the state, the layers and the ledger, so §5's types are in the tree (`bots/domain/halt_recovery_policy.py`, `recovery_ledger.py`); the halt that uses them, the director and the recovery run are `EPIC-042C`, still design. Update this page when it lands.
 
 ## 1. The problem
 
@@ -50,7 +50,7 @@ The layers turn "which reasons, how long, how often" into data. Opening Futures 
 
 ## 5. How it is implemented (design)
 
-The state and its four new events, from the ADR's §2.1:
+The state and its three new events, from the ADR's §2.1 (a long wait never ends the state by itself):
 
 ```mermaid
 stateDiagram-v2
@@ -58,7 +58,7 @@ stateDiagram-v2
     RUNNING --> HALTED : halt (not recoverable, or budget spent)
     PAUSED --> HALTED : halt (a person's pause is never undone)
     AWAITING_RECOVERY --> STARTING : condition_cleared (clear for 120 s)
-    AWAITING_RECOVERY --> HALTED : budget_exhausted / wait_expired (15 min) / app_restart
+    AWAITING_RECOVERY --> HALTED : budget_exhausted / halt (a new cause) / switch_off / app_restart
     AWAITING_RECOVERY --> STOPPING : stop (also a crossed stop loss or take profit)
     HALTED --> STARTING : resume (a person, or run --resume-halted)
 ```
@@ -67,7 +67,7 @@ The policy is three layers of frozen data, folded common → kind → venue. A l
 
 ```python
 COMMON  = RecoveryLayer("common", changes={
-    "price_feed_stale": RuleChange(),       # default rule: dwell 120 s, 3 per 24 h, wait 15 min
+    "price_feed_stale": RuleChange(),       # default rule: dwell 120 s, 3 per 24 h, stalled alert after 15 min
     "user_stream_down": RuleChange(),
 })
 GRID    = RecoveryLayer("grid")             # empty today; rate_limited joins in EPIC-042F
@@ -93,7 +93,7 @@ The attempt history (`BotLifecycle.recovery_attempts`) is saved in the bot file,
 ## 6. Risks and failure modes
 
 - **A flapping feed.** The budget is three attempts per rolling 24 h per bot, whatever the reasons. After that a person decides.
-- **A feed that never returns.** Without a limit the bot would wait silently, because there is no entry into `HALTED` and so no alert. The 15-minute `wait_expired` turns that into a `HALTED` alert.
+- **A feed that never returns.** The bot keeps waiting, because it is exactly as exposed as a `HALTED` one and a long outage should still recover by itself. But a wait is silent (no entry into `HALTED`, so no alert), so after 15 minutes it raises one `BOT_RECOVERY_STALLED` warning and goes on waiting. The owner chose this over a limit that would turn a 20-minute outage into a manual case.
 - **A price that crossed the stop and came back while the feed was down.** No tick was heard, so nothing can see it. A person's Resume has the same blind spot. The ADR states this rather than hiding it.
 - **A restart during the wait.** It goes to `HALTED`, because a fresh process has its order session closed and could not complete the resume.
 
@@ -115,7 +115,7 @@ The attempt history (`BotLifecycle.recovery_attempts`) is saved in the bot file,
 ## 9. Interview questions
 
 1. *Why a new state instead of a flag?* A flag is invisible to code that does not check it. A state is enforced by the transition table: an unlisted transition is refused, so forgetting a case fails loudly.
-2. *How do you stop an auto-recovery from looping?* With a budget (3 per rolling 24 h, persisted), a dwell (120 s continuously clear) and a wait limit (15 min). Count the attempt before acting.
+2. *How do you stop an auto-recovery from looping?* With a budget (3 per rolling 24 h, persisted) and a dwell (120 s continuously clear). Count the attempt before acting. A long wait is not looped on; it raises one alert.
 3. *Why not inheritance for per-kind and per-venue rules?* Two axes produce a class per combination, and the method resolution order hides precedence. Data layers merged in one explicit order are printable and testable.
 4. *What happens if the process restarts mid-wait?* The bot goes to `HALTED` with its ledger kept. A restart is not a person's confirmation, and the order session is closed.
 5. *What can this design not protect against?* A price that crossed and recovered during the outage with no tick heard. Mitigating that needs an exchange-side stop, which is EPIC-039L for Futures.
