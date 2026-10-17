@@ -69,3 +69,39 @@ class ResumeRecoveringResult:
     """One outcome per venue that held a RECOVERING bot; empty when none did."""
 
     venues: tuple[VenueResumeOutcome, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeHaltedForHostCommand:
+    """Resume every bot that is HALTED or AWAITING_RECOVERY, as a person's Resume and Confirm
+    would (`EPIC-042E`, decision D13).
+
+    The Resume is the screen's own `ResumeBotCommand`, so the exchange's facts are read, the
+    order session is opened and the ladder is the one the screen would propose; the Confirm is
+    the screen's own `ConfirmBotResumeCommand`, sent once the bot holds the proposal. A bot on
+    a mainnet venue is resumed only when `confirmed_venue` names its venue (decision O8); no
+    other state is touched.
+    """
+
+    confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HaltedBotResumeOutcome:
+    """What the host's resume of one bot came to."""
+
+    bot_id: str
+    venue: str
+    #: The state the bot was in when the host asked (`HALTED` or `AWAITING_RECOVERY`).
+    was: str
+    #: The confirmation was accepted: the bot's worker lays the ladder and the bot leaves its state.
+    resumed: bool
+    #: Why it was not resumed, in the words the refusal gave; empty when it was.
+    note: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ResumeHaltedResult:
+    """One outcome per bot that was HALTED or AWAITING_RECOVERY; empty when none was."""
+
+    bots: tuple[HaltedBotResumeOutcome, ...] = ()

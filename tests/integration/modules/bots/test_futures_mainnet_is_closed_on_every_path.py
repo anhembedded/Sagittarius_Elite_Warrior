@@ -27,6 +27,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeHaltedForHostCommand,
+    ResumeHaltedResult,
     ResumeRecoveringForHostCommand,
     ResumeRecoveringResult,
     StartBotForHostCommand,
@@ -155,6 +157,24 @@ def test_resuming_a_halted_futures_mainnet_bot_is_refused(
         result = app.engine.dispatch(ResumeBotCommand, ResumeBotCommand(bot_id))
 
         _refused(result)
+        assert app.bot(bot_id).state is BotLifecycleState.HALTED
+
+
+@pytest.mark.parametrize("typed", [None, MAINNET.value])
+def test_the_hosts_resume_halted_leaves_a_futures_mainnet_bot_halted(
+    futures: FakeExchange, typed: str | None
+) -> None:
+    with booted_futures_bots(futures) as app:
+        bot_id = _stored(app, BotLifecycleState.HALTED)
+
+        result = app.engine.dispatch(
+            ResumeHaltedForHostCommand, ResumeHaltedForHostCommand(typed)
+        )
+
+        assert isinstance(result, ResumeHaltedResult)
+        (outcome,) = result.bots
+        assert not outcome.resumed and outcome.bot_id == bot_id
+        assert _CLOSED in outcome.note
         assert app.bot(bot_id).state is BotLifecycleState.HALTED
 
 

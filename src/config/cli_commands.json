@@ -257,9 +257,14 @@
           "help": "Open the order session of each venue holding a RECOVERING bot, which reconciles it with the exchange. Refused (exit 5) unless an alert channel carries bot events or --i-accept-silent-failures is given"
         },
         {
+          "name": "--resume-halted",
+          "action": "store_true",
+          "help": "Resume every bot that is HALTED or AWAITING_RECOVERY, as a person's Resume and Confirm would: the exchange is read, the order session opened and the proposed ladder laid. A mainnet venue is resumed only with --confirm-venue naming it; the other bots are skipped and left as they are. Refused (exit 5) unless an alert channel carries bot events or --i-accept-silent-failures is given"
+        },
+        {
           "name": "--i-accept-silent-failures",
           "action": "store_true",
-          "help": "Acknowledge that no alert channel tells you if a bot halts, so --resume-recovering may be used anyway"
+          "help": "Acknowledge that no alert channel tells you if a bot halts, so --resume-recovering or --resume-halted may be used anyway"
         },
         {
           "name": "--confirm-venue",
@@ -268,7 +273,7 @@
             "spot_mainnet",
             "futures_mainnet"
           ],
-          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering). Without it --start-planned and --resume-recovering are refused (exit 2) when they would touch a mainnet venue"
+          "help": "Type the mainnet venue to allow real-money bots to be started or resumed on it (--start-planned, --resume-recovering, --resume-halted). Without it --start-planned and --resume-recovering are refused (exit 2) when they would touch a mainnet venue, and --resume-halted skips the mainnet bots and says so"
         },
         {
           "name": "--skip-preflight",

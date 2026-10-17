@@ -89,7 +89,7 @@ Everything on standard output, one record per line, in the format of §3. The ta
 | `[host]` | INFO | each state change (`BOOTING -> SERVING`, `SERVING -> DRAINING`, `DRAINING -> STOPPED`), each start-up step, the stop policy and how it ended; WARNING when the policy was given up on (timeout or second signal) and the bots it left |
 | `[alerts]` | WARNING | no alert channel carries bot events (until `EPIC-036B`); the one WARNING a healthy `run` writes at start |
 | `[recovering]` | WARNING | one per bot left RECOVERING after the restart, and whose move it is (decision O2) |
-| `[resume-recovering]`, `[start-planned]` | INFO / WARNING | what `--resume-recovering` and `--start-planned` did, venue by venue and bot by bot; `[start-planned]` also says when the applied plan wants no bot running |
+| `[resume-recovering]`, `[resume-halted]`, `[start-planned]` | INFO / WARNING | what `--resume-recovering`, `--resume-halted` and `--start-planned` did, venue by venue and bot by bot; `[start-planned]` also says when the applied plan wants no bot running |
 | `[plan]` (`App.Bots.Plan`) | INFO | one line per `bot apply`: how many entries were created, edited, deleted, left or blocked (`EPIC-038I`) |
 | `[stop-policy]` | INFO / WARNING | `leave-orders`: each bot left and its orders resting; `stop-bots`: each stop requested and confirmed, and each stop refused |
 | `[signals]` | INFO | which signals ask the host to stop |

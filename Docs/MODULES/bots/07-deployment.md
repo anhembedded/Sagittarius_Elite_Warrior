@@ -55,5 +55,6 @@ orders resting, the default and what the shipped unit runs (`--on-stop leave-ord
 `LeaveOrdersResting`), or stop every bot first (`src/modules/operations/adapters/stop_bots_first.py` →
 `StopBotsFirst`). A restart leaves running bots `RECOVERING` until a person resumes them, or until
 `run --resume-recovering` does (design 038 §6.2, decision O2;
-[`06-runtime.md`](06-runtime.md)). Between a stop and the next start nothing watches a stop loss or a
+[`06-runtime.md`](06-runtime.md)). A `HALTED` or `AWAITING_RECOVERY` bot is resumed by a person, or by
+`run --resume-halted` (`EPIC-042E`, ADR 042 D13), which gives the screen's Resume and Confirm in advance. Between a stop and the next start nothing watches a stop loss or a
 take profit; `EPIC-039L` closes that gap on Futures with an order resting on the exchange.

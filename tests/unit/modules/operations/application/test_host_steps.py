@@ -9,11 +9,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    HaltedBotResumeOutcome,
+    ResumeHaltedResult,
     ResumeRecoveringResult,
     VenueResumeOutcome,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps import (
     ReportRecoveringBots,
+    ResumeHaltedBots,
     ResumeRecoveringBots,
     StartPlannedBots,
     WarnWhenNoAlertChannel,
@@ -123,6 +126,51 @@ def test_resume_recovering_asks_for_the_session_the_screen_opens_and_names_the_o
         if r.levelno == logging.INFO
     )
     assert any("futures_testnet" in m and "blocked" in m for m in _warnings(caplog))
+
+
+def test_resume_halted_says_per_bot_what_was_resumed_and_why_not(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`EPIC-042E`: one `[resume-halted]` line a bot; a bot that stays halted is a WARNING naming why."""
+    world = StepsWorld(
+        resume_halted=ResumeHaltedResult(
+            (
+                HaltedBotResumeOutcome("aaaaaa", "spot_testnet", "HALTED", True),
+                HaltedBotResumeOutcome(
+                    "bbbbbb",
+                    "spot_mainnet",
+                    "AWAITING_RECOVERY",
+                    False,
+                    "needs --confirm-venue spot_mainnet",
+                ),
+            )
+        )
+    )
+
+    with caplog.at_level(logging.INFO, logger=_LOGGER):
+        ResumeHaltedBots(world, confirmed_venue=None).run()
+
+    assert [r.confirmed_venue for r in world.halted_resumes] == [None]
+    infos = [r.getMessage() for r in caplog.records if r.levelno == logging.INFO]
+    assert any("[resume-halted]" in m and "aaaaaa" in m for m in infos)
+    [warning] = _warnings(caplog)
+    assert "bbbbbb" in warning and "stays AWAITING_RECOVERY" in warning
+    assert "--confirm-venue spot_mainnet" in warning
+
+
+def test_resume_halted_with_no_halted_bot_says_so(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.INFO, logger=_LOGGER):
+        ResumeHaltedBots(StepsWorld(), confirmed_venue=None).run()
+
+    assert any("no bot is HALTED" in r.getMessage() for r in caplog.records)
+    assert _warnings(caplog) == []
+
+
+def test_resume_halted_is_a_step_that_trades() -> None:
+    """A stop that arrived before the host served skips it, as it skips `--resume-recovering`."""
+    assert ResumeHaltedBots(StepsWorld(), None).trades is True
 
 
 # --- start-planned ---------------------------------------------------------------

@@ -15,6 +15,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     GetBotStatusReportQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeHaltedForHostCommand,
+    ResumeHaltedResult,
     ResumeRecoveringForHostCommand,
     ResumeRecoveringResult,
     StartBotForHostCommand,
@@ -74,10 +76,13 @@ class StepsWorld(ICommandDispatcher):
         *bots: BotStatusEntry,
         refuse_start: dict[str, BotRefusal] | None = None,
         resume: ResumeRecoveringResult | None = None,
+        resume_halted: ResumeHaltedResult | None = None,
     ) -> None:
         self._bots = bots
         self._refuse_start = refuse_start or {}
         self._resume = resume or ResumeRecoveringResult()
+        self._resume_halted = resume_halted or ResumeHaltedResult()
+        self.halted_resumes: list[ResumeHaltedForHostCommand] = []
         self.starts: list[StartBotForHostCommand] = []
         self.resumes: list[ResumeRecoveringForHostCommand] = []
 
@@ -95,6 +100,10 @@ class StepsWorld(ICommandDispatcher):
             assert isinstance(input_dto, ResumeRecoveringForHostCommand)
             self.resumes.append(input_dto)
             return self._resume
+        if handler_class is ResumeHaltedForHostCommand:
+            assert isinstance(input_dto, ResumeHaltedForHostCommand)
+            self.halted_resumes.append(input_dto)
+            return self._resume_halted
         raise AssertionError(f"a step asked for {handler_class.__name__}")
 
 

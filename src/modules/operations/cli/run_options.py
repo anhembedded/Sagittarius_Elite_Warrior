@@ -43,6 +43,7 @@ class RunOptions:
     on_stop: StopPolicyName = StopPolicyName.LEAVE_ORDERS
     start_planned: bool = False
     resume_recovering: bool = False
+    resume_halted: bool = False
     accept_silent_failures: bool = False
     skip_preflight: bool = False
     confirm_venue: str | None = None
@@ -61,6 +62,7 @@ def run_options_of(args: argparse.Namespace) -> RunOptions | CliOutcome:
         on_stop=StopPolicyName(getattr(args, "on_stop", StopPolicyName.LEAVE_ORDERS)),
         start_planned=bool(getattr(args, "start_planned", False)),
         resume_recovering=bool(getattr(args, "resume_recovering", False)),
+        resume_halted=bool(getattr(args, "resume_halted", False)),
         accept_silent_failures=bool(getattr(args, "i_accept_silent_failures", False)),
         skip_preflight=bool(getattr(args, "skip_preflight", False)),
         confirm_venue=getattr(args, "confirm_venue", None),
