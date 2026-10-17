@@ -141,7 +141,7 @@ def test_a_halted_bot_without_its_coin_is_stopped_from_the_command_directory_and
         halted = _halted_without_its_coin(app)
         fresh = _create(app, "new run")
         blocked = _start(app, fresh)
-        assert blocked.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
+        assert blocked.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
 
         directory = control_directory_of(exchange.tmp_path / "state")
         assert prepare_private_directory(directory) == ""
