@@ -113,7 +113,10 @@ class DirectoryHostCommandInbox(IHostCommandInbox):
                 "removed, not run",
                 leftover,
             )
-            (self._directory / leftover).unlink(missing_ok=True)
+            try:
+                (self._directory / leftover).unlink(missing_ok=True)
+            except OSError:
+                logger.exception("[control] %s could not be removed", leftover)
 
     def _waiting_names(self) -> list[str]:
         try:
