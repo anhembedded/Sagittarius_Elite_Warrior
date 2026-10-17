@@ -127,6 +127,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.bot
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.sleep_watch import (
     SleepWatch,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_status import (
+    UserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_watch import (
     UserStreamWatch,
 )
@@ -250,6 +253,7 @@ class BotsModule(BoundedContextModule):
             container.resolve(BotExecutors),
             container.resolve(IBotClock),
             container.resolve(IBotRetryScheduler),
+            status=container.resolve(UserStreamStatus),
         )
         bus.on(UserStreamHealthEvent, watch.on_health)
         watch.begin()

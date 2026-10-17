@@ -57,6 +57,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+    NoUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
 )
@@ -150,6 +154,16 @@ CONFIG = {
     "take_profit": "price:150",
 }
 RUN_STARTED = datetime(2026, 10, 4, 8, tzinfo=UTC)
+
+
+class FakeUserStreamStatus(IUserStreamStatus):
+    """The venue's user-data stream, connected or not as a test says (`EPIC-042C`)."""
+
+    def __init__(self, *, connected: bool = False) -> None:
+        self.connected = connected
+
+    def is_connected(self, venue: TradingVenue) -> bool:
+        return self.connected
 
 
 class InlineWorkQueue(IBotWorkQueue):
@@ -302,6 +316,7 @@ def grid_world(
     config: Mapping[str, str] | None = None,
     step: Decimal = STEP,
     last_price: Decimal = LAST_PRICE,
+    user_streams: IUserStreamStatus | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -355,6 +370,7 @@ def grid_world(
             settings_gate=settings_gate or SpotSettingsGate(),
             risk_watch=risk_watch,
             exposures=exposures or spot_only_exposures(),
+            user_streams=user_streams or NoUserStreamStatus(),
         )
     )
     executor = factory.create(bot)

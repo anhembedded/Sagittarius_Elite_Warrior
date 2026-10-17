@@ -78,7 +78,7 @@ def test_the_ticker_runs_the_age_check_and_a_silent_feed_halts_the_bot() -> None
     parts.world.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
     parts.ticker.fire()
 
-    assert parts.world.state() is S.HALTED
+    assert parts.world.state() is S.AWAITING_RECOVERY
     assert parts.world.runtime().reason is GridReason.PRICE_FEED_STALE
 
 

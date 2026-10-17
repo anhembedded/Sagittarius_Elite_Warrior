@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_task
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.protection_spot import (
     NoProtection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_halt_recovery import (
+    GridHaltRecovery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_reconciler import (
     GridReconciler,
 )
@@ -64,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid_stopper import (
     GridStopper,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_halt_probe import (
+    GridHaltProbe,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.grid_key_probe import (
     GridKeyProbe,
@@ -176,6 +182,14 @@ class GridExecutor(IBotExecutor):
             context, self._stop, exits_on_mark=exposure.exit_marks is not None
         )
         self._proposal: ResumeProposal | None = None
+        self._halt_recovery = GridHaltRecovery(
+            context,
+            context.halts,
+            GridHaltProbe(context, context.streams),
+            self._resume,
+            self._stop,
+            lambda: self._proposal is not None,
+        )
         self._facts = GridFacts(
             context,
             GridFactParts(
@@ -192,6 +206,7 @@ class GridExecutor(IBotExecutor):
                 if exposure.exit_marks is not None
                 else None,
                 exposure.protection,
+                self._halt_recovery,
             ),
             self._post,
             self._forget_proposal,

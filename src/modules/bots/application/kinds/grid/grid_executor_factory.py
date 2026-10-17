@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_run_state import (
     BotRunState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.halt_recovery_director import (
+    HaltRecoveryDirector,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_order_gateway import (
     BotIdentity,
     BotOrderGateway,
@@ -82,11 +85,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+    NoUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     exposure_limits_of,
+    recovery_policy_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_result import (
     GateRequest,
@@ -94,6 +102,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_settings_gate_re
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_MARKETS,
+    GRID_RECOVERY_LAYER,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
@@ -144,6 +153,9 @@ class GridExecutorDeps:
     risk_watch: Callable[[GridRunContext], GridRiskWatch | None] | None = None
     #: The exposure-shaped collaborators, chosen by the bot's venue profile (`EPIC-039H`).
     exposures: GridExposures = field(default_factory=spot_only_exposures)
+    #: Whether a venue's user-data stream is connected (`EPIC-042C`): what a halt for the stream
+    #: recovers on. The default knows no stream is connected, so that halt never recovers.
+    user_streams: IUserStreamStatus = field(default_factory=NoUserStreamStatus)
 
 
 class GridExecutorFactory(IBotExecutorFactory):
@@ -165,8 +177,11 @@ class GridExecutorFactory(IBotExecutorFactory):
             deps.pacers(deps.caps.min_order_spacing),
         )
         params = GridParams.from_config(bot.definition.config)
+        halts = HaltRecoveryDirector(
+            recovery_policy_of(GRID_RECOVERY_LAYER, bot.definition.venue)
+        )
         context = GridRunContext(
-            state=BotRunState(stored.bot, runtime, deps.store, deps.clock),
+            state=BotRunState(stored.bot, runtime, deps.store, deps.clock, halts),
             gateway=gateway,
             session=ports.trading_session,
             params=params,
@@ -188,6 +203,8 @@ class GridExecutorFactory(IBotExecutorFactory):
             ),
             budget=lambda: deps.budgets.budget_of(bot.definition.venue, symbol, params),
             limits=exposure_limits_of(bot.definition.venue, GRID_MARKETS),
+            halts=halts,
+            streams=deps.user_streams,
             settings_check=partial(
                 deps.settings_gate.verify,
                 GateRequest(

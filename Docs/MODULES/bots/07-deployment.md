@@ -16,7 +16,7 @@ Each bot has its own worker thread and FIFO queue, so one slow bot never delays 
 changes a running bot runs there: the router on the bus thread only copies an event and queues it
 ([`05-building-blocks.md`](05-building-blocks.md)). Periodic checks run on `ThreadBotTicker`
 (`bots/adapters/thread_bot_ticker.py` → `ThreadBotTicker`): one ticker, named `bots-ticker`
-(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. The user-stream and
+(`.../executor_bindings.py` → `_build_ticker`), with a daemon thread per task. A bot waiting to recover has its recovery run posted onto its own worker at that beat (`.../kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery.check`), so the attempt, the cancels and the new ladder run on the thread that owns the bot and never beside a fill. The user-stream and
 sleep watches re-arm on the retry scheduler's heartbeat ([`10-quality.md`](10-quality.md) gives the
 periods). `BotsModule.shutdown` (`bots/module.py` → `BotsModule.shutdown`) closes the scheduler first,
 then the price streams, then every worker, each after running what is queued, so the app exits with

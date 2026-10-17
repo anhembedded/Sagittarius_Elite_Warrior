@@ -118,7 +118,7 @@ existing Algo Order mapping.
 ## Built: the halt-recovery policy and ledger
 
 *Which halts are transient, and how many attempts has a bot used?* Plain data and pure functions in the
-domain, no behaviour yet (`EPIC-042B`; the halt that uses them is `EPIC-042C`).
+domain (`EPIC-042B`); a halt uses them from `EPIC-042C`.
 `bots/domain/halt_recovery_policy.py` → `HaltRecoveryRule`, `RuleChange`, `RecoveryLayer`, `COMMON_LAYER`,
 `EffectivePolicy`, `effective_policy` is the layered policy of [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.3. A kind
 contributes its layer through `bots/contracts/i_bot_kind.py` → `IBotKind.recovery_layer` (concrete, empty
@@ -131,6 +131,14 @@ by default; the Grid's is `bots/domain/grid/grid_kind.py` → `GRID_RECOVERY_LAY
 `bots/domain/bot_lifecycle_fsm_matrix.py` → `RESUME_PROPOSES_STATES` is the one answer to "does a Resume
 re-plan here", asked by the resume use case, the runner, the executor and the screen.
 
+What uses them (`EPIC-042C`): `bots/application/services/lifecycle/halt_recovery_director.py` →
+`HaltRecoveryDirector` picks `halt` or `halt_transient` for `BotRunState.halt`; the Grid's recovery run is
+`bots/application/kinds/grid/recovery/grid_halt_recovery.py` → `GridHaltRecovery`, with its probe
+`bots/application/kinds/grid/watch/grid_halt_probe.py` → `GridHaltProbe` over the contract
+`bots/contracts/i_halt_condition_probe.py` → `IHaltConditionProbe` and the stream's status
+`bots/contracts/i_user_stream_status.py` → `IUserStreamStatus`, kept by
+`bots/application/services/watches/user_stream_status.py` → `UserStreamStatus`.
+
 ## Planned
 
 | Change | Where | Task |
@@ -139,6 +147,5 @@ re-plan here", asked by the resume use case, the runner, the executor and the sc
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | The halt asks the exchange whether a stop stands; the Emergency Stop closes, then cancels conditional orders | `bots/application/services/positions/`, `trading/application/session/emergency_stop/` | `EPIC-039L` C3 |
 | The mainnet gate as a port, `IVenueOpening`, in place of `CLOSED_VENUES` | `bots/contracts/` | `EPIC-039L` C4 |
-| The halt-recovery director that picks `halt` or `halt_transient`, the probe that says a reason has cleared and the recovery run on the bot's worker | `bots/application/services/lifecycle/`, `bots/application/kinds/grid/` | `EPIC-042C` |
 | `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
 | The grid rate-limit resume moves onto that mechanism | `bots/application/kinds/grid/watch/` | `EPIC-042F` |

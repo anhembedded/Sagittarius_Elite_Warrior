@@ -31,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_run_state import (
     BotRunState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.halt_recovery_director import (
+    NO_HALT_RECOVERY,
+    HaltRecoveryDirector,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.applied_fills import (
     AppliedFills,
 )
@@ -43,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.setti
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+    NoUserStreamStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_LIMITS,
@@ -137,6 +145,11 @@ class GridRunContext:
     #: What the bot's venue allows and holds (`EPIC-039H`): the ladder is sized by its
     #: exposure kind, so every place that plans one agrees with the plan judge.
     limits: ExposureLimits = SPOT_LIMITS
+    #: Which halts this bot recovers from by itself, resolved from its layers (`EPIC-042C`). The
+    #: default recovers nothing, so a halt is a plain `halt`.
+    halts: HaltRecoveryDirector = NO_HALT_RECOVERY
+    #: Whether the venue's user-data stream is connected: what `user_stream_down` recovers on.
+    streams: IUserStreamStatus = field(default_factory=NoUserStreamStatus)
 
     @property
     def terms(self) -> ExchangeTerms:

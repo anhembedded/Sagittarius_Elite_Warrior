@@ -1,5 +1,5 @@
 ' Question: what happens to a Spot Grid whose price feed goes quiet and comes back?
-' Explained by: ../06-runtime.md (Planned, EPIC-042C). Drawn by hand, high level.
+' Explained by: ../06-runtime.md (Built, EPIC-042C). Drawn by hand, high level.
 @startuml 06-halt-recovery
 participant "Price watch\n(5 s beat)" as W
 participant "BotRunState" as S

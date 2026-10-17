@@ -2,7 +2,7 @@ Status: Current
 
 # 001 — Layered policy and a lifecycle state for halt recovery
 
-Teaches the design of ADR 042, `Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md`, designed in [PR #546](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/546) (merged 2026-10-17). `EPIC-042B` built the state, the layers and the ledger, so §5's types are in the tree (`bots/domain/halt_recovery_policy.py`, `recovery_ledger.py`); the halt that uses them, the director and the recovery run are `EPIC-042C`, still design. Update this page when it lands.
+Teaches the design of ADR 042, `Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md`, designed in [PR #546](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/546) (merged 2026-10-17). `EPIC-042B` built the state, the layers and the ledger, and `EPIC-042C` the halt that uses them: the director, the probe and the recovery run (`bots/application/services/lifecycle/halt_recovery_director.py`, `bots/application/kinds/grid/recovery/grid_halt_recovery.py`). The alerts (`EPIC-042D`) and `run --resume-halted` (`EPIC-042E`) are still design. Update this page when they land.
 
 ## 1. The problem
 

@@ -13,10 +13,10 @@
 A recovery is not a state entry, so `BotAlertSource.ALERT_ON_ENTRY` cannot carry it; the exhaustion enters `HALTED`, which already alerts, but the text must say the three recoveries are used up.
 
 ## 2. Acceptance criteria
-- [ ] `BotAutoRecoveredEvent(bot_id, code, attempt, budget, window)` in `bots/contracts/events/`, published by the recovery run after `confirm`; `AlertKind.BOT_AUTO_RECOVERED` (WARNING, group bot events) and its catalog row; the completeness test passes.
+- [ ] `BotAutoRecoveredEvent(bot_id, reason, attempt, max_attempts)` exists and is published by the recovery run (done in `042C`); `AlertKind.BOT_AUTO_RECOVERED` (WARNING, group bot events) and its catalog row; the completeness test passes.
 - [ ] The source turns the event into one alert naming the bot, the reason, the attempt and the budget left.
 - [ ] The `BOT_HALTED` alert for a bot whose recoveries are used up carries that sentence in its `Reason:` line, from the reason detail the director wrote.
-- [ ] `BotRecoveryStalledEvent(bot_id, code, waited)` and `AlertKind.BOT_RECOVERY_STALLED` (WARNING, bot events): one alert when a bot has waited `stalled_after`, none again for the same wait; ended (condition cleared) when the bot leaves the state.
+- [ ] `BotRecoveryStalledEvent(bot_id, reason, waited_s)` exists and is published once per wait (done in `042C`); and `AlertKind.BOT_RECOVERY_STALLED` (WARNING, bot events): one alert when a bot has waited `stalled_after`, none again for the same wait; ended (condition cleared) when the bot leaves the state.
 - [ ] An alert-kind default for a headless owner is on (the hub's default channels), as the other bot kinds are.
 
 ## 3. Design

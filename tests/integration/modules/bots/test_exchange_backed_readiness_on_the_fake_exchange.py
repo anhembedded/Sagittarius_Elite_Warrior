@@ -87,12 +87,14 @@ def _created(app: BootedApp, capital: str = "2000") -> str:
 
 
 def _halted_by_a_silent_feed(app: BootedApp) -> str:
+    """A silent feed halts a running bot into AWAITING_RECOVERY (`EPIC-042C`); a person's Resume
+    from there is judged exactly as from HALTED."""
     bot_id = _started(app)
     _publish_tick(app, _INSIDE_THE_RANGE)
     app.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
     app.ticker.fire()
     app.deliver()
-    assert app.bot(bot_id).state is S.HALTED
+    assert app.bot(bot_id).state is S.AWAITING_RECOVERY
     return bot_id
 
 
@@ -174,7 +176,7 @@ def test_a_resume_whose_base_was_moved_by_hand_is_refused_before_any_order(
             "Resume is blocked: The resumed ladder sells "
         )
         assert "BTC free" in resumed.message
-        assert app.bot(bot_id).state is S.HALTED
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY
         assert resting(app.urls) == {}
 
 
