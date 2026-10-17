@@ -250,6 +250,12 @@ def _history(
         # (`BUG-173`). Binance's docs do not list this code; the rule is
         # the observed one.
         return 400, {"code": -4181, "msg": "Invalid start time."}
+    if "startTime" in params and start > now_ms():
+        # A start later than the exchange's own clock (`BUG-223`): inferred from the owner's
+        # Futures Testnet log, where a run that began a moment before its first history read
+        # was refused with -4181 on a machine whose measured clock offset was a little high.
+        # Not documented by Binance and not verified against a live call.
+        return 400, {"code": -4181, "msg": "Invalid start time."}
     if path == "/fapi/v1/income":
         return 200, state.history.income(start, end, int(params.get("limit", 100)))
     query = HistoryQuery.parse(params)
