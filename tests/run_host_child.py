@@ -150,6 +150,10 @@ class RunChild:
                 self._lock.notify_all()
 
     @property
+    def pid(self) -> int:
+        return self._process.pid
+
+    @property
     def stdout(self) -> str:
         with self._lock:
             return "".join(self._stdout)

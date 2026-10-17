@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_host_control import IHostControl
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -35,3 +36,4 @@ class BotVerbWorld:
     kinds: IBotKindCatalog
     plans: IAppliedPlanStore
     instance: IInstanceAccess
+    host_control: IHostControl

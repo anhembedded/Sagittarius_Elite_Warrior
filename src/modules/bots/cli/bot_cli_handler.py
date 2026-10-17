@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_host_control import IHostControl
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -36,7 +37,7 @@ from sagittarius_engine import App
 
 
 class BotCliHandler(ICliCommandHandler):
-    """`bot list`, `bot show <id>`, `bot apply <plan>`, `bot export`."""
+    """`bot list`, `bot show <id>`, `bot apply <plan>`, `bot export`, `bot stop|pause|resume <id>`."""
 
     @staticmethod
     def handle(args: argparse.Namespace, app: App) -> CliOutcome | None:
@@ -55,5 +56,6 @@ class BotCliHandler(ICliCommandHandler):
                 kinds=container.resolve(IBotKindCatalog),
                 plans=container.resolve(IAppliedPlanStore),
                 instance=container.resolve(IInstanceAccess),
+                host_control=container.resolve(IHostControl),
             ),
         )
