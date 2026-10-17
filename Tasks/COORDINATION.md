@@ -14,6 +14,7 @@ This file holds state, not rules. Rules live in `.claude/`; decisions live in th
 | Authors run on the cheaper general model; design-heavy work and real-money reviews run on the strongest model; a reviewer is never on the author's model | `coordinate` skill step 3 |
 | At most two delivery streams in flight; a weekly digest; design decisions are taught and written to `Docs/LEARNING/` | `report-rule.md` §3 |
 | Speak Vietnamese to the owner; repository text in English | `ONBOARDING.md` §10 |
+| The model named Fable is never used: not for a session, a created session or a subagent; "strongest model" means the strongest other model (2026-10-17) | `ONBOARDING.md` §7, "Excluded model" |
 | EPIC-039L O1: the Emergency Stop cancels regular orders, then closes, then confirms the position is flat, then cancels conditional orders. O2: the Futures mainnet lock is removed with no new mechanism ("tui tự quản rủi ro"). O3 b: take profit stays in-app until after the soak | `Tasks/epics/EPIC-039_futures_venue_profile/DECISION_2026-10-16_futures_protective_stop_minimum.md` §6 |
 | EPIC-042: a transient halt waits in `AWAITING_RECOVERY`. Recovery waits for 120 s of continuously clear signal, at most 3 times per 24 h. The policy is layered (common, kind, venue). A restart ends the wait in `HALTED`. A stalled wait raises an alert and keeps waiting | `Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md` |
 
