@@ -10,7 +10,7 @@ STARTING, builds its executor and queues the start, in that order.
 
 @par Extension cases
   · a kind other than Grid — the runner asks the kind's executor factory;
-  · many bots (`EPIC-029J`) — the D20 check leaves the start use case; this
+  · many bots on one venue (`EPIC-029J` J1b) — the D20 check leaves the start use case; this
     port is unchanged.
 """
 

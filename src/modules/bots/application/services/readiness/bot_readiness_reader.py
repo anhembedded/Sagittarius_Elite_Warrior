@@ -120,7 +120,11 @@ class BotReadinessReader:
             judged,
             other_active_bot(
                 bot_id,
-                ((s.bot.bot_id.value, s.bot.state) for s in readings.bots),
+                definition.venue,
+                (
+                    (s.bot.bot_id.value, s.bot.definition.venue, s.bot.state)
+                    for s in readings.bots
+                ),
                 (refused.name for refused in readings.refused),
             ),
         )

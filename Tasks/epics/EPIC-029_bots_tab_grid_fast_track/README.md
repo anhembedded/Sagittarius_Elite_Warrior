@@ -101,8 +101,10 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029G](completed/EPIC-029G_bot_chart.md) | The bot chart: shared live chart, price levels, one Grid overlay for three surfaces | Elite | 029C | 🟡 | ✅ Done (2026-10-04), PR3 |
 | [EPIC-029H](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | Spot Testnet soak and report *(the fast track's goal)* | Elite | 029D, 029E, 029F, 029G | 🟡 | In progress: the gated test and the tab-to-executor test in PR7; the soak is the user's |
 | [EPIC-029I](incomplete/EPIC-029I_desks_manual_only.md) | Desks manual only, bot badge, takeover, SPEC-010 *(after the fast track)* | Elite | 029H | 🟡 | Planned |
-| [EPIC-029J](incomplete/EPIC-029J_many_bots.md) | Many bots, one per symbol *(after the fast track)* | Elite | 029H | 🟡 | Planned |
-| [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J | 🟡 | Planned |
+| [EPIC-029J1a](completed/EPIC-029J1a_one_active_bot_per_venue.md) | Bots on different venues run together: one active bot per venue, not one in the app | Elite | None (029H dropped by the owner's acceptance, 2026-10-17) | 🔴 | ✅ Done (2026-10-17) |
+| [EPIC-029J1b](incomplete/EPIC-029J1b_many_bots_on_one_venue.md) | Several bots on different symbols of one venue, with measured tick fan-out and request weight *(after J1a)* | Elite | 029J1a | 🟡 | Planned |
+| [EPIC-029J2](incomplete/EPIC-029J2_two_copies_of_the_app_on_one_account.md) | Two copies of the app on one account and symbol: refuse or warn *(not wanted now, owner 2026-10-17)* | Elite | 029J1a | 🔴 | Planned |
+| [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J1b | 🟡 | Planned |
 | [EPIC-029C](completed/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | ✅ Done (2026-10-03), PR1 |
 
 **Critical path of the fast track:** 029B → 029C, then two branches that meet at 029H:

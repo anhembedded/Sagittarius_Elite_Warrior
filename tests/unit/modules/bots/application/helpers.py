@@ -24,12 +24,14 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 def definition(
-    name: str = "grid one", config: dict[str, str] | None = None
+    name: str = "grid one",
+    config: dict[str, str] | None = None,
+    venue: TradingVenue = TradingVenue.SPOT_TESTNET,
 ) -> BotDefinition:
     return BotDefinition(
         name=name,
         kind="grid",
-        venue=TradingVenue.SPOT_TESTNET,
+        venue=venue,
         symbol="BTCUSDT",
         config=config or {"lower": "60000"},
     )
@@ -41,9 +43,13 @@ def seed(
     state: BotLifecycleState,
     config: dict[str, str] | None = None,
     runtime: dict[str, object] | None = None,
+    venue: TradingVenue = TradingVenue.SPOT_TESTNET,
 ) -> Bot:
     bot = Bot(
-        BotId(bot_id), definition(config=config), BotLifecycle(state), FAKE_CLOCK_START
+        BotId(bot_id),
+        definition(config=config, venue=venue),
+        BotLifecycle(state),
+        FAKE_CLOCK_START,
     )
     store.save(StoredBot(bot, {"cycles": 1} if runtime is None else runtime))
     return bot

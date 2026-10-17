@@ -128,7 +128,7 @@ SCENARIOS = {
     "the account cannot be read": (_unreachable, BotRefusal.VENUE_NOT_READY),
     "another bot is running": (
         _another_bot_runs,
-        BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK,
+        BotRefusal.ONE_ACTIVE_BOT_PER_VENUE,
     ),
     "the symbol is leased": (_symbol_leased, BotRefusal.SYMBOL_LEASED),
 }

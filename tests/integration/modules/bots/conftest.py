@@ -62,3 +62,26 @@ def futures(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[FakeExc
             owned_loop.enter_context(patch(binding, lambda: loop))
         yield FakeExchange(urls, tmp_path)
     loop.close()
+
+
+@pytest.fixture
+def both_venues(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Iterator[FakeExchange]:
+    """`EPIC-029J` J1a - the fake exchange with the Spot **and** the Futures testnet keys and
+    URLs, for a composed app that trades on both (`two_venues_bots_world.booted_two_venues`)."""
+    monkeypatch.setenv(SPOT_ENV_API_KEY, "fake-key")
+    monkeypatch.setenv(SPOT_ENV_API_SECRET, "fake-secret")
+    monkeypatch.setenv(FUTURES_ENV_API_KEY, "fake-key")
+    monkeypatch.setenv(FUTURES_ENV_API_SECRET, "fake-secret")
+    loop = asyncio.new_event_loop()
+    with (
+        run_binance_fake_server() as urls,
+        patch.object(Client, "API_TESTNET_URL", urls.spot),
+        patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
+        ExitStack() as owned_loop,
+    ):
+        for binding in GET_LOOP_BINDINGS:
+            owned_loop.enter_context(patch(binding, lambda: loop))
+        yield FakeExchange(urls, tmp_path)
+    loop.close()

@@ -40,7 +40,7 @@ gantt
 
     section After the fast track
     029I Desks manual only                   :         i, after m1, 3d
-    029J Many bots                           :         j, after m1, 3d
+    029J1b Many bots on one venue            :         j, after m1, 3d
     029L Signal and DCA kinds                :         l, after i j, 5d
 ```
 
@@ -59,7 +59,9 @@ gantt
 | EPIC-029G | [Bot chart](completed/EPIC-029G_bot_chart.md) | — | 🟡 | ✅ Done (2026-10-04) | PR3 |
 | EPIC-029H | [Spot Testnet soak](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | — | 🟡 | 🟡 In progress | PR7 (tests); soak by the user |
 | EPIC-029I | [Desks manual only](incomplete/EPIC-029I_desks_manual_only.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-029J | [Many bots](incomplete/EPIC-029J_many_bots.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-029J1a | [One active bot per venue](completed/EPIC-029J1a_one_active_bot_per_venue.md) | — | 🔴 | ✅ Done (2026-10-17) | — |
+| EPIC-029J1b | [Many bots on one venue](incomplete/EPIC-029J1b_many_bots_on_one_venue.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-029J2 | [Two copies on one account](incomplete/EPIC-029J2_two_copies_of_the_app_on_one_account.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-029K | [Grid on Futures](cancelled/EPIC-029K_grid_on_futures.md) | — | 🔴 | ❌ Cancelled; superseded by [EPIC-039](../EPIC-039_futures_venue_profile/README.md) | — |
 | EPIC-029L | [Signal and DCA kinds](incomplete/EPIC-029L_signal_and_dca_kinds.md) | — | 🟡 | 🔵 Planned | — |
 

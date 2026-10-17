@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 from .bots_screen_fixtures import NOW, SYMBOL, stored
 from .connect_screen_helpers import (
@@ -191,8 +194,9 @@ def test_another_active_bot_is_an_item_and_fix_next_selects_it(
     select(screen, "a00001")
     screen.settle()
 
-    assert "Bot b00002 is still active; stop it before starting another" in (
-        _plan(screen).readiness_items.text()
+    assert (
+        "A bot on Spot Testnet is still active (b00002); stop it before starting another on Spot Testnet"
+        in (_plan(screen).readiness_items.text())
     )
     assert "select that bot, then Bots → Stop…" in _plan(screen).readiness_items.text()
     assert not start_rule(screen)[0]
@@ -236,6 +240,22 @@ def test_a_bot_with_a_run_shows_no_progress_and_a_stopped_bot_does(
     assert not _plan(screen).readiness_header.isHidden()
 
 
+def test_a_bot_active_on_another_venue_leaves_start_open(open_bots_screen) -> None:
+    """`EPIC-029J` J1a: the screen answers as Start does, one active bot per venue."""
+    screen = open_bots_screen(
+        [
+            stored("a00001", S.DRAFT),
+            stored("b00002", S.RUNNING, venue=TradingVenue.FUTURES_TESTNET),
+        ]
+    )
+    screen.settle()
+    select(screen, "a00001")
+    screen.settle()
+
+    assert "still active" not in _plan(screen).readiness_items.text()
+    assert start_rule(screen)[0]
+
+
 def test_a_click_refused_after_the_screen_said_ready_reads_in_the_screens_words(
     open_bots_screen,
 ) -> None:
@@ -253,4 +273,4 @@ def test_a_click_refused_after_the_screen_said_ready_reads_in_the_screens_words(
 
     headline = screen.notifier.last.headline
     assert headline.startswith("Start grid a00001: refused. 1 thing left: ")
-    assert "Bot b00002 is still active" in headline
+    assert "A bot on Spot Testnet is still active (b00002)" in headline

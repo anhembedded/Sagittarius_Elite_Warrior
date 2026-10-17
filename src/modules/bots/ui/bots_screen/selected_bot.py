@@ -197,7 +197,8 @@ class SelectedBot:
             config,
             other_active_bot(
                 self.bot.bot_id,
-                ((other.bot_id, other.state) for other in self._bots),
+                self.bot.venue,
+                ((other.bot_id, other.venue, other.state) for other in self._bots),
                 self._refused,
             ),
         )

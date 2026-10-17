@@ -253,11 +253,12 @@ def stored(
     state: BotLifecycleState,
     config: dict[str, str] | None = None,
     name: str | None = None,
+    venue: TradingVenue = VENUE,
 ) -> StoredBot:
     definition = BotDefinition(
         name=name or f"grid {bot_id}",
         kind="grid",
-        venue=VENUE,
+        venue=venue,
         symbol=SYMBOL,
         config=config or GOOD_CONFIG,
     )

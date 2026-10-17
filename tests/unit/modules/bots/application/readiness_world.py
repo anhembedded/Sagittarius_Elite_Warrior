@@ -166,9 +166,10 @@ def add_bot(
     bot_id: str,
     state: BotLifecycleState,
     config: dict[str, str] | None = None,
+    venue: TradingVenue = TradingVenue.SPOT_TESTNET,
 ) -> None:
     definition = BotDefinition(
-        f"grid {bot_id}", "grid", TradingVenue.SPOT_TESTNET, SYMBOL, config or CONFIG
+        f"grid {bot_id}", "grid", venue, SYMBOL, config or CONFIG
     )
     world.store.save(
         StoredBot(

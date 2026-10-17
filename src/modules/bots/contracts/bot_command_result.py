@@ -20,8 +20,8 @@ class BotRefusal(str, Enum):
     INVALID_DEFINITION = "INVALID_DEFINITION"
     #: A bot that ran (or runs) keeps its venue; so does a Futures bot.
     VENUE_FIXED = "VENUE_FIXED"
-    #: ADR D20: during the fast track one bot at a time holds the exchange.
-    ONE_RUNNING_BOT_DURING_FAST_TRACK = "ONE_RUNNING_BOT_DURING_FAST_TRACK"
+    #: ADR D20, `EPIC-029J` J1a: one bot at a time holds a venue; another venue is free.
+    ONE_ACTIVE_BOT_PER_VENUE = "ONE_ACTIVE_BOT_PER_VENUE"
     #: `EPIC-029E` — start's preconditions (ADR §3.1): a Spot venue with
     #: trading on, no REFUSED verdict, the symbol's lease, the owner budget.
     VENUE_NOT_READY = "VENUE_NOT_READY"
