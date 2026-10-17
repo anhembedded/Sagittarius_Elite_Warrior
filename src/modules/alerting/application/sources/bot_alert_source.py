@@ -264,4 +264,5 @@ def _reason_line(reason: str, detail: str = "") -> str:
     sentence that says the automatic recoveries are used up lives only there)."""
     if not reason:
         return "No reason recorded."
+    detail = detail.lstrip("; ")
     return f"Reason: {reason} ({detail})" if detail else f"Reason: {reason}"

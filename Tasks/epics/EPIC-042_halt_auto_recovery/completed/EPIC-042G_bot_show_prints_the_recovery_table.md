@@ -15,7 +15,7 @@ Which halts a bot will recover from, with what dwell and budget, is merged from 
 ## 2. Acceptance criteria
 - [x] `bot show <bot>` prints the bot's effective recovery table: code, dwell, attempts per window, stalled-wait threshold, and the layer that decided it; and the attempts used inside the window, from the bot record.
 - [x] A Futures bot prints "no automatic recovery" with the layer that says so.
-- [x] The text, JSON and CSV formats carry the same rows (`emit_report`).
+- [x] The text and JSON formats carry the same rows (`emit_report`). No CSV report format is registered in this build (`ReportFormats.default()` has text and JSON), so none was tested; a format registered later gets the rows from the same `Report`.
 - [x] The rows come from `effective_policy`, the function the director uses; a test fails if the report builds its own merge.
 
 ## 3. Design

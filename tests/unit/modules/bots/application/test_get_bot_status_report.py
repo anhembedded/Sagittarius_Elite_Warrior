@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
     LevelState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
+    GridReason,
     GridRuntime,
     LevelOrder,
     RuntimeLevel,
@@ -166,6 +167,21 @@ def test_the_report_counts_the_orders_each_bot_has_resting() -> None:
     assert resting["aaaaaa"] == 2
     assert resting["bbbbbb"] is None  # a draft has no run, so nothing is known
     assert [b["resting_orders"] for b in report.payload()["bots"]] == [2, None]  # type: ignore[index, union-attr]
+
+
+def test_the_report_carries_the_words_the_bot_wrote_beside_its_reason() -> None:
+    """`EPIC-042D`: the sentence that says the automatic recoveries are used up is in the bot's
+    record only; the alert reads it from this entry."""
+    store = FakeBotStore()
+    bot = seed(store, "aaaaaa", BotLifecycleState.HALTED)
+    detail = "the 3 automatic recoveries allowed in 24 h are used up; resume by hand"
+    runtime = GridRuntime(()).with_reason(GridReason.PRICE_FEED_STALE, detail)
+    store.save(StoredBot(bot, dict(encode_runtime(runtime))))
+
+    [entry] = _report(BotQueryDispatcher(store)).bots
+
+    assert entry.reason == GridReason.PRICE_FEED_STALE.value
+    assert entry.reason_detail == detail
 
 
 @pytest.mark.parametrize("state", list(BotLifecycleState), ids=lambda s: s.value)
