@@ -20,6 +20,7 @@ render. Do not edit it by hand.
 | A halted feed counts as back only with a tick younger than | 15 s | `src/modules/bots/domain/grid/price_freshness.py` → `RECOVERY_TICK_MAX_AGE_SECONDS` |
 | Every bot's feed is checked every | 5 s | `src/modules/bots/application/services/watches/bot_price_watch.py` → `CHECK_EVERY_SECONDS` |
 | Order pacer default caps: open orders, spacing, orders per minute | 100; 250 ms; 60 | `src/modules/trading/contracts/owner_budget.py` → `DEFAULT_OWNER_BUDGET_CAPS` |
+| Most bots not at rest one venue holds at once | 5 | `src/modules/bots/domain/venue_bot_cap.py` → `MAX_ACTIVE_BOTS_PER_VENUE` |
 | User stream down for this long halts; reconciled every; checked every | 120 s; 300 s; 15 s | `src/modules/bots/application/services/watches/user_stream_watch.py` → `UserStreamLimits.down_limit`, `UserStreamLimits.reconcile_every`, `UserStreamLimits.check_every` |
 | Sleep: heartbeat; a gap over this is a sleep; fresh-price attempts and spacing | 15 s; 60 s; 4 × 15 s | `src/modules/bots/application/services/watches/sleep_watch.py` → `SleepLimits.check_every`, `SleepLimits.gap_over`, `SleepLimits.price_attempts`, `SleepLimits.price_retry_every` |
 | Wait before each automatic retry of a stop | 10, 30, 60, 120, 300 s | `src/modules/bots/application/kinds/grid/stop/grid_stop_retry.py` → `STOP_RETRY_DELAYS` |

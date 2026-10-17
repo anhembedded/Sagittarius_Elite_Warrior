@@ -13,10 +13,12 @@ hand; the steps below cite the code that runs them. The states named are the lif
 Grid bot, and on which thread?*
 
 The use case (`bots/application/use_cases/start_bot/handler.py` → `StartBotCommandHandler.execute`)
-refuses a closed venue, an unconfirmed Mainnet start and an unready bot (among the readiness items: a
-bot of the **same venue** that is not at rest, `.../lifecycle/other_active_bot.py` → `other_active_bot`,
-ADR 029 D20 as `EPIC-029J1a` made it per venue; a bot on another venue does not count, and a file the store
-refused counts on every venue), then asks the runner to start (`.../bot_runner.py` → `BotRunner.start`). The runner works **on the caller's thread**: it
+refuses a closed venue, an unconfirmed Mainnet start and an unready bot (among the readiness items: another
+active bot on the **same venue and symbol**, a venue already running its cap of bots, and a bot of the venue
+still `RECOVERING`, all three from `.../lifecycle/other_active_bot.py` → `other_active_bot`, `venue_is_full`,
+`venue_recovering`, `occupancy_of`; ADR 029 D20 as `EPIC-029J1a` made it per venue and `EPIC-029J1b` per symbol
+with the cap `.../domain/venue_bot_cap.py` → `MAX_ACTIVE_BOTS_PER_VENUE`; a bot on another venue does not
+count, and a file the store refused counts on every venue and symbol), then asks the runner to start (`.../bot_runner.py` → `BotRunner.start`). The runner works **on the caller's thread**: it
 retires the earlier run's worker, so no task of that run can save over the new one, applies `start`
 (`STARTING`, not yet saved), and asks the Grid's preconditions (`.../grid_start_preconditions.py` →
 `GridStartPreconditions.check`) to re-read the parameters, claim the symbol, open the order session
@@ -26,6 +28,28 @@ save the bot `STARTING` and queue `start` on a fresh worker. On the worker the e
 places the ladder (`.../grid_executor.py` → `GridExecutor._run_start`; `.../grid_start_sequence.py` →
 `GridStartSequence.run`), and `ladder_ready` moves the bot to `RUNNING`. The order-session opening and
 the budget registration are calls to `trading` the caller waits on.
+
+## Built: several bots on one venue
+
+*Which resources do the bots of one venue share, and what stops them using them all?* (`EPIC-029J1b`;
+the measurements are in the task file's §5a.)
+
+- **Per bot:** its executor and worker thread, its price stream, its owner budget and books, its
+  lease on its symbol. A tick reaches the executors of its own symbol only: `BotEventRouter.on_tick`
+  filters by symbol and venue before anything is queued (about 50 µs a tick, the same at 1, 5 and 20
+  bots). A fill is routed by the client order id's tag, a funding charge by symbol.
+- **Per venue:** the request-weight gate (`ExchangeCallPolicy` / `RateLimitGate`, one per
+  `VenueSessions`), the order session (and so the Emergency Stop, which halts every bot of the venue
+  through `BotExecutors.on_venue`), the user-data stream, and since `EPIC-029J1b` the order pacer:
+  `VenueOrderPacers` hands every bot of a venue the same `MonotonicOrderPacer`, which reserves a turn
+  under a lock, so the venue's orders keep the budget's spacing whichever bot sends them.
+- **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
+  order halts `RATE_LIMITED` at that order and schedules its own resume; a neighbour that only reads
+  says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every halted bot resumes at
+  the same instant, the pause plus `AUTO_RESUME_MARGIN`.
+- **What caps it:** `other_active_bot` (one bot per venue and symbol), `venue_is_full` (at most
+  `MAX_ACTIVE_BOTS_PER_VENUE`), `venue_recovering` (no Start while a bot of the venue waits to
+  recover, because a Start opens the order session and the session's opening reconciles it).
 
 ## Built: a fill
 
