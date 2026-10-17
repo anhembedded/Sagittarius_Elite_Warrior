@@ -171,6 +171,37 @@ reconcile would call a position mismatch, so the bot stops there with the reason
 order only under one) a missing stop is placed, before anything held is laid; a standing one is
 adopted from the open list. The bot is never bare at any step.
 
+## Planned: a transient halt recovers by itself
+
+[`diagrams/06-halt-recovery.puml`](diagrams/06-halt-recovery.puml) — *what happens to a Spot Grid whose
+price feed goes quiet and comes back?* Planned by `EPIC-042C`; the state and its rows are in
+[`state-machines.md`](state-machines.md), the choices in [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md).
+
+The halt is today's: `GridPriceReaction.check_age` (`bots/application/kinds/grid/watch/grid_price_reaction.py`
+→ `GridPriceReaction.check_age`) halts a bot that holds orders and heard no tick for
+`PRICE_STALE_AFTER_SECONDS`, and the ladder is taken off the exchange with the bought base kept. What is
+new is who decides the event. `BotRunState.halt` asks the halt-recovery director for it: `halt_transient`
+when the bot is `RUNNING`, `STARTING` or `RECOVERING` (from `RUNNING`), the kind's policy for the
+market has a rule for `price_feed_stale`, and the bot record's attempt ledger holds fewer than the rule's
+attempts inside its window; otherwise `halt`. A `PAUSED` bot halts plainly, and a Futures venue has no
+rule.
+
+In `AWAITING_RECOVERY` the bot keeps its price stream and keeps watching its stop loss and take profit
+(`_WATCHES_EXITS`), so a tick that reaches either runs Stop as it does in `HALTED`. On every beat of the
+price watch (`CHECK_EVERY_SECONDS` in `bots/application/services/watches/bot_price_watch.py`) the kind's
+probe says whether the cause is clear. A clear sample starts the *clear since* mark and a not-clear one
+resets it, so the dwell is continuous to the beat. When it reaches the dwell the recovery run, on the
+bot's worker: (1) saves the attempt in the ledger, before anything is asked of the exchange; (2) reads
+a fresh price and, if it is beyond the stop loss or take profit, runs Stop and ends there; (3) runs the
+person's Resume, `GridResumeSequence.propose` (budget registered from exchange evidence, every tagged
+order cancelled, a ladder sized from the price now and the inventory held) and `confirm` with
+`condition_cleared`, which re-reads the price and lays the ladder; (4) publishes
+`BotAutoRecoveredEvent`, which `alerting` carries to the owner. A refusal at (3) leaves the bot waiting
+and spends the attempt; with the budget spent it goes to `HALTED`, and so it does when the wait limit
+passes or a restart intervenes. A restart is not a recovery: the order session is closed after one, so
+the bot is `HALTED` with its ledger, and the owner resumes it from the GUI or with `run --resume-halted`
+(`EPIC-042E`).
+
 ## Planned: EPIC-039L C3 and C4
 
 **Halt (C3).** Whether a halt closes or leaves the position is decided at the moment of the halt by

@@ -28,6 +28,8 @@ render. Do not edit it by hand.
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py` → `FUNDING_INTERVAL` |
 <!-- end generated: timing -->
 
+**Planned: the halt-recovery rule for a Spot Grid's `price_feed_stale`** (`EPIC-042C`; not yet in the table above, which reads the code): dwell 120 s, continuous to the 5 s beat; 3 attempts per rolling 24 h; wait limit 15 min. Declared as data in the kind's policy for the market, not as module constants; the table gains a row when they exist. The owner's figures are the dwell, the attempts and the window; the wait limit is an agent decision the owner may veto ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) D11, O2).
+
 ## Built: what must hold, and what proves it
 
 | Scenario | Held by |

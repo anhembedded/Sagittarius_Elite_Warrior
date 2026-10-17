@@ -35,4 +35,6 @@ reported, not dropped (`bots/contracts/i_bot_store.py` → `RefusedBotFile`), an
 check fails on it (`BotsModule.declare_operations`). The plan a user applies from a file is
 `AppliedPlan` (`bots/contracts/applied_plan.py` → `AppliedPlan`).
 
+**Planned.** `EPIC-042B` adds the halt-recovery ledger to the lifecycle of the bot record: `BotLifecycle.recovery_attempts`, a list of `{code, at}`, one entry per automatic recovery attempt, written inside `lifecycle` with no new `schema_version` and read as empty when the key is missing. Entries older than the longest window are dropped on every write and the list is capped, so the file does not grow. It is the bot's own account, kept in the record and not in the Grid's runtime, because the mechanism is every kind's ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.2).
+
 **Planned.** `EPIC-040C` adds the sandbox copy of a plan; `EPIC-040G` the strategy bot's config.

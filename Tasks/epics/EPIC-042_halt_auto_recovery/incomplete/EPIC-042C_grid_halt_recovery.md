@@ -1,0 +1,47 @@
+# EPIC-042C — A Spot Grid halted by a quiet feed resumes through its Resume path when the feed has been healthy for 120 s
+
+**Status:** 🔵 Backlog
+**Source:** the owner, 2026-10-17, through the coordinating session (decision record [D1, D4, D5, D10, D11, D12](../DECISION_2026-10-17_halt_auto_recovery.md))
+**Risk:** 🔴 — real money: it lays a ladder with no person present; the three-per-24 h budget and the exits re-check are the guards
+**Complexity:** L — the director, the recovery run, the Grid's rule and probe, the wiring of the halt, the exits re-check
+**Epic (optional):** [EPIC-042](../README.md)
+**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md); rebases onto `EPIC-039L` C3 / C4-lite if they land first
+
+---
+
+## 1. Context and problem
+`GridPriceReaction.check_age` halts the bot with `halt_with`; nothing brings it back. The mechanism of [the decision](../DECISION_2026-10-17_halt_auto_recovery.md) must act on the bot's worker, through `GridResumeSequence`, and never against a crossed exit.
+
+## 2. Acceptance criteria
+- [ ] A Spot Grid halted for `price_feed_stale` in `RUNNING` enters `AWAITING_RECOVERY`; in `PAUSED` it enters `HALTED` (D8); on a Futures venue it enters `HALTED` (D5).
+- [ ] After the probe has said *clear* for 120 s without a gap, the attempt is saved, the exits are re-checked on the fresh price, `propose` and `confirm` run, and the bot is `RUNNING` with a fresh ladder.
+- [ ] A gap inside the dwell restarts the dwell.
+- [ ] A stop loss or take profit crossed during the wait, or on the fresh price at the attempt, ends the bot as Stop with *sell base* forced, and no ladder is laid (a test per exit and per direction the Spot Grid runs).
+- [ ] The fourth halt inside 24 h is `HALTED` with a reason that says the three recoveries are used up; the ledger survives a restart (the bot file is reloaded in the test).
+- [ ] `max_wait` elapsed → `HALTED`; a refused attempt spends budget (D10).
+- [ ] A rate limit met by the attempt lands in `HALTED` with `RATE_LIMITED` and `GridRateLimitPause` resumes it as today (`_HALTED_BY_A_LIMIT` includes the new state).
+- [ ] A person's Stop, Emergency Stop and Resume in the state do what the table says.
+- [ ] Positive proof in the run log: `[bot-transition]` lines and a new `[bot-halt-recovery]` line per entry, attempt and outcome (`logging-rule.md` §9: seen through the real logging configuration).
+- [ ] Spot behaviour that is not a transient halt is byte-for-byte unchanged.
+
+## 3. Design
+Decision §2.1 (the recovery run) and §2.2. `HaltRecoveryDirector` and `BotRunState.halt` in `application/services/lifecycle/`; the run is a method called from the price watch's beat; `GridResumeSequence.confirm` takes the event to apply (`resume` by default, `condition_cleared` here), not a flag; the Spot Grid's rule is declared in the kind, its probe over `GridPriceAge`.
+
+## 3a. Reuse
+Used `GridResumeSequence.propose/confirm`, `GridPriceAge`, `IMonotonicClock`, `GridStopper.run`, `crossed_exit`. Not used: `IBotRetryScheduler` (the beat already runs; a second timer would race the first).
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `.../services/lifecycle/halt_recovery_director.py` (new), `bot_run_state.py` | the decision and the ledger write |
+| `.../kinds/grid/watch/grid_price_reaction.py`, `grid_price_age.py` | route the halt, probe, `_WATCHES_EXITS` |
+| `.../kinds/grid/recovery/grid_halt_recovery.py` (new), `grid_resume_sequence.py` | the run; `confirm(proposal, event)` |
+| `.../kinds/grid/watch/grid_rate_limit_pause.py` | `_HALTED_BY_A_LIMIT` |
+| `.../kinds/grid/` the kind's class | `halt_recovery(market)` |
+| Module docs | Planned → Built |
+
+## 5. Testing
+Unit: director per state, ledger across the window, probe continuity. Integration (`tests/integration/modules/bots/`, fake exchange): the incident end to end, the exit crossing, budget across a restart, the Futures refusal. Mutation checks per `testing-rule.md`.
+
+## 6. Docs touched
+`06-runtime.md`, `05-building-blocks.md`, `10-quality.md`, `07-deployment.md` (the thread: the run is on the bot's worker), the diagram.

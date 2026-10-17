@@ -79,6 +79,38 @@ The sets the module asks of the table, rather than keeping lists of its own: `RU
 (a `start` here stamps a new run), `PRICE_STREAM_STATES`, `PRICE_STALENESS_HALTS` and
 `RECOVERABLE_STATES`, in the same file.
 
+## Planned: `AWAITING_RECOVERY`, a halt that waits for its cause to clear
+
+*Which state does a transient halt wait in, and how does it leave?* Planned by `EPIC-042B`; the reasons
+for every row are in [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.1. Until the task lands this table is **hand-written** and
+sits outside the generated markers; `EPIC-042B` adds the state, four events and these rows to
+`bots/domain/bot_lifecycle_fsm_matrix.py` → `BOT_LIFECYCLE_TRANSITIONS`, regenerates the table above, and
+deletes this one.
+
+Four events: `halt_transient` (a halt whose reason the kind's policy names recoverable, with budget
+left), `condition_cleared` (the cause was clear for the dwell; the attempt runs the Resume path),
+`budget_exhausted` (an attempt left the bot waiting and the rolling budget is spent), `wait_expired`
+(the wait limit passed).
+
+| From | Event | To |
+| :--- | :--- | :--- |
+| `STARTING` | `halt_transient` | `AWAITING_RECOVERY` |
+| `RUNNING` | `halt_transient` | `AWAITING_RECOVERY` |
+| `RECOVERING` | `halt_transient` | `AWAITING_RECOVERY` |
+| `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
+| `AWAITING_RECOVERY` | `resume` | `STARTING` |
+| `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
+| `AWAITING_RECOVERY` | `wait_expired` | `HALTED` |
+| `AWAITING_RECOVERY` | `halt` | `HALTED` |
+| `AWAITING_RECOVERY` | `stop` | `STOPPING` |
+| `AWAITING_RECOVERY` | `switch_off` | `HALTED` |
+| `AWAITING_RECOVERY` | `fault` | `ERROR` |
+| `AWAITING_RECOVERY` | `app_restart` | `HALTED` |
+
+`PAUSED` has no `halt_transient` row: the owner's Pause is never undone by a machine. The state is not
+`RECOVERING` (a restart's reconcile wait, [vocabulary](../../VOCABULARY/README.md)). The step by step is
+[`06-runtime.md`](06-runtime.md).
+
 ## Built: a Grid level
 
 `bots/domain/grid/grid_level_fsm_matrix.py` → `LevelState`, `LevelEvent`, `GRID_LEVEL_TRANSITIONS`:

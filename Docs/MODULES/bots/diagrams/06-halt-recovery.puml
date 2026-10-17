@@ -1,0 +1,33 @@
+' Question: what happens to a Spot Grid whose price feed goes quiet and comes back?
+' Explained by: ../06-runtime.md (Planned, EPIC-042C). Drawn by hand, high level.
+@startuml 06-halt-recovery
+participant "Price watch\n(5 s beat)" as W
+participant "BotRunState" as S
+participant "HaltRecoveryDirector" as D
+participant "GridExecutor\n(bot's worker)" as G
+participant "GridResumeSequence" as R
+participant trading as T
+participant alerting as A
+
+W -> S : no tick for 60 s: halt(price_feed_stale)
+S -> D : which event? (state, policy, ledger)
+D --> S : halt_transient (budget left)
+S -> S : RUNNING --halt_transient--> AWAITING_RECOVERY\nladder taken off, base kept, exits still watched
+loop every beat while AWAITING_RECOVERY
+  W -> G : is price_feed_stale clear? (probe)
+  G -> G : clear since = first clear sample;\na not-clear sample resets it
+end
+G -> G : clear for 120 s: save the attempt in the bot record
+G -> T : fresh price: beyond the stop loss or take profit?
+alt crossed
+  G -> G : Stop, sell base forced; no ladder is laid
+else not crossed
+  G -> R : propose(price)  (budget, cancel tagged, new plan)
+  R -> T : cancel tagged orders, read inventory
+  G -> R : confirm(proposal, condition_cleared)
+  R -> T : lay the ladder
+  R -> S : AWAITING_RECOVERY --condition_cleared--> STARTING --> RUNNING
+  G -> A : BotAutoRecoveredEvent
+end
+note over G, D : a refused attempt keeps the bot waiting and spends the attempt;\nbudget spent, wait limit passed or a restart: HALTED
+@enduml

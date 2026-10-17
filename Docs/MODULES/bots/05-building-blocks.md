@@ -123,3 +123,6 @@ existing Algo Order mapping.
 | The strategy kind, a second `IBotKind` | its own `bots/application/kinds/<kind>/` | `EPIC-040G` |
 | The halt asks the exchange whether a stop stands; the Emergency Stop closes, then cancels conditional orders | `bots/application/services/positions/`, `trading/application/session/emergency_stop/` | `EPIC-039L` C3 |
 | The mainnet gate as a port, `IVenueOpening`, in place of `CLOSED_VENUES` | `bots/contracts/` | `EPIC-039L` C4 |
+| The halt-recovery mechanism: the state `AWAITING_RECOVERY`, the director that picks `halt` or `halt_transient`, the policy a kind declares per market, the probe that says a reason has cleared, and the attempt ledger in the bot record | `bots/domain/`, `bots/application/services/lifecycle/`, `bots/contracts/i_bot_kind.py` | `EPIC-042B`, `EPIC-042C` |
+| `run --resume-halted` | `operations/`, `bots/application/use_cases/` | `EPIC-042E` |
+| The grid rate-limit resume moves onto that mechanism | `bots/application/kinds/grid/watch/` | `EPIC-042F` |
