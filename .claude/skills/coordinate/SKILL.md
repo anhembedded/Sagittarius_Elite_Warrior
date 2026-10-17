@@ -33,8 +33,8 @@ flowchart TD
 1. **Read the state first.** `Tasks/COORDINATION.md` holds the live streams, session ids, open PRs, the owner's standing decisions and what the owner still owes. Never rebuild it from memory. If your own context passes about 400k tokens, write the state there and ask the owner to open a fresh coordinator session (`ONBOARDING.md` §7, session economy).
 2. **Wake only for work.** Do not subscribe to PR activity yourself: the author watches its own PR and messages you when its head is ready. When a stale notification still reaches you (a cancelled run on a superseded head, a subscription or close echo), end the turn without a tool call.
 3. **Hand work out.**
-   - The author runs on the cheaper general model by default, and on the strongest available model for design-heavy work.
-   - The reviewer runs on a different model from the author, and on the strongest available model for real-money changes.
+   - The author runs on the cheaper general model by default, and on the strongest permitted model for design-heavy work.
+   - The reviewer runs on a different model from the author, and on the strongest permitted model for real-money changes. A model the owner excluded (`ONBOARDING.md` §7, "Excluded model") is never permitted, and every spawn prompt says so in one line.
    - Documentation-only PRs and bug fixes get no reviewer unless the owner asks.
    - One author session covers one epic or phase. Start a new one rather than letting one grow past about 500k tokens.
    - The author's prompt names the task file, the hard limits (no mainnet orders, no secrets, no dependency or settings change) and asks the author to report its PR URL, head sha, reviewer verdict and gate results.
@@ -55,4 +55,4 @@ flowchart TD
 - Never place, test or simulate orders on Binance mainnet.
 - Never read, print or forward a secret: an API key, a webhook URL or a credential.
 - Never self-review. Never merge a red or unverified head. Never push to `master-warrior` directly.
-- Model identifiers stay out of commits, PR bodies and repository files, this one included. Name a model only in a `create_session` call or in chat.
+- Model identifiers stay out of commits, PR bodies and repository files, this one included, except the owner's exclusion list in `ONBOARDING.md` §7. Name a model only in a `create_session` call or in chat.
