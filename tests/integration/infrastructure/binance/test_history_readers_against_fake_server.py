@@ -20,6 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -324,30 +325,35 @@ def test_a_futures_order_placed_a_moment_ago_is_in_the_read_whatever_the_clock_e
     ]
 
 
-def test_a_futures_run_that_began_a_moment_ago_is_read_whatever_the_clock_error() -> (
-    None
-):
+@pytest.mark.parametrize(
+    "machine_ahead_by_ms", [0, 127_000], ids=["clocks_agree", "machine_127_s_ahead"]
+)
+def test_a_futures_run_that_began_a_moment_ago_is_read_whatever_the_clock_error(
+    machine_ahead_by_ms: int,
+) -> None:
     """`BUG-223` - a run's budget is derived from the run's start, which is a moment ago; the
     start sent is that moment plus a one-off estimate of the exchange's clock, and an estimate
     that is a little high puts it ahead of the exchange's own clock. The exchange refuses a
     start in its future (-4181 `Invalid start time`), so the Start was refused. The reader
-    reads from a little before the start and keeps only what is from it on."""
-    with _fake_exchange():
+    reads from a little before the start and keeps only what is from it on, on a machine whose
+    clock agrees with the exchange's and on the owner's, 127 s ahead of it."""
+    skew = -machine_ahead_by_ms
+    with _fake_exchange(), exchange_clock_skewed_by(skew):
         sessions = FuturesSessionFactory()
         metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
         trading = FuturesTradingClient(
             sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
         )
         history = FuturesHistoryReader(sessions, _Credentials())
-        with exchange_clock_skewed_by(_OFFSET_ERROR_MS):
+        with exchange_clock_skewed_by(skew + _OFFSET_ERROR_MS):
             measured = sessions.create_trading_client(_credentials()).timestamp_offset
-        assert abs(measured - _OFFSET_ERROR_MS) < _MEASUREMENT_TOLERANCE_MS
+        assert abs(measured - (skew + _OFFSET_ERROR_MS)) < _MEASUREMENT_TOLERANCE_MS
         run_started_at = datetime.now(UTC)
         # The exchange stamps one order well before the run began and one well after, whatever the
         # machine's estimate of its clock is: the read must tell them apart.
-        with exchange_clock_skewed_by(-_STAMP_APART_MS):
+        with exchange_clock_skewed_by(skew - _STAMP_APART_MS):
             trading.place_order(_order("SEW-hist-before-run", OrderType.MARKET))
-        with exchange_clock_skewed_by(_STAMP_APART_MS):
+        with exchange_clock_skewed_by(skew + _STAMP_APART_MS):
             trading.place_order(_order("SEW-hist-in-run", OrderType.MARKET))
 
         rows = history.order_history("BTCUSDT", run_started_at)
