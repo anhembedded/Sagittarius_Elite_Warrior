@@ -51,7 +51,8 @@ _decision_log = logging.getLogger("App.CliLog")
 FILE_PREFIX = "cli-"
 _FILE_PATTERN = f"{FILE_PREFIX}*.log*"
 #: Per-file cap, and the number of files (backups included) one directory keeps:
-#: the directory holds at most `FILES_KEPT * MAX_FILE_BYTES` = 20 MiB of these.
+#: a directory holds about `FILES_KEPT * MAX_FILE_BYTES` = 20 MiB of these (a run that
+#: rotates is two files, so the count is 40 plus the rotated runs).
 MAX_FILE_BYTES = 512 * 1024
 FILES_KEPT = 40
 #: The records still shown on the console of a quiet run.
@@ -130,15 +131,18 @@ def prepare_cli_log(log_dir: Path, *, now: datetime | None = None) -> CliLogRout
     Never raises: a read-only command must not fail because its log cannot be
     written (a service account's data root seen from another user). The routing then
     has no file and says why."""
+    stamp = _file_stamp(now or datetime.now(UTC))
+    log_file = log_dir / f"{FILE_PREFIX}{stamp}-{os.getpid()}.log"
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
-        if not os.access(log_dir, os.W_OK):
-            raise PermissionError(f"{log_dir} is not writable")
         _prune(log_dir, keep=FILES_KEPT - 1)
+        # Open the file we are about to name: `os.access` ignores ACLs on Windows, and
+        # the handler's own open is delayed to the first record, where a failure
+        # would print a traceback per record.
+        log_file.open("a", encoding="utf-8").close()
     except OSError as error:
         return CliLogRouting(None, f"{type(error).__name__}: {error}")
-    stamp = _file_stamp(now or datetime.now(UTC))
-    return CliLogRouting(log_dir / f"{FILE_PREFIX}{stamp}-{os.getpid()}.log")
+    return CliLogRouting(log_file)
 
 
 def _file_stamp(moment: datetime) -> str:

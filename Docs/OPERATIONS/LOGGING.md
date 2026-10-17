@@ -24,13 +24,13 @@ A command declared `"read_only": true` in `cli_commands.json` boots the whole ap
 | Why this shape | |
 | :--- | :--- |
 | One file per process | Several short commands run at once. Python's `RotatingFileHandler` is not safe across processes: two renames of one file lose records, and on Windows the rename raises `PermissionError` while another process holds the file, which `logging` prints to stderr. A file per process has no writer to race with. |
-| Bounded by pruning | At start the command deletes the oldest `cli-*` files beyond the newest 39, then adds its own: 40 files at most (`FILES_KEPT`). Two commands pruning together may both delete one file (the second finds it gone) or leave a few extra until the next start. |
+| Bounded by pruning | At start the command deletes the oldest `cli-*` files beyond the newest 39, then adds its own: 40 files (`FILES_KEPT`; a run that rotates is two files, so a few more while it lasts). Two commands pruning together may both delete one file (the second finds it gone) or leave a few extra until the next start. |
 | Bounded per file | Each file is a `RotatingFileHandler` capped at 512 KiB with one backup (`MAX_FILE_BYTES`), single-process so race-free: 20 MiB in all, in practice about 7 KB a run. |
 | Rejected: one rotating file | Cross-process rotation above. |
 | Rejected: a file per day | Safe to append, but a day's size is the number of runs times 7 KB with no cap, and it needs a pruning rule of its own. |
 | Rejected: `logrotate` on the file | Needs `copytruncate` and a root-owned stanza for a file an operator's own account writes. |
 
-If `<data root>/logs` cannot be created or written (a service account's data root seen from another user), the command still runs: it logs one WARNING `[cli-log] no log file (<reason>)` to stderr and shows warnings and errors only. A `log.file` set in the configuration is left alone and written as before, beside this file. Code: `src/shell/cli_log_routing.py`; the entry point decides in `main._quiet_log_for`.
+If `<data root>/logs` cannot be created, or its file cannot be opened (checked by opening it, since `os.access` ignores Windows ACLs) (a service account's data root seen from another user), the command still runs: it logs one WARNING `[cli-log] no log file (<reason>)` to stderr and shows warnings and errors only. A `log.file` set in the configuration is left alone and written as before, beside this file. Code: `src/shell/cli_log_routing.py`; the entry point decides in `main._quiet_log_for`.
 
 ## 2. If you set `log.file` anyway
 

@@ -35,7 +35,7 @@ At `0889c02`, `main.py bot list` on an empty data root printed 74 lines to stdou
 | `logrotate` / `copytruncate` | yes | yes | root-owned stanza for a file an operator's account writes; Windows has none; rejected |
 | **One file per process + prune the oldest at start + a per-file `RotatingFileHandler` cap** | **yes**: one writer per file, so the cap's rename is race-free | yes: ≤ 40 files × 512 KiB = 20 MiB | **chosen**: stdlib only, no lock, no daemon |
 
-Residual: two runs starting together may both prune the same file (the loser finds it gone: `suppress(OSError)`) or leave a few files over 40 until the next start; the bound is soft by the number of simultaneous starters. Typical size is ~7 KB a run, so 40 files are a few hundred KB,.
+Residual: two runs starting together may both prune the same file (the loser finds it gone: `suppress(OSError)`) or leave a few files over 40 until the next start; the bound is soft by the number of simultaneous starters. Typical size is ~7 KB a run, so 40 files are a few hundred KB.
 
 **Console.** WARNING+ goes to stderr, never stdout, so the table and the `--json` document own stdout. `run_command` already writes a failed command's message and traceback to stderr.
 
@@ -65,6 +65,7 @@ Unit and integration tiers as listed under §2. Mutation checks run: deleting th
 ## Implementation notes (written when done)
 - **Reproduced first**: `main.py bot list` on `SEW_DATA_ROOT=/tmp/sewdata`: 74 stdout lines, 0 stderr. After: `No bots.` on stdout, 0 stderr, a 74-line `cli-20261017-140143-905.log`, whose first line is `[cli-log] console shows warnings and errors only; records go to <path>`; `--verbose` after or before the verb prints the 74 lines again; `status --json` is one document.
 - **The 7× `[data-root]` lines are not removed**: `data_root()` still logs INFO per call (now into the file). Deduplicating it is a separate change in `src/core/repo_root.py`; recorded, not done here.
+- **Review round 1** (`e93797c`): `os.access` ignores ACLs on Windows, so an unwritable file would have printed a traceback per record; `prepare_cli_log` now proves writability by opening the file it names, with a test. The 40-file bound counts rotated backups as files, so it is soft by rotated runs too (wording fixed). `composition_root.py` is now exactly 400 lines: the next edit to `create_app` must split it.
 - **A `log.file` or `--dev` file** is left alone, so a developer who set one gets both files. `--dev`/`--debug` are not accepted by headless commands (the parser rejects them), so they never meet this routing.
 - **Not verified**: the Windows rename failure that rules out a shared rotating file is documented behaviour of CPython's `RotatingFileHandler`, not reproduced here (Linux container); the chosen design never renames a file another process holds. The 40-file prune under real simultaneous starters is reasoned, not stress-tested.
 - Delivery state: pushed to `claude/quiet-cli-console-log-BOT-185`, draft PR; reviewer and coordinator handoff recorded in the PR.

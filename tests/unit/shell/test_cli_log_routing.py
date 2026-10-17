@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -180,6 +181,30 @@ def test_a_log_directory_that_cannot_be_used_costs_the_file_not_the_command(
     assert "dropped, there is no file" not in err
 
 
+def test_a_file_that_cannot_be_opened_costs_the_file_and_makes_no_noise_per_record(
+    app_logger_restored: logging.Logger,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The directory is fine; the file is not (an ACL `os.access` cannot see)."""
+    monkeypatch.setattr(os, "getpid", lambda: 4242)
+    moment = datetime(2026, 10, 17, 14, 1, 43, tzinfo=UTC)
+    (tmp_path / f"{FILE_PREFIX}20261017T140143-4242.log").mkdir()
+
+    routing = prepare_cli_log(tmp_path, now=moment)
+    StdLogger(ConfigManager())
+    routing.apply()
+    routing.log_decision()
+    for index in range(5):
+        _COMPONENT.info("[test] record %d", index)
+
+    assert routing.log_file is None
+    err = capsys.readouterr().err
+    assert err.count("[cli-log] no log file") == 1
+    assert "Logging error" not in err
+
+
 def _seed(directory: Path, count: int) -> list[Path]:
     paths = []
     for index in range(count):
@@ -199,13 +224,13 @@ def test_the_directory_keeps_at_most_files_kept_and_drops_the_oldest(
 
     routing = prepare_cli_log(tmp_path)
 
-    survivors = set(tmp_path.glob(f"{FILE_PREFIX}*"))
+    assert routing.log_file is not None
+    assert routing.log_file.parent == tmp_path
+    survivors = set(tmp_path.glob(f"{FILE_PREFIX}*")) - {routing.log_file}
+    assert routing.log_file.exists(), "opened to prove it can be written"
     assert len(survivors) == FILES_KEPT - 1, "room for this run's own file"
     assert survivors == set(seeded[-(FILES_KEPT - 1) :]), "the newest stay"
     assert unrelated.exists(), "only the CLI's own files are pruned"
-    assert routing.log_file is not None
-    assert routing.log_file.parent == tmp_path
-    assert routing.log_file not in survivors
 
 
 def test_a_file_is_capped_by_rotation_and_keeps_one_backup(
