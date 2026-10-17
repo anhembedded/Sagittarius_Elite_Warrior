@@ -69,7 +69,8 @@ def test_a_command_that_does_not_close_is_the_document_an_older_host_reads() -> 
         ("not json", "JSON"),
         ("[]", "object"),
         (_document(schema="sew.host-command/2"), "schema"),
-        (_document(action="start"), "action"),
+        (_document(action="restart"), "action"),
+        (_document(action="Start"), "action"),
         (_document(action=5), "action"),
         (_document(command_id="short"), "command_id"),
         (_document(command_id="G" * 32), "command_id"),
@@ -83,6 +84,7 @@ def test_a_command_that_does_not_close_is_the_document_an_older_host_reads() -> 
         (_document(close_position="yes"), "close_position"),
         (_document(close_position=1), "close_position"),
         (_document(action="pause", close_position=True), "close_position"),
+        (_document(action="start", close_position=True), "close_position"),
     ],
 )
 def test_a_document_that_is_not_exactly_a_command_is_malformed(
@@ -95,7 +97,7 @@ def test_a_document_that_is_not_exactly_a_command_is_malformed(
 
 
 def test_a_malformed_document_still_names_its_id_when_that_part_is_sound() -> None:
-    parsed = parse_command(_document(action="start"))
+    parsed = parse_command(_document(action="restart"))
 
     assert isinstance(parsed, MalformedDocument)
     assert parsed.command_id == ID_A
@@ -106,3 +108,41 @@ def test_a_document_without_a_sound_id_names_none() -> None:
 
     assert isinstance(parsed, MalformedDocument)
     assert parsed.command_id == ""
+
+
+def test_a_start_survives_the_round_trip() -> None:
+    sent = command(action=HostControlAction.START, confirmed_venue="futures_mainnet")
+
+    assert parse_command(encode_command(sent)) == sent
+
+
+def test_the_new_action_is_a_new_word_not_a_new_key() -> None:
+    """`EPIC-038K`: an older host reads the same keys and a word it does not know, so it refuses
+    the document as malformed (REJECTED, audited, nothing executed) instead of misreading it."""
+    document = json.loads(encode_command(command(action=HostControlAction.START)))
+
+    assert set(document) == {
+        "schema",
+        "command_id",
+        "action",
+        "bot_id",
+        "confirmed_venue",
+        "issued_at",
+    }
+    assert document["action"] == "start"
+
+
+def test_delete_is_not_an_action_the_host_knows() -> None:
+    """The owner dropped `bot delete` from `EPIC-038K` (2026-10-17): no word for it on the wire."""
+    parsed = parse_command(_document(action="delete"))
+
+    assert isinstance(parsed, MalformedDocument)
+    assert "action" in parsed.reason
+
+
+def test_the_refusal_of_an_unknown_action_lists_every_action_the_host_knows() -> None:
+    parsed = parse_command(_document(action="restart"))
+
+    assert isinstance(parsed, MalformedDocument)
+    for action in HostControlAction:
+        assert action.value in parsed.reason

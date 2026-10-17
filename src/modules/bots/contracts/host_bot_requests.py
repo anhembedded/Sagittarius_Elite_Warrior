@@ -8,7 +8,7 @@ the host adds no way to start or stop a bot, only a way to ask for one by name.
 
 Both answer a `BotCommandResult`, so a refusal reaches the host with the words
 the screen would show. `EPIC-038J` adds two more of the same kind, pause and resume, for the
-commands a person sends to the running host.
+commands a person sends to the running host; `EPIC-038K` reaches `StartBotForHostCommand`, already here, from the command directory too.
 
 @par `StartBotForHostCommand.confirmed_venue` (decision O8)
 The screen asks the question that names real money. A command line cannot ask,
@@ -78,7 +78,8 @@ class ResumeBotForHostCommand:
 
 @dataclass(frozen=True, slots=True)
 class StartBotForHostCommand:
-    """Start this bot, which is at rest. `confirmed_venue` is what the operator typed."""
+    """Start this bot, which is at rest (DRAFT or STOPPED). `confirmed_venue` is what the operator
+    typed. Used by `run --start-planned` and, since `EPIC-038K`, by `bot start` on the running host."""
 
     bot_id: str
     confirmed_venue: str | None = None

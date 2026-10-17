@@ -91,7 +91,8 @@ def bind_commands(container: IContainer) -> None:
         ResumeRecoveringForHostCommand, ResumeRecoveringForHostCommandHandler
     )
     container.bind(ResumeHaltedForHostCommand, ResumeHaltedForHostCommandHandler)
-    # `EPIC-038J` - what a person sends to the running host (`bot pause`, `bot resume`).
+    # `EPIC-038J` - what a person sends to the running host (`bot stop`, `bot pause`, `bot resume`).
     container.bind(StopBotForOperatorCommand, StopBotForOperatorCommandHandler)
     container.bind(PauseBotForHostCommand, PauseBotForHostCommandHandler)
     container.bind(ResumeBotForHostCommand, ResumeBotForHostCommandHandler)
+    # `EPIC-038K` - `bot start` reuses `StartBotForHostCommand` bound above.

@@ -1,12 +1,14 @@
 """A command file becomes the command the Bots tab dispatches (`EPIC-038J`).
 
 One row per action: the contract command the bots module answers by dispatching the screen's
-own `StopBotCommand`, `PauseBotCommand` or `ResumeBotCommand`. So the file adds no way to stop,
-pause or resume a bot; it only asks for one by name, and the lifecycle table, the read-only rule
+own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand` or `StartBotCommand`. So the file adds no
+way to stop, pause, resume or start a bot; it only
+asks for one by name, and the lifecycle table, the read-only rule
 and the real-money question apply as on the screen.
 
 @par Extension cases
-  · a new verb (`bot start`) - one `HostControlAction` member and one row in `_REQUESTS`.
+  · a new verb (`bot archive`) - one `HostControlAction` member and one row in `_REQUESTS` and
+    in `_ACCEPTED_WORDS`; `start` (`EPIC-038K`) was added so.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
+    StartBotForHostCommand,
     StopBotForOperatorCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
@@ -44,6 +47,7 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     ),
     HostControlAction.PAUSE: "the bot is PAUSED: it places no orders, its resting orders stay",
     HostControlAction.RESUME: "the bot is resuming (see `bot show`)",
+    HostControlAction.START: "the bot is STARTING (see `bot show`)",
 }
 
 type _Request = Callable[[HostCommand], object]
@@ -54,6 +58,9 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     ),
     HostControlAction.PAUSE: lambda c: PauseBotForHostCommand(c.bot_id),
     HostControlAction.RESUME: lambda c: ResumeBotForHostCommand(
+        c.bot_id, c.confirmed_venue
+    ),
+    HostControlAction.START: lambda c: StartBotForHostCommand(
         c.bot_id, c.confirmed_venue
     ),
 }

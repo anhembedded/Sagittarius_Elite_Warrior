@@ -1,4 +1,4 @@
-"""`EPIC-038J` - `bot stop|pause|resume` from a second process to a real `run` host (decision O4, channel A).
+"""`EPIC-038J`, `EPIC-038K` - `bot stop|pause|resume|start` from a second process to a real `run` host (decision O4, channel A).
 
 @details Real processes, because a lock, a directory's owner and a listening socket belong to
 processes. The host is `main.py run` over the fake exchange with a bot file that its first boot
@@ -91,14 +91,18 @@ def started(exchange: FakeServerUrls) -> Iterator[list[RunChild]]:
         yield children
 
 
-def _seed_a_bot_that_ran(data_root: Path, bot_id: str) -> Path:
-    """A RUNNING bot with a run behind it (`run_started_at`): a stop has a run to close."""
+def _seed_a_bot_that_ran(
+    data_root: Path,
+    bot_id: str,
+    state: BotLifecycleState = BotLifecycleState.RUNNING,
+) -> Path:
+    """A bot (RUNNING unless said) with a run behind it (`run_started_at`): a stop has a run to close."""
     bots = data_root / "state" / "bots"
     started = datetime(2026, 10, 1, tzinfo=UTC)
     bot = Bot(
         BotId(bot_id),
         BotDefinition("grid one", "grid", TradingVenue.SPOT_TESTNET, "BTCUSDT", GRID),
-        BotLifecycle(BotLifecycleState.RUNNING, run_started_at=started),
+        BotLifecycle(state, run_started_at=started),
         started,
     )
     JsonBotStore(bots).save(StoredBot(bot, dict(encode_runtime(GridRuntime(())))))
@@ -205,6 +209,34 @@ def test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_listens_o
         ("executed", "stop"),
     ]
     assert os.listdir(directory) == ["audit.jsonl"], "commands are removed"
+
+    host.send(signal.SIGTERM)
+    assert host.finish() == int(ExitCode.SUCCESS), host.evidence
+
+
+def test_a_second_process_start_of_a_halted_bot_is_refused_in_the_screens_words(
+    started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`EPIC-038K`: `bot start` crosses the process boundary like the other verbs. A HALTED bot is
+    refused toward `run --resume-halted` before the exchange is read, the file is not changed, and
+    the audit lists the refusal."""
+    bots = _seed_a_bot_that_ran(tmp_path, "bbbbbb", BotLifecycleState.HALTED)
+    host = _host(started, tmp_path, exchange)
+    directory = tmp_path / "state" / "control"
+
+    refused = _bot(tmp_path, exchange, "start", "bbbbbb")
+
+    assert refused.returncode == int(ExitCode.USAGE), refused.stdout + refused.stderr
+    assert "--resume-halted" in refused.stderr
+    assert _state_of(bots, "bbbbbb") is BotLifecycleState.HALTED
+    audit = [
+        json.loads(line)
+        for line in (directory / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [(e["verdict"], e["action"]) for e in audit] == [
+        ("received", "start"),
+        ("refused", "start"),
+    ]
 
     host.send(signal.SIGTERM)
     assert host.finish() == int(ExitCode.SUCCESS), host.evidence

@@ -5,8 +5,8 @@ handler (`bot_cli_handler.py`) looks one up by the word the operator typed and
 knows none by name. `start`, `stop`, `pause` and `resume` are further classes and
 further entries, plus their rows in `cli_commands.json`; they dispatch the command the
 Bots tab dispatches, through the same `ICommandDispatcher`. `apply` and `export`
-(`EPIC-038I`, `bot_plan_verbs.py`) are such entries already. `stop`, `pause` and `resume`
-(`EPIC-038J`, `bot_control_verbs.py`) are entries of another kind: the running host holds the
+(`EPIC-038I`, `bot_plan_verbs.py`) are such entries already. `stop`, `pause`, `resume` and `start`
+(`EPIC-038J`/`EPIC-038K`, `bot_control_verbs.py`) are entries of another kind: the running host holds the
 data root, so they ask it, through `IHostControl`, and the host dispatches the command.
 
 Reads dispatch `GetBotStatusReportQuery`, whose handler is built from the Bots
@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     PauseBotVerb,
     ResumeBotVerb,
+    StartBotVerb,
     StopBotVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
@@ -94,4 +95,5 @@ BOT_VERBS: tuple[IBotVerb, ...] = (
     StopBotVerb(),
     PauseBotVerb(),
     ResumeBotVerb(),
+    StartBotVerb(),
 )

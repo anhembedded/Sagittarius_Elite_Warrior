@@ -1,6 +1,6 @@
-"""`bot stop`, `bot pause` and `bot resume` (`EPIC-038J`, decision O4, channel A).
+"""`bot stop`, `bot pause`, `bot resume` and `bot start` (`EPIC-038J`, `EPIC-038K`, decision O4, channel A).
 
-Three verbs of the `bot` command that change a bot **in another process**: the running `run`
+Four verbs of the `bot` command that change a bot **in another process**: the running `run`
 host. This process is a read-only copy (`"read_only": true` in `cli_commands.json`) and changes
 nothing; each verb hands a request to `IHostControl`, which writes it where the host reads it,
 and waits for the host's recorded answer. The bot is changed by the host, through the command
@@ -16,8 +16,8 @@ the Bots tab dispatches - there is no second implementation of Stop here.
   · `11` - a host is running but recorded no answer in time (`--wait`).
 
 @par Extension cases
-  · a new verb (`bot start`) - a `HostControlAction` member, a row in the host's executor, one
-    class here and one `BOT_VERBS` entry.
+  · a new verb (`bot archive`) - a `HostControlAction` member, a row in the host's executor, one
+    class here and one `BOT_VERBS` entry; `start` (`EPIC-038K`) was added so.
 """
 
 from __future__ import annotations
@@ -90,3 +90,8 @@ class PauseBotVerb(_ControlVerb):
 class ResumeBotVerb(_ControlVerb):
     name = "resume"
     action = HostControlAction.RESUME
+
+
+class StartBotVerb(_ControlVerb):
+    name = "start"
+    action = HostControlAction.START
