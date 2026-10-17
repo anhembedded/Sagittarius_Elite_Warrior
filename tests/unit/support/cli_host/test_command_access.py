@@ -63,6 +63,8 @@ _READ_ONLY = {
     ("status", None),
     ("bot", "list"),
     ("bot", "show"),
+    # `BOT-187` - the orders a bot's file records; no exchange call, no write.
+    ("bot", "order"),
     # Reads the bots and writes a file the operator named; touches no bot.
     ("bot", "export"),
     # `EPIC-038J` - write a command file for the running host and wait for its answer; this

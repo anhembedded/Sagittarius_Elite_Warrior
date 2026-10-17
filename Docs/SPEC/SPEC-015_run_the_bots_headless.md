@@ -5,7 +5,7 @@ Status: Current
 - **Status:** 🟡 partly built — the host, its signals, both stop policies, the lock refusal, the pre-flight gate, the health line and the resume of RECOVERING bots are built and proven; `--start-planned` reads the plan `bot apply` recorded (`EPIC-038I`); Ctrl-Break on Windows is proven by the adapter's own test, not by a Windows run; and the host is **not supported for unattended money** until `EPIC-036B`, `036C` and `036E` have merged.
 - **Actor:** operator (a person who runs the bots on a server with no window, or the service manager that runs them for that person)
 - **Origin:** `EPIC-038D`, from the owner's instruction of 2026-10-09 (run the bots from the command line on a VPS, Linux or Windows); decisions O1, O2, O4 (answered A on 2026-10-17: the owner's "stop and pause" on a running host, §3a), O8 and D9 of `DECISION_2026-10-09_headless_operation.md`.
-- **Surfaces:** `main.py run` and its flags; `main.py status` and `bot list` from a second process; `bot stop`, `bot pause`, `bot resume` and `bot start` from a second process through the command directory `state/control/` (`EPIC-038J`, `EPIC-038K`); the host's log on standard output; `state/health.json`. No window.
+- **Surfaces:** `main.py run` and its flags; `main.py status`, `bot list` and `bot order <id>` (the orders a bot's file records, stored not live; `BOT-187`) from a second process; `bot stop`, `bot pause`, `bot resume` and `bot start` from a second process through the command directory `state/control/` (`EPIC-038J`, `EPIC-038K`); the host's log on standard output; `state/health.json`. No window.
 
 ## 1. Trigger
 

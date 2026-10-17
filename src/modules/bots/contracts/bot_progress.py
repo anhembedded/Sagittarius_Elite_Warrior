@@ -25,6 +25,9 @@ class BotOrderLine:
     quantity: Decimal
     executed: Decimal
     client_order_id: str
+    #: The level's state as the runtime recorded it (`RESTING`, `PARTIAL`, ...); empty when
+    #: the reader of the record does not carry one. A record, not what the exchange says.
+    state: str = ""
 
 
 @dataclass(frozen=True, slots=True)
