@@ -18,6 +18,7 @@ a document that needs it links there.
 | What a word means | [`VOCABULARY/`](VOCABULARY/README.md) | Description |
 | What went wrong and why the gate missed it | [`CASE_STUDIES/`](CASE_STUDIES/README.md) | Description |
 | What the process numbers say | [`METRICS/`](METRICS/README.md) | Generated data |
+| How a design decision of this project works, its alternatives and interview questions | [`LEARNING/`](LEARNING/README.md) | Description |
 
 The three kinds have three lifecycles (decision D5). A *description* is true of `master-warrior` and
 changes in the pull request that changes the code. A *decision* is immutable once accepted; a new
