@@ -17,6 +17,11 @@ The same disclosure as `futures_account_reader.py`.
 stop-loss and take-profit: a trigger and a quantity, no limit price and no
 time in force (they fill at market once triggered).
 
+`EPIC-039L`: an order with `close_position` is the bot's protective stop. It is
+sent with `closePosition=true` and **neither `quantity` nor `reduceOnly`**: the
+New Algo Order page forbids both beside `closePosition`. `workingType` follows
+the order (`WorkingType`); every order built before keeps the last price.
+
 Plausible extensions, each one entry in a table here:
 - a take-profit limit (`TAKE_PROFIT`): a new `OrderType` member, sent like
   the stop-limit;
@@ -54,12 +59,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import (
+    WorkingType,
+)
 
 #: The only `algoType` Binance's USD-M Algo Order API serves.
 ALGO_TYPE_CONDITIONAL = "CONDITIONAL"
-#: What the trigger compares against: the last traded price, the same price
+#: `WorkingType` → Binance's `workingType`. The last traded price is the price
 #: the app's own stop check (`check_stop_trigger_side`) judges a stop by.
-_WORKING_TYPE_LAST_PRICE = "CONTRACT_PRICE"
+_WORKING_TYPE_NAMES: dict[WorkingType, str] = {
+    WorkingType.LAST_PRICE: "CONTRACT_PRICE",
+    WorkingType.MARK_PRICE: "MARK_PRICE",
+}
+_WORKING_TYPES_BY_NAME: dict[str, WorkingType] = {
+    name: member for member, name in _WORKING_TYPE_NAMES.items()
+}
 _ONE_WAY_POSITION_SIDE = "BOTH"
 
 #: The app's order types sent through the Algo Order API, with their USD-M
@@ -102,6 +116,12 @@ def order_type_from_algo(raw: str) -> OrderType:
     return order_type_or_unknown(raw, _ALGO_TYPE_READ_NAMES)
 
 
+def working_type_from_algo(raw: object) -> WorkingType:
+    """@return `raw` (an algo `workingType`) as a `WorkingType`; the last price when
+    the payload names none, which is what Binance defaults to."""
+    return _WORKING_TYPES_BY_NAME.get(str(raw), WorkingType.LAST_PRICE)
+
+
 def is_algo_routed(order_type: OrderType) -> bool:
     """Whether the Futures client sends this type through the Algo Order
     API rather than `POST /fapi/v1/order`."""
@@ -141,7 +161,7 @@ def map_order_to_futures_algo_params(
         "price": str(order.price),
         "triggerPrice": str(order.stop_price),
         "timeInForce": order.time_in_force.value,
-        "workingType": _WORKING_TYPE_LAST_PRICE,
+        "workingType": _WORKING_TYPE_NAMES[order.working_type],
         "reduceOnly": order.reduce_only,
         "clientAlgoId": str(order.client_order_id),
     }
@@ -150,27 +170,37 @@ def map_order_to_futures_algo_params(
 def _market_on_trigger_params(
     order: Order, metadata: SymbolOrderMetadata, type_name: str
 ) -> dict[str, Any]:
-    """A stop-market or take-profit-market: its trigger and quantity."""
+    """A stop-market or take-profit-market: its trigger and quantity, or, for a
+    close-all order (`EPIC-039L`), its trigger alone."""
     if order.stop_price is None:
         raise InvalidOrderForSubmissionError(
             f"A {type_name} order needs its trigger price."
         )
-    _require_multiple(
-        order.quantity, metadata.step_size_for(order.order_type), "quantity"
-    )
     _require_multiple(order.stop_price, metadata.tick_size, "stop price")
-    return {
+    params: dict[str, Any] = {
         "algoType": ALGO_TYPE_CONDITIONAL,
         "symbol": order.symbol,
         "side": order.side.value,
         "positionSide": _ONE_WAY_POSITION_SIDE,
         "type": type_name,
-        "quantity": str(order.quantity),
         "triggerPrice": str(order.stop_price),
-        "workingType": _WORKING_TYPE_LAST_PRICE,
-        "reduceOnly": order.reduce_only,
+        "workingType": _WORKING_TYPE_NAMES[order.working_type],
         "clientAlgoId": str(order.client_order_id),
     }
+    if order.close_position:
+        if order.reduce_only or order.quantity != 0:
+            raise InvalidOrderForSubmissionError(
+                "A close-position order is sent without a quantity and without "
+                "reduce-only: the exchange refuses both beside closePosition."
+            )
+        params["closePosition"] = "true"
+        return params
+    _require_multiple(
+        order.quantity, metadata.step_size_for(order.order_type), "quantity"
+    )
+    params["quantity"] = str(order.quantity)
+    params["reduceOnly"] = order.reduce_only
+    return params
 
 
 def map_futures_algo_payload_to_order(payload: dict[str, Any]) -> Order:
@@ -183,12 +213,14 @@ def map_futures_algo_payload_to_order(payload: dict[str, Any]) -> Order:
         symbol=payload["symbol"],
         side=OrderSide[payload["side"]],
         order_type=order_type_from_algo(payload["orderType"]),
-        quantity=Decimal(str(payload["quantity"])),
+        quantity=Decimal(str(payload.get("quantity") or 0)),
         status=order_status_from_algo(payload["algoStatus"]),
         price=_decimal_or_none(payload.get("price")),
         stop_price=_decimal_or_none(payload.get("triggerPrice")),
         time_in_force=time_in_force_or_none(payload.get("timeInForce")),
         reduce_only=bool(payload.get("reduceOnly", False)),
+        close_position=bool(payload.get("closePosition", False)),
+        working_type=working_type_from_algo(payload.get("workingType")),
         order_time=_time_or_none(
             payload.get("updateTime") or payload.get("createTime")
         ),

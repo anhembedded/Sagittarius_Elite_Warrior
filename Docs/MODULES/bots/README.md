@@ -36,5 +36,6 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | Unattended safety: the price, user-stream and sleep watches, stop retries, the boot recovery | **Built** | `EPIC-035` |
 | The headless host's view of the bots: `bot` verbs, the status report, `run --resume-recovering` | **Built** | `EPIC-038` |
 | The Futures venue profile and the Futures Grid | **Built** | `EPIC-039` |
-| The exchange-side protective stop on Futures | Planned (designed, C1 of four pull requests) | `EPIC-039L` ([`06-runtime.md`](06-runtime.md), [`state-machines.md`](state-machines.md)) |
+| The exchange-side protective stop on Futures: placed, kept, cancelled after flat, adopted on restart | **Built** (C2 of four pull requests) | `EPIC-039L` ([`06-runtime.md`](06-runtime.md), [`state-machines.md`](state-machines.md)) |
+| What a halt does with a position under that stop; the Emergency Stop's order; the mainnet gate | Planned | `EPIC-039L` C3, C4 |
 | The kind-neutral backtest result and simulator port; the strategy kind | Planned | `EPIC-040B`, `EPIC-040G` |

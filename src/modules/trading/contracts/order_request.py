@@ -34,6 +34,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+    tag_of,
     validate_client_order_tag,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
@@ -43,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import (
+    WorkingType,
 )
 
 #: Who an order belongs to when the caller does not say: a human at a form.
@@ -98,7 +103,27 @@ class OrderRequest:
     #: a bot's or a strategy's late order after an Emergency Stop is refused
     #: (`TRADING_SWITCH_OFF`) instead of reopening what the stop closed.
     opens_session: bool = False
+    #: `EPIC-039L` — a Futures stop that closes the whole position of the symbol when it
+    #: triggers (`closePosition`): `quantity` is then ignored and the order is never
+    #: `reduce_only`. `PreviewOrderQuery` checks the combination.
+    close_position: bool = False
+    #: `EPIC-039L` — the price a stop triggers on; the last price unless the caller
+    #: chooses (a bot's protective stop chooses the mark price).
+    working_type: WorkingType = WorkingType.LAST_PRICE
+    #: `EPIC-039L` — the id the order is sent under, when the caller must know it **before**
+    #: sending: a bot saves its protective stop's id first, so a crash or a lost answer never
+    #: leaves an order nobody can find. It must be one `generate_client_order_id` made for
+    #: this request's tag; trading still owns the shape of an id. `None`: trading makes one.
+    client_order_id: ClientOrderId | None = None
 
     def __post_init__(self) -> None:
-        """@raise InvalidClientOrderTagError `client_order_tag` is malformed."""
+        """@raise InvalidClientOrderTagError `client_order_tag` is malformed.
+        @raise ValueError a supplied `client_order_id` that does not carry the tag."""
         validate_client_order_tag(self.client_order_tag)
+        if self.client_order_id is not None and (
+            tag_of(self.client_order_id) != self.client_order_tag
+            or self.client_order_tag is None
+        ):
+            raise ValueError(
+                "a client order id the caller supplies must carry the request's tag"
+            )

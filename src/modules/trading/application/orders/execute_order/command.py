@@ -56,10 +56,16 @@ class ExecuteOrderCommand:
         one that is not reduce-only, one on a venue whose exchange does not
         enforce reduce-only (only Futures does; the Spot mapper never sends
         the flag), or a protective order that is not a triggered type."""
+        if self.order_request.close_position and not self.purpose.only_reduces:
+            raise ValueError(
+                "a close-position order only reduces: it is sent as protective or close"
+            )
         if not self.purpose.only_reduces:
             return
         request = self.order_request
-        if not request.reduce_only:
+        # `EPIC-039L` — a close-position order only reduces by its nature: the exchange
+        # closes what stands and refuses the reduce-only flag beside it.
+        if not request.reduce_only and not request.close_position:
             raise ValueError(f"a {self.purpose.value} order must be reduce-only")
         if request.venue.market_type is not MarketType.FUTURES_USD_M:
             raise ValueError(

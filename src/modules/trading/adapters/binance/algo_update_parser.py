@@ -4,7 +4,8 @@ conditional order's state, and once triggered, the regular order it placed.
 @details Binance's documented shape (USD-M "Algo Order Update"), under `"o"`:
 `caid` the client algo id (the app's own client order id), `s` symbol, `S`
 side, `o` order type, `q` quantity, `X` algo status, `p` limit price, `tp`
-trigger price, `f` time in force, `R` reduce-only, and `ai` the id of the
+trigger price, `f` time in force, `R` reduce-only, `cp` close-all
+(`closePosition`, `EPIC-039L`), `wt` the working type, and `ai` the id of the
 regular order a triggered algo order placed (empty until then). Field names
 come from Binance's documentation; no live stream verified them (egress to
 `*.binance.*` is blocked here), the same disclosure as the REST mapper.
@@ -20,6 +21,7 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
     order_status_from_algo,
     order_type_from_algo,
+    working_type_from_algo,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_parsing import (
     time_in_force_or_none,
@@ -61,6 +63,8 @@ def parse_algo_update(payload: dict[str, Any]) -> AlgoUpdate:
         stop_price=_decimal_or_none(o.get("tp")),
         time_in_force=time_in_force_or_none(o.get("f")),
         reduce_only=bool(o.get("R", False)),
+        close_position=bool(o.get("cp", False)),
+        working_type=working_type_from_algo(o.get("wt")),
         order_time=(
             datetime.fromtimestamp(event_time / 1000, tz=UTC) if event_time else None
         ),

@@ -58,6 +58,13 @@ class IAccountActivity(ABC):
         orders, and 1 for a named symbol (`BUG-216`)."""
 
     @abstractmethod
+    def find_order(self, symbol: str, client_order_id: str) -> Order | None:
+        """One order by the client id it was sent under, as the exchange holds it now (a regular
+        order, else a conditional one), with no cache: the answer to "how did it end".
+        @return `None` when the exchange holds no such order.
+        @raise OrderOutcomeUnknownError The exchange could not be asked."""
+
+    @abstractmethod
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
         """One page of the account's orders, newest first.
         @raise AccountHistoryUnavailableError The venue did not answer."""

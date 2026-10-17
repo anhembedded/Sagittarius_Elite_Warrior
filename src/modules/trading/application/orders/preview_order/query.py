@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+    tag_of,
     validate_client_order_tag,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -13,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.working_type import (
+    WorkingType,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -64,12 +69,27 @@ class PreviewOrderQuery:
     last_price: Decimal | None = field(default=None, kw_only=True)
     #: `EPIC-029A` — the bot tag the generated client order id carries.
     client_order_tag: str | None = field(default=None, kw_only=True)
+    #: `EPIC-039L` — a stop that closes the whole position of the symbol when it triggers
+    #: (Binance `closePosition`). Only a `STOP_MARKET` or `TAKE_PROFIT_MARKET` can be one,
+    #: it has no quantity and is not reduce-only: the exchange refuses either beside it.
+    close_position: bool = field(default=False, kw_only=True)
+    #: `EPIC-039L` — the price a stop triggers on (`WorkingType`).
+    working_type: WorkingType = field(default=WorkingType.LAST_PRICE, kw_only=True)
+    #: `EPIC-039L` — the id the caller must know before sending (`OrderRequest.client_order_id`).
+    client_order_id: ClientOrderId | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         """@throws ValueError a field this order type cannot use, or one it
         needs, so an inconsistent order never reaches the exchange.
         @throws InvalidClientOrderTagError a malformed bot tag."""
         validate_client_order_tag(self.client_order_tag)
+        if self.client_order_id is not None and (
+            self.client_order_tag is None
+            or tag_of(self.client_order_id) != self.client_order_tag
+        ):
+            raise ValueError(
+                "a client order id the caller supplies must carry the order's tag"
+            )
         is_stop = self.order_type in TRIGGERED_ORDER_TYPES
         if is_stop and (self.stop_price is None or self.last_price is None):
             raise ValueError(
@@ -87,3 +107,20 @@ class PreviewOrderQuery:
             raise ValueError("only a market buy can be sized by quote amount")
         if self.quote_quantity is not None and self.quote_quantity <= 0:
             raise ValueError("a quote amount must be positive")
+        if self.close_position:
+            self._require_close_position_shape()
+
+    def _require_close_position_shape(self) -> None:
+        """@throws ValueError a close-position order that the exchange would refuse."""
+        if self.order_type not in (
+            OrderType.STOP_MARKET,
+            OrderType.TAKE_PROFIT_MARKET,
+        ):
+            raise ValueError(
+                f"only a stop-market or a take-profit-market can close the position, "
+                f"not {self.order_type.name}"
+            )
+        if self.reduce_only:
+            raise ValueError("a close-position order cannot also be reduce-only")
+        if self.quantity != 0:
+            raise ValueError("a close-position order has no quantity")

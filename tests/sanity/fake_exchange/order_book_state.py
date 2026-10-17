@@ -62,7 +62,7 @@ class OrderBookState:
 
     def __init__(self) -> None:
         self._orders: dict[str, dict[str, Any]] = {}
-        self._order_ids = itertools.count(1_000_000)
+        self._next_order_id = 1_000_000
         self.history = HistoryLog()
         #: `EPIC-028F` — the account's leverage and margin mode per symbol,
         #: carried here because this is the one state the Futures routes get.
@@ -74,7 +74,11 @@ class OrderBookState:
         self.account = FuturesAccountState(self.symbol_config, self.market)
         self._trade_ids = itertools.count(5_000_000)
         #: `EPIC-028R` — the account's conditional orders.
-        self.algo = FuturesAlgoOrders()
+        self.algo = FuturesAlgoOrders(
+            self.account.positions.amount,
+            self._publish_algo_update,
+            lambda: self._next_order_id,
+        )
         #: `EPIC-039C` — late, duplicated and rejected (all off).
         self.faults = MatchFaults()
         self._events = futures_user_data.UserDataQueue(self.account, self.faults)
@@ -85,6 +89,15 @@ class OrderBookState:
             self._orders, self.algo, self.account, self.symbol_config
         )
         self._forced_ids = itertools.count(1)
+
+    def _take_order_id(self) -> int:
+        self._next_order_id += 1
+        return self._next_order_id - 1
+
+    def _publish_algo_update(self, algo: dict[str, Any], placed: str | None) -> None:
+        self._events.publish(
+            futures_user_data.algo_update(algo, placed_order_id=placed)
+        )
 
     # -- the market ---------------------------------------------------------
 
@@ -136,7 +149,7 @@ class OrderBookState:
             return rejected
         client_order_id = params["newClientOrderId"]
         order = {
-            "orderId": next(self._order_ids),
+            "orderId": self._take_order_id(),
             "symbol": params["symbol"],
             "status": _STATUS_NEW,
             "clientOrderId": client_order_id,
@@ -260,6 +273,7 @@ class OrderBookState:
 
     def _after_position_change(self, symbol: str) -> None:
         """A reduce-only order that can no longer reduce is knocked out (reason 4)."""
+        self.algo.after_position_change(symbol)
         held = self.account.positions.amount(symbol)
         for order in list(self._orders.values()):
             if (
@@ -376,7 +390,7 @@ class OrderBookState:
         self, symbol: str, held: Decimal, price: Decimal
     ) -> dict[str, Any]:
         order = futures_liquidation.forced_order(
-            next(self._order_ids), next(self._forced_ids), symbol, held, price
+            self._take_order_id(), next(self._forced_ids), symbol, held, price
         )
         placed_at = now_ms()
         self.history.remember_order(

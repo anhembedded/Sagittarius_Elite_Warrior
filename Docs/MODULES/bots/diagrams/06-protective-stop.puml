@@ -1,4 +1,4 @@
-' Question: how does a Futures Grid keep an exchange-side stop under its position, and what does a restart do with it? (Planned: EPIC-039L)
+' Question: how does a Futures Grid keep an exchange-side stop under its position, and what does a restart do with it? (EPIC-039L C2)
 ' Explained by: ../06-runtime.md. Drawn by hand, high level.
 @startuml 06-protective-stop
 participant "Grid executor\n(bot's worker)" as G

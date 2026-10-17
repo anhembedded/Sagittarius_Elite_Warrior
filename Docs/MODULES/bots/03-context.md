@@ -58,6 +58,6 @@ through as opaque data, and only the parser asks `IBotKindCatalog`
 - **Published:** `BotChangedEvent` after every write to the store, and `BotStopGaveUpEvent` when a
   stop's automatic retries are used up.
 
-**Planned.** `EPIC-040B` gives the backtest a kind-neutral result and simulator port; `EPIC-039L`
-adds an exchange-side stop order, which still goes through `trading` (see
+**Planned.** `EPIC-040B` gives the backtest a kind-neutral result and simulator port. **Built:**
+`EPIC-039L`'s exchange-side stop order still goes through `trading`, as every order does (see
 [`06-runtime.md`](06-runtime.md)).

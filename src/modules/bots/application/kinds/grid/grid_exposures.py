@@ -9,8 +9,9 @@ builds them from the profile of the bot's venue, exactly as `VenueSettingsGates`
 settings gate. No sequence names a market and a third kind of exposure is one more entry.
 
 Plausible extensions, each a local change: a venue profile with another exposure kind (Coin-M,
-a margin account) is one more builder in the mapping; a decorator that adds the protective stop
-(`EPIC-039L`) wraps the position builder's closer.
+a margin account) is one more builder in the mapping. The protective stop (`EPIC-039L`) is the
+position builder's `protection`, and its closer is wrapped by `ProtectedCloser` so the stop is
+cancelled only after the position is closed.
 """
 
 from __future__ import annotations
@@ -45,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_check impor
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_closer import (
     IExposureCloser,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_mark_source import (
     IMarkSource,
 )
@@ -75,6 +79,9 @@ class GridExposure:
     #: Where a position venue's stop loss and take profit are judged: the mark price. `None`:
     #: the streamed last price and its range are (Spot).
     exit_marks: IMarkSource | None = None
+    #: What keeps a position protected while the app cannot watch it (`EPIC-039L`): the
+    #: exchange-side stop of a position venue; `None`: Spot has none.
+    protection: IExposureProtection | None = None
 
 
 class ExposureKindNotBuiltError(LookupError):

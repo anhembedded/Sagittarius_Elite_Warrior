@@ -4,11 +4,11 @@
     python3 scripts/render_bots_design_tables.py --write    # rewrite the documents
     python3 scripts/render_bots_design_tables.py --check    # exit 1 when one differs
 
-Three tables, each between a pair of markers in its document:
+Four tables, each between a pair of markers in its document:
 
-- `lifecycle` and `grid-level` in `state-machines.md`: every row of
-  `BOT_LIFECYCLE_TRANSITIONS` and `GRID_LEVEL_TRANSITIONS`, in the order the code
-  declares them;
+- `lifecycle`, `grid-level` and `protective-stop` in `state-machines.md`: every row of
+  `BOT_LIFECYCLE_TRANSITIONS`, `GRID_LEVEL_TRANSITIONS` and `PROTECTIVE_STOP_TRANSITIONS`,
+  in the order the code declares them;
 - `timing` in `10-quality.md`: the constants that decide when a bot waits,
   retries, pauses or halts, read from the code each time.
 
@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     GRID_LEVEL_TRANSITIONS,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_matrix import (
+    PROTECTIVE_STOP_TRANSITIONS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
@@ -322,6 +325,9 @@ def blocks() -> dict[tuple[Path, str], str]:
     return {
         (STATE_MACHINES, "lifecycle"): render_transitions(BOT_LIFECYCLE_TRANSITIONS),
         (STATE_MACHINES, "grid-level"): render_transitions(GRID_LEVEL_TRANSITIONS),
+        (STATE_MACHINES, "protective-stop"): render_transitions(
+            PROTECTIVE_STOP_TRANSITIONS
+        ),
         (QUALITY, "timing"): render_timing(),
     }
 

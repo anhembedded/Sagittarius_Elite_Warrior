@@ -373,6 +373,7 @@ def test_a_mark_price_through_the_upper_exit_closes_the_position_and_stops_the_b
 
         # The exchange's mark through it does, while the order there has not filled yet.
         futures.urls.futures_book.faults.hold_fills = True
+        futures.urls.futures_book.algo.hold_triggers = True  # the bot's own exit, alone
         app.move_price(scenario.mark_through_upper_exit)
         assert app.position() == scenario.opening
         app.ticker.fire()

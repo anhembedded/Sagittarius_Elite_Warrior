@@ -60,7 +60,7 @@ gantt
 | EPIC-039I | [Short and Neutral](completed/EPIC-039I_futures_grid_short_and_neutral.md) | `claude/epic-039i-futures-grid-short`, `claude/epic-039i-futures-grid-neutral` | 🔴 | ✅ Done 2026-10-15 (#521, #523) | — |
 | EPIC-039J | [Futures UI](incomplete/EPIC-039J_futures_ui.md) | `claude/epic-039j-futures-ui` | 🟡 | 🟡 In progress (implemented; pull request open; four items wait on 039H, 039K, 039L) | — |
 | EPIC-039K | [Futures backtest](completed/EPIC-039K_futures_backtest.md) | `claude/epic-039k-futures-backtest` | 🟡 | ✅ Done 2026-10-13 | — |
-| EPIC-039L | [Protective stop, mainnet gate, soak](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | — | 🔴 | 🟡 In progress: C1 design written ([decision](DECISION_2026-10-16_futures_protective_stop_minimum.md)); C2–C4 planned, one pull request each, in order | — |
+| EPIC-039L | [Protective stop, mainnet gate, soak](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | — | 🔴 | 🟡 In progress: C1 design merged (#544, [decision](DECISION_2026-10-16_futures_protective_stop_minimum.md)); C2 the stop life cycle in review; C3–C4 planned, one pull request each, in order | — |
 | EPIC-039M | [Kind conformance](incomplete/EPIC-039M_kind_conformance_for_profiles.md) | — | 🟢 | 🔵 Planned | — |
 
 ---

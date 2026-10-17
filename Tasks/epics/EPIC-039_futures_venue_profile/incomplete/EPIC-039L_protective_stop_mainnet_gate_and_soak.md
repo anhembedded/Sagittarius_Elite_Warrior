@@ -1,6 +1,6 @@
 # EPIC-039L — A Futures position never stands bare: an exchange-side stop, the mainnet gate and the testnet soak
 
-**Status:** 🟡 In progress — C1 (research and design) written; C2–C4 planned
+**Status:** 🟡 In progress — C1 merged (#544); C2 (the stop life cycle) in review; C3–C4 planned
 **Source:** the owner, 2026-10-10; the 2026-10-09 halt ([README §1](../README.md)); [DESIGN §8](../DESIGN_2026-10-10_futures_venue_profile.md); [`EPIC-026K`](../../EPIC-026_road_to_real_money/incomplete/EPIC-026K_exchange_side_protective_stop.md).
 **Risk:** 🔴 — a second live order per position; a stop on the wrong side closes nothing, a stop not cancelled on exit opens the opposite position (026K's own warning)
 **Complexity:** L — a stop life cycle owned by the bot, adoption on restart, the mainnet gate, a 14-day soak
@@ -39,17 +39,17 @@ Full evidence, the page URLs and the unverified items are in [`DECISION_2026-10-
 | **C4** the gate and the soak | `IVenueOpening`, remove `CLOSED_VENUES`, `IShutdownPolicy` for Futures (D12); `Docs/OPERATIONS/futures_testnet_soak.md` with T1–T5 (T3 a precondition for every direction, D9); does not open anything | criteria 6, 7, 8, 10 | C3 merged; O2 |
 
 ## 2. Acceptance criteria
-- [ ] After the opening fill and before the ladder is declared ready, a **protective stop** (`STOP_MARKET`, `closePosition=true`, `workingType=MARK_PRICE`, tagged with the bot's tag) stands on the exchange at the bot's stop-loss price (and, when the user set it, a take-profit); its ids are saved in the bot's record **before** the next step (the "unsaved and parked" lesson, `grid_task_guard.py`).
-- [ ] The stop is the **bot's**: Stop/halt/stop-loss cancel it only **after** the position is confirmed flat; a close that fails leaves the stop standing; cancelling it first is a test that must fail.
-- [ ] *(conditionally deferred: C2 ships Long and Short; Neutral's second stop is built in C2 but counts as protected only once the owner records T3 — D9)* Neutral keeps one stop per side (a long-side and a short-side, each `closePosition`), or the equivalent the official docs support in One-way mode — design recorded after reading the page.
-- [ ] **Restart:** the reconcile finds the standing stop by its tag and adopts it; a position with **no** stop (the app died between the fill and the stop) is closed or re-protected by a recorded rule, never left; an orphan stop with no position is cancelled (it would open a position on trigger — 026K's warning).
+- [x] After the opening fill and before the ladder is declared ready, a **protective stop** (`STOP_MARKET`, `closePosition=true`, `workingType=MARK_PRICE`, tagged with the bot's tag) stands on the exchange at the bot's stop-loss price (and, when the user set it, a take-profit); its ids are saved in the bot's record **before** the next step (the "unsaved and parked" lesson, `grid_task_guard.py`). *(C2: the journey `test_a_stop_stands_before_the_ladder_is_ready`; the take profit stays in-app, A5.)*
+- [x] The stop is the **bot's**: Stop/halt/stop-loss cancel it only **after** the position is confirmed flat; a close that fails leaves the stop standing; cancelling it first is a test that must fail. *(C2: `ProtectedCloser` cancels after the close; the mutation that reverses the order was red.)*
+- [ ] *(built in C2 behind `NEUTRAL_BOTH_SIDES_VERIFIED = False`, unverified until T3; conditionally deferred: C2 ships Long and Short; Neutral's second stop is built in C2 but counts as protected only once the owner records T3 — D9)* Neutral keeps one stop per side (a long-side and a short-side, each `closePosition`), or the equivalent the official docs support in One-way mode — design recorded after reading the page.
+- [x] **Restart:** the reconcile finds the standing stop by its tag and adopts it; a position with **no** stop (the app died between the fill and the stop) is closed or re-protected by a recorded rule, never left; an orphan stop with no position is cancelled (it would open a position on trigger — 026K's warning). *(C2: adopt, re-protect after a crash, cancel an orphan; journeys on the fake.)*
 - [ ] The Futures halt policy (O8): with a stop standing the halt may leave the position; without one it closes. A journey proves each on the fake, including "the stop triggers while the app is down" (the fake's `move_price` then restart: the bot comes back flat and says why).
 - [ ] **Settle the event order on testnet** (handed on by 039D): record, from a Futures testnet run, whether `ORDER_TRADE_UPDATE` precedes the `ACCOUNT_UPDATE` of one trade for single fills and for a burst. `POSITION_CHANGED_UNORDERED` (and the 039F guard that halts on it) rests on it; the soak checklist includes a count of divergences the app reported against fills the bot ordered, which must be zero.
 - [ ] **Mainnet gate:** Futures mainnet stays closed to bots (the picker lists it greyed out, every create/start/resume refuses it) until (a) this task's journeys are green, (b) the owner records a **14-day unattended soak on Futures testnet** (as `EPIC-026`'s ADR D6 requires for mainnet), (c) the owner opens it. The task adds the soak checklist (what to run, what to read in the logs, what counts as a pass) and does **not** open it.
 - [ ] A headless `run` host (EPIC-038) asks the profile for its stop policy: for a Futures bot without a standing stop "leave orders resting" is refused (O12); the interface is a `IShutdownPolicy` input, recorded here for 038D.
 - [ ] **Halts that cannot close** (handed on by `039H`, review of #490): a switch-off, a rejected key and a rate limit halt a Futures bot without a cancel or a close (the order session is closed or the key refused), so its position stays open on the exchange; `039H` makes the halt's words say so. A standing protective stop is the answer: with it these halts are safe, without it they are the dangerous path; a journey proves a switch-off halt with a stop standing and the words without one.
 - [ ] **Replace `CLOSED_VENUES`** (`contracts/venue_profile.py`, `closed_venue_refusal`, used by create, change-venue, start, the host's start and resume, and resume): `039H` closes Futures mainnet on every path with that set; this task builds the real gate and removes the set in the same commit that opens the venue. *(Recorded departure, D12: C4 removes the set and opens nothing; the port `IVenueOpening` is closed by default, so the set's job is done from the same commit.)*
-- [ ] Alerts: a missing or triggered protective stop publishes the events `EPIC-036B` turns into `STOP_FAILED`/`LIQUIDATION_RISK`.
+- [x] Alerts: a missing or triggered protective stop publishes the events `EPIC-036B` turns into `STOP_FAILED`/`LIQUIDATION_RISK`. *(C2 publishes `BotProtectiveStopEvent`; mapping it to `STOP_FAILED` is `EPIC-036B`'s.)*
 
 ## 3. Design
 The decisions are D1–D13 of [`DECISION_2026-10-16`](../DECISION_2026-10-16_futures_protective_stop_minimum.md); the module design is `Docs/MODULES/bots/06-runtime.md` and `state-machines.md` (Planned parts written by C1, made Built by C2–C4). The stop is state owned by the executor with the same persistence discipline as a ladder order (saved before the next step; adopted by tag on reconcile). One close routine (`IExposureCloser`, 039H) serves every exit; the stop is the exchange's copy of that same exit for when the app is gone. Extend the existing Algo Order mapping rather than build a parallel one (`EPIC-037`: one place; D2). The mainnet gate is a *configuration the owner flips*, never a code default.
@@ -77,7 +77,7 @@ Tier: unit; integration on the Futures fake (algo orders, `move_price`); the soa
 - `test_the_stop_triggers_while_the_app_is_down_and_the_bot_returns_flat`
 - `test_a_halt_with_a_stop_standing_leaves_the_position_and_without_one_closes_it`
 - `test_futures_mainnet_is_not_offered_until_the_owner_opens_it`
-Not run yet. Futures testnet: the owner's, recorded in this task (T1–T5 of the decision record).
+C2: the tests above exist except the custody ones (D13 moved to C3, decision §8 A1) and the halt and gate ones (C3, C4). Futures testnet: the owner's, recorded in this task (T1–T5 of the decision record).
 
 ## Pitfalls
 - A conditional stop that triggers **after** the bot already closed opens the opposite position: cancel-after-flat and orphan cleanup are the two halves of one rule.
@@ -86,8 +86,11 @@ Not run yet. Futures testnet: the owner's, recorded in this task (T1–T5 of the
 - Never test on a real exchange from CI; the soak is the owner's.
 
 ## Implementation notes (written when done)
-C1 (design) is documentation only: no code, no test. C2–C4: not started.
+C1 (design) is documentation only: no code, no test. C2 (the stop life cycle) is built on the fake: `closePosition` through the one Algo Order mapping, the bot's `ProtectiveStop` record and machine, `ProtectiveStopService` / `ProtectiveStopBook` / `ProtectedCloser` behind the port `IExposureProtection`, the ladder-versus-stop seam in `BotAccountReads`, and the fake exchange's `ALGO_UPDATE` and close-all semantics. Departures and findings: decision record §8. C3–C4: not started.
 
 ## Resume
 PR #544 review (round 1): F1/F2 answered by D13 and D4's seam; F3–F9 by D5, D6, D8, D9, D11, §3.1/§3.2, criterion notes and the diagram. K5: the terms *protective stop*, *unprotected* and *custody* go to `Docs/VOCABULARY` in C2, with the symbols that name them.
-C1 done in its pull request (documentation only). Next action: after C1 is merged, branch C2 from `master-warrior`, write the red tests of §5 first (the fake must learn `closePosition` before any journey is meaningful), then `Order.close_position`. Open before C2 can finish: O3 (take profit on the exchange or in-app); before C3: O1 (Emergency Stop order); before C4: O2 (how the owner opens a venue). The owner's T1–T5 testnet runs are recorded in the decision record §6 and may land at any time; C2 must not rely on T3 for Long/Short.
+C1 merged (#544). C2 pushed in its pull request. Next action: C3 (the halt policy, D10/D11 and custody D13) after C2 is merged and O1 is answered. Open before C2 can finish: O3 (take profit on the exchange or in-app); before C3: O1 (Emergency Stop order); before C4: O2 (how the owner opens a venue). The owner's T1–T5 testnet runs are recorded in the decision record §6 and may land at any time; C2 must not rely on T3 for Long/Short.
+
+## Docs touched
+C2: `Docs/MODULES/bots/` `03-context.md`, `05-building-blocks.md`, `06-runtime.md`, `08-concepts.md`, `state-machines.md` (generated protective-stop table), `README.md`, `diagrams/06-protective-stop.puml`; `Docs/VOCABULARY/README.md` (protective stop, unprotected); the decision record §7–§8.

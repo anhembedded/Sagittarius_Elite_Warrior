@@ -24,6 +24,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     LevelOrder,
     RuntimeLevel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop import (
+    ProtectiveStop,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_matrix import (
+    ProtectiveStopState,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 
@@ -54,6 +60,7 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
         "reason_detail": runtime.reason_detail,
         "sell_base_on_stop": runtime.sell_base_on_stop,
         **_entry_side_key(runtime),
+        **_protective_stops_key(runtime),
     }
 
 
@@ -91,6 +98,8 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         sell_base_on_stop=_flag(data, "sell_base_on_stop"),
         # Absent from a file an earlier build wrote, and from every Spot and LONG one: BUY.
         entry_side=_entry_side(data),
+        # Absent from a file an earlier build wrote, and from every Spot one: none standing.
+        protective_stops=_protective_stops(data),
     )
 
 
@@ -205,6 +214,41 @@ def _entry_side(data: Mapping[str, JsonValue]) -> OrderSide | None:
     return _enum(OrderSide, data["entry_side"], "entry_side")
 
 
+def _protective_stops_key(runtime: GridRuntime) -> dict[str, JsonValue]:
+    """The protective stops, written only when there are some, so a runtime that has none
+    reads and writes exactly what it did before `EPIC-039L`."""
+    if not runtime.protective_stops:
+        return {}
+    return {
+        "protective_stops": [
+            {
+                "client_order_id": stop.client_order_id,
+                "side": stop.side.value,
+                "trigger_price": str(stop.trigger_price),
+                "state": stop.state.value,
+            }
+            for stop in runtime.protective_stops
+        ]
+    }
+
+
+def _protective_stops(data: Mapping[str, JsonValue]) -> tuple[ProtectiveStop, ...]:
+    if "protective_stops" not in data:
+        return ()
+    return tuple(
+        ProtectiveStop(
+            client_order_id=_text(item, "client_order_id"),
+            side=_enum(OrderSide, item.get("side"), "side"),
+            trigger_price=_decimal(item, "trigger_price"),
+            state=_enum(ProtectiveStopState, item.get("state"), "state"),
+        )
+        for item in (
+            _mapping(entry, "protective stop")
+            for entry in _list(data, "protective_stops")
+        )
+    )
+
+
 def _optional(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
 
@@ -270,7 +314,7 @@ def _moment(value: JsonValue) -> datetime:
     return moment
 
 
-def _enum[E: (LevelState, OrderSide, GridReason)](
+def _enum[E: (LevelState, OrderSide, GridReason, ProtectiveStopState)](
     kind: type[E], value: JsonValue, field: str
 ) -> E:
     try:

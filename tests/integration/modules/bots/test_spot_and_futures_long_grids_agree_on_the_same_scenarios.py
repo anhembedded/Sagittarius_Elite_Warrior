@@ -283,7 +283,19 @@ def test_both_stop_on_a_stop_loss_for_the_same_reason_with_nothing_resting(
 ) -> None:
     with _spot_world(futures) as spot:
         spot_outcome = _stopped_by_stop_loss(spot)
+    futures.urls.futures_book.algo.hold_triggers = (
+        True  # the bot's own stop loss, alone
+    )
     with _futures_world(futures) as long_:
         futures_outcome = _stopped_by_stop_loss(long_)
 
     assert spot_outcome == futures_outcome == (S.STOPPED, GridReason.STOP_LOSS, 0)
+
+
+def test_with_the_exchanges_stop_live_futures_stops_flat_and_says_whose_stop_ran(
+    futures: FakeExchange, spot_key: None
+) -> None:
+    with _futures_world(futures) as long_:
+        outcome = _stopped_by_stop_loss(long_)
+
+    assert outcome == (S.STOPPED, GridReason.PROTECTIVE_STOP_TRIGGERED, 0)

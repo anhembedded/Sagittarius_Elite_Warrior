@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
     OrderPreview,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
+    NotionalCheck,
     OrderQuantityRoundingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -99,8 +100,14 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         )
         # The policy multiplies quantity by price; the notional is already
         # that product, so it goes in at a price of 1.
-        notional_check = self._rounding_policy.is_notional_sufficient(
-            notional, Decimal(1), metadata.min_notional
+        # `EPIC-039L` — a close-position stop has no quantity to size: it closes what
+        # stands, whatever that is, so the minimum notional has nothing to judge.
+        notional_check = (
+            NotionalCheck.SUFFICIENT
+            if query.close_position
+            else self._rounding_policy.is_notional_sufficient(
+                notional, Decimal(1), metadata.min_notional
+            )
         )
 
         resting = query.order_type in _RESTING_TYPES
@@ -108,7 +115,8 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         # `BUG-116` — a resting order needs a time in force or the mappers
         # refuse it; GTC unless the caller chose (`EPIC-028O`).
         order = Order(
-            client_order_id=generate_client_order_id(query.client_order_tag),
+            client_order_id=query.client_order_id
+            or generate_client_order_id(query.client_order_tag),
             symbol=query.symbol,
             side=query.side,
             order_type=query.order_type,
@@ -118,6 +126,8 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
             time_in_force=(query.time_in_force or TimeInForce.GTC) if resting else None,
             reduce_only=query.reduce_only,
             quote_quantity=query.quote_quantity,
+            close_position=query.close_position,
+            working_type=query.working_type,
         )
 
         return OrderPreview(
