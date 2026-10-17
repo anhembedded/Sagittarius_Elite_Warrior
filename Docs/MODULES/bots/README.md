@@ -40,6 +40,7 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | What a halt does with a position under that stop; the Emergency Stop's order; the mainnet gate | Planned | `EPIC-039L` C3, C4 |
 | The state `AWAITING_RECOVERY`, the layered halt-recovery policy and the attempt ledger in the bot record | **Built** | `EPIC-042B` |
 | A Spot Grid halted by a quiet feed or a down user stream waits in `AWAITING_RECOVERY` and recovers by itself through the Resume path | **Built** | `EPIC-042C` ([`06-runtime.md`](06-runtime.md)) |
+| `bot order <id>`: the orders a bot's file records (stored, not live) | **Built** | `BOT-187` |
 | The stalled-wait and recovery alerts, the used-up words on the halt alert; `bot show`'s recovery table | **Built** | `EPIC-042C`, `EPIC-042D`, `EPIC-042G` |
 | `run --resume-halted`: the host gives a person's Resume and Confirm to every HALTED or AWAITING_RECOVERY bot | **Built** | `EPIC-042E` ([`06-runtime.md`](06-runtime.md)) |
 | The kind-neutral backtest result and simulator port; the strategy kind | Planned | `EPIC-040B`, `EPIC-040G` |

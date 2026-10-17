@@ -47,6 +47,10 @@ wrappers. `bot list`, `bot show` and `status` read through the same queries the 
 `bot show` also prints the bot's effective halt-recovery table, one `Recovery` row per reason with the
 attempts used inside its window, or `no automatic recovery (<layer> layer)` for a Futures bot
 (`bots/application/queries/get_bot_status_report/recovery_table.py` → `recovery_table_of`; `EPIC-042G`).
+`bot order <id>` (`BOT-187`) prints the orders the bot's file records, the Bots tab's orders table
+(`BotProgress.orders` through `GetBotQuery`). The verb is `bots/cli/bot_order_verbs.py` → `OrderBotVerb`;
+the report is built in `bots/cli/bot_order_reports.py` → `bot_order_report`. It is stored, not live, and asks the exchange
+nothing: live open orders need an order session and are a later source behind the same report.
 Design: design 038 §5.2 (`status` from a second process).
 
 ## Built: the headless host

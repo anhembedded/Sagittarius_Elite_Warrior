@@ -350,7 +350,7 @@
       }
     },
     "bot": {
-      "help": "List, show, export, apply, start, stop, pause and resume bots: list, show and export change no bot; apply makes the bots match a plan file; start, stop, pause and resume ask the running host (main.py run) to do it",
+      "help": "List, show, order, export, apply, start, stop, pause and resume bots: list, show, order and export change no bot; apply makes the bots match a plan file; start, stop, pause and resume ask the running host (main.py run) to do it",
       "subparsers": {
         "dest": "action",
         "required": true,
@@ -384,6 +384,27 @@
           "name": "--json",
           "action": "store_true",
           "help": "Print the result as JSON (schema sew.bot-show/1) instead of the text report"
+        },
+        {
+          "name": "--format",
+          "type": "str",
+          "help": "Output format: text (default), json, or any other registered format"
+        }
+            ]
+          },
+          "order": {
+            "help": "Show the orders one bot's file records (not read from the exchange): level, side, price, quantity, executed, state, client order id",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+          "name": "--json",
+          "action": "store_true",
+          "help": "Print the result as JSON (schema sew.bot-order/1) instead of the text report"
         },
         {
           "name": "--format",
