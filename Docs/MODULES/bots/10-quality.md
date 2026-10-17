@@ -28,7 +28,7 @@ render. Do not edit it by hand.
 | Futures funding interval assumed | 8 h | `src/modules/bots/domain/bot_kind_inputs.py` → `FUNDING_INTERVAL` |
 <!-- end generated: timing -->
 
-**Planned: the halt-recovery rules** (`EPIC-042B`, `EPIC-042C`; not yet in the table above, which reads the code). The common layer gives `price_feed_stale` and `user_stream_down` dwell 120 s, continuous to the 5 s beat, 3 attempts per rolling 24 h counted per bot, and a 15 min stalled-wait alert; Futures removes them all. They are layered data, not module constants: `EPIC-042B` generates the effective table of every kind and market here, from the code. The owner's figures are the dwell, the attempts and the window; the stalled-wait threshold is an agent decision the owner may veto ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) D11, O2).
+**Planned: the halt-recovery rules** (`EPIC-042B`, `EPIC-042C`; not yet in the table above, which reads the code). The common layer gives `price_feed_stale` and `user_stream_down` dwell 120 s, continuous to the 5 s beat, 3 attempts per rolling 24 h counted per bot, and a 15 min stalled-wait alert; Futures removes them all. They are layered data, not module constants: `EPIC-042B` generates the effective table of every kind and market here, from the code. The owner's figures are the dwell, the attempts and the window; the owner chose to alert on a long wait rather than limit it, and the 15 min threshold is the agent's figure, an owner-vetoable constant ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) D11, O2).
 
 ## Built: what must hold, and what proves it
 
