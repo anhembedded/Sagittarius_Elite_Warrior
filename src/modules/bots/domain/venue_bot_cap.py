@@ -2,7 +2,9 @@
 
 Two bots on different symbols of a venue run together; the symbol lease keeps two off one
 symbol. The count is bounded because everything the bots of a venue spend is spent from one
-account: its request weight, its order rate and its margin. The figure comes from the measured
+account: its request weight, its order rate and its margin. The cap is **per venue** (a `TradingVenue`: Spot or Futures, mainnet or testnet), not per
+account: one mainnet account may run five Spot and five Futures bots, which spend separate
+weight, order and margin budgets. The figure comes from the measured
 fan-out, request weight and order rate (`EPIC-029J1b` §5a) and is the owner's decision, since it
 sets how much money one account can have working at once. It is a code constant and not a
 setting: raising it is a reviewed change next to the numbers that justify it.

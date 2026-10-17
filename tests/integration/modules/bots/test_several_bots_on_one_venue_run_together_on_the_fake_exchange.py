@@ -9,11 +9,16 @@ leaves the others resting; an Emergency Stop halts every bot of its venue and no
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
     ResumeBotCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
     StopBotCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
+    grid_executor_deps,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotCommandResult,
@@ -234,3 +239,15 @@ def test_a_bot_waiting_to_recover_holds_back_a_start_on_its_venue_until_it_is_re
         assert resumed.accepted, resumed.message
         assert second.bot(waiting).state is S.RUNNING
         assert start_bot(second, other).accepted
+
+
+def test_the_production_wiring_gives_the_bots_of_a_venue_one_pacer(
+    both_venues: FakeExchange,
+) -> None:
+    """The worlds above inject their own pacer; this is the default graph `create_app()` builds."""
+    with booted_two_venues(both_venues) as app:
+        deps = grid_executor_deps(app.engine.container)
+        spacing = timedelta(milliseconds=250)
+
+        assert deps.pacers(FUTURES, spacing) is deps.pacers(FUTURES, spacing)
+        assert deps.pacers(FUTURES, spacing) is not deps.pacers(SPOT, spacing)

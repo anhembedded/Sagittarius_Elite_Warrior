@@ -42,7 +42,7 @@ the measurements are in the task file's §5a.)
   `VenueSessions`), the order session (and so the Emergency Stop, which halts every bot of the venue
   through `BotExecutors.on_venue`), the user-data stream, and since `EPIC-029J1b` the order pacer:
   `VenueOrderPacers` hands every bot of a venue the same `MonotonicOrderPacer`, which reserves a turn
-  under a lock, so the venue's orders keep the budget's spacing whichever bot sends them.
+  under a lock, so the venue's orders keep the budget's spacing whichever bot sends them. Only the orders that build a ladder or open a position take a turn (`BotOrderGateway._submit_paced`); protective stops and exits do not, so none waits behind a neighbour's ladder.
 - **A rate limit one bot meets** closes the venue's gate for every caller. A neighbour that needs an
   order halts `RATE_LIMITED` at that order and schedules its own resume; a neighbour that only reads
   says so and keeps its ladder (`GridRateLimitPause`, `GridRiskWatch`). Every halted bot resumes at
