@@ -31,6 +31,17 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
 _QUIET_SIDES = (READ_ONLY_KEY, READ_ONLY_WHEN_KEY, SHORT_LIVED_KEY)
 
 
+def _groups(
+    commands: Mapping[str, Any], prefix: tuple[str, ...] = ()
+) -> Iterator[tuple[str, Mapping[str, Any]]]:
+    """Every entry that only holds verbs, with its path."""
+    for name, entry in commands.items():
+        verbs = entry.get("subparsers", {}).get("commands")
+        if verbs:
+            yield " ".join((*prefix, name)), entry
+            yield from _groups(verbs, (*prefix, name))
+
+
 def _leaves(
     commands: Mapping[str, Any], prefix: tuple[str, ...] = ()
 ) -> Iterator[tuple[str, Mapping[str, Any]]]:
@@ -47,6 +58,7 @@ _COMMANDS: Mapping[str, Any] = json.loads(
     CLI_COMMANDS_FILE.read_text(encoding="utf-8")
 )["CLI_COMMANDS"]
 _LEAVES = dict(_leaves(_COMMANDS))
+_GROUPS = dict(_groups(_COMMANDS))
 
 
 def test_the_registry_has_commands_to_check() -> None:
@@ -68,6 +80,44 @@ def test_a_command_says_which_side_of_the_console_it_is_on(path: str) -> None:
         assert sides == [KEEPS_CONSOLE_LOG_KEY], (
             f"`{path}` declares both sides: {sides}"
         )
+
+
+def test_the_registry_has_a_group_of_verbs_to_check() -> None:
+    assert "bot" in _GROUPS
+
+
+@pytest.mark.parametrize("path", sorted(_GROUPS))
+def test_a_group_of_verbs_declares_no_side_for_its_verbs_to_inherit(path: str) -> None:
+    """A verb without its own key falls back to its group's (`_declared_value`), so a
+    stray `keeps_console_log` on `bot` would make `bot list` noisy with every leaf
+    still passing its own check."""
+    stray = [
+        key for key in (*_QUIET_SIDES, KEEPS_CONSOLE_LOG_KEY) if key in _GROUPS[path]
+    ]
+
+    assert not stray, f"`{path}` is a group: declare {stray} on each verb instead"
+
+
+@pytest.mark.parametrize("path", sorted(_LEAVES))
+def test_a_commands_effective_routing_is_what_it_declares(path: str) -> None:
+    """The routing `main` acts on, for the real parsed shape of each leaf, matches the
+    leaf's own declaration."""
+    *group, verb = path.split(" ")
+    namespace = {"command": group[0] if group else verb}
+    if group:
+        subparsers = _COMMANDS[group[0]]["subparsers"]
+        namespace[subparsers.get("dest", "subcommand")] = verb
+    entry = _LEAVES[path]
+    args = argparse.Namespace(**namespace, dry_run=False)
+
+    expected = not entry.get(KEEPS_CONSOLE_LOG_KEY) and bool(
+        entry.get(READ_ONLY_KEY)
+        or entry.get(READ_ONLY_WHEN_KEY)
+        or entry.get(SHORT_LIVED_KEY)
+    )
+    # `bot apply --dry-run` and `bot apply` are both quiet, so `dry_run=False` is the
+    # stricter of the two for a `read_only_when` verb: only `short_lived` carries it.
+    assert command_keeps_log_off_console(_COMMANDS, args) is expected
 
 
 @pytest.mark.parametrize(

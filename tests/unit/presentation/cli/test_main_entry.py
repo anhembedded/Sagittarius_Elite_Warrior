@@ -256,7 +256,7 @@ _ROUTING = object()
         (["bot", "apply", "plan.json", "--verbose"], False),
     ],
 )
-def test_only_a_read_only_command_without_verbose_gets_its_log_routed_to_a_file(
+def test_only_a_quiet_command_without_verbose_gets_its_log_routed_to_a_file(
     monkeypatch: pytest.MonkeyPatch,
     built: _Recorder,
     argv: list[str],
