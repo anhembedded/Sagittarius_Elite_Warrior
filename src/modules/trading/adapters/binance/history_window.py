@@ -12,7 +12,10 @@ window short:
    computed before the request leaves is that old when it arrives
    (`BUG-173`);
 2. the span is cut into consecutive windows no longer than `max_span_ms`;
-3. a window that comes back holding exactly `limit` rows may have had more,
+3. a start that is not at least `start_margin_ms` before `until_ms` is moved back to it, for
+   an endpoint that refuses a start later than its own clock (`BUG-223`); the caller keeps
+   only the rows from the start it asked for on (`rows_from`);
+4. a window that comes back holding exactly `limit` rows may have had more,
    so it is split in two and each half is read again, down to a single
    millisecond. A millisecond that still fills a whole page cannot be split
    further, and `HistoryWindowTooDenseError` says so rather than dropping
@@ -52,6 +55,12 @@ class HistoryWindowTooDenseError(AccountHistoryUnavailableError):
 #: only has to exceed any trip the request timeout lets through.
 LAST_WINDOW_MARGIN_MS = 5_000
 
+#: How far before `until_ms` a read may be made to start, for an endpoint that refuses a start
+#: ahead of its own clock (`BUG-223`). The same estimate error as `LAST_WINDOW_MARGIN_MS`, on the
+#: other side: a run that began a moment ago is read from a moment before "now" on a machine whose
+#: measured offset is a little high, and "now" plus that error is the exchange's future.
+START_MARGIN_MS = 5_000
+
 
 @dataclass(frozen=True)
 class HistoryWindowRules:
@@ -66,6 +75,9 @@ class HistoryWindowRules:
     #: How far past `until_ms` the last window ends (`LAST_WINDOW_MARGIN_MS`).
     #: The start of the read is not moved by it.
     last_window_margin_ms: int = LAST_WINDOW_MARGIN_MS
+    #: How far before `until_ms` a start must be (`START_MARGIN_MS`); `0` leaves the start as
+    #: asked, as Spot's reads do.
+    start_margin_ms: int = 0
 
 
 def fetch_span[T](
@@ -80,6 +92,9 @@ def fetch_span[T](
         start = max(start, until_ms - rules.max_age_ms)
     if start > until_ms:
         return rows
+    start = (
+        min(start, until_ms - rules.start_margin_ms) if rules.start_margin_ms else start
+    )
     reach_ms = until_ms + rules.last_window_margin_ms
     while start <= reach_ms:
         end = min(start + rules.max_span_ms - 1, reach_ms)
@@ -103,3 +118,9 @@ def _fetch_window[T](
     return _fetch_window(fetch, start, middle, limit) + _fetch_window(
         fetch, middle + 1, end, limit
     )
+
+
+def rows_from[T](rows: list[T], time_ms: Callable[[T], int], since_ms: int) -> list[T]:
+    """@return The rows stamped at `since_ms` or later: what the exchange would have answered
+    for a read that began there, from a read that began earlier (`start_margin_ms`)."""
+    return [row for row in rows if time_ms(row) >= since_ms]

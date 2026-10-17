@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_wind
     HistoryWindowRules,
     HistoryWindowTooDenseError,
     fetch_span,
+    rows_from,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
@@ -117,3 +118,31 @@ def test_a_start_older_than_the_endpoints_age_limit_is_moved_forward() -> None:
 
     assert endpoint.windows[0][0] == 150
     assert rows == [299]
+
+
+def test_a_start_inside_the_margin_before_until_is_moved_back_to_it() -> None:
+    """`BUG-223` - an endpoint that refuses a start ahead of its clock is asked from a margin
+    before the estimate of "now", never from the estimate itself."""
+    rules = HistoryWindowRules(
+        max_span_ms=1_000, limit=10, last_window_margin_ms=0, start_margin_ms=100
+    )
+    endpoint = _Endpoint([], rules)
+
+    fetch_span(endpoint, 990, 1_000, rules)
+
+    assert endpoint.windows == [(900, 1_000)]
+
+
+def test_a_start_further_back_than_the_margin_is_left_as_asked() -> None:
+    rules = HistoryWindowRules(
+        max_span_ms=1_000, limit=10, last_window_margin_ms=0, start_margin_ms=100
+    )
+    endpoint = _Endpoint([], rules)
+
+    fetch_span(endpoint, 500, 1_000, rules)
+
+    assert endpoint.windows == [(500, 1_000)]
+
+
+def test_rows_from_keeps_the_rows_stamped_at_the_start_or_later() -> None:
+    assert rows_from([890, 900, 950], lambda ms: ms, 900) == [900, 950]

@@ -48,8 +48,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_read
     utc_now,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_window import (
+    START_MARGIN_MS,
     HistoryWindowRules,
     fetch_span,
+    rows_from,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.active_symbol import (
     ActiveReason,
@@ -84,14 +86,29 @@ _SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 #: `BUG-173`: a `startTime` older than seven days at the exchange is refused
 #: (-4181), so the oldest start asked for keeps five minutes under it.
 _MAX_START_AGE_MS = _SEVEN_DAYS_MS - 5 * 60 * 1000
+#: `BUG-223`: a `startTime` ahead of the exchange's own clock is refused too (-4181), and a run
+#: that began a moment ago is read from that moment, so the start keeps a margin under "now".
 _RULES = HistoryWindowRules(
-    max_span_ms=_SEVEN_DAYS_MS, limit=_ROW_LIMIT, max_age_ms=_MAX_START_AGE_MS
+    max_span_ms=_SEVEN_DAYS_MS,
+    limit=_ROW_LIMIT,
+    max_age_ms=_MAX_START_AGE_MS,
+    start_margin_ms=START_MARGIN_MS,
 )
 #: `allAlgoOrders` answers at most 100 rows per request.
 _ALGO_RULES = HistoryWindowRules(
-    max_span_ms=_SEVEN_DAYS_MS, limit=100, max_age_ms=_MAX_START_AGE_MS
+    max_span_ms=_SEVEN_DAYS_MS,
+    limit=100,
+    max_age_ms=_MAX_START_AGE_MS,
+    start_margin_ms=START_MARGIN_MS,
 )
 _VENUE = "Futures"
+#: The endpoints this reader asks, named in the error of a read that fails, with the window it
+#: sent (`BUG-223`): "order history could not be read" did not say which of five calls the
+#: exchange refused.
+_ALL_ORDERS = "GET /fapi/v1/allOrders"
+_ALL_ALGO_ORDERS = "GET /fapi/v1/allAlgoOrders"
+_USER_TRADES = "GET /fapi/v1/userTrades"
+_INCOME = "GET /fapi/v1/income"
 _GAPS = HistoryGaps(
     order_history=(
         (
@@ -106,6 +123,24 @@ _GAPS = HistoryGaps(
         ),
     ),
 )
+
+
+def _named(
+    endpoint: str, call: Callable[[int, int], list[dict[str, Any]]]
+) -> Callable[[int, int], list[dict[str, Any]]]:
+    """`call` as a window fetch whose failure names `endpoint` and the window it sent."""
+
+    def fetch(start_ms: int, end_ms: int) -> list[dict[str, Any]]:
+        what = f"{_VENUE} {endpoint} (startTime={start_ms}, endTime={end_ms})"
+        with history_read_failures(f"{what} could not be read"):
+            return call(start_ms, end_ms)
+
+    return fetch
+
+
+def _stamped(key: str) -> Callable[[dict[str, Any]], int]:
+    """A row's time, in the exchange's milliseconds, from the field `key`."""
+    return lambda row: int(row[key])
 
 
 class FuturesHistoryReader(IAccountHistoryReader):
@@ -128,21 +163,38 @@ class FuturesHistoryReader(IAccountHistoryReader):
             client = self._client()
             offset = client.timestamp_offset
             start, end = span_ms(since, now, offset)
-            rows = fetch_span(
-                lambda s, e: client.futures_get_all_orders(
-                    symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
+            rows = rows_from(
+                fetch_span(
+                    _named(
+                        _ALL_ORDERS,
+                        lambda s, e: client.futures_get_all_orders(
+                            symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
+                        ),
+                    ),
+                    start,
+                    end,
+                    _RULES,
                 ),
+                _stamped("time"),
                 start,
-                end,
-                _RULES,
             )
-            algo_rows = fetch_span(
-                lambda s, e: client.futures_get_all_algo_orders(
-                    symbol=symbol, startTime=s, endTime=e, limit=_ALGO_RULES.limit
+            algo_rows = rows_from(
+                fetch_span(
+                    _named(
+                        _ALL_ALGO_ORDERS,
+                        lambda s, e: client.futures_get_all_algo_orders(
+                            symbol=symbol,
+                            startTime=s,
+                            endTime=e,
+                            limit=_ALGO_RULES.limit,
+                        ),
+                    ),
+                    start,
+                    end,
+                    _ALGO_RULES,
                 ),
+                _stamped("createTime"),
                 start,
-                end,
-                _ALGO_RULES,
             )
             return tuple(
                 map_futures_history_order(row, offset) for row in rows
@@ -155,13 +207,20 @@ class FuturesHistoryReader(IAccountHistoryReader):
             client = self._client()
             offset = client.timestamp_offset
             start, end = span_ms(since, now, offset)
-            rows = fetch_span(
-                lambda s, e: client.futures_account_trades(
-                    symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
+            rows = rows_from(
+                fetch_span(
+                    _named(
+                        _USER_TRADES,
+                        lambda s, e: client.futures_account_trades(
+                            symbol=symbol, startTime=s, endTime=e, limit=_ROW_LIMIT
+                        ),
+                    ),
+                    start,
+                    end,
+                    _RULES,
                 ),
+                _stamped("time"),
                 start,
-                end,
-                _RULES,
             )
             return tuple(map_futures_trade(row, offset) for row in rows)
 
@@ -180,8 +239,11 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 client.futures_get_open_algo_orders()
             )
             income = fetch_span(
-                lambda s, e: client.futures_income_history(
-                    startTime=s, endTime=e, limit=_ROW_LIMIT
+                _named(
+                    _INCOME,
+                    lambda s, e: client.futures_income_history(
+                        startTime=s, endTime=e, limit=_ROW_LIMIT
+                    ),
                 ),
                 start,
                 end,
