@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
+    command_keeps_log_off_console,
     command_owns_its_lifecycle,
     command_requires_writable_instance,
 )
@@ -187,3 +188,42 @@ def test_apply_is_read_only_exactly_when_it_is_a_dry_run_in_the_shipped_table() 
     assert not command_is_read_only(
         shipped, _args(command="bot", action="apply", dry_run=False)
     )
+
+
+_LOG_TABLE = {
+    "reads": {"read_only": True},
+    "writes_once": {"short_lived": True},
+    "serves": {"keeps_console_log": True},
+    "reads_but_keeps": {"read_only": True, "keeps_console_log": True},
+    "undeclared": {},
+    "bot": {
+        "subparsers": {
+            "dest": "action",
+            "commands": {
+                "apply": {"read_only_when": "dry_run", "short_lived": True},
+                "list": {"read_only": True},
+                "watch": {"keeps_console_log": True},
+            },
+        }
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("args", "quiet"),
+    [
+        (_args(command="reads"), True),
+        (_args(command="writes_once"), True),
+        (_args(command="serves"), False),
+        (_args(command="reads_but_keeps"), False),
+        (_args(command="undeclared"), False),
+        (_args(command="bot", action="apply", dry_run=False), True),
+        (_args(command="bot", action="apply", dry_run=True), True),
+        (_args(command="bot", action="list"), True),
+        (_args(command="bot", action="watch"), False),
+    ],
+)
+def test_a_command_keeps_its_log_off_the_console_when_it_reads_or_is_short_lived(
+    args: argparse.Namespace, quiet: bool
+) -> None:
+    assert command_keeps_log_off_console(_LOG_TABLE, args) is quiet

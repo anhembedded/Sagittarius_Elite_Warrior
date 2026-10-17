@@ -2,7 +2,7 @@
 
 Capability: Decide before the app boots whether a command needs the writable copy of the data root
     Also: read-only command, status, bot list, take the lock, writable instance, command changes nothing, read_only in cli_commands.json
-    Use: command_is_read_only, command_requires_writable_instance, command_owns_its_lifecycle
+    Use: command_is_read_only, command_requires_writable_instance, command_owns_its_lifecycle, command_keeps_log_off_console
     User: src/main.py
     Status: stable
 
@@ -27,6 +27,17 @@ existed before this field keeps.
 @par A verb that reads only with a flag (`EPIC-038I`)
   · `"read_only_when": "dry_run"` - `bot apply --dry-run` is read-only, `bot apply` is not.
 
+@par Where the log goes (`BOT-185`, `BOT-186`)
+  A command that only reads shows its result and nothing else; so does a short-lived one that
+  writes (`bot apply`): its log records go to a file (`shell/cli_log_routing.py`).
+  The declaration is explicit, so a new command cannot slip into either behaviour unseen:
+  · `"short_lived": true` - a one-shot command that may change something and ends by itself;
+  · `"keeps_console_log": true` - a command whose log is its output or that runs until told to
+    stop (`run`: the supervisor's journal; `sync`: its progress; `stream start`; `trade-once`: it can trade real money and keeps no local order journal);
+  and every command that is not a group of verbs says one of the four sides (`read_only`,
+  `read_only_when`, `short_lived`, `keeps_console_log`), which
+  `tests/unit/support/cli_host/test_every_command_declares_where_its_log_goes.py` checks.
+
 @par Extension cases
   · a new read-only command or verb - `"read_only": true` on its entry; this
     function and the entry point do not change;
@@ -44,6 +55,8 @@ READ_ONLY_KEY = "read_only"
 READ_ONLY_WHEN_KEY = "read_only_when"
 REQUIRES_WRITABLE_KEY = "requires_writable"
 OWNS_LIFECYCLE_KEY = "owns_lifecycle"
+SHORT_LIVED_KEY = "short_lived"
+KEEPS_CONSOLE_LOG_KEY = "keeps_console_log"
 
 
 def _declared_value(
@@ -95,3 +108,15 @@ def command_owns_its_lifecycle(
 ) -> bool:
     """True for a command that boots and stops the application itself."""
     return _declared(commands, args, OWNS_LIFECYCLE_KEY)
+
+
+def command_keeps_log_off_console(
+    commands: Mapping[str, Any], args: argparse.Namespace
+) -> bool:
+    """True for a command whose console shows its result only: one that reads, or a
+    short-lived one that writes. `keeps_console_log` wins over both."""
+    if _declared(commands, args, KEEPS_CONSOLE_LOG_KEY):
+        return False
+    return command_is_read_only(commands, args) or _declared(
+        commands, args, SHORT_LIVED_KEY
+    )

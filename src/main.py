@@ -70,6 +70,7 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
 from Sagittarius_Elite_Warrior.src.shell.console_log_stream import console_log_to
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
+    command_keeps_log_off_console,
     command_owns_its_lifecycle,
     command_requires_writable_instance,
 )
@@ -181,11 +182,11 @@ def _app_work_for(
     return lambda app: _run_headless_mode(app, args)
 
 
-def _quiet_log_for(read_only: bool, args: argparse.Namespace) -> CliLogRouting | None:
-    """`BOT-185` - a command that only reads shows its result and nothing else:
-    its log goes to a file (`--verbose` keeps it on the console). Every other
-    command keeps the log where it was, and `run`'s is the supervisor's."""
-    if not read_only or getattr(args, VERBOSE_DEST, False):
+def _quiet_log_for(quiet: bool, args: argparse.Namespace) -> CliLogRouting | None:
+    """`BOT-185`, `BOT-186` - a command that reads, or a short-lived one that writes, shows
+    its result and nothing else: its log goes to a file (`--verbose` keeps it on the
+    console). A command that keeps its console log (`run`'s is the supervisor's) is left."""
+    if not quiet or getattr(args, VERBOSE_DEST, False):
         return None
     return prepare_cli_log(log_directory())
 
@@ -241,7 +242,7 @@ def main() -> int:
     # `cli_commands.json`) is never the writable copy: its boot would apply the
     # restart rule to the bots, and it would hold the lock `status` asks about.
     read_only = command_is_read_only(commands, args)
-    cli_log = _quiet_log_for(read_only, args)
+    cli_log = _quiet_log_for(command_keeps_log_off_console(commands, args), args)
     instance = read_only_instance_access() if read_only else acquire_instance_access()
     try:
         if instance.read_only and command_requires_writable_instance(commands, args):
