@@ -30,3 +30,4 @@ Leave out a section that has nothing to say.
 | # | Page | Topic | Decision it teaches |
 | :-- | :--- | :--- | :--- |
 | 001 | [Layered policy and a lifecycle state for halt recovery](001_layered_policy_and_lifecycle_state.md) | State machines, composition over inheritance, retry budgets | ADR 042 (`EPIC-042`), proposed in [PR #546](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/546) |
+| 002 | [Lazy composition: a command builds only what it needs](002_lazy_composition_a_command_builds_only_what_it_needs.md) | Import cost, lazy loading, dependency closure | [`PRO-014`](../../Tasks/proposal/PRO-014.md), task `BOT-188` |

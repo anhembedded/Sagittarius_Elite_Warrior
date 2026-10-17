@@ -41,7 +41,9 @@ of the bot's life:
 ## Built: a second process
 
 A second process on the same data root is read-only (`EPIC-035H`): `boot()` returns before restoring
-any bot or subscribing to fills (`bots/module.py` → `BotsModule.boot`), because a restart rule run
+any bot or subscribing to fills (`bots/module.py` → `BotsModule.boot`; the writable half is
+`bots/composition/writable_boot.py` → `boot_writable`, reached by path so a read-only copy does not
+import it, `PRO-014`), because a restart rule run
 there would rewrite the first copy's running bots, and the store and the runner are the read-only
 wrappers. `bot list`, `bot show` and `status` read through the same queries the Bots tab reads through.
 `bot show` also prints the bot's effective halt-recovery table, one `Recovery` row per reason with the
