@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot i
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_for_host import (
     StopBotForHostCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_for_operator import (
+    StopBotForOperatorCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
@@ -66,6 +69,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     ResumeRecoveringForHostCommand,
     StartBotForHostCommand,
     StopBotForHostCommand,
+    StopBotForOperatorCommand,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -88,5 +92,6 @@ def bind_commands(container: IContainer) -> None:
     )
     container.bind(ResumeHaltedForHostCommand, ResumeHaltedForHostCommandHandler)
     # `EPIC-038J` - what a person sends to the running host (`bot pause`, `bot resume`).
+    container.bind(StopBotForOperatorCommand, StopBotForOperatorCommandHandler)
     container.bind(PauseBotForHostCommand, PauseBotForHostCommandHandler)
     container.bind(ResumeBotForHostCommand, ResumeBotForHostCommandHandler)

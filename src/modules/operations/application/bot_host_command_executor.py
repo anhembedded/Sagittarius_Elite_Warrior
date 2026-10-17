@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
-    StopBotForHostCommand,
+    StopBotForOperatorCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HostCommand,
@@ -49,7 +49,9 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
 type _Request = Callable[[HostCommand], object]
 
 _REQUESTS: dict[HostControlAction, _Request] = {
-    HostControlAction.STOP: lambda c: StopBotForHostCommand(c.bot_id),
+    HostControlAction.STOP: lambda c: StopBotForOperatorCommand(
+        c.bot_id, c.confirmed_venue
+    ),
     HostControlAction.PAUSE: lambda c: PauseBotForHostCommand(c.bot_id),
     HostControlAction.RESUME: lambda c: ResumeBotForHostCommand(
         c.bot_id, c.confirmed_venue

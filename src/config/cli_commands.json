@@ -451,13 +451,22 @@
             ]
           },
           "stop": {
-            "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. If the venue's order session is closed (an Emergency Stop or a restart closes it) the host opens it first, as Start and Resume do; on a mainnet venue that needs --confirm-venue. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
                 "name": "bot_id",
                 "type": "str",
                 "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money). Not needed when the session is already open or the bot is on a testnet"
               },
               {
                 "name": "--wait",

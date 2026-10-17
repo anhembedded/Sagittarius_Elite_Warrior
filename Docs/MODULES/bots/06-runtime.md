@@ -128,9 +128,7 @@ A running `run` host takes three more requests from a person's second shell (`EP
 `bot pause` and `bot resume` arrive as `StopBotForHostCommand`, `PauseBotForHostCommand` and
 `ResumeBotForHostCommand` (`src/modules/bots/application/use_cases/pause_bot_for_host/handler.py` → `PauseBotForHostCommandHandler`;
 `src/modules/bots/application/use_cases/resume_bot_for_host/handler.py` → `ResumeBotForHostCommandHandler`), each dispatching the screen's own
-command, so the lifecycle table, the read-only rule and the real-money question apply unchanged. None of the
-three opens the order session: a Stop with the session closed waits in `STOPPING`, as the screen's does
-(`src/modules/bots/application/kinds/grid/stop/grid_stop_sequence.py` → `GridStopSequence._budget_refused`). The resume covers PAUSED and RECOVERING; a
+command, so the lifecycle table, the read-only rule and the real-money question apply unchanged. `bot stop` arrives as `StopBotForOperatorCommand` (`src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py` → `StopBotForOperatorCommandHandler`): after the lifecycle table allows the stop, it opens the venue's order session when it is closed (`order_session_refusal`, a mainnet venue only with the typed venue), then dispatches `StopBotForHostCommand`. The shutdown policy's `StopBotForHostCommand` still opens nothing, and the screen's Stop is unchanged. The resume covers PAUSED and RECOVERING; a
 HALTED or AWAITING_RECOVERY bot is refused with words, because its resume proposes a ladder a person confirms.
 The transport is the `operations` module's (`Docs/MODULES/README.md` has no `operations` folder yet).
 

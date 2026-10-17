@@ -15,7 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
-    StopBotForHostCommand,
+    StopBotForOperatorCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.bot_host_command_executor import (
     BotHostCommandExecutor,
@@ -45,7 +45,7 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
         executor.execute(command(action=action, confirmed_venue="spot_mainnet"))
 
     assert dispatcher.dispatched == [
-        StopBotForHostCommand(BOT),
+        StopBotForOperatorCommand(BOT, "spot_mainnet"),
         PauseBotForHostCommand(BOT),
         ResumeBotForHostCommand(BOT, "spot_mainnet"),
     ]

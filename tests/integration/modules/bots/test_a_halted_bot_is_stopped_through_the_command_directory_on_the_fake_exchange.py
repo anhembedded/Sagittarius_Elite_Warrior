@@ -221,13 +221,12 @@ def test_a_halted_bot_is_not_resumed_from_a_file_and_stays_halted(
         assert app.bot(halted).state is S.HALTED
 
 
-def test_a_stop_while_the_order_session_is_closed_is_accepted_and_waits_saying_why(
+def test_a_stop_while_the_order_session_is_closed_opens_it_and_the_bot_stops(
     exchange: FakeExchange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A price knowingly paid (`architecture-rule.md` §7.1): the screen's Stop does not open the
-    venue's order session, so after an Emergency Stop or a restart the bot waits in STOPPING
-    until a deliberate action opens it. Control stays one implementation of Stop and inherits this;
-    it is named in the runbook, and the bot's reason says it."""
+    """The owner's answer "B" (2026-10-17): the screen's Stop does not open the venue's order
+    session, so after an Emergency Stop the bot would wait in STOPPING for a session nobody opens.
+    `bot stop` opens it itself, as Start and Resume do, and the bot reaches STOPPED."""
     monkeypatch.setenv(DATA_ROOT_ENV, str(exchange.tmp_path))
     with booted(exchange) as app:
         app.stream.start = lambda: None  # type: ignore[method-assign]
@@ -235,6 +234,7 @@ def test_a_stop_while_the_order_session_is_closed_is_accepted_and_waits_saying_w
         assert _start(app, halted).accepted
         app.engine.dispatch(EmergencyStopCommand, EmergencyStopCommand(venue=SPOT))
         app.deliver()
+        assert app.scope.session_state.enabled is False
         directory = control_directory_of(exchange.tmp_path / "state")
         assert prepare_private_directory(directory) == ""
 
@@ -242,9 +242,9 @@ def test_a_stop_while_the_order_session_is_closed_is_accepted_and_waits_saying_w
             HostControlRequest(HostControlAction.STOP, halted), 15.0
         )
 
-        assert reply.status is HostControlStatus.DONE
-        assert app.bot(halted).state is S.STOPPING
-        assert "order session is not open" in app.runtime(halted).reason_detail
+        assert reply.status is HostControlStatus.DONE, reply.message
+        assert app.scope.session_state.enabled is True, "the stop opened the session"
+        assert app.bot(halted).state is S.STOPPED
 
 
 def test_the_module_binds_the_operators_port_and_the_hosts_poller_in_the_composed_app(

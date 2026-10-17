@@ -191,8 +191,8 @@ def test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_listens_o
     document = json.loads(stopped.stdout)
     assert document["schema"] == "sew.bot-control/1"
     assert document["data"]["status"] == "done"
-    assert _state_of(bots, "aaaaaa") is BotLifecycleState.STOPPING, (
-        "the screen's Stop ran; the order session is closed after a restart, so it waits"
+    assert _state_of(bots, "aaaaaa") is BotLifecycleState.STOPPED, (
+        "the screen's Stop ran, after opening the order session a restart leaves closed"
     )
     audit = [
         json.loads(line)

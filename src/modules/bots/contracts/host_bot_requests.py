@@ -32,6 +32,22 @@ class StopBotForHostCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class StopBotForOperatorCommand:
+    """A person's `bot stop` on the running host (`EPIC-038J`, decision O4 follow-up "B"):
+    `StopBotForHostCommand`, after opening the venue's order session if it is closed.
+
+    The host's own shutdown stop (`--on-stop stop-bots`) never opens a session: an automated
+    caller must not undo an Emergency Stop. A person who types `bot stop` is a deliberate action,
+    as Start and Resume are, and a Stop that waits for a session nobody opens never ends. On a
+    mainnet venue that opening uses real money's session, so `confirmed_venue` is what the
+    operator typed (decision O8); it is asked only when the session is closed.
+    """
+
+    bot_id: str
+    confirmed_venue: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PauseBotForHostCommand:
     """Pause this bot (`EPIC-038J`): it stops placing orders, its resting orders stay."""
 

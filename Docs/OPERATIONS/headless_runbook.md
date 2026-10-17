@@ -202,7 +202,7 @@ Exit `0` the message was taken (check that it arrived: "sent" means Discord acce
 ```bash
 M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
 $M bot show 44wa1x                  # what state is it in?
-$M bot stop 44wa1x                  # cancel its orders, keep the coin, STOPPING then STOPPED
+$M bot stop 44wa1x [--confirm-venue spot_mainnet]   # cancel its orders, keep the coin, STOPPING then STOPPED
 $M bot pause 44wa1x                 # place no orders; the resting ones stay
 $M bot resume 44wa1x                # a PAUSED or RECOVERING bot; mainnet RECOVERING: add --confirm-venue spot_mainnet
 ```
@@ -211,7 +211,7 @@ $M bot resume 44wa1x                # a PAUSED or RECOVERING bot; mainnet RECOVE
 - **What you see.** The command waits for the host's answer (`--wait`, 15 s by default) and prints the host's own sentence. Exit `0` the bot accepted it; `2` the bot's own rule refused it (not found, not in a state that allows it, a HALTED bot to resume...) and nothing changed; `5` this account has no control; `10` **no host is running, nothing was written**; `11` a host is running and recorded no answer in time (the command is withdrawn if the host never took it; see the audit). A stop is asynchronous: `0` means STOPPING. Check `bot show` for STOPPED.
 - **At most once.** Every command has an id; the host writes `received` to `state/control/audit.jsonl` before it acts and the verdict after (`executed`, `refused`, `failed`, `malformed`, `unauthorised`, `replayed`, `expired`). A file with an id the host has seen is a replay and does nothing, even after a restart. A file older than 5 minutes (or dated more than 1 minute ahead of the host's clock) is `expired`: it does not run late. The audit is append-only, grows by two lines a command and is never rotated; it holds ids, actions and sentences, never a secret.
 - **A HALTED bot is not resumed this way.** Its resume proposes a ladder that a person reads and confirms; use `run --resume-halted` (below) or the Bots tab.
-- **A Stop while the venue's order session is closed waits.** An Emergency Stop or a restart closes the session, and the screen's Stop does not open it, so the stop is accepted and the bot stays STOPPING with the reason `the budget was refused: the order session is not open` (`bot show`) until a deliberate action opens the session (a Start, or `run --resume-recovering`). A HALTED bot whose session is open (a bot halted by a silent feed, for example) stops at once.
+- **A Stop opens a closed order session first** (the owner's answer "B", 2026-10-17). An Emergency Stop or a restart closes the venue's order session, and a stop cannot finish without it, so `bot stop` opens it as Start and Resume do. Opening it reconciles every bot on that venue with the exchange, exactly as `run --resume-recovering` does. On a mainnet venue the session uses real money: add `--confirm-venue spot_mainnet` (without it the stop is refused, nothing is opened); an already open session, or a testnet, needs no answer. The host's own shutdown stop (`--on-stop stop-bots`) still opens nothing.
 - **To free the symbol for a new run:** `bot stop <id>` until `bot show` says STOPPED, then stop the host, `bot apply plan.json [--prune]` and start it with `--start-planned` (§8). `bot apply` itself still needs the host stopped.
 
 ## 7. What the exit codes mean for you
