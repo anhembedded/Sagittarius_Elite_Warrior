@@ -181,8 +181,8 @@ The halt is today's: `GridPriceReaction.check_age` (`bots/application/kinds/grid
 → `GridPriceReaction.check_age`) halts a bot that holds orders and heard no tick for
 `PRICE_STALE_AFTER_SECONDS`, and the ladder is taken off the exchange with the bought base kept. What is
 new is who decides the event. `BotRunState.halt` asks the halt-recovery director for it: `halt_transient`
-when the bot is `RUNNING`, `STARTING` or `RECOVERING` (from `RUNNING`), the kind's policy for the
-market has a rule for `price_feed_stale`, and the bot record's attempt ledger holds fewer than the rule's
+when the bot is `RUNNING`, `STARTING` or `RECOVERING` (from `RUNNING`), the effective policy (the common, kind and venue layers merged)
+has a rule for the reason (`price_feed_stale` and `user_stream_down` today), and the bot record's attempt ledger holds fewer than the rule's
 attempts inside its window; otherwise `halt`. A `PAUSED` bot halts plainly, and a Futures venue has no
 rule.
 

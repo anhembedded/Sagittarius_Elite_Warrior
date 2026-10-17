@@ -16,10 +16,11 @@
 - [ ] `AWAITING_RECOVERY` and the events `halt_transient`, `condition_cleared`, `budget_exhausted`, `wait_expired` are declared with exactly the twelve rows of the decision's §2.1, and no `PAUSED` + `halt_transient` cell.
 - [ ] `PRICE_STREAM_STATES` includes the state (by its definition) and `PRICE_STALENESS_HALTS` does not; the module docstring states why.
 - [ ] `BotLifecycle.recovery_attempts` (default empty) round-trips through `bot_record_codec.py`; a file with no key loads as empty; the list is pruned to the longest window and capped.
-- [ ] `HaltRecoveryRule`, `HaltRecoveryPolicy`, `NO_RECOVERY`, `RecoveryAttempt` and the ledger arithmetic (`used_within(window, now)`) are domain types with tests, including the boundary at exactly the window.
-- [ ] `IBotKind.halt_recovery(market)` is a concrete method returning `NO_RECOVERY`; no implementer changes.
+- [ ] `HaltRecoveryRule`, `RuleChange`, `RecoveryLayer`, `COMMON_LAYER` (price_feed_stale, user_stream_down; 120 s, 3, 24 h, 15 min), `effective_policy` and `EffectivePolicy` rows (code, rule, `decided_by`) are domain types with tests per layer and for the merge: clears-lower, withdrawn, partial override of one field, a new code taking the default rule, precedence venue over kind over common, and a layer that builds an invalid rule failing at build.
+- [ ] `RecoveryAttempt` and the ledger arithmetic (`used_within(window, now)`, all codes counted) are domain types with tests, including the boundary at exactly the window.
+- [ ] `IBotKind.recovery_layer()` is a concrete method returning an empty layer and `VenueProfile.recovery_layer` a field with a default, so no implementer or construction site changes; the Futures profile sets `clears_lower_layers`; Spot's is empty.
 - [ ] Every exhaustive consumer of the state answers for the new one (UI label and enable-rules, status report, `landing_level` WARNING, `bot_facts`), found by grep and by `mypy`'s exhaustiveness where it exists.
-- [ ] `scripts/render_bots_design_tables.py --write` regenerates `state-machines.md`; the Planned block moves into the generated table.
+- [ ] `scripts/render_bots_design_tables.py --write` regenerates `state-machines.md` and a new `halt-recovery` table (the effective policy of every kind × market) in `10-quality.md`; the Planned blocks move into the generated tables.
 - [ ] How an older build reads the new key is recorded before it ships (rollback).
 
 ## 3. Design
@@ -35,7 +36,7 @@ Used `BotLifecycleState`/`BOT_LIFECYCLE_TRANSITIONS` (the one table), `next_targ
 | `src/modules/bots/domain/halt_recovery.py` (new) | rule, policy, attempt, ledger |
 | `src/modules/bots/domain/bot.py` | `BotLifecycle.recovery_attempts`, `Bot.with_recovery_attempt` |
 | `src/modules/bots/adapters/persistence/bot_record_codec.py` | the key |
-| `src/modules/bots/contracts/i_bot_kind.py` | `halt_recovery` |
+| `src/modules/bots/contracts/i_bot_kind.py`, `venue_profile.py` | `recovery_layer`; the venue field and Futures' `clears_lower_layers` |
 | `Docs/MODULES/bots/state-machines.md` and the other module docs | Planned → Built for this part |
 
 ## 5. Testing

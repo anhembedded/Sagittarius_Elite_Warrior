@@ -87,7 +87,7 @@ sits outside the generated markers; `EPIC-042B` adds the state, four events and 
 `bots/domain/bot_lifecycle_fsm_matrix.py` → `BOT_LIFECYCLE_TRANSITIONS`, regenerates the table above, and
 deletes this one.
 
-Four events: `halt_transient` (a halt whose reason the kind's policy names recoverable, with budget
+Four events: `halt_transient` (a halt whose reason the effective policy (common, kind and venue layers) names recoverable, with budget
 left), `condition_cleared` (the cause was clear for the dwell; the attempt runs the Resume path),
 `budget_exhausted` (an attempt left the bot waiting and the rolling budget is spent), `wait_expired`
 (the wait limit passed).

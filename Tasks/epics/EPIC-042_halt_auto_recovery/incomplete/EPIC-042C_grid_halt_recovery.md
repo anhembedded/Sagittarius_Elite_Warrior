@@ -13,7 +13,7 @@
 `GridPriceReaction.check_age` halts the bot with `halt_with`; nothing brings it back. The mechanism of [the decision](../DECISION_2026-10-17_halt_auto_recovery.md) must act on the bot's worker, through `GridResumeSequence`, and never against a crossed exit.
 
 ## 2. Acceptance criteria
-- [ ] A Spot Grid halted for `price_feed_stale` in `RUNNING` enters `AWAITING_RECOVERY`; in `PAUSED` it enters `HALTED` (D8); on a Futures venue it enters `HALTED` (D5).
+- [ ] A Spot Grid halted for `price_feed_stale` or `user_stream_down` in `RUNNING` enters `AWAITING_RECOVERY`; in `PAUSED` it enters `HALTED` (D8); on a Futures venue it enters `HALTED` (D5). The shared probes are the price watch's and the user-stream watch's (`bots/application/services/watches/`), not Grid code.
 - [ ] After the probe has said *clear* for 120 s without a gap, the attempt is saved, the exits are re-checked on the fresh price, `propose` and `confirm` run, and the bot is `RUNNING` with a fresh ladder.
 - [ ] A gap inside the dwell restarts the dwell.
 - [ ] A stop loss or take profit crossed during the wait, or on the fresh price at the attempt, ends the bot as Stop with *sell base* forced, and no ladder is laid (a test per exit and per direction the Spot Grid runs).
@@ -37,7 +37,7 @@ Used `GridResumeSequence.propose/confirm`, `GridPriceAge`, `IMonotonicClock`, `G
 | `.../kinds/grid/watch/grid_price_reaction.py`, `grid_price_age.py` | route the halt, probe, `_WATCHES_EXITS` |
 | `.../kinds/grid/recovery/grid_halt_recovery.py` (new), `grid_resume_sequence.py` | the run; `confirm(proposal, event)` |
 | `.../kinds/grid/watch/grid_rate_limit_pause.py` | `_HALTED_BY_A_LIMIT` |
-| `.../kinds/grid/` the kind's class | `halt_recovery(market)` |
+| `.../services/watches/bot_price_watch.py`, `user_stream_watch.py` | the two probes (common reasons, shared by every kind) |
 | Module docs | Planned → Built |
 
 ## 5. Testing

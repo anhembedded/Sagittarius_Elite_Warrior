@@ -29,7 +29,7 @@ See the decision record. Applied pattern (P5): the Grid's own propose-and-confir
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `Tasks/epics/EPIC-042_halt_auto_recovery/` | The epic, the decision record, this task and the five planned ones |
+| `Tasks/epics/EPIC-042_halt_auto_recovery/` | The epic, the decision record, this task and the six planned ones |
 | `Tasks/epics/README.md` | The epic's row |
 | `Docs/MODULES/bots/state-machines.md` | Planned: the state, events and rows (hand-written, not between the generated markers) |
 | `Docs/MODULES/bots/05-building-blocks.md` | Planned: the director, the policy, the probe, the ledger |
