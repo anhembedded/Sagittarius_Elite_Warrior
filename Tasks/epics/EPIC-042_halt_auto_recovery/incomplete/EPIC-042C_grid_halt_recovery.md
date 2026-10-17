@@ -22,7 +22,7 @@
 - [ ] A fill missed while `user_stream_down` is reconciled: the Resume path books it from exchange evidence before laying (test on the fake exchange).
 - [ ] A stop loss or take profit crossed during the wait, or on the fresh price at the attempt, ends the bot as Stop with *sell base* forced, and no ladder is laid (a test per exit and per direction the Spot Grid runs).
 - [ ] The fourth halt inside 24 h is `HALTED` with a reason that says the three recoveries are used up; the ledger survives a restart (the bot file is reloaded in the test).
-- [ ] `max_wait` elapsed → `HALTED`; a refused attempt spends budget (D10).
+- [ ] A bot still waiting after `stalled_after` publishes `BotRecoveryStalledEvent` once per wait and goes on waiting (and still recovers if the feed returns later); a refused attempt spends budget (D10).
 - [ ] A rate limit met by the attempt lands in `HALTED` with `RATE_LIMITED` and `GridRateLimitPause` resumes it as today (`_HALTED_BY_A_LIMIT` includes the new state).
 - [ ] A person's Stop, Emergency Stop and Resume in the state do what the table says.
 - [ ] Positive proof in the run log: `[bot-transition]` lines and a new `[bot-halt-recovery]` line per entry, attempt and outcome (`logging-rule.md` §9: seen through the real logging configuration).

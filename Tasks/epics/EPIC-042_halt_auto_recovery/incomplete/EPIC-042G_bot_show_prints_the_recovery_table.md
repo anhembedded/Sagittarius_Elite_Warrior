@@ -13,7 +13,7 @@
 Which halts a bot will recover from, with what dwell and budget, is merged from three layers; an operator cannot read that from three files. `bot show` is the headless host's read of one bot.
 
 ## 2. Acceptance criteria
-- [ ] `bot show <bot>` prints the bot's effective recovery table: code, dwell, attempts per window, wait limit, and the layer that decided it; and the attempts used inside the window, from the bot record.
+- [ ] `bot show <bot>` prints the bot's effective recovery table: code, dwell, attempts per window, stalled-wait threshold, and the layer that decided it; and the attempts used inside the window, from the bot record.
 - [ ] A Futures bot prints "no automatic recovery" with the layer that says so.
 - [ ] The text, JSON and CSV formats carry the same rows (`emit_report`).
 - [ ] The rows come from `effective_policy`, the function the director uses; a test fails if the report builds its own merge.

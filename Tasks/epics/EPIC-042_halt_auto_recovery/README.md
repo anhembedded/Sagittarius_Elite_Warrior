@@ -15,7 +15,7 @@
 3. **A general mechanism, layered**: the transient reasons are plain data composed from a common, a kind and a venue layer, later layers winning; a probe per reason says when it has cleared; the attempt ledger lives in the bot record (owner; D4, D15).
 4. **Spot keeps the common set (`price_feed_stale`, `user_stream_down`); Futures removes every reason with one line in its venue layer** (owner; D5, D15).
 5. **Not migrated here: the grid rate-limit auto-resume** (`EPIC-042F`; D6).
-6. **Agent decisions the owner may veto:** a `PAUSED` bot never recovers by itself (D8); a restart ends the wait in `HALTED` (D9, O1); an attempt costs budget when it starts (D10); a 15 min wait limit (D11, O2).
+6. **Agent decisions the owner may veto:** a `PAUSED` bot never recovers by itself (D8); a restart ends the wait in `HALTED` (D9, O1); an attempt costs budget when it starts (D10); (D11, the 15 min stalled-wait alert, is the owner's: O2 answered, option b).
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-17, `5a2d0eb`) | When the epic is done |
@@ -23,14 +23,14 @@
 | A Spot Grid halted by a feed gap that then cleared | stays `HALTED` until a person acts | back to `RUNNING` after 120 s of healthy feed, with a fresh ladder, with no person |
 | Automatic recoveries of one bot in 24 h | not applicable | at most 3, across restarts; the 4th halt stays `HALTED` and alerts |
 | A `HALTED` bot on the headless host | cannot be resumed | `run --resume-halted [--confirm-venue v]` resumes it through the GUI's path |
-| States that answer the new condition | 0 | 1 declared state, 4 events, 11 table rows, in `bot_lifecycle_fsm_matrix.py` and the generated tables |
+| States that answer the new condition | 0 | 1 declared state, 3 events, 10 table rows, in `bot_lifecycle_fsm_matrix.py` and the generated tables |
 | Futures files changed | not applicable | 0 behaviour changes; a test locks that a Futures venue resolves no rule |
 
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-042A](completed/EPIC-042A_design_and_decision.md) | The design: this epic, the decision record, the module docs and the vocabulary | Elite | None | 🟢 | ✅ Done (2026-10-17; pull request open) |
-| [EPIC-042B](incomplete/EPIC-042B_awaiting_recovery_state_and_ledger.md) | The state, the four events and the rows in the lifecycle table; `RecoveryAttempt` in the bot record and its codec; the layer, rule and merge types and the common layer; the generated tables | Elite | 042A | 🟡 | Planned |
+| [EPIC-042B](incomplete/EPIC-042B_awaiting_recovery_state_and_ledger.md) | The state, the three events and the rows in the lifecycle table; `RecoveryAttempt` in the bot record and its codec; the layer, rule and merge types and the common layer; the generated tables | Elite | 042A | 🟡 | Planned |
 | [EPIC-042C](incomplete/EPIC-042C_grid_halt_recovery.md) | The director, the recovery run on the worker, the Spot Grid's rule and probe, the exits re-checked before an attempt | Elite | 042B | 🔴 | Planned |
 | [EPIC-042D](incomplete/EPIC-042D_recovery_alerts.md) | `BotAutoRecoveredEvent`, its alert kind and source arm; the exhaustion text on the `BOT_HALTED` alert | Elite | 042B | 🟢 | Planned |
 | [EPIC-042E](incomplete/EPIC-042E_run_resume_halted.md) | `run --resume-halted` | Elite | 042B | 🟡 | Planned |
@@ -42,7 +42,7 @@
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| 1 Design | The decision, the module docs and the vocabulary merged; the owner has had the chance to veto D8–D11 | Pull request merged; document guards green |
+| 1 Design | The decision, the module docs and the vocabulary merged; the owner has had the chance to veto D8–D10 | Pull request merged; document guards green |
 | 2 Mechanism | A bot halted for `price_feed_stale` on the fake exchange recovers after the dwell, ends as Stop when a stop loss was crossed, stays `HALTED` after three recoveries in 24 h across a restart, and raises the alerts | Unit and integration tests named in `042B`–`042D`; `ci-local.ps1 -Full` green on the pull request |
 | 3 Host | `run --resume-halted` resumes a `HALTED` fake bot on the fake exchange; a mainnet venue is refused without `--confirm-venue` | Test in `042E`; the owner's Testnet run is the owner's, recorded by the owner |
 

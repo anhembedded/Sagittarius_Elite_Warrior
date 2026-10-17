@@ -83,14 +83,13 @@ The sets the module asks of the table, rather than keeping lists of its own: `RU
 
 *Which state does a transient halt wait in, and how does it leave?* Planned by `EPIC-042B`; the reasons
 for every row are in [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.1. Until the task lands this table is **hand-written** and
-sits outside the generated markers; `EPIC-042B` adds the state, four events and these rows to
+sits outside the generated markers; `EPIC-042B` adds the state, three events and these rows to
 `bots/domain/bot_lifecycle_fsm_matrix.py` → `BOT_LIFECYCLE_TRANSITIONS`, regenerates the table above, and
 deletes this one.
 
-Four events: `halt_transient` (a halt whose reason the effective policy (common, kind and venue layers) names recoverable, with budget
+Three events: `halt_transient` (a halt whose reason the effective policy (common, kind and venue layers) names recoverable, with budget
 left), `condition_cleared` (the cause was clear for the dwell; the attempt runs the Resume path),
-`budget_exhausted` (an attempt left the bot waiting and the rolling budget is spent), `wait_expired`
-(the wait limit passed).
+`budget_exhausted` (an attempt left the bot waiting and the rolling budget is spent).
 
 | From | Event | To |
 | :--- | :--- | :--- |
@@ -99,7 +98,6 @@ left), `condition_cleared` (the cause was clear for the dwell; the attempt runs 
 | `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
 | `AWAITING_RECOVERY` | `resume` | `STARTING` |
 | `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
-| `AWAITING_RECOVERY` | `wait_expired` | `HALTED` |
 | `AWAITING_RECOVERY` | `halt` | `HALTED` |
 | `AWAITING_RECOVERY` | `stop` | `STOPPING` |
 | `AWAITING_RECOVERY` | `switch_off` | `HALTED` |

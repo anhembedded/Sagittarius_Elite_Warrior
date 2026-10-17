@@ -13,10 +13,10 @@
 `bot_lifecycle_fsm_matrix.py` has nine states; the transient-halt wait has none. The attempt history must live in the bot record so a restart keeps the 24 h budget ([D4](../DECISION_2026-10-17_halt_auto_recovery.md)).
 
 ## 2. Acceptance criteria
-- [ ] `AWAITING_RECOVERY` and the events `halt_transient`, `condition_cleared`, `budget_exhausted`, `wait_expired` are declared with exactly the eleven rows of the decision's §2.1, and no `PAUSED` or `RECOVERING` + `halt_transient` cell.
+- [ ] `AWAITING_RECOVERY` and the events `halt_transient`, `condition_cleared`, `budget_exhausted` are declared with exactly the ten rows of the decision's §2.1, and no `PAUSED` or `RECOVERING` + `halt_transient` cell.
 - [ ] `PRICE_STREAM_STATES` includes the state (by its definition) and `PRICE_STALENESS_HALTS` does not; the module docstring states why.
 - [ ] `BotLifecycle.recovery_attempts` (default empty) round-trips through `bot_record_codec.py`; a file with no key loads as empty; the list is pruned to the longest window and capped.
-- [ ] `HaltRecoveryRule`, `RuleChange`, `RecoveryLayer`, `COMMON_LAYER` (price_feed_stale, user_stream_down; 120 s, 3, 24 h, 15 min), `effective_policy` and `EffectivePolicy` rows (code, rule, `decided_by`) are domain types with tests per layer and for the merge: clears-lower, withdrawn, partial override of one field, a new code taking the default rule, precedence venue over kind over common, and a layer that builds an invalid rule failing at build.
+- [ ] `HaltRecoveryRule`, `RuleChange`, `RecoveryLayer`, `COMMON_LAYER` (price_feed_stale, user_stream_down; 120 s, 3, 24 h, stalled after 15 min), `effective_policy` and `EffectivePolicy` rows (code, rule, `decided_by`) are domain types with tests per layer and for the merge: clears-lower, withdrawn, partial override of one field, a new code taking the default rule, precedence venue over kind over common, and a layer that builds an invalid rule failing at build.
 - [ ] `RecoveryAttempt` and the ledger arithmetic (`used_within(window, now)`, all codes counted) are domain types with tests, including the boundary at exactly the window.
 - [ ] `IBotKind.recovery_layer()` is a concrete method returning an empty layer and `VenueProfile.recovery_layer` a field with a default, so no implementer or construction site changes; the Futures profile sets `clears_lower_layers`; Spot's is empty.
 - [ ] Every hand-written state set in the decision's §2.4 answers for the new state (`landing_level` WARNING, `bots_health_contributor` counts, `_ATTENTION_STATES`, `_RUNNING_CLOCK`, `bot_action_rules`, `queued_action_words`, `bot_detail`), and a guard fails when a set in `bots/` classifies fewer than every `BotLifecycleState`.
@@ -41,7 +41,7 @@ Used `BotLifecycleState`/`BOT_LIFECYCLE_TRANSITIONS` (the one table), `next_targ
 | `Docs/MODULES/bots/state-machines.md` and the other module docs | Planned → Built for this part |
 
 ## 5. Testing
-Unit: the table rows (a table-driven test over the eleven), the ledger arithmetic, the codec round trip and the old-file load. Architecture: `tests/unit/architecture`. Fast tier of `ci-rule.md` §1.
+Unit: the table rows (a table-driven test over the ten), the ledger arithmetic, the codec round trip and the old-file load. Architecture: `tests/unit/architecture`. Fast tier of `ci-rule.md` §1.
 
 ## 6. Docs touched
 `Docs/MODULES/bots/state-machines.md`, `08-concepts.md`, `05-building-blocks.md` (Planned → Built).

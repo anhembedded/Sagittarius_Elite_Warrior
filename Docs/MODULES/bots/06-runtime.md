@@ -198,8 +198,8 @@ order cancelled, a ladder sized from the price now and the inventory held) and `
 `condition_cleared`, which re-reads the price and lays the ladder; (4) publishes
 `BotAutoRecoveredEvent`, which `alerting` carries to the owner. An attempt that meets a new cause (a moved price, a rate limit, a rejected key) ends in `HALTED`; a
 refusal that changes nothing leaves the bot waiting and the attempt spent, `HALTED` once the budget is
-spent ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.1). It also goes to `HALTED` when the wait limit
-passes or a restart intervenes. The ladder comes off on entry to the state (`GridTaskGuard`), and the
+spent ([the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.1). It goes to `HALTED` when a restart intervenes. The wait itself has no limit: after `stalled_after` (15 min)
+the bot raises one stalled alert and goes on waiting. The ladder comes off on entry to the state (`GridTaskGuard`), and the
 probe means a tick heard since the halt, younger than 15 s. A restart is not a recovery: the order session is closed after one, so
 the bot is `HALTED` with its ledger, and the owner resumes it from the GUI or with `run --resume-halted`
 (`EPIC-042E`).

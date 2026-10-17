@@ -1,8 +1,8 @@
-# EPIC-042D — The owner is told of each automatic recovery and of the exhaustion
+# EPIC-042D — The owner is told of each automatic recovery, of the exhaustion and of a wait that has stalled
 
 **Status:** 🔵 Backlog
 **Source:** the owner, 2026-10-17, through the coordinating session (decision record [D1 (alerts)](../DECISION_2026-10-17_halt_auto_recovery.md))
-**Risk:** 🟢 — a new alert kind and one source arm; no bot behaviour
+**Risk:** 🟢 — two new alert kinds and two source arms; no bot behaviour
 **Complexity:** S — one event, one kind, one handler, one reason text
 **Epic (optional):** [EPIC-042](../README.md)
 **Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
@@ -16,6 +16,7 @@ A recovery is not a state entry, so `BotAlertSource.ALERT_ON_ENTRY` cannot carry
 - [ ] `BotAutoRecoveredEvent(bot_id, code, attempt, budget, window)` in `bots/contracts/events/`, published by the recovery run after `confirm`; `AlertKind.BOT_AUTO_RECOVERED` (WARNING, group bot events) and its catalog row; the completeness test passes.
 - [ ] The source turns the event into one alert naming the bot, the reason, the attempt and the budget left.
 - [ ] The `BOT_HALTED` alert for a bot whose recoveries are used up carries that sentence in its `Reason:` line, from the reason detail the director wrote.
+- [ ] `BotRecoveryStalledEvent(bot_id, code, waited)` and `AlertKind.BOT_RECOVERY_STALLED` (WARNING, bot events): one alert when a bot has waited `stalled_after`, none again for the same wait; ended (condition cleared) when the bot leaves the state.
 - [ ] An alert-kind default for a headless owner is on (the hub's default channels), as the other bot kinds are.
 
 ## 3. Design

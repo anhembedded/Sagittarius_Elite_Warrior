@@ -29,5 +29,5 @@ else not crossed
   R -> S : AWAITING_RECOVERY --condition_cleared--> STARTING --> RUNNING
   G -> A : BotAutoRecoveredEvent
 end
-note over G, D : a refused attempt keeps the bot waiting and spends the attempt;\nbudget spent, wait limit passed or a restart: HALTED
+note over G, D : a refused attempt keeps the bot waiting and spends the attempt;\nbudget spent or a restart: HALTED; waiting 15 min: one stalled alert, still waiting
 @enduml
