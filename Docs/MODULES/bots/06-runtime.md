@@ -111,11 +111,11 @@ the state line shows until the next Resume clears it, so the second press is exp
 not only in the `[recovering-resume]` log line.
 
 A deliberate action that trades opens the order session in one place (`.../order_session_opening.py` →
-`order_session_refusal`, `order_session_refusal_words`), with exactly three callers: Start, a Resume
-from `HALTED` or `RECOVERING`, and the headless `run --resume-recovering`
+`order_session_refusal`, `order_session_refusal_words`), with exactly four callers: Start, a Resume
+from `HALTED` or `RECOVERING`, the headless `run --resume-recovering`, and the operator's `bot stop` on a running host (`EPIC-038J`, below)
 (`.../grid_start_preconditions.py` → `GridStartPreconditions.check`,
 `GridStartPreconditions.open_session_for_resume`; `.../resume_recovering_for_host/handler.py` →
-`ResumeRecoveringForHostCommandHandler._open`). The headless `run --resume-halted` (`EPIC-042E`) is the
+`ResumeRecoveringForHostCommandHandler._open`; `src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py` → `StopBotForOperatorCommandHandler.execute`). The headless `run --resume-halted` (`EPIC-042E`) is the
 Resume caller's own: it dispatches the screen's `ResumeBotCommand`, so it opens the session through the
 same Resume path, and its `ConfirmBotResumeCommand` once the bot holds the proposal
 (`.../resume_halted_for_host/handler.py` → `ResumeHaltedForHostCommandHandler`); it dispatches every Resume first, then asks

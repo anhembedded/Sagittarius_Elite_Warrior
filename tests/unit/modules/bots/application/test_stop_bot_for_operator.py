@@ -178,3 +178,32 @@ def test_a_bot_that_does_not_exist_is_refused() -> None:
 
     assert result.refusal is BotRefusal.NOT_FOUND
     assert world.session.ready_requests == 0
+
+
+def test_the_mainnet_refusal_names_the_other_recovering_bots_the_session_would_return() -> (
+    None
+):
+    venue = TradingVenue.SPOT_MAINNET
+    world = _World(venue, S.HALTED)
+    for other, state in (
+        ("bbbbbb", S.RECOVERING),
+        ("cccccc", S.RECOVERING),
+        ("dddddd", S.PAUSED),
+    ):
+        world.store.save(
+            StoredBot(
+                Bot(
+                    BotId(other),
+                    BotDefinition("grid", "grid", venue, "ETHUSDT", {"lower": "1"}),
+                    BotLifecycle(state),
+                    FAKE_CLOCK_START,
+                ),
+                {},
+            )
+        )
+
+    refused = world.stop()
+
+    assert refused.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
+    assert "bbbbbb, cccccc" in refused.message and "dddddd" not in refused.message
+    assert "before the restart" in refused.message

@@ -16,7 +16,9 @@ Order, so that nothing is opened for a stop that would be refused:
      uses, which dispatches the screen's `StopBotCommand`.
 
 Opening the session reconciles every bot on that venue, exactly as Start, Resume and
-`run --resume-recovering` do; the runbook says so. The shutdown policy keeps using
+`run --resume-recovering` do: a RECOVERING bot returns to the state it had before the restart. The
+refusal that asks for the typed mainnet venue names those other bots, so the typed venue is an
+informed consent; the runbook says so. The shutdown policy keeps using
 `StopBotForHostCommand` and still opens nothing.
 """
 
@@ -45,13 +47,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StopBotForHostCommand,
     StopBotForOperatorCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
+    IBotStore,
+    StoredBot,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     keep_on_stop_closed_reason,
     venue_profile_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
+    BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -67,6 +73,7 @@ class StopBotForOperatorCommandHandler(
         ports: IVenueTradingPorts,
         dispatcher: ICommandDispatcher,
     ) -> None:
+        self._store = store
         self._gate = BotCommandGate(store)
         self._lookup = BotLookup(store)
         self._ports = ports
@@ -92,13 +99,33 @@ class StopBotForOperatorCommandHandler(
                     BotRefusal.REAL_MONEY_NOT_CONFIRMED,
                     f"The order session of {venue.display_name} is closed, and stopping bot "
                     f"{command.bot_id} needs it open (an Emergency Stop or a restart closes it). "
-                    f"Opening it uses real money's session: type --confirm-venue {venue.value}.",
+                    f"Opening it uses real money's session{self._others_returning(command.bot_id, found)}: "
+                    f"type --confirm-venue {venue.value}.",
                     command.bot_id,
                 )
             opened = order_session_refusal(session, command.bot_id)
             if opened is not None:
                 return opened
         return self._stop(command.bot_id)
+
+    def _others_returning(self, bot_id: str, stopping: StoredBot) -> str:
+        """What opening the session does to the venue's other bots, in words: it reconciles every bot
+        on the venue, and a RECOVERING one returns to the state it had before the restart (a RUNNING
+        bot trades again). The typed venue is the operator's consent to that, so it is said first."""
+        venue = stopping.bot.definition.venue
+        others = sorted(
+            stored.bot.bot_id.value
+            for stored in self._store.load_all().bots
+            if stored.bot.definition.venue is venue
+            and stored.bot.state is BotLifecycleState.RECOVERING
+            and stored.bot.bot_id.value != bot_id
+        )
+        if not others:
+            return ""
+        return (
+            f", and it also returns the other RECOVERING bot(s) on {venue.display_name} "
+            f"({', '.join(others)}) to the state they had before the restart"
+        )
 
     def _stop(self, bot_id: str) -> BotCommandResult:
         return cast(
