@@ -151,6 +151,9 @@ class EffectivePolicy:
     """The merged policy: the rows, ordered by code, ready to print and to ask."""
 
     rows: tuple[EffectiveRule, ...]
+    #: When `rows` is empty because a layer cleared the lower ones (Futures), that layer's name,
+    #: so a printout can say who decided "nothing recovers"; empty otherwise.
+    emptied_by: str = ""
 
     def rule_for(self, code: HaltCode) -> HaltRecoveryRule | None:
         for row in self.rows:
@@ -176,13 +179,16 @@ def effective_policy(
 ) -> EffectivePolicy:
     """The three layers merged (ADR 042 §2.3): the one function the director and `bot show` share."""
     table: dict[HaltCode, EffectiveRule] = {}
+    cleared_by = ""
     for layer in (common, kind, venue):
         if layer.clears_lower_layers:
             table.clear()
+            cleared_by = layer.name
         for code in layer.withdrawn:
             table.pop(code, None)
         for code, change in layer.changes.items():
             existing = table.get(code)
             base = existing.rule if existing is not None else DEFAULT_RULE
             table[code] = EffectiveRule(code, change.applied_to(base), layer.name)
-    return EffectivePolicy(tuple(table[code] for code in sorted(table)))
+    rows = tuple(table[code] for code in sorted(table))
+    return EffectivePolicy(rows, "" if rows else cleared_by)

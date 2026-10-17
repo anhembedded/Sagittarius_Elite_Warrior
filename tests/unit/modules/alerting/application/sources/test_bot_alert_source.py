@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
+    BotAutoRecoveredEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
 )
@@ -71,8 +74,10 @@ class _Bots(ICommandDispatcher):
         entry = self.entries.get(input_dto.bot_id)
         return BotStatusReport(bots=() if entry is None else (entry,))
 
-    def move(self, state: str, reason: str = "") -> None:
-        self.entries[BOT] = replace(self.entries[BOT], state=state, reason=reason)
+    def move(self, state: str, reason: str = "", detail: str = "") -> None:
+        self.entries[BOT] = replace(
+            self.entries[BOT], state=state, reason=reason, reason_detail=detail
+        )
 
 
 def _entry(state: str = "RUNNING", reason: str = "") -> BotStatusEntry:
@@ -204,6 +209,41 @@ def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_no
     assert alert.severity is Severity.WARNING
     assert "15 minute(s)" in alert.detail
     assert "price_feed_stale" in alert.detail
+
+
+def test_each_automatic_recovery_is_its_own_alert_with_the_budget_it_leaves() -> None:
+    source, published = _source(_Bots(_entry("RUNNING")))
+
+    source.on_auto_recovered(BotAutoRecoveredEvent(BOT, "price_feed_stale", 1, 3))
+    source.on_auto_recovered(BotAutoRecoveredEvent(BOT, "price_feed_stale", 2, 3))
+
+    first, second = published.published
+    assert first.kind is AlertKind.BOT_AUTO_RECOVERED
+    assert first.severity is Severity.WARNING
+    assert "attempt 1 of 3" in first.detail
+    assert "2 left" in first.detail
+    assert "price_feed_stale" in first.detail
+    assert "attempt 2 of 3" in second.detail
+    assert first.dedup_key != second.dedup_key, (
+        "the second recovery must not be a count"
+    )
+
+
+def test_a_halt_whose_recoveries_are_used_up_says_so_in_its_reason_line() -> None:
+    bots = _Bots(_entry("RUNNING"))
+    source, published = _source(bots)
+
+    bots.move(
+        "HALTED",
+        "price_feed_stale",
+        "the 3 automatic recoveries allowed in 24 h are used up; resume by hand",
+    )
+    source.on_bot_changed(_changed())
+
+    [alert] = published.published
+    assert alert.kind is AlertKind.BOT_HALTED
+    assert "Reason: price_feed_stale (the 3 automatic recoveries" in alert.detail
+    assert "resume by hand" in alert.detail
 
 
 @pytest.mark.parametrize("after", ["RUNNING", "HALTED", "ERROR", "STOPPED"])

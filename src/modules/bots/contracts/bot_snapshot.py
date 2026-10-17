@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
+    RecoveryAttempt,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -44,6 +47,9 @@ class BotSnapshot:
     #: `BUG-206` - the state a RECOVERING bot returns to when its reconcile succeeds
     #: (`Bot.lifecycle.recovering_from`); `None` outside RECOVERING.
     recovering_from: BotLifecycleState | None = None
+    #: `EPIC-042G` - the attempts the bot made to recover by itself (`Bot.lifecycle`), which
+    #: `bot show` counts against each rule's window.
+    recovery_attempts: tuple[RecoveryAttempt, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))
@@ -64,4 +70,5 @@ class BotSnapshot:
             progress=progress,
             venue_locked=bot.venue_locked_reason,
             recovering_from=bot.lifecycle.recovering_from,
+            recovery_attempts=bot.lifecycle.recovery_attempts,
         )

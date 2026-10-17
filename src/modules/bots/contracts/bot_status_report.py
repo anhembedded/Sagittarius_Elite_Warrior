@@ -55,6 +55,47 @@ class GetBotStatusReportQuery:
 
 
 @dataclass(frozen=True, slots=True)
+class RecoveryRuleLine:
+    """`EPIC-042G` - one halt reason a bot recovers from by itself, as its effective policy says."""
+
+    code: str
+    dwell_s: int
+    max_attempts: int
+    window_s: int
+    stalled_after_s: int
+    #: The layer whose setting won (`common`, the kind's, the venue's).
+    decided_by: str
+    #: Attempts inside this rule's window, from the bot's record.
+    attempts_used: int
+
+    def payload(self) -> dict[str, JsonValue]:
+        return {
+            "code": self.code,
+            "dwell_s": self.dwell_s,
+            "max_attempts": self.max_attempts,
+            "window_s": self.window_s,
+            "stalled_after_s": self.stalled_after_s,
+            "decided_by": self.decided_by,
+            "attempts_used": self.attempts_used,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BotRecoveryTable:
+    """`EPIC-042G` - what a bot recovers from by itself (ADR 042 D15). Empty `rules` is a bot
+    that recovers nothing, and `none_decided_by` names the layer that said so."""
+
+    rules: tuple[RecoveryRuleLine, ...]
+    none_decided_by: str = ""
+
+    def payload(self) -> dict[str, JsonValue]:
+        return {
+            "rules": [rule.payload() for rule in self.rules],
+            "none_decided_by": self.none_decided_by,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class BotStatusEntry:
     """One readable bot."""
 
@@ -77,6 +118,12 @@ class BotStatusEntry:
     #: the lifecycle table. The host judges a mainnet resume by it *before* the app boots,
     #: when a RUNNING bot on disk is still RUNNING and not yet RECOVERING.
     recovers_on_restart: bool = False
+    #: The words the bot wrote beside `reason` (`EPIC-042D`: that its automatic recoveries are
+    #: used up is said only here); empty when it wrote none.
+    reason_detail: str = ""
+    #: `EPIC-042G` - the bot's effective recovery table; filled for the one-bot read (`bot show`),
+    #: `None` in a listing and for a bot of a kind this build does not know.
+    recovery: BotRecoveryTable | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))
@@ -98,6 +145,8 @@ class BotStatusEntry:
             "health": dict(self.health),
             "resting_orders": self.resting_orders,
             "recovers_on_restart": self.recovers_on_restart,
+            "reason_detail": self.reason_detail,
+            "recovery": None if self.recovery is None else self.recovery.payload(),
         }
 
 

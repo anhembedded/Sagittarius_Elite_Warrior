@@ -17,8 +17,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     RECORDED_STATES_NOTE,
+    BotRecoveryTable,
     BotStatusEntry,
     BotStatusReport,
+    RecoveryRuleLine,
     UnreadableBotEntry,
 )
 
@@ -93,6 +95,33 @@ def _field(label: str, value: str) -> ReportRow:
     return ReportRow((ReportCell(label, 12), ReportCell(value)))
 
 
+def _duration(seconds: int) -> str:
+    for unit, size in (("h", 3600), ("min", 60)):
+        if seconds % size == 0:
+            return f"{seconds // size} {unit}"
+    return f"{seconds} s"
+
+
+def _recovery_rows(table: BotRecoveryTable | None) -> tuple[ReportRow, ...]:
+    """`EPIC-042G`: what the bot recovers from by itself, one row per reason."""
+    if table is None:
+        return ()
+    if not table.rules:
+        layer = f" ({table.none_decided_by} layer)" if table.none_decided_by else ""
+        return (_field("Recovery", f"no automatic recovery{layer}"),)
+    return tuple(_recovery_row(rule) for rule in table.rules)
+
+
+def _recovery_row(rule: RecoveryRuleLine) -> ReportRow:
+    return _field(
+        "Recovery",
+        f"{rule.code}: after {_duration(rule.dwell_s)} clear, "
+        f"{rule.attempts_used} of {rule.max_attempts} used in {_duration(rule.window_s)}, "
+        f"tells you after {_duration(rule.stalled_after_s)} waiting "
+        f"({rule.decided_by} layer)",
+    )
+
+
 def _bot_section(bot: BotStatusEntry) -> ReportSection:
     return ReportSection(
         f"Bot {bot.bot_id}",
@@ -107,6 +136,7 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
                 "Run started",
                 bot.run_started_at.isoformat() if bot.run_started_at else "-",
             ),
+            *_recovery_rows(bot.recovery),
         ),
     )
 

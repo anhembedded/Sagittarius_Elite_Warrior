@@ -39,6 +39,7 @@ step with the code (`commit-rule.md` §1, "Design in step" and "Citing code").
 | The exchange-side protective stop on Futures: placed, kept, cancelled after flat, adopted on restart | **Built** (C2 of four pull requests) | `EPIC-039L` ([`06-runtime.md`](06-runtime.md), [`state-machines.md`](state-machines.md)) |
 | What a halt does with a position under that stop; the Emergency Stop's order; the mainnet gate | Planned | `EPIC-039L` C3, C4 |
 | The state `AWAITING_RECOVERY`, the layered halt-recovery policy and the attempt ledger in the bot record | **Built** | `EPIC-042B` |
-| A Spot Grid halted by a quiet feed or a down user stream waits in `AWAITING_RECOVERY` and recovers by itself through the Resume path | **Built** (the alerts are Planned) | `EPIC-042C` ([`06-runtime.md`](06-runtime.md)) |
-| The recovery and stalled-wait alerts; `run --resume-halted`; `bot show`'s recovery table | Planned | `EPIC-042D`, `EPIC-042E`, `EPIC-042G` |
+| A Spot Grid halted by a quiet feed or a down user stream waits in `AWAITING_RECOVERY` and recovers by itself through the Resume path | **Built** | `EPIC-042C` ([`06-runtime.md`](06-runtime.md)) |
+| The stalled-wait and recovery alerts, the used-up words on the halt alert; `bot show`'s recovery table | **Built** | `EPIC-042C`, `EPIC-042D`, `EPIC-042G` |
+| `run --resume-halted` | Planned | `EPIC-042E` |
 | The kind-neutral backtest result and simulator port; the strategy kind | Planned | `EPIC-040B`, `EPIC-040G` |
