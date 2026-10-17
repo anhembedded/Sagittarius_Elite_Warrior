@@ -2,6 +2,8 @@
 
 **Reader:** the coordinator session (`.claude/skills/coordinate/SKILL.md`), which reads this first and updates it after every merge, hand-off or owner decision. **Last updated:** 2026-10-17.
 
+**Coordinator session:** `session_01PZn6EWxn6gytSGKwbuRJGg`. Authors send "ready to merge" here; a new coordinator replaces this line first.
+
 This file holds state, not rules. Rules live in `.claude/`; decisions live in their records. A line here that a record contradicts is wrong: fix the line.
 
 ## Owner's standing decisions
@@ -19,13 +21,14 @@ This file holds state, not rules. Rules live in `.claude/`; decisions live in th
 
 | Stream | Next step | Author session | Reviewer session | PR | Blocked on |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| EPIC-042 halt auto-recovery | 042C: Grid wiring (director, probe, recovery run, exit re-check, stalled alert); then 042D, 042E, 042G; 042F later | `session_01YZUEpBwUKchEsxe4BfVP3s` | spawned per PR by the author | not yet open | nothing |
-| EPIC-039L protective stop | C3: Emergency Stop order and halt wording; round-1 should-fix items pushed at f237317, re-review requested; commit-lint red on that head | `session_016ToGGUVsE8ESa454e3eb1T` | `session_013qujYEUXXBMxX3baEEzexX` | [#550](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/550) | commit-lint fix, re-review |
-| EPIC-039L C4-lite | Futures mainnet lock removed (O2); gates green on 6219d5b | same | `session_012XC79LLm2DLs5XrUNhAkyQ` | [#551](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/551) | reviewer verdict; merge after #550 (both touch `Docs/MODULES/bots/06-runtime.md`) |
+| EPIC-042 halt auto-recovery | 042C merged ([#552](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/552)). Next: 042D, 042E, 042G per the epic README's Resume; 042F waits for the owner | `session_01YAKL8J6qPJTqRGHSezUTUe` | spawned per PR by the author | not yet open | nothing |
+| EPIC-039L C4-lite | C3 merged ([#550](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/550)). Futures mainnet lock removed (O2); reviewer PASS round 3 at 1956eca; author merging master into the PR | `session_016ToGGUVsE8ESa454e3eb1T` | `session_012XC79LLm2DLs5XrUNhAkyQ` | [#551](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/551) | author's "ready" at the post-merge head |
 
 Deferred: EPIC-039L D10 and D13 (a halt that leaves the position, stop custody).
 
 ## Owner still owes
+
+- O12: the headless host's shutdown policy for a Futures bot. (a) leave the position and its exchange stop standing, or (b) close the position first. Coordinator recommends (a). It becomes its own task once the owner answers.
 
 - Sync the Windows clock. It was 127 s ahead on 2026-10-17. Then Stop and Start the Futures Testnet bot again after pulling BUG-223.
 - Check Binance Testnet for leftover `SEW-djwx0w` orders.

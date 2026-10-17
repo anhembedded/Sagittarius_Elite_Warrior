@@ -116,7 +116,7 @@ def test_a_reconnect_with_nothing_missed_changes_nothing(
         assert resting(app.urls) == orders
 
 
-def test_a_stream_down_too_long_parks_the_ladder_and_a_return_does_not_resume_it(
+def test_a_stream_down_too_long_parks_the_ladder_and_a_return_does_not_resume_it_at_once(
     exchange: FakeExchange,
 ) -> None:
     with booted(exchange) as app:
@@ -126,12 +126,14 @@ def test_a_stream_down_too_long_parks_the_ladder_and_a_return_does_not_resume_it
         _stream_says(app, UserStreamState.RECONNECTING, since_ago=limit + 1)
         _the_watch(app).check()
 
-        assert app.bot(bot_id).state is S.HALTED
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY
         assert app.runtime(bot_id).reason is GridReason.USER_STREAM_DOWN
         assert resting(app.urls) == {}, "the ladder was taken off the exchange"
 
         _stream_says(app, UserStreamState.CONNECTED)
         _the_watch(app).check()
 
-        assert app.bot(bot_id).state is S.HALTED, "the owner resumes, not the stream"
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY, (
+            "the stream's return only starts the dwell; the recovery run resumes the bot"
+        )
         assert resting(app.urls) == {}

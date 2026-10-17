@@ -95,6 +95,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.sle
     SleepWatch,
     SleepWatchDeps,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_status import (
+    UserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.futures_wiring import (
     futures_exposure,
     grid_budgets,
@@ -127,6 +130,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_facts import (
     IVenueFacts,
@@ -166,6 +172,9 @@ _FUTURES_THRESHOLDS = FuturesGridThresholds()
 def bind_executors(container: IContainer) -> None:
     """Lazy factories: `register()` may only bind, never resolve."""
     container.singleton(BotCommandLock, BotCommandLock())
+    streams = UserStreamStatus()
+    container.singleton(UserStreamStatus, streams)
+    container.singleton(IUserStreamStatus, streams)
     container.singleton(IBotRetryScheduler, TimerBotRetryScheduler())
     container.singleton(BotExecutors, _build_executors)
     container.singleton(IBotRunner, _build_runner)
@@ -251,6 +260,7 @@ def grid_executor_deps(
         events=container.resolve(IEventPublisher),
         settings_gate=container.resolve(IVenueSettingsGate),
         budgets=container.resolve(IGridBudgets),
+        user_streams=container.resolve(IUserStreamStatus),
         exposures=_grid_exposures(container),
         risk_watch=risk_watches(
             container.resolve(IVenueTradingPorts),

@@ -43,6 +43,9 @@ KIND_PROFILES = MappingProxyType(
         AlertKind.STOP_FAILED: KindProfile(
             AlertGroup.BOT_EVENTS, _CRITICAL, "Stop failed"
         ),
+        AlertKind.BOT_RECOVERY_STALLED: KindProfile(
+            AlertGroup.BOT_EVENTS, _WARNING, "Bot recovery stalled"
+        ),
         AlertKind.PRICE_FEED_STALE: KindProfile(
             AlertGroup.INFRASTRUCTURE, _CRITICAL, "Price feed stale"
         ),

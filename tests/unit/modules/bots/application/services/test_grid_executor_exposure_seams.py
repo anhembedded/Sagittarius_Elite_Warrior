@@ -294,6 +294,6 @@ def test_a_halt_on_a_venue_that_does_not_close_on_halt_leaves_what_it_holds() ->
 
     world.executor.facts.halt_user_stream_down(timedelta(seconds=130))
 
-    assert world.state() is S.HALTED
+    assert world.state() is S.AWAITING_RECOVERY
     assert closer.closed == []
     assert world.book.open == {}, "the ladder is off, the exposure is the user's"

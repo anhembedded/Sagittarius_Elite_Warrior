@@ -108,7 +108,8 @@ def fault_with(state: BotRunState, what: str, error: Exception) -> None:
 
 
 def halt_with(state: BotRunState, reason: GridReason, detail: str) -> None:
-    _apply(state, BotLifecycleEvent.HALT, reason, detail)
+    """Halt for `reason`; the state decides whether the bot waits to recover (`EPIC-042C`)."""
+    state.halt(reason, detail)
 
 
 def _apply(

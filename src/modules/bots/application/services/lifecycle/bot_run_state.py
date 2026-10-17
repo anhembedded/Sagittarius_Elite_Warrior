@@ -34,6 +34,10 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_runtime_codec import (
     encode_runtime,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.halt_recovery_director import (
+    NO_HALT_RECOVERY,
+    HaltRecoveryDirector,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
@@ -48,6 +52,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
     GridRuntime,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    HaltCode,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
+    RecoveryAttempt,
+    attempts_within,
 )
 
 logger = logging.getLogger("App.Bots.GridExecutor")
@@ -76,9 +87,17 @@ class BotRunState:
     """The bot and its ladder, saved after every change."""
 
     def __init__(
-        self, bot: Bot, runtime: GridRuntime, store: IBotStore, clock: IBotClock
+        self,
+        bot: Bot,
+        runtime: GridRuntime,
+        store: IBotStore,
+        clock: IBotClock,
+        halts: HaltRecoveryDirector = NO_HALT_RECOVERY,
     ) -> None:
+        """@param halts Decides whether a halt is one the bot recovers from by itself
+        (`EPIC-042C`); the default recovers nothing, so a halt is a plain `halt`."""
         self._bot = bot
+        self._halts = halts
         self._runtime = runtime
         self._store = store
         self._clock = clock
@@ -151,6 +170,40 @@ class BotRunState:
             self._bot.state.value,
             event.value,
             f" ({reason.value}: {detail})" if reason is not None else "",
+        )
+
+    def halt(self, reason: GridReason, detail: str) -> None:
+        """Halt the bot for `reason`: `halt_transient` when the effective policy lets it recover
+        by itself and its budget allows (`EPIC-042C`, ADR 042 §2.1), a plain `halt` otherwise."""
+        decision = self._halts.decide(
+            self._bot, HaltCode(reason.value), self._clock.now()
+        )
+        if decision.event is BotLifecycleEvent.HALT_TRANSIENT:
+            logger.info(
+                "Bot %s: %s is transient; the bot waits for it to clear [bot-halt-recovery]",
+                self.bot_id,
+                reason.value,
+            )
+            self.apply_or_record(decision.event, reason, detail)
+            return
+        note = f"; {decision.note}" if decision.note else ""
+        self.apply_or_record(BotLifecycleEvent.HALT, reason, f"{detail}{note}")
+
+    def record_recovery_attempt(self, code: HaltCode) -> None:
+        """Count an automatic recovery as started, and save it before anything is asked of the
+        exchange (ADR 042 D10): a refusal or a crash after this still spent the attempt."""
+        self._bot = self._bot.with_recovery_attempt(
+            RecoveryAttempt(code, self._clock.now()), self._halts.keep_for
+        )
+        self._save()
+
+    def recovery_attempts_used(self, code: HaltCode) -> int:
+        """How many attempts count against `code`'s rule now (every reason's, ADR 042 §2.3)."""
+        rule = self._halts.rule_for(code)
+        if rule is None:
+            return 0
+        return attempts_within(
+            self._bot.lifecycle.recovery_attempts, rule.window, self._clock.now()
         )
 
     def apply_or_record(

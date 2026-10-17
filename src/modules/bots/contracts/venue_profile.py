@@ -46,7 +46,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import
     TradeDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    COMMON_LAYER,
+    EffectivePolicy,
     RecoveryLayer,
+    effective_policy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -150,6 +153,21 @@ def venue_profile_of(venue: TradingVenue) -> VenueProfile | None:
     if market is MarketType.FUTURES_USD_M:
         return _FUTURES
     return None
+
+
+#: The venue layer of a venue that trades no market: nothing recovers by itself there.
+_UNKNOWN_VENUE_RECOVERY = RecoveryLayer("unknown venue", clears_lower_layers=True)
+
+
+def recovery_policy_of(
+    kind_layer: RecoveryLayer, venue: TradingVenue
+) -> EffectivePolicy:
+    """The halt-recovery policy of a bot of a kind with `kind_layer` on `venue` (`EPIC-042C`):
+    the common, kind and venue layers merged (`effective_policy`, ADR 042 §2.3). The one place a
+    bot's policy is resolved; the director, `bot show` and the generated table all read it."""
+    profile = venue_profile_of(venue)
+    venue_layer = profile.recovery_layer if profile else _UNKNOWN_VENUE_RECOVERY
+    return effective_policy(COMMON_LAYER, kind_layer, venue_layer)
 
 
 def title_word_of(venue: TradingVenue) -> str:

@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_ladd
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_run_context import (
     GridRunContext,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_halt_recovery import (
+    GridHaltRecovery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.recovery.grid_reconciler import (
     GridReconciler,
 )
@@ -150,6 +153,8 @@ class GridFactParts:
     mark_exit: GridMarkExit | None = None
     #: A position venue's exchange-side protective stop (`EPIC-039L`); `None` on Spot.
     protection: IExposureProtection | None = None
+    #: The recovery run of a bot waiting in AWAITING_RECOVERY (`EPIC-042C`).
+    halt_recovery: GridHaltRecovery | None = None
 
 
 class GridFacts(IBotFacts):
@@ -183,6 +188,8 @@ class GridFacts(IBotFacts):
         """The price watch's beat: is the feed quiet, and (`EPIC-035F`, on its
         own interval) does the exchange still accept the key."""
         self._post("price age check", self._parts.prices.check_age)
+        if self._parts.halt_recovery is not None:
+            self._post("halt recovery check", self._parts.halt_recovery.check)
         self._post("key probe", self._parts.key_probe.check)
         self._post("terms refresh", self._parts.terms_watch.check)
         if self._parts.mark_exit is not None:

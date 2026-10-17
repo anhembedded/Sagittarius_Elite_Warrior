@@ -189,15 +189,23 @@ class GridResumeSequence:
         if detail != runtime.reason_detail:
             self._context.state.update(runtime.with_reason(runtime.reason, detail))
 
-    def confirm(self, proposal: ResumeProposal) -> None:
+    def confirm(
+        self,
+        proposal: ResumeProposal,
+        event: BotLifecycleEvent = BotLifecycleEvent.RESUME,
+    ) -> None:
         """Lay the confirmed ladder: HALTED → STARTING → RUNNING, unless the
         symbol does not trade (`SymbolStatusGate`) or the market has left the price
-        it was proposed at (`PROPOSAL_PRICE_MOVED`): then it stays HALTED."""
+        it was proposed at (`PROPOSAL_PRICE_MOVED`): then it stays HALTED.
+
+        @param event What moves the bot to STARTING: the person's `resume`, or
+        `condition_cleared` when the recovery run confirms (`EPIC-042C`). Both lead to STARTING,
+        so the ladder that follows is the same; the event is what the log and the table say."""
         if not self._storage.admits_relaunch():
             return
         if not self._status.admits() or self._moved_since(proposal):
             return
-        self._context.state.transition(BotLifecycleEvent.RESUME)
+        self._context.state.transition(event)
         self._start.place_ladder(proposal.plan, proposal.inventory)
 
     def _moved_since(self, proposal: ResumeProposal) -> bool:

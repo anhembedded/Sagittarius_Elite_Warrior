@@ -78,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IO
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
+    BotRecoveryStalledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
@@ -149,6 +152,7 @@ class AlertingModule(BoundedContextModule):
         bus = context.event_bus
         bus.on(BotChangedEvent, source.on_bot_changed)
         bus.on(BotStopGaveUpEvent, source.on_stop_gave_up)
+        bus.on(BotRecoveryStalledEvent, source.on_recovery_stalled)
         source.seed()
 
     def shutdown(self, context: IEngineContext) -> None:

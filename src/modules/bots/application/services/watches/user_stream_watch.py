@@ -44,6 +44,9 @@ from datetime import datetime, timedelta
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_executors import (
     BotExecutors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.watches.user_stream_status import (
+    UserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
     IBotRetryScheduler,
@@ -88,11 +91,14 @@ class UserStreamWatch:
         clock: IBotClock,
         retries: IBotRetryScheduler,
         limits: UserStreamLimits = DEFAULT_USER_STREAM_LIMITS,
+        status: UserStreamStatus | None = None,
     ) -> None:
         self._executors = executors
         self._clock = clock
         self._retries = retries
         self._limits = limits
+        #: What the stream last said, for the bots' recovery probe (`EPIC-042C`).
+        self._status = status if status is not None else UserStreamStatus()
         self._lock = threading.Lock()
         #: Venue -> when its current outage began.
         self._down_since: dict[TradingVenue, datetime] = {}
@@ -113,6 +119,7 @@ class UserStreamWatch:
     def on_health(self, event: UserStreamHealthEvent) -> None:
         """Runs on the stream's thread: records, posts to the executors, returns."""
         venue = event.venue
+        self._status.record(event)
         with self._lock:
             if event.state is UserStreamState.CONNECTED:
                 self._down_since.pop(venue, None)

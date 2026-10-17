@@ -19,6 +19,8 @@ class AlertKind(Enum):
     KEY_REJECTED = "key_rejected"
     STORAGE_FAILURE = "storage_failure"
     STOP_FAILED = "stop_failed"
+    #: A bot waiting in AWAITING_RECOVERY has waited longer than it should expect to (`EPIC-042`).
+    BOT_RECOVERY_STALLED = "bot_recovery_stalled"
     RATE_LIMITED = "rate_limited"
     RANGE_EXIT = "range_exit"
     APP_FAILURE = "app_failure"
