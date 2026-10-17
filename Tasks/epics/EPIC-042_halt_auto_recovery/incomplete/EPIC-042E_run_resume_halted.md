@@ -14,6 +14,7 @@
 
 ## 2. Acceptance criteria
 - [ ] `--resume-halted` is declared in `cli_commands.json` and read into `RunOptions.resume_halted`; with neither it nor `--resume-recovering` the host does what it does now.
+- [ ] `ResumeBotCommandHandler.execute` and `IBotRunner` treat `AWAITING_RECOVERY` as `HALTED`: the mainnet real-money confirmation and the readiness check apply, and the order session is reopened (`_RESUMES_AFTER_A_CLOSED_SESSION`); `GridExecutor._run_resume` and `_run_confirm` accept the state. A test resumes a waiting mainnet-venue bot without the confirmation and expects the refusal.
 - [ ] A host step resumes every bot in `HALTED` or `AWAITING_RECOVERY` (no other state) through `ResumeBotCommand` then `ConfirmBotResumeCommand`, so the ladder is the GUI's.
 - [ ] A mainnet venue is resumed only when `--confirm-venue` names it; otherwise the bots are skipped, said so, and stay as they are.
 - [ ] Refused when no alert channel is configured (the existing "nobody watching" check), with the flag named in the sentence.

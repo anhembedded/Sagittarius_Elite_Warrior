@@ -96,7 +96,6 @@ left), `condition_cleared` (the cause was clear for the dwell; the attempt runs 
 | :--- | :--- | :--- |
 | `STARTING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `RUNNING` | `halt_transient` | `AWAITING_RECOVERY` |
-| `RECOVERING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
 | `AWAITING_RECOVERY` | `resume` | `STARTING` |
 | `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
@@ -107,7 +106,7 @@ left), `condition_cleared` (the cause was clear for the dwell; the attempt runs 
 | `AWAITING_RECOVERY` | `fault` | `ERROR` |
 | `AWAITING_RECOVERY` | `app_restart` | `HALTED` |
 
-`PAUSED` has no `halt_transient` row: the owner's Pause is never undone by a machine. The state is not
+`PAUSED` and `RECOVERING` have no `halt_transient` row: the owner's Pause is never undone by a machine, and a restart's wait is not a transient halt. The state is not
 `RECOVERING` (a restart's reconcile wait, [vocabulary](../../VOCABULARY/README.md)). The step by step is
 [`06-runtime.md`](06-runtime.md).
 

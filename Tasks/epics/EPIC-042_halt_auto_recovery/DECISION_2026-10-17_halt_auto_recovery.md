@@ -35,12 +35,12 @@ A Spot mainnet Grid on the headless VPS host halted on 2026-10-17 with `price_fe
 | :-- | :--- | :--- | :--- | :--- |
 | D1 | **Automatic recovery after a transient halt.** The cause must stay clear for a **dwell of 120 s, continuously**; then the bot resumes through the **same propose-and-confirm path a person's Resume uses**. If that path finds the stop loss or take profit crossed, the bot ends as that path already decides (Stop, *sell base* forced); it never continues blindly. **At most 3 automatic recoveries per rolling 24 h.** When they are used up the bot stays `HALTED` for a person. Each automatic recovery and the exhaustion raise an alert through the existing alerting module. | 🟢 Accepted | Owner, 2026-10-17 | The owner's incident heals in about three minutes without a person; a feed that keeps failing costs three tries and then pages the owner. |
 | D2 | **`run --resume-halted`**, mirroring `--resume-recovering`: the owner resumes `HALTED` bots on the host. | 🟢 Accepted | Owner, 2026-10-17 | The headless host gets the missing person's Resume. Shape in D13. |
-| D3 | **A real state, `AWAITING_RECOVERY`**, in the lifecycle table with its own events and transitions, never an `if` on `HALTED`. Named here and in `Docs/VOCABULARY` (D14). | 🟢 Accepted (name 🤖) | Owner; name: author | Every consumer of the state (UI, status report, alerts, restart rule, exit watch) answers for it through the table, so none can forget it. |
+| D3 | **A real state, `AWAITING_RECOVERY`**, in the lifecycle table with its own events and transitions, never an `if` on `HALTED`. Named here and in `Docs/VOCABULARY` (D14). | 🟢 Accepted (name 🤖) | Owner; name: author | The table answers for the enable-rules and the state sets derived from it; the hand-written sets that name a state are listed in §2.4 and held by a guard that every set classifies every state. |
 | D4 | **A general mechanism in the bots module's shared lifecycle/application layer, behind a seam.** Which halt reasons are transient, with what dwell and budget, is **plain data composed from three layers** (D15): common, kind, venue. A probe per reason says whether it has cleared (`IHaltConditionProbe`). The attempt history is **persisted in the bot record** (`BotLifecycle.recovery_attempts`), so a restart keeps the 24 h budget. | 🟢 Accepted (shapes 🤖) | Owner; shapes: author | A second kind, venue or reason is one entry in one layer; the table, the director and the persistence do not change (§5). |
-| D5 | **Spot keeps the common set, with `price_feed_stale` and `user_stream_down`; Futures removes every reason for now**: its halt closes the position and `EPIC-039L` governs it. In the layers this is one line, the Futures venue layer's `clears_lower_layers`. | 🟢 Accepted | Owner, 2026-10-17 | No Futures file changes beyond that one declaration; opening Futures later deletes that line. A test locks that a Futures venue resolves no rule. |
+| D5 | **Spot keeps the common set, with `price_feed_stale` and `user_stream_down`** (the owner's list, relayed 2026-10-17: *"Common layer: reasons any bot shares (price_feed_stale, user_stream_down, and others you find)"*; the safety argument and the test it needs are in §2.3 and `EPIC-042C`); Futures removes every reason for now**: its halt closes the position and `EPIC-039L` governs it. In the layers this is one line, the Futures venue layer's `clears_lower_layers`. | 🟢 Accepted | Owner, 2026-10-17 | No Futures file changes beyond that one declaration; opening Futures later deletes that line. A test locks that a Futures venue resolves no rule. |
 | D6 | **The grid rate-limit auto-resume is not migrated in this epic.** Follow-up [`EPIC-042F`](incomplete/EPIC-042F_migrate_rate_limit_resume.md). Reasons in §3. | 🟢 Accepted (follow-up) | Owner asked to record it; author judged it not trivial | `GridRateLimitPause` keeps its own counter and timer until then; the two compose (an attempt that meets a limit lands in `HALTED` with `RATE_LIMITED`, and the pause resumes it). |
 | D7 | **Events and transitions are the table of §2.1.** Four new events (`halt_transient`, `condition_cleared`, `budget_exhausted`, `wait_expired`), one new state. A person's `resume` is also declared from the new state, so the owner can end the wait. | 🤖 Agent | Author | One screen of new rows in `bot_lifecycle_fsm_matrix.py`; the generated tables follow. |
-| D8 | **Only `RUNNING`, `STARTING` and `RECOVERING` (whose prior state is `RUNNING`) halt transiently. A `PAUSED` bot, and a `RECOVERING` bot that came from `PAUSED`, halt plainly.** The owner's Pause is an intent to not trade; an automatic recovery would undo it. The choice between `halt` and `halt_transient` is made in one place (`HaltRecoveryDirector`), not in the table: the table has no `PAUSED` + `halt_transient` cell, so the wrong event is refused even if a caller asks. | 🤖 Agent | Author | Tested by the table (no cell) and by the director (the event it picks for each state). |
+| D8 | **Only `RUNNING` and `STARTING` halt transiently. A `PAUSED` bot halts plainly, and so does a `RECOVERING` one.** The owner's Pause is an intent to not trade; an automatic recovery would undo it. A `RECOVERING` bot exists because a restart closed the order session, which refuses the budget registration a proposal makes: three attempts would be spent in minutes on a refusal, and the reconcile would be skipped (D9's reasoning, applied consistently). The choice between `halt` and `halt_transient` is made in one place (`HaltRecoveryDirector`), not in the table: the table has no `PAUSED` + `halt_transient` cell, so the wrong event is refused even if a caller asks. | 🤖 Agent | Author | Tested by the table (no cell) and by the director (the event it picks for each state). |
 | D9 | **A restart answers `AWAITING_RECOVERY` with `HALTED`** (`app_restart` row), keeping the reason and the persisted attempt ledger. A restart is not a person's confirmation (ADR 029 D12: nothing at start places an order), the dwell is measured on one process's clock and a venue's order session is closed after a restart, so the resume path could not run. The owner then uses `run --resume-halted` or the GUI. Alternative (stay and wait out a fresh dwell) is in §3. | 🤖 Agent, **owner may veto** (it changes one table row) | Author | A VPS unit restart during a feed outage parks the bot as it does today; nothing places an order on its own. |
 | D10 | **An attempt is counted when it starts (the dwell has elapsed), not when it succeeds.** The entry is saved before `propose` runs. A failed attempt (the proposal refused, the price moved, the symbol not trading) costs budget, so a flapping market ends at three tries. | 🤖 Agent | Author | The ledger cannot be under-counted by a crash between `propose` and `confirm`; the cost is that a refused attempt spends one of the three. |
 | D11 | **A wait limit: `max_wait` (15 min for `price_feed_stale`).** A bot still in `AWAITING_RECOVERY` after it → `wait_expired` → `HALTED`, which raises the existing `BOT_HALTED` alert. Without it a feed that never returns leaves a real-money bot silent (no entry into `HALTED`, so no alert) while its stop loss is unwatched. | 🤖 Agent (a gap in the owner's rule), **owner may veto** | Author | One constant per rule. The owner's three-per-24 h budget is unchanged. |
@@ -51,7 +51,7 @@ A Spot mainnet Grid on the headless VPS host halted on 2026-10-17 with `price_fe
 
 ### 2.1 The new state, its events and its transitions
 
-**One state:** `AWAITING_RECOVERY` — halted by a cause the kind named transient, orders off the exchange, base kept, exits watched, waiting for the cause to stay clear for the dwell.
+**One state:** `AWAITING_RECOVERY` — halted by a cause the effective policy named transient, ladder taken off the exchange **on entry** (it joins `GridTaskGuard._PARKED`, which parks on entering a state of the set; `_NOT_PARKED` reasons, which send no cancel, keep their meaning there), base kept, exits watched, waiting for the cause to stay clear for the dwell. Without that entry in `_PARKED` the ladder would rest on the exchange through the wait: the table alone does not park.
 
 **Four events**
 
@@ -62,13 +62,12 @@ A Spot mainnet Grid on the headless VPS host halted on 2026-10-17 with `price_fe
 | `budget_exhausted` | An attempt did not return the bot to `STARTING` and the rolling budget is spent. |
 | `wait_expired` | `max_wait` elapsed in the state. |
 
-**Rows added to `BOT_LIFECYCLE_TRANSITIONS`** (nothing else in the table changes except what D9 states):
+**Rows added to `BOT_LIFECYCLE_TRANSITIONS`** (eleven) (nothing else in the table changes except what D9 states):
 
 | From | Event | To |
 | :--- | :--- | :--- |
 | `STARTING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `RUNNING` | `halt_transient` | `AWAITING_RECOVERY` |
-| `RECOVERING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
 | `AWAITING_RECOVERY` | `resume` (the person's) | `STARTING` |
 | `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
@@ -79,7 +78,7 @@ A Spot mainnet Grid on the headless VPS host halted on 2026-10-17 with `price_fe
 | `AWAITING_RECOVERY` | `fault` | `ERROR` |
 | `AWAITING_RECOVERY` | `app_restart` | `HALTED` (D9) |
 
-`PAUSED` has no `halt_transient` cell (D8). Every pair not listed is refused, like every other pair of the table.
+`PAUSED` and `RECOVERING` have no `halt_transient` cell (D8). Every pair not listed is refused, like every other pair of the table.
 
 ```mermaid
 stateDiagram-v2
@@ -94,9 +93,19 @@ stateDiagram-v2
     HALTED --> STARTING : resume (a person, or run --resume-halted)
 ```
 
-**Who decides `halt` or `halt_transient`.** `HaltRecoveryDirector` (shared, `bots/application/services/lifecycle/`) is asked by `BotRunState.halt` with the reason's code. It returns `halt_transient` only when the bot's state is one of D8's, the effective policy (§2.3) has a rule for the code, and the bot's ledger holds fewer attempts than the rule allows inside its window (all codes counted: the owner's three per 24 h is per bot); otherwise `halt`, and when the refusal is the spent budget it writes the exhaustion into the reason detail so the `BOT_HALTED` alert says so.
+**Who decides `halt` or `halt_transient`.** `HaltRecoveryDirector` (shared, `bots/application/services/lifecycle/`) is asked by `BotRunState.halt` (new: today a halt is `halt_with` → `apply_or_record`, which `halt` replaces for a reason with a code) with the reason's code. It returns `halt_transient` only when the bot's state is `RUNNING` or `STARTING` (D8), the effective policy (§2.3) has a rule for the code, and the bot's ledger holds fewer attempts than the rule allows inside its window (all codes counted: the owner's three per 24 h is per bot); otherwise `halt`, and when the refusal is the spent budget it writes the exhaustion into the reason detail so the `BOT_HALTED` alert says so.
 
-**The recovery run** (a task on the bot's worker, on the price watch's beat): while the bot is in the state, the beat asks the kind's `IHaltConditionProbe` whether the code is clear. A clear sample starts, and a not-clear sample resets, the *clear since* mark; when `now − clear since ≥ dwell` the beat (1) saves the attempt in the ledger, (2) re-checks the exits on a fresh price (D12), (3) runs `GridResumeSequence.propose` then `confirm` with `condition_cleared`, and (4) publishes `BotAutoRecoveredEvent`. When `confirm` did not leave the state (a refused proposal) the director applies `budget_exhausted` if the budget is spent, else the *clear since* mark restarts. The wait is bounded by `wait_expired`.
+**The recovery run** (a task on the bot's worker, on the price watch's beat; skipped while a person's resume proposal is held): while the bot is in the state, the beat asks the probe whether the code is clear. A clear sample starts, and a not-clear sample resets, the *clear since* mark; when `now − clear since ≥ dwell` the run (1) saves the attempt in the ledger, (2) re-checks the exits on a fresh price (D12), (3) runs `GridResumeSequence.propose` then `confirm` with `condition_cleared`, and (4) publishes `BotAutoRecoveredEvent` once `confirm` has left the state. **Where a refusal lands** (D10 spends the attempt in every case):
+
+| The attempt meets | Lands | By |
+| :--- | :--- | :--- |
+| a price that moved past `RESUME_PRICE_TOLERANCE`, a price that could not be read (`PROPOSAL_PRICE_MOVED`), a rate limit, a rejected key, a refused order | `HALTED`, with that reason | `halt` (a new cause is a person's) |
+| `propose` returning `None` without a halt (storage cannot write, the budget refused, a cancel that failed without a halt), or `confirm` declining (symbol not trading) | stays `AWAITING_RECOVERY`; the *clear since* mark restarts | nothing |
+| the above, with the rolling budget now spent | `HALTED` | `budget_exhausted` |
+
+The wait is bounded by `wait_expired`. A person's Resume while waiting ends the wait (`resume`) and is never counted; the automatic run does not start while a person's proposal is held, and a person's confirm after an attempt has already run is refused as today (no proposal held).
+
+**Probe.** *Clear* means: a tick has been heard **since the halt** and the last tick is younger than `RECOVERY_TICK_MAX_AGE_SECONDS` (15 s: three beats of the 5 s price watch, where a live Spot ticker ticks about once a second; a feed of two ticks a minute is not "healthy for 120 s"). The probe reads the last tick's time directly. It never calls `GridPriceAge.stale_detail`, which returns "not stale" for a grace period after every `arm()`, and `check_age` arms the age on every beat outside `PRICE_STALENESS_HALTS`: a probe written on it would call a dead feed clear. A feed silent since the halt never clears (a test, `EPIC-042C`). `user_stream_down` is clear when the user-data stream is connected and has been for the same continuous sampling.
 
 ### 2.2 The seam
 
@@ -144,7 +153,23 @@ Composition of plain frozen data, never inheritance. Two axes beyond the common 
 | Integrity | `inventory_mismatch`, `holding_below_inventory`, `order_quantity_mismatch`, `duplicate_level_order`, `unknown_tagged_order`, `foreign_fill`, `position_*`, `settings_drift`, `liquidation_risk`, `key_rejected`, `exchange_terms_changed`, `symbol_delisted` | Never: a person must look at what disagreed |
 | Owner intent and the attempt's own refusals | `switch_off`, `user_stop`, `proposal_price_moved`, `start_refused`, `order_*`, `level_keeps_ending`, `exit_slice_failed` | Never: an attempt that meets one of these ends in `HALTED` |
 
-**Persistence.** `BotLifecycle` gains `recovery_attempts` (default empty, so every constructor stays valid); `bot_record_codec.py` writes it inside `lifecycle` as a list of `{code, at}` and reads a missing key as empty, so a file written before this change loads and `schema_version` stays 1. Entries older than the longest effective window are dropped on every write, and the list is capped, so the file does not grow. A file written by this build and read by an older one is the rollback case; `EPIC-042B` records how the older reader treats the unknown key before the key ships.
+**Persistence.** `BotLifecycle` gains `recovery_attempts` (default empty, so every constructor stays valid); `bot_record_codec.py` writes it inside `lifecycle` as a list of `{code, at}` and reads a missing key as empty, so a file written before this change loads and `schema_version` stays 1. Entries older than the longest effective window are dropped on every write, and the list is capped, so the file does not grow. A file written by this build and read by an older one is the rollback case, in two parts: the unknown key (`EPIC-042B` records how the older reader treats it before it ships) and the unknown state value, which the strict decoder refuses: the file is *reported* as unreadable and left untouched, never dropped (`RefusedBotFile`), and the host's pre-flight fails on it. So a downgrade first resumes or stops every bot in `AWAITING_RECOVERY`; `07-deployment.md` says so when the state is built.
+
+### 2.4 Every place that names a state (found by the review of this design)
+
+The table makes the enable-rules, `PRICE_STREAM_STATES`, `restarts_into_recovering`, `GridStopper.run`, `running_bots_objection._AT_REST` and `bot_status_report.AT_REST_STATES` answer for the new state by themselves. **Hand-written state sets do not**; each is named here and in the task that changes it, with a test that fails if the state is missing (a guard over `BotLifecycleState`: every set must classify every state, `EPIC-042B`).
+
+| Consumer (`bots/` path → symbol) | Today | Must do for `AWAITING_RECOVERY` | Task |
+| :--- | :--- | :--- | :--- |
+| `application/kinds/grid/grid_task_guard.py` → `_PARKED` | `HALTED`, `ERROR` | **add it**: the ladder comes off on entry | 042C |
+| `.../grid_task_guard.py` → `_NOT_PARKED` | reasons that send no cancel | keep; the recoverable reasons are not in it | 042C |
+| `.../grid_executor.py` → `GridExecutor._run_resume`, `_run_confirm` | `HALTED` only | accept it: a person's Resume and the host's confirm must work in the state | 042C |
+| `application/use_cases/resume_bot/handler.py` → `ResumeBotCommandHandler.execute` (`halted`, `reopens_session`) | `HALTED`, `RECOVERING` | treat it as `HALTED`: **the real-money confirmation and the readiness check apply to a mainnet resume from the state** | 042E |
+| `application/services/lifecycle/bot_runner.py` → `_RESUMES_AFTER_A_CLOSED_SESSION` | `HALTED`, `RECOVERING` | include it | 042E |
+| `.../kinds/grid/grid_facts.py` → `GridFacts._apply_switch` | `switch_off` in `STARTING`, `RUNNING`, `PAUSED` | include it: an Emergency Stop must move the waiting bot to `HALTED` before any attempt | 042C |
+| `.../kinds/grid/watch/grid_price_reaction.py` → `_WATCHES_EXITS`; `grid_rate_limit_pause.py` → `_HALTED_BY_A_LIMIT` | named states | include it | 042C |
+| `application/services/lifecycle/bot_run_state.py` → `landing_level`; `bots_health_contributor.py`; `ui/bots_screen/bots_table_models.py` → `_ATTENTION_STATES`; `ui/bots_screen/bot_facts.py` → `_RUNNING_CLOCK`; `bot_action_rules.py`, `queued_action_words.py`, `bot_detail.py` | name `HALTED` | WARNING landing; counted and flagged as attention in the health snapshot and the table; the run clock keeps running (same run); Confirm and its words | 042B |
+| `alerting/.../bot_alert_source.py` → `ALERT_ON_ENTRY`, `CLEARED_ON_ENTRY` | `HALTED`, `ERROR`; `RUNNING` clears | the entry is deliberately silent (D11); the recovery has its own event | 042D |
 
 ## 3. Alternatives considered
 
@@ -164,7 +189,7 @@ Composition of plain frozen data, never inheritance. Two axes beyond the common 
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
 | O1 | D9: should a restart during `AWAITING_RECOVERY` end in `HALTED` (recommended) or keep waiting? | `EPIC-042B` (one row) | 2026-10-17, in the design pull request |
-| O2 | D11: is 15 min the right `max_wait`, and is a wait limit wanted at all? | `EPIC-042C` (one constant) | 2026-10-17, in the design pull request |
+| O2 | D11: the wait limit makes a 20-minute outage a manual case, which D1 meant to prevent; without a limit the wait is silent (`ALERT_ON_ENTRY` carries `HALTED`/`ERROR` only). Options: (a) `wait_expired` → `HALTED` after 15 min (as drawn); (b) **recommended**: keep waiting, and raise a WARNING alert when `max_wait` passes (the bot is exactly as exposed as a `HALTED` one, so nothing is lost by waiting, and the owner is told); (c) an alert on entering the state. (b) deletes the `wait_expired` row and adds one alert kind. Which? | `EPIC-042C`/`042D` | 2026-10-17, in the design pull request |
 | O3 | The coordinating session's `EPIC-039L` C3 changes the halt policy and the Emergency Stop order. If C3 changes how a Spot or Futures `halt` is applied, `EPIC-042C` rebases onto it; `AWAITING_RECOVERY` never takes part in a Futures halt (D5). | `EPIC-042C` | 2026-10-17 |
 
 ## 5. Implementation evidence

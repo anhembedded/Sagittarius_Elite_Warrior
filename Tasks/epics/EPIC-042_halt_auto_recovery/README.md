@@ -23,7 +23,7 @@
 | A Spot Grid halted by a feed gap that then cleared | stays `HALTED` until a person acts | back to `RUNNING` after 120 s of healthy feed, with a fresh ladder, with no person |
 | Automatic recoveries of one bot in 24 h | not applicable | at most 3, across restarts; the 4th halt stays `HALTED` and alerts |
 | A `HALTED` bot on the headless host | cannot be resumed | `run --resume-halted [--confirm-venue v]` resumes it through the GUI's path |
-| States that answer the new condition | 0 | 1 declared state, 4 events, 12 table rows, in `bot_lifecycle_fsm_matrix.py` and the generated tables |
+| States that answer the new condition | 0 | 1 declared state, 4 events, 11 table rows, in `bot_lifecycle_fsm_matrix.py` and the generated tables |
 | Futures files changed | not applicable | 0 behaviour changes; a test locks that a Futures venue resolves no rule |
 
 ## 3. Sub-tasks, ordered by risk
