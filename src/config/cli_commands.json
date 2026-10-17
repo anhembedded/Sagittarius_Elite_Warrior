@@ -298,6 +298,7 @@
       ]
     },
     "status": {
+      "modules": ["operations"],
       "help": "Say whether a host is running and what it holds. Exit 0 running, 10 not running, 11 running but unhealthy",
       "read_only": true,
       "args": [
@@ -331,6 +332,7 @@
         "required": true,
         "commands": {
           "test": {
+            "modules": ["alerting"],
             "help": "Send one test message to every configured alert channel and say what each answered; writes nothing, so it runs beside a running host",
             "read_only": true,
             "args": [
@@ -356,6 +358,7 @@
         "required": true,
         "commands": {
           "list": {
+            "modules": ["bots"],
             "help": "List every bot, and any bot file this build cannot read",
             "read_only": true,
             "args": [
@@ -372,6 +375,7 @@
             ]
           },
           "show": {
+            "modules": ["bots"],
             "help": "Show one bot. With --params also print every parameter the bot stores (key and value, sorted by key, exactly as stored: the keys bot edit --set changes); the JSON always carries them under parameters. Reads the bot's file, so it works on the read-only copy beside a running host",
             "read_only": true,
             "args": [
@@ -398,6 +402,7 @@
             ]
           },
           "order": {
+            "modules": ["bots"],
             "help": "Show the orders one bot's file records (not read from the exchange): level, side, price, quantity, executed, state, client order id",
             "read_only": true,
             "args": [
@@ -451,6 +456,7 @@
             ]
           },
           "export": {
+            "modules": ["bots"],
             "help": "Write a plan file from the stored bots (never overwrites a file); apply --dry-run of it then reports no changes",
             "read_only": true,
             "args": [
@@ -483,6 +489,7 @@
             ]
           },
           "stop": {
+            "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. A Spot bot keeps the coin it holds; a Futures bot is stopped only with --close-position, which closes its position at market (a position is never kept). If the venue's order session is closed (an Emergency Stop or a restart closes it) the host opens it first, as Start and Resume do; on a mainnet venue that needs --confirm-venue. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
@@ -524,6 +531,7 @@
             ]
           },
           "pause": {
+            "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to pause one bot: it places no orders, its resting orders stay. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
@@ -551,6 +559,7 @@
             ]
           },
           "resume": {
+            "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to resume one PAUSED or RECOVERING bot, as the Bots tab's Resume does. A HALTED bot is refused (its resume proposes a ladder a person must read): use run --resume-halted or the Bots tab. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
@@ -587,6 +596,7 @@
             ]
           },
           "start": {
+            "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use run --resume-halted or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
@@ -623,6 +633,7 @@
             ]
           },
           "edit": {
+            "modules": ["bots", "operations"],
             "help": "Ask the running host (main.py run) to change the parameters of ONE DRAFT or STOPPED bot, as the Bots tab's Save does, while the other bots keep trading: bot edit <id> --set lower=81000 --set upper=90000. The same checks refuse an unknown parameter or an unreadable value in words and change nothing; any other state (RUNNING, PAUSED, HALTED, ...) is refused. Read the current values first with bot show <id> --params. The reply shows each change as old -> new. The bot lands on DRAFT; it places no order and needs no --confirm-venue, and is started by bot start, whose guard is unchanged. The plan file is yours and is NOT updated: change the same value in it too, or the next bot apply of the old plan edits the bot back. Exit 2 when the bot or the values are refused, 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [

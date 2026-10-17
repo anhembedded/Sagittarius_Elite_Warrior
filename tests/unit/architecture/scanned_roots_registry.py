@@ -53,6 +53,11 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    # `PRO-014` - every `Deferred("package.module:attribute")` in `src/` resolves.
+    (
+        "tests/unit/architecture/test_every_deferred_literal_resolves.py",
+        (("src", "*.py"),),
+    ),
     # `EPIC-035H` — only the two entry points take the data root's instance lock.
     (
         "tests/unit/architecture/test_only_the_entry_points_take_the_instance_lock.py",

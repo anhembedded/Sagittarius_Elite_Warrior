@@ -38,22 +38,53 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
-from Sagittarius_Elite_Warrior.src.modules.alerting.module import AlertingModule
-from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
-from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
-from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
-from Sagittarius_Elite_Warrior.src.modules.operations.module import OperationsModule
-from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
-from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 
-MODULES: tuple[type[BoundedContextModule], ...] = (
-    MarketDataModule,
-    TradingModule,
-    StrategyModule,
-    BacktestingModule,
-    BotsModule,
-    AlertingModule,
-    OperationsModule,
+_MODULES_PACKAGE = "Sagittarius_Elite_Warrior.src.modules"
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleEntry:
+    """One bounded context in the list: its id and the import path of its class.
+
+    The class is named, not imported, so that the list costs nothing to read and a
+    run that needs two contexts imports two (`PRO-014`). `module_id` repeats
+    `BoundedContextModule.module_id` because a command's `modules` declaration is
+    matched against it before anything is imported; `test_module_declarations`
+    checks the two agree. A module's `module.py` is where `shell/` may import it
+    from, so the path is always `<module_id>.module:<Class>`.
+    """
+
+    module_id: str
+    class_name: str
+
+    @property
+    def _target(self) -> Deferred[BoundedContextModule]:
+        return Deferred(f"{_MODULES_PACKAGE}.{self.module_id}.module:{self.class_name}")
+
+    def load(self) -> type[BoundedContextModule]:
+        """Imports the module's `module.py` and returns the class."""
+        module_class = self._target.resolve()
+        if not (
+            isinstance(module_class, type)
+            and issubclass(module_class, BoundedContextModule)
+        ):
+            raise TypeError(f"{self._target.target} is not a BoundedContextModule")
+        return module_class
+
+    def __call__(self) -> BoundedContextModule:
+        """A new instance, so an entry is what `register_modules` instantiates."""
+        return self.load()()
+
+
+MODULES: tuple[ModuleEntry, ...] = (
+    ModuleEntry("market_data", "MarketDataModule"),
+    ModuleEntry("trading", "TradingModule"),
+    ModuleEntry("strategy", "StrategyModule"),
+    ModuleEntry("backtesting", "BacktestingModule"),
+    ModuleEntry("bots", "BotsModule"),
+    ModuleEntry("alerting", "AlertingModule"),
+    ModuleEntry("operations", "OperationsModule"),
 )
 
 

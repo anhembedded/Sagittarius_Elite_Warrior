@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_report_printer import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import BOT_VERBS
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.lazy_host_control import (
+    LazyHostControl,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store import (
     IAppliedPlanStore,
 )
@@ -56,6 +59,6 @@ class BotCliHandler(ICliCommandHandler):
                 kinds=container.resolve(IBotKindCatalog),
                 plans=container.resolve(IAppliedPlanStore),
                 instance=container.resolve(IInstanceAccess),
-                host_control=container.resolve(IHostControl),
+                host_control=LazyHostControl(lambda: container.resolve(IHostControl)),
             ),
         )

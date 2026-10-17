@@ -387,7 +387,7 @@ class TradingModule(BoundedContextModule):
         stream (`EnsureSessionReadyCommandHandler` refuses it first).
         """
         contexts = context.container.resolve(IVenueContexts)
-        for venue in contexts.enabled():
+        for venue in contexts.built():
             try:
                 contexts.get(venue).user_data_stream.stop()
             except Exception as exc:  # noqa: BLE001 — see the docstring

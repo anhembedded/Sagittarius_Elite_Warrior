@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.funding_
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.kline_refusal import (
     reraise_as_refusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.klines_type import (
+    klines_type_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,
@@ -33,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    klines_type_for,
 )
 
 logger = logging.getLogger("App.ExchangeClient")

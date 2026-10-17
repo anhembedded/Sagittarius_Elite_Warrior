@@ -7,6 +7,7 @@ The guarantees a caller relies on when it acts on one venue:
   `DISABLED`;
 - a venue that is not served is refused with `VenueNotEnabledError`, never
   answered with another venue's ports;
+- `built()` lists enabled venues only, and holds every venue whose context was asked for;
 - `primary()` is the first enabled venue's context; with nothing enabled it
   is `DISABLED`'s, and only then does `get(DISABLED)` answer.
 
@@ -85,3 +86,11 @@ class VenueContextsContract:
         assert impl_off.get(TradingVenue.DISABLED) is impl_off.primary()
         with pytest.raises(VenueNotEnabledError):
             impl_off.get(_SPOT)
+
+    def test_built_holds_every_venue_asked_for_and_only_enabled_ones(
+        self, impl: IVenueContexts
+    ) -> None:
+        impl.get(_SPOT)
+
+        assert _SPOT in impl.built()
+        assert set(impl.built()) <= set(impl.enabled())

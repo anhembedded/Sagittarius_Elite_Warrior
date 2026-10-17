@@ -3,7 +3,7 @@
 Capability: Add a chart indicator script (EMA 20/50/100/200, cross, ribbon, MACD, RSI 14 exist; copy one)
     Also: custom indicator, BaseIndicatorScript, overlay script
     Use: EmaCrossScript
-    User: src/shell/composition_root.py
+    User: src/shell/indicator_scripts.py
     Status: stable
 """
 

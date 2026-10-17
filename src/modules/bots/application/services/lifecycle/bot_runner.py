@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
-    GridExecutor,
-)
+from typing import TYPE_CHECKING
+
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.start.grid_start_preconditions import (
     GridStartPreconditions,
 )
@@ -35,6 +34,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleState,
     InvalidBotTransitionError,
 )
+
+if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
+        GridExecutor,
+    )
 
 #: The states whose Resume opens the venue's order session first (`BUG-202`, `BUG-204`):
 #: those that propose a ladder (`RESUME_PROPOSES_STATES`) register a budget a closed session
