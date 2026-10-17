@@ -52,5 +52,13 @@
 - A halt reason other than `price_feed_stale` becoming recoverable: each is one rule and one probe, added with its own evidence.
 - Any change to the order session's rule that nothing automatic opens it (`06-runtime.md`): a recovery runs only while the session is open, which a restart closes (D9).
 
+## Resume (for the session that takes 042D, 042E and 042G)
+- **State:** 042A, 042B and 042C are in `completed/` (042C is PR #552; check it is merged). The mechanism is built: `AWAITING_RECOVERY`, the layered policy, the ledger, `HaltRecoveryDirector`, `GridHaltRecovery`, `GridHaltProbe`, `IUserStreamStatus`, and the stalled-wait alert.
+- **042D is smaller than its file says:** `BOT_RECOVERY_STALLED` and its source arm, catalog row, subscription and tests shipped in 042C (review of PR #552). Left: `BotAutoRecoveredEvent` -> `BOT_AUTO_RECOVERED` (the event is already published by `GridHaltRecovery._after`), and the exhaustion sentence on the `BOT_HALTED` alert (`budget_used_up_words` already writes it into the reason detail; check the alert's `Reason:` line carries it).
+- **042E:** `RESUME_PROPOSES_STATES` already holds `AWAITING_RECOVERY`; `IBotRunner.has_resume_proposal` is the hook D13 names.
+- **042G:** print `effective_policy(...)` through `recovery_policy_of(kind_layer, venue)`; the generated doc table in `scripts/render_bots_design_tables.py` is the model.
+- **Traps met:** an integration harness that builds its own `GridExecutorDeps` must pass `user_streams` (a default `NoUserStreamStatus` never clears); every code of the effective policy must be clear before an attempt; a failed cancel on entering the wait lands in plain `HALTED`; the 400-line ceiling applies to tests (`grid_world.py` was split).
+- **Not mine to decide:** `EPIC-042F` (rate-limit resume migration, which also closes the D12 exit-check gap) waits for the owner's go.
+
 ## Notes (newest first)
 - **2026-10-17** — The owner's layering requirement (common, kind, venue; merge as data; printable) folded into the design: D15, `042G`. Earlier: epic scaffolded with the design pull request. Real-money behaviour is unchanged until `042C` merges.
