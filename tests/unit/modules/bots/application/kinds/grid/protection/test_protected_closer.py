@@ -57,6 +57,9 @@ class _Protection(IExposureProtection):
     def supervise(self) -> ProtectionVerdict:
         return ProtectionVerdict.OK
 
+    def describe_stop(self) -> str:
+        return ""
+
     def release(self) -> bool:
         self._calls.append("release")
         return self._released

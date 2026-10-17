@@ -37,13 +37,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books impor
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.futures_stop_steps import (
+    NO_CONDITIONAL_ORDERS,
+    cancel_conditional_orders_of_flat_symbols,
+    cancel_regular_orders,
+    close_all_futures_positions,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.liquidation_minimum import (
     min_split_quantity,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.unconfirmed_orders import (
-    closing_order_for,
     sale_order_for,
-    unconfirmed_close,
     unconfirmed_sale,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
@@ -149,9 +153,20 @@ class EmergencyStopCommandHandler(
         trading_disabled = self._disable_trading(scope)
 
         trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
-        orders_cancelled = self._cancel_all_orders(trading_client)
+        is_futures = scope.venue.market_type is not MarketType.SPOT
+        orders_cancelled = (
+            cancel_regular_orders(trading_client)
+            if is_futures
+            else self._cancel_all_orders(trading_client)
+        )
         positions_closed = self._close_all_positions(
             trading_client, scope, owner_shares
+        )
+        # `EPIC-039L` D11: a Futures protective stop goes last, per symbol confirmed flat.
+        conditional_cancelled = (
+            cancel_conditional_orders_of_flat_symbols(trading_client)
+            if is_futures
+            else NO_CONDITIONAL_ORDERS
         )
         final_positions, final_open_orders, final_state_confirmed = (
             self._read_final_state(trading_client)
@@ -164,6 +179,7 @@ class EmergencyStopCommandHandler(
             final_positions,
             final_open_orders,
             final_state_confirmed,
+            conditional_cancelled,
         )
         if result.fully_succeeded:
             logger.warning(
@@ -229,36 +245,7 @@ class EmergencyStopCommandHandler(
         Futures/Spot check scattered across the step's own body."""
         if scope.venue.market_type is MarketType.SPOT:
             return self._sell_spot_surplus_holdings(trading_client, scope, owner_shares)
-        return self._close_all_futures_positions(trading_client)
-
-    def _close_all_futures_positions(
-        self, trading_client: ITradingClient
-    ) -> EmergencyStopStepResult:
-        try:
-            positions = trading_client.get_positions()
-        except Exception as exc:  # noqa: BLE001
-            return EmergencyStopStepResult(False, f"Error reading positions: {exc}")
-        if not positions:
-            return EmergencyStopStepResult(True, "No open positions.")
-
-        closed_count = 0
-        unconfirmed: list[str] = []
-        for position in positions:
-            try:
-                place_resolving_unknown(trading_client, closing_order_for(position))
-                closed_count += 1
-            except OrderOutcomeUnknownError:
-                unconfirmed.append(position.symbol)
-            except Exception as exc:  # noqa: BLE001
-                remaining = len(positions) - closed_count
-                return EmergencyStopStepResult(
-                    False,
-                    f"Closed {closed_count}/{len(positions)} positions — error on "
-                    f"{position.symbol}: {exc}. {remaining} positions still open.",
-                )
-        if unconfirmed:
-            return unconfirmed_close(closed_count, len(positions), unconfirmed)
-        return EmergencyStopStepResult(True, f"Closed {closed_count} positions.")
+        return close_all_futures_positions(trading_client)
 
     @staticmethod
     def _sell_spot_surplus_holdings(

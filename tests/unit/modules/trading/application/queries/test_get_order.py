@@ -78,6 +78,12 @@ class _FindingClient(ITradingClient):
     def cancel_all_orders(self, symbol: str) -> list[Order]:
         raise AssertionError("a read never cancels")
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        raise AssertionError("a read never cancels")
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        raise AssertionError("a read never cancels")
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         raise AssertionError("not part of this read")
 

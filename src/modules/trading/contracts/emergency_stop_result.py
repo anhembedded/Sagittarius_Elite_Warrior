@@ -52,6 +52,11 @@ class EmergencyStopResult:
     final_positions: tuple[LivePosition, ...] = ()
     final_open_orders: tuple[Order, ...] = ()
     final_state_confirmed: bool = False
+    #: `EPIC-039L` (D11) - a Futures bot's protective stop is cancelled last, per symbol confirmed
+    #: flat; Spot has none.
+    conditional_orders_cancelled: EmergencyStopStepResult = EmergencyStopStepResult(
+        True, "No conditional orders."
+    )
 
     @property
     def fully_succeeded(self) -> bool:
@@ -59,4 +64,5 @@ class EmergencyStopResult:
             self.trading_disabled.succeeded
             and self.orders_cancelled.succeeded
             and self.positions_closed.succeeded
+            and self.conditional_orders_cancelled.succeeded
         )

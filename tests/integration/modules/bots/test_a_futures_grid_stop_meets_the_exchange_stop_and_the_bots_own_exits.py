@@ -23,6 +23,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_matrix import (
     ProtectiveStopState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
+    EmergencyStopCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
+    EmergencyStopResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
     TradingSwitchChangedEvent,
@@ -30,7 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_swit
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
-from .futures_bots_world import booted_futures_bots
+from .futures_bots_world import BootedFuturesBots, booted_futures_bots
 from .futures_direction_scenarios import LONG, NEUTRAL, SCENARIOS, DirectionScenario
 from .futures_fake_exchange import FUTURES, SYMBOL
 from .futures_stop_helpers import started, stops
@@ -180,3 +186,82 @@ def test_a_stop_left_cancelling_over_a_position_that_came_back_goes_on_standing(
         assert [what for what, _ in sequence] == [], (
             "no stop was cancelled or sent again"
         )
+
+
+def test_the_emergency_stop_closes_the_position_then_takes_the_stop_down(
+    futures: FakeExchange,
+) -> None:
+    """`EPIC-039L` D11 (the owner's O1): ladder first, then the close, then the stop."""
+    with booted_futures_bots(futures) as app:
+        started(app)
+        assert len(stops(app)) == 1 and app.position() > 0
+        result = app.engine.dispatch(
+            EmergencyStopCommand, EmergencyStopCommand(venue=FUTURES)
+        )
+        app.deliver()
+
+        assert isinstance(result, EmergencyStopResult)
+        assert result.fully_succeeded, result
+        assert app.position() == 0
+        assert stops(app) == []
+
+
+def test_an_emergency_stop_whose_close_failed_leaves_the_stop_over_the_position(
+    futures: FakeExchange,
+) -> None:
+    with booted_futures_bots(futures) as app:
+        started(app)
+        for _ in range(40):
+            futures.urls.futures_book.faults.reject_next_order(
+                -2022, "ReduceOnly Order is rejected."
+            )
+
+        result = app.engine.dispatch(
+            EmergencyStopCommand, EmergencyStopCommand(venue=FUTURES)
+        )
+        app.deliver()
+
+        assert isinstance(result, EmergencyStopResult)
+        assert not result.positions_closed.succeeded
+        assert app.position() > 0, "the close did not go through"
+        assert len(stops(app)) == 1, "so the stop still stands over the position"
+        assert not result.conditional_orders_cancelled.succeeded
+
+
+def _switched_off_detail(app: BootedFuturesBots, bot_id: str) -> str:
+    app.engine.event_bus.emit(
+        TradingSwitchChangedEvent(
+            False, TradingSwitchCause.EMERGENCY_STOP, venue=FUTURES
+        )
+    )
+    app.deliver()
+    assert app.bot(bot_id).state is S.HALTED
+    return app.runtime(bot_id).reason_detail
+
+
+def test_a_switch_off_halt_says_the_stop_stands_over_the_position_it_cannot_close(
+    futures: FakeExchange,
+) -> None:
+    """`EPIC-039L` criterion 9: the halt cannot close, so its words say what protects the position."""
+    with booted_futures_bots(futures) as app:
+        bot_id = started(app)
+        assert len(stops(app)) == 1 and app.position() > 0
+
+        detail = _switched_off_detail(app, bot_id)
+
+        assert "position stays open on the exchange" in detail
+        assert "its protective stop stands on the exchange" in detail
+
+
+def test_a_switch_off_halt_does_not_claim_a_stop_that_was_cancelled_by_hand(
+    futures: FakeExchange,
+) -> None:
+    with booted_futures_bots(futures) as app:
+        bot_id = started(app)
+        futures.urls.futures_book.algo.cancel_all(SYMBOL)
+        assert stops(app) == []
+
+        detail = _switched_off_detail(app, bot_id)
+
+        assert "its protective stop stands on the exchange" not in detail
+        assert "its protective stop is not on the exchange" in detail

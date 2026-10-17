@@ -34,6 +34,7 @@ def emergency_stop_log_lines(result: EmergencyStopResult) -> tuple[str, ...]:
         ("Close the order session", result.trading_disabled),
         ("Cancel pending orders", result.orders_cancelled),
         ("Close positions", result.positions_closed),
+        ("Cancel stop orders", result.conditional_orders_cancelled),
     )
     lines = [
         f"  {index}. {label} ... {'✔' if step.succeeded else '✘'} {step.detail}"

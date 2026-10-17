@@ -73,6 +73,12 @@ class _OpenOrdersClient(ITradingClient):
     def cancel_all_orders(self, symbol: str) -> list[Order]:
         raise AssertionError("a read never cancels")
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        raise AssertionError("a read never cancels")
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        raise AssertionError("a read never cancels")
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         self.asked.append(symbol)
         return [o for o in self._orders if symbol is None or o.symbol == symbol]

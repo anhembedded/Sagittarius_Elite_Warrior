@@ -216,6 +216,14 @@ class SpotTradingClient(ITradingClient):
             raise_rejection(exc)
         return [map_spot_order_payload_to_order(payload) for payload in payloads]
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        """Every Spot order is a regular one (a stop-limit rests as one)."""
+        return self.cancel_all_orders(symbol)
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        """Spot has no conditional orders apart from the regular ones above."""
+        return []
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         client = self._resolve_client()
         request_kwargs = {"symbol": symbol} if symbol else {}

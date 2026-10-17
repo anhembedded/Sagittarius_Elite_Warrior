@@ -20,5 +20,8 @@ class NoProtection(IExposureProtection):
     def supervise(self) -> ProtectionVerdict:
         return ProtectionVerdict.OK
 
+    def describe_stop(self) -> str:
+        return ""
+
     def release(self) -> bool:
         return True
