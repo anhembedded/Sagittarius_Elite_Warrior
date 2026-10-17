@@ -104,10 +104,14 @@ def _widget_modules_in(names: set[str]) -> set[str]:
 
 
 def test_contribute_imports_no_widget_module() -> None:
+    # The entries name their classes by path (`PRO-014`), and a `module.py` imports its own
+    # commands' modules at its head; load them first, so only what `contribute()` itself
+    # imports counts.
+    module_classes = [entry.load() for entry in MODULES]
     before = _widget_modules_in(set(sys.modules))
 
     registry = _RecordingRegistry()
-    for module_cls in MODULES:
+    for module_cls in module_classes:
         module = module_cls()
         _stash_container_if_needed(module)
         module.contribute(registry)
