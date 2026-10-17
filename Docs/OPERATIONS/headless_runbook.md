@@ -242,6 +242,10 @@ Read the `[preflight]` lines after the start. **`bot-files-readable` WARN** mean
 
 **Rollback**: stop, `git checkout` the previous release, reinstall its dependencies (step 4), and put the state back from step 3 **if the newer build has written bot files** (an older build refuses a newer file and leaves it; restoring the copy returns the bots as they were). Start and check as above.
 
+### Which halts a bot recovers from by itself (`bot show`)
+
+`bot show <bot_id>` prints the bot's effective recovery table, one `Recovery` row per halt reason: how long the cause must stay clear before an attempt, how many of the bot's attempts are used inside that rule's window, how long a wait may last before you are told, and which layer decided it. A Futures bot prints `no automatic recovery (futures layer)`. `--json` carries the same rows under `recovery`, and `reason_detail` carries the words the bot wrote beside its reason (where "the automatic recoveries are used up; resume by hand" is said). `bot list` and `status` carry `recovery: null`.
+
 ### Plan files and version control (`bot export`, `bot apply`, `run --start-planned`)
 
 A plan is a JSON file (`sew.bot-plan/1`) that names each bot by name and venue and holds **no key, secret or account identifier**, so it is safe to keep in version control and to review as a diff. It is how a server's bots are defined without the desktop app. The desktop app's Bots → Export plan… writes the same file (same query, same never-overwrite writer), so a bot designed there reaches the server with `scp`; it defaults to *All stopped* when a mainnet bot is in scope, so a copied plan starts nothing under `--start-planned` until you change `desired_state` on purpose. The procedure, each step run as in §5 (`M` is the `sudo -u sew env ... main.py` prefix there):

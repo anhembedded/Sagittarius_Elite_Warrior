@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_probe import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_status_report.recovery_table import (
+    recovery_table_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     BotList,
     ListBotsQuery,
@@ -37,6 +40,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
     UnreadableBotEntry,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     RefusedBotFile,
@@ -66,11 +73,15 @@ class GetBotStatusReportQueryHandler(
         directory: BotsStateDirectory,
         probe: IInstanceProbe,
         instance: IInstanceAccess,
+        kinds: IBotKindCatalog,
+        clock: IBotClock,
     ) -> None:
         self._dispatcher = dispatcher
         self._directory = directory
         self._probe = probe
         self._instance = instance
+        self._kinds = kinds
+        self._clock = clock
 
     def execute(self, query: GetBotStatusReportQuery) -> BotStatusReport:
         report = self._report(query)
@@ -91,7 +102,12 @@ class GetBotStatusReportQueryHandler(
             self._dispatcher.dispatch(GetBotQuery, GetBotQuery(query.bot_id)),
         )
         if snapshot is not None:
-            return BotStatusReport(bots=(_entry_of(snapshot),))
+            # The one-bot read carries the recovery table; a listing stays small.
+            entry = replace(
+                _entry_of(snapshot),
+                recovery=recovery_table_of(snapshot, self._kinds, self._clock.now()),
+            )
+            return BotStatusReport(bots=(entry,))
         # No readable bot has this id: it is either unknown or a refused file.
         refused = tuple(
             file
@@ -134,4 +150,5 @@ def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
         run_started_at=bot.run_started_at,
         resting_orders=bot.progress.open_orders if bot.progress is not None else None,
         recovers_on_restart=restarts_into_recovering(bot.state),
+        reason_detail=bot.progress.reason_detail if bot.progress is not None else "",
     )

@@ -56,7 +56,11 @@ The walking skeleton (`EPIC-036G`) added:
   `STOP_FAILED` even when the bot cannot be read (`bot_alert_source.py` →
   `BotAlertSource.on_stop_gave_up`); `on_recovery_stalled` raises the one `BOT_RECOVERY_STALLED`
   warning of a bot that waits in `AWAITING_RECOVERY` (a wait is silent on entry, so it is not in
-  `ALERT_ON_ENTRY`; the bot leaving the wait is in `CLEARED_ON_ENTRY`); the entry into a state of `CLEARED_ON_ENTRY`
+  `ALERT_ON_ENTRY`; the bot leaving the wait is in `CLEARED_ON_ENTRY`); `on_auto_recovered` raises a
+  `BOT_AUTO_RECOVERED` warning for each automatic recovery, keyed by the attempt so a second
+  recovery inside the dedup window is not a count on the first; the `BOT_HALTED` alert's `Reason:`
+  line carries the bot's `reason_detail` (`bot_alert_source.py` → `_reason_line`), which is where
+  "the automatic recoveries are used up" is said; the entry into a state of `CLEARED_ON_ENTRY`
   (`bot_alert_source.py` → `CLEARED_ON_ENTRY`) calls `condition_cleared` with the key
   `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`).
 - **`DiscordWebhookChannel`** (`alerting/adapters/discord_webhook_channel.py` →

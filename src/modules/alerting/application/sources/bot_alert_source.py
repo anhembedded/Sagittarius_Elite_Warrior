@@ -3,7 +3,8 @@
 An anti-corruption layer: the source reads `bots/contracts` only — the
 `BotChangedEvent` the bot store publishes after every write, the
 `BotStopGaveUpEvent` a stop publishes when its retries are used up, the
-`BotRecoveryStalledEvent` a bot waiting to recover publishes once (`EPIC-042`), and the
+`BotRecoveryStalledEvent` a bot waiting to recover publishes once, the
+`BotAutoRecoveredEvent` of each automatic recovery (`EPIC-042`), and the
 one-bot `GetBotStatusReportQuery` — and speaks the alerting vocabulary.
 
 **An alert on the entry into a state, not on its being.** The source remembers
@@ -72,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusEntry,
     BotStatusReport,
     GetBotStatusReportQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
+    BotAutoRecoveredEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
@@ -182,11 +186,40 @@ class BotAlertSource:
         )
         self._publish(AlertKind.BOT_RECOVERY_STALLED, subject, detail)
 
+    def on_auto_recovered(self, event: BotAutoRecoveredEvent) -> None:
+        """`EPIC-042` D1: each automatic recovery is told, with the budget it leaves.
+
+        Keyed by the attempt, so a second recovery inside the dedup window is its own alert and
+        not a count on the first.
+        """
+        entry = self._entry(event.bot_id)
+        subject = (
+            _subject_of(entry)
+            if entry is not None
+            else AlertSubject.bot(event.bot_id, "", "", "", "")
+        )
+        left = max(event.max_attempts - event.attempt, 0)
+        detail = (
+            f"The bot was halted by a transient cause and resumed itself: attempt "
+            f"{event.attempt} of {event.max_attempts} in the rolling window, {left} left. "
+            "A fresh ladder was laid.\n"
+            f"Reason: {event.reason}"
+        )
+        self._publish(
+            AlertKind.BOT_AUTO_RECOVERED,
+            subject,
+            detail,
+            reason=f"attempt-{event.attempt}",
+        )
+
     def _alert_on_entry(self, entry: BotStatusEntry, previous: str | None) -> None:
         kind = ALERT_ON_ENTRY.get(entry.state)
         if kind is None:
             return
-        detail = f"Was {previous or 'not yet seen'}.\n{_reason_line(entry.reason)}"
+        detail = (
+            f"Was {previous or 'not yet seen'}.\n"
+            f"{_reason_line(entry.reason, entry.reason_detail)}"
+        )
         self._publish(kind, _subject_of(entry), detail)
 
     def _clear_on_entry(self, entry: BotStatusEntry) -> None:
@@ -195,10 +228,17 @@ class BotAlertSource:
         for kind in CLEARED_ON_ENTRY.get(entry.state, ()):
             self._publisher.condition_cleared(Alert.condition_key(kind, subject), now)
 
-    def _publish(self, kind: AlertKind, subject: AlertSubject, detail: str) -> None:
+    def _publish(
+        self, kind: AlertKind, subject: AlertSubject, detail: str, reason: str = ""
+    ) -> None:
         name = subject.bot_name or subject.bot_id
         alert = Alert.raised(
-            kind, subject, f"{label_of(kind)}: {name}", detail, self._clock.now()
+            kind,
+            subject,
+            f"{label_of(kind)}: {name}",
+            detail,
+            self._clock.now(),
+            reason,
         )
         self._publisher.publish(alert)
         logger.info("[alert-source] bot %s: %s published", subject.bot_id, kind.name)
@@ -219,5 +259,10 @@ def _subject_of(entry: BotStatusEntry) -> AlertSubject:
     )
 
 
-def _reason_line(reason: str) -> str:
-    return f"Reason: {reason}" if reason else "No reason recorded."
+def _reason_line(reason: str, detail: str = "") -> str:
+    """The `Reason:` line; the detail follows it when the bot wrote one (`EPIC-042D`: the
+    sentence that says the automatic recoveries are used up lives only there)."""
+    if not reason:
+        return "No reason recorded."
+    detail = detail.lstrip("; ")
+    return f"Reason: {reason} ({detail})" if detail else f"Reason: {reason}"
