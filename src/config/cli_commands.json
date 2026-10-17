@@ -31,7 +31,7 @@
         "dest": "action",
         "commands": {
           "start": {
-          "keeps_console_log": true,
+            "keeps_console_log": true,
             "help": "Start live stream",
             "args": [
               {
@@ -50,7 +50,7 @@
             ]
           },
           "stop": {
-          "keeps_console_log": true,
+            "keeps_console_log": true,
             "help": "Stop live stream"
           }
         }
