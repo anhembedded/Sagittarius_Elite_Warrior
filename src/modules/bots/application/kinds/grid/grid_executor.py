@@ -174,7 +174,12 @@ class GridExecutor(IBotExecutor):
         )
         self._guard = GridTaskGuard(
             context,
-            GridParking(context, exposure.closer, self._stop),
+            GridParking(
+                context,
+                exposure.closer,
+                self._stop,
+                exposure.protection or NoProtection(),
+            ),
             GridRateLimitPause(context, retries, self._post, self._resume, self._price),
             self._storage,
         )

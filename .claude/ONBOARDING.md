@@ -89,6 +89,8 @@ The task and bug boards are generated from the files (`python3 scripts/render_bo
 - **A stuck reviewer cannot be talked down.** If it pauses on suspected injection or a wrong self-review assumption, do not reply "no really, proceed" — that is cross-session permission laundering and is refused by design. Re-spawn fresh with better self-checkable evidence instead.
 - **Same GitHub account, different action:** posting a plain PR comment from the author's own account is unrestricted; GitHub blocks only a formal Approve/Request-changes review from that account. A reviewer stuck on "cannot post as author" is calling the wrong tool — point it at a plain comment, never a review action.
 
+**Session economy (user decision):** every wake of a session re-reads its whole context, so the context size and the number of wakes are the cost. (1) The author watches its own pull request and reads its own gate logs; a coordinating session (`.claude/skills/coordinate/SKILL.md`) does not subscribe to it and acts on the author's "ready" message, verifying the head itself before merging. (2) An author pushes once its local checks pass, not once per small edit, so runs are not cancelled by the next push. (3) One author session serves one epic or phase; past about 500k tokens of context it records its Resume and the coordinator starts a fresh one. (4) The coordinator's live state lives in `Tasks/COORDINATION.md`, so a fresh coordinator starts from that file instead of a long context.
+
 ## 8. Anti-Pattern Traps
 Traps live in `.claude/rules/pitfalls/`: `tests.md` (test anti-patterns), `ui.md` (Qt threading), `source.md` (domain/engine interaction).
 

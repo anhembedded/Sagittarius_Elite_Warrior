@@ -56,6 +56,12 @@ class ReadOnlyTradingClient(ITradingClient):
     def cancel_all_orders(self, symbol: str) -> list[Order]:
         raise ReadOnlyInstanceError(self._reason)
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        raise ReadOnlyInstanceError(self._reason)
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        raise ReadOnlyInstanceError(self._reason)
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         return self._inner.get_open_orders(symbol)
 

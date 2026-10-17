@@ -59,15 +59,14 @@ class TestOrdering:
         handler = make_handler(session_state=session_state, raw_client=raw_client)
         handler.execute(EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET))
 
-        # `BUG-093`'s own final-state confirmation read reuses the same
-        # two raw calls (`futures_position_information`/
-        # `futures_get_open_orders`, in that order — `_read_final_state`
-        # calls `get_positions()` before `get_open_orders()`) one more
-        # time each, after the three steps — hence the trailing repeat.
+        # Step 4 (`EPIC-039L`, D11) reads the open orders again to find a stop to cancel, and
+        # `BUG-093`'s own final-state confirmation reads positions, then open orders, once more:
+        # the trailing repeats. The conditional step reads no position when no stop stands.
         assert call_order == [
             "disable_trading",
             "cancel_orders",
             "close_positions",
+            "cancel_orders",
             "close_positions",
             "cancel_orders",
         ]
@@ -85,10 +84,10 @@ class TestOrdering:
         )
 
         assert result.trading_disabled.succeeded is False
-        # Called twice each: once by the step itself (2/3), once more by
-        # `_read_final_state`'s own confirmation read (`BUG-093`) — step 1
-        # failing must not skip either.
-        assert raw_client.futures_get_open_orders.call_count == 2
+        # The open orders: step 2, step 4's look for a stop (`EPIC-039L`) and
+        # `_read_final_state`'s own confirmation read (`BUG-093`); the positions: the close
+        # and the confirmation read. Step 1 failing must not skip any.
+        assert raw_client.futures_get_open_orders.call_count == 3
         assert raw_client.futures_position_information.call_count == 2
 
 

@@ -20,6 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -270,6 +271,9 @@ def test_a_futures_week_read_is_not_refused_for_a_start_older_than_seven_days() 
 #: A second is far more than any gap between placing an order and reading it
 #: back here, so the order is outside an unpadded window for certain.
 _OFFSET_ERROR_MS = 1_000
+#: How far from the run's start the exchange stamps the order before it and the order in it:
+#: more than the offset error, so the estimate cannot blur which side of the start each is on.
+_STAMP_APART_MS = 3_000
 #: What measuring the offset itself may be off by on a quiet machine.
 _MEASUREMENT_TOLERANCE_MS = 250
 
@@ -319,3 +323,43 @@ def test_a_futures_order_placed_a_moment_ago_is_in_the_read_whatever_the_clock_e
     assert [row.order.client_order_id for row in rows] == [
         ClientOrderId("SEW-hist-fresh-fut01")
     ]
+
+
+@pytest.mark.parametrize(
+    "machine_ahead_by_ms", [0, 127_000], ids=["clocks_agree", "machine_127_s_ahead"]
+)
+def test_a_futures_run_that_began_a_moment_ago_is_read_whatever_the_clock_error(
+    machine_ahead_by_ms: int,
+) -> None:
+    """`BUG-223` - a run's budget is derived from the run's start, which is a moment ago; the
+    start sent is that moment plus a one-off estimate of the exchange's clock, and an estimate
+    that is a little high puts it ahead of the exchange's own clock. The exchange refuses a
+    start in its future (-4181 `Invalid start time`), so the Start was refused. The reader
+    reads from a little before the start and keeps only what is from it on, on a machine whose
+    clock agrees with the exchange's and on the owner's, 127 s ahead of it."""
+    skew = -machine_ahead_by_ms
+    with _fake_exchange(), exchange_clock_skewed_by(skew):
+        sessions = FuturesSessionFactory()
+        metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
+        trading = FuturesTradingClient(
+            sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
+        )
+        history = FuturesHistoryReader(sessions, _Credentials())
+        with exchange_clock_skewed_by(skew + _OFFSET_ERROR_MS):
+            measured = sessions.create_trading_client(_credentials()).timestamp_offset
+        assert abs(measured - (skew + _OFFSET_ERROR_MS)) < _MEASUREMENT_TOLERANCE_MS
+        run_started_at = datetime.now(UTC)
+        # The exchange stamps one order well before the run began and one well after, whatever the
+        # machine's estimate of its clock is: the read must tell them apart.
+        with exchange_clock_skewed_by(skew - _STAMP_APART_MS):
+            trading.place_order(_order("SEW-hist-before-run", OrderType.MARKET))
+        with exchange_clock_skewed_by(skew + _STAMP_APART_MS):
+            trading.place_order(_order("SEW-hist-in-run", OrderType.MARKET))
+
+        rows = history.order_history("BTCUSDT", run_started_at)
+        fills = history.trade_history("BTCUSDT", run_started_at)
+
+    assert [row.order.client_order_id for row in rows] == [
+        ClientOrderId("SEW-hist-in-run")
+    ], "only what is from the run's start on, though the read began a little earlier"
+    assert len(fills) == 1

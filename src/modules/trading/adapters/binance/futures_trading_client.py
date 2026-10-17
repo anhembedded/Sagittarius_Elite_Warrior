@@ -217,19 +217,48 @@ class FuturesTradingClient(ITradingClient):
             raise_rejection(exc)
         return orders
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        """The first step of an Emergency Stop (`EPIC-039L`, D11): the ladder goes, a
+        conditional order (the protective stop) stays until the position is flat."""
+        orders = self._open_regular_orders(symbol)
+        client = self._resolve_client()
+        try:
+            client.futures_cancel_all_open_orders(symbol=symbol)
+        except BinanceAPIException as exc:
+            raise_rejection(exc)
+        return orders
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        """The last step of an Emergency Stop: run for a symbol confirmed flat, because a
+        close-all stop with nothing to close is only a risk."""
+        orders = self._open_conditional_orders(symbol)
+        client = self._resolve_client()
+        try:
+            client.futures_cancel_all_algo_open_orders(symbol=symbol)
+        except BinanceAPIException as exc:
+            raise_rejection(exc)
+        return orders
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         """@return Regular and algo open orders together, so reconciliation
         and Emergency Stop see a conditional order wherever it was placed."""
+        return self._open_regular_orders(symbol) + self._open_conditional_orders(symbol)
+
+    def _open_regular_orders(self, symbol: str | None) -> list[Order]:
         client = self._resolve_client()
-        request_kwargs = {"symbol": symbol} if symbol else {}
         try:
-            payloads = client.futures_get_open_orders(**request_kwargs)
-            algo_payloads = client.futures_get_open_algo_orders(**request_kwargs)
+            payloads = client.futures_get_open_orders(**_symbol_kwargs(symbol))
         except BinanceAPIException as exc:
             raise_rejection(exc)
-        return [map_futures_order_payload_to_order(p) for p in payloads] + [
-            map_futures_algo_payload_to_order(p) for p in algo_payloads
-        ]
+        return [map_futures_order_payload_to_order(p) for p in payloads]
+
+    def _open_conditional_orders(self, symbol: str | None) -> list[Order]:
+        client = self._resolve_client()
+        try:
+            payloads = client.futures_get_open_algo_orders(**_symbol_kwargs(symbol))
+        except BinanceAPIException as exc:
+            raise_rejection(exc)
+        return [map_futures_algo_payload_to_order(p) for p in payloads]
 
     def get_positions(self, symbol: str | None = None) -> list[LivePosition]:
         client = self._resolve_client()
@@ -323,3 +352,8 @@ class FuturesTradingClient(ITradingClient):
         if metadata is None:
             raise ValueError(f"Unknown futures symbol: {symbol}")
         return metadata
+
+
+def _symbol_kwargs(symbol: str | None) -> dict[str, str]:
+    """The request's `symbol` argument, absent when every symbol is asked for."""
+    return {"symbol": symbol} if symbol else {}
