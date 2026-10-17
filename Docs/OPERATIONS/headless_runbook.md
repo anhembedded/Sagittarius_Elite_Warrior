@@ -18,7 +18,7 @@ Until then, use the host on a **testnet** venue. The host says whether a channel
 Also true today, whatever the alerts:
 
 - **Stopping leaves resting orders on the exchange** (decision O1) and nothing watches a stop loss or take profit while the host is down, for a stop, a crash or an upgrade.
-- **A bot a restart left RECOVERING stays so until a person resumes it** (decision O2), and a running host cannot be controlled (decision O4): resuming by hand means stopping the host and using the Bots tab of the desktop app on the same data root.
+- **A bot a restart left RECOVERING stays so until a person resumes it** (decision O2). The person does it from a second shell with `bot resume <id>` (§6, "Control one bot on the running host"), from the Bots tab, or by restarting with `--resume-recovering`.
 - The Windows steps and the checklist in §11 have **not been run on a machine** by their author. The Linux unit is checked mechanically (§12) but not yet run under a real systemd.
 
 ## 1. Layout this runbook assumes
@@ -185,6 +185,7 @@ Exit `0` the message was taken (check that it arrived: "sent" means Discord acce
 | Start / stop / restart | `systemctl start\|stop\|restart sew-run` | `nssm start\|stop\|restart sew-run` |
 | Run at boot | `systemctl enable sew-run` | set by the install script (`SERVICE_AUTO_START`) |
 | Is it alive and what does it hold | `main.py status` (as §5) | the same, from the service account or an Administrator who sets `SEW_DATA_ROOT` |
+| Stop, pause or resume one bot without stopping the host | `main.py bot stop\|pause\|resume <id>` as the service account (below) | the same, from the service account |
 | Follow the log | `journalctl -u sew-run -o cat -f` | `Get-Content C:\ProgramData\sew\service-logs\sew-run.log -Wait` |
 | Only problems | `journalctl -u sew-run -o cat \| grep -E ' - (WARNING\|ERROR\|CRITICAL) - '` | `Get-Content C:\ProgramData\sew\service-logs\sew-run.log \| Select-String ' - (WARNING\|ERROR\|CRITICAL) - '` |
 
@@ -193,6 +194,25 @@ Exit `0` the message was taken (check that it arrived: "sent" means Discord acce
 **Judging a 24-hour run clean** (`BUG-209`). In normal mode (no `--dev`, no `--debug`) a clean run has **no** record matching ` - (WARNING|ERROR|CRITICAL) - ` except the one `[alerts]` WARNING at start, and every `[health]` line shows `halted:0,error:0`. Anything else is a finding. What reaches those levels, by tag, is the table in [`LOGGING.md`](LOGGING.md) §6: a bot that lands in HALTED is a WARNING and one that lands in ERROR is an ERROR (`[bot-transition]`, with the reason), an event the lifecycle refuses is a WARNING (`[bot-transition-refused]`), a fill or an order end the stream lost and a reconcile recovered is a WARNING (`[missed-fill]`, `[missed-end]`), a periodic read that fails is one WARNING per streak and one INFO when it recovers (`[refresh-failed]`, `[refresh-recovered]`), a clock above 500 ms from the exchange is a WARNING and at 1000 ms an ERROR (`[clock-skew]`), and a market stream that failed is an ERROR (`[kline-stream]`).
 
 **A process that was killed says nothing in the app's log.** A hard kill or the kernel's OOM killer leaves no line of the app's own, and systemd's lines (`Main process exited`, `Scheduled restart`) do not match the grep above. Besides the grep, check `systemctl show sew-run -p NRestarts` (it should be `0` for a run nobody restarted) and `journalctl -u sew-run | grep -E 'Main process exited|Scheduled restart'`. After a restart the bots that were running come back RECOVERING, one `[recovering]` WARNING each (§11 row 2).
+
+### Control one bot on the running host (`bot stop`, `bot pause`, `bot resume`)
+
+`EPIC-038J`, decision O4 (the owner chose a local command directory). The host holds the data root's lock, so a second shell cannot change a bot itself; instead it hands the host a **command**, and the host runs the same Stop, Pause or Resume the Bots tab runs.
+
+```bash
+M="sudo -u sew env PYTHONPATH=/opt/sew SEW_DATA_ROOT=/var/lib/sew /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/src/main.py"
+$M bot show 44wa1x                  # what state is it in?
+$M bot stop 44wa1x [--confirm-venue spot_mainnet]   # cancel its orders, keep the coin, STOPPING then STOPPED
+$M bot pause 44wa1x                 # place no orders; the resting ones stay
+$M bot resume 44wa1x                # a PAUSED or RECOVERING bot; mainnet RECOVERING: add --confirm-venue spot_mainnet
+```
+
+- **Who may do it.** Only the account the host runs as (`sew` above). The host makes `state/control/` mode `0700` when `run` starts; each command is a file mode `0600` in it, and the host refuses any file that is not owner-only and the host account's own (on Windows, an ACL of the service account and the administrators). There is no password and no port: the host opens **no listening socket** for this (a test reads the host's sockets). An account that cannot write the directory gets exit `5`; a host that is not a `run` host (the desktop app) has no directory and gets exit `5` too.
+- **What you see.** The command waits for the host's answer (`--wait`, 15 s by default) and prints the host's own sentence. Exit `0` the bot accepted it; `2` the bot's own rule refused it (not found, not in a state that allows it, a HALTED bot to resume...) and nothing changed; `5` this account has no control; `10` **no host is running, nothing was written**; `11` a host is running and recorded no answer in time (the command is withdrawn if the host never took it; see the audit). A stop is asynchronous: `0` means STOPPING. Check `bot show` for STOPPED.
+- **At most once.** Every command has an id; the host writes `received` to `state/control/audit.jsonl` before it acts and the verdict after (`executed`, `refused`, `failed`, `malformed`, `unauthorised`, `replayed`, `expired`). A file with an id the host has seen is a replay and does nothing, even after a restart. A file older than 5 minutes (or dated more than 1 minute ahead of the host's clock) is `expired`: it does not run late. The audit is append-only, grows by two lines a command and is never rotated; it holds ids, actions and sentences, never a secret.
+- **A HALTED bot is not resumed this way.** Its resume proposes a ladder that a person reads and confirms; use `run --resume-halted` (below) or the Bots tab.
+- **A Stop opens a closed order session first** (the owner's answer "B", 2026-10-17). An Emergency Stop or a restart closes the venue's order session, and a stop cannot finish without it, so `bot stop` opens it as Start and Resume do. Opening it reconciles every bot on that venue with the exchange, exactly as `run --resume-recovering` does. **After a host restart every bot that was running is RECOVERING, and opening the session returns each of them on that venue to the state it had before the restart: a RUNNING bot trades again, not only the one you stop.** On a mainnet venue the session uses real money, so add `--confirm-venue spot_mainnet`; without it the stop is refused, nothing is opened, and the refusal names the other RECOVERING bots it would return; an already open session, or a testnet, needs no answer. The host's own shutdown stop (`--on-stop stop-bots`) still opens nothing.
+- **To free the symbol for a new run:** `bot stop <id>` until `bot show` says STOPPED, then stop the host, `bot apply plan.json [--prune]` and start it with `--start-planned` (§8). `bot apply` itself still needs the host stopped.
 
 ## 7. What the exit codes mean for you
 
@@ -260,7 +280,7 @@ $M bot apply /var/lib/sew/plan.json [--prune]         # creates and edits bots (
 sudo systemctl start sew-run
 ```
 
-- `bot apply` changes bots, so it needs the data root's lock: with the host running it exits `3` and changes nothing (control of a running host is `EPIC-038J`, decision O4). A real apply is a **writable boot**, so the restart rule runs first, as at any start: a bot saved as RUNNING or PAUSED becomes RECOVERING in its file (the same state the next `run` would have made it). `--dry-run` boots read-only and changes nothing, which is why it is safe beside a running host. A second apply of the same plan changes nothing. An entry that would edit a bot in a state the lifecycle forbids (it must be stopped first) is reported, not applied, and the command exits `2`; the other entries are applied.
+- `bot apply` changes bots, so it needs the data root's lock: with the host running it exits `3` and changes nothing (`bot stop`, `bot pause` and `bot resume` are the commands that reach a running host, §6). A real apply is a **writable boot**, so the restart rule runs first, as at any start: a bot saved as RUNNING or PAUSED becomes RECOVERING in its file (the same state the next `run` would have made it). `--dry-run` boots read-only and changes nothing, which is why it is safe beside a running host. A second apply of the same plan changes nothing. An entry that would edit a bot in a state the lifecycle forbids (it must be stopped first) is reported, not applied, and the command exits `2`; the other entries are applied.
 - `apply` records what the plan wants in **`state/bot_plan.json`** (beside the bots' files, keyed by bot id). **Only that applied record is what the host reads**, never the file you edit, so an edit counts once it has been applied.
 - **`run --start-planned`** starts the bots the applied plan says are running and that are at rest. It is not in the unit by default. With no applied plan, or a record that cannot be read, it exits **`5`** before anything boots, which the unit does not restart; so add it to the unit only after a plan has been applied. To add it, use a drop-in (`sudo systemctl edit sew-run`): write `[Service]`, an empty `ExecStart=`, then `ExecStart=` followed by the unit's own line with ` --start-planned` appended.
 

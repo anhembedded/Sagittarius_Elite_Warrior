@@ -151,7 +151,15 @@ def test_an_unknown_id_exits_two_with_a_plain_message(
 
 
 def test_the_verbs_are_a_table_not_a_chain() -> None:
-    assert [verb.name for verb in BOT_VERBS] == ["list", "show", "apply", "export"]
+    assert [verb.name for verb in BOT_VERBS] == [
+        "list",
+        "show",
+        "apply",
+        "export",
+        "stop",
+        "pause",
+        "resume",
+    ]
 
 
 def test_with_no_copy_running_the_text_says_the_states_are_only_recorded(

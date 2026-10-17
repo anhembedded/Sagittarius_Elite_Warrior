@@ -63,7 +63,8 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         "only the operator can fix it, so a restart would repeat it: no key, a key the exchange "
         "rejects (`-2015`: key, address or permission), a bad signature (`-1022`), a key that can "
         "withdraw, Hedge Mode",
-        "`run`, `preflight`, `exchange-status`, trade commands",
+        "`run`, `preflight`, `exchange-status`, trade commands, `bot stop`, `bot pause`, "
+        "`bot resume` (this account has no control over the running host)",
         SupervisorAction.DO_NOT_RESTART,
     ),
     ExitCode.EXCHANGE: ExitCodeRow(
@@ -73,11 +74,14 @@ EXIT_CODE_TABLE: dict[ExitCode, ExitCodeRow] = {
         SupervisorAction.RESTART_AFTER_DELAY,
     ),
     ExitCode.HOST_NOT_RUNNING: ExitCodeRow(
-        "no host is running", "`status`", SupervisorAction.NONE
+        "no host is running",
+        "`status`, `bot stop`, `bot pause`, `bot resume`",
+        SupervisorAction.NONE,
     ),
     ExitCode.HOST_UNHEALTHY: ExitCodeRow(
-        "a host is running but unhealthy (snapshot stale, a section unavailable or degraded)",
-        "`status`",
+        "a host is running but unhealthy (snapshot stale, a section unavailable or degraded), "
+        "or a control command got no recorded answer in time",
+        "`status`, `bot stop`, `bot pause`, `bot resume`",
         SupervisorAction.NONE,
     ),
 }

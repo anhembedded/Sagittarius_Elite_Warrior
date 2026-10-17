@@ -64,6 +64,11 @@ _READ_ONLY = {
     ("bot", "show"),
     # Reads the bots and writes a file the operator named; touches no bot.
     ("bot", "export"),
+    # `EPIC-038J` - write a command file for the running host and wait for its answer; this
+    # process changes no bot, and a lock it took would be the one the host holds.
+    ("bot", "stop"),
+    ("bot", "pause"),
+    ("bot", "resume"),
     ("preflight", None),
     ("exchange-status", None),
     ("order-preview", None),

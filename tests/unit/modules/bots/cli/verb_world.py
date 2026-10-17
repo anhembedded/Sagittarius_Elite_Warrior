@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
+    HostControlReply,
+    HostControlRequest,
+    HostControlStatus,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_host_control import IHostControl
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
@@ -53,6 +59,18 @@ class _WithExportQuery(ICommandDispatcher):
         return self._inner.dispatch(handler_class, input_dto)
 
 
+class RecordingHostControl(IHostControl):
+    """Answers every request with `reply` and keeps what it was asked and how long it may wait."""
+
+    def __init__(self, reply: HostControlReply | None = None) -> None:
+        self.reply = reply or HostControlReply(HostControlStatus.DONE, "done", "c" * 32)
+        self.sent: list[tuple[HostControlRequest, float]] = []
+
+    def send(self, request: HostControlRequest, wait_s: float) -> HostControlReply:
+        self.sent.append((request, wait_s))
+        return self.reply
+
+
 def verb_world(
     dispatcher: ICommandDispatcher,
     printer: IReportPrinter,
@@ -60,6 +78,7 @@ def verb_world(
     kinds: IBotKindCatalog | None = None,
     plans: IAppliedPlanStore | None = None,
     instance: IInstanceAccess | None = None,
+    host_control: IHostControl | None = None,
 ) -> BotVerbWorld:
     """A writable copy with a `grid` kind and an empty record, unless the test says otherwise."""
     record = plans if plans is not None else MemoryAppliedPlanStore()
@@ -69,4 +88,7 @@ def verb_world(
         kinds=kinds if kinds is not None else BotKindCatalog([StubKind("grid")]),
         plans=record,
         instance=instance if instance is not None else InstanceAccess.unguarded(),
+        host_control=host_control
+        if host_control is not None
+        else RecordingHostControl(),
     )

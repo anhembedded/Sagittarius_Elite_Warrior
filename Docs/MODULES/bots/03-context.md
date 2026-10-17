@@ -23,7 +23,7 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
 - **`operations`** hosts the headless `run` and reads the bots through `bots/contracts/` alone: the
   plan the host starts from (`bots/contracts/i_bot_plan.py` → `IBotPlan`), the host's commands
   (`bots/contracts/host_bot_requests.py` → `StartBotForHostCommand`, `StopBotForHostCommand`,
-  `ResumeRecoveringForHostCommand`) and the status report (`bots/contracts/bot_status_report.py` →
+  `PauseBotForHostCommand`, `ResumeBotForHostCommand`, `ResumeRecoveringForHostCommand`) and the status report (`bots/contracts/bot_status_report.py` →
   `GetBotStatusReportQuery`, `BotStatusReport`), as `src/modules/operations/application/host_steps.py`
   shows.
 - **`alerting`** reads `BotChangedEvent` (`bots/contracts/events/bot_changed_event.py` →

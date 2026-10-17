@@ -1,12 +1,13 @@
 """`BUG-202` — a deliberate bot action opens the venue's order session, in one place.
 
 @details The venue's order session closes by Emergency Stop and opens by a deliberate
-action (`EPIC-034C`, `ITradingSession.ensure_ready`). Three bot-side actions open it,
+action (`EPIC-034C`, `ITradingSession.ensure_ready`). Four bot-side actions open it,
 each through this module and nowhere else: Start (`GridStartPreconditions`), a Resume
 from HALTED (`BotRunner.resume`, whose proposal registers the budget the session
 refuses while closed), a Resume from RECOVERING (the same call, `BUG-204`: the session a
 restart leaves closed is what the bot waits for) and the headless
-`run --resume-recovering` (`ResumeRecoveringForHostCommandHandler`). They share the reconciliation, the refusal's
+`run --resume-recovering` (`ResumeRecoveringForHostCommandHandler`) and the operator's `bot stop`
+on a running host (`StopBotForOperatorCommandHandler`, `EPIC-038J`). They share the reconciliation, the refusal's
 words and the log line: `order_session_refusal_words` is the primitive,
 `order_session_refusal` its answer as a `BotCommandResult`. An automated caller (a
 reconciliation, a stop retry) never asks: a late order must not undo an Emergency Stop.

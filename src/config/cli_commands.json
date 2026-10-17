@@ -345,7 +345,7 @@
       }
     },
     "bot": {
-      "help": "List, show, export and apply bots: list, show and export change no bot; apply makes the bots match a plan file",
+      "help": "List, show, export, apply, stop, pause and resume bots: list, show and export change no bot; apply makes the bots match a plan file; stop, pause and resume ask the running host (main.py run) to do it",
       "subparsers": {
         "dest": "action",
         "required": true,
@@ -442,6 +442,105 @@
                 "name": "--json",
                 "action": "store_true",
                 "help": "Print the result as JSON (schema sew.bot-export/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "stop": {
+            "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. If the venue's order session is closed (an Emergency Stop or a restart closes it) the host opens it first, as Start and Resume do; on a mainnet venue that needs --confirm-venue. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money, and opening it also returns every other RECOVERING bot on that venue to the state it had before the restart: a RUNNING bot trades again). Not needed when the session is already open or the bot is on a testnet"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "pause": {
+            "help": "Ask the running host (main.py run) to pause one bot: it places no orders, its resting orders stay. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "resume": {
+            "help": "Ask the running host (main.py run) to resume one PAUSED or RECOVERING bot, as the Bots tab's Resume does. A HALTED bot is refused (its resume proposes a ladder a person must read): use run --resume-halted or the Bots tab. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to resume a RECOVERING bot on it: that resume reopens the venue's order session and uses real money. Not needed for a PAUSED bot or a testnet bot"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
               },
               {
                 "name": "--format",
