@@ -51,6 +51,16 @@ def test_each_action_dispatches_its_contract_command_and_only_that() -> None:
     ]
 
 
+def test_a_stop_file_that_closes_the_position_dispatches_the_close() -> None:
+    dispatcher = _Dispatcher(BotCommandResult.done(BOT))
+
+    BotHostCommandExecutor(dispatcher).execute(command(close_position=True))
+
+    assert dispatcher.dispatched == [
+        StopBotForOperatorCommand(BOT, None, close_position=True)
+    ]
+
+
 def test_an_accepted_stop_says_it_is_stopping_and_not_yet_stopped() -> None:
     executor = BotHostCommandExecutor(_Dispatcher(BotCommandResult.done(BOT)))
 

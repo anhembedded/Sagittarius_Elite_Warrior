@@ -59,7 +59,10 @@ class _ControlVerb(IBotVerb):
                 ExitCode.USAGE, "--wait must be a finite number of seconds, 0 or more"
             )
         request = HostControlRequest(
-            self.action, args.bot_id, getattr(args, "confirm_venue", None)
+            self.action,
+            args.bot_id,
+            getattr(args, "confirm_venue", None),
+            getattr(args, "close_position", False),
         )
         reply = world.host_control.send(request, args.wait)
         if reply.status is HostControlStatus.DONE:

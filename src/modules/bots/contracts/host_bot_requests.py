@@ -22,13 +22,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    ExposureHandling,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class StopBotForHostCommand:
-    """Stop this bot, keeping the base asset it holds (the stop is for maintenance,
-    not for selling)."""
+    """Stop this bot. By default the base asset it holds is kept (the stop is for maintenance,
+    not for selling); `exposure` says otherwise only for a person's explicit close (`BUG-224`)."""
 
     bot_id: str
+    exposure: ExposureHandling = ExposureHandling.KEEP
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +50,10 @@ class StopBotForOperatorCommand:
 
     bot_id: str
     confirmed_venue: str | None = None
+    #: The operator typed `--close-position`: the stop closes what the bot holds at market, as
+    #: the screen's "Close the position at market" does. A position venue's stop is refused
+    #: without it, because a position left standing has no stop on the exchange (`BUG-224`).
+    close_position: bool = False
 
 
 @dataclass(frozen=True, slots=True)

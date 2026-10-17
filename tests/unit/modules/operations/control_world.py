@@ -52,8 +52,11 @@ def command(
     *,
     confirmed_venue: str | None = None,
     issued_at: datetime = NOW,
+    close_position: bool = False,
 ) -> HostCommand:
-    return HostCommand(command_id, action, bot_id, confirmed_venue, issued_at)
+    return HostCommand(
+        command_id, action, bot_id, confirmed_venue, issued_at, close_position
+    )
 
 
 def entry_of(issued: HostCommand) -> InboxEntry:
