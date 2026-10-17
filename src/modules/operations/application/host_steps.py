@@ -99,11 +99,10 @@ class ReportRecoveringBots(IHostStep):
         for bot in recovering:
             logger.warning(
                 "[recovering] bot %s (%s) is RECOVERING after the restart and stays so: "
-                "a person resumes it (decision O2) - the Bots tab, or stop the host and "
-                "start it again with --resume-recovering (a mainnet venue also needs "
-                "--confirm-venue <that venue>); `bot resume %s` needs a host that can be "
-                "controlled (EPIC-038J). Without that flag the host never resumes a bot "
-                "by itself",
+                "a person resumes it (decision O2) - `main.py bot resume %s` from a second "
+                "shell on this host (a mainnet venue also needs --confirm-venue <that venue>), "
+                "the Bots tab, or stop the host and start it again with --resume-recovering. "
+                "Without that flag the host never resumes a bot by itself",
                 bot.bot_id,
                 bot.name,
                 bot.bot_id,

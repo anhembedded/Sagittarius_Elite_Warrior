@@ -113,11 +113,11 @@ the state line shows until the next Resume clears it, so the second press is exp
 not only in the `[recovering-resume]` log line.
 
 A deliberate action that trades opens the order session in one place (`.../order_session_opening.py` →
-`order_session_refusal`, `order_session_refusal_words`), with exactly three callers: Start, a Resume
-from `HALTED` or `RECOVERING`, and the headless `run --resume-recovering`
+`order_session_refusal`, `order_session_refusal_words`), with exactly four callers: Start, a Resume
+from `HALTED` or `RECOVERING`, the headless `run --resume-recovering`, and the operator's `bot stop` on a running host (`EPIC-038J`, below)
 (`.../grid_start_preconditions.py` → `GridStartPreconditions.check`,
 `GridStartPreconditions.open_session_for_resume`; `.../resume_recovering_for_host/handler.py` →
-`ResumeRecoveringForHostCommandHandler._open`). The headless `run --resume-halted` (`EPIC-042E`) is the
+`ResumeRecoveringForHostCommandHandler._open`; `src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py` → `StopBotForOperatorCommandHandler.execute`). The headless `run --resume-halted` (`EPIC-042E`) is the
 Resume caller's own: it dispatches the screen's `ResumeBotCommand`, so it opens the session through the
 same Resume path, and its `ConfirmBotResumeCommand` once the bot holds the proposal
 (`.../resume_halted_for_host/handler.py` → `ResumeHaltedForHostCommandHandler`); it dispatches every Resume first, then asks
@@ -125,6 +125,14 @@ again every `PROPOSAL_POLL_S` against one shared `PROPOSAL_WAIT_S` deadline, nev
 withdraws (`IBotRunner.withdraw_resume_proposal`) a proposal that did not come in time, so none is left
 held to block the automatic recovery. Nothing automatic opens it: a
 late order must not undo an Emergency Stop.
+
+A running `run` host takes three more requests from a person's second shell (`EPIC-038J`): `bot stop`,
+`bot pause` and `bot resume` arrive as `StopBotForHostCommand`, `PauseBotForHostCommand` and
+`ResumeBotForHostCommand` (`src/modules/bots/application/use_cases/pause_bot_for_host/handler.py` → `PauseBotForHostCommandHandler`;
+`src/modules/bots/application/use_cases/resume_bot_for_host/handler.py` → `ResumeBotForHostCommandHandler`), each dispatching the screen's own
+command, so the lifecycle table, the read-only rule and the real-money question apply unchanged. `bot stop` arrives as `StopBotForOperatorCommand` (`src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py` → `StopBotForOperatorCommandHandler`): after the lifecycle table allows the stop, it opens the venue's order session when it is closed (`order_session_refusal`, a mainnet venue only with the typed venue), then dispatches `StopBotForHostCommand`. The shutdown policy's `StopBotForHostCommand` still opens nothing, and the screen's Stop is unchanged. The resume covers PAUSED and RECOVERING; a
+HALTED or AWAITING_RECOVERY bot is refused with words, because its resume proposes a ladder a person confirms.
+The transport is the `operations` module's (`Docs/MODULES/README.md` has no `operations` folder yet): the host's `HostedControlPoller` (`src/modules/operations/adapters/hosted_control_poller.py` → `HostedControlPoller`) runs on the Engine scheduler's thread, so these three commands are dispatched from that thread, as the stop policy's worker dispatches Stop; each is queued on the bot's own executor, which is the bot's one writer. At shutdown the Engine stops the scheduler first and the hosted services after, and the poller's `stop()` waits for a poll already running and then refuses further ones, so no command is dispatched into a closing application.
 
 ## Built: the exchange-side protective stop (Futures)
 

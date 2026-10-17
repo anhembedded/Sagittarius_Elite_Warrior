@@ -59,6 +59,11 @@ _BOT_SESSION_OPENERS = {
         "once at process start; refused without an alert channel or the typed "
         "acknowledgement, and for a mainnet venue without `--confirm-venue`"
     ),
+    "src/modules/bots/application/use_cases/stop_bot_for_operator/handler.py": (
+        "`bot stop` on the running host (`EPIC-038J`, the owner's answer \"B\"): a person's "
+        "deliberate action, after the lifecycle table allows the stop, for a mainnet venue "
+        "only with the typed `--confirm-venue`; the host's shutdown stop opens nothing"
+    ),
 }
 
 #: Where `ensure_ready()` may be called from, and why.

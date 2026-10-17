@@ -22,6 +22,13 @@ What it holds today:
     exchange are declared by `trading`, the module that knows the key and the
     clock.
 
+  - **control of a running host** (`EPIC-038J`, decision O4, channel A): `bot stop`, `bot pause`
+    and `bot resume` write a command file into `state/control/`; the `run` host reads it once a
+    second, believes it only if the operating system's permissions vouch for it, dispatches the
+    screen's own command once, and audits every step. No port is opened. The module binds the
+    operator's `IHostControl` (every copy) and the host's `HostedControlPoller` (registered by
+    `run` alone);
+
   - the **`run` host** (`EPIC-038D`): `main.py run` serves until told to stop. The
     module binds what the host shares with the snapshot machinery - the health cadence
     (interval, host state, the probes before a snapshot and the health line after it),
@@ -115,6 +122,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.cli.run_cli_handler import
 from Sagittarius_Elite_Warrior.src.modules.operations.cli.status_cli_handler import (
     StatusCliHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.composition.control_bindings import (
+    bind_control,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_alert_channels import (
     IAlertChannels,
 )
@@ -176,6 +186,8 @@ class OperationsModule(BoundedContextModule):
             ),
         )
         container.bind(GetHostStatusQuery, GetHostStatusQueryHandler)
+        # `EPIC-038J` - control of a running host through the command directory (channel A).
+        bind_control(container)
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         registry.declare(

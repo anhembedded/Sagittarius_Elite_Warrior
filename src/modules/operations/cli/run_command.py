@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.adapters.host_signals impo
     NullHostSignal,
     sd_notify_host_signal,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.adapters.hosted_control_poller import (
+    HostedControlPoller,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.hosted_run_host import (
     HostedRunHost,
 )
@@ -301,6 +304,11 @@ class RunCommand:
         The signals are held until the app has stopped: a second Ctrl-C while the workers close
         is absorbed rather than left to kill the process half-way through."""
         self._app.context.hosted_services.register(HostedRunHost(host))
+        # `EPIC-038J`: after the host serves, the command directory is read (and, on the way
+        # out, closed first). Only `run` registers it: the desktop app listens to nobody.
+        self._app.context.hosted_services.register(
+            self._container.resolve(HostedControlPoller)
+        )
         host.listen()
         try:
             self._app.boot()
