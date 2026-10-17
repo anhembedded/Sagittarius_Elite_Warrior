@@ -43,13 +43,15 @@ class _Recorder:
             ICliCommandTable: self.table
         }[port]
         self.lock_taken = 0
+        self.cli_log_seen: list[object] = []
 
     def acquire(self) -> Mock:
         self.lock_taken += 1
         return self.instance
 
-    def create(self, config_manager: object, instance: object) -> Mock:
+    def create(self, config_manager: object, instance: object, cli_log: object) -> Mock:
         assert instance is self.instance
+        self.cli_log_seen.append(cli_log)
         return self.app
 
 
@@ -223,7 +225,7 @@ def test_machine_output_builds_the_app_with_its_console_log_on_stderr(
     seen: list[bool] = []
     real_stdout = sys.stdout
 
-    def create(config_manager: object, instance: object) -> Mock:
+    def create(config_manager: object, instance: object, cli_log: object) -> Mock:
         seen.append(sys.stdout is sys.stderr)
         return built.app
 
@@ -237,3 +239,35 @@ def test_machine_output_builds_the_app_with_its_console_log_on_stderr(
     _run(monkeypatch, "exchange-status")
 
     assert seen == [True, False]
+
+
+_ROUTING = object()
+
+
+@pytest.mark.parametrize(
+    ("argv", "routed"),
+    [
+        (["exchange-status"], True),
+        (["exchange-status", "--json"], True),
+        (["exchange-status", "--verbose"], False),
+        (["--verbose", "exchange-status"], False),
+        (_SYNC, False),
+    ],
+)
+def test_only_a_read_only_command_without_verbose_gets_its_log_routed_to_a_file(
+    monkeypatch: pytest.MonkeyPatch,
+    built: _Recorder,
+    argv: list[str],
+    routed: bool,
+) -> None:
+    """`BOT-185`: `sync` writes, so its log stays on stdout; `--verbose` asks for it."""
+    monkeypatch.setattr(entry, "prepare_cli_log", lambda log_dir: _ROUTING)
+    monkeypatch.setattr(entry, "read_only_instance_access", lambda: built.instance)
+    monkeypatch.setitem(entry._HEADLESS_COMMANDS, "sync", Mock(return_value=None))
+    monkeypatch.setitem(
+        entry._HEADLESS_COMMANDS, "exchange-status", Mock(return_value=None)
+    )
+
+    _run(monkeypatch, *argv)
+
+    assert built.cli_log_seen == [_ROUTING if routed else None]

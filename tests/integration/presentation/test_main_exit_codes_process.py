@@ -134,8 +134,28 @@ def test_an_adapter_warning_goes_to_stderr_and_stdout_stays_one_json_document(
     # writes a bare message and only for WARNING and above).
     assert _FORMATTED_WARNING.search(result.stderr), result.stderr
     assert "[exchange-retry]" not in result.stdout
+    # `BOT-185`: `exchange-status` only reads, so its INFO records are in its log
+    # file, not on either stream; the WARNING above is on both stderr and the file.
+    assert " - INFO - " not in result.stderr
+    assert " - INFO - " not in result.stdout
+    [log_name] = [n for n in os.listdir(tmp_path / "logs") if n.startswith("cli-")]
+    assert "[exchange-retry]" in (tmp_path / "logs" / log_name).read_text(
+        encoding="utf-8"
+    )
+
+
+def test_verbose_keeps_the_log_on_stderr_for_a_json_report(
+    tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`--verbose` is today's behaviour: every record on the console, which for a
+    machine format is stderr, so stdout stays one document (`EPIC-038D`)."""
+    result = _run(tmp_path, exchange, "exchange-status", "--json", "--verbose")
+
+    assert result.returncode == int(ExitCode.SUCCESS), result.stderr
+    assert json.loads(result.stdout)["schema"] == "sew.exchange-status/1"
     assert " - INFO - " in result.stderr
     assert " - INFO - " not in result.stdout
+    assert not (tmp_path / "logs").exists()
 
 
 def test_no_secret_reaches_a_json_report(

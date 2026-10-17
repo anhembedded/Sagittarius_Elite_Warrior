@@ -8,6 +8,22 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.launcher_verb import (
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 
+#: `--verbose` (`BOT-185`): the log on the console of a command that keeps it in a
+#: file. On every command, at any position (`bot list --verbose`, `--verbose bot
+#: list`), so it is a parent parser and not an entry of `cli_commands.json`.
+#: `SUPPRESS` leaves the attribute off unless given, so a sub-parser's default can
+#: never overwrite a flag the parent parser already read.
+VERBOSE_DEST = "verbose"
+_VERBOSE_PARENT = argparse.ArgumentParser(add_help=False)
+_VERBOSE_PARENT.add_argument(
+    "--verbose",
+    dest=VERBOSE_DEST,
+    action="store_true",
+    default=argparse.SUPPRESS,
+    help="Show the application log on the console. A command that only reads keeps "
+    "it in a file under <data root>/logs and shows warnings and errors only",
+)
+
 TYPE_MAPPING = {"str": str, "int": int, "float": float, "bool": bool}
 
 
@@ -44,7 +60,7 @@ def _build_command_parser(
 ) -> argparse.ArgumentParser:
     if isinstance(parser_or_subparser, argparse._SubParsersAction):
         cmd_parser = parser_or_subparser.add_parser(
-            cmd_name, help=cmd_config.get("help", "")
+            cmd_name, help=cmd_config.get("help", ""), parents=[_VERBOSE_PARENT]
         )
     else:
         cmd_parser = parser_or_subparser
@@ -73,7 +89,9 @@ def build_parser(
     run a report command (`gui`, `shell`); they are listed in `--help` beside
     the commands but live in the entry point, not in `cli_commands.json`.
     """
-    parser = argparse.ArgumentParser(description="Binance Trading Bot CLI")
+    parser = argparse.ArgumentParser(
+        description="Binance Trading Bot CLI", parents=[_VERBOSE_PARENT]
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     add_launcher_verbs(subparsers, launcher_verbs)
 

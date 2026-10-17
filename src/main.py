@@ -37,7 +37,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cmd import execu
 from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd import (
     execute_trade_once,
 )
-from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
+from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
+    VERBOSE_DEST,
+    build_parser,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
     execute_exchange_status,
 )
@@ -53,6 +56,11 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
     load_app_config,
+    log_directory,
+)
+from Sagittarius_Elite_Warrior.src.shell.cli_log_routing import (
+    CliLogRouting,
+    prepare_cli_log,
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     acquire_instance_access,
@@ -173,14 +181,26 @@ def _app_work_for(
     return lambda app: _run_headless_mode(app, args)
 
 
+def _quiet_log_for(read_only: bool, args: argparse.Namespace) -> CliLogRouting | None:
+    """`BOT-185` - a command that only reads shows its result and nothing else:
+    its log goes to a file (`--verbose` keeps it on the console). Every other
+    command keeps the log where it was, and `run`'s is the supervisor's."""
+    if not read_only or getattr(args, VERBOSE_DEST, False):
+        return None
+    return prepare_cli_log(log_directory())
+
+
 def _build_app(
-    config_manager: ConfigManager, instance: IInstanceAccess, report_on_stdout: bool
+    config_manager: ConfigManager,
+    instance: IInstanceAccess,
+    report_on_stdout: bool,
+    cli_log: CliLogRouting | None,
 ) -> App:
     """The object graph; its console log leaves by stderr when stdout is a report."""
     if report_on_stdout:
         with console_log_to(sys.stderr):
-            return create_app(config_manager, instance)
-    return create_app(config_manager, instance)
+            return create_app(config_manager, instance, cli_log)
+    return create_app(config_manager, instance, cli_log)
 
 
 def _lock_held(command: str, instance: IInstanceAccess) -> CliOutcome:
@@ -220,18 +240,16 @@ def main() -> int:
     # `EPIC-038C` — a command that only reads (`"read_only": true` in
     # `cli_commands.json`) is never the writable copy: its boot would apply the
     # restart rule to the bots, and it would hold the lock `status` asks about.
-    instance = (
-        read_only_instance_access()
-        if command_is_read_only(commands, args)
-        else acquire_instance_access()
-    )
+    read_only = command_is_read_only(commands, args)
+    cli_log = _quiet_log_for(read_only, args)
+    instance = read_only_instance_access() if read_only else acquire_instance_access()
     try:
         if instance.read_only and command_requires_writable_instance(commands, args):
             # `EPIC-038D` - a host that is not the writable copy would look alive to its
             # supervisor while trading nothing; refuse, start nothing, and say why.
             return run_command(lambda: _lock_held(args.command, instance))
         return run_command(
-            lambda: work(_build_app(config_manager, instance, machine_output))
+            lambda: work(_build_app(config_manager, instance, machine_output, cli_log))
         )
     finally:
         instance.release()
