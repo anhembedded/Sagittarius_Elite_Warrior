@@ -124,9 +124,16 @@ class BotStatusEntry:
     #: `EPIC-042G` - the bot's effective recovery table; filled for the one-bot read (`bot show`),
     #: `None` in a listing and for a bot of a kind this build does not know.
     recovery: BotRecoveryTable | None = None
+    #: `EPIC-038L` - every parameter the bot stores, exactly as stored (text); filled for the one-bot
+    #: read (`bot show`), `None` in a listing. These are the keys `bot edit` changes.
+    parameters: Mapping[str, str] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "health", MappingProxyType(dict(self.health)))
+        if self.parameters is not None:
+            object.__setattr__(
+                self, "parameters", MappingProxyType(dict(self.parameters))
+            )
 
     @property
     def is_at_rest(self) -> bool:
@@ -147,6 +154,11 @@ class BotStatusEntry:
             "recovers_on_restart": self.recovers_on_restart,
             "reason_detail": self.reason_detail,
             "recovery": None if self.recovery is None else self.recovery.payload(),
+            "parameters": (
+                None
+                if self.parameters is None
+                else dict(sorted(self.parameters.items()))
+            ),
         }
 
 

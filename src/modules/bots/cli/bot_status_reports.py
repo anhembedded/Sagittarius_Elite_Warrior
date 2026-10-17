@@ -8,6 +8,8 @@ within a version, never renamed.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     JsonValue,
     Report,
@@ -51,6 +53,17 @@ def bot_show_report(status: BotStatusReport) -> Report:
     return Report(SHOW_COMMAND, SCHEMA_VERSION, status.payload(), _show_layout(status))
 
 
+def bot_show_parameters_report(status: BotStatusReport) -> Report:
+    """`bot show --params` (`EPIC-038L`): the same report with the bot's parameters as rows, sorted
+    by key, values as stored. The payload is the same (it always carries `parameters`)."""
+    return Report(
+        SHOW_COMMAND,
+        SCHEMA_VERSION,
+        status.payload(),
+        _show_layout(status, _bot_section_with_parameters),
+    )
+
+
 def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     if status.is_empty:
         return (ReportSection(None, (ReportRow.of("No bots."),)),)
@@ -62,8 +75,12 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     return (*_recorded_note(status), ReportSection(None, tuple(rows)))
 
 
-def _show_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
-    sections = [_bot_section(bot) for bot in status.bots]
+def _show_layout(
+    status: BotStatusReport,
+    section_of: Callable[[BotStatusEntry], ReportSection] | None = None,
+) -> tuple[ReportSection, ...]:
+    section_of = section_of or _bot_section
+    sections = [section_of(bot) for bot in status.bots]
     sections += [_unreadable_section(bot) for bot in status.unreadable]
     return (*_recorded_note(status), *sections)
 
@@ -139,6 +156,15 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
             *_recovery_rows(bot.recovery),
         ),
     )
+
+
+def _bot_section_with_parameters(bot: BotStatusEntry) -> ReportSection:
+    section = _bot_section(bot)
+    held = dict(sorted((bot.parameters or {}).items()))
+    rows = tuple(_field(f"param {key}", value) for key, value in held.items()) or (
+        _field("Parameters", "none set"),
+    )
+    return ReportSection(section.title, (*section.rows, *rows))
 
 
 def _unreadable_section(bot: UnreadableBotEntry) -> ReportSection:

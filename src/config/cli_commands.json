@@ -372,13 +372,18 @@
             ]
           },
           "show": {
-            "help": "Show one bot",
+            "help": "Show one bot. With --params also print every parameter the bot stores (key and value, sorted by key, exactly as stored: the keys bot edit --set changes); the JSON always carries them under parameters. Reads the bot's file, so it works on the read-only copy beside a running host",
             "read_only": true,
             "args": [
               {
                 "name": "bot_id",
                 "type": "str",
                 "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--params",
+                "action": "store_true",
+                "help": "Print every stored parameter of the bot, one row per key, sorted by key, values exactly as stored"
               },
               {
           "name": "--json",
@@ -597,7 +602,7 @@
             ]
           },
           "edit": {
-            "help": "Ask the running host (main.py run) to change the parameters of ONE DRAFT or STOPPED bot, as the Bots tab's Save does, while the other bots keep trading: bot edit <id> --set lower=81000 --set upper=90000. The same checks refuse an unknown parameter or an unreadable value in words and change nothing; any other state (RUNNING, PAUSED, HALTED, ...) is refused. The reply shows each change as old -> new. The bot lands on DRAFT; it places no order and needs no --confirm-venue, and is started by bot start, whose guard is unchanged. The plan file is yours and is NOT updated: change the same value in it too, or the next bot apply of the old plan edits the bot back. Exit 2 when the bot or the values are refused, 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to change the parameters of ONE DRAFT or STOPPED bot, as the Bots tab's Save does, while the other bots keep trading: bot edit <id> --set lower=81000 --set upper=90000. The same checks refuse an unknown parameter or an unreadable value in words and change nothing; any other state (RUNNING, PAUSED, HALTED, ...) is refused. Read the current values first with bot show <id> --params. The reply shows each change as old -> new. The bot lands on DRAFT; it places no order and needs no --confirm-venue, and is started by bot start, whose guard is unchanged. The plan file is yours and is NOT updated: change the same value in it too, or the next bot apply of the old plan edits the bot back. Exit 2 when the bot or the values are refused, 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
