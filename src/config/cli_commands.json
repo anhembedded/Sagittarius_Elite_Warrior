@@ -345,7 +345,7 @@
       }
     },
     "bot": {
-      "help": "List, show, export, apply, stop, pause and resume bots: list, show and export change no bot; apply makes the bots match a plan file; stop, pause and resume ask the running host (main.py run) to do it",
+      "help": "List, show, export, apply, start, stop, pause, resume and delete bots: list, show and export change no bot; apply makes the bots match a plan file; start, stop, pause, resume and delete ask the running host (main.py run) to do it",
       "subparsers": {
         "dest": "action",
         "required": true,
@@ -535,6 +535,69 @@
                   "futures_mainnet"
                 ],
                 "help": "Type the mainnet venue to resume a RECOVERING bot on it: that resume reopens the venue's order session and uses real money. Not needed for a PAUSED bot or a testnet bot"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "start": {
+            "help": "Ask the running host (main.py run) to start one DRAFT or STOPPED bot, once, as the Bots tab's Start and run --start-planned do: the same readiness check refuses it in words (one active bot per symbol, at most five active bots per venue, a venue that holds a RECOVERING bot). A HALTED or AWAITING_RECOVERY bot is refused: use run --resume-halted or the Bots tab. The other bots are not touched. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
+              },
+              {
+                "name": "--confirm-venue",
+                "type": "str",
+                "choices": [
+                  "spot_mainnet",
+                  "futures_mainnet"
+                ],
+                "help": "Type the mainnet venue to start a bot on it: the start opens the venue's order session and places orders with real money, and opening the session reconciles the venue's RECOVERING bots, so the start is refused while any of them waits. Not needed on a testnet"
+              },
+              {
+                "name": "--wait",
+                "type": "float",
+                "default": 15,
+                "help": "Seconds to wait for the host to record its answer; a command the host has not picked up by then is withdrawn and nothing happens"
+              },
+              {
+                "name": "--json",
+                "action": "store_true",
+                "help": "Print the result as JSON (schema sew.bot-control/1) instead of the text report"
+              },
+              {
+                "name": "--format",
+                "type": "str",
+                "help": "Output format: text (default), json, or any other registered format"
+              }
+            ]
+          },
+          "delete": {
+            "help": "Ask the running host (main.py run) to delete one DRAFT or STOPPED bot, as the Bots tab's Delete does. IRREVERSIBLE: the bot's record is gone and cannot be restored; a bot with the same settings is a new bot with a new id. It places no order, so no venue is typed. A bot in any other state is refused in words. The applied plan (state/bot_plan.json) is not edited: if it still names the bot, run --start-planned warns about it until bot apply is run again. Exit 10 when no host is running, 5 when this account has no control over it",
+            "read_only": true,
+            "args": [
+              {
+                "name": "bot_id",
+                "type": "str",
+                "help": "The bot's id (see bot list)"
               },
               {
                 "name": "--wait",

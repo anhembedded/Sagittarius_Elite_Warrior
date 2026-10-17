@@ -17,8 +17,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    DeleteBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
+    StartBotVerb,
     StopBotVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verbs import BOT_VERBS
@@ -62,6 +64,8 @@ def _run(
         (StopBotVerb(), HostControlAction.STOP),
         (PauseBotVerb(), HostControlAction.PAUSE),
         (ResumeBotVerb(), HostControlAction.RESUME),
+        (StartBotVerb(), HostControlAction.START),
+        (DeleteBotVerb(), HostControlAction.DELETE),
     ],
 )
 def test_each_verb_asks_the_host_for_its_action_on_the_named_bot(
@@ -90,7 +94,9 @@ def test_a_stop_carries_the_close_position_flag_to_the_host() -> None:
 
 
 def test_the_verbs_are_registered_under_the_words_the_operator_types() -> None:
-    assert {"stop", "pause", "resume"} <= {verb.name for verb in BOT_VERBS}
+    assert {"stop", "pause", "resume", "start", "delete"} <= {
+        verb.name for verb in BOT_VERBS
+    }
 
 
 def test_resume_carries_the_venue_the_operator_typed() -> None:
@@ -155,3 +161,34 @@ def test_a_wait_that_is_not_a_finite_number_is_a_usage_error_and_asks_nothing(
 
     assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
     assert host.sent == []
+
+
+def test_start_carries_the_venue_the_operator_typed() -> None:
+    host = RecordingHostControl()
+
+    _run(StartBotVerb(), host, confirm_venue="futures_mainnet")
+
+    assert host.sent[0][0] == HostControlRequest(
+        HostControlAction.START, "44wa1x", "futures_mainnet"
+    )
+
+
+def test_delete_asks_for_no_venue_and_no_close() -> None:
+    host = RecordingHostControl()
+
+    _run(DeleteBotVerb(), host)
+
+    assert host.sent[0][0] == HostControlRequest(HostControlAction.DELETE, "44wa1x")
+
+
+def test_a_refused_start_exits_two_in_the_screens_words() -> None:
+    host = RecordingHostControl(
+        HostControlReply(S.REFUSED, "Bot 44wa1x is HALTED: run --resume-halted")
+    )
+
+    outcome = _run(StartBotVerb(), host)
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert (
+        outcome.message == "bot start 44wa1x: Bot 44wa1x is HALTED: run --resume-halted"
+    )

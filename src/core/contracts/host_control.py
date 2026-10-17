@@ -1,4 +1,4 @@
-"""Ask a running host to stop, pause or resume one bot (`EPIC-038J`, decision O4, channel A).
+"""Ask a running host to stop, pause, resume, start or delete one bot (`EPIC-038J`, `EPIC-038K`, decision O4, channel A).
 
 @details The `bot` command belongs to `bots`, and the thing that carries a request to the
 host belongs to `operations`, which depends on `bots`; a verb therefore cannot import its
@@ -13,8 +13,10 @@ answer, including a refusal in the screen's own words, comes back as a reply.
 The port that carries a request is `i_host_control.py`.
 
 @par Extension cases
-  · a new verb (`bot start`) - one `HostControlAction` member, and the host's table of
-    commands gains the row; the port, the reply and the transport do not change.
+  · a new verb (`bot archive`) - one `HostControlAction` member, and the host's table of
+    commands gains the row; the port, the reply and the transport do not change. `START` and
+    `DELETE` (`EPIC-038K`) were added this way: an older host reads the new word as a malformed
+    document and refuses it without effect.
 """
 
 from __future__ import annotations
@@ -29,6 +31,10 @@ class HostControlAction(StrEnum):
     STOP = "stop"
     PAUSE = "pause"
     RESUME = "resume"
+    #: `EPIC-038K`: start a DRAFT or STOPPED bot, once, as the Bots tab's Start does.
+    START = "start"
+    #: `EPIC-038K`: delete a DRAFT or STOPPED bot. Irreversible.
+    DELETE = "delete"
 
 
 class HostControlStatus(StrEnum):
@@ -53,7 +59,7 @@ class HostControlStatus(StrEnum):
 @dataclass(frozen=True, slots=True)
 class HostControlRequest:
     """One action on one bot. `confirmed_venue` is the operator's typed answer to the
-    real-money question (decision O8), where the bot's own command asks it. `close_position` is
+    real-money question (decision O8), where the bot's own command asks it (stop, resume, start). `close_position` is
     the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`)."""
 
     action: HostControlAction

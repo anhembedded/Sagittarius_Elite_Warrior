@@ -56,6 +56,7 @@ gantt
 | EPIC-038H | [Service units and runbook](completed/EPIC-038H_service_units_and_runbook.md) | `claude/epic-038h-service-units` | 🟢 | ✅ Done 2026-10-13; checklist unsigned | — |
 | EPIC-038I | [Bot plan files](completed/EPIC-038I_bot_plan_files.md) | `claude/epic-038i-bot-plan` | 🟡 | ✅ Done 2026-10-13 | — |
 | EPIC-038J | [Control of a running host](completed/EPIC-038J_control_of_a_running_host.md) | `claude/epic-038j-control-running-host` | 🔴 | ✅ Done 2026-10-17; review round 1 pending | — |
+| EPIC-038K | [Start and delete on a running host](completed/EPIC-038K_start_and_delete_on_a_running_host.md) | `claude/epic-038k-start-delete-running-host` | 🔴 | ✅ Done 2026-10-17; review pending | — |
 
 ---
 

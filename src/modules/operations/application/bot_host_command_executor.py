@@ -1,12 +1,14 @@
 """A command file becomes the command the Bots tab dispatches (`EPIC-038J`).
 
 One row per action: the contract command the bots module answers by dispatching the screen's
-own `StopBotCommand`, `PauseBotCommand` or `ResumeBotCommand`. So the file adds no way to stop,
-pause or resume a bot; it only asks for one by name, and the lifecycle table, the read-only rule
+own `StopBotCommand`, `PauseBotCommand`, `ResumeBotCommand`, `StartBotCommand` or
+`DeleteBotCommand`. So the file adds no way to stop, pause, resume, start or delete a bot; it only
+asks for one by name, and the lifecycle table, the read-only rule
 and the real-money question apply as on the screen.
 
 @par Extension cases
-  · a new verb (`bot start`) - one `HostControlAction` member and one row in `_REQUESTS`.
+  · a new verb (`bot archive`) - one `HostControlAction` member and one row in `_REQUESTS` and
+    in `_ACCEPTED_WORDS`; `start` and `delete` (`EPIC-038K`) were added so.
 """
 
 from __future__ import annotations
@@ -24,8 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotCommandResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    DeleteBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
+    StartBotForHostCommand,
     StopBotForOperatorCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
@@ -44,6 +48,11 @@ _ACCEPTED_WORDS: dict[HostControlAction, str] = {
     ),
     HostControlAction.PAUSE: "the bot is PAUSED: it places no orders, its resting orders stay",
     HostControlAction.RESUME: "the bot is resuming (see `bot show`)",
+    HostControlAction.START: "the bot is STARTING (see `bot show`)",
+    HostControlAction.DELETE: (
+        "the bot is deleted and cannot be restored; if the applied plan still names it, "
+        "`run --start-planned` warns about it until the plan is applied again with `bot apply`"
+    ),
 }
 
 type _Request = Callable[[HostCommand], object]
@@ -56,6 +65,10 @@ _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.RESUME: lambda c: ResumeBotForHostCommand(
         c.bot_id, c.confirmed_venue
     ),
+    HostControlAction.START: lambda c: StartBotForHostCommand(
+        c.bot_id, c.confirmed_venue
+    ),
+    HostControlAction.DELETE: lambda c: DeleteBotForHostCommand(c.bot_id),
 }
 
 

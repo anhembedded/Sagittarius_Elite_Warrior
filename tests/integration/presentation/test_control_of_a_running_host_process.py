@@ -1,4 +1,4 @@
-"""`EPIC-038J` - `bot stop|pause|resume` from a second process to a real `run` host (decision O4, channel A).
+"""`EPIC-038J`, `EPIC-038K` - `bot stop|pause|resume|start|delete` from a second process to a real `run` host (decision O4, channel A).
 
 @details Real processes, because a lock, a directory's owner and a listening socket belong to
 processes. The host is `main.py run` over the fake exchange with a bot file that its first boot
@@ -91,14 +91,18 @@ def started(exchange: FakeServerUrls) -> Iterator[list[RunChild]]:
         yield children
 
 
-def _seed_a_bot_that_ran(data_root: Path, bot_id: str) -> Path:
-    """A RUNNING bot with a run behind it (`run_started_at`): a stop has a run to close."""
+def _seed_a_bot_that_ran(
+    data_root: Path,
+    bot_id: str,
+    state: BotLifecycleState = BotLifecycleState.RUNNING,
+) -> Path:
+    """A bot (RUNNING unless said) with a run behind it (`run_started_at`): a stop has a run to close."""
     bots = data_root / "state" / "bots"
     started = datetime(2026, 10, 1, tzinfo=UTC)
     bot = Bot(
         BotId(bot_id),
         BotDefinition("grid one", "grid", TradingVenue.SPOT_TESTNET, "BTCUSDT", GRID),
-        BotLifecycle(BotLifecycleState.RUNNING, run_started_at=started),
+        BotLifecycle(state, run_started_at=started),
         started,
     )
     JsonBotStore(bots).save(StoredBot(bot, dict(encode_runtime(GridRuntime(())))))
@@ -205,6 +209,48 @@ def test_a_second_process_stops_a_bot_on_the_running_host_and_the_host_listens_o
         ("executed", "stop"),
     ]
     assert os.listdir(directory) == ["audit.jsonl"], "commands are removed"
+
+    host.send(signal.SIGTERM)
+    assert host.finish() == int(ExitCode.SUCCESS), host.evidence
+
+
+def test_a_second_process_deletes_a_stopped_bot_and_is_refused_for_a_halted_start_or_a_recovering_delete(
+    started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`EPIC-038K`: `bot delete` and `bot start` cross the process boundary like the other verbs.
+    The refusals are the screen's own and change no file."""
+    bots = _seed_a_bot_that_ran(tmp_path, "aaaaaa", BotLifecycleState.STOPPED)
+    _seed_a_bot_that_ran(tmp_path, "bbbbbb", BotLifecycleState.HALTED)
+    _seed_a_bot_that_ran(
+        tmp_path, "cccccc", BotLifecycleState.RUNNING
+    )  # RECOVERING after boot
+    host = _host(started, tmp_path, exchange)
+    directory = tmp_path / "state" / "control"
+
+    halted_start = _bot(tmp_path, exchange, "start", "bbbbbb")
+    recovering_delete = _bot(tmp_path, exchange, "delete", "cccccc")
+    deleted = _bot(tmp_path, exchange, "delete", "aaaaaa")
+
+    assert halted_start.returncode == int(ExitCode.USAGE), halted_start.stderr
+    assert "--resume-halted" in halted_start.stderr
+    assert recovering_delete.returncode == int(ExitCode.USAGE), recovering_delete.stderr
+    assert deleted.returncode == int(ExitCode.SUCCESS), deleted.stdout + deleted.stderr
+    assert json.loads(deleted.stdout)["data"]["status"] == "done"
+    assert not (bots / "aaaaaa.json").exists(), "the stopped bot's record is gone"
+    assert _state_of(bots, "bbbbbb") is BotLifecycleState.HALTED
+    assert _state_of(bots, "cccccc") is BotLifecycleState.RECOVERING
+    audit = [
+        json.loads(line)
+        for line in (directory / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [(e["verdict"], e["action"]) for e in audit] == [
+        ("received", "start"),
+        ("refused", "start"),
+        ("received", "delete"),
+        ("refused", "delete"),
+        ("received", "delete"),
+        ("executed", "delete"),
+    ]
 
     host.send(signal.SIGTERM)
     assert host.finish() == int(ExitCode.SUCCESS), host.evidence

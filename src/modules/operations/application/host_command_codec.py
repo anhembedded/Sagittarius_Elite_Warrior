@@ -9,13 +9,19 @@ the audit can say which command was refused.
 @par The document
   schema          "sew.host-command/1"
   command_id      32 lower-case hex characters, chosen by the sender (the idempotency key)
-  action          "stop" | "pause" | "resume"
+  action          "stop" | "pause" | "resume" | "start" | "delete"
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
   close_position  optional boolean, absent means false (`BUG-224`): a stop that closes the
                   position at market. It is written only when true, so a file that does not
                   ask for the close is byte-for-byte the document an older host reads.
+
+@par Older hosts (`EPIC-038K`)
+  `start` and `delete` are new `action` words, not new keys. An older host holds the closed set
+  "stop | pause | resume" and reads a document with either word as *malformed* ("action is not
+  one of ..."): it audits that, removes the file and executes nothing, so the operator gets
+  REJECTED and no bot changes. A new host reads every document an older host wrote.
 """
 
 from __future__ import annotations
@@ -109,7 +115,7 @@ def _problem_of(document: dict[str, object]) -> str | None:
     if not isinstance(action, str) or action not in {
         a.value for a in HostControlAction
     }:
-        return "action is not one of stop, pause, resume"
+        return f"action is not one of {', '.join(a.value for a in HostControlAction)}"
     bot_id = document.get("bot_id")
     if not isinstance(bot_id, str) or not _BOT_SHAPE.fullmatch(bot_id):
         return "bot_id is not the shape of a bot id"
