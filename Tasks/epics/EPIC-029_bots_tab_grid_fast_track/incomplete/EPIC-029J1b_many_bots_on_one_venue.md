@@ -13,20 +13,23 @@
 J1a made the cap one active bot per venue (`other_active_bot`). Two bots on one venue are still refused, though the entity, ids, store, tags and budgets are already per bot. This task lifts the per-venue cap for bots on **different symbols** of the venue and proves isolation. The symbol lease (trading's, per venue) stays the rule that keeps two bots off one symbol.
 
 What J1a's audit found that this task must settle (evidence in J1a's notes):
-- **No in-app request-weight gate exists.** Weight is managed only by read intervals and by each bot's own rate-limit pause (`grid_rate_limit_pause.py`). The exchange counts weight per IP per API family, so N bots on one venue spend one budget together; nothing adds their spending up.
+- **A per-venue request-weight gate exists** (`ExchangeCallPolicy` / `RateLimitGate`, `exchange_call_policy.py`, `EPIC-035D`, `BUG-216`): it closes the venue's requests to the minute's end at 70 % of the exchange's weight and for a rate limit's or ban's stated pause, for every caller on the venue. So a closed gate already refuses every bot of the venue. What is open is the *bots'* reaction (each bot halts `RATE_LIMITED` separately, `grid_rate_limit_pause.py`) and a weight budget shared between bots *before* the 70 % line; build on the gate, not beside it.
 - **The order pacer is per bot** (`MonotonicOrderPacer`, built per executor), so two bots of one venue do not space their orders against each other.
 - **The owner budget's caps apply to each bot's own budget**, not to the sum of the bots of a venue.
-- A rate limit halts the bot that met it; its neighbour on the same venue would keep sending.
+- **Latent risk carried from `EPIC-042E`:** `--resume-halted` touches no other state only while no second bot can be active beside a HALTED one on its venue; its Resume opens the venue's order session, whose switch-on reconciles every RECOVERING bot of that venue. Several bots on one venue re-open the question whether a halted-bot resume may reconcile a RECOVERING bot the owner left for `--resume-recovering` (O2).
 
 ## 2. Acceptance criteria
 - [ ] Several bots run on different symbols of one venue; each one's orders, fills and PnL are attributed by its tag and never by another's.
 - [ ] Starting a bot on a symbol another bot holds is refused, naming the holder (the lease).
 - [ ] Tick fan-out to N bots is measured (N = 1, 5, 20) before the cap is raised; the result is recorded and the chosen cap justified by it.
-- [ ] Request weight of N bots on one venue is measured on the fake exchange's `WeightMeter`, a venue-wide budget (or pacing) is chosen from it, and a rate limit met by one bot makes its neighbours pause too.
+- [ ] Request weight of N bots on one venue is measured on the fake exchange's `WeightMeter` against the existing `RateLimitGate`; whether a weight budget shared before the 70 % line (or venue-wide pacing) is needed is decided from it, and a rate limit met by one bot makes its neighbours halt `RATE_LIMITED` too, not only be refused at the gate.
 - [ ] An Emergency Stop halts every bot on that venue and none on the other (proved for one bot per venue by J1a; here for N on a venue).
 
 ## 3. Design
 Each bot keeps its own actor (ADR D9); the event handlers route by tag. The measured fan-out decides whether events are filtered by symbol before queueing. The full per-file design is written when this task starts, against the tree as it is then.
+
+## 3a. Reuse
+`ExchangeCallPolicy` / `RateLimitGate` for request weight and rate limits (not a second limiter); `grid_rate_limit_pause` for the bots' pause.
 
 ## 4. Changes, per file
 Written when the task starts.

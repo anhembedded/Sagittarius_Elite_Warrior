@@ -52,6 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import (
     BotId,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RUN_STARTING_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
 )
@@ -198,10 +199,7 @@ def test_a_second_bot_cannot_start_while_one_is_active(
     assert runner.sent == []
 
 
-@pytest.mark.parametrize(
-    "other",
-    [S.STARTING, S.RUNNING, S.PAUSED, S.RECOVERING, S.HALTED, S.STOPPING, S.ERROR],
-)
+@pytest.mark.parametrize("other", [s for s in S if s not in RUN_STARTING_STATES])
 def test_a_bot_active_on_another_venue_does_not_block_a_start(
     world: ReadinessWorld, runner: _RecordingRunner, other: S
 ) -> None:
