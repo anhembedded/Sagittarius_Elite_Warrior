@@ -1,12 +1,12 @@
 # EPIC-029J1b — Several bots run on different symbols of one venue, each within its own budget
 
-**Status:** 🟡 In progress (implemented and proven on the fake exchange; waits for the `-Full` run and the reviewer)
+**Status:** ✅ Done (2026-10-17)
 **Source:** [`PRO-006`](../../../proposal/PRO-006.md) §4.3 "After the fast track", accepted by the user on 2026-10-03 (*"Oki, duyệt"*); split from `EPIC-029J` on 2026-10-17, when the owner chose J1a first (*"còn chuyện multibot thì làm J1a trước đi"*).
 **Risk:** 🟡 — concurrency across several actors and several budgets on one account and one request-weight budget.
 **Complexity:** M — lift the per-venue cap, measure tick fan-out and request weight, aggregate the budget across the bots of a venue.
 **Epic:** [EPIC-029](../README.md)
 **SPEC:** [`SPEC-014`](../../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md)
-**Depends on:** [`EPIC-029J1a`](../completed/EPIC-029J1a_one_active_bot_per_venue.md) (one active bot per venue, done). `EPIC-029H` is not awaited (owner, 2026-10-17).
+**Depends on:** [`EPIC-029J1a`](EPIC-029J1a_one_active_bot_per_venue.md) (one active bot per venue, done). `EPIC-029H` is not awaited (owner, 2026-10-17).
 
 ---
 
@@ -96,7 +96,5 @@ Reading: fan-out is flat and cheap. Weight is what limits N: idle reads grow lin
 - The rename `ONE_ACTIVE_BOT_PER_VENUE` → `ONE_ACTIVE_BOT_PER_SYMBOL` was grepped across `src`, `tests`, `Docs`, `Tasks` (J1a's completed file keeps the name it shipped with).
 - **Observed, not investigated (not this task's):** after an Emergency Stop on the fake Futures venue the bot's runtime still holds its inventory while the fake's position is flat, and a Resume then Confirm places a reduce-only sell the exchange rejects (`-2022`), which sends the bot to `ERROR`. It may be the fake closing the position where the real adapter leaves it open, or a real defect in the resume proposal; a Futures Testnet run would tell. It is why the resume of N halted bots is not among the measurements (the restart reconcile is).
 - Not done, by decision: a venue-wide capital cap and a shared weight allowance (owner, §3b); proactive halting of neighbours (§3b); staggering the resumes (§3b); `BOT-183` and `BOT-184`.
-- Gate evidence: the commit tier (`ci-local.ps1 -SkipTests`) is PASS on the pushed head; the `-Full` run is the pull request's check.
-
-## Resume (optional; while unfinished)
-Waiting for the pull request's `ci-local.ps1 -Full` run and the reviewer's verdict. Then: move this file to `completed/`, set `✅ Done (date)` and the epic README row.
+- Gate evidence: the pull request's `ci-local.ps1 -Full` run on `a1203bc` — `RESULT: PASS`, `PARTS: success`, `gate (Unit)` and `gate (Rest)` success. The run on the first head `a084577` failed `gate (Rest)` at the log scan (`SyncMarketDataCommand failed … restricted location`, a real Binance call from the runner); no test of this change produced it locally and the next run, with an unrelated fix, passed — recorded as a flake of an unrelated test, not root-caused here.
+- Review: round 1 (NEEDS_REVISION: safety orders behind the venue pacer, a missing production-wiring test, a stale SPEC row, per-venue vs per-account) and round 2 (PASS on `a1203bc`) by a `claude-sonnet-5-5` reviewer session, the owner's temporary same-model exception.
