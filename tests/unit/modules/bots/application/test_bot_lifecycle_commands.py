@@ -193,7 +193,7 @@ def test_a_second_bot_cannot_start_while_one_is_active(
     _ready(world.store, "aaa111", other)
     _ready(world.store, "bbb222", S.DRAFT)
     result = _start(world, runner, "bbb222")
-    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
+    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
     assert "aaa111" in result.message
     assert state_of(world.store, "bbb222") is S.DRAFT
     assert runner.sent == []
@@ -220,7 +220,7 @@ def test_an_unreadable_file_counts_as_an_active_bot(
     world.store.refuse_file(BotId("aaa111"), "unknown schema_version 2")
     _ready(world.store, "bbb222", S.DRAFT)
     result = _start(world, runner, "bbb222")
-    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
+    assert result.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
 
 
 @pytest.mark.parametrize("other", [S.DRAFT, S.STOPPED])
@@ -269,7 +269,7 @@ def test_two_starts_racing_let_exactly_one_bot_start(world: ReadinessWorld) -> N
     second.join(timeout=5)
 
     assert results["aaa111"].accepted
-    assert results["bbb222"].refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
+    assert results["bbb222"].refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
 
 
 @pytest.mark.parametrize("bot_id", ["zzz999", "NOT-AN-ID"])

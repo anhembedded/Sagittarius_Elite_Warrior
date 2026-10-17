@@ -119,6 +119,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,8 +134,8 @@ class GridExecutorDeps:
     caps: OwnerBudgetCaps
     #: A fresh queue for one bot, given its name.
     queues: Callable[[str], IBotWorkQueue]
-    #: A fresh pacer at one spacing.
-    pacers: Callable[[timedelta], IOrderPacer]
+    #: The pacer of one venue at one spacing, shared by the venue's bots (`EPIC-029J` J1b).
+    pacers: Callable[[TradingVenue, timedelta], IOrderPacer]
     #: Where a stop that waits on the exchange schedules its retries; shared by
     #: every bot (`EPIC-035C`).
     retries: IBotRetryScheduler
@@ -174,7 +177,7 @@ class GridExecutorFactory(IBotExecutorFactory):
         gateway = BotOrderGateway(
             ports,
             BotIdentity(bot_owner_id(bot_id), bot_id, symbol),
-            deps.pacers(deps.caps.min_order_spacing),
+            deps.pacers(bot.definition.venue, deps.caps.min_order_spacing),
         )
         params = GridParams.from_config(bot.definition.config)
         halts = HaltRecoveryDirector(

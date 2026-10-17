@@ -145,6 +145,10 @@ def _each(values: tuple[object, ...]) -> str:
     return "; ".join(seconds(value) for value in values)
 
 
+def _count(values: tuple[object, ...]) -> str:
+    return "; ".join(str(value) for value in values)
+
+
 def _caps(values: tuple[object, ...]) -> str:
     caps = values[0]
     if not isinstance(caps, OwnerBudgetCaps):
@@ -237,6 +241,11 @@ TIMING: tuple[TimingRow, ...] = (
             ),
         ),
         _caps,
+    ),
+    TimingRow(
+        "Most bots not at rest one venue holds at once",
+        (Constant(f"{_BOTS}/domain/venue_bot_cap.py", "MAX_ACTIVE_BOTS_PER_VENUE"),),
+        _count,
     ),
     TimingRow(
         "User stream down for this long halts; reconciled every; checked every",

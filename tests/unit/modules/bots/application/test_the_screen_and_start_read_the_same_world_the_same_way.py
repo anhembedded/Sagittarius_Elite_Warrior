@@ -22,7 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
-    other_active_bot,
+    BotSlot,
+    VenueOccupancy,
+    occupancy_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
@@ -80,11 +82,17 @@ def _screens_items(world: ReadinessWorld) -> list[str]:
         snapshot.venue,
         snapshot.symbol,
         snapshot.config,
-        other_active_bot(
+        occupancy_of(
             BOT,
             snapshot.venue,
+            snapshot.symbol,
             (
-                (s.bot.bot_id.value, s.bot.definition.venue, s.bot.state)
+                BotSlot(
+                    s.bot.bot_id.value,
+                    s.bot.definition.venue,
+                    s.bot.definition.symbol,
+                    s.bot.state,
+                )
                 for s in reading.bots
             ),
             (refused.name for refused in reading.refused),
@@ -117,12 +125,24 @@ def _poor(world: ReadinessWorld) -> None:
     set_available(world, Decimal(10))
 
 
+def _active_and_leased(world: ReadinessWorld) -> None:
+    add_bot(world, "zzz999", S.RUNNING)
+    world.session.claim_symbol(SYMBOL, "bot.zzz999")
+
+
 SCENARIOS: dict[str, Callable[[ReadinessWorld], None]] = {
     "ready": lambda world: None,
     "capital above the balance": _poor,
     "another bot is active": lambda world: add_bot(world, "zzz999", S.RUNNING),
     "a bot on another venue is active": lambda world: add_bot(
         world, "zzz999", S.RUNNING, venue=TradingVenue.FUTURES_TESTNET
+    ),
+    "a bot on another symbol of the venue is active": lambda world: add_bot(
+        world, "zzz999", S.RUNNING, symbol="ETHUSDT"
+    ),
+    "another bot is active and holds the lease": _active_and_leased,
+    "a bot on the venue is waiting to recover": lambda world: add_bot(
+        world, "zzz999", S.RECOVERING, symbol="ETHUSDT"
     ),
     "the symbol is leased": lambda world: world.session.claim_symbol(
         SYMBOL, "strategy.1"
@@ -190,10 +210,30 @@ def test_the_plan_judges_with_the_limits_a_bot_runs_with() -> None:
             None,
             ConnectionRead(ConnectionState.READING, ""),
             BotRunFactsReader(world.ports, world.caps).read(
-                BOT, snapshot.venue, snapshot.symbol, snapshot.config, None
+                BOT, snapshot.venue, snapshot.symbol, snapshot.config, VenueOccupancy()
             ),
             world.facts.read(stored.bot),
         )
     )
 
     assert "DIRECTION_NOT_ALLOWED" not in [v.code for v in detail.verdicts]
+
+
+def test_a_bot_on_another_symbol_of_the_venue_blocks_nothing() -> None:
+    """`EPIC-029J` J1b: the symbol, not the venue, is what two bots cannot share."""
+    ready = readiness_world()
+    other_symbol = readiness_world()
+    add_bot(other_symbol, "zzz999", S.RUNNING, symbol="ETHUSDT")
+
+    assert _starts_items(other_symbol) == _starts_items(ready)
+
+
+def test_the_holder_of_the_symbol_is_named_once_not_as_a_bot_and_again_as_a_lease() -> (
+    None
+):
+    """The active bot on the symbol is also the lease's holder: one cause, one item."""
+    world = readiness_world()
+    _active_and_leased(world)
+
+    assert _starts_items(world) == ["RUN_OTHER_BOT_ACTIVE"]
+    assert _screens_items(world) == ["RUN_OTHER_BOT_ACTIVE"]

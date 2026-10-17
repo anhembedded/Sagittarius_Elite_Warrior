@@ -323,7 +323,7 @@ def grid_world(
             clock=clock,
             caps=DEFAULT_OWNER_BUDGET_CAPS,
             queues=queues or (lambda _name: queue or InlineWorkQueue()),
-            pacers=lambda _spacing: pacer,
+            pacers=lambda _venue, _spacing: pacer,
             retries=retries,
             monotonic=monotonic,
             prices=VenueFreshPriceReader(venue_ports),

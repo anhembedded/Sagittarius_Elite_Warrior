@@ -177,7 +177,7 @@ def booted_futures_bots(
 
     def executors(_container: IContainer) -> BotExecutors:
         deps = grid_executor_deps(
-            container, queues=lambda _name: queue, pacers=lambda _spacing: pacer
+            container, queues=lambda _name: queue, pacers=lambda _venue, _spacing: pacer
         )
         return BotExecutors(GridExecutorFactory(deps))
 

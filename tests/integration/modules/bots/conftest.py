@@ -11,6 +11,9 @@ from unittest.mock import patch
 
 import pytest
 from binance.client import Client
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance import (
+    exchange_call_policy,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     FUTURES_ENV_API_KEY,
     FUTURES_ENV_API_SECRET,
@@ -85,3 +88,14 @@ def both_venues(
             owned_loop.enter_context(patch(binding, lambda: loop))
         yield FakeExchange(urls, tmp_path)
     loop.close()
+
+
+@pytest.fixture
+def weight_gate_lifted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`EPIC-029J` J1b - the app's request-weight gate does not close at 70 %.
+
+    @details A journey that starts several bots on one venue inside a minute spends their start
+    weight (about 300 each, measured) on the one clock the fake exchange keeps, so the gate would
+    close mid-journey and refuse the next call. The gate has its own tests; a journey about
+    something else lifts it."""
+    monkeypatch.setattr(exchange_call_policy, "SOFT_WEIGHT_RATIO", 1_000.0)

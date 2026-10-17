@@ -185,7 +185,7 @@ def _start_world(
                 clock,
                 DEFAULT_OWNER_BUDGET_CAPS,
                 queue,
-                lambda _spacing: CountingPacer(),
+                lambda _venue, _spacing: CountingPacer(),
                 FakeBotRetryScheduler(),
                 FakeMonotonicClock(),
                 VenueFreshPriceReader(ports),

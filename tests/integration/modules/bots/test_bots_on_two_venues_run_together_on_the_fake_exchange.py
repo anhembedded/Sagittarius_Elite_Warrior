@@ -126,7 +126,7 @@ def test_a_spot_bot_and_a_futures_bot_run_together_each_with_its_own_orders(
         assert {tag_of(oid) for oid in futures_resting} == {futures}
 
 
-def test_a_second_bot_on_a_venue_that_is_taken_is_refused_naming_the_venue(
+def test_a_second_bot_on_a_symbol_that_is_taken_is_refused_naming_the_symbol(
     both_venues: FakeExchange,
 ) -> None:
     with booted_two_venues(both_venues) as app:
@@ -137,11 +137,14 @@ def test_a_second_bot_on_a_venue_that_is_taken_is_refused_naming_the_venue(
         refused_spot = _start(app, another_spot)
         refused_futures = _start(app, another_futures)
 
-        assert refused_spot.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
-        assert f"A bot on Spot Testnet is still active ({spot})" in refused_spot.message
-        assert refused_futures.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
+        assert refused_spot.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
         assert (
-            f"A bot on Futures Testnet is still active ({futures})"
+            f"A bot on Spot Testnet is still active on {SYMBOL} ({spot})"
+            in refused_spot.message
+        )
+        assert refused_futures.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
+        assert (
+            f"A bot on Futures Testnet is still active on {SYMBOL} ({futures})"
             in refused_futures.message
         )
         assert app.bot(another_spot).state is S.DRAFT
@@ -285,5 +288,5 @@ def test_start_planned_starts_one_bot_per_venue_and_names_the_one_it_refuses(
         if r.levelno == logging.WARNING and "was not started" in r.getMessage()
     ]
     assert len(refused) == 1
-    assert "ONE_ACTIVE_BOT_PER_VENUE" in refused[0]
+    assert "ONE_ACTIVE_BOT_PER_SYMBOL" in refused[0]
     assert "A bot on Spot Testnet is still active" in refused[0]

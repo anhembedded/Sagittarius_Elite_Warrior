@@ -16,7 +16,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
     PlannerMarket,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
-    other_active_bot,
+    BotSlot,
+    occupancy_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
@@ -195,10 +196,14 @@ class SelectedBot:
             self.bot.venue,
             self.bot.symbol,
             config,
-            other_active_bot(
+            occupancy_of(
                 self.bot.bot_id,
                 self.bot.venue,
-                ((other.bot_id, other.venue, other.state) for other in self._bots),
+                self.bot.symbol,
+                (
+                    BotSlot(other.bot_id, other.venue, other.symbol, other.state)
+                    for other in self._bots
+                ),
                 self._refused,
             ),
         )

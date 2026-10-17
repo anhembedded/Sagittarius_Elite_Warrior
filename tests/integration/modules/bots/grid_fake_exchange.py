@@ -273,7 +273,7 @@ def booted(
             clock=container.resolve(IBotClock),
             caps=container.resolve(OwnerBudgetCaps),
             queues=lambda _name: queue,
-            pacers=lambda _spacing: pacer,
+            pacers=lambda _venue, _spacing: pacer,
             retries=container.resolve(IBotRetryScheduler),
             monotonic=container.resolve(IMonotonicClock),
             prices=container.resolve(IFreshPriceReader),

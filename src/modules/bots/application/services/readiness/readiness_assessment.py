@@ -100,8 +100,14 @@ class RunFacts:
 
     #: Why the venue cannot run a Spot Grid.
     venue_problem: str = ""
-    #: The id of another bot of the same venue that is still active (ADR D20).
+    #: The id of another bot on the same venue and symbol that is still active (ADR D20).
     other_active_bot: str = ""
+    #: `EPIC-029J` J1b — the ids of the other active bots of the venue when they already number
+    #: the venue's cap; empty while there is room.
+    venue_full_of: tuple[str, ...] = ()
+    #: `EPIC-029J` J1b (`EPIC-042E`) — the ids of the other bots of the venue that wait to
+    #: recover: starting a bot opens the venue's session, which would resume them.
+    venue_recovering: tuple[str, ...] = ()
     #: Who else holds the symbol's lease.
     lease_holder: str = ""
     #: Which cap the owner budget exceeds.
@@ -284,18 +290,43 @@ def _run_items(inputs: ReadinessInputs, connected: bool) -> tuple[ReadinessItem,
         items.append(
             item(
                 "RUN_OTHER_BOT_ACTIVE",
-                f"A bot on {title} is still active ({run.other_active_bot}); stop it "
-                f"before starting another on {title}",
-                BotRefusal.ONE_ACTIVE_BOT_PER_VENUE,
+                f"A bot on {title} is still active on {inputs.symbol} "
+                f"({run.other_active_bot}); stop it before starting another on "
+                f"{inputs.symbol}",
+                BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL,
                 ReadinessFix.STOP_OTHER_BOT,
                 run.other_active_bot,
+            )
+        )
+    if run.venue_full_of:
+        items.append(
+            item(
+                "RUN_VENUE_FULL",
+                f"{title} already runs {len(run.venue_full_of)} bots "
+                f"({', '.join(run.venue_full_of)}), the most it runs together; stop one "
+                f"before starting another on {title}",
+                BotRefusal.VENUE_FULL,
+                ReadinessFix.STOP_OTHER_BOT,
+                run.venue_full_of[0],
+            )
+        )
+    if run.venue_recovering:
+        items.append(
+            item(
+                "RUN_VENUE_RECOVERING",
+                f"{title} has {len(run.venue_recovering)} bot(s) waiting to recover "
+                f"({', '.join(run.venue_recovering)}); starting another opens the venue's "
+                "order session, which would resume them. Resume or stop them first",
+                BotRefusal.VENUE_RECOVERING,
+                ReadinessFix.STOP_OTHER_BOT,
+                run.venue_recovering[0],
             )
         )
     if run.lease_holder:
         items.append(
             item(
                 "RUN_SYMBOL_LEASED",
-                f"{inputs.symbol} is held by another owner",
+                f"{inputs.symbol} is held by {run.lease_holder}",
                 BotRefusal.SYMBOL_LEASED,
             )
         )

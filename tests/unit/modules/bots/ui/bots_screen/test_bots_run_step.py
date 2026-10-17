@@ -195,7 +195,7 @@ def test_another_active_bot_is_an_item_and_fix_next_selects_it(
     screen.settle()
 
     assert (
-        "A bot on Spot Testnet is still active (b00002); stop it before starting another on Spot Testnet"
+        "A bot on Spot Testnet is still active on BTCUSDT (b00002); stop it before starting another on BTCUSDT"
         in (_plan(screen).readiness_items.text())
     )
     assert "select that bot, then Bots → Stop…" in _plan(screen).readiness_items.text()
@@ -218,7 +218,7 @@ def test_a_symbol_held_by_another_owner_is_an_item_with_no_fix_on_screen(
     select(screen, "a00001")
     screen.settle()
 
-    assert f"{SYMBOL} is held by another owner" in _plan(screen).readiness_items.text()
+    assert f"{SYMBOL} is held by strategy.1" in _plan(screen).readiness_items.text()
     assert not start_rule(screen)[0]
     assert not _fix(screen).isEnabled()
 
@@ -273,4 +273,4 @@ def test_a_click_refused_after_the_screen_said_ready_reads_in_the_screens_words(
 
     headline = screen.notifier.last.headline
     assert headline.startswith("Start grid a00001: refused. 1 thing left: ")
-    assert "A bot on Spot Testnet is still active (b00002)" in headline
+    assert "A bot on Spot Testnet is still active on BTCUSDT (b00002)" in headline
