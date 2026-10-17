@@ -80,7 +80,7 @@ def test_an_owner_only_command_file_is_offered_with_its_text(tmp_path: Path) -> 
     directory = private_directory(tmp_path)
     write_command_file(directory, command())
 
-    (entry,) = inbox_over(directory).collect()
+    (entry,) = list(inbox_over(directory).collect())
 
     assert entry.authorised
     assert parse_command(entry.text) == command()
@@ -94,7 +94,7 @@ def test_a_command_file_other_accounts_can_touch_is_refused_unread(
     directory = private_directory(tmp_path)
     write_command_file(directory, command(), mode=mode)
 
-    (entry,) = inbox_over(directory).collect()
+    (entry,) = list(inbox_over(directory).collect())
 
     assert not entry.authorised
     assert entry.text == ""
@@ -115,7 +115,7 @@ def test_a_command_file_owned_by_another_account_is_refused(tmp_path: Path) -> N
         ],
     )
 
-    (entry,) = inbox.collect()
+    (entry,) = list(inbox.collect())
 
     assert "owned by another user" in entry.problem
 
@@ -128,7 +128,7 @@ def test_a_command_file_in_a_directory_others_can_write_is_refused(
     write_command_file(directory, command())
     directory.chmod(0o770)
 
-    (entry,) = inbox_over(directory).collect()
+    (entry,) = list(inbox_over(directory).collect())
 
     assert "writable by group or others" in entry.problem
 
@@ -141,7 +141,7 @@ def test_a_symbolic_link_is_never_followed(tmp_path: Path) -> None:
     real.chmod(0o600)
     (directory / command_file_name(ID_A)).symlink_to(real)
 
-    (entry,) = inbox_over(directory).collect()
+    (entry,) = list(inbox_over(directory).collect())
 
     assert not entry.authorised and "symbolic link" in entry.problem
 
@@ -153,13 +153,13 @@ def test_an_oversized_file_is_refused(tmp_path: Path) -> None:
     path.write_text("x" * 5000, encoding="utf-8")
     path.chmod(0o600)
 
-    (entry,) = inbox_over(directory).collect()
+    (entry,) = list(inbox_over(directory).collect())
 
     assert entry.problem == "it is too large to be a command"
 
 
 def test_an_absent_directory_means_no_control(tmp_path: Path) -> None:
-    assert inbox_over(tmp_path / "never-made").collect() == ()
+    assert list(inbox_over(tmp_path / "never-made").collect()) == []
 
 
 @posix_only
@@ -175,8 +175,9 @@ def test_only_command_files_are_offered_oldest_first_and_discarding_removes_them
     (directory / ".half.tmp").write_text("x", encoding="utf-8")
     inbox = inbox_over(directory)
 
-    entries = inbox.collect()
-    for entry in entries:
+    entries = []
+    for entry in inbox.collect():
+        entries.append(entry)
         inbox.discard(entry)
 
     assert [e.name for e in entries] == [first.name, second.name]
@@ -189,7 +190,7 @@ def test_a_flood_of_files_is_taken_a_bounded_number_at_a_time(tmp_path: Path) ->
     for index in range(MAX_PER_POLL + 5):
         write_command_file(directory, command(f"{index:032x}"))
 
-    assert len(inbox_over(directory).collect()) == MAX_PER_POLL
+    assert len(list(inbox_over(directory).collect())) == MAX_PER_POLL
 
 
 @posix_only
@@ -197,9 +198,9 @@ def test_a_file_that_cannot_be_removed_is_not_offered_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     directory = private_directory(tmp_path)
-    stuck = write_command_file(directory, command())
+    write_command_file(directory, command())
     inbox = inbox_over(directory)
-    (entry,) = inbox.collect()
+    (entry,) = list(inbox.collect())
 
     def refuse(self: Path, missing_ok: bool = False) -> None:
         raise PermissionError(1, "read-only")
@@ -207,5 +208,41 @@ def test_a_file_that_cannot_be_removed_is_not_offered_again(
     monkeypatch.setattr(Path, "unlink", refuse)
     inbox.discard(entry)
 
-    assert stuck.exists()
-    assert inbox.collect() == ()
+    assert list(inbox.collect()) == []
+
+
+@posix_only
+def test_a_file_is_claimed_before_it_is_read_so_the_sender_cannot_withdraw_it_after(
+    tmp_path: Path,
+) -> None:
+    """The reviewer's race (round 1): the sender's removal must succeed exactly while the host has
+    not taken the file. The host claims one file at a time, by rename, before reading it."""
+    directory = private_directory(tmp_path)
+    first = write_command_file(directory, command(ID_A))
+    second = write_command_file(directory, command(ID_B))
+    os.utime(first, ns=(1, 1))
+    os.utime(second, ns=(2, 2))
+    taken = inbox_over(directory).collect()
+
+    entry = next(taken)  # the host holds the first command
+
+    with pytest.raises(FileNotFoundError):
+        first.unlink()  # the sender's withdrawal fails: the host has it
+    second.unlink()  # the host has not reached the second: the withdrawal succeeds
+    assert entry.name == first.name
+    assert list(taken) == [], "the withdrawn file is never offered"
+
+
+@posix_only
+def test_a_claim_an_earlier_host_process_died_holding_is_removed_and_not_run(
+    tmp_path: Path,
+) -> None:
+    directory = private_directory(tmp_path)
+    leftover = directory / f".claimed-{command_file_name(ID_A)}"
+    leftover.write_text(encode_command(command(ID_A)), encoding="utf-8")
+    leftover.chmod(0o600)
+
+    offered = list(inbox_over(directory).collect())
+
+    assert offered == []
+    assert not leftover.exists()

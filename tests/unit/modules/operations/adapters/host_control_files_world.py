@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.operations.composition.secret_file_co
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
     HostCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_control_file_check import (
+    IControlFileCheck,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.control_world import (
     BOT,
     ID_A,
@@ -80,17 +83,39 @@ def inbox_over(directory: Path) -> DirectoryHostCommandInbox:
     return DirectoryHostCommandInbox(directory, [platform_control_file_check()])
 
 
+class _Refuses(IControlFileCheck):
+    def __init__(self, problem: str) -> None:
+        self._problem = problem
+
+    def inspect(self, path: Path, descriptor: int) -> str:
+        return self._problem
+
+
+def _refusing_inbox(directory: Path, problem: str) -> DirectoryHostCommandInbox:
+    return DirectoryHostCommandInbox(directory, [_Refuses(problem)])
+
+
 class HostAndWriter:
     """The writer and a real host side over one directory; `sleep` is what lets the host run."""
 
     def __init__(
-        self, tmp_path: Path, *, host_alive: bool = True, held: bool = True
+        self,
+        tmp_path: Path,
+        *,
+        host_alive: bool = True,
+        held: bool = True,
+        refuse_every_file: str = "",
     ) -> None:
         self.directory = private_directory(tmp_path)
         self.audit = JsonlHostControlAudit(self.directory / "audit.jsonl")
         self.executor = ScriptedExecutor()
         self.processor = HostCommandProcessor(
-            inbox_over(self.directory), self.audit, self.executor, MovableClock()
+            _refusing_inbox(self.directory, refuse_every_file)
+            if refuse_every_file
+            else inbox_over(self.directory),
+            self.audit,
+            self.executor,
+            MovableClock(),
         )
         self.slept = 0.0
         self.clock_now = 0.0

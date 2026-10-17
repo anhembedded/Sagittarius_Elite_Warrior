@@ -166,7 +166,7 @@ def test_an_unauthorised_file_is_refused_unread_and_removed() -> None:
 
     assert rig.executor.executed == []
     (only,) = rig.audit.entries
-    assert (only.verdict, only.command_id) == (V.UNAUTHORISED, "cmd-evil")
+    assert (only.verdict, only.command_id) == (V.UNAUTHORISED, "evil")
     assert "owned by another user" in only.message
     assert len(rig.inbox.discarded) == 1
 

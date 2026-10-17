@@ -23,6 +23,7 @@ the Bots tab dispatches - there is no second implementation of Stop here.
 from __future__ import annotations
 
 import argparse
+import math
 
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
     CliOutcome,
@@ -53,6 +54,10 @@ class _ControlVerb(IBotVerb):
     action: HostControlAction
 
     def run(self, args: argparse.Namespace, world: BotVerbWorld) -> CliOutcome | None:
+        if not math.isfinite(args.wait) or args.wait < 0:
+            return CliOutcome(
+                ExitCode.USAGE, "--wait must be a finite number of seconds, 0 or more"
+            )
         request = HostControlRequest(
             self.action, args.bot_id, getattr(args, "confirm_venue", None)
         )

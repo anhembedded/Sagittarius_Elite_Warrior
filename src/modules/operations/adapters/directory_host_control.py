@@ -10,9 +10,10 @@ changes nothing itself. In order:
      never sees half a file - and the audit is polled for that id;
   4. the verdict the host recorded becomes the reply.
 
-**A timeout never leaves a hidden command.** The writer tries to remove its own file. If that
-succeeds the host never took it, and the reply says "withdrawn, nothing happened". If the file is
-already gone the host has it, so the writer waits a short grace for the outcome and, failing that,
+**A timeout never leaves a hidden command.** The writer tries to remove its own file. The host
+claims a file by renaming it **before** reading it (`DirectoryHostCommandInbox`), so the removal
+succeeds only while the host has not taken it: then the reply says "withdrawn, nothing happened"
+and it is true. If the file is already gone the host has it, so the writer waits a short grace for the outcome and, failing that,
 says the command was taken and its outcome is not recorded - which is true, and which the operator
 resolves by looking at `bot show`.
 
@@ -23,6 +24,7 @@ sleeps for real.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -84,6 +86,10 @@ class DirectoryHostControl(IHostControl):
         self._monotonic = monotonic
 
     def send(self, request: HostControlRequest, wait_s: float) -> HostControlReply:
+        if not math.isfinite(wait_s) or wait_s < 0:
+            raise ValueError(
+                f"wait_s must be a finite, non-negative number, not {wait_s}"
+            )
         if not self._probe.is_held():
             return HostControlReply(
                 HostControlStatus.NOT_RUNNING,

@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import os
 import stat
 from pathlib import Path
 
+import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
     HostControlRequest,
@@ -25,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.contracts.i_host_command_e
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.adapters.host_control_files_world import (
     HeldProbe,
     HostAndWriter,
+    inbox_over,
     posix_only,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.operations.control_world import (
@@ -106,23 +109,56 @@ def test_a_host_that_never_answers_gets_the_command_withdrawn(tmp_path: Path) ->
 
 
 @posix_only
-def test_a_host_that_took_the_file_and_recorded_nothing_is_reported_as_such(
+def test_a_host_that_claimed_the_file_and_recorded_nothing_is_never_told_it_was_withdrawn(
     tmp_path: Path,
 ) -> None:
+    """The reviewer's race (round 1): the host claims the file (renames it, then reads it); the
+    operator's deadline passes before the host audits anything. The writer's removal fails, so
+    it must not say "withdrawn, nothing happened" - the host holds the command."""
     rig = HostAndWriter(tmp_path, host_alive=False)
+    host_inbox = inbox_over(rig.directory)
     original_sleep = rig.control._sleep
+    claimed: list[object] = []
 
-    def host_takes_the_file(seconds: float) -> None:
-        for taken in rig.directory.glob("cmd-*.json"):
-            taken.unlink()
+    def host_claims_the_file(seconds: float) -> None:
+        if not claimed:
+            claimed.extend(list(host_inbox.collect())[:1])
         original_sleep(seconds)
 
-    rig.control._sleep = host_takes_the_file  # type: ignore[method-assign]
+    rig.control._sleep = host_claims_the_file  # type: ignore[method-assign]
 
     reply = rig.send(wait_s=1.0)
 
+    assert claimed, "the host claimed the command"
     assert reply.status is HostControlStatus.NO_ANSWER
+    assert "withdrawn" not in reply.message
     assert "took the command but recorded no outcome" in reply.message
+
+
+@posix_only
+def test_a_file_the_door_refuses_comes_back_as_a_rejection_with_the_reason(
+    tmp_path: Path,
+) -> None:
+    rig = HostAndWriter(tmp_path, refuse_every_file="it is owned by another user")
+
+    reply = rig.send()
+
+    assert reply.status is HostControlStatus.REJECTED
+    assert "unauthorised" in reply.message and "owned by another user" in reply.message
+    assert reply.command_id == ID_A
+    assert rig.executor.executed == []
+
+
+@pytest.mark.parametrize("wait_s", [float("nan"), float("inf"), -1.0])
+def test_a_wait_that_is_not_a_finite_number_of_seconds_is_refused_up_front(
+    tmp_path: Path, wait_s: float
+) -> None:
+    rig = HostAndWriter(tmp_path)
+
+    with pytest.raises(ValueError, match="finite"):
+        rig.send(wait_s=wait_s)
+
+    assert os.listdir(rig.directory) == []
 
 
 @posix_only

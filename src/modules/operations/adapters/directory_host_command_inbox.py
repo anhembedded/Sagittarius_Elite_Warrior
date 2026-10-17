@@ -12,6 +12,10 @@ An absent directory yields nothing - that is "no control", not an error. Names t
 is a dot-file until its writer renames it. At most `MAX_PER_POLL` files are taken at a time, so a
 directory stuffed with files costs the host a bounded amount of work per second.
 
+A file is **claimed by rename** (`.claimed-cmd-<id>.json`) one at a time, before it is read - the
+maildir/spool pattern - so the sender's withdrawal and the host's reading cannot both succeed.
+A claim an earlier host process died holding is removed at the first poll, not run.
+
 **Price paid:** a file that cannot be removed (a read-only mount) is remembered in memory and not
 offered again; after a restart it is judged once more.
 """
@@ -20,10 +24,12 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
+    claimed_name,
+    is_claimed_file_name,
     is_command_file_name,
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.contracts.host_command import (
@@ -54,20 +60,60 @@ class DirectoryHostCommandInbox(IHostCommandInbox):
         self._directory = directory
         self._checks = tuple(checks)
         self._stuck: set[str] = set()
+        self._swept = False
 
-    def collect(self) -> tuple[InboxEntry, ...]:
-        names = self._waiting_names()
-        return tuple(self._entry_of(name) for name in names[:MAX_PER_POLL])
+    def collect(self) -> Iterator[InboxEntry]:
+        self._sweep_claims_of_an_earlier_process()
+        for name in self._waiting_names()[:MAX_PER_POLL]:
+            entry = self._claim(name)
+            if entry is not None:
+                yield entry
 
     def discard(self, entry: InboxEntry) -> None:
         try:
-            (self._directory / entry.name).unlink(missing_ok=True)
+            (self._directory / claimed_name(entry.name)).unlink(missing_ok=True)
         except OSError:
             self._stuck.add(entry.name)
             logger.exception(
                 "[control] %s could not be removed and will not be offered again",
                 entry.name,
             )
+
+    def _claim(self, name: str) -> InboxEntry | None:
+        """Take the file by renaming it, **before** reading it. The sender withdraws a command
+        by removing `cmd-<id>.json`: that succeeds exactly while the file has not been claimed, so
+        "withdrawn" is never said of a command the host holds. `None`: the sender got there first."""
+        claimed = self._directory / claimed_name(name)
+        try:
+            (self._directory / name).rename(claimed)
+        except FileNotFoundError:
+            return None
+        except OSError:
+            self._stuck.add(name)
+            logger.exception("[control] %s could not be claimed and is skipped", name)
+            return None
+        return self._entry_of(claimed, name)
+
+    def _sweep_claims_of_an_earlier_process(self) -> None:
+        """A claim a host died holding is never finished: the sender already knows the host took
+        it (its withdrawal failed), and the next start must not run it late."""
+        if self._swept:
+            return
+        self._swept = True
+        try:
+            with os.scandir(self._directory) as listing:
+                left = [
+                    item.name for item in listing if is_claimed_file_name(item.name)
+                ]
+        except OSError:
+            return
+        for leftover in left:
+            logger.warning(
+                "[control] %s was claimed by an earlier host process and never finished; "
+                "removed, not run",
+                leftover,
+            )
+            (self._directory / leftover).unlink(missing_ok=True)
 
     def _waiting_names(self) -> list[str]:
         try:
@@ -84,8 +130,7 @@ class DirectoryHostCommandInbox(IHostCommandInbox):
             return []
         return [name for _, name in sorted(found)]
 
-    def _entry_of(self, name: str) -> InboxEntry:
-        path = self._directory / name
+    def _entry_of(self, path: Path, name: str) -> InboxEntry:
         try:
             descriptor = os.open(path, _OPEN_FLAGS)
         except OSError as failure:

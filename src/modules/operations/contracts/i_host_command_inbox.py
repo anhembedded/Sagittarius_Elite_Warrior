@@ -13,6 +13,7 @@ Nothing here parses a command; a file that passes the door is still checked by t
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -31,9 +32,12 @@ class InboxEntry:
 
 class IHostCommandInbox(ABC):
     @abstractmethod
-    def collect(self) -> tuple[InboxEntry, ...]:
-        """The waiting commands, oldest first. A directory that is absent, or not safe to
-        read from, yields nothing: no control."""
+    def collect(self) -> Iterator[InboxEntry]:
+        """The waiting commands, oldest first, **one at a time**: a file is claimed (taken out
+        of the sender's reach) only when the caller asks for it, so a sender that withdraws a
+        file the host has not yet taken succeeds, and one that withdraws a file the host has
+        taken fails - never the reverse. A directory that is absent, or not safe to read from,
+        yields nothing: no control."""
 
     @abstractmethod
     def discard(self, entry: InboxEntry) -> None:

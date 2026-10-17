@@ -3,6 +3,7 @@ implementations of their ports (each subclasses the port it stands for)."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
@@ -66,10 +67,9 @@ class ListInbox(IHostCommandInbox):
         self.waiting = list(entries)
         self.discarded: list[InboxEntry] = []
 
-    def collect(self) -> tuple[InboxEntry, ...]:
-        offered = tuple(self.waiting)
-        self.waiting.clear()
-        return offered
+    def collect(self) -> Iterator[InboxEntry]:
+        while self.waiting:
+            yield self.waiting.pop(0)
 
     def discard(self, entry: InboxEntry) -> None:
         self.discarded.append(entry)

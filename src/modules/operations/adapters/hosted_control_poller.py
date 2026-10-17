@@ -7,12 +7,16 @@ runs `HostCommandProcessor.poll`; at the start of `stop()` it cancels the job, s
 dispatched into a closing app. A directory it cannot make private means **no control**, logged
 once at ERROR; the host serves as it did before this existed.
 
-No port is opened and no thread is started here: the Engine's scheduler is the only clock.
+No port is opened and no thread is started here: the Engine's scheduler is the only clock, so a
+command is dispatched from the scheduler's thread (`BotRunner` queues each on the bot's own
+executor, as it does for the Bots tab and for the stop policy's worker). `stop()` waits for a poll
+that is already running and closes the poller, so none outlives it.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.modules.operations.adapters.control_directory import (
@@ -35,6 +39,8 @@ class HostedControlPoller(IHostedService):
         self._processor = processor
         self._directory = directory
         self._job: ScheduledJob | None = None
+        self._poll = threading.Lock()
+        self._closed = False
 
     def start(self, context: IEngineContext) -> None:
         problem = prepare_private_directory(self._directory)
@@ -53,10 +59,16 @@ class HostedControlPoller(IHostedService):
         )
 
     def poll_once(self) -> None:
-        """What the scheduler runs each second: take the waiting commands, once."""
-        self._processor.poll()
+        """What the scheduler runs each second: take the waiting commands, once. Does nothing
+        once `stop()` has begun, so no command is dispatched into a closing application."""
+        with self._poll:
+            if not self._closed:
+                self._processor.poll()
 
     def stop(self, context: IEngineContext) -> None:
         if self._job is not None:
             self._job.cancel()
             self._job = None
+        # `cancel()` stops the next run, not one already going: take the lock to wait for it.
+        with self._poll:
+            self._closed = True

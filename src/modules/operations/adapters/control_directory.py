@@ -1,6 +1,7 @@
 """The command directory itself: where it is, what its files are called, and that it is private (`EPIC-038J`).
 
-`<data root>/state/control/` holds `cmd-<id>.json` (a command waiting for the host) and
+`<data root>/state/control/` holds `cmd-<id>.json` (a command waiting for the host),
+`.claimed-cmd-<id>.json` (a command the host has taken and is handling) and
 `audit.jsonl` (the host's record). Both halves of control - the host that reads and the
 operator's process that writes - name them through here, so neither can drift from the other.
 
@@ -23,6 +24,8 @@ CONTROL_DIRECTORY_NAME = "control"
 AUDIT_FILE_NAME = "audit.jsonl"
 
 _COMMAND_FILE = re.compile(r"^cmd-[0-9a-f]{32}\.json$")
+_CLAIMED_FILE = re.compile(r"^\.claimed-cmd-[0-9a-f]{32}\.json$")
+_CLAIM_PREFIX = ".claimed-"
 _PRIVATE_MODE = 0o700
 
 
@@ -36,6 +39,15 @@ def command_file_name(command_id: str) -> str:
 
 def is_command_file_name(name: str) -> bool:
     return bool(_COMMAND_FILE.fullmatch(name))
+
+
+def claimed_name(name: str) -> str:
+    """The name a command file takes when the host claims it (`DirectoryHostCommandInbox`)."""
+    return _CLAIM_PREFIX + name
+
+
+def is_claimed_file_name(name: str) -> bool:
+    return bool(_CLAIMED_FILE.fullmatch(name))
 
 
 def prepare_private_directory(directory: Path) -> str:

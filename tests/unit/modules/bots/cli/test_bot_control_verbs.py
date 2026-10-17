@@ -128,3 +128,15 @@ def test_every_other_outcome_has_its_own_exit_code_and_says_why(
     assert outcome.code is code
     assert outcome.message == "bot stop 44wa1x: the words"
     assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("wait", [float("nan"), float("inf"), -2.0])
+def test_a_wait_that_is_not_a_finite_number_is_a_usage_error_and_asks_nothing(
+    wait: float,
+) -> None:
+    host = RecordingHostControl()
+
+    outcome = _run(StopBotVerb(), host, wait=wait)
+
+    assert isinstance(outcome, CliOutcome) and outcome.code is ExitCode.USAGE
+    assert host.sent == []

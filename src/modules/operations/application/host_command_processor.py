@@ -79,7 +79,7 @@ class HostCommandProcessor:
                 self._inbox.discard(entry)
 
     def _handle(self, entry: InboxEntry) -> None:
-        stem = entry.name.removesuffix(".json")
+        stem = entry.name.removeprefix("cmd-").removesuffix(".json")
         if not entry.authorised:
             self._refuse(stem, ControlVerdict.UNAUTHORISED, entry.problem)
             return
