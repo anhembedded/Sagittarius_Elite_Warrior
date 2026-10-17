@@ -59,6 +59,14 @@ class _Client(ITradingClient):
         self.calls.append("cancel_all")
         return [_ORDER]
 
+    def cancel_regular_orders(self, symbol: str) -> list[Order]:
+        self.calls.append("cancel_all")
+        return [_ORDER]
+
+    def cancel_conditional_orders(self, symbol: str) -> list[Order]:
+        self.calls.append("cancel_all")
+        return [_ORDER]
+
     def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         self.calls.append("open_orders")
         return [_ORDER]

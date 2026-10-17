@@ -12,7 +12,8 @@ E -> BUS : TradingSwitchChangedEvent\n(off, EMERGENCY_STOP)
 BUS -> RT : on_switch
 RT -> F : on_switch(False, EMERGENCY_STOP),\nfor each bot on the venue (queued)
 F -> F : STARTING, RUNNING or PAUSED\n--switch_off--> HALTED
-E -> X : cancel every open order
+E -> X : cancel every regular order
 E -> X : close every position\n(Spot: sell above the session's baseline)
+E -> X : Futures: cancel the conditional orders\nof each symbol read flat (a stop over an open\nposition stays)
 note over F : a later Resume re-plans the ladder;\na STOPPING bot waits instead
 @enduml

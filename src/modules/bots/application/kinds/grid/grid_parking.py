@@ -9,7 +9,7 @@ ladder is off, the bot **stops with the close** its venue's closer carries out (
 the same reduce-only close, the same STOPPING states, the same retries and rate-limit wait as the
 user's Stop, a stop loss or a take profit, so one tested close serves all four. The halt's reason
 stays the reason of the stop, and the detail says the position was closed, so the user reads why
-the bot ended flat. `EPIC-039L` lets a standing exchange-side stop replace the close.
+the bot ended flat. A halt that cannot close says whether the exchange-side stop stands (`EPIC-039L`).
 """
 
 from __future__ import annotations
@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_closer import (
     IExposureCloser,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_exposure_protection import (
+    IExposureProtection,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -47,10 +50,15 @@ class GridParking:
     """Takes a halted bot's ladder off and, on a position venue, closes its position."""
 
     def __init__(
-        self, context: GridRunContext, closer: IExposureCloser, stopper: GridStopper
+        self,
+        context: GridRunContext,
+        closer: IExposureCloser,
+        stopper: GridStopper,
+        protection: IExposureProtection,
     ) -> None:
         self._context = context
         self._closer = closer
+        self._protection = protection
         self._stopper = stopper
         self._housekeeping = GridHousekeeping(context)
 
@@ -61,9 +69,10 @@ class GridParking:
         protects the position meanwhile."""
         if not self._closer.closes_on_halt():
             return None
+        stop = self._protection.describe_stop()
         return (
             "any position stays open on the exchange: this bot cannot close it "
-            "until trading is back"
+            "until trading is back" + (f"; {stop}" if stop else "")
         )
 
     def park(self) -> str | None:

@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protectio
     covers,
     wanted_stops,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.protection.stop_words import (
+    stop_words,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_stop_event import (
     BotProtectiveStopEvent,
     ProtectiveStopChange,
@@ -144,6 +147,12 @@ class ProtectiveStopService(IExposureProtection):
         else:
             self._place_wanted(position, open_stops)
         return ProtectionVerdict.OK
+
+    def describe_stop(self) -> str:
+        open_stops = self._open_stops()
+        return stop_words(
+            self._book.stops, None if open_stops is None else set(open_stops)
+        )
 
     def release(self) -> bool:
         released = True
