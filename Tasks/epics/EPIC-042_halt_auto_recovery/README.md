@@ -15,7 +15,7 @@
 3. **A general mechanism, layered**: the transient reasons are plain data composed from a common, a kind and a venue layer, later layers winning; a probe per reason says when it has cleared; the attempt ledger lives in the bot record (owner; D4, D15).
 4. **Spot keeps the common set (`price_feed_stale`, `user_stream_down`); Futures removes every reason with one line in its venue layer** (owner; D5, D15).
 5. **Not migrated here: the grid rate-limit auto-resume** (`EPIC-042F`; D6).
-6. **Agent decisions the owner may veto:** a `PAUSED` bot never recovers by itself (D8); a restart ends the wait in `HALTED` (D9, O1); an attempt costs budget when it starts (D10); (D11, the 15 min stalled-wait alert, is the owner's: O2 answered, option b).
+6. **Owner-chosen after the first draft:** a restart ends the wait in `HALTED` (D9, O1 option a). **Agent decisions the owner may veto:** a `PAUSED` bot never recovers by itself (D8); an attempt costs budget when it starts (D10); (D11, the 15 min stalled-wait alert, is the owner's: O2 answered, option b).
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-17, `5a2d0eb`) | When the epic is done |

@@ -45,4 +45,4 @@ The files in §4.
 
 ## Implementation notes (written when done)
 - The names in the planned sections are plain code identifiers, not `path.py → symbol` citations, because none of the planned symbols exists yet; `EPIC-042B`–`E` turn each into a citation in the commit that creates it (`commit-rule.md` §1, "Design in step").
-- Two choices the owner may veto are stated as such in the record: D9 (restart); D11 is the owner's (option b).
+- Both open questions are answered by the owner: D9 (a restart ends the wait in `HALTED`, option a) and D11 (alert on a long wait, option b).
