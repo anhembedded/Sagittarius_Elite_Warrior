@@ -154,6 +154,7 @@ def test_the_verbs_are_a_table_not_a_chain() -> None:
     assert [verb.name for verb in BOT_VERBS] == [
         "list",
         "show",
+        "order",
         "apply",
         "export",
         "stop",

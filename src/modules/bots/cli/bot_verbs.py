@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     StartBotVerb,
     StopBotVerb,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_order_verbs import (
+    OrderBotVerb,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
     ApplyBotPlanVerb,
     ExportBotPlanVerb,
@@ -97,6 +100,7 @@ class ShowBotVerb(IBotVerb):
 BOT_VERBS: tuple[IBotVerb, ...] = (
     ListBotsVerb(),
     ShowBotVerb(),
+    OrderBotVerb(),
     ApplyBotPlanVerb(),
     ExportBotPlanVerb(),
     StopBotVerb(),
