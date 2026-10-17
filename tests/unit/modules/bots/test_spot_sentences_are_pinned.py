@@ -13,6 +13,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.planner_numbers import (
     read_planner_numbers,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
+    VenueOccupancy,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
 )
@@ -127,7 +130,7 @@ def test_the_run_facts_name_a_venue_the_app_does_not_trade_on() -> None:
     venue = TradingVenue.DISABLED
 
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
-        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, VenueOccupancy()
     )
 
     assert facts.venue_problem == (
@@ -139,7 +142,7 @@ def test_a_futures_venue_that_is_off_says_not_enabled() -> None:
     """`EPIC-039H`: a Futures venue is one bots trade on, so only being off is its problem."""
     venue = TradingVenue.FUTURES_TESTNET
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
-        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, VenueOccupancy()
     )
 
     assert facts.venue_problem == f"{venue.display_name} is not enabled"
@@ -151,7 +154,7 @@ def test_futures_mainnet_that_is_off_says_not_enabled_like_every_futures_venue()
     """The owner opened it on 2026-10-17 (`EPIC-039L`): only being off is its problem."""
     venue = TradingVenue.FUTURES_MAINNET
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
-        "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
+        "abc123", venue, "BTCUSDT", {"lower": "1"}, VenueOccupancy()
     )
 
     assert facts.venue_problem == f"{venue.display_name} is not enabled"
@@ -159,7 +162,7 @@ def test_futures_mainnet_that_is_off_says_not_enabled_like_every_futures_venue()
 
 def test_a_spot_venue_that_is_off_says_not_enabled() -> None:
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
-        "abc123", TradingVenue.SPOT_TESTNET, "BTCUSDT", {"lower": "1"}, ""
+        "abc123", TradingVenue.SPOT_TESTNET, "BTCUSDT", {"lower": "1"}, VenueOccupancy()
     )
 
     assert facts.venue_problem == "Spot Testnet is not enabled"

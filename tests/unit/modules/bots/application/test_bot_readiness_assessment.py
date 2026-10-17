@@ -222,17 +222,45 @@ def test_another_active_bot_is_an_item_whose_fix_is_to_stop_it() -> None:
     (item,) = readiness.items
     assert item.step is ReadinessStep.RUN
     assert item.reason == (
-        "A bot on Spot Testnet is still active (aaa111); stop it before "
-        "starting another on Spot Testnet"
+        "A bot on Spot Testnet is still active on BTCUSDT (aaa111); stop it before "
+        "starting another on BTCUSDT"
     )
     assert (item.fix, item.target) == (ReadinessFix.STOP_OTHER_BOT, "aaa111")
-    assert item.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_VENUE
+    assert item.refusal is BotRefusal.ONE_ACTIVE_BOT_PER_SYMBOL
+
+
+def test_a_venue_that_is_full_is_an_item_naming_the_bots_that_fill_it() -> None:
+    """`EPIC-029J` J1b: the cap is a count of bots, so the item names them and offers the first."""
+    readiness = _assess(run=RunFacts(venue_full_of=("aaa111", "bbb222")))
+
+    (item,) = readiness.items
+    assert item.step is ReadinessStep.RUN
+    assert item.reason == (
+        "Spot Testnet already runs 2 bots (aaa111, bbb222), the most it runs "
+        "together; stop one before starting another on Spot Testnet"
+    )
+    assert (item.fix, item.target) == (ReadinessFix.STOP_OTHER_BOT, "aaa111")
+    assert item.refusal is BotRefusal.VENUE_FULL
+
+
+def test_a_venue_with_a_bot_waiting_to_recover_is_an_item_that_says_why() -> None:
+    """`EPIC-042E`: a Start opens the session, which resumes the bots waiting for it."""
+    readiness = _assess(run=RunFacts(venue_recovering=("aaa111", "bbb222")))
+
+    (item,) = readiness.items
+    assert item.step is ReadinessStep.RUN
+    assert item.reason == (
+        "Spot Testnet has 2 bot(s) waiting to recover (aaa111, bbb222); starting another "
+        "opens the venue's order session, which would resume them. Resume or stop them first"
+    )
+    assert (item.fix, item.target) == (ReadinessFix.STOP_OTHER_BOT, "aaa111")
+    assert item.refusal is BotRefusal.VENUE_RECOVERING
 
 
 def test_a_symbol_held_by_another_owner_is_an_item() -> None:
     (item,) = _assess(run=RunFacts(lease_holder="strategy.x")).items
 
-    assert item.reason == "BTCUSDT is held by another owner"
+    assert item.reason == "BTCUSDT is held by strategy.x"
     assert item.refusal is BotRefusal.SYMBOL_LEASED
 
 
@@ -278,7 +306,10 @@ def test_every_item_across_the_steps_is_counted_and_worded() -> None:
     assert readiness.summary == "3 things left"
     assert not readiness.can_start
     assert readiness.message().startswith("3 things left: ")
-    assert "A bot on Spot Testnet is still active (aaa111)" in readiness.message()
+    assert (
+        "A bot on Spot Testnet is still active on BTCUSDT (aaa111)"
+        in readiness.message()
+    )
     assert [s.status for s in readiness.steps] == [
         StepStatus.DONE,
         StepStatus.OPEN,

@@ -136,7 +136,7 @@ def _world(state: BotLifecycleState) -> _World:
                 clock,
                 DEFAULT_OWNER_BUDGET_CAPS,
                 lambda _name: InlineWorkQueue(),
-                lambda _spacing: CountingPacer(),
+                lambda _venue, _spacing: CountingPacer(),
                 FakeBotRetryScheduler(),
                 FakeMonotonicClock(),
                 VenueFreshPriceReader(ports),

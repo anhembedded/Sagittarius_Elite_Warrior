@@ -4,8 +4,8 @@ Singletons. There is one executor per bot (`BotExecutors`), every start shares
 one lock (`BotCommandLock`, ADR D20), and the runner is the one door from the
 use cases to the executors (ADR D9). The price watch (`EPIC-035A`) gives every
 bot that is not at rest its own price stream. Each bot's queue is its own thread
-(`ThreadBotWorkQueue`) and its pacer the monotonic clock at the budget's
-spacing (`MonotonicOrderPacer`). A price read from the venue itself, for the
+(`ThreadBotWorkQueue`) and its venue's pacer the monotonic clock at the budget's
+spacing (`VenueOrderPacers`: one `MonotonicOrderPacer` per venue). A price read from the venue itself, for the
 wake after a sleep (`EPIC-035I`), is `VenueFreshPriceReader`.
 """
 
@@ -21,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
-from Sagittarius_Elite_Warrior.src.modules.bots.adapters.monotonic_order_pacer import (
-    MonotonicOrderPacer,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_ticker import (
     ThreadBotTicker,
 )
@@ -35,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.timer_bot_retry_schedul
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_order_pacers import (
+    VenueOrderPacers,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
     GridExecutorDeps,
@@ -163,6 +163,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 #: The numbers a position venue's plan guard and risk watch judge with (`EPIC-039F`).
@@ -242,7 +245,7 @@ def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
 def grid_executor_deps(
     container: IContainer,
     queues: Callable[[str], IBotWorkQueue] = ThreadBotWorkQueue,
-    pacers: Callable[[timedelta], IOrderPacer] = MonotonicOrderPacer,
+    pacers: Callable[[TradingVenue, timedelta], IOrderPacer] | None = None,
 ) -> GridExecutorDeps:
     """What every Grid executor is built from, as production wires it. A journey that needs its
     bots on its own queue and pacer passes them and keeps every other binding (`EPIC-039H`:
@@ -253,7 +256,7 @@ def grid_executor_deps(
         clock=container.resolve(IBotClock),
         caps=container.resolve(OwnerBudgetCaps),
         queues=queues,
-        pacers=pacers,
+        pacers=pacers if pacers is not None else VenueOrderPacers().of,
         monotonic=container.resolve(IMonotonicClock),
         retries=container.resolve(IBotRetryScheduler),
         prices=container.resolve(IFreshPriceReader),

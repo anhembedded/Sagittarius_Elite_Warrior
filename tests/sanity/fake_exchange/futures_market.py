@@ -28,10 +28,16 @@ BRACKETS: tuple[tuple[int, int, int, int, str, str], ...] = (
     (5, 5, 10_000_000, 50_000_000, "0.05", "282550"),
 )
 
+#: `EPIC-029J` J1b — extra symbols that trade like `BTCUSDT` (same mark, tick and filters), so a
+#: journey can run as many bots on one venue as it needs, each on a symbol of its own, and the same
+#: grid fits every one. `S01USDT` … `S19USDT`: with `BTCUSDT` that is twenty.
+CROWD_SYMBOLS: tuple[str, ...] = tuple(f"S{number:02d}USDT" for number in range(1, 20))
+
 #: `symbol -> (mark price, tick size)`; the ticks match `exchangeInfo`.
 _MARKS: dict[str, tuple[Decimal, Decimal]] = {
     "BTCUSDT": (Decimal("64000.0"), Decimal("0.1")),
     "ETHUSDT": (Decimal("3200.00"), Decimal("0.01")),
+    **{symbol: (Decimal("64000.0"), Decimal("0.1")) for symbol in CROWD_SYMBOLS},
 }
 
 #: The symbols the fake Futures market lists.

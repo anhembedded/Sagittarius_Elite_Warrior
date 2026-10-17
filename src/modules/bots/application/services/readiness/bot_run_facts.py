@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budg
     bot_owner_id,
     grid_budget_problem,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.other_active_bot import (
+    VenueOccupancy,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.readiness_assessment import (
     RunFacts,
 )
@@ -48,16 +51,22 @@ class BotRunFactsReader:
         venue: TradingVenue,
         symbol: str,
         config: Mapping[str, str],
-        other_active_bot: str,
+        occupancy: VenueOccupancy,
     ) -> RunFacts:
         problem = self._venue_problem(venue)
         holder = ""
         if not problem:
             held = self._ports.get(venue).trading_session.lease_holder(symbol)
-            holder = held if held and held != bot_owner_id(bot_id) else ""
+            named_already = {
+                bot_owner_id(bot_id),
+                bot_owner_id(occupancy.symbol_holder),
+            }
+            holder = held if held and held not in named_already else ""
         return RunFacts(
             venue_problem=problem,
-            other_active_bot=other_active_bot,
+            other_active_bot=occupancy.symbol_holder,
+            venue_full_of=occupancy.venue_full_of,
+            venue_recovering=occupancy.venue_recovering,
             lease_holder=holder,
             budget_problem=grid_budget_problem(config, self._caps),
         )

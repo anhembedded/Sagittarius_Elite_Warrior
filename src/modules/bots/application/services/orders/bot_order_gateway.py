@@ -148,7 +148,7 @@ class BotOrderGateway:
     ) -> OrderOutcome:
         """A LIMIT GTC order at `price`; `reduce_only` on a position venue's exits
         (`EPIC-039H`, `IOrderFlags`)."""
-        return self._submit(
+        return self._submit_paced(
             self._request(
                 side,
                 OrderType.LIMIT,
@@ -171,14 +171,14 @@ class BotOrderGateway:
             quote_quantity=quote,
             client_order_tag=self._identity.tag,
         )
-        return self._submit(request)
+        return self._submit_paced(request)
 
     def market_base(
         self, side: OrderSide, quantity: Decimal, reference_price: Decimal
     ) -> OrderOutcome:
         """A market order of `quantity` base on `side`: what a position venue's opening sends,
         where there is no quote-sized order (`EPIC-039H`; a SELL opens a short, `EPIC-039I`)."""
-        return self._submit(
+        return self._submit_paced(
             self._request(side, OrderType.MARKET, quantity, reference_price)
         )
 
@@ -304,8 +304,15 @@ class BotOrderGateway:
             client_order_tag=self._identity.tag,
         )
 
-    def _submit(self, request: OrderRequest) -> OrderOutcome:
+    def _submit_paced(self, request: OrderRequest) -> OrderOutcome:
+        """An order that builds a ladder or opens a position takes its turn on the venue's pacer.
+        Exits (`market_sell`, `market_reduce_only`, `place_protective_stop`) go through `_submit`
+        and never wait: the pacer is shared by the venue's bots, so a turn can queue behind a
+        neighbour's whole ladder, and a stop that waited would leave a position bare."""
         self._pacer.wait_turn()
+        return self._submit(request)
+
+    def _submit(self, request: OrderRequest) -> OrderOutcome:
         self._submissions += 1
         try:
             result = self._ports.order_submission.submit(request, live=True)

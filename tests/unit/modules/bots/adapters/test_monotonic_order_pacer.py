@@ -7,6 +7,7 @@ what it waited is read back exactly and nothing really sleeps.
 from __future__ import annotations
 
 import math
+import threading
 from datetime import timedelta
 from itertools import pairwise
 
@@ -80,3 +81,58 @@ def test_ten_slices_in_a_row_are_each_a_spacing_apart() -> None:
     gaps = [later - earlier for earlier, later in pairwise(taken)]
     assert len(gaps) == 9
     assert all(math.isclose(gap, 0.25) for gap in gaps)
+
+
+def test_bots_sharing_a_pacer_are_a_spacing_apart_from_each_other() -> None:
+    """`EPIC-029J` J1b: one pacer per venue, so the venue's orders keep the spacing whoever sends."""
+    clock = _Clock()
+    pacer = _pacer(clock)
+    taken: list[float] = []
+
+    for _bot in ("a", "b", "c"):
+        pacer.wait_turn()
+        taken.append(clock.now)
+
+    gaps = [later - earlier for earlier, later in pairwise(taken)]
+    assert all(math.isclose(gap, 0.25) for gap in gaps)
+
+
+class _SteadyClock:
+    """A clock that does not move and a sleep that only records: every caller reads the same
+    instant, which is the worst case for two threads reserving the same turn."""
+
+    def __init__(self) -> None:
+        self.slept: list[float] = []
+        self._lock = threading.Lock()
+
+    def read(self) -> float:
+        return 100.0
+
+    def sleep(self, seconds: float) -> None:
+        with self._lock:
+            self.slept.append(seconds)
+
+
+def test_threads_asking_at_the_same_instant_each_reserve_a_turn_of_their_own() -> None:
+    """Each bot's worker is its own thread; two never take the same slot."""
+    clock = _SteadyClock()
+    pacer = MonotonicOrderPacer(_SPACING, clock.read, clock.sleep)
+    workers = 8
+    start = threading.Barrier(workers)
+
+    def turn() -> None:
+        start.wait()
+        pacer.wait_turn()
+
+    threads = [threading.Thread(target=turn) for _ in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    waits = sorted(clock.slept)
+    expected = [0.25 * turn_number for turn_number in range(1, workers)]
+    assert len(waits) == workers - 1, "the first caller took its turn at once"
+    assert all(
+        math.isclose(got, want) for got, want in zip(waits, expected, strict=True)
+    )

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
     grid_executor_deps,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_retry_scheduler import (
+    IBotRetryScheduler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_ticker import (
     IBotTicker,
@@ -130,11 +133,13 @@ class BootedTwoVenues:
         for event in self.exchange.urls.futures_book.drain_user_data_events():
             asyncio.run(self.futures_stream._handle_message(event))
 
-    def move_price(self, venue: TradingVenue, price: Decimal | int) -> None:
+    def move_price(
+        self, venue: TradingVenue, price: Decimal | int, symbol: str = SYMBOL
+    ) -> None:
         if venue is SPOT:
-            self.exchange.urls.spot_account.set_last_price(SYMBOL, Decimal(price))
+            self.exchange.urls.spot_account.set_last_price(symbol, Decimal(price))
         else:
-            self.exchange.urls.futures_book.move_price(SYMBOL, Decimal(price))
+            self.exchange.urls.futures_book.move_price(symbol, Decimal(price))
         self.deliver()
 
     def bot(self, bot_id: str) -> Bot:
@@ -143,19 +148,27 @@ class BootedTwoVenues:
     def runtime(self, bot_id: str) -> GridRuntime:
         return decode_runtime(self.store.load(BotId(bot_id)).runtime)
 
-    def resting(self, venue: TradingVenue) -> set[str]:
+    def resting(self, venue: TradingVenue, symbol: str = SYMBOL) -> set[str]:
         """The client order ids of the venue's open limit orders on the symbol: the ladder (a
         Futures protective stop has no price and is not a ladder order)."""
         return {
             str(order.client_order_id)
-            for order in self.client(venue).get_open_orders(SYMBOL)
+            for order in self.client(venue).get_open_orders(symbol)
             if order.price is not None
         }
 
 
 @contextmanager
-def booted_two_venues(exchange: FakeExchange) -> Iterator[BootedTwoVenues]:
-    """The app with Spot Testnet and Futures Testnet on; its bots on the serial queue."""
+def booted_two_venues(
+    exchange: FakeExchange,
+    *,
+    open_sessions: bool = True,
+    retries: IBotRetryScheduler | None = None,
+) -> Iterator[BootedTwoVenues]:
+    """The app with Spot Testnet and Futures Testnet on; its bots on the serial queue.
+
+    @param open_sessions Seed both venues' order sessions as open, what most journeys start
+    from. False is a restart: the sessions stay closed until a deliberate action opens them."""
     config = app_config(exchange.tmp_path)
     config.load_dict({"exchange.trading_venues": [SPOT.value, FUTURES.value]})
     engine = create_app(config)
@@ -166,7 +179,7 @@ def booted_two_venues(exchange: FakeExchange) -> Iterator[BootedTwoVenues]:
 
     def executors(_container: IContainer) -> BotExecutors:
         deps = grid_executor_deps(
-            container, queues=lambda _name: queue, pacers=lambda _spacing: pacer
+            container, queues=lambda _name: queue, pacers=lambda _venue, _spacing: pacer
         )
         return BotExecutors(GridExecutorFactory(deps))
 
@@ -179,6 +192,8 @@ def booted_two_venues(exchange: FakeExchange) -> Iterator[BootedTwoVenues]:
         FakeStreamSources(container.resolve(IMarketDataSources), market),
     )
     container.singleton(IBotTicker, ticker)
+    if retries is not None:
+        container.singleton(IBotRetryScheduler, retries)
     container.singleton(IMonotonicClock, monotonic)
     engine.boot()
     scopes_of = container.resolve(VenueTradingScopes)
@@ -202,8 +217,9 @@ def booted_two_venues(exchange: FakeExchange) -> Iterator[BootedTwoVenues]:
         monotonic,
     )
     holder.append(app)
-    scopes[SPOT].session_state.enable(set(), spot_baseline_holdings=dict(BASELINE))
-    scopes[FUTURES].session_state.enable(set())
+    if open_sessions:
+        scopes[SPOT].session_state.enable(set(), spot_baseline_holdings=dict(BASELINE))
+        scopes[FUTURES].session_state.enable(set())
     try:
         yield app
     finally:

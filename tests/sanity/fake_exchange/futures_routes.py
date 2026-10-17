@@ -133,6 +133,12 @@ _FUTURES_EXCHANGE_INFO = {
     ],
 }
 
+#: `EPIC-029J` J1b — the crowd symbols list like `BTCUSDT` (`futures_market.CROWD_SYMBOLS`).
+_BTC_ROW = _FUTURES_EXCHANGE_INFO["symbols"][0]
+_FUTURES_EXCHANGE_INFO["symbols"] += [
+    {**_BTC_ROW, "symbol": symbol} for symbol in futures_market.CROWD_SYMBOLS
+]
+
 #: `EPIC-021H` never validates this key's contents — it round-trips it back
 #: unchanged on `PUT`. A fixed string is enough to prove the stream adapter
 #: calls the right two endpoints in the right order.

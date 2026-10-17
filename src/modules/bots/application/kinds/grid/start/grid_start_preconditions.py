@@ -104,8 +104,9 @@ class GridStartPreconditions:
             )
         owner = bot_owner_id(bot_id)
         if not session.claim_symbol(symbol, owner):
+            holder = session.lease_holder(symbol) or "another owner"
             return _refused(
-                BotRefusal.SYMBOL_LEASED, f"{symbol} is held by another owner", bot_id
+                BotRefusal.SYMBOL_LEASED, f"{symbol} is held by {holder}", bot_id
             )
         # `EPIC-034C` — the same reconciliation every order path passes: it
         # opens the session when closed, answers at once when open, and
