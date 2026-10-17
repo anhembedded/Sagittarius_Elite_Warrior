@@ -138,8 +138,10 @@ def test_an_adapter_warning_goes_to_stderr_and_stdout_stays_one_json_document(
     # file, not on either stream; the WARNING above is on both stderr and the file.
     assert " - INFO - " not in result.stderr
     assert " - INFO - " not in result.stdout
-    [log_file] = sorted((tmp_path / "logs").glob("cli-*.log"))
-    assert "[exchange-retry]" in log_file.read_text(encoding="utf-8")
+    [log_name] = [n for n in os.listdir(tmp_path / "logs") if n.startswith("cli-")]
+    assert "[exchange-retry]" in (tmp_path / "logs" / log_name).read_text(
+        encoding="utf-8"
+    )
 
 
 def test_verbose_keeps_the_log_on_stderr_for_a_json_report(
