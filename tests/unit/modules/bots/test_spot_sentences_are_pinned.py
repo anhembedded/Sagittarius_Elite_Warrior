@@ -145,13 +145,16 @@ def test_a_futures_venue_that_is_off_says_not_enabled() -> None:
     assert facts.venue_problem == f"{venue.display_name} is not enabled"
 
 
-def test_futures_mainnet_says_it_is_closed_to_bots_not_that_it_is_off() -> None:
+def test_futures_mainnet_that_is_off_says_not_enabled_like_every_futures_venue() -> (
+    None
+):
+    """The owner opened it on 2026-10-17 (`EPIC-039L`): only being off is its problem."""
     venue = TradingVenue.FUTURES_MAINNET
     facts = BotRunFactsReader(_NoVenueEnabled(), _CAPS).read(
         "abc123", venue, "BTCUSDT", {"lower": "1"}, ""
     )
 
-    assert "closed to bots" in facts.venue_problem
+    assert facts.venue_problem == f"{venue.display_name} is not enabled"
 
 
 def test_a_spot_venue_that_is_off_says_not_enabled() -> None:

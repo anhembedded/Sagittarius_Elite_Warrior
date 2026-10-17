@@ -43,7 +43,7 @@ The owner's Spot Grid `ke95g7` (ETHUSDT, `spot_mainnet`) halted at 21:11:18 with
 | Metric | Today (measured 2026-10-10, `master-warrior` `076d339`) | When the epic is done |
 | :--- | :-: | :-: |
 | Places in `bots/` that hard-code Spot (`MarketType.SPOT`, `SpotHolding`) | 9 outside `ui/` and 6 in `ui/` (the exact list is `DESIGN §1.2`) | 0 outside the one profile adapter; a guard test fails on a new one |
-| Venues a bot can be created on | 2 (Spot testnet, Spot mainnet) | 4 (adds Futures testnet, Futures mainnet), mainnet Futures behind the gate of `039L` |
+| Venues a bot can be created on | 2 (Spot testnet, Spot mainnet) | 4 (adds Futures testnet, Futures mainnet), mainnet Futures open to bots since 2026-10-17 (the owner's O2, `039L`) |
 | Directions a Grid supports | 1 (long, implicit) | 3 (long, short, neutral) on Futures; long only on Spot, stated by the profile |
 | What a Futures plan is judged on before Start | nothing (no Futures bot exists) | liquidation distance against the stop loss, leverage bracket, margin, foreign position, settings drift — as verdicts, same shape as the Spot checks |
 | What a Futures bot does when it halts | not defined | a position never stands without an exchange-side stop (`039L`); the halt policy is explicit per profile |
@@ -59,7 +59,7 @@ Do them in the order in §0 (dependencies), not in this table's order.
 | [EPIC-039F](completed/EPIC-039F_risk_guard_and_liquidation.md) | Risk guard: liquidation distance as plan verdicts, a runtime guard on the exchange's liquidation price, thresholds, alert kinds | Elite | 039E, 039G | 🔴 | Done 2026-10-13 (pull request open) |
 | [EPIC-039H](completed/EPIC-039H_futures_grid_long.md) | Futures Grid executor, **Long** first: start, counters, reduce-only exits, stop, reconcile, restart recovery | Elite | 039B, 039D, 039E, 039F, 039G | 🔴 | Done 2026-10-13 (stages 1 and 2 merged, #488 and #490; stage 3 pull request open) |
 | [EPIC-039I](completed/EPIC-039I_futures_grid_short_and_neutral.md) | Short and Neutral directions on the same executor | Elite | 039H | 🔴 | Done 2026-10-15 |
-| [EPIC-039L](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | Exchange-side protective stop for a Futures bot, the mainnet gate and the Futures testnet soak | Elite | 039H | 🔴 | In progress (C1 merged; C2 in review; C3–C4 planned) |
+| [EPIC-039L](incomplete/EPIC-039L_protective_stop_mainnet_gate_and_soak.md) | Exchange-side protective stop for a Futures bot, the mainnet gate and the Futures testnet soak | Elite | 039H | 🔴 | In progress (C1, C2 merged; C3 and C4-lite in review) |
 | [EPIC-039A](completed/EPIC-039A_venue_profile_seam.md) | The venue profile seam: replace every `is SPOT` branch with the profile; "only one" guard; Spot unchanged | Elite | None | 🟡 | Done 2026-10-13 |
 | [EPIC-039B](completed/EPIC-039B_direction_aware_grid_planner.md) | Direction-aware Grid planner and simulator (pure domain); `BaseHandling` becomes `ExposureHandling`; Spot = Long oracle | Elite | 039A | 🟡 | Done 2026-10-13 (pull request open) |
 | [EPIC-039C](completed/EPIC-039C_futures_fake_exchange_matching.md) | Futures fake exchange: LIMIT matching on a price cross, positions, funding, liquidation, user-stream events | Elite | None | 🟡 | Done 2026-10-13 |
@@ -77,7 +77,7 @@ Do them in the order in §0 (dependencies), not in this table's order.
 | 1 — The Futures world (039C, 039D, 039E, 039G) | A fake Futures account with positions, funding and liquidation; the exposure book, settings gate and cost model answer from it | Each task's tests red before; a position derived from fills equals the fake's `positionRisk`. Not run |
 | 2 — Risk and the executor (039F, 039H) | A Futures Grid (Long) starts, runs, halts and stops on the fake, never leaves a position it cannot account for, and refuses a plan whose liquidation sits inside its range | Integration journeys on the fake exchange; the liquidation guard shown red then green. Not run |
 | 3 — All directions and the screen (039I, 039J, 039K) | Short and Neutral behave as the position function of §5 predicts; the screen creates a Futures bot; a backtest includes funding | Property tests; a preview screenshot per state; a backtest with a known funding total. Not run |
-| 4 — Safe to risk money (039L, 039M) | A protective stop stands for every Futures position; a 14-day unattended soak on Futures testnet; a second kind gets both profiles by declaration | The owner's soak record; the conformance suite; mainnet Futures stays closed until the owner opens it. Not run |
+| 4 — Safe to risk money (039L, 039M) | A protective stop stands for every Futures position; a 14-day unattended soak on Futures testnet; a second kind gets both profiles by declaration | The owner's soak record; the conformance suite; the owner opened mainnet Futures on 2026-10-17 without waiting for the soak (O2); the soak is an optional runbook. Not run |
 
 ## 6. Out of scope
 - Hedge Mode (long and short positions at once), Multi-Assets mode, Coin-M and delivery contracts, options, and Spot margin.

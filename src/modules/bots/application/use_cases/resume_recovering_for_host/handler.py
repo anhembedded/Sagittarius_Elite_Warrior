@@ -25,9 +25,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     VenueResumeOutcome,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
-    bot_closed_reason,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -68,9 +65,6 @@ class ResumeRecoveringForHostCommandHandler(
     def _open(
         self, venue: TradingVenue, bot_ids: tuple[str, ...], confirmed: str | None
     ) -> VenueResumeOutcome:
-        closed = bot_closed_reason(venue)
-        if closed is not None:
-            return VenueResumeOutcome(venue.value, bot_ids, opened=False, note=closed)
         if venue.is_mainnet and confirmed != venue.value:
             return VenueResumeOutcome(
                 venue.value,

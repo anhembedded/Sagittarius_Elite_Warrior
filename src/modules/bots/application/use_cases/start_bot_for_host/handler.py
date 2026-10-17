@@ -18,9 +18,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_lookup import (
     BotLookup,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
-    closed_venue_refusal,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
     StartBotCommand,
 )
@@ -46,9 +43,6 @@ class StartBotForHostCommandHandler(
         if isinstance(found, BotCommandResult):
             return found
         venue = found.bot.definition.venue
-        closed = closed_venue_refusal(venue, command.bot_id)
-        if closed is not None:
-            return closed
         if not venue.is_mainnet:
             return self._start(StartBotCommand(command.bot_id))
         if command.confirmed_venue != venue.value:

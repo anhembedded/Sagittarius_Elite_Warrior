@@ -242,7 +242,15 @@ at that moment (`bots/application/kinds/grid/grid_parking.py` → `GridParking.l
 exchange", "is not on the exchange" (the record says one stands and the exchange does not list it),
 "no protective stop stands over it", or "could not be read", never "none" for an unread list.
 
-## Planned: EPIC-039L, the rest of C3 and C4
+## Built: the mainnet lock removed (EPIC-039L C4-lite)
+
+**The mainnet gate (C4-lite), built.** Futures mainnet is open to bots since the owner's O2
+(2026-10-17): `CLOSED_VENUES` is gone and every path asks only the real-money confirmation
+(`TradingVenue.is_mainnet`). No port, no state file, no setting. The 14-day soak and checks T1–T5 are an
+optional runbook (`Docs/OPERATIONS/futures_testnet_soak.md`), not enforced by code; the owner manages the
+risk.
+
+## Planned: EPIC-039L, a halt that leaves the position (D10, D13)
 
 **Halt that leaves the position (D10) and custody (D13), deferred.** Whether a halt closes or leaves the
 position would be decided at the moment of the halt by reading the exchange: a position stays only under
@@ -253,6 +261,3 @@ and a check at boot cancels it once the exposure is closed. Today a Futures posi
 (`keep_on_stop_closed_reason`), so no path leaves a stop standing under a stopped bot, and a halt that
 can close does close (O8). Not built in C3: leaving real-money positions is the larger risk and the owner
 has not asked for it.
-
-**The mainnet gate (C4).** Per the owner's O2 (2026-10-17) the gate is removed outright, not replaced by
-a port: no extra mechanism, the owner manages the risk (decision D12 as revised).
