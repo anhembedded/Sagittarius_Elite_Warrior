@@ -2,9 +2,10 @@
 
 @details The order is the safety: (1) cancel the **regular** orders, so the ladder cannot refill
 while a position is closed; (2) close every position; (3) cancel the **conditional** orders of each
-symbol that is **confirmed flat** by a fresh read and has no regular order still resting. A protective stop that stands over a position
-the close did not take down stays standing, and the result says so: a failed close must never leave
-a position with neither the bot nor a stop watching it. A close-all stop over a flat symbol is
+symbol that is **confirmed flat** by a fresh read and has no regular order still resting. A
+protective stop that stands over a position the close did not take down stays standing, and the
+result says so: a failed close must never leave a position with neither the bot nor a stop watching
+it. A close-all stop over a flat symbol is
 cancelled, because it could open a position.
 """
 
