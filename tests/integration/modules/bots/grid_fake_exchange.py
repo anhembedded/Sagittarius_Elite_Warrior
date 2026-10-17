@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
     IOrderPacer,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
+    IUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_ticker import (
     FakeBotTicker,
 )
@@ -276,6 +279,7 @@ def booted(
             prices=container.resolve(IFreshPriceReader),
             events=container.resolve(IEventPublisher),
             budgets=container.resolve(IGridBudgets),
+            user_streams=container.resolve(IUserStreamStatus),
         )
         return BotExecutors(GridExecutorFactory(deps))
 

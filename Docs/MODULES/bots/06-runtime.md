@@ -189,14 +189,17 @@ and the venue's layers merged) has a rule for the reason, and the bot's ledger h
 the rule allows in its window; otherwise `halt`, and when the budget is what made it plain the reason
 says "the 3 automatic recoveries allowed in 24 h are used up". A `PAUSED` or `RECOVERING` bot halts
 plainly, and a Futures venue has no rule. The ladder comes off on entering the state
-(`.../kinds/grid/grid_task_guard.py` → `GridTaskGuard`).
+(`.../kinds/grid/grid_task_guard.py` → `GridTaskGuard`). When that cancel fails the bot lands in plain
+`HALTED` instead (`GridTaskGuard._halt_unparked`): the wait presumes a ladder off the exchange, and
+`BOT_HALTED` then says the orders may still rest.
 
 **The wait.** The bot keeps its price stream and keeps watching its stop loss and take profit
 (`GridPriceReaction`), so a tick that reaches either runs Stop as it does in `HALTED`. On every beat of
 the price watch (`bots/application/services/watches/bot_price_watch.py` → `CHECK_EVERY_SECONDS`) the
 Grid posts `GridHaltRecovery.check` on its worker (`.../kinds/grid/recovery/grid_halt_recovery.py` →
 `GridHaltRecovery.check`). It asks the probe (`.../kinds/grid/watch/grid_halt_probe.py` →
-`GridHaltProbe.is_clear`) whether the cause is clear: for the feed, a tick heard since the bot began to
+`GridHaltProbe.is_clear`) whether each cause of the bot's effective policy is clear (every one, not only the one it halted on:
+a feed that returns while the stream is still down waits): for the feed, a tick heard since the bot began to
 wait and younger than `RECOVERY_TICK_MAX_AGE_SECONDS` (`bots/domain/grid/price_freshness.py`), read from
 the last tick and never from `GridPriceAge.stale_detail`; for the stream, the venue's stream reporting
 CONNECTED (`.../services/watches/user_stream_status.py` → `UserStreamStatus`). A clear sample starts the
@@ -209,7 +212,8 @@ ladder; (3) runs the person's own Resume, `GridResumeSequence.propose` (budget r
 evidence, every tagged order cancelled, a ladder sized from the price now and the inventory held) and
 `GridResumeSequence.confirm` with `condition_cleared`, which re-reads the price and lays the ladder;
 (4) publishes `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py`), which
-`alerting` carries to the owner from `EPIC-042D`. An attempt that meets a new cause (a moved price, a
+`alerting` carries to the owner from `EPIC-042D`; a wait that lasts `stalled_after` publishes
+`BotRecoveryStalledEvent` once, which `alerting` already carries as `BOT_RECOVERY_STALLED`. An attempt that meets a new cause (a moved price, a
 symbol that does not trade, a rate limit, a rejected key) ends in `HALTED` through `halt_with`; one that
 changes nothing (the budget registration refused, the price unreadable) leaves the bot waiting with the
 attempt spent, and with the budget spent it goes to `HALTED` with `budget_exhausted`. The run does

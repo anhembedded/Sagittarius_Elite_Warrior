@@ -99,7 +99,13 @@ stateDiagram-v2
 | :--- | :--- | :--- |
 | a price that moved past `RESUME_PRICE_TOLERANCE`, a price that could not be read (`PROPOSAL_PRICE_MOVED`), a rate limit, a rejected key, a refused order | `HALTED`, with that reason | `halt` (a new cause is a person's) |
 | `propose` returning `None` without a halt (storage cannot write, the budget refused, a cancel that failed without a halt), or `confirm` declining (symbol not trading) | stays `AWAITING_RECOVERY`; the *clear since* mark restarts | nothing |
+| the first price of the attempt cannot be read (no answer, not a rate limit) | stays `AWAITING_RECOVERY`, attempt spent | nothing |
+| a rate limit while reading that price | `HALTED` with `RATE_LIMITED`; `GridRateLimitPause` re-lays it when the pause ends through the same propose/confirm, **without D12's exit check on a fresh price**. Accepted: the exits stay watched on ticks in `HALTED`, the probe required ticks, and this is the gap D12 already accepts for a person's Resume. `EPIC-042F` migrates that path onto the mechanism and gives it the check | `halt` |
 | the above, with the rolling budget now spent | `HALTED` | `budget_exhausted` |
+
+**Every cause must be clear.** The run samples every code of the bot's effective policy, not only the one it halted on: the stream watch and the staleness check both ignore a bot in `AWAITING_RECOVERY`, so a feed that returns while the user-data stream is still down would lay a ladder whose fills nothing records, and a stream that stays down would turn the whole budget into lay-and-cancel churn (review of PR #552). A code the probe does not know never clears.
+
+**A failed entry park is a plain halt.** The wait presumes a ladder off the exchange. When the cancel on entering it fails (the outage that caused the halt is often the network), `GridTaskGuard` lands the bot in `HALTED` with the note that its orders may still rest: `BOT_HALTED` alerts, and a person decides. The attempt's own cancel is still the retry for a wait that was entered cleanly.
 
 The wait is not bounded: after `stalled_after` the run raises the stalled alert once (D11) and goes on sampling. A person's Resume while waiting ends the wait (`resume`) and is never counted; the automatic run does not start while a person's proposal is held, and a person's confirm after an attempt has already run is refused as today (no proposal held).
 

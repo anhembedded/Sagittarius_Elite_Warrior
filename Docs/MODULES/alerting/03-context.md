@@ -9,7 +9,9 @@ edge?*
 reads `bots/contracts` only — `BotChangedEvent`
 (`src/modules/bots/contracts/events/bot_changed_event.py` → `BotChangedEvent`), `BotStopGaveUpEvent`
 (`src/modules/bots/contracts/events/bot_stop_gave_up_event.py` → `BotStopGaveUpEvent`, published by
-`grid_stop_retry.py` → `GridStopRetry._exhausted`) and the one-bot read
+`grid_stop_retry.py` → `GridStopRetry._exhausted`), `BotRecoveryStalledEvent`
+(`src/modules/bots/contracts/events/bot_recovery_stalled_event.py` → `BotRecoveryStalledEvent`,
+published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_if_stalled`) and the one-bot read
 `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py` →
 `GetBotStatusReportQuery`, `BotStatusEntry`) — and no context imports its insides, so a new kind of
 bot changes nothing here (N1). The shell lists `AlertingModule` with the other modules

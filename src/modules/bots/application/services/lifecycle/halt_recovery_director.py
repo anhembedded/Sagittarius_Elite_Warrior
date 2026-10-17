@@ -60,6 +60,11 @@ class HaltRecoveryDirector:
         """How long the ledger must keep an attempt: the longest window any rule counts in."""
         return self._policy.longest_window
 
+    @property
+    def codes(self) -> tuple[HaltCode, ...]:
+        """Every reason this bot may recover from: all of them must be clear before it resumes."""
+        return self._policy.codes
+
     def rule_for(self, code: HaltCode) -> HaltRecoveryRule | None:
         return self._policy.rule_for(code)
 

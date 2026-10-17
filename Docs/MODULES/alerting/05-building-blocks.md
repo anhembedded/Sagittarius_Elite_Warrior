@@ -54,7 +54,9 @@ The walking skeleton (`EPIC-036G`) added:
   anti-corruption layer at the edge: `on_bot_changed` reads the bot and alerts on the *entry* into a
   state of `ALERT_ON_ENTRY` (`bot_alert_source.py` → `ALERT_ON_ENTRY`); `on_stop_gave_up` raises
   `STOP_FAILED` even when the bot cannot be read (`bot_alert_source.py` →
-  `BotAlertSource.on_stop_gave_up`); the entry into a state of `CLEARED_ON_ENTRY`
+  `BotAlertSource.on_stop_gave_up`); `on_recovery_stalled` raises the one `BOT_RECOVERY_STALLED`
+  warning of a bot that waits in `AWAITING_RECOVERY` (a wait is silent on entry, so it is not in
+  `ALERT_ON_ENTRY`; the bot leaving the wait is in `CLEARED_ON_ENTRY`); the entry into a state of `CLEARED_ON_ENTRY`
   (`bot_alert_source.py` → `CLEARED_ON_ENTRY`) calls `condition_cleared` with the key
   `Alert.condition_key` gives (`alerting/domain/alert.py` → `Alert.condition_key`).
 - **`DiscordWebhookChannel`** (`alerting/adapters/discord_webhook_channel.py` →

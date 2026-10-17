@@ -137,7 +137,7 @@ def test_the_budget_survives_a_restart() -> None:
         beats(world, DWELL + 2 * BEAT)
 
     stored = world.store.load(BotId(BOT)).bot
-    world.factory.create(stored)
+    world.executor = world.factory.create(stored)  # the old executor is gone
 
     assert len(stored.lifecycle.recovery_attempts) == 2
     # The third halt is still allowed and the fourth is not: the count is the file's.
@@ -177,6 +177,30 @@ def test_a_stream_that_never_comes_back_never_recovers_the_bot() -> None:
     assert attempts_of(world) == 0
 
 
+def test_a_feed_that_returns_while_the_stream_is_still_down_lays_nothing() -> None:
+    """The joint outage: both causes must be clear, not only the one the bot halted on, or a
+    ladder is laid whose fills nothing records and a stream that stays down burns the budget on
+    lay-and-cancel churn (review of PR #552)."""
+    streams = FakeUserStreamStatus(connected=False)
+    world = grid_world(user_streams=streams)
+    world.executor.start()
+    world.derive("0")
+    submitted = len(world.book.requests)
+    go_quiet(world)
+    assert world.runtime().reason is GridReason.PRICE_FEED_STALE
+
+    beats(world, 2 * DWELL)  # ticks are back, the stream is not
+
+    assert world.state() is S.AWAITING_RECOVERY
+    assert attempts_of(world) == 0
+    assert len(world.book.requests) == submitted
+
+    streams.connected = True
+    beats(world, DWELL + 2 * BEAT)
+
+    assert world.state() is S.RUNNING
+
+
 def test_a_stream_that_comes_back_recovers_the_bot_after_the_dwell() -> None:
     streams = FakeUserStreamStatus(connected=False)
     world = grid_world(user_streams=streams)
@@ -192,27 +216,25 @@ def test_a_stream_that_comes_back_recovers_the_bot_after_the_dwell() -> None:
     assert recovered.reason == "user_stream_down"
 
 
-def test_the_entry_park_that_failed_does_not_let_a_ladder_be_laid_over_resting_orders() -> (
+def test_a_wait_whose_entry_park_failed_lands_in_halted_where_the_halt_alert_fires() -> (
     None
 ):
-    """The review's carried criterion: if the cancel on entering the wait was lost, the orders
-    may still rest; the attempt's own cancel is what clears them, and when it fails too nothing
-    new is laid."""
+    """The outage that causes the halt is often the network, so the cancel on entering the wait
+    can be lost. A wait presumes a ladder off the exchange; without one the bot is HALTED, which
+    alerts, says the orders may still rest and leaves the decision to a person (review of
+    PR #552). Nothing new is laid over the resting orders."""
     world = running()
     resting = set(world.book.open)
-    world.book.cancel_raises = [
-        ConnectionError("lost"),
-        *[ConnectionError("lost")] * 40,
-    ]
-    go_quiet(world)
-    assert world.state() is S.AWAITING_RECOVERY
-    assert set(world.book.open) == resting, "the entry cancel was lost; the orders rest"
+    world.book.cancel_raises = [ConnectionError("lost")] * 40
     submitted = len(world.book.requests)
 
-    beats(world, DWELL + 2 * BEAT)
+    go_quiet(world)
 
-    assert world.state() is not S.RUNNING
+    assert world.state() is S.HALTED
+    assert "may still rest" in world.runtime().reason_detail
+    assert set(world.book.open) == resting, "the entry cancel was lost; the orders rest"
+    beats(world, DWELL + 2 * BEAT)
+    assert world.state() is S.HALTED, "a halt does not recover by itself"
     assert len(world.book.requests) == submitted, (
         "no order was sent over the resting ones"
     )
-    assert set(world.book.open) == resting

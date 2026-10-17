@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
+    BotRecoveryStalledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
@@ -161,7 +164,12 @@ def test_a_return_to_running_clears_the_condition() -> None:
     bots.move("RUNNING")
     source.on_bot_changed(_changed())
 
-    assert published.cleared == [_key(AlertKind.BOT_HALTED), _key(AlertKind.BOT_ERROR)]
+    assert published.cleared == [
+        _key(AlertKind.BOT_RECOVERY_STALLED),  # entering HALTED ends a wait
+        _key(AlertKind.BOT_HALTED),
+        _key(AlertKind.BOT_ERROR),
+        _key(AlertKind.BOT_RECOVERY_STALLED),
+    ]
 
 
 def test_a_stop_that_gave_up_publishes_stop_failed() -> None:
@@ -175,6 +183,38 @@ def test_a_stop_that_gave_up_publishes_stop_failed() -> None:
     assert alert.severity is Severity.CRITICAL
     assert "5 automatic retries" in alert.detail
     assert "4 order(s) still open" in alert.detail
+
+
+def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_none() -> (
+    None
+):
+    bots = _Bots(_entry("RUNNING"))
+    source, published = _source(bots)
+
+    bots.move("AWAITING_RECOVERY", "price_feed_stale")
+    source.on_bot_changed(_changed())
+    assert published.published == [], "entering a wait is silent"
+
+    source.on_recovery_stalled(
+        BotRecoveryStalledEvent(bot_id=BOT, reason="price_feed_stale", waited_s=900)
+    )
+
+    [alert] = published.published
+    assert alert.kind is AlertKind.BOT_RECOVERY_STALLED
+    assert alert.severity is Severity.WARNING
+    assert "15 minute(s)" in alert.detail
+    assert "price_feed_stale" in alert.detail
+
+
+@pytest.mark.parametrize("after", ["RUNNING", "HALTED", "ERROR", "STOPPED"])
+def test_a_bot_that_leaves_the_wait_ends_the_stalled_condition(after: str) -> None:
+    bots = _Bots(_entry("AWAITING_RECOVERY"))
+    source, published = _source(bots)
+
+    bots.move(after)
+    source.on_bot_changed(_changed())
+
+    assert _key(AlertKind.BOT_RECOVERY_STALLED) in published.cleared
 
 
 def test_a_stop_that_gave_up_still_alerts_when_the_bot_cannot_be_read() -> None:
@@ -193,7 +233,10 @@ def test_a_stopped_bot_clears_its_stop_failed() -> None:
     bots.move("STOPPED")
     source.on_bot_changed(_changed())
 
-    assert published.cleared == [_key(AlertKind.STOP_FAILED)]
+    assert published.cleared == [
+        _key(AlertKind.STOP_FAILED),
+        _key(AlertKind.BOT_RECOVERY_STALLED),
+    ]
 
 
 def test_a_removed_bot_is_forgotten() -> None:
@@ -266,7 +309,12 @@ def test_a_second_writer_never_leaves_a_stale_remembered_state() -> None:
     # A's halt is told, and B's return to RUNNING clears it: the last remembered
     # state is RUNNING, so the bot's next halt is an entry again.
     assert [a.kind for a in published.published] == [AlertKind.BOT_HALTED]
-    assert published.cleared == [_key(AlertKind.BOT_HALTED), _key(AlertKind.BOT_ERROR)]
+    assert published.cleared == [
+        _key(AlertKind.BOT_RECOVERY_STALLED),  # entering HALTED ends a wait
+        _key(AlertKind.BOT_HALTED),
+        _key(AlertKind.BOT_ERROR),
+        _key(AlertKind.BOT_RECOVERY_STALLED),
+    ]
     bots.move("HALTED")
     source.on_bot_changed(_changed())
     assert [a.kind for a in published.published] == [

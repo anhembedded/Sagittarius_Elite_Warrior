@@ -11,6 +11,7 @@ the beat is the price watch's ticker, fired by hand, and the clock is the test's
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -24,8 +25,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.price_freshness impo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     DEFAULT_RULE,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.user_stream_health_event import (
+    UserStreamHealthEvent,
+    UserStreamState,
+)
 
-from .grid_fake_exchange import BootedApp, FakeExchange, booted, resting
+from .grid_fake_exchange import SPOT, BootedApp, FakeExchange, booted, resting
 from .test_a_bot_owns_its_price_stream_on_the_fake_exchange import (
     _BELOW_STOP_LOSS,
     _INSIDE_THE_RANGE,
@@ -51,6 +56,13 @@ def _beats(
 
 def _halted_by_a_silent_feed(app: BootedApp) -> str:
     bot_id = _started(app)
+    # The account stream is up, as it was in the incident; an attempt needs every cause clear.
+    app.engine.event_bus.emit(
+        UserStreamHealthEvent(
+            UserStreamState.CONNECTED, datetime.now(UTC), 1, venue=SPOT
+        )
+    )
+    app.deliver()
     _publish_tick(app, _INSIDE_THE_RANGE)
     app.monotonic.advance(PRICE_STALE_AFTER_SECONDS)
     app.ticker.fire()

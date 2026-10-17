@@ -53,7 +53,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
-    NoUserStreamStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_venue_settings_gate import (
     IVenueSettingsGate,
@@ -69,6 +68,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_monotonic_clock import (
     FakeMonotonicClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_user_stream_status import (
+    FakeUserStreamStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
     Bot,
@@ -330,7 +332,7 @@ def grid_world(
             settings_gate=settings_gate or SpotSettingsGate(),
             risk_watch=risk_watch,
             exposures=exposures or spot_only_exposures(),
-            user_streams=user_streams or NoUserStreamStatus(),
+            user_streams=user_streams or FakeUserStreamStatus(connected=True),
         )
     )
     executor = factory.create(bot)

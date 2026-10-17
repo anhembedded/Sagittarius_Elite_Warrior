@@ -2,7 +2,8 @@
 
 An anti-corruption layer: the source reads `bots/contracts` only — the
 `BotChangedEvent` the bot store publishes after every write, the
-`BotStopGaveUpEvent` a stop publishes when its retries are used up, and the
+`BotStopGaveUpEvent` a stop publishes when its retries are used up, the
+`BotRecoveryStalledEvent` a bot waiting to recover publishes once (`EPIC-042`), and the
 one-bot `GetBotStatusReportQuery` — and speaks the alerting vocabulary.
 
 **An alert on the entry into a state, not on its being.** The source remembers
@@ -10,6 +11,10 @@ each bot's last state; a write that leaves the state as it was (a fill booked, a
 reason edited) is not a second alert. At boot it seeds that memory from the
 bots' report without alerting, so a restart does not re-alert a bot that an
 earlier run already reported halted.
+
+**A wait is silent on entry.** `AWAITING_RECOVERY` is not in `ALERT_ON_ENTRY`: most waits end
+by themselves within minutes. The one alert is the stalled one, after the rule's `stalled_after`,
+and it ends when the bot leaves the state.
 
 **The skeleton's table.** Three kinds: `HALTED` → `BOT_HALTED`, `ERROR` →
 `BOT_ERROR`, a stop that gave up → `STOP_FAILED`. A return to `RUNNING` ends the
@@ -71,6 +76,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
+    BotRecoveryStalledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
@@ -86,8 +94,14 @@ ALERT_ON_ENTRY: Mapping[str, AlertKind] = MappingProxyType(
 #: A state whose entry ends these conditions.
 CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
     {
-        "RUNNING": (AlertKind.BOT_HALTED, AlertKind.BOT_ERROR),
-        "STOPPED": (AlertKind.STOP_FAILED,),
+        "RUNNING": (
+            AlertKind.BOT_HALTED,
+            AlertKind.BOT_ERROR,
+            AlertKind.BOT_RECOVERY_STALLED,
+        ),
+        "HALTED": (AlertKind.BOT_RECOVERY_STALLED,),
+        "ERROR": (AlertKind.BOT_RECOVERY_STALLED,),
+        "STOPPED": (AlertKind.STOP_FAILED, AlertKind.BOT_RECOVERY_STALLED),
     }
 )
 
@@ -151,6 +165,22 @@ class BotAlertSource:
             f"Press Stop to try again.\n{_reason_line(reason)}"
         )
         self._publish(AlertKind.STOP_FAILED, subject, detail)
+
+    def on_recovery_stalled(self, event: BotRecoveryStalledEvent) -> None:
+        """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""
+        entry = self._entry(event.bot_id)
+        subject = (
+            _subject_of(entry)
+            if entry is not None
+            else AlertSubject.bot(event.bot_id, "", "", "", "")
+        )
+        detail = (
+            f"The bot has waited {event.waited_s // 60} minute(s) to recover and is still "
+            "waiting, with its ladder off the exchange; it resumes by itself if the cause "
+            "clears. Its stop loss and take profit are watched only while ticks arrive.\n"
+            f"Reason: {event.reason}"
+        )
+        self._publish(AlertKind.BOT_RECOVERY_STALLED, subject, detail)
 
     def _alert_on_entry(self, entry: BotStatusEntry, previous: str | None) -> None:
         kind = ALERT_ON_ENTRY.get(entry.state)

@@ -5,7 +5,7 @@ same 5 s beat that checks the feed's age). While the bot waits it:
 
   1. **Tells the owner once if the wait is long** (`stalled_after`): the wait has no limit - a
      long outage should still recover by itself - but it is silent, so one event makes it visible;
-  2. **Counts the dwell**: the probe says the cause is clear now, and the run keeps the moment it
+  2. **Counts the dwell**: the probe says every cause the policy recovers from is clear now, and the run keeps the moment it
      first said so; a beat that says no resets it, so the dwell is continuous to the beat;
   3. **Attempts** once the cause has stayed clear for the dwell: it saves the attempt first (a
      refusal or a crash after this still spent it), reads a fresh price and **ends the bot as a
@@ -121,13 +121,20 @@ class GridHaltRecovery:
         if self._proposal_held():
             self._clear_since = None
             return
-        if not self._probe.is_clear(code, self._waiting_since):
+        if not self._every_cause_clear(self._waiting_since):
             self._clear_since = None
             return
         if self._clear_since is None:
             self._clear_since = now
         if now - self._clear_since >= rule.dwell.total_seconds():
             self._attempt(code, rule)
+
+    def _every_cause_clear(self, waiting_since: float) -> bool:
+        """Whether every reason this bot may recover from is clear, not only the one it halted
+        on: a feed that returns while the user-data stream is still down would lay a ladder
+        whose fills nothing records (review of PR #552)."""
+        clear = [self._probe.is_clear(c, waiting_since) for c in self._halts.codes]
+        return all(clear)
 
     def _forget(self) -> None:
         self._waiting_since = None

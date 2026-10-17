@@ -37,7 +37,7 @@
 | [EPIC-042G](incomplete/EPIC-042G_bot_show_prints_the_recovery_table.md) | `bot show` prints the bot's effective recovery table | Elite | 042B | 🟢 | Planned |
 | [EPIC-042F](incomplete/EPIC-042F_migrate_rate_limit_resume.md) | **Follow-up.** Migrate `GridRateLimitPause` onto the mechanism | Elite | 042C | 🟡 | Planned (not started; record only) |
 
-`042C`, `042D`, `042E` and `042G` are independent of one another once `042B` is in; the order above is by risk.
+`042D`, `042E` and `042G` are independent of one another once `042B` is in; the order above is by risk. `042C` is not independent of `042D`: a wait is silent on entry, so the stalled-wait alert (`BOT_RECOVERY_STALLED`) ships with `042C`, and `042D` keeps the recovery alert and the exhaustion text.
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
