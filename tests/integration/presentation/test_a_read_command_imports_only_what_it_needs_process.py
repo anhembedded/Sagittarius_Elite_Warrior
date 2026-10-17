@@ -74,11 +74,18 @@ def _module(module_id: str) -> str:
     return f"{_MODULES_PACKAGE}.{module_id}.module"
 
 
-@pytest.mark.parametrize("words", [("bot", "list"), ("bot", "show", "no-such-bot")])
+@pytest.mark.parametrize(
+    ("words", "expected_status"),
+    [(("bot", "list"), 0), (("bot", "show", "no-such-bot"), 2)],
+)
 def test_a_command_that_reads_bots_imports_no_exchange_sdk_and_no_unrelated_context(
-    tmp_path: Path, words: tuple[str, ...]
+    tmp_path: Path, words: tuple[str, ...], expected_status: int
 ) -> None:
-    _, loaded = _run(tmp_path, *words)
+    """The status is asserted too: a command that cannot resolve what it needs ends 1, and
+    would pass the import assertions below while being broken."""
+    status, loaded = _run(tmp_path, *words)
+
+    assert status == expected_status
 
     assert not (set(_HEAVY) & loaded), sorted(set(_HEAVY) & loaded)
     for built in ("bots", "trading", "market_data"):
