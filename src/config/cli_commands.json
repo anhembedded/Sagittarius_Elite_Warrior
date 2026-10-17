@@ -186,7 +186,7 @@
       ]
     },
     "trade-once": {
-      "short_lived": true,
+      "keeps_console_log": true,
       "help": "Run one strategy evaluation and, if actionable, attempt one order through the full safety pipeline. DRY-RUN unless --live is passed. Not a daemon — runs one round and exits",
       "args": [
         {

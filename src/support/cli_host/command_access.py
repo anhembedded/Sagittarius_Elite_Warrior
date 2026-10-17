@@ -29,11 +29,11 @@ existed before this field keeps.
 
 @par Where the log goes (`BOT-185`, `BOT-186`)
   A command that only reads shows its result and nothing else; so does a short-lived one that
-  writes (`bot apply`, `trade-once`): its log records go to a file (`shell/cli_log_routing.py`).
+  writes (`bot apply`): its log records go to a file (`shell/cli_log_routing.py`).
   The declaration is explicit, so a new command cannot slip into either behaviour unseen:
   · `"short_lived": true` - a one-shot command that may change something and ends by itself;
   · `"keeps_console_log": true` - a command whose log is its output or that runs until told to
-    stop (`run`: the supervisor's journal; `sync`: its progress; `stream start`);
+    stop (`run`: the supervisor's journal; `sync`: its progress; `stream start`; `trade-once`: it can trade real money and keeps no local order journal);
   and every command that is not a group of verbs says one of the four sides (`read_only`,
   `read_only_when`, `short_lived`, `keeps_console_log`), which
   `tests/unit/support/cli_host/test_every_command_declares_where_its_log_goes.py` checks.

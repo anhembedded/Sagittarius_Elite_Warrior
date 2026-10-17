@@ -1,16 +1,16 @@
-# BOT-186 — A short-lived command that writes (`bot apply`, `trade-once`) shows only its result; the registry says which commands keep the console log
+# BOT-186 — A short-lived command that writes (`bot apply`) shows only its result; the registry says which commands keep the console log
 
 **Status:** ✅ Done (2026-10-17)
 **Board:** After BOT-185 `main.py bot apply plan.json --prune` still printed the full INFO log, because the quiet routing covered only `"read_only": true` commands. Fix: two explicit registry declarations, `short_lived` (quiet like a reader) and `keeps_console_log` (`run`, `sync`, `stream`), one rule `command_keeps_log_off_console`, and a guard that fails until every command declares a side (`src/support/cli_host/command_access.py`, `src/config/cli_commands.json`).
 **Source:** The owner, 2026-10-17, via the coordinator session (decision "A"), confirmed in this session as *"làm đi bạn"* ("go ahead"): extend the quiet routing to the short-lived writing commands, not `run`, decided from the registry, with a guard.
-**Risk:** 🟡 — `trade-once --live` can place a real order; its INFO records move to the file, while its printed result and every WARNING/ERROR stay on the console. No order logic changes.
+**Risk:** 🟢 — only log records move, for `bot apply`; its printed report and every WARNING/ERROR stay on the console. `trade-once` (real money) was kept out by the owner's decision, see the notes.
 **Complexity:** S — two registry keys, one function, six declarations, a guard, docs.
 **Depends on:** BOT-185 (merged, `8fb1edf`).
 
 ---
 
 ## 1. Context and problem
-At `9161a85` the routing of BOT-185 is selected by `command_is_read_only`. The VPS owner ran `bot apply plan.json --prune`, a writer that ends by itself, and still saw ~70 INFO lines around the report. The command list in `cli_commands.json` holds: readers (`status`, `bot list|show|export|stop|pause|resume|start`, `alert test`, `preflight`, `exchange-status`, `order-preview`, `order-dry-run`), one-shot writers (`bot apply`, `trade-once`), and commands that run until told to stop or whose log is their output (`run`, `sync`, `stream start|stop`). `bot create/edit/delete` are not commands here: `bot apply` creates, edits and deletes (`--prune`) through the plan.
+At `9161a85` the routing of BOT-185 is selected by `command_is_read_only`. The VPS owner ran `bot apply plan.json --prune`, a writer that ends by itself, and still saw ~70 INFO lines around the report. The command list in `cli_commands.json` holds: readers (`status`, `bot list|show|export|stop|pause|resume|start`, `alert test`, `preflight`, `exchange-status`, `order-preview`, `order-dry-run`), one-shot writers (`bot apply`), and commands that run until told to stop or whose log is their output (`run`, `sync`, `trade-once`, `stream start|stop`). `bot create/edit/delete` are not commands here: `bot apply` creates, edits and deletes (`--prune`) through the plan.
 
 ## 2. Acceptance criteria
 - [x] `bot apply plan.json --prune` prints its report and nothing else on stdout, nothing on stderr, and its records are in a `cli-*.log`. Evidence: `test_a_short_lived_writing_command_is_quiet_too` (real process on a real data root; the log says `[instance] writable`, so it is the writing path, not the read-only one).
@@ -33,7 +33,7 @@ At `9161a85` the routing of BOT-185 is selected by `command_is_read_only`. The V
 | File | Change |
 | :--- | :--- |
 | `src/support/cli_host/command_access.py` | `SHORT_LIVED_KEY`, `KEEPS_CONSOLE_LOG_KEY`, `command_keeps_log_off_console`; module docstring |
-| `src/config/cli_commands.json` | `short_lived` on `bot apply`, `trade-once`; `keeps_console_log` on `run`, `sync`, `stream start`, `stream stop` |
+| `src/config/cli_commands.json` | `short_lived` on `bot apply`; `keeps_console_log` on `run`, `sync`, `trade-once`, `stream start`, `stream stop` |
 | `src/main.py` | `_quiet_log_for` takes the quiet decision from the new function |
 | `Docs/OPERATIONS/LOGGING.md` §1b, `headless_runbook.md` §10 | the four sides, the guard, which commands keep the log |
 | tests | the guard, `test_command_access.py`, `test_main_entry.py` rows, two process tests |
@@ -50,3 +50,4 @@ As §2. Commit tier and the touched suites: see the implementation notes.
 - **Review question: is `trade-once --live`'s INFO trail the only trace of a real order?** No. `OrderSubmissionService` (`src/modules/trading/application/orders/order_submission_service.py`) writes no log record at all, and the command prints the client order id and status itself (`format_result`: `Submitted : <client_order_id> → <status>`), on stdout, which this change does not touch. The durable record of a real order is the exchange's own order history, queryable by that client order id. What does not exist is a local journal of orders sent by the CLI (the INFO lines were never that: the dispatcher's `Executing command: <name>` lines carry no order fields), so 40-file retention loses nothing that was kept before. A local order journal would be a separate, owner-scoped feature; not added here.
 - Not verified: `trade-once` was not run live (no exchange here); its quiet path is proved by the registry and `main` tests, not by a process run against the fake exchange.
 - `composition_root.py` is untouched, so its 400-line note from BOT-185 still stands.
+- **Owner decision (2026-10-17, "giữ trade-once ồn", relayed by the coordinator):** `trade-once` keeps its console log as before, as does `sync`. The classification above that made it `short_lived` was reversed in one declaration (`keeps_console_log` in `cli_commands.json`), the guard rows and the doc lines; nothing else changed. Reason: `--live` can trade real money and the application keeps no local order journal.

@@ -127,7 +127,7 @@ def test_a_commands_effective_routing_is_what_it_declares(path: str) -> None:
         (["bot", "list"], True),
         (["bot", "apply"], True),
         (["bot", "apply", "--dry-run"], True),
-        (["trade-once"], True),
+        (["trade-once"], False),
         (["run"], False),
         (["sync"], False),
         (["stream", "start"], False),
@@ -136,8 +136,10 @@ def test_a_commands_effective_routing_is_what_it_declares(path: str) -> None:
 def test_the_commands_the_owner_named_are_on_the_side_the_owner_chose(
     argv: list[str], quiet: bool
 ) -> None:
-    """`bot apply` and `trade-once` are short-lived writers (quiet); `run` keeps the log
-    on stdout for journald and NSSM, `sync` and `stream start` keep it as their output."""
+    """`bot apply` is a short-lived writer (quiet). `trade-once` keeps its console log by the
+    owner's decision (`--live` can trade real money and no local order journal exists);
+    `run` keeps the log on stdout for journald and NSSM, `sync` and `stream start` keep it
+    as their output."""
     args = argparse.Namespace(
         command=argv[0],
         **({"action": argv[1]} if len(argv) > 1 else {}),
