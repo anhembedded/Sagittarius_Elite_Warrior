@@ -16,12 +16,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    MAX_RECORDED_ATTEMPTS,
     HaltCode,
     HaltRecoveryRule,
 )
-
-#: The most entries kept, so a bot file does not grow however long a market flaps.
-MAX_RECORDED_ATTEMPTS = 16
 
 
 @dataclass(frozen=True, slots=True)

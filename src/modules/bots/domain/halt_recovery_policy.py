@@ -40,6 +40,11 @@ from typing import NewType
 #: The stable name of a halt reason as the bot record spells it (`GridReason.value`).
 HaltCode = NewType("HaltCode", str)
 
+#: The most attempts a bot's record keeps (`recovery_ledger.recorded` caps the list here so the
+#: file does not grow). A rule may not allow more than the ledger can hold: with a larger
+#: `max_attempts` the oldest entries would fall off and the budget would never run out.
+MAX_RECORDED_ATTEMPTS = 16
+
 PRICE_FEED_STALE = HaltCode("price_feed_stale")
 USER_STREAM_DOWN = HaltCode("user_stream_down")
 
@@ -60,8 +65,11 @@ class HaltRecoveryRule:
     def __post_init__(self) -> None:
         if self.dwell <= timedelta(0):
             raise ValueError("a recovery rule needs a positive dwell")
-        if self.max_attempts < 1:
-            raise ValueError("a recovery rule allows at least one attempt")
+        if not 1 <= self.max_attempts <= MAX_RECORDED_ATTEMPTS:
+            raise ValueError(
+                f"a recovery rule allows 1 to {MAX_RECORDED_ATTEMPTS} attempts, "
+                f"the most the bot record keeps; got {self.max_attempts}"
+            )
         if self.window <= timedelta(0):
             raise ValueError("a recovery rule needs a positive window")
         if self.stalled_after <= self.dwell:
@@ -109,7 +117,8 @@ class RecoveryLayer:
     #: The layer says "nothing below me recovers": Futures, until its halt may.
     clears_lower_layers: bool = False
     withdrawn: frozenset[HaltCode] = frozenset()
-    changes: Mapping[HaltCode, RuleChange] = field(default_factory=dict)
+    #: Left out of the hash (the mapping is read-only but unhashable); equality still compares it.
+    changes: Mapping[HaltCode, RuleChange] = field(default_factory=dict, hash=False)
 
     def __post_init__(self) -> None:
         both = self.withdrawn & self.changes.keys()

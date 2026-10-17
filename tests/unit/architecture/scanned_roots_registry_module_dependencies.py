@@ -26,7 +26,7 @@ MODULE_DEPENDENCY_GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = 
     # `EPIC-042B` - a state set that names HALTED answers for AWAITING_RECOVERY.
     (
         "tests/unit/architecture/test_every_state_set_that_names_halted_answers_for_awaiting_recovery.py",
-        (("src/modules/bots", "*.py"),),
+        (("src", "*.py"),),
     ),
     # `BOT-177` - the bots service shell stays grouped and kind-neutral.
     (

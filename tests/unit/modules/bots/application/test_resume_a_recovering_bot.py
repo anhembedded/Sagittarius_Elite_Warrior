@@ -165,7 +165,8 @@ def test_resuming_a_waiting_mainnet_bot_without_the_real_money_answer_is_refused
     result = _handler(world, runner).execute(ResumeBotCommand("abc123"))
 
     assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
-    assert "awaiting_recovery" in result.message
+    assert "awaiting recovery" in result.message
+    assert "awaiting_recovery" not in result.message
     assert runner.sent == []
 
 

@@ -91,8 +91,8 @@ through the person's Resume path (`condition_cleared`). Three events lead into a
 (`halt_transient`, `condition_cleared`, `budget_exhausted`); a person's `resume`, `stop`, `switch_off`,
 `halt`, `fault` and a restart are declared too. `PAUSED` and `RECOVERING` have no `halt_transient` row:
 the owner's Pause is never undone by a machine, and a restart's closed order session cannot take a
-resume. A restart ends the wait in `HALTED`. The wait has no limit; after a quarter of an hour it raises
-one alert. The step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
+resume. A restart ends the wait in `HALTED`. The wait has no limit; after a quarter of an hour it will raise
+one alert (**Planned**, `EPIC-042C` and `EPIC-042D`: nothing halts transiently yet). The step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
 [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md).
 
 The sets the module asks of the table, rather than keeping lists of its own: `RUN_STARTING_STATES`

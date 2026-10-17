@@ -1,7 +1,7 @@
 """The health line: one log record an operator greps and a monitor parses
 (`EPIC-038G`, `DESIGN_2026-10-09_headless_operation.md` §6).
 
-    [health] state=SERVING up=3600s bots=running:3,paused:1,halted:0,recovering:0,error:0,starting:0,stopping:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310
+    [health] state=SERVING up=3600s bots=running:3,paused:1,halted:0,recovering:0,error:0,starting:0,stopping:0,awaiting_recovery:0 tick_age_s=2 stream_down_s=5 skew_ms=-120 rss_mb=310
 
 **The contract** (a field is added at the end, never renamed or reordered once a monitor
 reads it - `stream_down_s` was `stream_age_s` until `EPIC-038D` renamed it, before the host
@@ -12,7 +12,7 @@ parser ignores keys it does not know, so an older monitor survives a newer host)
 | :--- | :--- | :--- |
 | `state` | a `HostState` name | — |
 | `up` | whole seconds since boot, with an `s` suffix | — |
-| `bots` | `running`, `paused`, `halted`, `recovering`, `error`, `starting` and `stopping` counts as `state:count` pairs, zeros included, comma-separated; `none` when the bots' section did not answer | — |
+| `bots` | `running`, `paused`, `halted`, `recovering`, `error`, `starting`, `stopping` and `awaiting_recovery` counts as `state:count` pairs, zeros included, comma-separated; `none` when the bots' section did not answer | — |
 | `tick_age_s` | whole seconds since the last market tick (the freshest open feed) | `na` |
 | `stream_down_s` | whole seconds the worst user-data stream has been out of `connected`; `0` when every stream is connected (the stream reports state changes, not messages, so there is no "age of the last message") | `na` when none has reported |
 | `skew_ms` | signed milliseconds, local clock minus the exchange's | `na` |

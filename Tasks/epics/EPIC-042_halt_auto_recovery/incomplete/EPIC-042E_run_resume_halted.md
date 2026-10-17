@@ -5,7 +5,7 @@
 **Risk:** 🟡 — it lays ladders on real money at a command line; the venue must be named
 **Complexity:** M — one flag, one host step, one host command handler
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md)
 
 ---
 

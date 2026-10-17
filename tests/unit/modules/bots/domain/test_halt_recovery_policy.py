@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     COMMON_LAYER,
     DEFAULT_RULE,
+    MAX_RECORDED_ATTEMPTS,
     PRICE_FEED_STALE,
     USER_STREAM_DOWN,
     HaltCode,
@@ -126,6 +127,7 @@ def test_a_layer_cannot_both_withdraw_and_change_a_code() -> None:
     [
         RuleChange(dwell=timedelta(0)),
         RuleChange(max_attempts=0),
+        RuleChange(max_attempts=MAX_RECORDED_ATTEMPTS + 1),
         RuleChange(window=timedelta(0)),
         RuleChange(stalled_after=timedelta(seconds=120)),
         RuleChange(dwell=timedelta(minutes=20)),
@@ -164,3 +166,19 @@ def test_the_policy_answers_for_one_code_and_for_the_longest_window() -> None:
     assert policy.rule_for(PRICE_FEED_STALE) == DEFAULT_RULE
     assert policy.rule_for(HaltCode("order_rejected")) is None
     assert policy.longest_window == DEFAULT_RULE.window
+
+
+def test_a_rule_may_allow_as_many_attempts_as_the_record_keeps_and_no_more() -> None:
+    """With more, the ledger's cap would drop old attempts and the budget would never run out."""
+    kind = RecoveryLayer(
+        "grid",
+        changes={PRICE_FEED_STALE: RuleChange(max_attempts=MAX_RECORDED_ATTEMPTS)},
+    )
+    row = {r.code: r for r in _merged(kind).rows}[PRICE_FEED_STALE]
+    assert row.rule.max_attempts == MAX_RECORDED_ATTEMPTS
+
+
+def test_a_layer_and_a_venue_profile_are_still_hashable() -> None:
+    """A frozen value object keeps its hash although its changes are a read-only mapping."""
+    assert hash(COMMON_LAYER) == hash(COMMON_LAYER)
+    assert hash(venue_profile_of(TradingVenue.SPOT_MAINNET)) is not None

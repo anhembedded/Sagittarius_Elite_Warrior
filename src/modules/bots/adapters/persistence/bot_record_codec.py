@@ -136,12 +136,18 @@ def _attempts(value: JsonValue) -> tuple[RecoveryAttempt, ...]:
     if not isinstance(value, list):
         raise BotRecordError("lifecycle.recovery_attempts is not a list")
     return tuple(
-        RecoveryAttempt(
-            HaltCode(_text(entry, "code")),
-            datetime.fromisoformat(_text(entry, "at")),
-        )
+        RecoveryAttempt(HaltCode(_text(entry, "code")), _aware(_text(entry, "at")))
         for entry in (_object(item, "a recovery attempt") for item in value)
     )
+
+
+def _aware(text: str) -> datetime:
+    """An attempt's time, which the window arithmetic subtracts from the clock's aware now: a
+    naive one would raise at a halt, so the file is refused here instead."""
+    moment = datetime.fromisoformat(text)
+    if moment.tzinfo is None:
+        raise BotRecordError(f"{text!r} has no time zone")
+    return moment
 
 
 def _object(value: JsonValue, where: str) -> dict[str, JsonValue]:

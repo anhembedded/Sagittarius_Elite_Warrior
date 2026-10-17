@@ -79,6 +79,16 @@ def test_a_file_written_before_the_ledger_loads_with_none() -> None:
     assert decode(record).bot.lifecycle.recovery_attempts == ()
 
 
+def test_a_naive_attempt_time_refuses_the_file() -> None:
+    """The window arithmetic subtracts it from an aware clock; a naive one would raise at a halt."""
+    record = _record(_stored(BotLifecycle(BotLifecycleState.HALTED)))
+    cast(dict[str, JsonValue], record["lifecycle"])["recovery_attempts"] = [
+        {"code": "price_feed_stale", "at": "2026-10-17T12:00:00"}
+    ]
+    with pytest.raises(BotRecordError, match="no time zone"):
+        decode(record)
+
+
 @pytest.mark.parametrize(
     "damaged",
     ["not a list", [{"code": "price_feed_stale"}], [{"at": "x", "code": 1}], ["x"]],

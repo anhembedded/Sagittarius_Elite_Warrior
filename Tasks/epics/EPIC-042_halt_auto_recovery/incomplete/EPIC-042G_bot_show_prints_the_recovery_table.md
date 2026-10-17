@@ -5,7 +5,7 @@
 **Risk:** 🟢 — a read-only report line set
 **Complexity:** S — one field on the status report, one renderer arm
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md)
 
 ---
 

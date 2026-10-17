@@ -82,7 +82,7 @@ class ResumeBotCommandHandler(ICommandHandler[ResumeBotCommand, BotCommandResult
         if reopens_session and venue.is_mainnet and not command.real_money_confirmed:
             return BotCommandResult.refused(
                 BotRefusal.REAL_MONEY_NOT_CONFIRMED,
-                f"Resuming a {found.bot.state.value.lower()} bot on "
+                f"Resuming a bot that is {found.bot.state.value.lower().replace('_', ' ')} on "
                 f"{venue.display_name} reopens its order session and uses real "
                 "money, and the resume did not carry the confirmation of that; "
                 "resume it from the Bots screen.",

@@ -77,9 +77,10 @@ def test_the_bots_are_counted_in_the_contract_order_zeros_included() -> None:
         BotCount("error", 2),
         BotCount("starting", 1),
         BotCount("stopping", 0),
+        BotCount("awaiting_recovery", 0),
     )
     assert (
-        "bots=running:3,paused:1,halted:0,recovering:0,error:2,starting:1,stopping:0"
+        "bots=running:3,paused:1,halted:0,recovering:0,error:2,starting:1,stopping:0,awaiting_recovery:0"
         in (format_health_line(line))
     )
 
@@ -143,3 +144,12 @@ def test_the_whole_line_survives_the_format_and_the_parser() -> None:
     line = _line({"bots": _BOTS, "market_data": _MARKET, "trading": _TRADING})
 
     assert parse_health_line(format_health_line(line)) == line
+
+
+def test_a_bot_waiting_to_recover_is_on_the_line_not_hidden() -> None:
+    """`EPIC-042B`: a waiting bot holds a real-money position with its ladder off; the one
+    line an operator reads must show it, like `error` after `BUG-209`."""
+    line = _line({"bots": {**_BOTS, "states": {"AWAITING_RECOVERY": 2}}})
+
+    assert BotCount("awaiting_recovery", 2) in line.bots
+    assert "awaiting_recovery:2" in format_health_line(line)

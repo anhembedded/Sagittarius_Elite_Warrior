@@ -8,6 +8,7 @@ Emergency Stop ends the wait, a stop loss ends the bot, and a rate limit met in 
 
 from __future__ import annotations
 
+from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_price_tick import (
@@ -22,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
     TradingSwitchCause,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_rate_limited_error import (
+    ExchangeRateLimitedError,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     GridWorld,
@@ -92,3 +96,38 @@ def test_a_tick_through_the_stop_loss_ends_a_waiting_bot() -> None:
 
     assert world.state() is S.STOPPED
     assert world.runtime().reason is GridReason.STOP_LOSS
+
+
+def test_a_rate_limit_met_while_waiting_halts_the_bot_and_the_pause_resumes_it() -> (
+    None
+):
+    """A recovery attempt that meets a limit is a new cause: HALTED with the reason, and
+    `GridRateLimitPause` owns it from there (ADR 042 §2.1, the refusal table)."""
+    world = _waiting_with_nothing_on_the_exchange()
+    world.book.raise_next = [
+        ExchangeRateLimitedError(
+            timedelta(seconds=60), banned=False, raw_message="slow down"
+        )
+    ]
+
+    world.executor.resume()
+    world.executor.confirm_resume()
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED
+
+
+def test_a_task_that_meets_a_rate_limit_in_the_wait_halts_the_bot() -> None:
+    """`GridRateLimitPause` halts a bot a limit found in any state that places or waits to; the
+    wait is one (`_HALTED_BY_A_LIMIT`), or the limit would be logged and the bot left waiting."""
+    world = _waiting_with_nothing_on_the_exchange()
+
+    def meets_the_limit() -> None:
+        raise ExchangeRateLimitedError(
+            timedelta(seconds=60), banned=False, raw_message="slow down"
+        )
+
+    world.executor._post("a read", meets_the_limit)
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.RATE_LIMITED

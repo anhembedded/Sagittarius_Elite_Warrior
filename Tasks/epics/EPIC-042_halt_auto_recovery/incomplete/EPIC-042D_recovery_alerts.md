@@ -5,7 +5,7 @@
 **Risk:** 🟢 — two new alert kinds and two source arms; no bot behaviour
 **Complexity:** S — one event, one kind, one handler, one reason text
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042B](EPIC-042B_awaiting_recovery_state_and_ledger.md)
+**Depends on:** [EPIC-042B](../completed/EPIC-042B_awaiting_recovery_state_and_ledger.md)
 
 ---
 

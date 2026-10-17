@@ -6,12 +6,12 @@ from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
     DEFAULT_RULE,
+    MAX_RECORDED_ATTEMPTS,
     PRICE_FEED_STALE,
     USER_STREAM_DOWN,
     HaltCode,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
-    MAX_RECORDED_ATTEMPTS,
     RecoveryAttempt,
     attempts_within,
     budget_left,
@@ -66,3 +66,15 @@ def test_the_ledger_is_capped_so_the_file_does_not_grow() -> None:
         )
     assert len(attempts) == MAX_RECORDED_ATTEMPTS
     assert attempts[-1].at == NOW + timedelta(minutes=MAX_RECORDED_ATTEMPTS + 4)
+
+
+def test_an_entry_exactly_as_old_as_the_window_is_dropped_when_a_new_one_is_recorded() -> (
+    None
+):
+    """The pruning boundary matches `attempts_within`: an attempt that no longer counts is not kept."""
+    exactly_a_window = _at(DAY)
+    just_inside = _at(DAY - timedelta(seconds=1))
+    kept = recorded(
+        (exactly_a_window, just_inside), RecoveryAttempt(PRICE_FEED_STALE, NOW), DAY
+    )
+    assert kept == (just_inside, RecoveryAttempt(PRICE_FEED_STALE, NOW))
