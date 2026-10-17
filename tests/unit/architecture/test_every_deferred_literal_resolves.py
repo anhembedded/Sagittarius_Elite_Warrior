@@ -42,16 +42,20 @@ def _literals() -> list[tuple[str, str]]:
 
 
 def _constant(node: ast.expr) -> str | None:
-    """The string a literal, an implicit concatenation or a `"..." f"..."` of literals gives;
-    an f-string with a name in it is `None` (the path is assembled, so it is checked where
-    it is built - `main.py` and the two `exchange_adapters.py` use a module constant)."""
+    """The string a plain literal (or an implicit concatenation of literals) gives; an
+    f-string is `None` here and handled by `_resolved_constants`."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
 
 
-def _resolved_constants() -> list[tuple[str, str]]:
-    """Targets assembled from a module-level string constant, `f"{_PREFIX}.mod:attr"`."""
+def _resolved_constants(
+    unresolvable: list[str] | None = None,
+) -> list[tuple[str, str]]:
+    """Targets assembled from a module-level string constant, `f"{_PREFIX}.mod:attr"`.
+
+    An f-string with any other part cannot be resolved here; its `file:line` goes to
+    `unresolvable`, so the guard states its own blind spot instead of skipping it."""
     found: list[tuple[str, str]] = []
     for path in sorted((_REPO_ROOT / "src").rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -84,6 +88,11 @@ def _resolved_constants() -> list[tuple[str, str]]:
                 ):
                     parts.append(constants[value.value.id])
                 else:
+                    if unresolvable is not None:
+                        where = (
+                            f"{path.relative_to(_REPO_ROOT).as_posix()}:{node.lineno}"
+                        )
+                        unresolvable.append(where)
                     break
             else:
                 where = f"{path.relative_to(_REPO_ROOT).as_posix()}:{node.lineno}"
@@ -93,6 +102,21 @@ def _resolved_constants() -> list[tuple[str, str]]:
 
 def _all_targets() -> list[tuple[str, str]]:
     return _literals() + _resolved_constants()
+
+
+def test_no_deferred_path_is_beyond_what_this_guard_can_resolve() -> None:
+    """A `Deferred(f"{local}.mod:X")` would be a typo class the guard silently skipped."""
+    unresolvable: list[str] = []
+    _resolved_constants(unresolvable)
+    # `ModuleEntry._target` builds its path from the entry's own fields; every entry is loaded
+    # by `test_module_declarations.test_every_entry_id_is_the_id_of_the_class_it_names`.
+    unresolvable = [
+        w for w in unresolvable if not w.startswith("src/shell/modules.py:")
+    ]
+    assert not unresolvable, (
+        "Deferred paths built from something other than a module-level string constant "
+        f"cannot be checked: {unresolvable}"
+    )
 
 
 def test_the_guard_has_a_subject() -> None:
