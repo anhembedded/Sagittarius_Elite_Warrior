@@ -14,6 +14,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_user_stream_status import (
+    FakeUserStreamStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     recovery_policy_of,
 )
@@ -29,7 +32,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
-    FakeUserStreamStatus,
     grid_world,
 )
 

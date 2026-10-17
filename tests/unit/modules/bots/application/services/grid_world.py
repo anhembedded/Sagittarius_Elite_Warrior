@@ -11,9 +11,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
-    IEventPublisher,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.venue_fresh_price_reader import (
     VenueFreshPriceReader,
 )
@@ -53,9 +50,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue import (
     IBotWorkQueue,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_order_pacer import (
-    IOrderPacer,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_user_stream_status import (
     IUserStreamStatus,
@@ -129,6 +123,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world_doubles import (
+    CountingPacer,
+    InlineWorkQueue,
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.simulated_venue import (
     SYMBOL,
     SimulatedActivity,
@@ -136,7 +135,6 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.simu
     SimulatedSubmission,
     derive_inventory_from,
 )
-from sagittarius_engine.domain.i_domain_event import IDomainEvent
 
 BOT = "a3f9c1"
 VENUE = TradingVenue.SPOT_TESTNET
@@ -154,44 +152,6 @@ CONFIG = {
     "take_profit": "price:150",
 }
 RUN_STARTED = datetime(2026, 10, 4, 8, tzinfo=UTC)
-
-
-class FakeUserStreamStatus(IUserStreamStatus):
-    """The venue's user-data stream, connected or not as a test says (`EPIC-042C`)."""
-
-    def __init__(self, *, connected: bool = False) -> None:
-        self.connected = connected
-
-    def is_connected(self, venue: TradingVenue) -> bool:
-        return self.connected
-
-
-class InlineWorkQueue(IBotWorkQueue):
-    """Runs each task as it is posted, on the poster's thread."""
-
-    def post(self, task: Callable[[], None]) -> None:
-        task()
-
-    def close(self) -> None:
-        return None
-
-
-class CountingPacer(IOrderPacer):
-    def __init__(self) -> None:
-        self.turns = 0
-
-    def wait_turn(self) -> None:
-        self.turns += 1
-
-
-class RecordingPublisher(IEventPublisher):
-    """The bus, as far as a bot is concerned: it keeps what it was handed."""
-
-    def __init__(self) -> None:
-        self.events: list[IDomainEvent] = []
-
-    def publish(self, event: IDomainEvent) -> None:
-        self.events.append(event)
 
 
 @dataclass
