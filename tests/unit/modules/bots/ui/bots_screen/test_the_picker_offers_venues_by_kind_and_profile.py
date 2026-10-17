@@ -1,8 +1,8 @@
 """`EPIC-039J` — which venues New bot and the Plan's Venue field list.
 
 @details The business promise: a venue is listed when a kind declares its market, the build
-lets bots run there, and the owner has opened it. Futures mainnet is listed closed, with
-its reason, until `EPIC-039L` opens it (decision O7, `BUG-208`); Spot's list is what it always was."""
+lets bots run there, and the owner has opened it. Futures mainnet is listed like any
+other venue since the owner opened it (`EPIC-039L`, O2; `BUG-208` listed it closed before); Spot's list is what it always was."""
 
 from __future__ import annotations
 

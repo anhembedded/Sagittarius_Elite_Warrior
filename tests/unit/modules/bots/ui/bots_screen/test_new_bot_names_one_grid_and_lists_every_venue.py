@@ -2,7 +2,7 @@
 
 @details The business promise: the kind is "Grid" whatever venue is chosen (the venue says
 Spot or Futures, the table's Venue column too), and the Venue list never silently drops a
-venue the app trades on: Futures Mainnet is listed, greyed out, with the reason it is closed.
+venue the app trades on: Futures Mainnet is listed and selectable.
 """
 
 from __future__ import annotations

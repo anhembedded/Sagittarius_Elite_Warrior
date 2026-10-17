@@ -3,8 +3,8 @@
 @details The owner opened Futures mainnet on 2026-10-17 (decision O2 of `EPIC-039L`): no lock
 stands in front of it any more, and what stands in front of real money is the confirmation the
 Spot mainnet path already asks for. Each path that could create, move, start or resume a bot
-there is proven in the composed app over the Futures fake: creating and moving a draft are
-accepted like on the testnet; starting or resuming without the confirmation of real money is
+there is proven in the composed app over the Futures fake: creating a draft is accepted like
+on the testnet (moving a draft to another venue is Spot-only and not in play); starting or resuming without the confirmation of real money is
 refused in words (`REAL_MONEY_NOT_CONFIRMED`), as the headless host's start and resume are when
 `--confirm-venue` is not typed. Nothing here reaches a real exchange, and no order is placed on
 mainnet: the fake stands behind every venue.
@@ -170,6 +170,19 @@ def test_resuming_a_halted_futures_mainnet_bot_without_the_confirmation_is_refus
 
         _asks_for_real_money(result)
         assert app.bot(bot_id).state is BotLifecycleState.HALTED
+
+
+def test_resuming_a_recovering_futures_mainnet_bot_without_the_confirmation_is_refused(
+    futures: FakeExchange,
+) -> None:
+    """The desktop's way out of RECOVERING reopens the order session as a Resume from HALTED does."""
+    with booted_futures_bots(futures) as app:
+        bot_id = _stored(app, BotLifecycleState.RECOVERING)
+
+        result = app.engine.dispatch(ResumeBotCommand, ResumeBotCommand(bot_id))
+
+        _asks_for_real_money(result)
+        assert app.bot(bot_id).state is BotLifecycleState.RECOVERING
 
 
 def test_the_hosts_resume_recovering_asks_for_the_venue_to_be_typed(

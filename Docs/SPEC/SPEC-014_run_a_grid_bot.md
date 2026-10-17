@@ -36,8 +36,8 @@ sound, I start it, and I watch what it does."*
 2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Grid, the one
    name on every venue: the venue says Spot or Futures), the venue (every venue a Grid runs on is
    listed with its connection state, "API key saved" or "no API key"; one is preselected, and none
-   blocks: Start refuses a venue that is not enabled. A venue bots are closed on, Futures Mainnet
-   until `EPIC-039L`, is listed greyed out as "closed" and its tooltip says why), the symbol (chosen in
+   blocks: Start refuses a venue that is not enabled. Futures Mainnet is listed like any other venue
+   since the owner opened it on 2026-10-17; a mainnet start still asks for the real-money confirmation), the symbol (chosen in
    the shared symbol picker over the chosen venue's market catalog, never taken
    from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
