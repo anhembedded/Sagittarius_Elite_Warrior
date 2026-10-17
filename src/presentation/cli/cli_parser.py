@@ -49,6 +49,8 @@ def _add_arguments_to_parser(
             kwargs["help"] = arg["help"]
         if "choices" in arg:
             kwargs["choices"] = arg["choices"]
+        if "metavar" in arg:
+            kwargs["metavar"] = arg["metavar"]
 
         parser.add_argument(arg["name"], **kwargs)
 

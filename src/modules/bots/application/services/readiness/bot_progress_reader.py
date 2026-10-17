@@ -65,6 +65,7 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
                 quantity=level.order.quantity,
                 executed=level.order.executed,
                 client_order_id=level.order.client_order_id,
+                state=level.state.value,
             )
             for level in runtime.levels
             if level.order is not None

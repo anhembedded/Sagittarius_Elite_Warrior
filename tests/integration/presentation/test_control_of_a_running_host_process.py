@@ -1,4 +1,4 @@
-"""`EPIC-038J`, `EPIC-038K` - `bot stop|pause|resume|start` from a second process to a real `run` host (decision O4, channel A).
+"""`EPIC-038J`, `EPIC-038K`, `EPIC-038L` - `bot stop|pause|resume|start|edit` from a second process to a real `run` host (decision O4, channel A).
 
 @details Real processes, because a lock, a directory's owner and a listening socket belong to
 processes. The host is `main.py run` over the fake exchange with a bot file that its first boot
@@ -236,6 +236,59 @@ def test_a_second_process_start_of_a_halted_bot_is_refused_in_the_screens_words(
     assert [(e["verdict"], e["action"]) for e in audit] == [
         ("received", "start"),
         ("refused", "start"),
+    ]
+
+    host.send(signal.SIGTERM)
+    assert host.finish() == int(ExitCode.SUCCESS), host.evidence
+
+
+def test_a_second_process_edits_a_stopped_bot_beside_a_running_one_on_the_host(
+    started: list[RunChild], tmp_path: Path, exchange: FakeServerUrls
+) -> None:
+    """`EPIC-038L`: `bot edit` crosses the process boundary. The STOPPED bot's parameters change on its
+    own file and it lands on DRAFT, the other bot is not touched, a malformed `--set` is a usage error
+    before anything is written, and a bot that is not at rest is refused in the screen's words."""
+    bots = _seed_a_bot_that_ran(tmp_path, "cccccc", BotLifecycleState.STOPPED)
+    _seed_a_bot_that_ran(tmp_path, "aaaaaa")
+    host = _host(started, tmp_path, exchange)
+    directory = tmp_path / "state" / "control"
+    assert _state_of(bots, "aaaaaa") is BotLifecycleState.RECOVERING
+
+    malformed = _bot(tmp_path, exchange, "edit", "cccccc", "--set", "lower")
+    edited = _bot(
+        tmp_path,
+        exchange,
+        "edit",
+        "cccccc",
+        "--set",
+        "lower=47000",
+        "--set",
+        "upper=53000",
+    )
+    refused = _bot(tmp_path, exchange, "edit", "aaaaaa", "--set", "lower=47000")
+
+    assert malformed.returncode == int(ExitCode.USAGE), (
+        malformed.stdout + malformed.stderr
+    )
+    assert "--set 1" in malformed.stderr
+    assert edited.returncode == int(ExitCode.SUCCESS), edited.stdout + edited.stderr
+    message = json.loads(edited.stdout)["data"]["message"]
+    assert "lower 48000 -> 47000" in message and "upper 52000 -> 53000" in message
+    config = JsonBotStore(bots).load(BotId("cccccc")).bot.definition.config
+    assert (config["lower"], config["upper"]) == ("47000", "53000")
+    assert _state_of(bots, "cccccc") is BotLifecycleState.DRAFT
+    assert refused.returncode == int(ExitCode.USAGE), refused.stdout + refused.stderr
+    assert "DRAFT or STOPPED" in refused.stderr
+    assert _state_of(bots, "aaaaaa") is BotLifecycleState.RECOVERING
+    audit = [
+        json.loads(line)
+        for line in (directory / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [(e["verdict"], e["action"]) for e in audit] == [
+        ("received", "edit"),
+        ("executed", "edit"),
+        ("received", "edit"),
+        ("refused", "edit"),
     ]
 
     host.send(signal.SIGTERM)

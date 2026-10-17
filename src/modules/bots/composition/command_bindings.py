@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot i
     EditBotCommand,
     EditBotCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot_for_host import (
+    EditBotForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
     PauseBotCommand,
     PauseBotCommandHandler,
@@ -63,6 +66,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
     StopBotForOperatorCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    EditBotForHostCommand,
     PauseBotForHostCommand,
     ResumeBotForHostCommand,
     ResumeHaltedForHostCommand,
@@ -96,3 +100,5 @@ def bind_commands(container: IContainer) -> None:
     container.bind(PauseBotForHostCommand, PauseBotForHostCommandHandler)
     container.bind(ResumeBotForHostCommand, ResumeBotForHostCommandHandler)
     # `EPIC-038K` - `bot start` reuses `StartBotForHostCommand` bound above.
+    # `EPIC-038L` - `bot edit` on the running host; the screen's `EditBotCommand` is bound above.
+    container.bind(EditBotForHostCommand, EditBotForHostCommandHandler)

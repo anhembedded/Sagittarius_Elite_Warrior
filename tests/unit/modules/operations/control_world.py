@@ -9,6 +9,9 @@ from datetime import UTC, datetime, timedelta
 from Sagittarius_Elite_Warrior.src.core.contracts.host_control import (
     HostControlAction,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_command_codec import (
     encode_command,
 )
@@ -53,9 +56,16 @@ def command(
     confirmed_venue: str | None = None,
     issued_at: datetime = NOW,
     close_position: bool = False,
+    settings: tuple[ParameterSetting, ...] = (),
 ) -> HostCommand:
     return HostCommand(
-        command_id, action, bot_id, confirmed_venue, issued_at, close_position
+        command_id,
+        action,
+        bot_id,
+        confirmed_venue,
+        issued_at,
+        close_position,
+        settings,
     )
 
 

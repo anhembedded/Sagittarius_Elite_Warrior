@@ -1,4 +1,4 @@
-"""Ask a running host to stop, pause, resume or start one bot (`EPIC-038J`, `EPIC-038K`, decision O4, channel A).
+"""Ask a running host to stop, pause, resume, start or edit one bot (`EPIC-038J`, `EPIC-038K`, `EPIC-038L`, decision O4, channel A).
 
 @details The `bot` command belongs to `bots`, and the thing that carries a request to the
 host belongs to `operations`, which depends on `bots`; a verb therefore cannot import its
@@ -6,8 +6,8 @@ transport. What crosses is a request, the reply, and the port (`i_host_control.p
 transport behind it is a directory the host reads (`operations/adapters/directory_host_control.py`);
 a verb does not know that.
 
-A request names an action and a bot and nothing else: there is no way here to say *how* to
-stop. The host answers each action with the command the Bots tab dispatches, and the
+A request names an action and a bot and nothing else (an edit adds the settings, which are what
+it changes): there is no way here to say *how* to stop. The host answers each action with the command the Bots tab dispatches, and the
 answer, including a refusal in the screen's own words, comes back as a reply.
 
 The port that carries a request is `i_host_control.py`.
@@ -16,13 +16,17 @@ The port that carries a request is `i_host_control.py`.
   · a new verb (`bot archive`) - one `HostControlAction` member, and the host's table of
     commands gains the row; the port, the reply and the transport do not change. `START`
     (`EPIC-038K`) was added this way: an older host reads the new word as a malformed document
-    and refuses it without effect.
+    and refuses it without effect. `EDIT` (`EPIC-038L`) also adds the optional `settings`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+
+from Sagittarius_Elite_Warrior.src.core.contracts.parameter_setting import (
+    ParameterSetting,
+)
 
 
 class HostControlAction(StrEnum):
@@ -33,6 +37,8 @@ class HostControlAction(StrEnum):
     RESUME = "resume"
     #: `EPIC-038K`: start a DRAFT or STOPPED bot, once, as the Bots tab's Start does.
     START = "start"
+    #: `EPIC-038L`: change the parameters of a DRAFT or STOPPED bot, as the Bots tab's Save does.
+    EDIT = "edit"
 
 
 class HostControlStatus(StrEnum):
@@ -58,12 +64,14 @@ class HostControlStatus(StrEnum):
 class HostControlRequest:
     """One action on one bot. `confirmed_venue` is the operator's typed answer to the
     real-money question (decision O8), where the bot's own command asks it (stop, resume, start). `close_position` is
-    the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`)."""
+    the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`).
+    `settings` are the `--set key=value` of an edit (`EPIC-038L`); empty for every other action."""
 
     action: HostControlAction
     bot_id: str
     confirmed_venue: str | None = None
     close_position: bool = False
+    settings: tuple[ParameterSetting, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

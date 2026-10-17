@@ -5,8 +5,8 @@ handler (`bot_cli_handler.py`) looks one up by the word the operator typed and
 knows none by name. `start`, `stop`, `pause` and `resume` are further classes and
 further entries, plus their rows in `cli_commands.json`; they dispatch the command the
 Bots tab dispatches, through the same `ICommandDispatcher`. `apply` and `export`
-(`EPIC-038I`, `bot_plan_verbs.py`) are such entries already. `stop`, `pause`, `resume` and `start`
-(`EPIC-038J`/`EPIC-038K`, `bot_control_verbs.py`) are entries of another kind: the running host holds the
+(`EPIC-038I`, `bot_plan_verbs.py`) are such entries already. `stop`, `pause`, `resume`, `start` and `edit`
+(`EPIC-038J`/`EPIC-038K`/`EPIC-038L`, `bot_control_verbs.py`) are entries of another kind: the running host holds the
 data root, so they ask it, through `IHostControl`, and the host dispatches the command.
 
 Reads dispatch `GetBotStatusReportQuery`, whose handler is built from the Bots
@@ -32,10 +32,14 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
+    EditBotVerb,
     PauseBotVerb,
     ResumeBotVerb,
     StartBotVerb,
     StopBotVerb,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_order_verbs import (
+    OrderBotVerb,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
     ApplyBotPlanVerb,
@@ -43,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_status_reports import (
     bot_list_report,
+    bot_show_parameters_report,
     bot_show_report,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_verb_world import BotVerbWorld
@@ -84,16 +89,23 @@ class ShowBotVerb(IBotVerb):
         status = _status_of(world.dispatcher, args.bot_id)
         if status.is_empty:
             return CliOutcome(ExitCode.USAGE, f"No bot has the id {args.bot_id!r}.")
-        return world.printer.print_report(bot_show_report(status), args)
+        report = (
+            bot_show_parameters_report(status)
+            if getattr(args, "params", False)
+            else bot_show_report(status)
+        )
+        return world.printer.print_report(report, args)
 
 
 BOT_VERBS: tuple[IBotVerb, ...] = (
     ListBotsVerb(),
     ShowBotVerb(),
+    OrderBotVerb(),
     ApplyBotPlanVerb(),
     ExportBotPlanVerb(),
     StopBotVerb(),
     PauseBotVerb(),
     ResumeBotVerb(),
     StartBotVerb(),
+    EditBotVerb(),
 )

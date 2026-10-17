@@ -45,7 +45,7 @@ second copy of the app gets read-only wrappers instead (`.../read_only_bot_store
 ## Built: the seam a kind plugs into
 
 A new kind plugs in through one seam, `IBotKind` (`bots/contracts/i_bot_kind.py` → `IBotKind`):
-`kind_id`, `supported_profiles`, `validate`, `overlay` and `executor_factory`. The shell finds a kind
+`kind_id`, `supported_profiles`, `validate`, `overlay` and `executor_factory`, and two concrete methods that no implementer is forced to override: `recovery_layer` and, since `EPIC-038L`, `parameter_problem` (whether the parameters a `bot edit` sets can be stored, judged without the exchange; closed by default, so a kind that declares nothing is edited by no command line; the Grid answers in `bots/domain/grid/grid_parameter_check.py` → `grid_parameter_problem`, through `GridParams.from_config`). The shell finds a kind
 by its id through `IBotKindCatalog` (`bots/contracts/i_bot_kind_catalog.py` → `IBotKindCatalog`),
 implemented by `BotKindCatalog` (`.../bot_kind_catalog.py` → `BotKindCatalog`); the Grid is
 `GridKind` (`bots/domain/grid/grid_kind.py` → `GridKind`). A Grid's `overlay`
