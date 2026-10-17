@@ -2,7 +2,7 @@
 
 @details The order is the safety: (1) cancel the **regular** orders, so the ladder cannot refill
 while a position is closed; (2) close every position; (3) cancel the **conditional** orders of each
-symbol that is **confirmed flat** by a fresh read. A protective stop that stands over a position
+symbol that is **confirmed flat** by a fresh read and has no regular order still resting. A protective stop that stands over a position
 the close did not take down stays standing, and the result says so: a failed close must never leave
 a position with neither the bot nor a stop watching it. A close-all stop over a flat symbol is
 cancelled, because it could open a position.
@@ -102,7 +102,8 @@ def cancel_conditional_orders_of_flat_symbols(
 ) -> EmergencyStopStepResult:
     """Step 4: the conditional orders of each symbol a fresh read shows flat."""
     try:
-        conditional = _symbols_with_conditional_orders(trading_client)
+        open_orders = trading_client.get_open_orders()
+        conditional = {order.symbol for order in open_orders if _is_conditional(order)}
         if not conditional:
             return NO_CONDITIONAL_ORDERS
         held = {position.symbol for position in trading_client.get_positions()}
@@ -113,9 +114,11 @@ def cancel_conditional_orders_of_flat_symbols(
         return EmergencyStopStepResult(
             False, f"Stop orders left standing, the account could not be read: {exc}"
         )
-    kept = sorted(conditional & held)
+    # A symbol whose ladder still rests (step 2 failed there) is not safe: a fill reopens a position.
+    laddered = {order.symbol for order in open_orders if not _is_conditional(order)}
+    kept = sorted(conditional & (held | laddered))
     cancelled = 0
-    for symbol in sorted(conditional - held):
+    for symbol in sorted(conditional - held - laddered):
         try:
             cancelled += len(trading_client.cancel_conditional_orders(symbol))
         except Exception as exc:  # noqa: BLE001
@@ -129,7 +132,7 @@ def cancel_conditional_orders_of_flat_symbols(
         logger.error("Emergency stop: stop orders kept over open positions on %s", kept)
         return EmergencyStopStepResult(
             False,
-            f"{detail} Kept over a position that is still open: {', '.join(kept)}.",
+            f"{detail} Kept over a position or a ladder that is still open: {', '.join(kept)}.",
         )
     return EmergencyStopStepResult(True, detail)
 
@@ -137,12 +140,3 @@ def cancel_conditional_orders_of_flat_symbols(
 def _is_conditional(order: Order) -> bool:
     """A conditional order: a stop that waits for its trigger price (Futures algo orders)."""
     return order.close_position or order.order_type in TRIGGERED_ORDER_TYPES
-
-
-def _symbols_with_conditional_orders(trading_client: ITradingClient) -> set[str]:
-    """Symbols with a conditional order open, asked of the venue after step 2."""
-    return {
-        order.symbol
-        for order in trading_client.get_open_orders()
-        if _is_conditional(order)
-    }

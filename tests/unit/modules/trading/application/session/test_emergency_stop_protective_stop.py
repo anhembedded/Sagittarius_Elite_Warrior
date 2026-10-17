@@ -47,11 +47,12 @@ def _raw(*, regular: list, stops: list, positions: list) -> tuple[Mock, list[str
     unless `close_leaves` says otherwise) and that records which endpoint each step reached."""
     calls: list[str] = []
     raw = Mock()
-    raw.futures_get_open_orders.side_effect = lambda **_: list(regular)
+    resting = list(regular)
+    raw.futures_get_open_orders.side_effect = lambda **_: list(resting)
     raw.futures_get_open_algo_orders.side_effect = lambda **_: list(stops)
     raw.futures_position_information.side_effect = lambda **_: list(positions)
-    raw.futures_cancel_all_open_orders.side_effect = lambda **_: calls.append(
-        "cancel_regular"
+    raw.futures_cancel_all_open_orders.side_effect = lambda **_: (
+        calls.append("cancel_regular") or resting.clear()
     )
     raw.futures_cancel_all_algo_open_orders.side_effect = lambda **_: calls.append(
         "cancel_stops"
@@ -149,3 +150,19 @@ def test_the_regular_cancel_never_reaches_the_conditional_endpoint() -> None:
 
     assert calls[0] == "cancel_regular"
     raw.futures_cancel_all_algo_open_orders.assert_not_called()
+
+
+def test_a_stop_stays_over_a_flat_symbol_whose_ladder_could_not_be_cancelled() -> None:
+    """Review of #550: flat is not safe while a regular order rests, because a fill reopens a
+    position with no stop and no bot."""
+    raw, calls = _raw(
+        regular=[open_order_payload()], stops=[_stop_payload()], positions=[]
+    )
+    raw.futures_cancel_all_open_orders.side_effect = RuntimeError("refused")
+
+    result = make_handler(raw_client=raw).execute(EmergencyStopCommand(venue=_VENUE))
+
+    assert "cancel_stops" not in calls
+    assert not result.orders_cancelled.succeeded
+    assert not result.conditional_orders_cancelled.succeeded
+    assert "BTCUSDT" in result.conditional_orders_cancelled.detail
