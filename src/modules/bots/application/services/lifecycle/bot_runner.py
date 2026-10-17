@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     RUN_STARTING_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
@@ -36,10 +37,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 )
 
 #: The states whose Resume opens the venue's order session first (`BUG-202`, `BUG-204`):
-#: HALTED proposes a ladder, which registers a budget a closed session refuses;
-#: RECOVERING waits for the session a restart leaves closed, then reconciles.
-_RESUMES_AFTER_A_CLOSED_SESSION: frozenset[BotLifecycleState] = frozenset(
-    {BotLifecycleState.HALTED, BotLifecycleState.RECOVERING}
+#: those that propose a ladder (`RESUME_PROPOSES_STATES`) register a budget a closed session
+#: refuses; RECOVERING waits for the session a restart leaves closed, then reconciles.
+_RESUMES_AFTER_A_CLOSED_SESSION: frozenset[BotLifecycleState] = (
+    RESUME_PROPOSES_STATES | {BotLifecycleState.RECOVERING}
 )
 
 

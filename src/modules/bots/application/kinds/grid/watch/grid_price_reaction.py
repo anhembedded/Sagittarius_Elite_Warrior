@@ -70,7 +70,15 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 _S = BotLifecycleState
 
 _WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
-    {_S.STARTING, _S.RUNNING, _S.PAUSED, _S.RECOVERING, _S.HALTED, _S.ERROR}
+    {
+        _S.STARTING,
+        _S.RUNNING,
+        _S.PAUSED,
+        _S.RECOVERING,
+        _S.HALTED,
+        _S.AWAITING_RECOVERY,
+        _S.ERROR,
+    }
 )
 
 

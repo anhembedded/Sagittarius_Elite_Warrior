@@ -4,11 +4,13 @@
     python3 scripts/render_bots_design_tables.py --write    # rewrite the documents
     python3 scripts/render_bots_design_tables.py --check    # exit 1 when one differs
 
-Four tables, each between a pair of markers in its document:
+Five tables, each between a pair of markers in its document:
 
 - `lifecycle`, `grid-level` and `protective-stop` in `state-machines.md`: every row of
   `BOT_LIFECYCLE_TRANSITIONS`, `GRID_LEVEL_TRANSITIONS` and `PROTECTIVE_STOP_TRANSITIONS`,
   in the order the code declares them;
+- `halt-recovery` in `10-quality.md`: the effective halt-recovery policy of every kind on
+  every market, merged from the common, kind and venue layers (`EPIC-042B`);
 - `timing` in `10-quality.md`: the constants that decide when a bot waits,
   retries, pauses or halts, read from the code each time.
 
@@ -30,11 +32,20 @@ from datetime import timedelta
 from enum import Enum
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
+    SPOT_PROFILE,
+    VenueProfile,
+    venue_profile_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BOT_LIFECYCLE_TRANSITIONS,
     RECOVERABLE_STATES,
     BotLifecycleState,
     BotLifecycleTarget,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
+    GRID_KIND_ID,
+    GRID_RECOVERY_LAYER,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     GRID_LEVEL_TRANSITIONS,
@@ -42,8 +53,17 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.protective_stop_fsm_matrix import (
     PROTECTIVE_STOP_TRANSITIONS,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    COMMON_LAYER,
+    EffectivePolicy,
+    RecoveryLayer,
+    effective_policy,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 DESIGN = Path(__file__).resolve().parents[1] / "Docs" / "MODULES" / "bots"
@@ -320,6 +340,45 @@ def render_timing(rows: tuple[TimingRow, ...] = TIMING) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_halt_recovery(
+    kinds: tuple[tuple[str, RecoveryLayer], ...], markets: tuple[VenueProfile, ...]
+) -> str:
+    """The effective halt-recovery policy of every kind on every market (`EPIC-042B`): the
+    merge of the common, kind and venue layers, as `bot show` prints it for one bot."""
+    lines = [
+        "| Kind | Market | Reason | Dwell | Attempts per window | Stalled after | Decided by |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+    ]
+    for kind_id, kind_layer in kinds:
+        for profile in markets:
+            policy = effective_policy(COMMON_LAYER, kind_layer, profile.recovery_layer)
+            lines.extend(_policy_rows(kind_id, profile.title_word, policy, profile))
+    return "\n".join(lines) + "\n"
+
+
+def _policy_rows(
+    kind_id: str, market: str, policy: EffectivePolicy, profile: VenueProfile
+) -> list[str]:
+    if policy.recovers_nothing:
+        decided = f"`{profile.recovery_layer.name}` layer"
+        return [
+            f"| `{kind_id}` | {market} | none recover by themselves | | | | {decided} |"
+        ]
+    return [
+        f"| `{kind_id}` | {market} | `{row.code}` | {seconds(row.rule.dwell)} | "
+        f"{row.rule.max_attempts} per {seconds(row.rule.window)} | "
+        f"{seconds(row.rule.stalled_after)} | `{row.decided_by}` layer |"
+        for row in policy.rows
+    ]
+
+
+def _venue_profiles() -> tuple[VenueProfile, ...]:
+    futures = venue_profile_of(TradingVenue.FUTURES_MAINNET)
+    if futures is None:
+        raise ValueError("the Futures venue has no profile")
+    return (SPOT_PROFILE, futures)
+
+
 #: (document, block name) -> the block's current rendering.
 def blocks() -> dict[tuple[Path, str], str]:
     return {
@@ -329,6 +388,9 @@ def blocks() -> dict[tuple[Path, str], str]:
             PROTECTIVE_STOP_TRANSITIONS
         ),
         (QUALITY, "timing"): render_timing(),
+        (QUALITY, "halt-recovery"): render_halt_recovery(
+            ((GRID_KIND_ID, GRID_RECOVERY_LAYER),), _venue_profiles()
+        ),
     }
 
 

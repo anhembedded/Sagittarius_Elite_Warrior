@@ -72,6 +72,7 @@ _RUNNING_CLOCK = frozenset(
         BotLifecycleState.PAUSED,
         BotLifecycleState.RECOVERING,
         BotLifecycleState.HALTED,
+        BotLifecycleState.AWAITING_RECOVERY,
     }
 )
 

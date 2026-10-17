@@ -24,6 +24,8 @@ LEGAL = {
     S.PAUSED: {A.RESUME, A.STOP},
     S.RECOVERING: {A.RESUME, A.STOP},
     S.HALTED: {A.RESUME, A.CONFIRM_RESUME, A.STOP},
+    # `EPIC-042`: the person may end the wait with the same re-plan a halted bot's Resume runs.
+    S.AWAITING_RECOVERY: {A.RESUME, A.CONFIRM_RESUME, A.STOP},
     S.STOPPING: {A.STOP},
     S.STOPPED: {A.START, A.SAVE, A.DELETE},
     S.ERROR: {A.STOP},

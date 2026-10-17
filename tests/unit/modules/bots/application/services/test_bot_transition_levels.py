@@ -158,3 +158,9 @@ def test_a_declared_event_through_apply_or_record_is_the_transition_not_a_second
 
     assert [r.levelno for r in caplog.records if r.name == LOGGER] == [logging.WARNING]
     assert run_state.state is S.HALTED
+
+
+def test_entering_the_wait_is_a_warning_because_the_bot_has_stopped_trading() -> None:
+    """`EPIC-042B`: a bot waiting to recover has taken its ladder off, so an unattended run's
+    grep for WARNING must find it, like HALTED."""
+    assert bot_run_state.landing_level(S.AWAITING_RECOVERY) == logging.WARNING

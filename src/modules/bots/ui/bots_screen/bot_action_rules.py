@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
     is_declared,
@@ -90,7 +91,7 @@ def availability(
 
 
 def _confirm_resume(state: BotLifecycleState) -> ActionAvailability:
-    if state is not BotLifecycleState.HALTED:
+    if state not in RESUME_PROPOSES_STATES:
         return ActionAvailability(
             False, f"Only a halted bot has a resume to confirm; it is {_name(state)}."
         )

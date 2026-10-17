@@ -43,3 +43,10 @@ def test_a_paused_bots_resume_proposes_nothing_and_keeps_done() -> None:
 )
 def test_every_other_accepted_action_keeps_done(action: BotAction | None) -> None:
     assert accepted_words("Create my grid", action, S.HALTED) == "Create my grid: done."
+
+
+def test_a_waiting_bots_queued_resume_proposes_a_ladder_like_a_halted_ones() -> None:
+    """`EPIC-042B`: the person's Resume in AWAITING_RECOVERY is the HALTED re-plan."""
+    assert accepted_words("Resume my grid", BotAction.RESUME, S.AWAITING_RECOVERY) == (
+        accepted_words("Resume my grid", BotAction.RESUME, S.HALTED)
+    )

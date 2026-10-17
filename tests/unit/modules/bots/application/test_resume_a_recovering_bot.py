@@ -4,6 +4,10 @@
 mainnet venue trades real money, so the use case asks for the answer to that
 question as it does for a HALTED bot (`BUG-202`) and Start (`EPIC-035V`). A PAUSED
 bot's resume opens nothing and asks nothing new.
+
+`EPIC-042B`: a bot waiting in AWAITING_RECOVERY is resumed by the same re-plan as a HALTED one,
+so the same real-money answer and the same readiness check apply to it. The design review found
+the gate would otherwise have been skipped for a mainnet bot the moment the state was widened.
 """
 
 from __future__ import annotations
@@ -145,6 +149,47 @@ def test_resuming_a_paused_mainnet_bot_asks_for_no_new_answer(
     """A PAUSED bot's orders still rest and its resume opens no session."""
     runner = _RecordingRunner()
     _on_mainnet(world.store, S.PAUSED)
+
+    result = _handler(world, runner).execute(ResumeBotCommand("abc123"))
+
+    assert result.accepted
+    assert runner.sent == [("resume", "abc123")]
+
+
+def test_resuming_a_waiting_mainnet_bot_without_the_real_money_answer_is_refused(
+    world: ReadinessWorld,
+) -> None:
+    runner = _RecordingRunner()
+    _on_mainnet(world.store, S.AWAITING_RECOVERY)
+
+    result = _handler(world, runner).execute(ResumeBotCommand("abc123"))
+
+    assert result.refusal is BotRefusal.REAL_MONEY_NOT_CONFIRMED
+    assert "awaiting_recovery" in result.message
+    assert runner.sent == []
+
+
+def test_resuming_a_waiting_mainnet_bot_with_the_answer_still_meets_the_readiness_check(
+    world: ReadinessWorld,
+) -> None:
+    """The readiness read is HALTED's (`BOT-174`); the waiting bot gets it too. This world does
+    not enable the mainnet venue, so the read refuses and nothing is queued."""
+    runner = _RecordingRunner()
+    _on_mainnet(world.store, S.AWAITING_RECOVERY)
+
+    result = _handler(world, runner).execute(
+        ResumeBotCommand("abc123", real_money_confirmed=True)
+    )
+
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert runner.sent == []
+
+
+def test_resuming_a_waiting_testnet_bot_needs_no_answer(
+    world: ReadinessWorld,
+) -> None:
+    runner = _RecordingRunner()
+    seed(world.store, "abc123", S.AWAITING_RECOVERY, config=CONFIG, runtime={})
 
     result = _handler(world, runner).execute(ResumeBotCommand("abc123"))
 

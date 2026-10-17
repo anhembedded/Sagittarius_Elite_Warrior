@@ -14,7 +14,7 @@ not edit them by hand. Design: ADR 029 §3.1 and §3.2 ([`09-decisions.md`](09-d
 ## Built: the bot lifecycle
 
 `bots/domain/bot_lifecycle_fsm_matrix.py` → `BotLifecycleState`, `BotLifecycleEvent`,
-`BOT_LIFECYCLE_TRANSITIONS`: nine states and fifteen events. Two targets are not states, and the table
+`BOT_LIFECYCLE_TRANSITIONS`: ten states and eighteen events. Two targets are not states, and the table
 says so: `REMOVED` (`delete` from `DRAFT` or `STOPPED`; the store deletes the file) and `PRIOR`
 (`reconcile_ok` from `RECOVERING` returns to the state the bot was in before the restart, which `Bot`
 remembers as `recovering_from`; `BotLifecycleTarget`). `app_restart` is the restore rule written as a
@@ -31,6 +31,7 @@ the reconcile decides the next state, not the click.
 | `STARTING` | `ladder_ready` | `RUNNING` |
 | `STARTING` | `start_refused` | `HALTED` |
 | `STARTING` | `halt` | `HALTED` |
+| `STARTING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `STARTING` | `stop` | `STOPPING` |
 | `STARTING` | `switch_off` | `HALTED` |
 | `STARTING` | `fault` | `ERROR` |
@@ -40,6 +41,7 @@ the reconcile decides the next state, not the click.
 | `RUNNING` | `switch_off` | `HALTED` |
 | `RUNNING` | `fault` | `ERROR` |
 | `RUNNING` | `halt` | `HALTED` |
+| `RUNNING` | `halt_transient` | `AWAITING_RECOVERY` |
 | `RUNNING` | `app_restart` | `RECOVERING` |
 | `PAUSED` | `resume` | `RUNNING` |
 | `PAUSED` | `stop` | `STOPPING` |
@@ -60,6 +62,14 @@ the reconcile decides the next state, not the click.
 | `HALTED` | `switch_off` | `HALTED` (stays) |
 | `HALTED` | `fault` | `ERROR` |
 | `HALTED` | `app_restart` | `HALTED` (stays) |
+| `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
+| `AWAITING_RECOVERY` | `resume` | `STARTING` |
+| `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
+| `AWAITING_RECOVERY` | `halt` | `HALTED` |
+| `AWAITING_RECOVERY` | `stop` | `STOPPING` |
+| `AWAITING_RECOVERY` | `switch_off` | `HALTED` |
+| `AWAITING_RECOVERY` | `fault` | `ERROR` |
+| `AWAITING_RECOVERY` | `app_restart` | `HALTED` |
 | `STOPPING` | `stop` | `STOPPING` (stays) |
 | `STOPPING` | `stop_confirmed` | `STOPPED` |
 | `STOPPING` | `switch_off` | `STOPPING` (stays) |
@@ -75,38 +85,20 @@ the reconcile decides the next state, not the click.
 | `ERROR` | `app_restart` | `ERROR` (stays) |
 <!-- end generated: lifecycle -->
 
+`AWAITING_RECOVERY` (`EPIC-042`) is a halt a kind named transient: the ladder is off, the base is kept,
+the exits are watched, and the bot waits for its cause to stay clear for the dwell, then resumes
+through the person's Resume path (`condition_cleared`). Three events lead into and out of it
+(`halt_transient`, `condition_cleared`, `budget_exhausted`); a person's `resume`, `stop`, `switch_off`,
+`halt`, `fault` and a restart are declared too. `PAUSED` and `RECOVERING` have no `halt_transient` row:
+the owner's Pause is never undone by a machine, and a restart's closed order session cannot take a
+resume. A restart ends the wait in `HALTED`. The wait has no limit; after a quarter of an hour it raises
+one alert. The step by step is [`06-runtime.md`](06-runtime.md) and the reasons are
+[the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md).
+
 The sets the module asks of the table, rather than keeping lists of its own: `RUN_STARTING_STATES`
-(a `start` here stamps a new run), `PRICE_STREAM_STATES`, `PRICE_STALENESS_HALTS` and
+(a `start` here stamps a new run), `PRICE_STREAM_STATES`, `PRICE_STALENESS_HALTS`,
+`RESUME_PROPOSES_STATES` (`HALTED` and `AWAITING_RECOVERY`: the states whose Resume re-plans) and
 `RECOVERABLE_STATES`, in the same file.
-
-## Planned: `AWAITING_RECOVERY`, a halt that waits for its cause to clear
-
-*Which state does a transient halt wait in, and how does it leave?* Planned by `EPIC-042B`; the reasons
-for every row are in [the decision](../../../Tasks/epics/EPIC-042_halt_auto_recovery/DECISION_2026-10-17_halt_auto_recovery.md) §2.1. Until the task lands this table is **hand-written** and
-sits outside the generated markers; `EPIC-042B` adds the state, three events and these rows to
-`bots/domain/bot_lifecycle_fsm_matrix.py` → `BOT_LIFECYCLE_TRANSITIONS`, regenerates the table above, and
-deletes this one.
-
-Three events: `halt_transient` (a halt whose reason the effective policy (common, kind and venue layers) names recoverable, with budget
-left), `condition_cleared` (the cause was clear for the dwell; the attempt runs the Resume path),
-`budget_exhausted` (an attempt left the bot waiting and the rolling budget is spent).
-
-| From | Event | To |
-| :--- | :--- | :--- |
-| `STARTING` | `halt_transient` | `AWAITING_RECOVERY` |
-| `RUNNING` | `halt_transient` | `AWAITING_RECOVERY` |
-| `AWAITING_RECOVERY` | `condition_cleared` | `STARTING` |
-| `AWAITING_RECOVERY` | `resume` | `STARTING` |
-| `AWAITING_RECOVERY` | `budget_exhausted` | `HALTED` |
-| `AWAITING_RECOVERY` | `halt` | `HALTED` |
-| `AWAITING_RECOVERY` | `stop` | `STOPPING` |
-| `AWAITING_RECOVERY` | `switch_off` | `HALTED` |
-| `AWAITING_RECOVERY` | `fault` | `ERROR` |
-| `AWAITING_RECOVERY` | `app_restart` | `HALTED` |
-
-`PAUSED` and `RECOVERING` have no `halt_transient` row: the owner's Pause is never undone by a machine, and a restart's wait is not a transient halt. The state is not
-`RECOVERING` (a restart's reconcile wait, [vocabulary](../../VOCABULARY/README.md)). The step by step is
-[`06-runtime.md`](06-runtime.md).
 
 ## Built: a Grid level
 

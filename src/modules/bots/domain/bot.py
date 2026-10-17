@@ -11,6 +11,10 @@ PAUSED, RECOVERING, HALTED and STOPPING. Trading derives the bot's inventory per
 run from the tagged executions since this instant (`EPIC-029A`), so it must not
 move when the bot halts and resumes; a resume from HALTED is the same run.
 
+@par `recovery_attempts`
+The automatic recoveries the bot has started (`EPIC-042`, ADR 042 D4). Every state change
+carries them; only `with_recovery_attempt` adds one.
+
 @par `recovering_from`
 The state `reconcile_ok` returns to. Recorded when the bot enters RECOVERING
 from RUNNING or PAUSED, kept while it stays there, cleared when it leaves.
@@ -26,7 +30,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import MappingProxyType
 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
@@ -43,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleTarget,
     InvalidBotTransitionError,
     next_target,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
+    RecoveryAttempt,
+    recorded,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -82,6 +90,9 @@ class BotLifecycle:
     state: BotLifecycleState
     run_started_at: datetime | None = None
     recovering_from: BotLifecycleState | None = None
+    #: The automatic recoveries this bot has started, newest last (`EPIC-042`): the 24 h
+    #: budget survives a restart because it is kept here, with the bot.
+    recovery_attempts: tuple[RecoveryAttempt, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +124,15 @@ class Bot:
             raise InvalidBotTransitionError(self.state, event)
         next_state = self._resolve(target)
         return replace(self, lifecycle=self._next_lifecycle(event, next_state, at))
+
+    def with_recovery_attempt(
+        self, attempt: RecoveryAttempt, keep_for: timedelta
+    ) -> Bot:
+        """The bot with `attempt` in its ledger, dropping entries older than `keep_for`."""
+        attempts = recorded(self.lifecycle.recovery_attempts, attempt, keep_for)
+        return replace(
+            self, lifecycle=replace(self.lifecycle, recovery_attempts=attempts)
+        )
 
     def edited(self, definition: BotDefinition, at: datetime) -> Bot:
         """The bot with new parameters; only DRAFT and STOPPED accept an edit."""
@@ -182,4 +202,9 @@ class Bot:
                 if self.state in RECOVERABLE_STATES
                 else self.lifecycle.recovering_from
             )
-        return BotLifecycle(next_state, run_started_at, recovering_from)
+        return BotLifecycle(
+            next_state,
+            run_started_at,
+            recovering_from,
+            self.lifecycle.recovery_attempts,
+        )

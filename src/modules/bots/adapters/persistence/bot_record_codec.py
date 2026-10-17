@@ -4,7 +4,8 @@
 {
   "schema_version": 1,
   "definition": {"bot_id", "name", "kind", "venue", "symbol", "config", "created_at"},
-  "lifecycle":  {"state", "run_started_at", "recovering_from"},
+  "lifecycle":  {"state", "run_started_at", "recovering_from",
+                 "recovery_attempts": [{"code", "at"}]},  # the list is optional (EPIC-042)
   "runtime":    {...}   # the kind's, opaque here
 }
 ```
@@ -32,6 +33,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    HaltCode,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
+    RecoveryAttempt,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -65,6 +72,10 @@ def encode(stored: StoredBot) -> dict[str, JsonValue]:
             "recovering_from": (
                 lifecycle.recovering_from.value if lifecycle.recovering_from else None
             ),
+            "recovery_attempts": [
+                {"code": attempt.code, "at": attempt.at.isoformat()}
+                for attempt in lifecycle.recovery_attempts
+            ],
         },
         "runtime": dict(stored.runtime),
     }
@@ -114,6 +125,22 @@ def _lifecycle(data: Mapping[str, JsonValue]) -> BotLifecycle:
         recovering_from=(
             BotLifecycleState(recovering_from) if recovering_from else None
         ),
+        recovery_attempts=_attempts(data.get("recovery_attempts")),
+    )
+
+
+def _attempts(value: JsonValue) -> tuple[RecoveryAttempt, ...]:
+    """The ledger; a file written before `EPIC-042` has none, which reads as empty."""
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise BotRecordError("lifecycle.recovery_attempts is not a list")
+    return tuple(
+        RecoveryAttempt(
+            HaltCode(_text(entry, "code")),
+            datetime.fromisoformat(_text(entry, "at")),
+        )
+        for entry in (_object(item, "a recovery attempt") for item in value)
     )
 
 

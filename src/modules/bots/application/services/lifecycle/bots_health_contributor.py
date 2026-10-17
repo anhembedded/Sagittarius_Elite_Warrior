@@ -52,6 +52,9 @@ class BotsHealthContributor(IHealthContributor):
             "running": counts.get(BotLifecycleState.RUNNING.value, 0),
             "paused": counts.get(BotLifecycleState.PAUSED.value, 0),
             "halted": counts.get(BotLifecycleState.HALTED.value, 0),
+            "awaiting_recovery": counts.get(
+                BotLifecycleState.AWAITING_RECOVERY.value, 0
+            ),
             "unreadable": counts.get(UNREADABLE_STATE, 0),
             "states": dict(counts),
         }

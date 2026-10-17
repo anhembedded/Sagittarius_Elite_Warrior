@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,6 +16,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
     BotLifecycleEvent,
     BotLifecycleState,
     InvalidBotTransitionError,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    PRICE_FEED_STALE,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.recovery_ledger import (
+    RecoveryAttempt,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -150,3 +157,32 @@ def test_the_definition_config_cannot_be_mutated() -> None:
 def test_a_definition_needs_a_name_and_a_symbol(name: str, symbol: str) -> None:
     with pytest.raises(ValueError, match="needs"):
         BotDefinition(name, "grid", TradingVenue.SPOT_TESTNET, symbol)
+
+
+def test_a_state_change_carries_the_recovery_attempts() -> None:
+    """`EPIC-042`: the 24 h budget lives in the lifecycle and every transition keeps it."""
+    attempt = RecoveryAttempt(PRICE_FEED_STALE, T0)
+    bot = _bot(S.RUNNING).with_recovery_attempt(attempt, timedelta(hours=24))
+    for event in (E.HALT_TRANSIENT, E.CONDITION_CLEARED):
+        bot = bot.apply(event, T0)
+    assert bot.state is S.STARTING
+    assert bot.lifecycle.recovery_attempts == (attempt,)
+
+
+def test_a_restart_keeps_the_budget_while_it_ends_the_wait() -> None:
+    attempt = RecoveryAttempt(PRICE_FEED_STALE, T0)
+    waiting = replace(
+        _bot(S.AWAITING_RECOVERY),
+        lifecycle=BotLifecycle(S.AWAITING_RECOVERY, recovery_attempts=(attempt,)),
+    )
+    restored = waiting.restored(T0)
+    assert restored.state is S.HALTED
+    assert restored.lifecycle.recovery_attempts == (attempt,)
+
+
+def test_with_recovery_attempt_leaves_the_old_bot_alone() -> None:
+    bot = _bot(S.RUNNING)
+    bot.with_recovery_attempt(
+        RecoveryAttempt(PRICE_FEED_STALE, T0), timedelta(hours=24)
+    )
+    assert bot.lifecycle.recovery_attempts == ()

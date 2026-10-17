@@ -48,6 +48,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RESUME_PROPOSES_STATES,
     BotLifecycleEvent,
     BotLifecycleState,
 )
@@ -75,7 +76,7 @@ class ResumeBotCommandHandler(ICommandHandler[ResumeBotCommand, BotCommandResult
         if closed is not None:
             return closed
         # A paused bot's resume lays no ladder: its orders still rest.
-        halted = found.bot.state is BotLifecycleState.HALTED
+        halted = found.bot.state in RESUME_PROPOSES_STATES
         venue = found.bot.definition.venue
         reopens_session = halted or found.bot.state is BotLifecycleState.RECOVERING
         if reopens_session and venue.is_mainnet and not command.real_money_confirmed:

@@ -44,9 +44,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.margin_mode import Mar
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.trade_direction import (
     TradeDirection,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    RecoveryLayer,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+#: The venue layer that says nothing: the common set and the kind's stand.
+NO_VENUE_RECOVERY = RecoveryLayer("venue")
 
 SPOT_TITLE = "Spot"
 FUTURES_TITLE = "Futures"
@@ -81,6 +87,9 @@ class VenueProfile:
     held_word: str = "base"
     #: The Stop choice that ends the exposure at market, worded for `held_word`.
     close_at_market_label: str = "Sell the base at market"
+    #: Which halts recover by themselves on this market (`EPIC-042`, ADR 042 §2.3): the venue
+    #: layer of the policy, folded last. Empty keeps the common set and the kind's.
+    recovery_layer: RecoveryLayer = NO_VENUE_RECOVERY
 
 
 #: Binance USD-M's highest leverage on any symbol; each symbol's bracket allows less.
@@ -94,6 +103,7 @@ SPOT_PROFILE = VenueProfile(
     exposure_kind=ExposureKind.INVENTORY,
     needs_reduce_only_exits=False,
     title_word=SPOT_TITLE,
+    recovery_layer=RecoveryLayer("spot"),
 )
 
 _FUTURES = VenueProfile(
@@ -108,6 +118,9 @@ _FUTURES = VenueProfile(
     bot_directions=frozenset(TradeDirection),
     held_word="position",
     close_at_market_label="Close the position at market",
+    # Its halt closes the position and EPIC-039L governs it: nothing recovers by itself.
+    # Opening Futures to automatic recovery later deletes this one line (ADR 042 D5).
+    recovery_layer=RecoveryLayer("futures", clears_lower_layers=True),
 )
 
 #: The markets of the Spot profile: what a kind that supports Spot declares.

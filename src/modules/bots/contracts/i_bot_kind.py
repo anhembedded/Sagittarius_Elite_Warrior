@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.halt_recovery_policy import (
+    RecoveryLayer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import Verdict
 
 
@@ -69,3 +72,10 @@ class IBotKind(ABC):
     @abstractmethod
     def executor_factory(self) -> IBotExecutorFactory:
         """What builds the executor that runs one bot of this kind."""
+
+    def recovery_layer(self) -> RecoveryLayer:
+        """The kind's layer of the halt-recovery policy (`EPIC-042`, ADR 042 §2.3): reasons only
+        this kind has, changes to a common one, or reasons it withdraws. Concrete and empty by
+        default, so a kind that recovers nothing of its own declares nothing and no implementer
+        changes (a port gaining an `@abstractmethod` would change every one, `BUG-026`)."""
+        return RecoveryLayer(self.kind_id)
