@@ -210,6 +210,16 @@ TIMING: tuple[TimingRow, ...] = (
         _each,
     ),
     TimingRow(
+        "A halted feed counts as back only with a tick younger than",
+        (
+            Constant(
+                f"{_BOTS}/domain/grid/price_freshness.py",
+                "RECOVERY_TICK_MAX_AGE_SECONDS",
+            ),
+        ),
+        _each,
+    ),
+    TimingRow(
         "Every bot's feed is checked every",
         (
             Constant(

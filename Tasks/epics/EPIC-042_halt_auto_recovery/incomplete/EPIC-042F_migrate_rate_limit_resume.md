@@ -5,7 +5,7 @@
 **Risk:** 🟡 — changes the state and the alerts a Spot owner sees during every rate-limit pause
 **Complexity:** M — one reason, one probe whose clear is the pause's end, the retired counter
 **Epic (optional):** [EPIC-042](../README.md)
-**Depends on:** [EPIC-042C](EPIC-042C_grid_halt_recovery.md)
+**Depends on:** [EPIC-042C](../completed/EPIC-042C_grid_halt_recovery.md)
 
 ---
 

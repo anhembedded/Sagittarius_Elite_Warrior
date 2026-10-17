@@ -23,6 +23,13 @@ from __future__ import annotations
 PRICE_STALE_AFTER_SECONDS: float = 60.0
 PRICE_START_GRACE_SECONDS: float = 60.0
 
+#: `EPIC-042C` - a feed that halted a bot counts as back only while the last tick it heard since
+#: the halt is younger than this: three beats of the price watch (5 s), where a live Spot ticker
+#: ticks about once a second. Two ticks a minute is not "healthy for 120 s". It is **not**
+#: `PRICE_STALE_AFTER_SECONDS`, which is how long a feed may be quiet before it halts a bot; a
+#: recovery asks for more than "not yet stale".
+RECOVERY_TICK_MAX_AGE_SECONDS: float = 15.0
+
 
 def price_is_stale(last_tick_at: float, now: float, limit: float) -> bool:
     """Whether a tick heard at `last_tick_at` is `limit` seconds old at `now`.

@@ -159,6 +159,10 @@ class EffectivePolicy:
         return None
 
     @property
+    def codes(self) -> tuple[HaltCode, ...]:
+        return tuple(row.code for row in self.rows)
+
+    @property
     def recovers_nothing(self) -> bool:
         return not self.rows
 

@@ -28,7 +28,8 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
   shows.
 - **`alerting`** reads `BotChangedEvent` (`bots/contracts/events/bot_changed_event.py` →
   `BotChangedEvent`), `BotStopGaveUpEvent` (`bots/contracts/events/bot_stop_gave_up_event.py` →
-  `BotStopGaveUpEvent`) and the status report (`EPIC-036G`;
+  `BotStopGaveUpEvent`), `BotRecoveryStalledEvent` (`bots/contracts/events/bot_recovery_stalled_event.py` →
+  `BotRecoveryStalledEvent`) and the status report (`EPIC-036G`;
   [`../alerting/03-context.md`](../alerting/03-context.md)).
 - **The command line** has `bot list`, `show`, `apply` and `export` of a plan
   (`bots/cli/bot_verbs.py` → `BOT_VERBS`), declared by `bots/module.py` → `BotsModule.declare_cli`.
@@ -56,7 +57,8 @@ through as opaque data, and only the parser asks `IBotKindCatalog`
   `TradingSwitchChangedEvent`), and the user-data stream's health
   (`src/modules/trading/contracts/events/user_stream_health_event.py` → `UserStreamHealthEvent`).
 - **Published:** `BotChangedEvent` after every write to the store, and `BotStopGaveUpEvent` when a
-  stop's automatic retries are used up.
+  stop's automatic retries are used up, and `BotRecoveryStalledEvent` once when a wait to recover
+  has lasted `stalled_after`.
 
 **Planned.** `EPIC-040B` gives the backtest a kind-neutral result and simulator port. **Built:**
 `EPIC-039L`'s exchange-side stop order still goes through `trading`, as every order does (see

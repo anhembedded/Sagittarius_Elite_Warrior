@@ -1,6 +1,6 @@
 # EPIC-042 — A bot halted by a transient cause recovers by itself, through the Resume path, and the owner can resume HALTED bots on the host
 
-- **Status:** 🟡 Phase 2 in progress — design merged (#546); `042B` built (state, layers, ledger); no halt uses them yet
+- **Status:** 🟡 Phase 2 in progress — design merged (#546); `042B` built (state, layers, ledger); `042C` built (a quiet feed or a down stream now recovers by itself); alerts and `run --resume-halted` next
 - **Repositories:** Elite. No Engine change.
 - **Origin:** the owner, 2026-10-17, through the coordinating session, after a live incident: a Spot mainnet Grid on the headless VPS host halted with `price_feed_stale`, the feed was back within minutes (`tick_age_s=1`) and the bot stayed `HALTED`, which only a person's Resume or Stop leaves, and the headless host cannot Resume. His decisions, as relayed: (1) automatic recovery after a transient halt, the feed healthy for 120 s, through the Resume path, at most 3 per rolling 24 h, alerts on each recovery and on exhaustion; (2) `run --resume-halted`; (3) a real state in the lifecycle machine; (4) a general mechanism behind a seam, the attempt history in the bot record, Spot Grid `price_feed_stale` recoverable, Futures nothing; the rate-limit auto-resume's migration recorded as a follow-up.
 - **North star:** [`DECISION_2026-10-17_halt_auto_recovery.md`](DECISION_2026-10-17_halt_auto_recovery.md): the state, its events and transitions, the seam, the persistence and the choices still open. The module design is kept in step in [`Docs/MODULES/bots/`](../../../Docs/MODULES/bots/README.md) (Planned parts).
@@ -31,13 +31,13 @@
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | [EPIC-042A](completed/EPIC-042A_design_and_decision.md) | The design: this epic, the decision record, the module docs and the vocabulary | Elite | None | 🟢 | ✅ Done (2026-10-17; pull request open) |
 | [EPIC-042B](completed/EPIC-042B_awaiting_recovery_state_and_ledger.md) | The state, the three events and the rows in the lifecycle table; `RecoveryAttempt` in the bot record and its codec; the layer, rule and merge types and the common layer; the generated tables | Elite | 042A | 🟡 | ✅ Done (2026-10-17; pull request open) |
-| [EPIC-042C](incomplete/EPIC-042C_grid_halt_recovery.md) | The director, the recovery run on the worker, the Spot Grid's rule and probe, the exits re-checked before an attempt | Elite | 042B | 🔴 | Planned |
+| [EPIC-042C](completed/EPIC-042C_grid_halt_recovery.md) | The director, the recovery run on the worker, the Spot Grid's rule and probe, the exits re-checked before an attempt | Elite | 042B | 🔴 | ✅ Done (2026-10-17; pull request open) |
 | [EPIC-042D](incomplete/EPIC-042D_recovery_alerts.md) | `BotAutoRecoveredEvent`, its alert kind and source arm; the exhaustion text on the `BOT_HALTED` alert | Elite | 042B | 🟢 | Planned |
 | [EPIC-042E](incomplete/EPIC-042E_run_resume_halted.md) | `run --resume-halted` | Elite | 042B | 🟡 | Planned |
 | [EPIC-042G](incomplete/EPIC-042G_bot_show_prints_the_recovery_table.md) | `bot show` prints the bot's effective recovery table | Elite | 042B | 🟢 | Planned |
 | [EPIC-042F](incomplete/EPIC-042F_migrate_rate_limit_resume.md) | **Follow-up.** Migrate `GridRateLimitPause` onto the mechanism | Elite | 042C | 🟡 | Planned (not started; record only) |
 
-`042C`, `042D`, `042E` and `042G` are independent of one another once `042B` is in; the order above is by risk.
+`042D`, `042E` and `042G` are independent of one another once `042B` is in; the order above is by risk. `042C` is not independent of `042D`: a wait is silent on entry, so the stalled-wait alert (`BOT_RECOVERY_STALLED`) ships with `042C`, and `042D` keeps the recovery alert and the exhaustion text.
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -51,6 +51,14 @@
 - **The rate-limit resume's migration** (`042F`).
 - A halt reason other than `price_feed_stale` becoming recoverable: each is one rule and one probe, added with its own evidence.
 - Any change to the order session's rule that nothing automatic opens it (`06-runtime.md`): a recovery runs only while the session is open, which a restart closes (D9).
+
+## Resume (for the session that takes 042D, 042E and 042G)
+- **State:** 042A, 042B and 042C are in `completed/` (042C is PR #552; check it is merged). The mechanism is built: `AWAITING_RECOVERY`, the layered policy, the ledger, `HaltRecoveryDirector`, `GridHaltRecovery`, `GridHaltProbe`, `IUserStreamStatus`, and the stalled-wait alert.
+- **042D is smaller than its file says:** `BOT_RECOVERY_STALLED` and its source arm, catalog row, subscription and tests shipped in 042C (review of PR #552). Left: `BotAutoRecoveredEvent` -> `BOT_AUTO_RECOVERED` (the event is already published by `GridHaltRecovery._after`), and the exhaustion sentence on the `BOT_HALTED` alert (`budget_used_up_words` already writes it into the reason detail; check the alert's `Reason:` line carries it).
+- **042E:** `RESUME_PROPOSES_STATES` already holds `AWAITING_RECOVERY`; `IBotRunner.has_resume_proposal` is the hook D13 names.
+- **042G:** print `effective_policy(...)` through `recovery_policy_of(kind_layer, venue)`; the generated doc table in `scripts/render_bots_design_tables.py` is the model.
+- **Traps met:** an integration harness that builds its own `GridExecutorDeps` must pass `user_streams` (a default `NoUserStreamStatus` never clears); every code of the effective policy must be clear before an attempt; a failed cancel on entering the wait lands in plain `HALTED`; the 400-line ceiling applies to tests (`grid_world.py` was split).
+- **Not mine to decide:** `EPIC-042F` (rate-limit resume migration, which also closes the D12 exit-check gap) waits for the owner's go.
 
 ## Notes (newest first)
 - **2026-10-17** — The owner's layering requirement (common, kind, venue; merge as data; printable) folded into the design: D15, `042G`. Earlier: epic scaffolded with the design pull request. Real-money behaviour is unchanged until `042C` merges.

@@ -54,6 +54,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.watch.gri
     GridStorageWatch,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleEvent,
     BotLifecycleState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -181,12 +182,29 @@ class GridTaskGuard:
             note = f"its orders may still rest: {error}"
         if note is None:
             return
+        if self._context.state.state is BotLifecycleState.AWAITING_RECOVERY:
+            self._halt_unparked(note)
+            return
         if self._context.state.state is BotLifecycleState.STOPPED:
             # A venue that closes on a halt ran the stop after the failed cancel, and a stop
             # is only STOPPED once it read zero orders of the bot's: say what happened, not
             # what might have.
             note = _CANCEL_FAILED_STOP_TOOK_IT_OFF
         self._note(note)
+
+    def _halt_unparked(self, note: str) -> None:
+        """A wait whose premise is a ladder off the exchange cannot stand when the cancel was
+        lost (the outage that caused the halt is often the network): the bot lands in plain
+        HALTED, where the halt alert says its orders may still rest and a person decides
+        (`EPIC-042C`, review of PR #552)."""
+        state = self._context.state
+        runtime = state.runtime
+        state.transition(
+            BotLifecycleEvent.HALT,
+            runtime.reason,
+            f"{runtime.reason_detail}; {note}; it does not wait to recover because its "
+            "orders may still rest",
+        )
 
     def _note(self, extra: str) -> None:
         state = self._context.state

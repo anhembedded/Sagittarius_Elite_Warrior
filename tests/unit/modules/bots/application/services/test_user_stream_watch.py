@@ -117,13 +117,15 @@ def test_a_connected_stream_of_another_venue_catches_no_bot_up() -> None:
     assert len(w.world.book.requests) == requests
 
 
-def test_a_stream_down_past_the_limit_halts_bots_and_parks_the_ladder() -> None:
+def test_a_stream_down_past_the_limit_parks_the_ladder_of_a_bot_that_waits_to_recover() -> (
+    None
+):
     w = _Watched()
     w.tell(UserStreamState.RECONNECTING)
 
     w.pass_time(_LIMITS.down_limit + timedelta(seconds=1))
 
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
     assert w.world.runtime().reason is GridReason.USER_STREAM_DOWN
     assert w.world.book.open == {}, "the tagged orders were cancelled"
 
@@ -145,7 +147,7 @@ def test_the_outage_is_measured_from_when_it_began_not_from_the_last_retry() -> 
 
     w.pass_time(timedelta(seconds=1))
 
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
 
 
 def test_a_stream_that_never_connects_halts_a_running_bot() -> None:
@@ -154,20 +156,22 @@ def test_a_stream_that_never_connects_halts_a_running_bot() -> None:
 
     w.pass_time(_LIMITS.down_limit + timedelta(seconds=1))
 
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
 
 
-def test_a_stream_that_returns_does_not_resume_a_halted_bot() -> None:
+def test_a_stream_that_returns_does_not_resume_the_bot_by_itself_at_once() -> None:
+    """`EPIC-042C`: the reconnect asks for a reconcile and nothing more; the bot resumes only
+    through the recovery run, which counts a dwell (`test_grid_halt_recovery.py`)."""
     w = _Watched()
     w.tell(UserStreamState.RECONNECTING)
     w.pass_time(_LIMITS.down_limit + timedelta(seconds=1))
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
     requests = len(w.world.book.requests)
 
     w.tell(UserStreamState.CONNECTED)
     w.pass_time(_LIMITS.reconcile_every * 2)
 
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
     assert len(w.world.book.requests) == requests, "nothing was placed"
 
 
@@ -273,7 +277,7 @@ def test_the_heartbeat_checks_and_re_arms_itself_until_the_scheduler_closes() ->
     assert [r.delay for r in w.retries.pending] == [_LIMITS.check_every]
     w.retries.run_next()  # one beat: the outage is overdue, so the bot halts
 
-    assert w.world.state() is S.HALTED
+    assert w.world.state() is S.AWAITING_RECOVERY
     assert [r.delay for r in w.retries.pending] == [_LIMITS.check_every], "re-armed"
     w.retries.close()
     assert w.retries.pending == []

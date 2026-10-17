@@ -153,13 +153,15 @@ def test_a_silent_feed_halts_the_bot_and_takes_its_ladder_off(
         app.ticker.fire()
         app.deliver()
 
-        assert app.bot(bot_id).state is S.HALTED
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY
         assert app.runtime(bot_id).reason is GridReason.PRICE_FEED_STALE
         assert resting(app.urls) == {}
 
         _publish_tick(app, _INSIDE_THE_RANGE)
         app.ticker.fire()
-        assert app.bot(bot_id).state is S.HALTED, "a fresh tick does not resume it"
+        assert app.bot(bot_id).state is S.AWAITING_RECOVERY, (
+            "one fresh tick does not resume it: the feed must stay healthy for the dwell"
+        )
 
 
 def test_enabling_trading_does_not_disturb_a_bot_that_hears_ticks(

@@ -46,6 +46,20 @@ class GridPriceAge:
         longer counts, and the first one is awaited for the grace again."""
         self._armed_at = self._clock.seconds()
 
+    def heard_since(self, since: float, max_age: float) -> bool:
+        """Whether a tick was heard at or after `since` and is at most `max_age` seconds old.
+
+        Reads the last tick directly. It never asks `stale_detail`, which answers "not stale"
+        for a grace period after every `arm`, and the price watch arms the age on every beat of a
+        bot outside the staleness states: a probe built on it would call a dead feed clear
+        (`EPIC-042C`)."""
+        last = self._last_tick_at
+        return (
+            last is not None
+            and last >= since
+            and self._clock.seconds() - last <= max_age
+        )
+
     def stale_detail(self) -> str | None:
         """What to tell the user when the feed is quiet too long, else `None`."""
         now = self._clock.seconds()

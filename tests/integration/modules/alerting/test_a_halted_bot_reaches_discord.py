@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webho
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import (
     DeliveryState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
+    BotRecoveryStalledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_up_event import (
     BotStopGaveUpEvent,
 )
@@ -201,6 +204,36 @@ def test_an_error_and_a_stop_that_gave_up_each_reach_discord_once(
     ]
     assert "Bot error: grid one" in heads[0]
     assert "Stop failed: grid one" in heads[1]
+
+
+def test_a_wait_that_stalled_reaches_discord_as_one_warning(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-042C`: the module subscribed the stalled event; a wait is silent on entry, so this
+    is the owner's only word of a feed that does not return (review of PR #552)."""
+    booted = _boot(
+        monkeypatch,
+        tmp_path,
+        InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
+        FakeWebhookTransport(),
+    )
+    events = booted.app.container.resolve(IEventPublisher)  # type: ignore[type-abstract]
+    try:
+        booted.save(BotLifecycleState.DRAFT)
+        booted.save(BotLifecycleState.AWAITING_RECOVERY)
+        events.publish(
+            BotRecoveryStalledEvent(
+                bot_id="abc123", reason="price_feed_stale", waited_s=900
+            )
+        )
+        booted.wait_for_posts(1)
+    finally:
+        booted.app.stop()
+
+    [post] = booted.transport.posts
+    content = str(post.body["content"])
+    assert "WARNING" in content
+    assert "Bot recovery stalled: grid one" in content
 
 
 def test_the_host_hears_that_a_channel_carries_bot_events(skeleton: Skeleton) -> None:
