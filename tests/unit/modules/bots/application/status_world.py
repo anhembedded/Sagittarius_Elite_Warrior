@@ -34,11 +34,25 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     ListBotsQuery,
     ListBotsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.bot_kind_catalog import (
+    BotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     GetBotStatusReportQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
+    FakeBotClock,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
     FakeBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    GridThresholds,
 )
 
 BOTS_DIRECTORY = Path("/data/state/bots")
@@ -62,6 +76,8 @@ class BotQueryDispatcher(ICommandDispatcher):
         store: FakeBotStore,
         probe: IInstanceProbe | None = None,
         instance: IInstanceAccess | None = None,
+        kinds: IBotKindCatalog | None = None,
+        clock: IBotClock | None = None,
     ) -> None:
         self.asked: list[type] = []
         self._handlers: dict[type, IQueryHandler] = {
@@ -72,6 +88,8 @@ class BotQueryDispatcher(ICommandDispatcher):
                 BotsStateDirectory(BOTS_DIRECTORY),
                 probe or HeldProbe(),
                 instance or InstanceAccess.declined("a reader"),
+                kinds or BotKindCatalog([GridKind(None, GridThresholds())]),  # type: ignore[arg-type]
+                clock or FakeBotClock(),
             ),
         }
 

@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webho
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import (
     DeliveryState,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
+    BotAutoRecoveredEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
 )
@@ -234,6 +237,33 @@ def test_a_wait_that_stalled_reaches_discord_as_one_warning(
     content = str(post.body["content"])
     assert "WARNING" in content
     assert "Bot recovery stalled: grid one" in content
+
+
+def test_an_automatic_recovery_reaches_discord_as_one_warning(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-042D`: the module subscribed the recovered event, so the owner on a headless host
+    hears of each recovery with the budget it leaves."""
+    booted = _boot(
+        monkeypatch,
+        tmp_path,
+        InMemorySecretStore(**{DISCORD_WEBHOOK_SECRET: WEBHOOK}),
+        FakeWebhookTransport(),
+    )
+    events = booted.app.container.resolve(IEventPublisher)  # type: ignore[type-abstract]
+    try:
+        booted.save(BotLifecycleState.DRAFT)
+        booted.save(BotLifecycleState.RUNNING)
+        events.publish(BotAutoRecoveredEvent("abc123", "price_feed_stale", 1, 3))
+        booted.wait_for_posts(1)
+    finally:
+        booted.app.stop()
+
+    [post] = booted.transport.posts
+    content = str(post.body["content"])
+    assert "WARNING" in content
+    assert "Bot recovered by itself: grid one" in content
+    assert "attempt 1 of 3" in content
 
 
 def test_the_host_hears_that_a_channel_carries_bot_events(skeleton: Skeleton) -> None:

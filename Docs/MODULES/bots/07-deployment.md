@@ -44,6 +44,9 @@ A second process on the same data root is read-only (`EPIC-035H`): `boot()` retu
 any bot or subscribing to fills (`bots/module.py` → `BotsModule.boot`), because a restart rule run
 there would rewrite the first copy's running bots, and the store and the runner are the read-only
 wrappers. `bot list`, `bot show` and `status` read through the same queries the Bots tab reads through.
+`bot show` also prints the bot's effective halt-recovery table, one `Recovery` row per reason with the
+attempts used inside its window, or `no automatic recovery (<layer> layer)` for a Futures bot
+(`bots/application/queries/get_bot_status_report/recovery_table.py` → `recovery_table_of`; `EPIC-042G`).
 Design: design 038 §5.2 (`status` from a second process).
 
 ## Built: the headless host

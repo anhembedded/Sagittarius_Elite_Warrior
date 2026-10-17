@@ -42,6 +42,7 @@ _LIST_KEYS = {"app_running", "bots", "unreadable", "counts"}
 _BOT_KEYS = {
     "bot_id", "name", "kind", "venue", "symbol", "state", "reason",
     "run_started_at", "health", "resting_orders", "recovers_on_restart",
+    "reason_detail", "recovery",
 }  # fmt: skip
 _UNREADABLE_KEYS = {"bot_id", "state", "path", "reason"}
 
@@ -122,6 +123,21 @@ def test_bot_show_prints_one_bot(capsys: pytest.CaptureFixture[str]) -> None:
     assert outcome is None
     assert document["schema"] == "sew.bot-show/1"
     assert [b["bot_id"] for b in document["data"]["bots"]] == ["bbbbbb"]
+
+
+def test_bot_show_text_prints_the_recovery_table_and_json_carries_the_same_rows(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`EPIC-042G`: the text and the JSON of one bot hold the same reasons."""
+    _, text = _run(ShowBotVerb(), capsys, bot_id="bbbbbb", json=False)
+    _, out = _run(ShowBotVerb(), capsys, bot_id="bbbbbb")
+
+    rules = json.loads(out)["data"]["bots"][0]["recovery"]["rules"]
+    rows = [line for line in text.splitlines() if line.startswith("Recovery")]
+    assert [rule["code"] for rule in rules] == ["price_feed_stale", "user_stream_down"]
+    assert len(rows) == len(rules)
+    assert all(rule["code"] in row for rule, row in zip(rules, rows, strict=True))
+    assert "after 2 min clear, 0 of 3 used in 24 h" in rows[0]
 
 
 def test_an_unknown_id_exits_two_with_a_plain_message(

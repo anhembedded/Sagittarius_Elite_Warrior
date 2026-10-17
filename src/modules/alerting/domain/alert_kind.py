@@ -21,6 +21,8 @@ class AlertKind(Enum):
     STOP_FAILED = "stop_failed"
     #: A bot waiting in AWAITING_RECOVERY has waited longer than it should expect to (`EPIC-042`).
     BOT_RECOVERY_STALLED = "bot_recovery_stalled"
+    #: A bot resumed itself after a transient halt (`EPIC-042`); one alert per recovery.
+    BOT_AUTO_RECOVERED = "bot_auto_recovered"
     RATE_LIMITED = "rate_limited"
     RANGE_EXIT = "range_exit"
     APP_FAILURE = "app_failure"
