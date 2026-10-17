@@ -33,6 +33,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | The body of a pull request | [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) |
 | A word you do not know or are about to coin | [`Docs/VOCABULARY/README.md`](Docs/VOCABULARY/README.md) |
 | Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |
+| Coordinating several sessions (`/coordinate`, "điều phối tiếp"); the live state | [`.claude/skills/coordinate/SKILL.md`](.claude/skills/coordinate/SKILL.md) · [`Tasks/COORDINATION.md`](Tasks/COORDINATION.md) |
 | Scaffolding and tracking an epic | [`.claude/skills/create-epic/SKILL.md`](.claude/skills/create-epic/SKILL.md) |
 | The scheduled audits | [`.claude/skills/test-health/SKILL.md`](.claude/skills/test-health/SKILL.md) · [`.claude/skills/process-drift/SKILL.md`](.claude/skills/process-drift/SKILL.md) |
 | Where the system stands | `python3 scripts/render_board.py` (the task and bug board) · [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
