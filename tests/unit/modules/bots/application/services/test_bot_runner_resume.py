@@ -184,6 +184,18 @@ def test_a_halted_resume_opens_the_session_and_reaches_the_bots_executor() -> No
     assert world.executors.get(BOT) is not None
 
 
+def test_a_resume_of_a_waiting_bot_opens_the_session_first_like_a_halted_one() -> None:
+    """`EPIC-042B`: it proposes a ladder, which registers a budget a closed session refuses."""
+    world = _world(S.AWAITING_RECOVERY)
+    assert world.session.snapshot().enabled is False
+
+    result = world.runner.resume(BOT)
+
+    assert result.accepted, result.message
+    assert world.session.snapshot().enabled is True
+    assert world.executors.get(BOT) is not None
+
+
 def test_a_paused_resume_opens_no_session() -> None:
     """A paused bot's orders still rest and its resume registers nothing."""
     world = _world(S.PAUSED)

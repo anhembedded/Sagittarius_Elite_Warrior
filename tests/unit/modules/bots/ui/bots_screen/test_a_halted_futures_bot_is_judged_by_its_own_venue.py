@@ -63,11 +63,11 @@ _NOW = datetime(2026, 10, 15, 12, tzinfo=UTC)
 _LONG = {**CONFIG, "direction": "LONG", "leverage": "3", "stop_loss": "price:50000"}
 
 
-def _halted_futures_bot() -> BotSnapshot:
+def _halted_futures_bot(state: S = S.HALTED) -> BotSnapshot:
     definition = BotDefinition(
         "Fu_test_net", "grid", TradingVenue.FUTURES_TESTNET, "BTCUSDT", _LONG
     )
-    bot = Bot(BotId("a00001"), definition, BotLifecycle(S.HALTED, _NOW), _NOW)
+    bot = Bot(BotId("a00001"), definition, BotLifecycle(state, _NOW), _NOW)
     return BotSnapshot.of(bot, None)
 
 
@@ -91,10 +91,10 @@ def _futures_facts(**changes: object) -> FuturesLoaded:
     return FuturesLoaded(replace(base, **changes))  # type: ignore[arg-type]
 
 
-def _detail(exchange: FuturesLoaded):
+def _detail(exchange: FuturesLoaded, state: S = S.HALTED):
     market = PlannerMarket(TERMS, MarketView(LAST_PRICE), None, None)
     return detail_for(
-        DetailInputs(_halted_futures_bot(), None, market, _NOW, exchange=exchange)
+        DetailInputs(_halted_futures_bot(state), None, market, _NOW, exchange=exchange)
     )
 
 
@@ -107,6 +107,20 @@ def test_the_detail_of_a_halted_futures_bot_with_futures_facts_is_built() -> Non
 def test_a_halted_futures_bot_in_hedge_mode_is_told_what_blocks_its_resume() -> None:
     """Positive proof the Futures judge ran: only its position-mode rule says this."""
     detail = _detail(_futures_facts(position_mode=PositionMode.HEDGE))
+
+    resume = detail.availability[BotAction.RESUME]
+    assert resume.enabled is False
+    assert resume.reason.startswith("Resume is blocked: ")
+
+
+def test_a_bot_waiting_to_recover_is_told_what_blocks_its_resume_like_a_halted_one() -> (
+    None
+):
+    """`EPIC-042B`: the person's Resume in AWAITING_RECOVERY is judged by the same rules, so the
+    button says why it is blocked instead of promising a ladder the Resume use case will refuse."""
+    detail = _detail(
+        _futures_facts(position_mode=PositionMode.HEDGE), S.AWAITING_RECOVERY
+    )
 
     resume = detail.availability[BotAction.RESUME]
     assert resume.enabled is False
