@@ -30,8 +30,9 @@ one a kind's bots run on only when its market is in the kind's set *and* in `BOT
 (`bot_profile_of(venue, supported)`), so a kind that declares Spot only is never given a
 Futures venue, whatever the build allows.
 
-A third gate closes a venue, not a market: `CLOSED_VENUES` (Futures mainnet until `EPIC-039L`)
-is judged wherever a bot would be created, started or resumed, not only where the picker lists.
+No venue is closed to bots today: Futures mainnet was closed by `CLOSED_VENUES` until the owner
+opened it on 2026-10-17 (`EPIC-039L`, decision O2). What stands in front of real money on a
+mainnet venue is the confirmation the start or resume carries (`TradingVenue.is_mainnet`).
 """
 
 from __future__ import annotations
@@ -220,32 +221,13 @@ def bot_profile_of(
     return profile if runs_bots_on(profile) else None
 
 
-#: Venues a bot runs on in this build but that stay closed to it until the owner opens them: a
-#: protective stop for every position and the owner's 14-day Futures-testnet soak come first
-#: (`EPIC-039` decision O7, delivered by `EPIC-039L`, which replaces this set by the gate it
-#: builds). `bot_closed_reason` is the sentence every path that would create, start or resume a
-#: bot on one gives; the pickers list it greyed out with that sentence (`BUG-208`).
-CLOSED_VENUES: frozenset[TradingVenue] = frozenset({TradingVenue.FUTURES_MAINNET})
-
-
-def bot_closed_reason(venue: TradingVenue) -> str | None:
-    """Why no bot may be created, started or resumed on `venue` yet, or `None` when it may."""
-    if venue not in CLOSED_VENUES:
-        return None
-    return (
-        f"{venue.display_name} is closed to bots until a stop stands on the exchange "
-        "for every position they open and the Futures testnet soak is done "
-        "(EPIC-039L); use Futures Testnet."
-    )
-
-
 def direction_closed_reason(
     profile: VenueProfile, direction: TradeDirection
 ) -> str | None:
     """Why a bot cannot run `direction` on `profile`'s market yet, or `None` when it can (or the
     market does not offer it at all). A direction a plan and a backtest may name before a bot may
     run it is shown greyed out with this sentence, never selectable and then refused at Start
-    (`EPIC-039I`, the pattern of `bot_closed_reason`)."""
+    (`EPIC-039I`)."""
     if direction not in profile.directions or direction in profile.bot_directions:
         return None
     return (

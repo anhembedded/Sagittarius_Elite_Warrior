@@ -37,9 +37,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.lifecycle.b
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_readiness_reader import (
     BotReadinessReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.venue.closed_venue import (
-    closed_venue_refusal,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot.command import (
     EditBotCommand,
 )
@@ -81,9 +78,6 @@ class StartBotCommandHandler(ICommandHandler[StartBotCommand, BotCommandResult])
             if isinstance(found, BotCommandResult):
                 return found
             venue = found.bot.definition.venue
-            closed = closed_venue_refusal(venue, command.bot_id)
-            if closed is not None:
-                return closed
             if venue.is_mainnet and not command.real_money_confirmed:
                 return BotCommandResult.refused(
                     BotRefusal.REAL_MONEY_NOT_CONFIRMED,

@@ -128,7 +128,7 @@ The code will declare this as a transition table in `bots/domain/grid/` (`code/q
 | D2–D9 | EPIC-039L C2 | Built on the fake; testnet checks T1–T5 open (the owner's) | [§8](#8-what-c2-built-and-where-it-departs-from-the-text-above) and the journeys in `tests/integration/modules/bots/test_a_futures_grid_keeps_a_protective_stop_on_the_fake_exchange.py` |
 | D13 | EPIC-039L C3 | Moved from C2 (§8) | — |
 | D10, D11 | EPIC-039L C3 | Not started | — |
-| D12 | EPIC-039L C4 | Not started | — |
+| D12 | EPIC-039L C4-lite | **Revised by the owner's O2 (2026-10-17: "O2 mở luôn, ko cần thêm cơ chế gì, tui tự quản rủi ro")**: the lock is removed, no port or state file; the real-money confirmations stay; the soak is the optional runbook [`futures_testnet_soak.md`](../../../Docs/OPERATIONS/futures_testnet_soak.md). The user also confirmed in session: "xác nhận mở khóa". The risk of unproven checks T1–T5 and `NEUTRAL_BOTH_SIDES_VERIFIED=False` is accepted by the owner | `tests/integration/modules/bots/test_futures_mainnet_asks_for_the_real_money_confirmation_on_every_path.py` |
 
 ## 8. What C2 built, and where it departs from the text above
 This section is written by the C2 pull request (point in time, `master-warrior` + the C2 branch). The rows above are the decision; these are the places the build, having met the code, differs or learned something. Each is a recorded departure, not a silent one.

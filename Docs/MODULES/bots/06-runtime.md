@@ -216,5 +216,8 @@ positions, then cancels the conditional orders of each symbol confirmed flat, so
 leaves the stop. Today a Futures position is never kept (`keep_on_stop_closed_reason`), so no path
 leaves a stop standing under a stopped bot.
 
-**The mainnet gate (C4).** `CLOSED_VENUES` is replaced by a port the owner's record answers, and the
-headless host refuses to leave a Futures bot with no standing stop (decision D12).
+**The mainnet gate (C4-lite), built.** Futures mainnet is open to bots since the owner's O2
+(2026-10-17): `CLOSED_VENUES` is gone and every path asks only the real-money confirmation
+(`TradingVenue.is_mainnet`). No port, no state file, no setting. The 14-day soak and checks T1–T5 are an
+optional runbook (`Docs/OPERATIONS/futures_testnet_soak.md`), not enforced by code; the owner manages the
+risk.

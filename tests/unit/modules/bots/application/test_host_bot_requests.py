@@ -110,8 +110,8 @@ def test_starting_a_testnet_bot_for_the_host_asks_for_no_real_money_answer() -> 
 def test_a_mainnet_start_without_the_venue_typed_is_refused_and_dispatches_nothing() -> (
     None
 ):
-    """Futures mainnet is closed before real money is even asked about
-    (`test_futures_mainnet_is_closed_on_every_path.py`), so Spot's is the example."""
+    """Spot mainnet is the example; Futures mainnet asks the same question
+    (`test_futures_mainnet_asks_for_the_real_money_confirmation_on_every_path.py`)."""
     venue = TradingVenue.SPOT_MAINNET
     dispatcher = _RecordingDispatcher()
     handler = StartBotForHostCommandHandler(_store_with("aaaaaa", venue), dispatcher)

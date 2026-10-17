@@ -23,7 +23,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_MARKETS,
     ExposureKind,
     ExposureLimits,
-    bot_closed_reason,
     bot_profile_of,
     exposure_limits_of,
     plan_limits_of,
@@ -199,10 +198,13 @@ def test_a_plan_is_judged_on_what_the_market_allows_and_a_bot_on_what_it_runs() 
         assert plan_limits_of(venue) == exposure_limits_of(venue, GRID_MARKETS)
 
 
-def test_futures_mainnet_alone_is_closed_to_bots_and_says_why() -> None:
-    assert "closed to bots" in (bot_closed_reason(TradingVenue.FUTURES_MAINNET) or "")
-    for venue in (*_SPOT, TradingVenue.FUTURES_TESTNET, TradingVenue.DISABLED):
-        assert bot_closed_reason(venue) is None
+def test_futures_mainnet_is_a_venue_bots_run_on_like_its_testnet() -> None:
+    """The owner opened it on 2026-10-17 (`EPIC-039L`, decision O2): no venue is closed to bots,
+    so Futures mainnet gets the profile, and the bots a kind of Futures declares, of its testnet."""
+    assert venue_profile_of(TradingVenue.FUTURES_MAINNET) == venue_profile_of(
+        TradingVenue.FUTURES_TESTNET
+    )
+    assert bot_profile_of(TradingVenue.FUTURES_MAINNET, FUTURES_MARKETS) is not None
 
 
 def test_a_venue_no_bot_runs_on_is_limited_as_spot_is() -> None:
