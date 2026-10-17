@@ -252,6 +252,8 @@ _ROUTING = object()
         (["exchange-status", "--verbose"], False),
         (["--verbose", "exchange-status"], False),
         (_SYNC, False),
+        (["bot", "apply", "plan.json"], True),
+        (["bot", "apply", "plan.json", "--verbose"], False),
     ],
 )
 def test_only_a_read_only_command_without_verbose_gets_its_log_routed_to_a_file(
@@ -260,7 +262,8 @@ def test_only_a_read_only_command_without_verbose_gets_its_log_routed_to_a_file(
     argv: list[str],
     routed: bool,
 ) -> None:
-    """`BOT-185`: `sync` writes, so its log stays on stdout; `--verbose` asks for it."""
+    """`BOT-185`, `BOT-186`: `sync` keeps its log on stdout (`run`'s is checked on the registry), a short-lived
+    writer (`bot apply`) goes quiet like a reader; `--verbose` asks for the console."""
     monkeypatch.setattr(entry, "prepare_cli_log", lambda log_dir: _ROUTING)
     monkeypatch.setattr(entry, "read_only_instance_access", lambda: built.instance)
     monkeypatch.setitem(entry._HEADLESS_COMMANDS, "sync", Mock(return_value=None))

@@ -1,6 +1,7 @@
 {
   "CLI_COMMANDS": {
     "sync": {
+      "keeps_console_log": true,
       "help": "Synchronize market data from Binance",
       "args": [
         {
@@ -30,6 +31,7 @@
         "dest": "action",
         "commands": {
           "start": {
+          "keeps_console_log": true,
             "help": "Start live stream",
             "args": [
               {
@@ -48,6 +50,7 @@
             ]
           },
           "stop": {
+          "keeps_console_log": true,
             "help": "Stop live stream"
           }
         }
@@ -183,6 +186,7 @@
       ]
     },
     "trade-once": {
+      "short_lived": true,
       "help": "Run one strategy evaluation and, if actionable, attempt one order through the full safety pipeline. DRY-RUN unless --live is passed. Not a daemon — runs one round and exits",
       "args": [
         {
@@ -220,6 +224,7 @@
       ]
     },
     "run": {
+      "keeps_console_log": true,
       "help": "Run the bots with no window until told to stop (SIGTERM, Ctrl-C; Ctrl-Break on Windows). Refuses with exit 3 if another copy holds the data root; runs the pre-flight first (exit 4, 5 or 6 on a failure). Writes a health line and state/health.json every --health-interval. Not supported for unattended money until EPIC-036B, 036C and 036E have shipped",
       "requires_writable": true,
       "owns_lifecycle": true,
@@ -390,6 +395,7 @@
           "apply": {
             "help": "Make the bots match a plan file: create, edit and (with --prune) delete bots through the commands the Bots tab uses, and record each entry's desired_state for run --start-planned. Applying starts and stops nothing. A second apply of the same plan changes nothing",
             "read_only_when": "dry_run",
+            "short_lived": true,
             "args": [
               {
                 "name": "plan",

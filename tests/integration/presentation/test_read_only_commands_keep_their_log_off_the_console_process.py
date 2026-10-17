@@ -120,3 +120,36 @@ def test_a_failed_command_still_says_so_on_the_console(data_root: Path) -> None:
     assert result.returncode == 2
     assert "No bot has the id 'no-such-bot'." in result.stderr
     assert result.stdout == ""
+
+
+def _empty_plan(data_root: Path) -> Path:
+    plan = data_root / "plan.json"
+    plan.write_text(json.dumps({"schema": "sew.bot-plan/1", "bots": []}), "utf-8")
+    return plan
+
+
+def test_a_short_lived_writing_command_is_quiet_too(data_root: Path) -> None:
+    """`BOT-186`: `bot apply` writes (it takes the lock), is short-lived, and prints its
+    report; only its log records move to the file."""
+    result = _run(data_root, "bot", "apply", str(_empty_plan(data_root)), "--prune")
+
+    assert result.returncode == 0, result.stderr
+    assert "No bots in the plan" in result.stdout
+    assert not _LOG_LINE.search(result.stdout)
+    assert result.stderr == ""
+    [log_file] = _cli_logs(data_root)
+    text = log_file.read_text(encoding="utf-8")
+    assert "[instance] writable" in text, (
+        "the writable copy: it is not the read-only path"
+    )
+
+
+def test_verbose_puts_a_short_lived_writers_log_back_on_the_console(
+    data_root: Path,
+) -> None:
+    result = _run(data_root, "bot", "apply", str(_empty_plan(data_root)), "--verbose")
+
+    assert result.returncode == 0, result.stderr
+    assert "No bots in the plan" in result.stdout
+    assert "[instance] writable" in result.stdout
+    assert _cli_logs(data_root) == []
