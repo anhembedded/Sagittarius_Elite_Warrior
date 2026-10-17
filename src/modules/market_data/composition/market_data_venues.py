@@ -19,12 +19,6 @@ from __future__ import annotations
 import logging
 import threading
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
-    BinanceWebsocketService,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
-    MarketDataSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
@@ -34,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqla
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.venue_directory import (
     venue_directory,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.composition.exchange_adapters import (
+    new_live_stream_service,
+    new_session_factory,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -70,7 +68,7 @@ class _VenueInfrastructure:
         # put them in the venue's store before anything reads them.
         self.manager.migrate_legacy_shards()
         self.repository = SQLAlchemyMarketDataRepository(self.manager)
-        self.stream = BinanceWebsocketService(
+        self.stream = new_live_stream_service(
             container.resolve(IEventBus), container.resolve(ITaskManager), venue
         )
         self._venue = venue
@@ -89,7 +87,7 @@ class _VenueInfrastructure:
                     return self._client
             # The network ping happens here, outside `_state_lock`: `close()` must
             # never wait on it.
-            built = MarketDataSessionFactory(self._venue).create_market_data_client()
+            built = new_session_factory(self._venue).create_market_data_client()
             with self._state_lock:
                 if not self._closed:
                     self._client = built

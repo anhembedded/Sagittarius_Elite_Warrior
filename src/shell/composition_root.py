@@ -33,8 +33,10 @@ Capability: Take the data root's single-instance lock before building the app (o
 from __future__ import annotations
 
 import logging
+from collections.abc import Collection
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
@@ -104,6 +106,7 @@ from Sagittarius_Elite_Warrior.src.shell.dispatch_log_filter import (
 )
 from Sagittarius_Elite_Warrior.src.shell.logging_notifier import LoggingNotifier
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
+from Sagittarius_Elite_Warrior.src.shell.module_selection import select_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
@@ -114,33 +117,6 @@ from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailure
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.dev_indicator_script import (
-    DevIndicatorScript,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_script import (
-    Ema20Script,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_50_script import (
-    Ema50Script,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_100_script import (
-    Ema100Script,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_200_script import (
-    Ema200Script,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_cross_script import (
-    EmaCrossScript,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_ribbon_script import (
-    EmaRibbonScript,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.macd_full_script import (
-    MacdFullScript,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.rsi_14_script import (
-    Rsi14Script,
 )
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
@@ -162,21 +138,9 @@ from sagittarius_engine.middleware.pydantic_validation_middleware import (
     PydanticValidationMiddleware,
 )
 
-
-def _register_indicator_scripts(container: IContainer) -> None:
-    """Registers all domain indicator scripts into IndicatorScriptRegistry."""
-    script_registry = IndicatorScriptRegistry()
-    script_registry.register("rsi_14", Rsi14Script)
-    script_registry.register("ema_20", Ema20Script)
-    script_registry.register("ema_50", Ema50Script)
-    script_registry.register("ema_100", Ema100Script)
-    script_registry.register("ema_200", Ema200Script)
-    script_registry.register("macd_full", MacdFullScript)
-    script_registry.register("ema_ribbon", EmaRibbonScript)
-    script_registry.register("ema_cross", EmaCrossScript)
-    script_registry.register("dev_showcase", DevIndicatorScript)
-    container.singleton(IndicatorScriptRegistry, script_registry)
-
+_INDICATOR_SCRIPTS: Deferred[IndicatorScriptRegistry] = Deferred(
+    "Sagittarius_Elite_Warrior.src.shell.indicator_scripts:build_indicator_script_registry"
+)
 
 _logger = logging.getLogger("App.Instance")
 
@@ -220,12 +184,15 @@ def create_app(
     config_manager: ConfigManager,
     instance: IInstanceAccess | None = None,
     cli_log: CliLogRouting | None = None,
+    needed_modules: Collection[str] | None = None,
 ) -> App:
     """Builds the object graph. `instance` says whether this copy of the app
     may trade (`EPIC-035H`): the entry points pass what `single_instance`
     decided; a run that is not the app's own (a test, a script) passes nothing
     and is writable, since it holds no data root against anyone. `cli_log`
-    (`BOT-185`): a quiet read-only command's log goes to its file, warnings stay."""
+    (`BOT-185`): a quiet read-only command's log goes to its file, warnings stay.
+    `needed_modules` (`PRO-014`): the bounded contexts the command declared it needs, built
+    with the ones they depend on and no others; `None` builds them all."""
     container = StdLibContainer()
 
     # EPIC-008G §4 — bus nhận logger tường minh, không để `None`.
@@ -320,7 +287,8 @@ def create_app(
     )
     container.singleton(NotificationEventHandler, notification_handler)
 
-    _register_indicator_scripts(container)
+    # `PRO-014`: the registry is built when a chart first asks, not at every boot.
+    container.singleton(IndicatorScriptRegistry, lambda _: _INDICATOR_SCRIPTS())
 
     # Load Framework Extensions. Only what every entry point needs is checked
     # here: a process with no window boots where Qt is not installed
@@ -339,7 +307,7 @@ def create_app(
     # list is the mechanism, not the Engine's dependency sort (SDD boot step 3).
     # `register_modules` enforces both `register()` rules as each one goes in
     # (no resolve, no second claim of one abstract type).
-    modules, _ = register_modules(app, MODULES)
+    modules, _ = register_modules(app, select_modules(MODULES, needed_modules))
     # The instances, for the entry point that will call `contribute()` after
     # `boot()` — see `RegisteredModules`' own docstring for why a second
     # instantiation there would contribute against nothing.

@@ -28,11 +28,13 @@ from __future__ import annotations
 from binance.client import BaseClient, Client
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.klines_type import (
+    klines_type_for,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    klines_type_for,
     resolve_testnet_flag,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (

@@ -17,6 +17,8 @@ status 1 with the traceback in the log.
 import argparse
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
@@ -30,28 +32,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cmd import (
-    execute_stream,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cmd import execute_sync
-from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd import (
-    execute_trade_once,
-)
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     VERBOSE_DEST,
     build_parser,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
-    execute_exchange_status,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
-    InteractiveShell,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_cmd import (
-    execute_order_dry_run,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
-    execute_order_preview,
 )
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
@@ -71,6 +54,7 @@ from Sagittarius_Elite_Warrior.src.shell.console_log_stream import console_log_t
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
     command_keeps_log_off_console,
+    command_needed_modules,
     command_owns_its_lifecycle,
     command_requires_writable_instance,
 )
@@ -84,20 +68,47 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.report_output import (
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
-#: One command, run against a booted app.
-HeadlessCommand = Callable[[App, argparse.Namespace], CliOutcome | None]
+if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
+        InteractiveShell,
+    )
+
+#: One command, run against a booted app. Named by import path (`Deferred`), so a
+#: word imports the module that runs it and no other: `bot list` pays nothing for the
+#: exchange SDK that `sync` and `trade-once` need (`PRO-014`).
+HeadlessCommand = Deferred[CliOutcome | None]
+
+_COMMANDS_PACKAGE = "Sagittarius_Elite_Warrior.src"
 
 #: The headless commands this entry point names. A command a module declares
 #: with `declare_cli` and that is not listed here is found in the shell's
 #: table (`_dispatch`), so a new command is one declaration, not an edit here.
 _HEADLESS_COMMANDS: dict[str, HeadlessCommand] = {
-    "sync": execute_sync,
-    "stream": execute_stream,
-    "exchange-status": execute_exchange_status,
-    "order-preview": execute_order_preview,
-    "order-dry-run": execute_order_dry_run,
-    "trade-once": execute_trade_once,
+    "sync": Deferred(
+        f"{_COMMANDS_PACKAGE}.modules.market_data.cli.sync_cmd:execute_sync"
+    ),
+    "stream": Deferred(
+        f"{_COMMANDS_PACKAGE}.modules.market_data.cli.stream_cmd:execute_stream"
+    ),
+    "exchange-status": Deferred(
+        f"{_COMMANDS_PACKAGE}.presentation.cli.exchange_status_cmd:execute_exchange_status"
+    ),
+    "order-preview": Deferred(
+        f"{_COMMANDS_PACKAGE}.presentation.cli.order_preview_cmd:execute_order_preview"
+    ),
+    "order-dry-run": Deferred(
+        f"{_COMMANDS_PACKAGE}.presentation.cli.order_dry_run_cmd:execute_order_dry_run"
+    ),
+    "trade-once": Deferred(
+        f"{_COMMANDS_PACKAGE}.modules.strategy.cli.trade_once_cmd:execute_trade_once"
+    ),
 }
+
+#: The interactive prompt, named by path for the same reason (`PRO-014`): only the `shell` word
+#: builds it, and its import brings the Engine's hosted-service runtime.
+_INTERACTIVE_SHELL: "Deferred[InteractiveShell]" = Deferred(
+    f"{_COMMANDS_PACKAGE}.presentation.cli.interactive_shell:InteractiveShell"
+)
 
 #: The desktop application's own entry point, named by path so this module
 #: imports no Qt: a server without PySide6 runs every other word.
@@ -137,7 +148,7 @@ def _run_headless_mode(app: App, args: argparse.Namespace) -> CliOutcome | None:
 
 def _run_interactive_mode(app: App) -> CliOutcome | None:
     # Register the Interactive Shell Hosted Service
-    shell = InteractiveShell(app)
+    shell = _INTERACTIVE_SHELL(app)
     app.context.hosted_services.register(shell)
 
     # Boot Engine
@@ -191,17 +202,29 @@ def _quiet_log_for(quiet: bool, args: argparse.Namespace) -> CliLogRouting | Non
     return prepare_cli_log(log_directory())
 
 
-def _build_app(
-    config_manager: ConfigManager,
-    instance: IInstanceAccess,
-    report_on_stdout: bool,
-    cli_log: CliLogRouting | None,
-) -> App:
+@dataclass(frozen=True, slots=True)
+class _Boot:
+    """What the command line decided about building the app, besides the configuration."""
+
+    instance: IInstanceAccess
+    report_on_stdout: bool
+    cli_log: CliLogRouting | None
+    #: The bounded contexts the command declared (`PRO-014`); `None` builds them all.
+    needed_modules: frozenset[str] | None
+
+
+def _build_app(config_manager: ConfigManager, boot: _Boot) -> App:
     """The object graph; its console log leaves by stderr when stdout is a report."""
-    if report_on_stdout:
+
+    def create() -> App:
+        return create_app(
+            config_manager, boot.instance, boot.cli_log, boot.needed_modules
+        )
+
+    if boot.report_on_stdout:
         with console_log_to(sys.stderr):
-            return create_app(config_manager, instance, cli_log)
-    return create_app(config_manager, instance, cli_log)
+            return create()
+    return create()
 
 
 def _lock_held(command: str, instance: IInstanceAccess) -> CliOutcome:
@@ -249,9 +272,10 @@ def main() -> int:
             # `EPIC-038D` - a host that is not the writable copy would look alive to its
             # supervisor while trading nothing; refuse, start nothing, and say why.
             return run_command(lambda: _lock_held(args.command, instance))
-        return run_command(
-            lambda: work(_build_app(config_manager, instance, machine_output, cli_log))
+        boot = _Boot(
+            instance, machine_output, cli_log, command_needed_modules(commands, args)
         )
+        return run_command(lambda: work(_build_app(config_manager, boot)))
     finally:
         instance.release()
 

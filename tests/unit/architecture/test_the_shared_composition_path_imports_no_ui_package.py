@@ -16,6 +16,13 @@ Imports under `if TYPE_CHECKING:` and inside a function body are not module-leve
 imports; the three `core/contracts` files that name `QWidget` that way are the
 only ones today.
 
+**Imports by path (`PRO-014`).** The bounded contexts' classes, the headless commands and the
+writable boot are named by `Deferred("package.module:attribute")` or `ModuleEntry(id, ...)`
+instead of imported, and a run that uses them imports them, so the walk follows those
+module-level strings as it follows an import. It stops at a `ui` package: a contribution's
+widgets are deferred precisely so a headless run never imports them (the desktop entry
+`app_bootstrapper` is under `presentation/ui`).
+
 It is the static half. The dynamic half is
 `tests/sanity/test_the_app_boots_without_pyside6.py`, which boots with the
 packages blocked and also catches what is imported at run time (the Engine's
@@ -52,8 +59,8 @@ _BANNED = (
     "sagittarius_engine.extensions.pyside_mvc",
 )
 
-#: The closure is large (the whole shell, the modules' module classes, the
-#: infrastructure adapters). A walk that finds fewer modules than this lost its
+#: The closure is large (the whole shell, the modules' module classes
+#: reached by path, the infrastructure adapters). A walk that finds fewer modules than this lost its
 #: subject, which would pass vacuously.
 _MIN_MODULES = 150
 
@@ -99,6 +106,30 @@ def _module_level_imports(statements: list[ast.stmt]) -> list[_Import]:
                 found.extend(_module_level_imports(handler.body))
         elif isinstance(node, ast.With | ast.ClassDef):
             found.extend(_module_level_imports(node.body))
+    return found
+
+
+def _by_path_modules(statements: list[ast.stmt]) -> list[str]:
+    """The first-party modules a module-level `Deferred("pkg.mod:attr")` or
+    `ModuleEntry("id", "Class")` names, other than a `ui` package's."""
+    found: list[str] = []
+    for statement in statements:
+        if isinstance(statement, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for node in ast.walk(statement):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            first = node.args[0] if node.args else None
+            if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+                continue
+            if node.func.id == "Deferred" and ":" in first.value:
+                module = first.value.partition(":")[0]
+            elif node.func.id == "ModuleEntry":
+                module = f"{_PACKAGE}.src.modules.{first.value}.module"
+            else:
+                continue
+            if "ui" not in module.split("."):
+                found.append(module)
     return found
 
 
@@ -166,6 +197,8 @@ def _walk(roots: list[Path], repo: Path) -> tuple[set[Path], list[str]]:
             candidates = [absolute] + [f"{absolute}.{name}" for name in imported.names]
             for candidate in candidates:
                 queue.extend(_with_parent_packages(candidate, repo))
+        for module in _by_path_modules(tree.body):
+            queue.extend(_with_parent_packages(module, repo))
     return seen, violations
 
 
@@ -212,3 +245,24 @@ def test_the_shared_composition_path_imports_no_ui_package() -> None:
         "the import behind the GUI wiring (src/shell/gui_wiring.py) or "
         "under `if TYPE_CHECKING:`:\n" + "\n".join(f"  - {v}" for v in violations)
     )
+
+
+def test_a_module_named_by_path_is_followed_and_a_ui_one_is_not(tmp_path: Path) -> None:
+    """Mutation, kept as a test (`PRO-014`): a `Deferred` target that imports Qt is reported at
+    its own import, and one under a `ui` package is left alone, as a contribution's widgets are."""
+    package = tmp_path / _PACKAGE / "src" / "shell"
+    package.mkdir(parents=True)
+    root = package / "root.py"
+    root.write_text(
+        "from x import Deferred\n"
+        f'_A = Deferred("{_PACKAGE}.src.shell.qt_module:X")\n'
+        f'_B = Deferred("{_PACKAGE}.src.shell.ui.widget:Y")\n',
+        encoding="utf-8",
+    )
+    (package / "qt_module.py").write_text("import PySide6\n", encoding="utf-8")
+    (package / "ui").mkdir()
+    (package / "ui" / "widget.py").write_text("import PySide6\n", encoding="utf-8")
+
+    _, found = _walk([root], tmp_path / _PACKAGE)
+
+    assert found == ["src/shell/qt_module.py:1 imports PySide6"], found

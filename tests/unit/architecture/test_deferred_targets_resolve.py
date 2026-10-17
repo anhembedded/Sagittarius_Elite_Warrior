@@ -65,7 +65,8 @@ class _RecordingRegistry(IContributionRegistry):
 
 def _contributed() -> list[tuple[str, Deferred[object]]]:
     registry = _RecordingRegistry()
-    for module_cls in MODULES:
+    for entry in MODULES:
+        module_cls = entry.load()
         module = module_cls()
         if hasattr(module, "_container"):
             module._container = object()  # type: ignore[attr-defined]

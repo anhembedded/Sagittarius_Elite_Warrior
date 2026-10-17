@@ -63,7 +63,12 @@ def _packages_on_disk(root: Path = _MODULES_ROOT) -> set[str]:
 
 
 def _declared_ids() -> list[str]:
-    return [module_cls.module_id for module_cls in MODULES]
+    return [entry.module_id for entry in MODULES]
+
+
+def _module_classes() -> list[type[BoundedContextModule]]:
+    """The classes the entries name, imported (`PRO-014`: the list itself imports none)."""
+    return [entry.load() for entry in MODULES]
 
 
 def _module_python_files(module_id: str) -> list[Path]:
@@ -103,8 +108,16 @@ def test_the_module_root_matches_the_module_list() -> None:
 
 
 def test_every_declared_module_is_a_bounded_context_module() -> None:
-    for module_cls in MODULES:
+    for module_cls in _module_classes():
         assert issubclass(module_cls, BoundedContextModule), module_cls
+
+
+def test_every_entry_id_is_the_id_of_the_class_it_names() -> None:
+    """A command's `modules` list is matched against the entry's id before any class is
+    imported (`shell/module_selection.py`); an entry whose id differed from its class's
+    would select a module the Engine then registers under another name."""
+    for entry in MODULES:
+        assert entry.load().module_id == entry.module_id, entry
 
 
 def test_no_module_id_is_declared_twice() -> None:
@@ -115,12 +128,12 @@ def test_no_module_id_is_declared_twice() -> None:
 def test_every_module_id_is_its_package_name() -> None:
     """The id is not a label: it is the package on disk, the `contributor_id` in
     every descriptor, and the name the Engine registers."""
-    for module_cls in MODULES:
+    for module_cls in _module_classes():
         assert (_MODULES_ROOT / module_cls.module_id).is_dir(), module_cls.module_id
 
 
 def test_declared_dependencies_are_exactly_the_contracts_imported() -> None:
-    for module_cls in MODULES:
+    for module_cls in _module_classes():
         declared = set(module_cls.dependencies)
         imported = _contracts_imported_by(module_cls.module_id)
         surplus = sorted(declared - imported)
@@ -138,13 +151,13 @@ def test_declared_dependencies_are_exactly_the_contracts_imported() -> None:
 
 
 def test_no_module_declares_itself_as_a_dependency() -> None:
-    for module_cls in MODULES:
+    for module_cls in _module_classes():
         assert module_cls.module_id not in module_cls.dependencies
 
 
 def test_every_declared_dependency_is_a_module_that_exists() -> None:
     known = set(_declared_ids())
-    for module_cls in MODULES:
+    for module_cls in _module_classes():
         unknown = sorted(set(module_cls.dependencies) - known)
         assert not unknown, (
             f"{module_cls.module_id} depends on unknown modules {unknown}"

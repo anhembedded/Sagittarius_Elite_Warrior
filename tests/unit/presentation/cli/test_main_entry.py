@@ -44,14 +44,22 @@ class _Recorder:
         }[port]
         self.lock_taken = 0
         self.cli_log_seen: list[object] = []
+        self.needed_modules_seen: list[object] = []
 
     def acquire(self) -> Mock:
         self.lock_taken += 1
         return self.instance
 
-    def create(self, config_manager: object, instance: object, cli_log: object) -> Mock:
+    def create(
+        self,
+        config_manager: object,
+        instance: object,
+        cli_log: object,
+        needed_modules: object,
+    ) -> Mock:
         assert instance is self.instance
         self.cli_log_seen.append(cli_log)
+        self.needed_modules_seen.append(needed_modules)
         return self.app
 
 
@@ -117,7 +125,7 @@ def test_shell_boots_the_app_waits_for_the_prompt_and_stops(
     monkeypatch: pytest.MonkeyPatch, built: _Recorder
 ) -> None:
     shell = Mock()
-    monkeypatch.setattr(entry, "InteractiveShell", Mock(return_value=shell))
+    monkeypatch.setattr(entry, "_INTERACTIVE_SHELL", Mock(return_value=shell))
 
     status = _run(monkeypatch, "shell")
 
@@ -225,7 +233,12 @@ def test_machine_output_builds_the_app_with_its_console_log_on_stderr(
     seen: list[bool] = []
     real_stdout = sys.stdout
 
-    def create(config_manager: object, instance: object, cli_log: object) -> Mock:
+    def create(
+        config_manager: object,
+        instance: object,
+        cli_log: object,
+        needed_modules: object,
+    ) -> Mock:
         seen.append(sys.stdout is sys.stderr)
         return built.app
 
@@ -274,3 +287,33 @@ def test_only_a_quiet_command_without_verbose_gets_its_log_routed_to_a_file(
     _run(monkeypatch, *argv)
 
     assert built.cli_log_seen == [_ROUTING if routed else None]
+
+
+@pytest.mark.parametrize(
+    ("argv", "modules"),
+    [
+        (["bot", "list"], frozenset({"bots"})),
+        (["bot", "show", "grid-1"], frozenset({"bots"})),
+        (["bot", "export", "--all", "--output", "plan.json"], frozenset({"bots"})),
+        (["bot", "apply", "plan.json"], None),
+        (["bot", "stop", "grid-1"], frozenset({"bots", "operations"})),
+        (["status"], frozenset({"operations"})),
+        (["alert", "test"], frozenset({"alerting"})),
+        (["preflight"], None),
+        (_SYNC, None),
+    ],
+)
+def test_a_command_builds_the_bounded_contexts_its_declaration_names(
+    monkeypatch: pytest.MonkeyPatch,
+    built: _Recorder,
+    argv: list[str],
+    modules: frozenset[str] | None,
+) -> None:
+    """`PRO-014`: `cli_commands.json` says which contexts a command needs and the entry point
+    hands exactly that to `create_app`; a command that says nothing gets `None`, every context."""
+    monkeypatch.setattr(entry, "read_only_instance_access", lambda: built.instance)
+    monkeypatch.setitem(entry._HEADLESS_COMMANDS, "sync", Mock(return_value=None))
+
+    _run(monkeypatch, *argv)
+
+    assert built.needed_modules_seen == [modules]

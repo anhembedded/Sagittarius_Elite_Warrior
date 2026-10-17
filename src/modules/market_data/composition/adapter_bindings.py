@@ -21,12 +21,6 @@ import os
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root_override
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
-    BinanceWebsocketService,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
-    MarketDataSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
@@ -58,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_fligh
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.database_directory import (
     database_directory,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.composition.exchange_adapters import (
+    new_live_stream_service,
+    new_session_factory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.market_data_venues import (
     MarketDataVenues,
 )
@@ -88,6 +86,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 
 def bind_adapters(container: IContainer) -> None:
@@ -111,7 +111,7 @@ def bind_adapters(container: IContainer) -> None:
     # worker thread and the screen reads it on the main thread, and two
     # instances would mean the reader never sees the write.
     container.singleton(ISymbolMarketMetadataCache, InMemorySymbolMarketMetadataCache)
-    container.singleton(ILiveStreamService, BinanceWebsocketService)
+    container.singleton(ILiveStreamService, _build_live_stream_service)
     container.singleton(IExchangeClient, _build_exchange_client)
 
     # `BOT-121`: a singleton, never `bind()` — a sync started from Backtest and
@@ -134,6 +134,15 @@ def _build_market_data_venue(container: IContainer) -> MarketDataVenue:
     return DEFAULT_MARKET_DATA_VENUE
 
 
+def _build_live_stream_service(container: IContainer) -> ILiveStreamService:
+    """The constructor's collaborators, which auto-wiring read off the class before."""
+    return new_live_stream_service(
+        container.resolve(IEventBus),
+        container.resolve(ITaskManager),
+        container.resolve(MarketDataVenue),
+    )
+
+
 def _build_market_data_venues(container: IContainer) -> IMarketDataVenues:
     """`BUG-172`: the registry of each venue's store, client and stream; the
     default venue is the container's own bindings below."""
@@ -149,7 +158,7 @@ def _build_exchange_session_factory(container: IContainer) -> IExchangeSessionFa
     used to be one instance answering both. This module's own adapter; the
     SDK session behind it still comes from `support/binance_gateway`, the
     only place allowed to construct a `python-binance` `Client`."""
-    return MarketDataSessionFactory(container.resolve(MarketDataVenue))
+    return new_session_factory(container.resolve(MarketDataVenue))
 
 
 def _build_database_config(container: IContainer) -> DatabaseConfig:

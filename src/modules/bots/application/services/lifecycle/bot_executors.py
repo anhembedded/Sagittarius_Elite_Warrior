@@ -9,17 +9,22 @@ venue for a switch event.
 from __future__ import annotations
 
 import threading
+from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
-    GridExecutor,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
-    GridExecutorFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+if TYPE_CHECKING:
+    # Types only: importing the Grid executor here put its ~0.15 s of imports on every run that
+    # merely binds the executors, `bot list` included (`PRO-014`).
+    from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor import (
+        GridExecutor,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_executor_factory import (
+        GridExecutorFactory,
+    )
 
 
 class BotExecutors:

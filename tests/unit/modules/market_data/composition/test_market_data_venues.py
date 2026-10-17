@@ -116,7 +116,7 @@ def test_a_venues_client_is_built_on_first_use_and_only_once(
     venues: MarketDataVenues,
 ) -> None:
     """Building one is a network call (`BUG-045`)."""
-    with patch.object(module, "MarketDataSessionFactory") as factory:
+    with patch.object(module, "new_session_factory") as factory:
         factory.return_value.create_market_data_client.return_value = Mock()
 
         venues.repository(_TESTNET)  # opening the store builds no client
@@ -132,7 +132,7 @@ def test_a_venues_client_is_built_on_first_use_and_only_once(
 def test_closing_stops_the_streams_and_closes_the_clients_it_built(
     venues: MarketDataVenues,
 ) -> None:
-    with patch.object(module, "MarketDataSessionFactory") as factory:
+    with patch.object(module, "new_session_factory") as factory:
         client = Mock()
         factory.return_value.create_market_data_client.return_value = client
         venues.exchange_client(_TESTNET)
@@ -242,7 +242,7 @@ def test_close_does_not_wait_for_a_client_that_is_still_being_built(
         return factory
 
     with (
-        patch.object(module, "MarketDataSessionFactory", side_effect=building),
+        patch.object(module, "new_session_factory", side_effect=building),
         pytest.raises(RuntimeError, match="after it was closed"),
     ):
         held.client()
