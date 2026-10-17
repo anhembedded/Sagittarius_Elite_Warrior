@@ -205,7 +205,7 @@ The full table is [`exit_codes.md`](exit_codes.md). The ones a service meets:
 | `2` | does not restart | a flag in the unit is wrong; `journalctl` names it |
 | `3` | does not restart | another copy holds the data root: a second `run`, or the desktop app on the same `SEW_DATA_ROOT`. Stop it |
 | `4` | does not restart | a machine check failed: the table in §4 |
-| `5` | does not restart | the key: absent, rejected, can withdraw, or `--resume-recovering` without an alert channel; §3 and §4 |
+| `5` | does not restart | the key: absent, rejected, can withdraw, or `--resume-recovering` / `--resume-halted` without an alert channel; §3 and §4 |
 | `6` | restarts after 10 s | the exchange is down or unreachable; it retries until it is back |
 
 After fixing a code `2`–`5` cause, `systemctl reset-failed sew-run && systemctl start sew-run`.
@@ -281,6 +281,7 @@ sudo systemctl start sew-run
 
   On a testnet-only server without the four credential files (§3), add the line `LoadCredential=` under `[Service]` in the same file.
 - A bot on a **mainnet** venue is started only with `--confirm-venue <venue>` in the same line; without it the host exits `2` and starts nothing. One `--confirm-venue` names one venue.
+- **`--resume-halted`** (`EPIC-042E`) is a person's Resume and Confirm answered in advance, for every bot that is `HALTED` or `AWAITING_RECOVERY` (no other state): the exchange is read, the order session is opened and the ladder the bot proposes is laid, with the price re-read and its tolerance applied. Read the `[resume-halted]` lines after the start: one INFO per bot resumed, one WARNING per bot that stays as it was, with the reason in the words the Resume gave (a session that would not open, a readiness check, a missing `--confirm-venue`). With both flags the halted bots are resumed first, so only a halt that existed before this start is re-planned, never one the recovering reconcile makes in the same start. Unlike `--resume-recovering`, a mainnet bot whose venue was not typed is **skipped and named**, not a reason to refuse the run. The host refuses (exit `5`) without an alert channel or `--i-accept-silent-failures`, as `--resume-recovering` does. The owner does not read the proposal on a headless host; use the flag for a halt you have judged transient (a bot halted for `price_feed_stale` whose bot-halt alert you read), and keep the Bots tab for any other.
 
 ## 9. Install on Windows (NSSM)
 

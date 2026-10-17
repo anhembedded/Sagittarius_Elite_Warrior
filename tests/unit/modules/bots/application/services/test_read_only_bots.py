@@ -81,6 +81,8 @@ class _Runner(IBotRunner):
     def confirm_resume(self, bot_id: str) -> None:
         self.calls.append("confirm")
 
+    def withdraw_resume_proposal(self, bot_id: str) -> None: ...
+
     def has_resume_proposal(self, bot_id: str) -> bool:
         self.calls.append("proposal")
         return True

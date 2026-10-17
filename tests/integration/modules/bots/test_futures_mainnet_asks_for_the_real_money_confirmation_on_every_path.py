@@ -27,6 +27,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
     BotRefusal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeHaltedForHostCommand,
+    ResumeHaltedResult,
     ResumeRecoveringForHostCommand,
     ResumeRecoveringResult,
     StartBotForHostCommand,
@@ -200,6 +202,23 @@ def test_the_hosts_resume_recovering_asks_for_the_venue_to_be_typed(
         assert not outcome.opened and bot_id in outcome.bot_ids
         assert f"--confirm-venue {MAINNET.value}" in outcome.note
         assert app.bot(bot_id).state is BotLifecycleState.RECOVERING
+
+
+def test_the_hosts_resume_halted_skips_a_futures_mainnet_bot_whose_venue_is_not_typed(
+    futures: FakeExchange,
+) -> None:
+    with booted_futures_bots(futures) as app:
+        bot_id = _stored(app, BotLifecycleState.HALTED)
+
+        result = app.engine.dispatch(
+            ResumeHaltedForHostCommand, ResumeHaltedForHostCommand(None)
+        )
+
+        assert isinstance(result, ResumeHaltedResult)
+        (outcome,) = result.bots
+        assert not outcome.resumed and outcome.bot_id == bot_id
+        assert "--confirm-venue futures_mainnet" in outcome.note
+        assert app.bot(bot_id).state is BotLifecycleState.HALTED
 
 
 @pytest.mark.parametrize("typed", [None, MAINNET.value])

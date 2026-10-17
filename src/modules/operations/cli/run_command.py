@@ -4,7 +4,7 @@ The entry point has already taken the lock (`3` otherwise) and built the app wit
 booting it; this is everything after, in the order that keeps money safe:
 
   1. refuse what can be refused without touching the exchange - a bad flag (`2`), an
-     unavailable host signal (`2`), `--resume-recovering` with no alert channel and no
+     unavailable host signal (`2`), `--resume-recovering` or `--resume-halted` with no alert channel and no
      acknowledgement (`5`), a mainnet `--start-planned` the operator did not confirm (`2`);
   2. the pre-flight (`PreflightGate`), **before the bots are restored**: restoring a
      bot reads the exchange and may cancel orders, which a machine whose clock or key
@@ -66,6 +66,7 @@ from Sagittarius_Elite_Warrior.src.modules.operations.application.health_probes 
 )
 from Sagittarius_Elite_Warrior.src.modules.operations.application.host_steps import (
     ReportRecoveringBots,
+    ResumeHaltedBots,
     ResumeRecoveringBots,
     StartPlannedBots,
     WarnWhenNoAlertChannel,
@@ -125,7 +126,7 @@ _NO_PLAN_APPLIED = (
 )
 
 _NO_ALERT_FOR_RESUME = (
-    "--resume-recovering resumes bots with nobody watching, and no alert channel carries "
+    "{flag} resumes bots with nobody watching, and no alert channel carries "
     "bot events on this host: no Discord webhook is stored (see the runbook). Nothing was "
     "started. Store one, or type --i-accept-silent-failures to say you accept that a halt "
     "will be silent."
@@ -166,12 +167,23 @@ class RunCommand:
 
     def _refusal_before_preflight(self) -> CliOutcome | None:
         options = self._options
+        resuming = [
+            flag
+            for flag, given in (
+                ("--resume-recovering", options.resume_recovering),
+                ("--resume-halted", options.resume_halted),
+            )
+            if given
+        ]
         if (
-            options.resume_recovering
+            resuming
             and not options.accept_silent_failures
             and not self._alerts.carries_bot_events()
         ):
-            return CliOutcome(ExitCode.CONFIGURATION, _NO_ALERT_FOR_RESUME)
+            return CliOutcome(
+                ExitCode.CONFIGURATION,
+                _NO_ALERT_FOR_RESUME.format(flag=" and ".join(resuming)),
+            )
         if options.start_planned:
             unreadable = self._plan_refusal()
             if unreadable is not None:
@@ -238,13 +250,14 @@ class RunCommand:
         policy = self._policy()
         logger.info(
             "[run] stop policy %s, stop timeout %.0f s, health every %d s, pre-flight %s, "
-            "start-planned %s, resume-recovering %s, host signal %s",
+            "start-planned %s, resume-recovering %s, resume-halted %s, host signal %s",
             policy.name,
             options.stop_timeout_s,
             options.health_interval_s,
             "skipped" if options.skip_preflight else "enforced",
             options.start_planned,
             options.resume_recovering,
+            options.resume_halted,
             options.host_signal.value,
         )
         return RunHost(
@@ -269,6 +282,11 @@ class RunCommand:
             WarnWhenNoAlertChannel(self._alerts),
             ReportRecoveringBots(self._dispatcher),
         ]
+        # Halted first: the bots it resumes are the ones that were halted before this start. The
+        # recovering step opens a session whose reconcile may halt a bot of its own, and that halt
+        # is for the owner to read, not for this start to re-plan (`BUG-204`).
+        if options.resume_halted:
+            steps.append(ResumeHaltedBots(self._dispatcher, options.confirm_venue))
         if options.resume_recovering:
             steps.append(ResumeRecoveringBots(self._dispatcher, options.confirm_venue))
         if options.start_planned:

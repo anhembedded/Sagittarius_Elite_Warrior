@@ -270,6 +270,9 @@ class GridExecutor(IBotExecutor):
         what a cut-short start left; each step acts only if the bot is owed it."""
         self._post("restart recovery", self._recover)
 
+    def withdraw_resume_proposal(self) -> None:
+        self._post("withdraw resume proposal", self._forget_proposal)
+
     def has_resume_proposal(self) -> bool:
         """Read off the worker's thread: one reference, set and cleared by
         the worker alone; a confirmation that loses a race to a switch-off

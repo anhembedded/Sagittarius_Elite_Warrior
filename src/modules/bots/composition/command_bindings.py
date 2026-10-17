@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot
     ResumeBotCommand,
     ResumeBotCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_halted_for_host import (
+    ResumeHaltedForHostCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_recovering_for_host import (
     ResumeRecoveringForHostCommandHandler,
 )
@@ -51,6 +54,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot_f
     StopBotForHostCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeHaltedForHostCommand,
     ResumeRecoveringForHostCommand,
     StartBotForHostCommand,
     StopBotForHostCommand,
@@ -74,3 +78,4 @@ def bind_commands(container: IContainer) -> None:
     container.bind(
         ResumeRecoveringForHostCommand, ResumeRecoveringForHostCommandHandler
     )
+    container.bind(ResumeHaltedForHostCommand, ResumeHaltedForHostCommandHandler)

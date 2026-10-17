@@ -112,6 +112,45 @@ def test_resume_recovering_without_an_alert_channel_or_the_acknowledgement_is_re
     assert source.installed is False
 
 
+def test_resume_halted_without_an_alert_channel_or_the_acknowledgement_is_refused_with_five(
+    data_root: Path,
+) -> None:
+    """`EPIC-042E`: nobody watching is refused for this flag as for `--resume-recovering`, and the
+    sentence names the flag the operator typed."""
+    source = Source()
+
+    outcome = RunCommand(
+        app_on(data_root),
+        RunOptions(resume_halted=True, skip_preflight=True),
+        source,
+    ).execute()
+
+    assert outcome is not None and outcome.code is ExitCode.CONFIGURATION
+    assert "--resume-halted" in outcome.message
+    assert "--resume-recovering" not in outcome.message
+    assert "--i-accept-silent-failures" in outcome.message
+    assert source.installed is False
+
+
+def test_resume_halted_runs_before_resume_recovering_so_only_earlier_halts_are_replanned(
+    data_root: Path,
+) -> None:
+    command = RunCommand(
+        app_on(data_root),
+        RunOptions(
+            resume_halted=True,
+            resume_recovering=True,
+            accept_silent_failures=True,
+            skip_preflight=True,
+        ),
+        Source(),
+    )
+
+    names = [step.name for step in command._steps()]
+
+    assert names.index("resume-halted") < names.index("resume-recovering")
+
+
 def test_a_host_signal_the_machine_cannot_give_is_refused_with_two_before_the_preflight(
     data_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

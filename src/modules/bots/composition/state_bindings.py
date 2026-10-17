@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_monotonic_clock import (
     SystemMonotonicClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.thread_bot_waiter import (
+    ThreadBotWaiter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.plan.applied_bot_plan import (
     AppliedBotPlan,
 )
@@ -61,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_applied_plan_store i
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_plan import IBotPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_waiter import (
+    IBotWaiter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_monotonic_clock import (
     IMonotonicClock,
 )
@@ -85,6 +91,7 @@ def bind_state(container: IContainer) -> None:
     container.singleton(IBotStore, _build_store)
     container.singleton(IBotClock, SystemBotClock())
     container.singleton(IMonotonicClock, SystemMonotonicClock())
+    container.singleton(IBotWaiter, ThreadBotWaiter())
     container.singleton(BotIdGenerator, BotIdGenerator())
     container.singleton(BotRestoreService, _build_restore_service)
     container.singleton(BotsStateDirectory, _build_state_directory)

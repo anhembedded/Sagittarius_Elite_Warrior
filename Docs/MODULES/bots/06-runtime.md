@@ -115,8 +115,14 @@ A deliberate action that trades opens the order session in one place (`.../order
 from `HALTED` or `RECOVERING`, and the headless `run --resume-recovering`
 (`.../grid_start_preconditions.py` → `GridStartPreconditions.check`,
 `GridStartPreconditions.open_session_for_resume`; `.../resume_recovering_for_host/handler.py` →
-`ResumeRecoveringForHostCommandHandler._open`). Nothing automatic opens it: a late order must not undo
-an Emergency Stop.
+`ResumeRecoveringForHostCommandHandler._open`). The headless `run --resume-halted` (`EPIC-042E`) is the
+Resume caller's own: it dispatches the screen's `ResumeBotCommand`, so it opens the session through the
+same Resume path, and its `ConfirmBotResumeCommand` once the bot holds the proposal
+(`.../resume_halted_for_host/handler.py` → `ResumeHaltedForHostCommandHandler`); it dispatches every Resume first, then asks
+again every `PROPOSAL_POLL_S` against one shared `PROPOSAL_WAIT_S` deadline, never confirms blind, and
+withdraws (`IBotRunner.withdraw_resume_proposal`) a proposal that did not come in time, so none is left
+held to block the automatic recovery. Nothing automatic opens it: a
+late order must not undo an Emergency Stop.
 
 ## Built: the exchange-side protective stop (Futures)
 

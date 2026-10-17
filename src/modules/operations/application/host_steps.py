@@ -10,6 +10,8 @@ bots and money rather than about being a host:
   · `ReportRecoveringBots` - decision O2: a restart leaves RUNNING and PAUSED bots
     RECOVERING and the host does **not** resume them; one WARNING each says whose
     move it is;
+  · `ResumeHaltedBots` - `--resume-halted`: a person's Resume and Confirm for every HALTED
+    or AWAITING_RECOVERY bot, answered in advance on the command line (`EPIC-042E`);
   · `StartPlannedBots` - `--start-planned`: start what the plan wants running and
     is at rest, through the same Start the screen dispatches;
   · `ResumeRecoveringBots` - `--resume-recovering`: open the order session the GUI
@@ -38,6 +40,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusEntry,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
+    ResumeHaltedForHostCommand,
+    ResumeHaltedResult,
     ResumeRecoveringForHostCommand,
     ResumeRecoveringResult,
     StartBotForHostCommand,
@@ -140,6 +144,47 @@ class ResumeRecoveringBots(IHostStep):
                     venue.venue,
                     venue.note,
                     ", ".join(venue.bot_ids),
+                )
+
+
+class ResumeHaltedBots(IHostStep):
+    """`--resume-halted` (`EPIC-042E`): one line per bot says whether it was resumed and why not."""
+
+    name = "resume-halted"
+    trades = True
+
+    def __init__(
+        self, dispatcher: ICommandDispatcher, confirmed_venue: str | None
+    ) -> None:
+        self._dispatcher = dispatcher
+        self._confirmed_venue = confirmed_venue
+
+    def run(self) -> None:
+        result = cast(
+            ResumeHaltedResult,
+            self._dispatcher.dispatch(
+                ResumeHaltedForHostCommand,
+                ResumeHaltedForHostCommand(self._confirmed_venue),
+            ),
+        )
+        if not result.bots:
+            logger.info("[resume-halted] no bot is HALTED or AWAITING_RECOVERY")
+        for bot in result.bots:
+            if bot.resumed:
+                logger.info(
+                    "[resume-halted] bot %s (%s, was %s): resume confirmed and queued; "
+                    "its worker lays the ladder unless the price moved past the tolerance",
+                    bot.bot_id,
+                    bot.venue,
+                    bot.was,
+                )
+            else:
+                logger.warning(
+                    "[resume-halted] bot %s (%s) stays %s: %s",
+                    bot.bot_id,
+                    bot.venue,
+                    bot.was,
+                    bot.note,
                 )
 
 
