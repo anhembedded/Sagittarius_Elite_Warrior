@@ -50,7 +50,7 @@ type _Request = Callable[[HostCommand], object]
 
 _REQUESTS: dict[HostControlAction, _Request] = {
     HostControlAction.STOP: lambda c: StopBotForOperatorCommand(
-        c.bot_id, c.confirmed_venue
+        c.bot_id, c.confirmed_venue, c.close_position
     ),
     HostControlAction.PAUSE: lambda c: PauseBotForHostCommand(c.bot_id),
     HostControlAction.RESUME: lambda c: ResumeBotForHostCommand(

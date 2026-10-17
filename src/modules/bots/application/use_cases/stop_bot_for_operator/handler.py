@@ -7,13 +7,17 @@ itself, as Resume and Start do, through the one place that does (`order_session_
 
 Order, so that nothing is opened for a stop that would be refused:
   1. the bot exists and the lifecycle table allows `stop` from its state;
-  2. a position venue is refused as the screen's Stop refuses it (a kept position has no stop on
-     the exchange, `EPIC-039H`);
+  2. a position venue is refused unless the operator typed `--close-position` (`BUG-224`): a kept
+     position has no stop on the exchange (`EPIC-039H`), and the host's stop used to carry KEEP, so
+     no Futures bot could be stopped. The refusal names the flag and says the command closes the
+     position at market; with it the stop carries `ExposureHandling.CLOSE_AT_MARKET`, the choice
+     the screen's "Close the position at market" makes;
   3. a closed session on a **mainnet** venue is opened only when the operator typed the venue
      (decision O8); an open session needs no answer, because Stop places no order;
   4. the session is opened (`ensure_ready`), or the refusal in its words is the answer;
-  5. the Stop is `StopBotForHostCommand` - the same keep-the-base stop the host's shutdown policy
-     uses, which dispatches the screen's `StopBotCommand`.
+  5. the Stop is `StopBotForHostCommand` - the stop the host's shutdown policy uses (it keeps the
+     base unless told to close), which dispatches the screen's `StopBotCommand`. A Spot bot keeps its
+     base without the flag; with it, it is sold, as the screen's close does.
 
 Opening the session reconciles every bot on that venue, exactly as Start, Resume and
 `run --resume-recovering` do: a RECOVERING bot returns to the state it had before the restart. The
@@ -46,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     StopBotForHostCommand,
     StopBotForOperatorCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    ExposureHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
@@ -88,10 +95,26 @@ class StopBotForOperatorCommandHandler(
             return found
         venue = found.bot.definition.venue
         profile = venue_profile_of(venue)
-        if profile is None or keep_on_stop_closed_reason(profile) is not None:
+        if profile is None:
             return self._stop(
-                command.bot_id
-            )  # the screen's Stop refuses it, in its words
+                command.bot_id, ExposureHandling.KEEP
+            )  # the screen's Stop answers it, in its words
+        if (
+            keep_on_stop_closed_reason(profile) is not None
+            and not command.close_position
+        ):
+            return BotCommandResult.refused(
+                BotRefusal.EXPOSURE_MUST_CLOSE,
+                f"{profile.title_word} positions are not kept when a bot stops, so stopping bot "
+                f"{command.bot_id} closes its position at market. Nothing was changed; to stop "
+                "it and close the position, add --close-position.",
+                command.bot_id,
+            )
+        exposure = (
+            ExposureHandling.CLOSE_AT_MARKET
+            if command.close_position
+            else ExposureHandling.KEEP
+        )
         session = self._ports.get(venue).trading_session
         if not session.snapshot().enabled:
             if venue.is_mainnet and command.confirmed_venue != venue.value:
@@ -106,7 +129,7 @@ class StopBotForOperatorCommandHandler(
             opened = order_session_refusal(session, command.bot_id)
             if opened is not None:
                 return opened
-        return self._stop(command.bot_id)
+        return self._stop(command.bot_id, exposure)
 
     def _others_returning(self, bot_id: str, stopping: StoredBot) -> str:
         """What opening the session does to the venue's other bots, in words: it reconciles every bot
@@ -127,10 +150,10 @@ class StopBotForOperatorCommandHandler(
             f"({', '.join(others)}) to the state they had before the restart"
         )
 
-    def _stop(self, bot_id: str) -> BotCommandResult:
+    def _stop(self, bot_id: str, exposure: ExposureHandling) -> BotCommandResult:
         return cast(
             BotCommandResult,
             self._dispatcher.dispatch(
-                StopBotForHostCommand, StopBotForHostCommand(bot_id)
+                StopBotForHostCommand, StopBotForHostCommand(bot_id, exposure)
             ),
         )

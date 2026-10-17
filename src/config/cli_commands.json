@@ -451,7 +451,7 @@
             ]
           },
           "stop": {
-            "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. If the venue's order session is closed (an Emergency Stop or a restart closes it) the host opens it first, as Start and Resume do; on a mainnet venue that needs --confirm-venue. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
+            "help": "Ask the running host (main.py run) to stop one bot, as the Bots tab's Stop does: its orders are cancelled and it becomes STOPPED once none is left. A Spot bot keeps the coin it holds; a Futures bot is stopped only with --close-position, which closes its position at market (a position is never kept). If the venue's order session is closed (an Emergency Stop or a restart closes it) the host opens it first, as Start and Resume do; on a mainnet venue that needs --confirm-venue. Writes a command file only the host's account can write; changes nothing in this process. Exit 10 when no host is running, 5 when this account has no control over it",
             "read_only": true,
             "args": [
               {
@@ -467,6 +467,11 @@
                   "futures_mainnet"
                 ],
                 "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money, and opening it also returns every other RECOVERING bot on that venue to the state it had before the restart: a RUNNING bot trades again). Not needed when the session is already open or the bot is on a testnet"
+              },
+              {
+                "name": "--close-position",
+                "action": "store_true",
+                "help": "Close what the bot holds at market when it stops, as the Bots tab's \"Close the position at market\" does (a reduce-only market order on Futures; on Spot the coin is sold). Required for a Futures bot, whose position is never kept: without it the stop is refused and nothing changes. This trades at the market price, and on mainnet that is real money"
               },
               {
                 "name": "--wait",

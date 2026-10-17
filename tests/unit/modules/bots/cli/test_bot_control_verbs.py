@@ -74,6 +74,21 @@ def test_each_verb_asks_the_host_for_its_action_on_the_named_bot(
     assert host.sent == [(HostControlRequest(action, "44wa1x", None), 3.5)]
 
 
+def test_a_stop_carries_the_close_position_flag_to_the_host() -> None:
+    host = RecordingHostControl()
+
+    _run(StopBotVerb(), host, wait=3.5, close_position=True)
+
+    assert host.sent == [
+        (
+            HostControlRequest(
+                HostControlAction.STOP, "44wa1x", None, close_position=True
+            ),
+            3.5,
+        )
+    ]
+
+
 def test_the_verbs_are_registered_under_the_words_the_operator_types() -> None:
     assert {"stop", "pause", "resume"} <= {verb.name for verb in BOT_VERBS}
 

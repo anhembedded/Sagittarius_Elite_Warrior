@@ -53,11 +53,13 @@ class HostControlStatus(StrEnum):
 @dataclass(frozen=True, slots=True)
 class HostControlRequest:
     """One action on one bot. `confirmed_venue` is the operator's typed answer to the
-    real-money question (decision O8), where the bot's own command asks it."""
+    real-money question (decision O8), where the bot's own command asks it. `close_position` is
+    the operator's `--close-position` on a stop: close what the bot holds at market (`BUG-224`)."""
 
     action: HostControlAction
     bot_id: str
     confirmed_venue: str | None = None
+    close_position: bool = False
 
 
 @dataclass(frozen=True, slots=True)

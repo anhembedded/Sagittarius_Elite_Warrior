@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests impo
     StopBotForHostCommand,
     StopBotForOperatorCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    ExposureHandling,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FAKE_CLOCK_START,
@@ -162,13 +165,30 @@ def test_a_stop_the_lifecycle_refuses_opens_nothing() -> None:
     assert world.dispatcher.dispatched == []
 
 
-def test_a_position_venue_is_left_to_the_screens_refusal_and_opens_nothing() -> None:
+def test_a_position_venue_is_refused_without_the_flag_and_opens_nothing() -> None:
     world = _World(TradingVenue.FUTURES_TESTNET, S.HALTED)
 
-    world.stop()
+    result = world.stop()
 
+    assert result.refusal is BotRefusal.EXPOSURE_MUST_CLOSE
     assert world.session.ready_requests == 0
-    assert world.dispatcher.dispatched == [StopBotForHostCommand("aaaaaa")]
+    assert world.dispatcher.dispatched == []
+
+
+def test_a_position_venue_with_the_flag_is_closed_at_market_after_the_session_opens() -> (
+    None
+):
+    world = _World(TradingVenue.FUTURES_TESTNET, S.HALTED)
+
+    result = world.handler.execute(
+        StopBotForOperatorCommand("aaaaaa", close_position=True)
+    )
+
+    assert result.accepted
+    assert world.session.ready_requests == 1
+    assert world.dispatcher.dispatched == [
+        StopBotForHostCommand("aaaaaa", ExposureHandling.CLOSE_AT_MARKET)
+    ]
 
 
 def test_a_bot_that_does_not_exist_is_refused() -> None:

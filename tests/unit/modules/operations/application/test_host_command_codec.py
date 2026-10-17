@@ -50,6 +50,19 @@ def test_a_valid_document_is_a_command() -> None:
     assert (parsed.action, parsed.bot_id) == (HostControlAction.STOP, "44wa1x")
 
 
+def test_a_stop_that_closes_the_position_survives_the_round_trip() -> None:
+    sent = command(close_position=True)
+
+    assert parse_command(encode_command(sent)) == sent
+
+
+def test_a_command_that_does_not_close_is_the_document_an_older_host_reads() -> None:
+    """`BUG-224`: the key is written only when true, so nothing else changes on the wire."""
+    assert "close_position" not in json.loads(encode_command(command()))
+    parsed = parse_command(_document())
+    assert isinstance(parsed, HostCommand) and parsed.close_position is False
+
+
 @pytest.mark.parametrize(
     ("text", "why"),
     [
@@ -67,6 +80,9 @@ def test_a_valid_document_is_a_command() -> None:
         (_document(issued_at="yesterday"), "issued_at"),
         (_document(issued_at="2026-10-17T12:00:00"), "issued_at"),
         (_document(extra="x"), "unknown"),
+        (_document(close_position="yes"), "close_position"),
+        (_document(close_position=1), "close_position"),
+        (_document(action="pause", close_position=True), "close_position"),
     ],
 )
 def test_a_document_that_is_not_exactly_a_command_is_malformed(

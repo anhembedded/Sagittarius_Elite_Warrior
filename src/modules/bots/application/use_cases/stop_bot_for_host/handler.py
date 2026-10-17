@@ -17,17 +17,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.host_bot_requests import (
     StopBotForHostCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    ExposureHandling,
-)
 
 
 class StopBotForHostCommandHandler(
     ICommandHandler[StopBotForHostCommand, BotCommandResult]
 ):
-    """Dispatches `StopBotCommand`, keeping the base: cancel the bot's tagged
-    orders, confirm none are open, STOPPED. The lifecycle table decides whether
-    the bot may stop; a refusal comes back as it would on the screen."""
+    """Dispatches `StopBotCommand` with the command's exposure handling: cancel the bot's
+    tagged orders, confirm none are open, STOPPED. It keeps the base unless asked to close
+    it. The lifecycle table decides whether the bot may stop; a refusal comes back as it
+    would on the screen."""
 
     def __init__(self, dispatcher: ICommandDispatcher) -> None:
         self._dispatcher = dispatcher
@@ -36,6 +34,6 @@ class StopBotForHostCommandHandler(
         return cast(
             BotCommandResult,
             self._dispatcher.dispatch(
-                StopBotCommand, StopBotCommand(command.bot_id, ExposureHandling.KEEP)
+                StopBotCommand, StopBotCommand(command.bot_id, command.exposure)
             ),
         )

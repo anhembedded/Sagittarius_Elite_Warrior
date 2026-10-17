@@ -107,6 +107,7 @@ class DirectoryHostControl(IHostControl):
             request.bot_id,
             request.confirmed_venue,
             self._clock.now(),
+            request.close_position,
         )
         written = self._write(command)
         if written is not None:

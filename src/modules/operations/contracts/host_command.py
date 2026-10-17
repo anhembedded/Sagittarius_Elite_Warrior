@@ -32,6 +32,8 @@ class HostCommand:
     bot_id: str
     confirmed_venue: str | None
     issued_at: datetime
+    #: A stop that closes the position at market (`BUG-224`); absent from older files.
+    close_position: bool = False
 
 
 class ControlVerdict(StrEnum):

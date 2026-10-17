@@ -95,6 +95,19 @@ def test_stopping_for_the_host_is_the_stop_the_screen_dispatches_keeping_the_bas
     assert dispatcher.dispatched == [StopBotCommand("aaaaaa", ExposureHandling.KEEP)]
 
 
+def test_stopping_for_the_host_with_a_close_dispatches_the_close_at_market() -> None:
+    """`BUG-224`: the exposure handling on the command is the one the screen's Stop receives."""
+    dispatcher = _RecordingDispatcher()
+
+    StopBotForHostCommandHandler(dispatcher).execute(
+        StopBotForHostCommand("aaaaaa", ExposureHandling.CLOSE_AT_MARKET)
+    )
+
+    assert dispatcher.dispatched == [
+        StopBotCommand("aaaaaa", ExposureHandling.CLOSE_AT_MARKET)
+    ]
+
+
 def test_starting_a_testnet_bot_for_the_host_asks_for_no_real_money_answer() -> None:
     dispatcher = _RecordingDispatcher()
     handler = StartBotForHostCommandHandler(

@@ -13,6 +13,9 @@ the audit can say which command was refused.
   bot_id          1-64 characters of [a-z0-9_-] (a real bot id is six of [a-z0-9])
   confirmed_venue null, or the venue the operator typed (decision O8)
   issued_at       ISO 8601 with a time zone
+  close_position  optional boolean, absent means false (`BUG-224`): a stop that closes the
+                  position at market. It is written only when true, so a file that does not
+                  ask for the close is byte-for-byte the document an older host reads.
 """
 
 from __future__ import annotations
@@ -34,7 +37,15 @@ _ID_SHAPE = re.compile(r"^[0-9a-f]{32}$")
 _BOT_SHAPE = re.compile(r"^[a-z0-9_-]{1,64}$")
 _VENUE_SHAPE = re.compile(r"^[a-z0-9_]{1,32}$")
 _KEYS = frozenset(
-    {"schema", "command_id", "action", "bot_id", "confirmed_venue", "issued_at"}
+    {
+        "schema",
+        "command_id",
+        "action",
+        "bot_id",
+        "confirmed_venue",
+        "issued_at",
+        "close_position",
+    }
 )
 
 
@@ -47,17 +58,17 @@ class MalformedDocument:
 
 
 def encode_command(command: HostCommand) -> str:
-    return json.dumps(
-        {
-            "schema": HOST_COMMAND_SCHEMA,
-            "command_id": command.command_id,
-            "action": command.action.value,
-            "bot_id": command.bot_id,
-            "confirmed_venue": command.confirmed_venue,
-            "issued_at": command.issued_at.isoformat(),
-        },
-        sort_keys=True,
-    )
+    document: dict[str, object] = {
+        "schema": HOST_COMMAND_SCHEMA,
+        "command_id": command.command_id,
+        "action": command.action.value,
+        "bot_id": command.bot_id,
+        "confirmed_venue": command.confirmed_venue,
+        "issued_at": command.issued_at.isoformat(),
+    }
+    if command.close_position:
+        document["close_position"] = True
+    return json.dumps(document, sort_keys=True)
 
 
 def parse_command(text: str) -> HostCommand | MalformedDocument:
@@ -77,6 +88,7 @@ def parse_command(text: str) -> HostCommand | MalformedDocument:
         bot_id=document["bot_id"],
         confirmed_venue=document["confirmed_venue"],
         issued_at=datetime.fromisoformat(document["issued_at"]),
+        close_position=document.get("close_position", False),
     )
 
 
@@ -106,6 +118,11 @@ def _problem_of(document: dict[str, object]) -> str | None:
         not isinstance(venue, str) or not _VENUE_SHAPE.fullmatch(venue)
     ):
         return "confirmed_venue is neither null nor a venue word"
+    close = document.get("close_position", False)
+    if not isinstance(close, bool):
+        return "close_position is not true or false"
+    if close and action != "stop":
+        return "close_position belongs to a stop"
     return _timestamp_problem(document.get("issued_at"))
 
 
