@@ -1,7 +1,7 @@
 ' Question: what happens to a running bot when the app restarts?
 ' Explained by: ../06-runtime.md. Drawn by hand, high level.
 @startuml 06-restart
-participant "BotsModule.boot" as M
+participant "boot_writable\n(BotsModule.boot)" as M
 participant BotRestoreService as RS
 participant IBotStore as ST
 participant BotBootRecovery as BR

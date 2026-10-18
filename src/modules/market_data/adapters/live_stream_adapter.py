@@ -13,10 +13,10 @@ class LiveStreamEngineAdapter(IHostedService):
     """
     @brief Object Adapter bridging the Engine's IHostedService lifecycle with the pure ILiveStreamService.
     @details Ensures the stream is cleanly shut down when the Engine stops, while keeping ILiveStreamService agnostic of the Engine.
+    The service is looked up at `stop()`, and only if something built it (`PRO-014`): taking it in the
+    constructor made every boot build the websocket service, and with it import the exchange SDK,
+    for a run that never opened a stream. A service nobody built has nothing to stop.
     """
-
-    def __init__(self, stream_service: ILiveStreamService) -> None:
-        self._stream_service = stream_service
 
     def start(self, context: IEngineContext) -> None:
         """
@@ -28,5 +28,9 @@ class LiveStreamEngineAdapter(IHostedService):
         """
         @brief Called by the Engine on shutdown. Stops the stream if running.
         """
+        registration = context.container.registrations().get(ILiveStreamService)
+        if registration is None or not registration.instantiated:
+            logger.info("No live stream was built, nothing to stop.")
+            return
         logger.info("Engine shutting down, ensuring stream is stopped...")
-        self._stream_service.stop_all()
+        context.container.resolve(ILiveStreamService).stop_all()

@@ -113,6 +113,26 @@ def _subscribing_classes(
     return found
 
 
+def _named_by_path(call: ast.Call) -> set[str]:
+    """The class a `Deferred("package.module:Class")` or a `ModuleEntry(id, "Class")` names.
+
+    Both construct a class they do not import (`PRO-014`), so the path or the name in the call
+    is the reference that makes the application build it. Only these two calls count: a
+    docstring or a log line that happens to spell a class name still does not."""
+    callee = call.func
+    callee_name = callee.id if isinstance(callee, ast.Name) else None
+    strings = [
+        arg.value
+        for arg in call.args
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
+    ]
+    if callee_name == "Deferred":
+        return {text.rpartition(":")[2] for text in strings if ":" in text}
+    if callee_name == "ModuleEntry":
+        return set(strings)
+    return set()
+
+
 def _identifiers(tree: ast.AST, excluding: ast.AST | None = None) -> set[str]:
     """Every name this module mentions **in code** — a docstring cannot
     contribute one, which is the whole reason this reads the AST."""
@@ -127,6 +147,8 @@ def _identifiers(tree: ast.AST, excluding: ast.AST | None = None) -> set[str]:
             names.add(node.attr)
         elif isinstance(node, ast.ImportFrom):
             names.update(alias.asname or alias.name for alias in node.names)
+        elif isinstance(node, ast.Call):
+            names |= _named_by_path(node)
     return names
 
 

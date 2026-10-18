@@ -33,12 +33,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
     IInstanceAccess,
 )
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
-    FuturesSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.key_environment_probe import (
-    BinanceKeyEnvironmentProbe,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
     JsonOwnerInventoryCheckpoints,
 )
@@ -57,9 +51,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_position_re
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.exchange_adapters import (
+    new_key_environment_probe,
+    new_session_factory,
+    new_venue_assembly,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.shared_venue_inputs import (
     SharedVenueInputs,
-    VenueAssembly,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
@@ -111,8 +109,7 @@ def bind_adapters(container: IContainer) -> None:
     # EmergencyStopCommandHandler depend on this port, not the concrete
     # factory, so they auto-wire to this same shared instance rather than
     # the container silently constructing each of them a throwaway one.
-    session_factory = FuturesSessionFactory()
-    container.singleton(ITradingSessionFactory, session_factory)
+    container.singleton(ITradingSessionFactory, lambda _: new_session_factory())
 
     # EPIC-021B: `secrets.local.json` lives next to `user_config.json`
     # (gitignored, unlike it). `__file__` is three directories deep
@@ -141,7 +138,7 @@ def bind_adapters(container: IContainer) -> None:
     )
     container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))
     # BUG-176: how Add key finds which environment a key belongs to.
-    container.singleton(IKeyEnvironmentProbe, BinanceKeyEnvironmentProbe())
+    container.singleton(IKeyEnvironmentProbe, lambda _: new_key_environment_probe())
 
     # The primary venue — the first one in `TradingVenue` order (`EPIC-034B`:
     # every venue is assembled, none is chosen by configuration).
@@ -193,7 +190,7 @@ def _build_venue_contexts(
     log_ignored_venue_setting(config)
     return VenueContexts(
         resolve_trading_venues(config),
-        lambda venue: VenueAssembly(venue, shared),
+        lambda venue: new_venue_assembly(venue, shared),
     )
 
 

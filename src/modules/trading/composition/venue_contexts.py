@@ -5,10 +5,8 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
-    VenueAssembly,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
     VenueNotEnabledError,
@@ -19,6 +17,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context impor
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+if TYPE_CHECKING:
+    # Only a type: the module imports the exchange SDK, and `VenueContexts` is built by every run
+    # that resolves a venue port, though only some build an assembly (`PRO-014`).
+    from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
+        VenueAssembly,
+    )
 
 logger = logging.getLogger("App.TradingVenues")
 
@@ -50,6 +55,10 @@ class VenueContexts(IVenueContexts):
 
     def enabled(self) -> tuple[TradingVenue, ...]:
         return self._enabled
+
+    def built(self) -> tuple[TradingVenue, ...]:
+        with self._lock:
+            return tuple(venue for venue in self._enabled if venue in self._assemblies)
 
     def get(self, venue: TradingVenue) -> VenueContext:
         return self.assembly(venue).context

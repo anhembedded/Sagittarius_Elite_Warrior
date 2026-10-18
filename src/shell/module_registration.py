@@ -19,7 +19,7 @@ outside this function ever sees the spy.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
@@ -32,15 +32,19 @@ from sagittarius_engine import App
 
 
 def register_modules(
-    app: App, modules: Iterable[type[BoundedContextModule]]
+    app: App, modules: Iterable[Callable[[], BoundedContextModule]]
 ) -> tuple[Sequence[BoundedContextModule], DoubleClaimCheck]:
-    """`app.use()` every module in list order, spying on each `register()`."""
+    """`app.use()` every module in list order, spying on each `register()`.
+
+    A module is anything that makes one when called: its class, or a `ModuleEntry`
+    (`shell/modules.py`) that imports the class only now.
+    """
     check = DoubleClaimCheck()
     registered: list[BoundedContextModule] = []
     real_container = app.context.container
 
-    for module_cls in modules:
-        module = module_cls()
+    for new_module in modules:
+        module = new_module()
         spy = RegisteringContainer(real_container, module.module_id)
         app.context.container = spy
         try:

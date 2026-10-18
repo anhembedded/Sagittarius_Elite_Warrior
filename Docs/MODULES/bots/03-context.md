@@ -51,7 +51,7 @@ through as opaque data, and only the parser asks `IBotKindCatalog`
   owner budget a bot registers before it trades
   (`src/modules/trading/contracts/owner_budget_registration.py` → `OwnerBudgetRegistration`), the
   account and the symbol rules.
-- **Events** the module subscribes to at boot (`bots/module.py` → `BotsModule.boot`): a fill, an end
+- **Events** the module subscribes to at boot (`bots/composition/writable_boot.py` → `boot_writable`, called by `bots/module.py` → `BotsModule.boot`): a fill, an end
   and a rejection of a bot's order, its symbol's funding fee, a divergence of its position from the
   exchange's (`EPIC-039F`), its symbol's ticks, the trading switch
   (`src/modules/trading/contracts/events/trading_switch_changed_event.py` →

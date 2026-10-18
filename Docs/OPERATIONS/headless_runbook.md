@@ -49,10 +49,15 @@ sudo python3.12 -m venv /opt/sew/venv
 sudo /opt/sew/venv/bin/pip install -r /opt/sew/Sagittarius_Elite_Warrior/requirements-headless.txt \
     -c /opt/sew/Sagittarius_Elite_Warrior/requirements.lock
 sudo /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/scripts/engine_pin.py install
+sudo /opt/sew/venv/bin/python -m compileall -q /opt/sew/Sagittarius_Elite_Warrior   # see "Compile the checkout" below
 
 sudo cp /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-run.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
+
+**Compile the checkout, once after the clone and again after every `git pull` or `git checkout`** (`PRO-014`). The `sew` account cannot write into the checkout, so Python cannot keep the bytecode of the code it imports, and without it every command, `bot list` and `status` included, compiles the application's thousands of files again. Measured on the first VPS (2026-10-17): `bot list` took 3.66 s with the checkout uncompiled and 3.03 s after `compileall` as root, so skipping the step costs about 0.6 s on every command. Run it as root, which can write the `__pycache__` directories, with the service's own interpreter (the bytecode is valid for one Python minor version). It writes only `__pycache__` directories. Nothing else is needed: `PYTHONDONTWRITEBYTECODE=1` in the unit is deliberate and stays, so the host never tries to write there.
+
+*Why the runbook and not the unit or a script.* `scripts/render_service_files.py` renders the unit from the host's constants, and `ExecStartPre=+` could run the command as root before each start, but that is wrong for two reasons: it would run outside the sandbox the unit exists to enforce (`ProtectSystem=strict`, `NoNewPrivileges`) and add seconds to every restart, and it would not help the commands an operator types between restarts, which are the ones that pay. There is no install script on Linux: this section is the install. The step therefore sits where the code changes, here and in step 4 of §8.
 
 The unit is [`deploy/linux/sew-run.service`](../../deploy/linux/sew-run.service). It is **generated** from the host's own constants by `python3 scripts/render_service_files.py --write`; do not edit the copy in the repository, a guard compares it with the generator. To change a setting on one server use a drop-in (`sudo systemctl edit sew-run`), not an edit of the file. What it does:
 
@@ -269,6 +274,7 @@ sudo git -C /opt/sew/Sagittarius_Elite_Warrior checkout "$REF"
 sudo /opt/sew/venv/bin/pip install -r /opt/sew/Sagittarius_Elite_Warrior/requirements-headless.txt \
     -c /opt/sew/Sagittarius_Elite_Warrior/requirements.lock
 sudo /opt/sew/venv/bin/python /opt/sew/Sagittarius_Elite_Warrior/scripts/engine_pin.py install
+sudo /opt/sew/venv/bin/python -m compileall -q /opt/sew/Sagittarius_Elite_Warrior   # the sew user cannot write bytecode (§2)
 # 5. Regenerate the unit if the release changed it, then:
 sudo cp /opt/sew/Sagittarius_Elite_Warrior/deploy/linux/sew-run.service /etc/systemd/system/ && sudo systemctl daemon-reload
 # 6. Pre-flight (testnet: §4; mainnet: the start does it), start, look.

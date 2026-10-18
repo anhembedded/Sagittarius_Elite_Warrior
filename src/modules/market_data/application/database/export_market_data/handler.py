@@ -6,8 +6,7 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -44,10 +43,11 @@ _COLUMNS = (
     "taker_buy_quote_asset_volume",
 )
 
-#: How many rows accumulate before one Parquet `write_table()` call — bounds
-#: memory the same way `IMarketDataRepository.stream_klines()` already bounds
-#: the read side (`BUG-025`), rather than materializing all 500k+ rows twice.
-_PARQUET_BATCH_SIZE = 20_000
+#: Named by path so `pyarrow` is imported by the first Parquet export, not by every run.
+_PARQUET_WRITER: Deferred[int] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.market_data.application.database"
+    ".export_market_data.parquet_export:write_parquet"
+)
 
 
 def _kline_to_row(kline: MarketData, market: MarketType) -> dict[str, Any]:
@@ -146,35 +146,4 @@ class ExportMarketDataCommandHandler(
     def _write_parquet(
         klines: Iterator[MarketData], path: str, market: MarketType
     ) -> int:
-        count = 0
-        batch: list[dict[str, Any]] = []
-        schema = pa.schema(
-            [
-                ("symbol", pa.string()),
-                ("interval", pa.string()),
-                ("market", pa.string()),
-                ("open_time", pa.string()),
-                ("open_price", pa.float64()),
-                ("high_price", pa.float64()),
-                ("low_price", pa.float64()),
-                ("close_price", pa.float64()),
-                ("volume", pa.float64()),
-                ("close_time", pa.string()),
-                ("quote_asset_volume", pa.float64()),
-                ("number_of_trades", pa.int64()),
-                ("taker_buy_base_asset_volume", pa.float64()),
-                ("taker_buy_quote_asset_volume", pa.float64()),
-            ]
-        )
-        with pq.ParquetWriter(path, schema) as parquet_writer:
-            for kline in klines:
-                batch.append(_kline_to_row(kline, market))
-                count += 1
-                if len(batch) >= _PARQUET_BATCH_SIZE:
-                    parquet_writer.write_table(
-                        pa.Table.from_pylist(batch, schema=schema)
-                    )
-                    batch = []
-            if batch:
-                parquet_writer.write_table(pa.Table.from_pylist(batch, schema=schema))
-        return count
+        return _PARQUET_WRITER((_kline_to_row(kline, market) for kline in klines), path)

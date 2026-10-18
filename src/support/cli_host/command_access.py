@@ -2,7 +2,7 @@
 
 Capability: Decide before the app boots whether a command needs the writable copy of the data root
     Also: read-only command, status, bot list, take the lock, writable instance, command changes nothing, read_only in cli_commands.json
-    Use: command_is_read_only, command_requires_writable_instance, command_owns_its_lifecycle, command_keeps_log_off_console
+    Use: command_is_read_only, command_requires_writable_instance, command_owns_its_lifecycle, command_keeps_log_off_console, command_needed_modules
     User: src/main.py
     Status: stable
 
@@ -38,9 +38,17 @@ existed before this field keeps.
   `read_only_when`, `short_lived`, `keeps_console_log`), which
   `tests/unit/support/cli_host/test_every_command_declares_where_its_log_goes.py` checks.
 
+@par Which bounded contexts it builds (`PRO-014`)
+  · `"modules": ["bots"]` - the contexts the command needs; the run builds those and the
+    contexts they depend on (`shell/module_selection.py`), and imports no other. Absent means
+    every context: the safe direction again, and what every command before the key keeps.
+    A command that reads a context's use cases needs that context; it does not need the ones
+    that merely sit beside it.
+
 @par Extension cases
   · a new read-only command or verb - `"read_only": true` on its entry; this
     function and the entry point do not change;
+  · a command that touches fewer contexts than the whole list - its `"modules"` entry;
   · a mutating verb under a read-only command - leave the key off the verb.
 """
 
@@ -57,6 +65,7 @@ REQUIRES_WRITABLE_KEY = "requires_writable"
 OWNS_LIFECYCLE_KEY = "owns_lifecycle"
 SHORT_LIVED_KEY = "short_lived"
 KEEPS_CONSOLE_LOG_KEY = "keeps_console_log"
+MODULES_KEY = "modules"
 
 
 def _declared_value(
@@ -120,3 +129,17 @@ def command_keeps_log_off_console(
     return command_is_read_only(commands, args) or _declared(
         commands, args, SHORT_LIVED_KEY
     )
+
+
+def command_needed_modules(
+    commands: Mapping[str, Any], args: argparse.Namespace
+) -> frozenset[str] | None:
+    """The `module_id`s the parsed command declares it needs, or `None` for all of them."""
+    declared = _declared_value(commands, args, MODULES_KEY)
+    if declared is None:
+        return None
+    if not isinstance(declared, list) or not all(isinstance(m, str) for m in declared):
+        raise ValueError(
+            f"'{MODULES_KEY}' of '{args.command}' is a list of module ids, not {declared!r}"
+        )
+    return frozenset(declared)

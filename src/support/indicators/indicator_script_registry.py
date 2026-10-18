@@ -10,11 +10,14 @@ Capability: Look up or register a chart indicator script by id
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
-    BaseIndicatorScript,
-)
+if TYPE_CHECKING:
+    # Only a type: the package imports every shipped script and the indicator maths, and the
+    # registry is imported by every boot to key its binding (`PRO-014`).
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        BaseIndicatorScript,
+    )
 
 
 class IndicatorScriptRegistry:

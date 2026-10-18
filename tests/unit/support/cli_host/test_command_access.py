@@ -10,6 +10,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.support.cli_host.command_access import (
     command_is_read_only,
     command_keeps_log_off_console,
+    command_needed_modules,
     command_owns_its_lifecycle,
     command_requires_writable_instance,
 )
@@ -231,3 +232,41 @@ def test_a_command_keeps_its_log_off_the_console_when_it_reads_or_is_short_lived
     args: argparse.Namespace, quiet: bool
 ) -> None:
     assert command_keeps_log_off_console(_LOG_TABLE, args) is quiet
+
+
+# --- `PRO-014`: the bounded contexts a command declares it needs --------------------------
+def test_a_command_names_the_contexts_it_needs() -> None:
+    commands = {
+        "bot": {
+            "modules": ["bots"],
+            "subparsers": {
+                "dest": "action",
+                "commands": {
+                    "list": {"read_only": True},
+                    "stop": {"modules": ["bots", "operations"]},
+                },
+            },
+        },
+        "sync": {},
+    }
+
+    assert command_needed_modules(
+        commands, argparse.Namespace(command="bot", action="list")
+    ) == frozenset({"bots"})
+    assert command_needed_modules(
+        commands, argparse.Namespace(command="bot", action="stop")
+    ) == frozenset({"bots", "operations"})
+
+
+def test_a_command_that_names_none_gets_every_context() -> None:
+    assert (
+        command_needed_modules({"sync": {}}, argparse.Namespace(command="sync")) is None
+    )
+    assert command_needed_modules({}, argparse.Namespace(command="unknown")) is None
+
+
+def test_a_modules_declaration_that_is_not_a_list_of_names_is_refused() -> None:
+    with pytest.raises(ValueError, match="list of module ids"):
+        command_needed_modules(
+            {"sync": {"modules": "bots"}}, argparse.Namespace(command="sync")
+        )

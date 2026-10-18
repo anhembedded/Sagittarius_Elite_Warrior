@@ -16,8 +16,9 @@ a type annotation is fine. Besides the adapters it guards the per-venue state
 (`TradingSessionState`, `EquityCurveRecorder`, built only by
 `VenueSessionStates` since `EPIC-028B`, so the handlers and the user data
 stream of a venue share one object)
-and the registry (`VenueAssembly`, `VenueContexts`, built only by
-`adapter_bindings.py`). `scripts/` is not scanned on purpose: its
+and the registry (`VenueContexts`, built only by `adapter_bindings.py`, and `VenueAssembly`,
+built only by `exchange_adapters.py`, which names it by path - `Deferred("pkg.mod:VenueAssembly")`
+counts as a call, because `PRO-014` stopped importing the class at boot). `scripts/` is not scanned on purpose: its
 `epic021*_probe.py` scripts are standalone manual exercises that build one
 venue's adapters without a container, never alongside the running app.
 
@@ -39,6 +40,7 @@ _SCANNED_DIR = _REPO_ROOT / "src"
 _COMPOSITION_DIR = _REPO_ROOT / "src" / "modules" / "trading" / "composition"
 _VENUE_ASSEMBLY_FILE = _COMPOSITION_DIR / "venue_assembly.py"
 _ADAPTER_BINDINGS_FILE = _COMPOSITION_DIR / "adapter_bindings.py"
+_EXCHANGE_ADAPTERS_FILE = _COMPOSITION_DIR / "exchange_adapters.py"
 _VENUE_SESSION_STATES_FILE = (
     _REPO_ROOT
     / "src"
@@ -76,9 +78,9 @@ _VENUE_ADAPTER_CLASSES = frozenset(
     }
 )
 
-# The registry and the assemblies it hands out: `adapter_bindings.py` is the
-# one place that builds them, so a second `VenueAssembly` cannot appear beside
-# the one `VenueContexts` caches per venue.
+# The registry and the assemblies it hands out: `adapter_bindings.py` builds the registry and
+# `exchange_adapters.py` the assemblies (for `VenueContexts`), so a second `VenueAssembly`
+# cannot appear beside the one `VenueContexts` caches per venue.
 _REGISTRY_CLASSES = frozenset({"VenueAssembly", "VenueContexts"})
 
 _GUARDED_CLASSES = _VENUE_ADAPTER_CLASSES | _VENUE_STATE_CLASSES | _REGISTRY_CLASSES
@@ -86,8 +88,20 @@ _GUARDED_CLASSES = _VENUE_ADAPTER_CLASSES | _VENUE_STATE_CLASSES | _REGISTRY_CLA
 _ALLOWED: dict[Path, frozenset[str]] = {
     _VENUE_ASSEMBLY_FILE: _VENUE_ADAPTER_CLASSES,
     _VENUE_SESSION_STATES_FILE: _VENUE_STATE_CLASSES,
-    _ADAPTER_BINDINGS_FILE: _REGISTRY_CLASSES,
+    _ADAPTER_BINDINGS_FILE: frozenset({"VenueContexts"}),
+    _EXCHANGE_ADAPTERS_FILE: frozenset({"VenueAssembly"}),
 }
+
+
+def _class_named_by_path(call: ast.Call) -> str | None:
+    """`Class` of a `Deferred("package.module:Class")` call: the class is built by the one that
+    calls the Deferred, so the path is where the construction is."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "Deferred"):
+        return None
+    first = call.args[0] if call.args else None
+    if isinstance(first, ast.Constant) and isinstance(first.value, str):
+        return first.value.rpartition(":")[2] if ":" in first.value else None
+    return None
 
 
 def _constructed_venue_adapters(source: str, filename: str) -> set[str]:
@@ -104,6 +118,10 @@ def _constructed_venue_adapters(source: str, filename: str) -> set[str]:
     built: set[str] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
+            continue
+        by_path = _class_named_by_path(node)
+        if by_path in _GUARDED_CLASSES:
+            built.add(by_path)
             continue
         if isinstance(node.func, ast.Name):
             name = aliases.get(node.func.id, node.func.id)
@@ -148,6 +166,7 @@ def test_each_builder_still_builds_every_class_it_is_allowed_to() -> None:
 
     assert sites.get(_VENUE_ASSEMBLY_FILE) == _ALLOWED[_VENUE_ASSEMBLY_FILE]
     assert sites.get(_ADAPTER_BINDINGS_FILE) == _ALLOWED[_ADAPTER_BINDINGS_FILE]
+    assert sites.get(_EXCHANGE_ADAPTERS_FILE) == _ALLOWED[_EXCHANGE_ADAPTERS_FILE]
 
 
 def test_guard_actually_detects_a_violation() -> None:
@@ -172,6 +191,7 @@ def test_guard_actually_detects_a_violation() -> None:
         ("state = TradingSessionState()\n", {"TradingSessionState"}),
         ("rec = pkg.EquityCurveRecorder()\n", {"EquityCurveRecorder"}),
         ("VenueAssembly(venue, shared)\n", {"VenueAssembly"}),
+        ('_A = Deferred("pkg.venue_assembly:VenueAssembly")\n', {"VenueAssembly"}),
     ],
 )
 def test_guard_sees_attribute_calls_aliases_and_per_venue_state(

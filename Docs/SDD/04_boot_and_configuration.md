@@ -29,6 +29,12 @@ and the `dev.mode` toggle with its restart.
 2. Construct `QApplication` (the Engine's proven ordering: before `App.boot()`).
 3. `app.use(module)` for each entry of `MODULES`, **in the list's own topological order** — the
    list is the source of truth; the Engine's `dependencies` sort is a check, not the mechanism.
+   An entry names its class by import path (`shell/modules.py` → `ModuleEntry`), so the list costs
+   nothing to read. `create_app` takes the contexts the command declared in `cli_commands.json`
+   (`"modules"`) and registers those and the contexts they depend on, in list order
+   (`shell/module_selection.py` → `select_modules`); a command that declares none, and the
+   desktop application, register them all (`PRO-014`). The dependencies come in with them
+   because the Engine refuses a context whose declared dependencies are missing.
 4. `DoubleClaimCheck`: for every abstract type in `container.registrations()`, at most one module
    registered it; otherwise fail before `boot()`.
 5. `app.boot()`.

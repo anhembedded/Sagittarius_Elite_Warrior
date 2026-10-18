@@ -53,3 +53,11 @@ class IVenueContexts(ABC):
         `TradingVenue.DISABLED`'s read-only context when none is enabled
         (the same Futures-shaped adapters the process has always bound while
         trading is off)."""
+
+    def built(self) -> tuple[TradingVenue, ...]:
+        """The enabled venues whose context something has asked for, which is every venue
+        that has anything to release at shutdown (`PRO-014`).
+
+        A registry that builds a venue's adapters lazily answers with the venues it built; this
+        default is for one that builds them all up front, so every enabled venue counts."""
+        return self.enabled()
