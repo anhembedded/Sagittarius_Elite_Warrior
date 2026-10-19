@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.risk_state import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     PRICE_STALENESS_HALTS,
+    RUN_STARTING_STATES,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -133,6 +134,10 @@ class GridRiskWatch:
         self._snapshot: RiskSnapshot | None = None
         self._read_failing = False
         self._pending: _Pending | None = None
+        #: A divergence reported while the bot is in a state the watch does not act in, and when
+        #: it is said if it is still there: the close of a stop or a halt lags the same way
+        #: (`BUG-203`).
+        self._unconfirmed: tuple[PositionDivergence, float] | None = None
         #: When the bot stopped being able to judge, on the monotonic clock; `None` while it can.
         self._blind_since: float | None = None
 
@@ -149,6 +154,17 @@ class GridRiskWatch:
         `MAX_RECHECK_DELAYS` delays after the first, instead of adding a re-read and a line to
         the log for each. The re-read is the only thing here that costs weight: it registers the
         budget again."""
+        if self._context.state.state not in PRICE_STALENESS_HALTS:
+            delay = self._parts.thresholds.position_recheck_delay.total_seconds()
+            first_due = None if self._unconfirmed is None else self._unconfirmed[1]
+            self._unconfirmed = (
+                divergence,
+                self._context.monotonic.seconds() + delay
+                if first_due is None
+                else first_due,
+            )
+            return
+        self._unconfirmed = None
         pending = self._pending
         if pending is not None and pending.divergence.cause == divergence.cause:
             return
@@ -175,14 +191,44 @@ class GridRiskWatch:
         """One beat: confirm a pending divergence, then judge the liquidation distance."""
         if self._context.state.state not in PRICE_STALENESS_HALTS:
             self._level = RiskLevel.SAFE
+            if self._pending is not None and self._unconfirmed is None:
+                self._unconfirmed = (self._pending.divergence, self._pending.due_at)
             self._pending = None
             self._blind_since = None
+            self._say_if_still_unconfirmed()
             return
+        self._unconfirmed = None
         self._confirm_divergence()
         if self._context.state.state in PRICE_STALENESS_HALTS:
             self._judge_distance()
 
     # --- the divergence ---
+
+    def _say_if_still_unconfirmed(self) -> None:
+        """A divergence the bot is in no state to confirm (HALTED, ERROR, STOPPING: its owner
+        book can outlive the halt, and a halt may leave the position open) is said once, after
+        the recheck delay, if the bot has not ended meanwhile: trading no longer warns about it
+        (`BUG-203`), and the close a stop or a halt sends lags the account's report as an
+        opening does, so a bot that reaches STOPPED inside the delay says nothing."""
+        unconfirmed = self._unconfirmed
+        if unconfirmed is None:
+            return
+        if self._context.state.state in RUN_STARTING_STATES:
+            self._unconfirmed = None
+            return
+        divergence, due_at = unconfirmed
+        if self._context.monotonic.seconds() < due_at:
+            return
+        self._unconfirmed = None
+        logger.warning(
+            "Bot %s is %s and cannot confirm a position divergence: the exchange holds %s, the "
+            "bot's own fills add up to %s (%s) [position-divergence]",
+            self._context.state.bot_id,
+            self._context.state.state.value,
+            divergence.exchange,
+            divergence.derived,
+            divergence.kind.value,
+        )
 
     def _confirm_divergence(self) -> None:
         pending = self._pending

@@ -144,6 +144,11 @@ class OwnerBooks:
             book = self._by_tag.get(tag)
             return None if book is None else book.owner_id
 
+    def has_owner_on(self, symbol: str) -> bool:
+        """@brief Whether a budgeted owner has a book on `symbol`."""
+        with self._lock:
+            return any(book.symbol == symbol for book in self._by_tag.values())
+
     def facts(
         self, tag: str, owner_id: str, order: Order, now: datetime
     ) -> OwnerBudgetFacts | None:
