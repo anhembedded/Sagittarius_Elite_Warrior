@@ -12,10 +12,15 @@ from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotProgress,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    LadderRow,
+    LadderState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState as S,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
+    BotLadderTableModel,
     BotsTableModel,
     sign_tone,
     state_tone,
@@ -121,25 +126,31 @@ def test_every_lifecycle_state_has_a_tone_and_only_the_quiet_ones_none():
     assert {s for s in S if state_tone(s) is Tone.NEUTRAL} == quiet
 
 
-def test_a_ladder_cycle_that_loses_after_fees_is_coloured_as_a_loss(monkeypatch):
-    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
-        BotLadderTableModel,
+def _ladder_row(net_quote: Decimal | None) -> LadderRow:
+    return LadderRow(
+        buy=Decimal(100),
+        sell=Decimal(101),
+        step_fraction=Decimal("0.01"),
+        net_fraction=None,
+        gross_quote=None,
+        net_quote=net_quote,
+        state=next(iter(LadderState)),
     )
 
+
+def test_a_ladder_cycle_that_loses_after_fees_is_coloured_as_a_loss(monkeypatch):
     palette = _on("white", monkeypatch)
     ladder = BotLadderTableModel()
-    key = ladder.column("net_quote")
+    ladder.set_rows(
+        [_ladder_row(Decimal(-1)), _ladder_row(Decimal(2)), _ladder_row(None)]
+    )
+    net = ladder.column("net_quote")
 
-    def row(net: Decimal | None):
-        return type("Row", (), {"net_quote": net})()
+    colours = [ladder.data(ladder.index(r, net), _FOREGROUND) for r in range(3)]
 
-    colours = [
-        ladder._role_data(row(n), key, _FOREGROUND)
-        for n in (Decimal(-1), Decimal(2), None)
-    ]
     assert colours == [
         tone_colour(Tone.NEGATIVE, palette),
         tone_colour(Tone.POSITIVE, palette),
         None,
     ]
-    assert ladder._role_data(row(Decimal(2)), ladder.column("net"), _FOREGROUND) is None
+    assert ladder.data(ladder.index(1, ladder.column("net")), _FOREGROUND) is None

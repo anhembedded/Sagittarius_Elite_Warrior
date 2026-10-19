@@ -24,11 +24,10 @@ Capability: Colour something by meaning (good, bad, warning), never a hex
 
 from __future__ import annotations
 
-import ctypes
-import sys
 from enum import Enum, auto
 
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -53,6 +52,8 @@ _TONE_COLOURS = {Tone.POSITIVE: PROFIT_COLOUR, Tone.NEGATIVE: LOSS_COLOUR}
 
 #: WCAG 2.x success criterion 1.4.3: the contrast text needs against its background.
 MIN_TEXT_CONTRAST = 4.5
+#: A base lighter than this is a light scheme, darker a dark one.
+_MIDDLE_LIGHTNESS = 128
 
 #: The named colours of each tone on a light base and on a dark base.
 _LIGHT_BASE_COLOURS = {
@@ -66,28 +67,18 @@ _DARK_BASE_COLOURS = {
     Tone.CAUTION: "darkorange",
 }
 
-_SPI_GETHIGHCONTRAST = 0x0042
-_HCF_HIGHCONTRASTON = 0x1
-
-
-class _HighContrast(ctypes.Structure):
-    _fields_ = (
-        ("cbSize", ctypes.c_uint),
-        ("dwFlags", ctypes.c_ulong),
-        ("lpszDefaultScheme", ctypes.c_wchar_p),
-    )
-
 
 def is_high_contrast() -> bool:
-    """Whether Windows High Contrast is on. Qt 6.11 has no query for it; other
-    platforms say no, and their dark mode is the palette's own."""
-    if sys.platform != "win32":
-        return False
-    info = _HighContrast(ctypes.sizeof(_HighContrast), 0, None)
-    ok = ctypes.windll.user32.SystemParametersInfoW(  # type: ignore[attr-defined,unused-ignore]
-        _SPI_GETHIGHCONTRAST, info.cbSize, ctypes.byref(info), 0
+    """Whether the platform asks for high contrast (Windows High Contrast, macOS
+    Increase contrast): Qt's own hint, cached by Qt and changed by its signal, so
+    asking it for every coloured cell of a repaint costs nothing."""
+    # The style hints stay named: PySide deletes the accessibility hints it returned
+    # when the temporary that owns them goes.
+    style_hints = QGuiApplication.styleHints()
+    return (
+        style_hints.accessibility().contrastPreference()
+        == Qt.ContrastPreference.HighContrast
     )
-    return bool(ok) and bool(info.dwFlags & _HCF_HIGHCONTRASTON)
 
 
 def tone_colour(tone: Tone, palette: QPalette | None = None) -> QColor | None:
@@ -106,6 +97,3 @@ def tone_colour(tone: Tone, palette: QPalette | None = None) -> QColor | None:
     dark = palette.color(QPalette.ColorRole.Base).lightness() < _MIDDLE_LIGHTNESS
     name = (_DARK_BASE_COLOURS if dark else _LIGHT_BASE_COLOURS).get(tone)
     return None if name is None else QColor(name)
-
-
-_MIDDLE_LIGHTNESS = 128

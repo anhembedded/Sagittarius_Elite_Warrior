@@ -17,7 +17,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFill,
 )
@@ -81,7 +81,7 @@ def sign_tone(amount: Decimal | None) -> Tone:
     return Tone.POSITIVE if amount > 0 else Tone.NEGATIVE
 
 
-def _foreground(tone: Tone) -> object:
+def _foreground(tone: Tone) -> QColor | None:
     """The tone's colour on the application's current palette (read at each
     paint, so a change of the OS scheme is followed)."""
     return tone_colour(tone, QGuiApplication.palette())

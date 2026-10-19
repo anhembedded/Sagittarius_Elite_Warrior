@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 import pytest
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from Sagittarius_Elite_Warrior.src.support.ui_kit import meaning_colours
 from Sagittarius_Elite_Warrior.src.support.ui_kit.meaning_colours import (
     LOSS_COLOUR,
@@ -80,6 +83,18 @@ def test_high_contrast_leaves_every_colour_to_the_platform(monkeypatch):
         assert [tone_colour(tone, _palette(base)) for tone in _TONES] == [None] * 3
 
 
-def test_other_platforms_are_never_in_high_contrast(monkeypatch):
-    monkeypatch.setattr(meaning_colours.sys, "platform", "linux")
-    assert meaning_colours.is_high_contrast() is False
+@pytest.mark.parametrize(
+    ("preference", "expected"),
+    [
+        (Qt.ContrastPreference.HighContrast, True),
+        (Qt.ContrastPreference.NoPreference, False),
+    ],
+)
+def test_high_contrast_is_what_qts_accessibility_hint_says(
+    monkeypatch, preference, expected
+):
+    accessibility = SimpleNamespace(contrastPreference=lambda: preference)
+    hints = SimpleNamespace(accessibility=lambda: accessibility)
+    monkeypatch.setattr(QGuiApplication, "styleHints", staticmethod(lambda: hints))
+
+    assert meaning_colours.is_high_contrast() is expected
