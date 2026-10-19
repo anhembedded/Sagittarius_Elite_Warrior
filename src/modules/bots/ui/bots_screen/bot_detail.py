@@ -46,6 +46,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.exchange_facts import 
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.futures_facts import (
     VenueSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    LadderUnavailable,
+    grid_ladder_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind import IBotKind
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     SPOT_PROFILE,
@@ -118,6 +123,8 @@ class BotDetail:
     #: Why no grid is drawn on the chart of a bot at rest ("Grid not drawn: …"),
     #: empty when one is (`EPIC-035N`).
     overlay_note: str = ""
+    #: The ladder the saved parameters make, with what the saved run records (`BOT-193`).
+    ladder: GridLadder | LadderUnavailable | None = None
 
 
 def detail_for(inputs: DetailInputs) -> BotDetail:
@@ -171,6 +178,7 @@ def detail_for(inputs: DetailInputs) -> BotDetail:
         overlay=judged.overlay,
         readiness=readiness,
         overlay_note=_not_drawn(bot, inputs.market, judged),
+        ladder=grid_ladder_of(bot, inputs.now),
     )
 
 

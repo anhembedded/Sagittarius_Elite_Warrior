@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    LadderUnavailable,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     ActionAvailability,
     BotAction,
@@ -54,6 +58,8 @@ class BotsViewModel(StatusMessageViewModel):
     bots_changed = Signal()
     selection_changed = Signal()
     facts_changed = Signal()
+    #: The selected bot's ladder, or why it has none, changed (`BOT-193`).
+    ladder_changed = Signal()
     judgement_changed = Signal()
     #: Why no grid is drawn on the chart (`EPIC-035N`).
     chart_note_changed = Signal()
@@ -96,6 +102,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.bots: tuple[BotSnapshot, ...] = ()
         self.selected: BotSnapshot | None = None
         self.facts: BotFacts | None = None
+        self.ladder: GridLadder | LadderUnavailable | None = None
         self.verdict_lines: tuple[str, ...] = ()
         self.chart_note = ""
         #: What is left before Start, and where the bot stands among the three
@@ -132,6 +139,11 @@ class BotsViewModel(StatusMessageViewModel):
     def set_facts(self, facts: BotFacts | None) -> None:
         self.facts = facts
         self.facts_changed.emit()
+
+    @Slot(object)
+    def set_ladder(self, ladder: GridLadder | LadderUnavailable | None) -> None:
+        self.ladder = ladder
+        self.ladder_changed.emit()
 
     @Slot(str)
     def set_chart_note(self, text: str) -> None:

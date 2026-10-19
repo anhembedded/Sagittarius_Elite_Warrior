@@ -6,8 +6,8 @@ functions, so a figure reads the same in the Bots tab and in `bot show` and a ru
 changes both. A headless host installs no Qt, so this module imports nothing but the standard library.
 
 Capability: Write a price or money amount as text without Qt
-    Also: format price, format money, decimals, thousands separator, headless number text, negative zero
-    Use: price_text, money_text
+    Also: format price, format money, format percent, decimals, thousands separator, headless number text, negative zero
+    Use: price_text, money_text, percent_text
     User: src/modules/bots/contracts/run_earnings.py
     Status: stable
 """
@@ -44,3 +44,8 @@ def price_text(value: float) -> str:
     if abs(round(value, MAX_DECIMALS)) >= UNIT_PRICE:
         return without_negative_zero(f"{value:,.4f}")
     return without_negative_zero(without_trailing_zeros(f"{value:,.{MAX_DECIMALS}f}"))
+
+
+def percent_text(value: float) -> str:
+    """A percentage given as the number of per cent (`1.5` is 1.5 %): two decimals and `%`."""
+    return without_negative_zero(f"{value:,.2f}") + "%"

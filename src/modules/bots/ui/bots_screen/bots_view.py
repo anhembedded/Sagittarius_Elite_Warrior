@@ -3,7 +3,7 @@
 The selected bot's chart is the centre; Bots (the list) is docked on the
 left, Strategies (a row per venue's armed strategy, `EPIC-033K` stage 3)
 under it, Plan (the bot's figures, the kind's editor and its verdicts) on the
-right, and Orders, Fills, Log and the kind's Backtest are tabbed at the
+right, and Orders, Ladder, Fills, Log and the kind's Backtest are tabbed at the
 bottom. Every command is an action of the Bots menu (`bots_commands.py`);
 nothing here is a push button.
 
@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_activity_pane
     BotFillsPanel,
     BotLogPanel,
     BotOrdersPanel,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_ladder_panel import (
+    BotLadderPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_panel import (
     BotPlanPanel,
@@ -93,6 +96,8 @@ BOTS_SURFACE = Surface(
 BOTS_DOCK = "Bots"
 PLAN_DOCK = "Plan"
 ORDERS_DOCK = "Orders"
+#: `BOT-193`: the Grid bot's ladder, beside its orders.
+LADDER_DOCK = "Ladder"
 FILLS_DOCK = "Fills"
 LOG_DOCK = "Log"
 #: Not in HLD §11.2.1's row: the kind's own backtest (`EPIC-029D`), a tab
@@ -122,6 +127,10 @@ class BotsView(BaseView):
         self.identity = IdentityStrip(self.model)
         self.strategies = StrategiesPanel()
         self.orders = BotOrdersPanel(self.model)
+        self.ladder = BotLadderPanel(self.model)
+        # Asks for its minimum only, like the Strategies panel: the tallest bottom panel sets the
+        # dock area's height, and the chart keeps the larger share (`BOT-193`).
+        self._ladder_slot = MinimumHintSlot(self.ladder)
         self.fills = BotFillsPanel(self.model)
         self.log = BotLogPanel(self.model)
         self.chart_area = QWidget()
@@ -172,7 +181,12 @@ class BotsView(BaseView):
         symbol filters (`EPIC-033N`)."""
         precisions = SelectedBotPrecisions(filters, lambda: self.model.selected)
         self.orders.use_precisions(precisions)
+        self.ladder.use_precisions(precisions)
         self.fills.use_precisions(precisions)
+
+    def show_ladder(self) -> None:
+        """Brings the Ladder tab to the front of the bottom panels."""
+        self.surface.dock_of(self._ladder_slot).raise_()
 
     def set_chart(self, chart: QWidget | None) -> None:
         replace_in(
@@ -208,6 +222,7 @@ class BotsView(BaseView):
         surface.place_widget(Place.RAIL, self.plan, title=PLAN_DOCK)
         for widget, title in (
             (self.orders, ORDERS_DOCK),
+            (self._ladder_slot, LADDER_DOCK),
             (self.fills, FILLS_DOCK),
             (self.log, LOG_DOCK),
             (self.backtest, BACKTEST_DOCK),

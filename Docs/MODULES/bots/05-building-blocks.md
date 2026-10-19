@@ -102,6 +102,19 @@ The ports in [`diagrams/05-contracts.puml`](diagrams/05-contracts.puml) are `IBo
 `AppliedPlan` (`bots/contracts/applied_plan.py` → `AppliedPlan`). Their members are in the code, not
 copied here.
 
+The ladder of a Grid bot (`BOT-193`) is a read model in the same layer: `bots/contracts/grid_ladder.py` →
+`grid_ladder_of`, `GridLadder`, `LadderRow`, `PricePosition` builds one row per grid, the summary and the
+distances from a `BotSnapshot` alone (its saved parameters read now, its saved run), calling
+`bots/domain/grid/grid_derived.py` → `grid_profits` for the step and net arithmetic; no exchange call, no
+host, no Qt. The words are `bots/contracts/grid_ladder_texts.py`, shared by the Bots tab and (next) the
+commands. In the tab `bots/ui/bots_screen/bot_detail.py` → `detail_for` computes it with the clock the
+other figures use, `bots_view_model.py` → `BotsViewModel.set_ladder` holds it, the Ladder dock
+(`bot_ladder_panel.py` → `BotLadderPanel`, rows from `bots_table_models.py` → `BotLadderTableModel`) shows
+the table and the Plan panel (`bot_plan_panel.py` → `BotPlanPanel`) shows the grid step, the profit per
+cycle and where the last price stands. What the record cannot give is a blank cell or a sentence, never a
+zero: the account's maker rate and a Futures liquidation price are not saved, so the net after fees is
+unknown and the liquidation row says so.
+
 ## Built: the protective stop's parts (Futures)
 
 The stop is the Futures Grid's, behind one port like the opening and the close

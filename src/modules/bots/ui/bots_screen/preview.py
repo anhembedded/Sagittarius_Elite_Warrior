@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_readiness import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    grid_ladder_of,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -84,6 +87,7 @@ def build_preview() -> QWidget:
     draft = bots[0]
     view.model.set_selected(draft)
     view.model.set_facts(bot_facts(draft, _NOW))
+    view.model.set_ladder(grid_ladder_of(draft, _NOW))
     view.model.set_judgement(
         (
             "OK: Every grid earns more than its fees (thinnest step 0.0145, fees 0.002)",
@@ -108,6 +112,29 @@ def build_preview() -> QWidget:
     view.apply_ui_mode(BotsUiState.EDITING_DRAFT)
     view.resize(1200, 760)
     return view
+
+
+def build_ladder_preview() -> QWidget:
+    """`BOT-193` - a running Grid bot selected with its Ladder panel in front: the grids one row
+    each, the summary line, the profit a cycle earns and where the last price the bot heard stands.
+    The seeded run rests a BUY at 64,000 and a SELL at 66,000, and heard 64,500 two minutes ago."""
+    view = BotsView()
+    seed_ladder_preview(view)
+    view.resize(1400, 820)
+    return view
+
+
+def seed_ladder_preview(view: BotsView) -> None:
+    """Fills `view` as `build_ladder_preview` shows it: a bot in every state, the running one
+    selected, its Ladder in front. Also how a booted window is given a bot to picture
+    (`test_bots_ladder_is_pictured.py`)."""
+    bots = tuple(_bot(index, state) for index, state in enumerate(BotLifecycleState))
+    running = next(bot for bot in bots if bot.state is BotLifecycleState.RUNNING)
+    view.model.set_bots(bots)
+    view.model.set_selected(running)
+    view.model.set_facts(bot_facts(running, _NOW))
+    view.model.set_ladder(grid_ladder_of(running, _NOW))
+    view.show_ladder()
 
 
 def build_export_plan_preview() -> QWidget:
@@ -183,6 +210,8 @@ def _progress(index: int) -> BotProgress:
         average_cost=Decimal(64000),
         reason="",
         reason_detail="",
+        mark_price=Decimal(64500),
+        mark_price_at=_NOW - timedelta(minutes=2),
         orders=(
             BotOrderLine(
                 4,
