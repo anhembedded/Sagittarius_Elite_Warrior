@@ -86,6 +86,9 @@ class Halt:
 
     reason: GridReason
     detail: str
+    #: For a counter order that found its level occupied: the level whose order stood in
+    #: the way (`BUG-225`), so the executor can ask the exchange about it before halting.
+    occupied_level: int | None = None
 
 
 type GridAction = PlaceOrder | Halt
@@ -309,6 +312,7 @@ def _counter(
         return Halt(
             GridReason.DUPLICATE_LEVEL_ORDER,
             f"L{target} already holds an order; the counter of L{index} cannot go there",
+            occupied_level=target,
         )
     return PlaceOrder(target, side, level.price, quantity, *paired)
 
@@ -321,7 +325,7 @@ def hold_order(runtime: GridRuntime, action: PlaceOrder) -> Reaction:
 
 def _emit(runtime: GridRuntime, action: PlaceOrder | Halt, hold: bool) -> Reaction:
     if isinstance(action, Halt):
-        return _halt(runtime, action.reason, action.detail)
+        return _halt(runtime, action.reason, action.detail, action.occupied_level)
     if hold:
         if any(h.level_index == action.level_index for h in runtime.held):
             return _halt(
@@ -343,5 +347,11 @@ def _emit(runtime: GridRuntime, action: PlaceOrder | Halt, hold: bool) -> Reacti
     return Reaction(runtime, (action,))
 
 
-def _halt(runtime: GridRuntime, reason: GridReason, detail: str) -> Reaction:
-    return Reaction(runtime.with_reason(reason, detail), (Halt(reason, detail),))
+def _halt(
+    runtime: GridRuntime,
+    reason: GridReason,
+    detail: str,
+    occupied_level: int | None = None,
+) -> Reaction:
+    halt = Halt(reason, detail, occupied_level)
+    return Reaction(runtime.with_reason(reason, detail), (halt,))

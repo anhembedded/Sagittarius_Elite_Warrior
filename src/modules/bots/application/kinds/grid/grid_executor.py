@@ -14,6 +14,9 @@ import logging
 from collections.abc import Callable
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_blocked_counter import (
+    GridBlockedCounter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_exposures import (
     GridExposure,
 )
@@ -206,6 +209,7 @@ class GridExecutor(IBotExecutor):
                 self._interrupted_start,
                 GridKeyProbe(context),
                 GridTermsWatch(context),
+                GridBlockedCounter(context),
                 exposure.risk_watch,
                 GridMarkExit(exposure.exit_marks, self._prices, self.bot_id)
                 if exposure.exit_marks is not None

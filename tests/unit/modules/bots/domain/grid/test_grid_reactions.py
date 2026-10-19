@@ -318,6 +318,7 @@ def test_a_counter_aimed_at_a_level_that_holds_an_order_halts() -> None:
         Halt(
             GridReason.DUPLICATE_LEVEL_ORDER,
             "L2 already holds an order; the counter of L1 cannot go there",
+            occupied_level=2,
         ),
     )
 

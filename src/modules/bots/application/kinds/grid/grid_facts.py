@@ -26,6 +26,9 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_blocked_counter import (
+    GridBlockedCounter,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
 )
@@ -98,7 +101,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
     LevelFill,
     drop_order,
     on_end,
-    on_fill,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -146,6 +148,8 @@ class GridFactParts:
     interrupted_start: GridInterruptedStart
     key_probe: GridKeyProbe
     terms_watch: GridTermsWatch
+    #: The ladder's reaction to a fill, asking the exchange before a counter halts (`BUG-225`).
+    counters: GridBlockedCounter
     #: A position venue's liquidation and divergence watch (`EPIC-039F`); `None` on Spot,
     #: which has neither.
     risk_watch: GridRiskWatch | None = None
@@ -252,12 +256,7 @@ class GridFacts(IBotFacts):
                     fill.client_order_id,
                 )
             return
-        reaction = on_fill(
-            state.runtime,
-            level_fill,
-            self._context.terms.step_size,
-            hold=state.state is not _S.RUNNING,
-        )
+        reaction = self._parts.counters.on_fill(level_fill)
         state.update(
             reaction.runtime.with_fill_commission(
                 level_fill.base_fee, level_fill.quote_fee, level_fill.price

@@ -13,6 +13,16 @@ RT -> F : on_fill(fill), for the executor\nthat owns the client order id
 note over T, RT : the bus thread returns here
 F -> F : already counted? ignore [duplicate-fill]
 F -> F : level RESTING --full_fill--> FILLED
+alt counter level still occupied (BUG-225)
+  F -> T : find_order(order in the way), once
+  alt filled
+    F -> F : park this fill; replay it after that order's own fill
+  else cancelled or expired, nothing executed
+    F -> F : free the level, retry the counter
+  else still open or unreadable
+    F -> F : halt duplicate_level_order
+  end
+end
 F -> L : lay the counter order one level away
 L -> T : place
 F -> F : level FILLED --settled--> EMPTY
