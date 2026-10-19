@@ -80,7 +80,9 @@ _CONFIG = {
 }
 
 
-def _run(*resting: tuple[int, OrderSide, str]) -> dict[str, object]:
+def _run(
+    *resting: tuple[int, OrderSide, str], maker_fee: Decimal | None = None
+) -> dict[str, object]:
     orders = {level: (side, Decimal(price)) for level, side, price in resting}
     levels = tuple(
         RuntimeLevel(
@@ -98,6 +100,7 @@ def _run(*resting: tuple[int, OrderSide, str]) -> dict[str, object]:
         levels,
         realised_profit=Decimal(30),
         completed_cycles=6,
+        maker_fee=maker_fee,
         mark_price=Decimal(64500),
         mark_price_at=FAKE_CLOCK_START - timedelta(minutes=5),
     )
@@ -114,6 +117,7 @@ def _world() -> BotQueryDispatcher:
         _run((4, OrderSide.BUY, "64000"), (6, OrderSide.SELL, "66000")),
     )
     seed(store, "cccccc", S.DRAFT, {"lower": "60000"}, {})
+    seed(store, "rated0", S.RUNNING, _CONFIG, _run(maker_fee=Decimal("0.0002")))
     seed(
         store,
         "ffffff",
@@ -331,3 +335,19 @@ def test_a_sub_cent_cycle_is_never_a_zero_in_the_grid_table(
     out = capsys.readouterr().out
 
     assert "less than 0.01" in out
+
+
+def test_a_recorded_rate_fills_the_net_columns_and_the_table_says_which_rate(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    out = _text(ShowBotVerb(), capsys, bot_id="rated0", grids=True)
+
+    ladder_line = next(row for row in out.splitlines() if row.startswith("Ladder"))
+    assert (
+        "after the 0.02% maker fee on both legs (rate recorded at run start)"
+        in ladder_line
+    )
+    assert "Net figures use the 0.02% maker rate recorded when this run started" in out
+    assert "Net figures are blank" not in out
+    first = next(row for row in out.splitlines() if row.startswith("60,000.00"))
+    assert first.split()[3] == "1.63%", "1.67% less two 0.02% maker fees"

@@ -91,7 +91,11 @@ def _progress(**fields: object) -> BotProgress:
 
 
 def _ladder(bot: BotSnapshot, maker_fee: Decimal | None = None) -> GridLadder:
-    ladder = grid_ladder_of(bot, _NOW, maker_fee)
+    """The ladder of `bot`; `maker_fee` is the rate its run recorded at its start."""
+    if maker_fee is not None:
+        progress = bot.progress or _progress()
+        bot = replace(bot, progress=replace(progress, maker_fee=maker_fee))
+    ladder = grid_ladder_of(bot, _NOW)
     assert isinstance(ladder, GridLadder)
     return ladder
 

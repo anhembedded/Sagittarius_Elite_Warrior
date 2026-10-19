@@ -19,8 +19,8 @@ Every figure says what it is (`PRO-016` section 2):
     the estimate is up to one level's share high.)
 
 A figure that needs something the record does not hold is `None`, never zero: no price heard, no
-fee rate (the account's maker rate is read from the exchange and is not saved, so the net after
-fees is `None` until a caller can supply it and the profit is shown before fees), no run.
+fee rate (the account's maker rate is recorded when a run starts, so a file an earlier build wrote
+has none, and the net after fees is `None` and the profit is shown before fees), no run.
 
 Nothing here promises how often the price crosses a level, and there is no profit per day.
 """
@@ -173,13 +173,12 @@ RUN_DIFFERS_NOTE = (
 )
 
 
-def grid_ladder_of(
-    bot: BotSnapshot, now: datetime, maker_fee: Decimal | None = None
-) -> GridLadder | LadderUnavailable:
+def grid_ladder_of(bot: BotSnapshot, now: datetime) -> GridLadder | LadderUnavailable:
     """The ladder of `bot` as its saved record makes it.
 
-    `maker_fee` is the account's maker rate when the caller knows it (the record does not hold
-    it): with it the net after fees is filled in, without it the profit is before fees.
+    The maker rate is the one the run's start recorded (`BotProgress.maker_fee`, `BOT-194`), the
+    only source a reader with no exchange has, and it is worded as such. With it the net after fees
+    is filled in, without it (a run from before it was recorded) the profit is before fees.
     """
     if bot.kind != GRID_KIND_ID:
         return LadderUnavailable(NO_LADDER_FOR_KIND)
@@ -189,6 +188,7 @@ def grid_ladder_of(
         return LadderUnavailable(f"The saved parameters make no ladder yet: {exc}.")
     levels = raw_levels(params.lower, params.upper, params.grid_count, params.spacing)
     progress = bot.progress
+    maker_fee = progress.maker_fee if progress is not None else None
     states, run_note = _states(levels, progress)
     gross = grid_profits(levels, _ZERO)
     net = grid_profits(levels, maker_fee) if maker_fee is not None else None

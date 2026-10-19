@@ -191,10 +191,10 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
             "gross_quote", "Per cycle, before fees (estimate)", ColumnKind.MONEY
         ),
         ColumnSpec("state", "Now (recorded)", ColumnKind.TEXT),
-        ColumnSpec("net", "Net step (designed)", ColumnKind.PERCENT),
+        ColumnSpec("net", "Net step, run-start rate (designed)", ColumnKind.PERCENT),
         ColumnSpec(
             "net_quote",
-            "Per cycle, after fees (estimate)",
+            "Per cycle, after fees at run-start rate (estimate)",
             ColumnKind.MONEY,
             stretch=True,
         ),

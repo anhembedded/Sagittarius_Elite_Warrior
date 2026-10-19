@@ -13,8 +13,8 @@ Status: Current
   lists it since `EPIC-033K`: the selected bot's chart in the centre, Bots (the list) on the left,
   Plan on the right, and Orders, Ladder, Fills, Log and Backtest tabbed at the bottom. Every command is in
   the Bots menu. The Ladder shows one row per grid (buy and sell level, step, what a cycle earns
-  before fees as an estimate, what the saved run says the grid is doing; the net after fees waits for
-  the account's maker rate, which the record does not hold) and the Plan the grid step, the profit
+  as an estimate, before fees and, where the run recorded the account's maker rate at its start,
+  after them; what the saved run says the grid is doing) and the Plan the grid step, the profit
   per cycle and where the last price the bot heard stands (`BOT-193`).
 
 ## 1. Trigger

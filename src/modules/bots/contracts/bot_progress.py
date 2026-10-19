@@ -59,3 +59,5 @@ class BotProgress:
     #: When the bot heard `mark_price` (its own clock); `None` before it heard one, and for a
     #: record an earlier build wrote (`BOT-193`).
     mark_price_at: datetime | None = None
+    #: `BOT-194` - the maker rate the run's start recorded; `None` when the record holds none.
+    maker_fee: Decimal | None = None

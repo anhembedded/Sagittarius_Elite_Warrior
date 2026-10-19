@@ -230,6 +230,11 @@ class GridRuntime:
     #: of the bot's own clock: the unrealised PnL is judged on it, not on a chart.
     mark_price: Decimal | None = None
     mark_price_at: datetime | None = None
+    #: `BOT-194` - the account's maker fee rate the run's start read from the exchange, kept so a
+    #: reader with no exchange (the Bots tab at rest, `bot show` on a read-only copy) can say what a
+    #: grid earns after fees. A rate recorded at run start, not today's: a tier change later leaves it
+    #: stale until the next start. `None` for a file an earlier build wrote and for a resume of one.
+    maker_fee: Decimal | None = None
     #: Fills whose fee was paid in an asset that could not be priced in the quote
     #: asset; the total is then short by those fees.
     unpriced_fees: int = 0

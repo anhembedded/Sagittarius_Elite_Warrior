@@ -160,3 +160,18 @@ def test_a_proposal_is_awaited_only_between_resume_and_confirmation() -> None:
 
     world.executor.confirm_resume()
     assert not world.executor.has_resume_proposal()
+
+
+def test_a_confirmed_resume_keeps_the_maker_rate_the_run_recorded_at_its_start() -> (
+    None
+):
+    """`BOT-194` - the rate is a fact of the run, kept as the start price is."""
+    world = _halted_by(TradingSwitchCause.EMERGENCY_STOP)
+    recorded = world.runtime().maker_fee
+    world.derive("4.132", cost="499.97")
+    world.executor.resume()
+
+    world.executor.confirm_resume()
+
+    assert recorded is not None, "the start recorded the rate its terms carried"
+    assert world.runtime().maker_fee == recorded

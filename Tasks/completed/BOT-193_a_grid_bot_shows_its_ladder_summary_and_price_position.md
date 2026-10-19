@@ -1,7 +1,7 @@
 # BOT-193 — A Grid bot shows its ladder, its summary line and where the price stands
 
-**Status:** 🟡 In progress (PR 1 read model + tab, PR 2 commands)
-**Board:** The Bots tab (a Ladder panel and Plan rows), then `bot show --grids` and the summary in `bot list`/`bot show`, show the grids, steps, profit per cycle and the distances to the range, exits and last price, from the saved record only (PRO-016).
+**Status:** ✅ Done (2026-10-19)
+**Board:** The Bots tab (a Ladder dock and Plan rows) and `bot show`/`bot show --grids`/`bot list` show a Grid bot's grids, steps, profit per cycle and the distances to the range, exits and last price from the saved record only, never zero for an unknown figure; delivered in [#576](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/576) and [#577](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/577) (PRO-016); the net after fees came with [BOT-194](completed/BOT-194_the_grid_runtime_saves_the_makers_rate_at_run_start.md).
 **Source:** The owner, 2026-10-19: "tui cần biết các grid cách nhau bao nhiêu % giá, mỗi grid sẽ TP được bao nhiêu" ("I need to know how far apart the grids are in percent and how much each grid takes as profit"); accepted [PRO-016](../proposal/PRO-016.md) as written and asked for the UI first.
 **Risk:** 🟢 — read-only; no order, bot behaviour, alert or stored field changes (one optional `mark_price_at` is read into `BotProgress`).
 **Complexity:** M — one read model, one wording module, a dock, Plan rows, then the commands (a second pull request).
@@ -45,7 +45,6 @@ Unit: `tests/unit/modules/bots/contracts/test_grid_ladder.py`, `test_grid_ladder
 `Docs/MODULES/bots/05-building-blocks.md` (this pull request); `Docs/OPERATIONS/headless_runbook.md` (new section on the ladder), `Docs/SPEC/SPEC-015_run_the_bots_headless.md` (a verification row), `Docs/MODULES/bots/07-deployment.md` (the commands' path), all in the second pull request.
 
 ## Implementation notes (written when done)
-_Open._
+Delivered in two pull requests, each reviewed (PASS) by a separate Opus session with a green `-Full` run on its head: #576 (read model, Bots tab) and #577 (`bot show`, `--grids`, `bot list`). Facts found while building: the saved run holds the last price and its moment; the Futures liquidation price is not saved; `RuntimeLevel.ended_at` records unfilled endings, so no per-level cycle count; the maker rate was not saved, which BOT-194 fixed. The report layouts have text and JSON only (no key=value renderer). Known limit: a sub-cent profit in the Bots tab's table cells still prints `0.00` (the sentences say `less than 0.01`).
 
-## Resume
-First pull request (read model + tab) in progress. Owner decision pending (asked through the coordinator): save the maker rate when a run starts so the net after fees can show.
+
