@@ -61,6 +61,16 @@ which ignores one already counted and books the rest on the bot's worker (`.../g
 and returns to `EMPTY` (`settled`, the level machine in [`state-machines.md`](state-machines.md)), and
 the bot's run state saves the new runtime.
 
+The stream hands over fills in the order it chooses, not always the order the exchange made them
+(`BUG-225`). A counter order whose level the ledger still shows occupied is therefore not yet a
+duplicate: `GridBlockedCounter` (`.../grid_blocked_counter.py` → `GridBlockedCounter.on_fill`) reads
+the order in the way once from the exchange (`BotAccountReads.order_status`, uncached). If it is
+filled, the fill that owes the counter is parked and replayed right after that order's own fill is
+applied; if it is cancelled or expired with nothing executed, the level is freed and the counter
+retried; if it is still open, or the read fails, the `DUPLICATE_LEVEL_ORDER` halt stands. A parked
+fill is in memory only: a restart or a stream gap reconciles from history in the exchange's order
+(`BUG-214`).
+
 ## Built: Stop
 
 [`diagrams/06-stop.puml`](diagrams/06-stop.puml) — *what does the owner's Stop do, and when is a bot
