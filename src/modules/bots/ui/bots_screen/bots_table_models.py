@@ -181,16 +181,23 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
     say why."""
 
     SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"buy", "sell"})
+    #: The figures the record always has come first; the two that need the fee rate (blank until it
+    #: is known) come last, so they never push the others out of view (`BOT-193` review).
     COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
         ColumnSpec("buy", "Buy at", ColumnKind.PRICE),
         ColumnSpec("sell", "Sell at", ColumnKind.PRICE),
         ColumnSpec("step", "Step (designed)", ColumnKind.PERCENT),
-        ColumnSpec("net", "Net step (designed)", ColumnKind.PERCENT),
         ColumnSpec(
             "gross_quote", "Per cycle, before fees (estimate)", ColumnKind.MONEY
         ),
-        ColumnSpec("net_quote", "Per cycle, after fees (estimate)", ColumnKind.MONEY),
-        ColumnSpec("state", "Now (recorded)", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("state", "Now (recorded)", ColumnKind.TEXT),
+        ColumnSpec("net", "Net step (designed)", ColumnKind.PERCENT),
+        ColumnSpec(
+            "net_quote",
+            "Per cycle, after fees (estimate)",
+            ColumnKind.MONEY,
+            stretch=True,
+        ),
     )
 
     def _value(self, row: LadderRow, column: int) -> DisplayValue:
@@ -198,9 +205,9 @@ class BotLadderTableModel(SelectedBotRows[LadderRow]):
             row.buy,
             row.sell,
             _percent(row.step_fraction),
-            _percent(row.net_fraction),
             _money_or_none(row.gross_quote),
-            _money_or_none(row.net_quote),
             row.state.value.capitalize(),
+            _percent(row.net_fraction),
+            _money_or_none(row.net_quote),
         )
         return values[column]

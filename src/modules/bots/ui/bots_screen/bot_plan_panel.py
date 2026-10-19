@@ -80,7 +80,7 @@ FACT_SPECS = (
             ("capital", "Capital"),
             ("grid_profit", "Profit from completed cycles"),
             ("cycles", "Completed cycles"),
-            ("cycle_average", "Average per cycle, net of fees"),
+            ("cycle_average", "Average per cycle (net of fees)"),
             ("total_pnl", "Total PnL"),
             ("unrealised", "of which unrealised"),
             ("hodl", "HODL benchmark"),
@@ -90,7 +90,7 @@ FACT_SPECS = (
             ("funding", "Funding (earned +, paid −)"),
             # `BOT-193`: the ladder the saved parameters make (designed), what a cycle there
             # earns (estimate) and where the last price the bot heard stands (recorded).
-            ("grid_step", "Grid step (designed)"),
+            ("grid_step", "Saved grid step, top to bottom"),
             ("cycle_profit", "Profit per cycle (estimate)"),
             ("last_price", "Last price heard"),
             ("lower_edge", "Lower edge"),

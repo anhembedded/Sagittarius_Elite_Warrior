@@ -344,3 +344,18 @@ def test_a_draft_without_parameters_names_what_is_missing() -> None:
 
     assert isinstance(unavailable, LadderUnavailable)
     assert "lower is missing" in unavailable.reason
+
+
+def test_a_venue_with_no_market_profile_has_no_sized_figure_not_a_guess(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder.venue_profile_of",
+        lambda _venue: None,
+    )
+
+    ladder = _ladder(_bot(), _FEE)
+
+    assert all(row.gross_quote is None and row.net_quote is None for row in ladder.rows)
+    assert ladder.summary.average_cycle_quote is None
+    assert not ladder.position.has_liquidation_price
