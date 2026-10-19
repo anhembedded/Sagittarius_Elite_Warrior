@@ -3,7 +3,7 @@
 **Status:** 🔵 Backlog
 **Priority:** P2
 **Board:** Save the maker fee rate the start sequence reads in the grid runtime (one optional field), so the Bots tab and `bot show` can fill in the net step and the profit per cycle after fees, labelled "rate recorded at run start".
-**Source:** Found while delivering [BOT-193](BOT-193_a_grid_bot_shows_its_ladder_summary_and_price_position.md): the rate is read from the exchange and not saved, so a read-only copy cannot give the net. Decided 2026-10-19 by the coordinator on the owner's delegation ("tự quyết theo hiến pháp"); the Constitution check is in [PRO-016](../proposal/PRO-016.md) §6.
+**Source:** Found while delivering [BOT-193](BOT-193_a_grid_bot_shows_its_ladder_summary_and_price_position.md): the rate is read from the exchange and not saved, so a read-only copy cannot give the net. 🤖 Agent decision delegated by the user, 2026-10-19: the owner answered "A,B gì thế, tự quyết theo hiến pháp đi" ("decide yourself by the Constitution") and the coordinator chose A; it is not a §7 default decision (the state file is user data) and the owner may veto. The Constitution check is in [PRO-016](../proposal/PRO-016.md) §6.
 **Risk:** 🟡 — touches the start sequence and the runtime codec; no order or bot behaviour changes, and an old file without the field must still load.
 **Complexity:** S — one optional field on `GridRuntime`, its codec lines, two readers.
 **Depends on:** BOT-193 (both pull requests) merged.

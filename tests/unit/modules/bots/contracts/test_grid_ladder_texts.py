@@ -271,3 +271,10 @@ def test_a_sub_cent_cycle_profit_and_average_are_never_written_as_zero() -> None
         recorded_average_text(RecordedCycles(3, Decimal("0.012")), plain_money)
         == "less than 0.01"
     )
+
+
+def test_an_unsized_brief_summary_does_not_call_a_missing_figure_an_estimate() -> None:
+    brief = brief_summary_line(_summary(average_cycle_quote=None), plain_money)
+
+    assert brief.endswith("not estimated")
+    assert "(estimate)" not in brief

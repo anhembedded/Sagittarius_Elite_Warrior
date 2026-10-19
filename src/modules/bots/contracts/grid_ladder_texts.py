@@ -88,7 +88,9 @@ def summary_line(summary: LadderSummary, money: MoneyWriter) -> str:
 def brief_summary_line(summary: LadderSummary, money: MoneyWriter) -> str:
     """`summary_line` without its reasons, for a panel with little room: the full line is its tooltip."""
     name = summary.spacing.value.capitalize()
-    return f"{name} spacing, {step_text(summary)}; {cycle_profit_text(summary, money)} (estimate)"
+    cycle = cycle_profit_text(summary, money)
+    estimate = "" if summary.average_cycle_quote is None else " (estimate)"
+    return f"{name} spacing, {step_text(summary)}; {cycle}{estimate}"
 
 
 def step_text(summary: LadderSummary) -> str:
