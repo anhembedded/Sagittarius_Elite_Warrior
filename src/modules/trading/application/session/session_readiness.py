@@ -157,12 +157,11 @@ class SessionReadiness:
                 len(spot_baseline_holdings),
             )
         logger.info(
-            "Order session opened on %s (%d open orders reconciled); account position "
-            "mode=%s margin type=%s [order-session-open]",
+            "[order-session-open] Order session opened on %s (%d open orders reconciled); "
+            "account position mode=%s",
             venue.value,
             len(open_orders),
             status.position_mode.value if status.position_mode else "n/a",
-            status.margin_type.value if status.margin_type else "n/a",
         )
         return SessionReadyResult(
             ready=True,

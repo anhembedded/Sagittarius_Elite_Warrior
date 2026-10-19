@@ -21,7 +21,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
     ExecuteOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.reduce_only_refusal import (
-    log_if_reduce_only_refused,
+    AfterRelease,
+    RefusedOrder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
@@ -165,7 +166,10 @@ class ExecuteOrderCommandHandler(
         # dispatches reading `orders_sent_this_session` before either one's
         # order lands is a real race, not a hypothetical one. See
         # `TradingSessionState.live_submission_guard()`'s own docstring.
-        with session_state.live_submission_guard():
+        # Entered before the lock, so it exits after it: a reduce-only refusal is logged, network
+        # reads included, once the venue's lock is free (`reduce_only_refusal`).
+        after_release = AfterRelease()
+        with after_release, session_state.live_submission_guard():
             # `EPIC-025` PR 2.1f — the symbol lease, and it is inside this lock
             # for the reason `Docs/SDD/05` §3 calls claim-then-execute: reading
             # the holder before acquiring the guard would let a strategy arm in
@@ -239,12 +243,14 @@ class ExecuteOrderCommandHandler(
             try:
                 submitted_order = trading_client.place_order(preview.order)
             except OrderRejectedByExchangeError as refusal:
-                log_if_reduce_only_refused(
-                    scope,
-                    trading_client,
-                    preview.order,
-                    refusal,
-                    _owner_position(context),
+                after_release.note(
+                    RefusedOrder(
+                        scope,
+                        trading_client,
+                        preview.order,
+                        refusal,
+                        _owner_position(context),
+                    )
                 )
                 raise
             except OrderOutcomeUnknownError as unknown:

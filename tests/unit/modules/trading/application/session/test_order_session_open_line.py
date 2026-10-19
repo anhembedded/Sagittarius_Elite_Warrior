@@ -91,17 +91,20 @@ def _opening_line(readiness: SessionReadiness, caplog: pytest.LogCaptureFixture)
     return record.getMessage()
 
 
-def test_the_opening_line_says_the_position_mode_and_margin_type(
+def test_the_opening_line_says_the_position_mode_and_starts_with_its_tag(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     line = _opening_line(_readiness(_status(MarginType.ISOLATED)), caplog)
 
-    assert "position mode=one_way margin type=isolated" in line
+    assert line.startswith("[order-session-open]")
+    assert "account position mode=one_way" in line
 
 
-def test_a_margin_type_the_account_did_not_report_is_said_so(
+def test_the_opening_line_does_not_claim_a_margin_type_of_the_account(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    line = _opening_line(_readiness(_status(None)), caplog)
+    """The connection check's margin type is that of the first open position of any symbol, and
+    the session opens flat: it would say a symbol's margin type of nothing in particular."""
+    line = _opening_line(_readiness(_status(MarginType.ISOLATED)), caplog)
 
-    assert "position mode=one_way margin type=n/a" in line
+    assert "margin" not in line

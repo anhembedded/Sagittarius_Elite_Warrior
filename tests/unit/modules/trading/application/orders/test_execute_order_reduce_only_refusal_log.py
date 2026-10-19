@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -19,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
     ExecuteOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.reduce_only_refusal import (
+    RefusedOrder,
     log_if_reduce_only_refused,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
@@ -52,6 +54,11 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.application.orders.exe
 
 _TAG = "[reduce-only-refused]"
 _LOGGER = "App.CommandHandler"
+
+
+def _refusal_line(record: logging.LogRecord) -> bool:
+    """The refusal's own line, not the notes that a diagnostic read failed."""
+    return record.getMessage().startswith(_TAG) and "refused on" in record.getMessage()
 
 
 def _refusing(code: int, message: str) -> Mock:
@@ -110,16 +117,16 @@ def test_a_refused_reduce_only_order_is_logged_with_its_context_and_still_raised
         handler.execute(_close())
 
     assert refusal.value.reason is OrderRejectionReason.REDUCE_ONLY_REJECTED
-    (record,) = [r for r in caplog.records if _TAG in r.getMessage()]
+    (record,) = [r for r in caplog.records if _refusal_line(r)]
     text = record.getMessage()
     assert record.levelno == logging.WARNING
     assert "BTCUSDT SELL market qty=0.002" in text
     assert "reduceOnly=True" in text
     assert "positionSide=BOTH" in text
     assert "position mode=one_way" in text
-    assert "margin type=isolated" in text
-    assert "position on the symbol=0.012" in text
+    assert "position on the symbol (exchange)=0.012 margin type=isolated" in text
     assert "owner book position=no owner" in text
+    assert text.startswith(_TAG)
     assert "ReduceOnly Order is rejected." in text
 
 
@@ -138,7 +145,7 @@ def test_a_diagnostic_read_that_fails_never_hides_the_refusal(
     ):
         handler.execute(_close())
 
-    (record,) = [r for r in caplog.records if _TAG in r.getMessage()]
+    (record,) = [r for r in caplog.records if _refusal_line(r)]
     assert "position mode=unreadable (OSError)" in record.getMessage()
 
 
@@ -178,7 +185,71 @@ def test_the_owner_books_position_is_logged_beside_the_exchanges(
     )
 
     with caplog.at_level(logging.WARNING, logger=_LOGGER):
-        log_if_reduce_only_refused(scope, client, order, refusal, Decimal("3.96"))
+        log_if_reduce_only_refused(
+            RefusedOrder(scope, client, order, refusal, Decimal("3.96"))
+        )
 
-    (record,) = [r for r in caplog.records if _TAG in r.getMessage()]
+    (record,) = [r for r in caplog.records if _refusal_line(r)]
     assert "owner book position=3.96" in record.getMessage()
+
+
+def test_a_failing_position_read_never_hides_the_refusal(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    raw_client = _refusing(-2022, "ReduceOnly Order is rejected.")
+    raw_client.futures_position_information.side_effect = OSError("positions down")
+    handler, _ = make_handler(raw_client=raw_client, status=_status())
+
+    with (
+        caplog.at_level(logging.WARNING, logger=_LOGGER),
+        pytest.raises(OrderRejectedByExchangeError) as refusal,
+    ):
+        handler.execute(_close())
+
+    assert refusal.value.reason is OrderRejectionReason.REDUCE_ONLY_REJECTED
+    (record,) = [r for r in caplog.records if _refusal_line(r)]
+    assert (
+        "position on the symbol (exchange)=unreadable (OSError)" in record.getMessage()
+    )
+
+
+def test_the_diagnostic_reads_run_after_the_venues_live_submission_lock_is_released() -> (
+    None
+):
+    """The reads are network requests: while they ran under the lock, every other live order of
+    the venue (a protective stop, a halt's close) waited for them. Another thread asks for the
+    lock from inside each read; it must get it."""
+    raw_client = _refusing(-2022, "ReduceOnly Order is rejected.")
+    handler, state = make_handler(raw_client=raw_client, status=_status())
+    free_during_reads: list[bool] = []
+
+    def lock_is_free_for_another_thread() -> bool:
+        answer: list[bool] = []
+
+        def ask() -> None:
+            got = state.live_submission_guard().acquire(blocking=False)
+            if got:
+                state.live_submission_guard().release()
+            answer.append(got)
+
+        asker = threading.Thread(target=ask)
+        asker.start()
+        asker.join()
+        return answer[0]
+
+    reader = handler._scopes.get(TradingVenue.FUTURES_TESTNET).ports.account_reader
+    gate_check = _status()
+
+    def check() -> ExchangeConnectionStatus:
+        # The first call is the connection gate, inside the lock's caller; the one after the
+        # refusal is the diagnostic read.
+        if raw_client.futures_create_order.called:
+            free_during_reads.append(lock_is_free_for_another_thread())
+        return gate_check
+
+    reader.check_connection.side_effect = check
+
+    with pytest.raises(OrderRejectedByExchangeError):
+        handler.execute(_close())
+
+    assert free_during_reads == [True]
