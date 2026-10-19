@@ -510,7 +510,7 @@
                   "spot_mainnet",
                   "futures_mainnet"
                 ],
-                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money, and opening it also returns every other RECOVERING bot on that venue to the state it had before the restart: a RUNNING bot trades again). Not needed when the session is already open or the bot is on a testnet"
+                "help": "Type the mainnet venue to let the host open its closed order session for this stop (that session uses real money, the other RECOVERING bots on that venue keep waiting for their own resume). Not needed when the session is already open or the bot is on a testnet"
               },
               {
                 "name": "--close-position",

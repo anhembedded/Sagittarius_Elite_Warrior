@@ -155,6 +155,8 @@ owner had paused returns to `PAUSED` with the reason `restored_paused` (`GridRec
 the state line shows until the next Resume clears it, so the second press is explained on screen and
 not only in the `[recovering-resume]` log line.
 
+The opening is announced as opened *for* the bot that asked (`BOT-183`, ADR 038 O2: a host never resumes a bot by itself). `order_session_refusal` passes the bot id to `ITradingSession.ensure_ready` (`src/modules/trading/contracts/i_trading_session.py` → `ITradingSession.ensure_ready`), which carries it on `TradingSwitchChangedEvent.opened_for` (`src/modules/trading/application/session/session_readiness.py` → `SessionReadiness.ensure_ready`). `BotEventRouter.on_switch` hands it to every bot of the venue, and `GridFacts._apply_switch` reconciles a `RECOVERING` bot only when `opened_for` names that bot or is `None`; any other `RECOVERING` bot logs `[recovering-waits]` and stays as it was. `None` is the opener that is no bot's (a manual order, a strategy) and the headless `run --resume-recovering`, whose purpose is to wake every `RECOVERING` bot of the venue (`ResumeRecoveringForHostCommandHandler._open` asks with `order_session_refusal_words` and no bot). A `STOPPING` bot and the cancel a cut-short start owes act on any opening, as before: each finishes what its owner already asked for.
+
 A deliberate action that trades opens the order session in one place (`.../order_session_opening.py` →
 `order_session_refusal`, `order_session_refusal_words`), with exactly four callers: Start, a Resume
 from `HALTED` or `RECOVERING`, the headless `run --resume-recovering`, and the operator's `bot stop` on a running host (`EPIC-038J`, below)

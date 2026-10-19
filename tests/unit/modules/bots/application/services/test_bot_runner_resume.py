@@ -237,3 +237,13 @@ def test_a_recovering_resume_whose_session_will_not_open_is_refused_and_queues_n
     assert result.refusal is BotRefusal.VENUE_NOT_READY
     assert world.executors.get(BOT) is None
     assert world.session.snapshot().enabled is False
+
+
+def test_a_resume_opens_the_session_for_the_bot_it_resumes() -> None:
+    """`BOT-183`: the opening is announced as the resumed bot's, so the venue's other
+    RECOVERING bots keep waiting for their own resume."""
+    world = _world(S.HALTED)
+
+    world.runner.resume(BOT)
+
+    assert world.session.opened_for == [BOT]

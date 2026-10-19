@@ -241,6 +241,39 @@ def test_a_bot_waiting_to_recover_holds_back_a_start_on_its_venue_until_it_is_re
         assert start_bot(second, other).accepted
 
 
+def test_resuming_one_recovering_bot_leaves_the_other_recovering_bot_of_the_venue_waiting(
+    both_venues: FakeExchange,
+) -> None:
+    """`BOT-183`: a Resume opens the venue's order session, and the opening used to reconcile
+    every RECOVERING bot of the venue, so a bot the owner did not resume traded again. The opening
+    is now announced as the resumed bot's: the other waits for its own Resume (ADR 038 O2)."""
+    with booted_two_venues(both_venues) as first:
+        resumed = run_bots(first, SPOT, (SYMBOL,))[SYMBOL]
+        waiting = create_bot(first, SPOT, "ETHUSDT", params=ETH_SPOT_GRID)
+        assert start_bot(first, waiting).accepted
+
+    with booted_two_venues(both_venues, open_sessions=False) as second:
+        assert second.bot(resumed).state is S.RECOVERING
+        assert second.bot(waiting).state is S.RECOVERING
+
+        answer = second.engine.dispatch(
+            ResumeBotCommand, ResumeBotCommand(resumed, real_money_confirmed=True)
+        )
+        second.deliver()
+
+        assert isinstance(answer, BotCommandResult)
+        assert answer.accepted, answer.message
+        assert second.bot(resumed).state is S.RUNNING
+        assert second.bot(waiting).state is S.RECOVERING, "another bot's Resume woke it"
+
+        own = second.engine.dispatch(
+            ResumeBotCommand, ResumeBotCommand(waiting, real_money_confirmed=True)
+        )
+        assert isinstance(own, BotCommandResult)
+        assert own.accepted, own.message
+        assert second.bot(waiting).state is S.RUNNING
+
+
 def test_the_production_wiring_gives_the_bots_of_a_venue_one_pacer(
     both_venues: FakeExchange,
 ) -> None:

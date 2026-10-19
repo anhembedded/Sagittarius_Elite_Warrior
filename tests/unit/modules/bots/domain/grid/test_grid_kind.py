@@ -78,7 +78,12 @@ class _Facts(IBotFacts):
 
     def on_price_age_check(self) -> None: ...
 
-    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None: ...
+    def on_switch(
+        self,
+        enabled: bool,
+        cause: TradingSwitchCause,
+        opened_for: str | None = None,
+    ) -> None: ...
 
     def reconcile_after_gap(self) -> None: ...
 

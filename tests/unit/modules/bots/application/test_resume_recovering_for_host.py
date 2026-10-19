@@ -144,3 +144,13 @@ def test_a_mainnet_venue_is_opened_only_when_the_operator_typed_it() -> None:
     opened = world.resume(confirmed="spot_mainnet")
     assert world.asked() == {"spot_mainnet": 1}
     assert opened.venues[0].opened is True
+
+
+def test_the_hosts_resume_recovering_opens_the_session_for_no_one_bot() -> None:
+    """`BOT-183`: it exists to wake every RECOVERING bot of the venue, so its opening names none."""
+    world = _World(SPOT_TESTNET)
+    _bot(world.store, "aaaaaa", SPOT_TESTNET, BotLifecycleState.RECOVERING)
+
+    world.resume()
+
+    assert world.sessions[SPOT_TESTNET].opened_for == [None]

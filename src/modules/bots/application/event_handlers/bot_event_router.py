@@ -168,7 +168,9 @@ class BotEventRouter:
                 bot.definition.venue is event.venue
                 and bot.state not in RUN_STARTING_STATES
             ):
-                self._executors.for_bot(bot).facts.on_switch(True, event.cause)
+                self._executors.for_bot(bot).facts.on_switch(
+                    True, event.cause, event.opened_for
+                )
 
     def _executor_for(
         self, client_order_id: str, venue: TradingVenue

@@ -56,8 +56,17 @@ class IBotFacts(ABC):
         quiet (`EPIC-035A`)."""
 
     @abstractmethod
-    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
-        """Trading on the bot's venue was enabled, disabled or Emergency-Stopped."""
+    def on_switch(
+        self,
+        enabled: bool,
+        cause: TradingSwitchCause,
+        opened_for: str | None = None,
+    ) -> None:
+        """Trading on the bot's venue was enabled, disabled or Emergency-Stopped.
+
+        @param opened_for For an opening, the bot whose command opened the session (`BOT-183`),
+        or `None` when the opener is no bot's. A bot waiting for its own Resume goes back to work
+        only when this names it or is `None`."""
 
     @abstractmethod
     def reconcile_after_gap(self) -> None:

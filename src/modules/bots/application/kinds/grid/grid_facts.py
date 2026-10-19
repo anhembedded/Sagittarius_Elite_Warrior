@@ -209,8 +209,15 @@ class GridFacts(IBotFacts):
         if watch is not None:
             self._post("position divergence", lambda: watch.on_divergence(divergence))
 
-    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
-        self._post("trading switch", lambda: self._apply_switch(enabled, cause))
+    def on_switch(
+        self,
+        enabled: bool,
+        cause: TradingSwitchCause,
+        opened_for: str | None = None,
+    ) -> None:
+        self._post(
+            "trading switch", lambda: self._apply_switch(enabled, cause, opened_for)
+        )
 
     def reconcile_after_gap(self) -> None:
         self._post("reconcile after a stream gap", self._parts.gap.reconcile)
@@ -290,7 +297,9 @@ class GridFacts(IBotFacts):
         state.update(reaction.runtime)
         self._parts.placer.act(reaction.actions)
 
-    def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
+    def _apply_switch(
+        self, enabled: bool, cause: TradingSwitchCause, opened_for: str | None
+    ) -> None:
         state = self._context.state
         if not enabled:
             self._forget_proposal()
@@ -303,7 +312,17 @@ class GridFacts(IBotFacts):
             return
         self._reclaim_lease()
         if state.state is _S.RECOVERING:
-            self.reconcile_recovering()
+            if opened_for is None or opened_for == state.bot_id:
+                self.reconcile_recovering()
+            else:
+                # `BOT-183` (ADR 038 O2): a restart's RECOVERING bot goes back to work on its own
+                # Resume, never because another bot's command opened the venue's session.
+                logger.info(
+                    "Bot %s: the order session was opened for bot %s; waiting for its own "
+                    "resume [recovering-waits]",
+                    state.bot_id,
+                    opened_for,
+                )
         elif state.state is _S.STOPPING:
             self._parts.stop.after_switch_on()
         elif state.state is _S.HALTED:

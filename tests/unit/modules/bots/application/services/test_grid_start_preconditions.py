@@ -387,3 +387,12 @@ def test_a_definition_with_a_leverage_the_venue_does_not_allow_is_refused_before
     assert "leverage" in result.message.lower()
     assert world.session.budgets == {}
     assert world.session.claim_symbol(SYMBOL, "someone else")
+
+
+def test_start_opens_the_session_for_the_bot_it_starts() -> None:
+    """`BOT-183`: a Start's opening is announced as the started bot's."""
+    world = _start_world()
+
+    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+
+    assert world.session.opened_for == [BOT]

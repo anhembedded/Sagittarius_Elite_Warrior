@@ -11,6 +11,9 @@ on a running host (`StopBotForOperatorCommandHandler`, `EPIC-038J`). They share 
 words and the log line: `order_session_refusal_words` is the primitive,
 `order_session_refusal` its answer as a `BotCommandResult`. An automated caller (a
 reconciliation, a stop retry) never asks: a late order must not undo an Emergency Stop.
+
+The opening is announced as opened for the bot that asked (`BOT-183`), except the host's
+`--resume-recovering`, which asks for the venue and wakes every RECOVERING bot on it.
 """
 
 from __future__ import annotations
@@ -31,11 +34,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.session_block_words
 logger = logging.getLogger("App.Bots.OrderSession")
 
 
-def order_session_refusal_words(session: ITradingSession, subject: str) -> str | None:
+def order_session_refusal_words(
+    session: ITradingSession, subject: str, opened_for: str | None = None
+) -> str | None:
     """Open the venue's order session if it is closed; `None` when it is open,
     else the refusal in the session's own words. `subject` names who asked, for
-    the log ("Bot ab12cd", "Venue spot_testnet")."""
-    opened = session.ensure_ready()
+    the log ("Bot ab12cd", "Venue spot_testnet"). `opened_for` is the bot the opening
+    serves (`BOT-183`): the announcement names it, so the venue's other RECOVERING bots
+    keep waiting for their own resume; `None` for a host that resumes them all."""
+    opened = session.ensure_ready(opened_for)
     if opened.ready:
         logger.info(
             "%s: order session open (already open: %s) [order-session]",
@@ -55,7 +62,7 @@ def order_session_refusal(
     session: ITradingSession, bot_id: str
 ) -> BotCommandResult | None:
     """The same, for a command on one bot: the refusal as a `VENUE_NOT_READY` result."""
-    words = order_session_refusal_words(session, f"Bot {bot_id}")
+    words = order_session_refusal_words(session, f"Bot {bot_id}", bot_id)
     if words is None:
         return None
     return BotCommandResult.refused(BotRefusal.VENUE_NOT_READY, words, bot_id)
