@@ -16,10 +16,17 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import
 
 
 class IBotAlertModes(ABC):
+    @property
+    @abstractmethod
+    def read_only(self) -> bool:
+        """Whether this copy of the app can keep a change. A second copy cannot, and its
+        alerting never runs, so the page must not offer a choice it cannot honour."""
+
     @abstractmethod
     def modes(self) -> Mapping[str, BotAlertMode]:
         """The modes set so far; a bot not in it is `ON`."""
 
     @abstractmethod
     def set_mode(self, bot_id: str, mode: BotAlertMode) -> None:
-        """Sets and keeps `bot_id`'s mode. Raises `OSError` when it cannot be kept."""
+        """Sets and keeps `bot_id`'s mode. Raises `OSError` when it cannot be kept, which includes
+        a read-only copy: nothing is changed then."""

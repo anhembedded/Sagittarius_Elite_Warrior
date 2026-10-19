@@ -41,9 +41,9 @@ ids and modes, no secret. A mode `on` is not written. **A missing file is every 
 creates it until the owner sets a mode. **A file this build cannot read** (not JSON, another schema)
 is every default, told once in the log with `[alert-settings]`, and moved aside to
 `alert_settings.json.unreadable` when the owner next sets a mode. **A mode this build does not know**
-is skipped and the rest kept. Every default means every bot may tell everything: the safe side
-for alerts. Written by write-temp-then-rename; a read-only copy of the app keeps a change in memory
-and writes nothing (`JsonAlertSettings.set_mode`).
+is skipped and the rest kept; a file that names a member twice is not trusted. A second unreadable file is kept beside the first (`.unreadable.2`), never over it. Every default means every bot may tell everything: the safe side
+for alerts. Written by write-temp-then-rename with an fsync, the temporary file removed on any failure; a read-only copy of
+the app refuses a change, because its alerting never runs (`JsonAlertSettings.set_mode`).
 
 ## Built: in memory, on purpose
 

@@ -29,6 +29,7 @@ run has only after a restart, and the page says so
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from enum import Enum
 from typing import TYPE_CHECKING, cast
 
@@ -97,6 +98,7 @@ class _Kind(str, Enum):
     REMOVE = "remove"
     TEST = "test"
     MODE = "mode"
+    BOTS = "bots"
 
 
 _DOING = {
@@ -104,6 +106,7 @@ _DOING = {
     _Kind.REMOVE: "Removing the webhook",
     _Kind.TEST: "Sending the test message",
     _Kind.MODE: "Saving the bot's alert setting",
+    _Kind.BOTS: "Reading the bots",
 }
 
 
@@ -126,8 +129,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._relay = AlertsActionRelay(self._on_action_done)
 
         self._settings_view_model = AlertsSettingsViewModel()
-        self._publish_bots()
         self._reload()
+        self._begin(_Kind.BOTS, self._list_bots)
 
         view_model = self._settings_view_model
         view_model.save_requested.connect(self._on_save_requested)
@@ -174,24 +177,17 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             can_test=state.usable,
         )
 
-    def _publish_bots(self) -> None:
-        """`BOT-191`: the bots the page can set, each with what it may tell now. Read on the UI
-        thread from the bots' local store and the settings held in memory; no network."""
-        try:
-            report = cast(
-                BotStatusReport,
-                self._dispatcher.dispatch(
-                    GetBotStatusReportQuery, GetBotStatusReportQuery()
-                ),
-            )
-        except Exception as exc:  # noqa: BLE001 - the page still opens: the bots list is an extra, and the failure is told in words
-            self.logger.warning(
-                f"AlertsSettingsPresenter: bots not listed ({type(exc).__name__}) [alert-setup]"
-            )
-            self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
-            return
+    def _list_bots(self) -> tuple[BotModeRow, ...]:
+        """`BOT-191`: the bots the page can set, each with what it may tell now. Runs on the
+        pool: the report reads every bot's file."""
+        report = cast(
+            BotStatusReport,
+            self._dispatcher.dispatch(
+                GetBotStatusReportQuery, GetBotStatusReportQuery()
+            ),
+        )
         modes = self._modes.modes()
-        rows = tuple(
+        return tuple(
             BotModeRow(
                 entry.bot_id,
                 entry.name,
@@ -199,8 +195,24 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             )
             for entry in report.bots
         )
-        self._settings_view_model.set_bot_rows(
-            rows, "" if rows else alerts_words.NO_BOTS
+
+    def _publish_bot_rows(self, rows: tuple[BotModeRow, ...]) -> None:
+        read_only = self._modes.read_only
+        note = (
+            alerts_words.READ_ONLY_NOTE
+            if read_only
+            else ("" if rows else alerts_words.NO_BOTS)
+        )
+        self._settings_view_model.set_bot_rows(rows, note, editable=not read_only)
+
+    def _show_modes_again(self) -> None:
+        """Memory only: the same bots, each with the mode really kept now."""
+        modes = self._modes.modes()
+        self._publish_bot_rows(
+            tuple(
+                replace(row, mode=modes.get(row.bot_id, BotAlertMode.ON).value)
+                for row in self._settings_view_model.bot_rows
+            )
         )
 
     # -- user requests ------------------------------------------------------
@@ -208,7 +220,7 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
     @Slot(str, str)
     @safe_ui_action
     def _on_bot_mode_requested(self, bot_id: str, value: str) -> None:
-        if self._settings_view_model.is_working:
+        if self._settings_view_model.is_working or self._modes.read_only:
             return
         try:
             mode = BotAlertMode(value)
@@ -277,9 +289,13 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         if state is not None:
             self._publish_state(state)
         if kind is _Kind.MODE:
-            self._publish_bots()
-        if failed:
+            self._show_modes_again()
+        if failed and kind is _Kind.BOTS:
+            self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
+        elif failed:
             self._tell_failed(kind, error_type)
+        elif kind is _Kind.BOTS:
+            self._publish_bot_rows(result)
         elif kind is _Kind.SAVE:
             self._on_webhook_saved(result)
         elif kind is _Kind.REMOVE:

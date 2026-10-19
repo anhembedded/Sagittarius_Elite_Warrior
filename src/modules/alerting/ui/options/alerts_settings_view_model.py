@@ -51,6 +51,7 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
         self._working_text = ""
         self._bot_rows: tuple[BotModeRow, ...] = ()
         self._bots_note = ""
+        self._bots_editable = True
 
     @property
     def channel_text(self) -> str:
@@ -88,9 +89,17 @@ class AlertsSettingsViewModel(StatusMessageViewModel):
         """Said under the list when it cannot be shown or is empty; "" otherwise."""
         return self._bots_note
 
-    def set_bot_rows(self, rows: tuple[BotModeRow, ...], note: str = "") -> None:
+    @property
+    def bots_editable(self) -> bool:
+        """Whether the choices can be changed here: not in a read-only copy."""
+        return self._bots_editable
+
+    def set_bot_rows(
+        self, rows: tuple[BotModeRow, ...], note: str = "", *, editable: bool = True
+    ) -> None:
         self._bot_rows = rows
         self._bots_note = note
+        self._bots_editable = editable
         self.bots_changed.emit()
 
     def set_channel(

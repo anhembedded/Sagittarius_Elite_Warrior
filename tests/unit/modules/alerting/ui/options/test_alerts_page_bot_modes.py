@@ -134,3 +134,45 @@ def test_a_choice_the_page_does_not_know_is_ignored(page) -> None:
     page.presenter._settings_view_model.request_bot_mode(BOT, "shout")
 
     assert page.modes.current().mode_of(BOT) is Mode.ON
+
+
+def test_a_read_only_copy_offers_no_choice_and_says_why(
+    qapp, request, monkeypatch
+) -> None:
+    """Its alerting never runs: a choice made here would reach nothing and only look saved."""
+    path = request.getfixturevalue("tmp_path") / "state" / "alert_settings.json"
+    read_only = build_page(
+        request,
+        monkeypatch,
+        bots=_two_bots(),
+        modes=JsonAlertSettings(path, read_only=True),
+    )
+
+    assert not _combo(read_only, BOT).isEnabled()
+    assert read_only.label("lblAlertsBotsNote") == alerts_words.READ_ONLY_NOTE
+    # Asked anyway, as a stray signal would: nothing is changed or told as saved.
+    read_only.presenter._settings_view_model.request_bot_mode(BOT, "off")
+    assert read_only.modes.current().mode_of(BOT) is Mode.ON
+    assert read_only.label(STATUS) == ""
+
+
+def test_choosing_keeps_the_combo_the_owner_used(page) -> None:
+    """The rows are not rebuilt when the bots are the same, so the focus stays where it was."""
+    before = _combo(page, BOT)
+
+    _choose(page, BOT, Mode.CRITICAL_ONLY)
+
+    assert _combo(page, BOT) is before
+
+
+def test_a_bot_list_that_cannot_be_read_is_said_in_words_and_opens_no_box(
+    qapp, request, monkeypatch
+) -> None:
+    class _Broken(Bots):
+        def dispatch(self, handler_class, input_dto=None):
+            raise RuntimeError("store unreadable")
+
+    broken = build_page(request, monkeypatch, bots=_Broken())
+
+    assert broken.label("lblAlertsBotsNote") == alerts_words.BOTS_UNREADABLE
+    assert broken.notifier.failures == []

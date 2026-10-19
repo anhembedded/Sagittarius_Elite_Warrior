@@ -13,7 +13,8 @@ so a file written by a newer build loses nothing it understands. The file holds 
 modes only: no secret, no webhook.
 
 Written by write-temp-then-rename, so a reader sees the old file or the new one. A read-only
-copy of the app (a second instance) keeps the owner's change in memory and writes nothing.
+copy of the app (a second instance) refuses a change: its alerting never runs, so a choice kept
+there would reach nothing and only look saved.
 """
 
 from __future__ import annotations
@@ -53,6 +54,10 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
         modes, self._unreadable = _read(path)
         self._modes: dict[str, BotAlertMode] = modes
 
+    @property
+    def read_only(self) -> bool:
+        return self._read_only
+
     def current(self) -> AlertSettings:
         with self._lock:
             return AlertSettings(bot_modes=dict(self._modes))
@@ -62,38 +67,49 @@ class JsonAlertSettings(IAlertSettingsSource, IBotAlertModes):
             return dict(self._modes)
 
     def set_mode(self, bot_id: str, mode: BotAlertMode) -> None:
+        if self._read_only:
+            raise PermissionError(
+                "this copy of the app is read-only: nothing was changed"
+            )
         with self._lock:
             updated = dict(self._modes)
             if mode is BotAlertMode.ON:
                 updated.pop(bot_id, None)
             else:
                 updated[bot_id] = mode
-            if not self._read_only:
-                self._write(updated)
+            self._write(updated)
             self._modes = updated
-        logger.info(
-            "Bot %s may tell: %s%s [alert-settings]",
-            bot_id,
-            mode.value,
-            " (this copy is read-only: not kept)" if self._read_only else "",
-        )
+        logger.info("Bot %s may tell: %s [alert-settings]", bot_id, mode.value)
 
     def _write(self, modes: Mapping[str, BotAlertMode]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         if self._unreadable and self._path.exists():
-            self._path.replace(
-                self._path.with_name(self._path.name + _UNREADABLE_SUFFIX)
-            )
+            self._path.replace(self._aside())
             self._unreadable = False
         document = {
             "schema": SETTINGS_SCHEMA,
             "bot_modes": {bot_id: mode.value for bot_id, mode in sorted(modes.items())},
         }
         temporary = self._path.with_name(self._path.name + ".tmp")
-        temporary.write_text(
-            json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
-        os.replace(temporary, self._path)
+        try:
+            with temporary.open("w", encoding="utf-8") as handle:
+                handle.write(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self._path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def _aside(self) -> Path:
+        """Where an unreadable file goes: never over an earlier one kept the same way."""
+        candidate = self._path.with_name(self._path.name + _UNREADABLE_SUFFIX)
+        number = 1
+        while candidate.exists():
+            number += 1
+            candidate = self._path.with_name(
+                f"{self._path.name}{_UNREADABLE_SUFFIX}.{number}"
+            )
+        return candidate
 
 
 def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
@@ -105,9 +121,9 @@ def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
     except (OSError, UnicodeDecodeError) as exc:
         return _defaults(path, f"it cannot be read ({type(exc).__name__})")
     try:
-        raw: Any = json.loads(text)
-    except json.JSONDecodeError:
-        return _defaults(path, "it is not valid JSON")
+        raw: Any = json.loads(text, object_pairs_hook=_without_duplicates)
+    except (ValueError, RecursionError):
+        return _defaults(path, "it is not valid JSON, or names a member twice")
     if (
         not isinstance(raw, dict)
         or raw.get("schema") != SETTINGS_SCHEMA
@@ -119,7 +135,7 @@ def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
     for bot_id, value in raw["bot_modes"].items():
         try:
             modes[str(bot_id)] = BotAlertMode(value)
-        except ValueError:
+        except (ValueError, TypeError):
             skipped += 1
     if skipped:
         logger.warning(
@@ -128,6 +144,15 @@ def _read(path: Path) -> tuple[dict[str, BotAlertMode], bool]:
             skipped,
         )
     return modes, False
+
+
+def _without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """`json.loads` keeps the last of two equal keys; a file that does that was hand-edited and
+    says two things, so it is not trusted."""
+    keys = [key for key, _ in pairs]
+    if len(keys) != len(set(keys)):
+        raise ValueError("a member is named twice")
+    return dict(pairs)
 
 
 def _defaults(path: Path, why: str) -> tuple[dict[str, BotAlertMode], bool]:

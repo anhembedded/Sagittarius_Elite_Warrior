@@ -131,14 +131,15 @@ def test_one_mode_this_build_does_not_know_is_skipped_and_the_rest_kept(
     assert len([r for r in caplog.records if r.levelno >= logging.WARNING]) == 1
 
 
-def test_a_read_only_copy_keeps_the_change_in_memory_and_writes_nothing(
-    path: Path,
-) -> None:
+def test_a_read_only_copy_refuses_the_change_and_writes_nothing(path: Path) -> None:
+    """Its alerting never runs, so a choice kept there would reach nothing and only look saved."""
     settings = JsonAlertSettings(path, read_only=True)
 
-    settings.set_mode("g3n092", Mode.OFF)
+    with pytest.raises(PermissionError):
+        settings.set_mode("g3n092", Mode.OFF)
 
-    assert settings.current().mode_of("g3n092") is Mode.OFF
+    assert settings.read_only is True
+    assert settings.current().mode_of("g3n092") is Mode.ON
     assert not path.exists()
 
 
@@ -151,3 +152,63 @@ def test_a_write_that_fails_changes_nothing_in_memory(path: Path) -> None:
         settings.set_mode("g3n092", Mode.OFF)
 
     assert settings.current().mode_of("g3n092") is Mode.ON
+
+
+def test_a_failed_write_leaves_no_temporary_file_and_keeps_the_old_one(
+    path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = JsonAlertSettings(path)
+    settings.set_mode("g3n092", Mode.CRITICAL_ONLY)
+
+    def refuse(_source: object, _target: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr("os.replace", refuse)
+    with pytest.raises(OSError):
+        settings.set_mode("zz9999", Mode.OFF)
+
+    assert settings.modes() == {"g3n092": Mode.CRITICAL_ONLY}
+    assert JsonAlertSettings(path).modes() == {"g3n092": Mode.CRITICAL_ONLY}
+    assert not path.with_name(path.name + ".tmp").exists()
+
+
+def test_two_members_of_one_name_are_not_trusted(path: Path) -> None:
+    """`json.loads` would keep the last: a hand-edited file that says two things is not read."""
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"schema": "sew.alert-settings/1", "bot_modes": '
+        '{"g3n092": "on", "g3n092": "off"}}',
+        encoding="utf-8",
+    )
+
+    assert JsonAlertSettings(path).modes() == {}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[" * 100_000,
+        '{"schema": "sew.alert-settings/1", "bot_modes": {"g3n092": ["off"]}}',
+    ],
+)
+def test_nothing_in_a_file_makes_startup_raise(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True)
+    path.write_text(text, encoding="utf-8")
+
+    assert JsonAlertSettings(path).modes() == {}
+
+
+def test_a_second_unreadable_file_does_not_replace_the_first_kept_one(
+    path: Path,
+) -> None:
+    path.parent.mkdir(parents=True)
+    path.write_text("garbage one", encoding="utf-8")
+    JsonAlertSettings(path).set_mode("g3n092", Mode.OFF)
+    path.write_text("garbage two", encoding="utf-8")
+
+    JsonAlertSettings(path).set_mode("zz9999", Mode.OFF)
+
+    kept = sorted(
+        p.read_text(encoding="utf-8") for p in path.parent.glob("*.unreadable*")
+    )
+    assert kept == ["garbage one", "garbage two"]

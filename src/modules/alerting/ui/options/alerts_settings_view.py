@@ -85,20 +85,33 @@ class AlertsSettingsView(BaseView):
         self._remove_button.setEnabled(idle and view_model.can_remove_webhook)
         self._test_button.setEnabled(idle and view_model.can_send_test)
         for box in self._mode_boxes:
-            box.setEnabled(idle)
+            box.setEnabled(idle and view_model.bots_editable)
 
     def _apply_bots(self, view_model: AlertsSettingsViewModel) -> None:
-        """Rebuilds the rows: one bot, one choice of what it may tell (`BOT-191`)."""
+        """One bot, one choice of what it may tell (`BOT-191`). The rows are rebuilt only when
+        the list of bots changed; a changed choice sets the existing combo, so the keyboard
+        focus of the owner who just used it stays where it was."""
+        rows = view_model.bot_rows
+        if tuple(b.property("bot_id") for b in self._mode_boxes) != tuple(
+            row.bot_id for row in rows
+        ):
+            self._rebuild_bot_rows(view_model)
+        for box, row in zip(self._mode_boxes, rows, strict=True):
+            box.setCurrentIndex(box.findData(row.mode))
+        self._apply_working(view_model)
+        self._bots_note.setText(view_model.bots_note)
+        self._bots_note.setVisible(bool(view_model.bots_note))
+
+    def _rebuild_bot_rows(self, view_model: AlertsSettingsViewModel) -> None:
         while self._bots_form.rowCount():
             self._bots_form.removeRow(0)
         self._mode_boxes = []
         for row in view_model.bot_rows:
             box = QComboBox()
             box.setObjectName(f"cmbBotMode_{row.bot_id}")
+            box.setProperty("bot_id", row.bot_id)
             for mode, label in alerts_words.BOT_MODE_LABELS.items():
                 box.addItem(label, mode.value)
-            box.setCurrentIndex(box.findData(row.mode))
-            box.setEnabled(not view_model.is_working)
             box.activated.connect(
                 lambda _index, b=box, bot_id=row.bot_id: view_model.request_bot_mode(
                     bot_id, str(b.currentData())
@@ -106,8 +119,6 @@ class AlertsSettingsView(BaseView):
             )
             self._mode_boxes.append(box)
             self._bots_form.addRow(plain_label(row.name), box)
-        self._bots_note.setText(view_model.bots_note)
-        self._bots_note.setVisible(bool(view_model.bots_note))
 
     def _apply_status(self, view_model: AlertsSettingsViewModel) -> None:
         message = view_model.statusMessage
