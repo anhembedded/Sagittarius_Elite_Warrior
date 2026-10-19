@@ -48,3 +48,30 @@ When the exchange refuses a reduce-only market close, the stop must at least sur
 | C. Fall back to a plain non-reduce-only order | Most likely to be accepted | Can open the opposite side if sized or timed wrong: rejected, it is the one the reduce-only flag exists to prevent |
 
 Recommendation: A now (named refusal, alert to the owner), B as a separate, reviewed task once the Order History of the refused slice shows why the market close is rejected; never C.
+## Addendum (journal 16:13-16:17 UTC, owner's order-form screenshot)
+1. No "protective" line for either bot after 23:13:36 local: nothing re-placed the stops. The Conditional orders' UI times (23:15:34/44) are the exchange's own, ~2 min 8 s after the journal's "standing".
+2. Stale exchange position reads in the journal: puhy4o 23:13:30 "the exchange's position 0.046 differs from the bot's 0 ... re-reading in 5 s" while the position was 0.308; e2zeyr 23:13:40 "0.05" while it was 3.96. Both are the FIRST partial fill of the opening burst, 3-8 s old.
+3. The order form shows Buy/Long and Sell/Short with a Reduce-Only checkbox, Isolated 5x, Single-Asset Mode: One-way position mode (Hedge shows Open/Close tabs). The hedge hypothesis is out.
+Unifying hypothesis (unproven): a degraded testnet backend whose reads and validation lag by seconds to minutes (reduce-only checked against a stale position -> -2022), with the 29 cancelled orders still listed (BUG-228) and the conditional orders appearing 2 min late.
+
+Options for the owner (not built):
+| Option | Risk on a leveraged position |
+| :--- | :--- |
+| A. Treat -2022 on a CLOSE as retryable with a bounded backoff while the fills say the bot still holds the position | Delays the close by the backoff while the market moves against an open leveraged position; mitigated by the protective stop standing and a hard bound; an unbounded retry would be worse than halting |
+| B. Halt at once on -2022 (today) | The position stays open until a human acts; with a lagging backend the next attempt would likely succeed, so a halt can turn a transient lag into a manual close |
+| C. A position-divergence read older than the last fill is not compared as if current | Avoids false "differs" alarms and wrong sizing from a stale read; the risk is hiding a real divergence for one read cycle; needs the read's age or the fill sequence to compare against |
+Recommendation: A with a short, hard-bounded backoff (a few attempts over under a minute, the stop standing meanwhile) and C, each as its own reviewed task; never an unbounded retry.
+
+## Diagnostic added (this report stays Open)
+A refused reduce-only order (`-2022`) is now logged once at WARNING, tagged `[reduce-only-refused]`, by `ExecuteOrderCommandHandler` (`reduce_only_refusal.py` → `log_if_reduce_only_refused`): the order as sent (side, type, quantity, price, trigger, `reduceOnly`, `closePosition`, `positionSide`), the account's position mode and margin type, the position the exchange reports on the symbol, and the exchange's own text. A failed diagnostic read is said in the line and never hides the refusal. The order session's opening line carries `position mode=... margin type=... [order-session-open]`. Greppable: `journalctl -u sew-run | grep -E "reduce-only-refused|order-session-open"`.
+
+Limit: the position mode in the refusal line comes from the connection check, which trusts a One-way answer for 60 s (`PositionModeMemory`) and forgets it on `-4061`; so it can be up to a minute old.
+
+## Hedge mode before each order: options (decision, not built)
+Today the mode is not re-read per order but is checked at session open and on every connection check with a 60 s memory of a One-way answer; `-4061` forgets it at once.
+| Option | For | Against |
+| :--- | :--- | :--- |
+| A. Keep it as is | No extra request weight (reading the mode weighs 30); a switch is caught within 60 s or on the first `-4061` | A refusal line can show a mode up to 60 s old |
+| B. Read the mode fresh on every `-2022` only | The refusal line is exact; cost only on a rare refusal | Needs the memory reachable from the application layer (a port change) |
+| C. Read it fresh before every order | Always current | 30 weight per order on a ladder of dozens of orders: a rate-limit risk the memory was introduced to remove (`BUG-216`) |
+Recommendation: A now; B only if a refusal line shows `one_way` next to a refusal that a hedge switch explains.

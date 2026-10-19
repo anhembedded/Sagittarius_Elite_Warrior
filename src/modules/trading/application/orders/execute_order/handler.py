@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.reduce_only_refusal import (
+    log_if_reduce_only_refused,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
@@ -48,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -231,6 +237,11 @@ class ExecuteOrderCommandHandler(
                 )
             try:
                 submitted_order = trading_client.place_order(preview.order)
+            except OrderRejectedByExchangeError as refusal:
+                log_if_reduce_only_refused(
+                    scope, trading_client, preview.order, refusal
+                )
+                raise
             except OrderOutcomeUnknownError as unknown:
                 try:
                     submitted_order = resolve_unknown(trading_client, unknown)
