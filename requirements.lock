@@ -56,8 +56,12 @@ keyring==25.7.0
     # via -r requirements.txt
 librt==0.16.0 ; platform_python_implementation != 'PyPy'
     # via mypy
+markdown-it-py==4.2.0
+    # via rich
 mccabe==0.7.0
     # via flake8
+mdurl==0.1.2
+    # via markdown-it-py
 more-itertools==11.1.0
     # via
     #   jaraco-classes
@@ -100,7 +104,9 @@ pydantic-core==2.46.5
 pyflakes==4.0.2
     # via flake8
 pygments==2.21.0
-    # via pytest
+    # via
+    #   pytest
+    #   rich
 pyqtgraph==0.14.0
     # via -r requirements.txt
 pyside6==6.11.1
@@ -143,6 +149,8 @@ requests==2.34.2
     # via
     #   -r requirements.txt
     #   python-binance
+rich==15.0.0
+    # via -r requirements.txt
 ruff==0.16.7
     # via -r requirements.txt
 secretstorage==3.5.0 ; sys_platform == 'linux'

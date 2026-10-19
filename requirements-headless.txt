@@ -14,3 +14,4 @@ sqlalchemy
 pydantic
 pyarrow
 keyring
+rich

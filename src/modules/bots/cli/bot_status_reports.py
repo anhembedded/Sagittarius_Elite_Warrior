@@ -126,7 +126,7 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
-    return (*_recorded_note(status), ReportSection(None, tuple(rows)))
+    return (*_recorded_note(status), ReportSection(None, tuple(rows), has_header=True))
 
 
 def _show_layout(
@@ -322,6 +322,7 @@ def _grids_section(bot: BotStatusEntry) -> ReportSection:
             *(_grid_row(_grid_cells(row)) for row in ladder.rows),
             *(ReportRow.of(note) for note in notes),
         ),
+        has_header=True,
     )
 
 

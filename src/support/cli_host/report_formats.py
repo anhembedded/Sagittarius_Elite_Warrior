@@ -30,10 +30,11 @@ class ReportFormats(IReportFormats):
         self._renderers: dict[str, IReportRenderer] = {}
 
     @classmethod
-    def default(cls) -> ReportFormats:
-        """The two formats every report command offers."""
+    def default(cls, text: IReportRenderer | None = None) -> ReportFormats:
+        """The two formats every report command offers; `text` replaces the
+        plain text renderer by one that wraps it (`BOT-195`)."""
         formats = cls()
-        formats.register(TEXT_FORMAT, TextReportRenderer())
+        formats.register(TEXT_FORMAT, text or TextReportRenderer())
         formats.register(JSON_FORMAT, JsonReportRenderer())
         return formats
 

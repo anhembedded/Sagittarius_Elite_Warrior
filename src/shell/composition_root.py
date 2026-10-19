@@ -114,6 +114,12 @@ from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
 from Sagittarius_Elite_Warrior.src.shell.operations_registry import OperationsRegistry
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
+    TerminalAwareTextRenderer,
+)
+from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_renderer import (
+    TextReportRenderer,
+)
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -346,7 +352,9 @@ def create_app(
     # `EPIC-038B` — the output formats a report command offers (`--json`,
     # `--format`). A new format is one `register` call on this object; no
     # command and no parser changes.
-    report_formats = ReportFormats.default()
+    report_formats = ReportFormats.default(
+        TerminalAwareTextRenderer(TextReportRenderer())
+    )
     container.singleton(IReportFormats, report_formats)
     container.singleton(IReportPrinter, ReportPrinter(report_formats))
 

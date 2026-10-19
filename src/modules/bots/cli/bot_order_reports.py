@@ -131,7 +131,7 @@ def _layout(
     )
     return (
         ReportSection(None, tuple(notes)),
-        ReportSection(f"Orders of bot {bot_id}", tuple(body)),
+        ReportSection(f"Orders of bot {bot_id}", tuple(body), has_header=bool(orders)),
     )
 
 
