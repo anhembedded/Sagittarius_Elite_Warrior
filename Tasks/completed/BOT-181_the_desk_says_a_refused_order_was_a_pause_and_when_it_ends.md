@@ -2,7 +2,7 @@
 
 **Status:** ✅ Done (2026-10-19)
 **Priority:** P3
-**Board:** A manual order the exchange's pause refused now says so in its headline and the panel line: the exchange asked for a pause (or banned the address), the order was not sent, and until when in local time; every other failure keeps its words.
+**Board:** A manual order the exchange's pause refused now says so in its headline and the panel line: the exchange asked for a pause (or banned the address), the order was not sent, and until when in the machine's own time zone; every other failure keeps its words.
 **Source:** Review of PR #531 (`BUG-217`) and the coordinator, 2026-10-15: "the desk's headline for an order the pause refused should say it was a pause and when it ends."
 **Risk:** 🟢 — wording of one notice and one panel line; no behaviour change.
 **Complexity:** S — one failure kind to map, one sentence, its test.
@@ -23,12 +23,12 @@
 Map the exception in `submit_failure_of` (`order_entry_failures.py`) to its own failure kind with its own headline, as the other typed failures are; do not parse the message. `retry_after` is already on the error.
 
 ## 3a. Reuse
-`INotifier`, `FailureNotice`, `FailureKind` (`.claude/rules/capabilities.md`): used. `APP_VALUE_FORMATTER` for the instant: used.
+`INotifier`, `FailureNotice`, `FailureKind` (`.claude/rules/capabilities.md`): used. `APP_VALUE_FORMATTER` for the instant: not used. `AppValueFormatter(SYSTEM_TIMEZONE_KEY)` cannot resolve the machine's zone (its name is an abbreviation such as `+07`, and it falls back to UTC), so the instant is converted with the stdlib (`astimezone()`) and written with its UTC offset.
 
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/modules/trading/ui/desk/order_entry_failures.py` | the pause's headline and panel line |
+| `src/modules/trading/ui/desk/order_failure.py` | the pause's kinds, headline and panel line |
 | `tests/unit/modules/trading/ui/desk/test_order_entry_failures.py` | extend the test `BUG-217` added |
 
 ## 5. Testing
@@ -38,4 +38,4 @@ Unit: the existing `test_an_order_the_exchanges_pause_refused_is_shown_to_the_us
 none, because the sentence is a UI string; `Docs/SPEC/SPEC-014` row for the pause names the desk's wording if it quotes it.
 
 ## Implementation notes (written when done)
-The task's file paths were stale: the classification lives in `trading/ui/desk/order_failure.py` (not `order_entry_failures.py`), which every desk action shares (the order panel, the account tabs' close/cancel, the protective-order follower), so all of them get the new words. `submit_failure_of` maps `ExchangeRateLimitedError` to the new kinds `SubmitFailureKind.PAUSED` / `BANNED` by type and dates the end as `now() + retry_after` (the error carries a duration, not an instant); the headline writes it through `AppValueFormatter` in the system zone, "(local time)". The kind is part of the notice's cause, so a pause box never swallows a ban's. The panel line is the headline (`submit_failed` returns it). `Docs/SPEC/SPEC-014` does not quote the desk's wording, so it is unchanged.
+The task's file paths were stale: the classification lives in `trading/ui/desk/order_failure.py` (not `order_entry_failures.py`), which every desk action shares (the order panel, the account tabs' close/cancel, the protective-order follower), so all of them get the new words. `submit_failure_of` maps `ExchangeRateLimitedError` to the new kinds `SubmitFailureKind.PAUSED` / `BANNED` by type and dates the end as `now() + retry_after` (the error carries a duration, not an instant); the headline writes it in the machine's zone with its UTC offset (`astimezone()` and `isoformat`; review found the app's "system" display zone resolves to UTC off-UTC machines, a separate defect), and a pause with no known end names no time. The kind is part of the notice's cause, so a pause box never swallows a ban's. The panel line is the headline (`submit_failed` returns it). `Docs/SPEC/SPEC-014` does not quote the desk's wording, so it is unchanged.

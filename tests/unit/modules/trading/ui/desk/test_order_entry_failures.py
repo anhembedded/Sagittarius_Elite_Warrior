@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import FailureKind
@@ -87,7 +87,7 @@ def test_an_order_the_exchanges_pause_refused_is_shown_to_the_user_and_logged_at
     assert "asked for a pause" in notice.headline
     assert "order was not sent" in notice.headline
     assert re.search(
-        r"until \d{4}-\d\d-\d\d \d\d:\d\d:\d\d \(local time\)", notice.headline
+        r"until \d{4}-\d\d-\d\d \d\d:\d\d:\d\d[+-]\d\d:\d\d\. Try", notice.headline
     )
     assert panel.vm.message == notice.headline
     assert notice.cause == f"trading.{_VENUE}.order.paused"
@@ -102,18 +102,28 @@ def _pause(*, banned: bool) -> ExchangeRateLimitedError:
     )
 
 
-def test_a_pause_says_when_it_ends_in_local_time() -> None:
-    """`BOT-181`: the error carries how long the pause lasts; the failure dates its end."""
+def test_a_pause_says_when_it_ends_in_the_machines_zone_with_its_offset() -> None:
+    """`BOT-181`: the error carries how long the pause lasts; the failure dates its end.
+    A fixed non-UTC zone is injected, so a conversion that fell back to UTC goes red
+    on a UTC runner too."""
     began = datetime(2026, 10, 19, 12, 0, 0, tzinfo=UTC)
+    vietnam = timezone(timedelta(hours=7))
 
     failure = submit_failure_of(_pause(banned=False), now=lambda: began)
 
     assert failure.kind is SubmitFailureKind.PAUSED
     assert failure.resume_at == began + timedelta(seconds=90)
-    ends = (began + timedelta(seconds=90)).astimezone().strftime("%Y-%m-%d %H:%M:%S")
-    assert submit_failure_headline(failure, "order") == (
+    assert submit_failure_headline(failure, "order", zone=vietnam) == (
         "The exchange asked for a pause: the order was not sent, and nothing can be "
-        f"sent until {ends} (local time). Try again then."
+        "sent until 2026-10-19 19:01:30+07:00. Try again then."
+    )
+
+
+def test_a_pause_with_no_known_end_does_not_name_a_time() -> None:
+    failure = SubmitFailure(SubmitFailureKind.PAUSED, "paused")
+
+    assert submit_failure_headline(failure, "order") == (
+        "The exchange asked for a pause: the order was not sent. Try again in a while."
     )
 
 

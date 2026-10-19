@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
@@ -48,16 +48,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unkno
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
-    SYSTEM_TIMEZONE_KEY,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
-    AppValueFormatter,
-)
-from sagittarius_engine.extensions.pyside_mvc.workbench import (
-    ColumnKind,
-    FormatContext,
 )
 
 
@@ -104,8 +94,11 @@ def submit_failure_of(
     return SubmitFailure(kind, failure_detail(exc))
 
 
-def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
-    """The sentence for `what` ("order", "close order", "take-profit order")."""
+def submit_failure_headline(
+    failure: SubmitFailure, what: str, zone: tzinfo | None = None
+) -> str:
+    """The sentence for `what` ("order", "close order", "take-profit order").
+    @param zone The zone a pause's end is written in; `None` is the machine's."""
     if failure.kind is SubmitFailureKind.OUTCOME_UNKNOWN:
         return (
             f"The {what} may be live on the exchange: its outcome could not "
@@ -122,31 +115,32 @@ def submit_failure_headline(failure: SubmitFailure, what: str) -> str:
             "sellable holding of this asset to sell instead."
         )
     if failure.kind in (SubmitFailureKind.PAUSED, SubmitFailureKind.BANNED):
-        return _pause_headline(failure, what)
+        return _pause_headline(failure, what, zone)
     return (
         f"The {what} could not be sent. Check Open orders and Positions, "
         "then try again."
     )
 
 
-def _pause_headline(refused: SubmitFailure, what: str) -> str:
-    until = (
-        "" if refused.resume_at is None else f" until {_local_time(refused.resume_at)}"
-    )
+def _pause_headline(refused: SubmitFailure, what: str, zone: tzinfo | None) -> str:
     if refused.kind is SubmitFailureKind.BANNED:
         opening = "The exchange has banned this machine's requests"
     else:
         opening = "The exchange asked for a pause"
+    if refused.resume_at is None:
+        return f"{opening}: the {what} was not sent. Try again in a while."
     return (
-        f"{opening}: the {what} was not sent, and nothing can be sent{until} "
-        "(local time). Try again then."
+        f"{opening}: the {what} was not sent, and nothing can be sent until "
+        f"{_local_time(refused.resume_at, zone)}. Try again then."
     )
 
 
-def _local_time(moment: datetime) -> str:
-    return AppValueFormatter(SYSTEM_TIMEZONE_KEY).format(
-        ColumnKind.TIMESTAMP, moment, FormatContext(ColumnKind.TIMESTAMP.value)
-    )
+def _local_time(moment: datetime, zone: tzinfo | None) -> str:
+    """@param zone `None`: the machine's own zone, whatever the platform calls it.
+    The offset is written, so the sentence never claims a zone it cannot name
+    (`display_timezone_service` cannot resolve the system zone from its
+    abbreviation)."""
+    return moment.astimezone(zone).isoformat(sep=" ", timespec="seconds")
 
 
 def submit_failure_notice(
