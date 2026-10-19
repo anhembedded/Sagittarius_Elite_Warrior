@@ -11,7 +11,9 @@ one that fails is said, never raised, so the refusal itself still reaches the ca
 
 The reads are network requests, so they run **after** the venue's live-submission lock is released
 (`AfterRelease`, entered before the lock so it exits after it): a refusal on a slow exchange must
-not hold up every other live order of the venue, nor its own caller, for the reads' sake.
+not hold up every other live order of the venue for the reads' sake. The refusal's own caller still
+waits for them, since the `with` exits before the refusal propagates: a limit, bounded by the
+reads' request timeouts.
 """
 
 from __future__ import annotations
