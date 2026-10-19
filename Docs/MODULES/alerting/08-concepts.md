@@ -16,7 +16,7 @@ subject is a bot, a venue or the app (`alerting/domain/alert_subject.py` → `Al
 `SubjectScope`); a bot subject carries id, name, kind, venue and symbol, so a later "stop this bot"
 can point at the right one. Each `AlertKind` (`alerting/domain/alert_kind.py` → `AlertKind`) has one
 group, one default severity and one label in `KIND_PROFILES` (`alerting/domain/alert_catalog.py` →
-`KIND_PROFILES`); `TEST` is the Send test's; `ORDER_FILLED` and `FILLS_SKIPPED` (`BOT-189`) are INFO in the `ROUTINE` group,
+`KIND_PROFILES`); `TEST` is the Send test's; `ORDER_FILLED`, `FILLS_SKIPPED` (`BOT-189`) and `EXIT_CLOSED` (`BOT-190`) are INFO in the `ROUTINE` group,
 so by N4's defaults they are sent without a sound. `AlertSettings` holds disabled channels, route cells,
 per-bot modes and quiet hours, and **no secret** (`alerting/domain/alert_settings.py` →
 `AlertSettings`).

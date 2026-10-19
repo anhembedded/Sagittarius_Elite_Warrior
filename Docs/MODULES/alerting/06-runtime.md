@@ -55,8 +55,10 @@ alerting source words it and calls `publish` (`BotFillAlertSource.on_order_fille
 any INFO: deduplicated by the order, held in quiet hours, routed silent, bounded by `FillBacklog`.
 A partial fill, a trade the run already counted and an exit's market sell announce nothing. A stop loss,
 a take profit or a range exit that closes is `STOPPING` with its reason: `BotAlertSource` raises the
-CRITICAL at once, with the bot's own detail ("price 2290, traded to 2288"). Nothing here places or
-changes an order.
+CRITICAL at once, with the bot's own detail ("price 2290, traded to 2288"), and remembers the exit; when the
+bot reaches `STOPPED`, one INFO `EXIT_CLOSED` tells the run's result and its completed cycles, read from the
+status report's `earnings` (`BOT-190`; a stop the owner asked for, or one that ends in another state, tells
+none). Nothing here places or changes an order.
 
 **What a restart does.** The bot counts a fill once and so publishes it once; the dedup windows are in
 memory ([`08-concepts.md`](08-concepts.md)), so the guarantee is the bot's, not the hub's. A fill that

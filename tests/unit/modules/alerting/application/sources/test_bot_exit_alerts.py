@@ -7,6 +7,7 @@ stop having run; each is one alert, and none of them is also a fill message.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -33,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_changed_event import (
     BotRangeChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    RunEarnings,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -183,3 +187,98 @@ def test_the_exchange_side_stop_having_run_is_a_stop_loss_alert() -> None:
     [alert] = published.published
     assert alert.kind is AlertKind.STOP_LOSS_HIT
     assert "filled at 2290" in alert.detail
+
+
+def _stopped_with(bots: Bots, earnings: RunEarnings | None) -> None:
+    bots.move("STOPPED", "")
+    bots.entries[BOT] = replace(bots.entries[BOT], earnings=earnings)
+
+
+@pytest.mark.parametrize(
+    ("reason", "name"),
+    [
+        (GridReason.STOP_LOSS, "The stop loss"),
+        (GridReason.TAKE_PROFIT, "The take profit"),
+        (GridReason.RANGE_EXIT, "The range exit"),
+    ],
+)
+def test_an_exit_that_has_closed_the_position_tells_the_runs_result_once_stopped(
+    reason: GridReason, name: str
+) -> None:
+    """`BOT-190`: the exit is told at once (above); one INFO follows when the bot is STOPPED."""
+    bots = Bots(entry("RUNNING"))
+    source, published = _source(bots)
+    bots.move("STOPPING", reason.value, "price 2290.5")
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    published.published.clear()
+
+    _stopped_with(
+        bots,
+        RunEarnings(
+            grid_profit=Decimal("12.50"),
+            completed_cycles=7,
+            total_pnl=Decimal("-31.25"),
+            judged=True,
+        ),
+    )
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))  # a rewrite: same state
+
+    [alert] = published.published
+    assert (alert.kind, alert.severity) == (AlertKind.EXIT_CLOSED, Severity.INFO)
+    assert name in alert.detail
+    assert "-31.25" in alert.detail
+    assert "12.50" in alert.detail
+    assert "7 cycle(s)" in alert.detail
+
+
+def test_a_result_that_cannot_be_judged_is_said_so_never_zero() -> None:
+    bots = Bots(entry("RUNNING"))
+    source, published = _source(bots)
+    bots.move("STOPPING", GridReason.STOP_LOSS.value)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    published.published.clear()
+
+    _stopped_with(bots, None)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    [alert] = published.published
+    assert "The run's result: —." in alert.detail
+
+
+def test_a_stop_the_owner_asked_for_tells_no_result() -> None:
+    bots = Bots(entry("RUNNING"))
+    source, published = _source(bots)
+    bots.move("STOPPING", GridReason.USER_STOP.value)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    _stopped_with(bots, None)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    assert published.published == []
+
+
+def test_an_exit_whose_stop_ends_in_another_state_tells_no_result_later() -> None:
+    bots = Bots(entry("RUNNING"))
+    source, published = _source(bots)
+    bots.move("STOPPING", GridReason.TAKE_PROFIT.value)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    bots.move("ERROR", "stop_failed")
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+    published.published.clear()
+
+    _stopped_with(bots, None)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    assert published.published == []
+
+
+def test_a_restart_in_the_middle_of_an_exit_still_tells_its_result() -> None:
+    bots = Bots(entry("STOPPING", GridReason.STOP_LOSS.value))
+    source, published = _source(bots)  # seeded while the exit is closing
+
+    _stopped_with(bots, None)
+    source.on_bot_changed(BotChangedEvent(bot_id=BOT))
+
+    [alert] = published.published
+    assert alert.kind is AlertKind.EXIT_CLOSED

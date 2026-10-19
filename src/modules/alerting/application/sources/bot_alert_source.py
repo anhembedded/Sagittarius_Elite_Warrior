@@ -56,6 +56,11 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_exit_words import (
+    EXIT_ON_STOP,
+    EXIT_SENTENCES,
+    closed_detail,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_subject import (
     subject_of,
 )
@@ -107,25 +112,6 @@ ALERT_ON_ENTRY: Mapping[str, AlertKind] = MappingProxyType(
     {"HALTED": AlertKind.BOT_HALTED, "ERROR": AlertKind.BOT_ERROR}
 )
 
-#: `BOT-189`: a stop that began with one of these reasons (`GridReason.value`) is an exit the owner
-#: must hear at once; the entry into STOPPING carries it, and the bot is closing its position.
-EXIT_ON_STOP: Mapping[str, AlertKind] = MappingProxyType(
-    {
-        "stop_loss": AlertKind.STOP_LOSS_HIT,
-        "take_profit": AlertKind.TAKE_PROFIT_HIT,
-        "range_exit": AlertKind.RANGE_EXIT,
-    }
-)
-
-#: What the owner reads about each exit, before the bot's own detail.
-_EXIT_SENTENCES: Mapping[AlertKind, str] = MappingProxyType(
-    {
-        AlertKind.STOP_LOSS_HIT: "The stop loss was reached",
-        AlertKind.TAKE_PROFIT_HIT: "The take profit was reached in the app",
-        AlertKind.RANGE_EXIT: "The price left the range and the bot closes there",
-    }
-)
-
 #: `RangePosition.value`s, as the range event spells them (alerting reads contracts, not `bots.domain`).
 _INSIDE = "INSIDE"
 _BELOW = "BELOW"
@@ -157,6 +143,8 @@ class BotAlertSource:
         self._clock = clock
         self._lock = threading.Lock()
         self._states: dict[str, str] = {}
+        #: Bots whose stop began with an exit reason and has not ended (`BOT-190`).
+        self._closing: dict[str, AlertKind] = {}
 
     def seed(self) -> None:
         """Remember every bot's state as it is now, without alerting. A state a
@@ -165,6 +153,7 @@ class BotAlertSource:
         with self._lock:
             for entry in report.bots:
                 self._states.setdefault(entry.bot_id, entry.state)
+                self._remember_exit(entry)
             known = len(self._states)
         logger.info(
             "[alert-source] watching %d bot(s); an alert on entering %s and when a stop gives up",
@@ -176,6 +165,7 @@ class BotAlertSource:
         if event.removed:
             with self._lock:
                 self._states.pop(event.bot_id, None)
+                self._closing.pop(event.bot_id, None)
             return
         with self._lock:
             # The read is inside the lock: two writers of one bot (its worker and
@@ -189,6 +179,7 @@ class BotAlertSource:
                 return
             self._alert_on_entry(entry, previous)
             self._alert_on_exit(entry)
+            self._alert_on_closed(entry)
             self._clear_on_entry(entry)
 
     def on_stop_gave_up(self, event: BotStopGaveUpEvent) -> None:
@@ -280,12 +271,30 @@ class BotAlertSource:
         )
         self._publish(AlertKind.STOP_LOSS_HIT, subject, detail, reason="exchange")
 
+    def _remember_exit(self, entry: BotStatusEntry) -> None:
+        """A bot stopping for an exit reason is waited on until it is STOPPED, even across a restart."""
+        kind = EXIT_ON_STOP.get(entry.reason) if entry.state == "STOPPING" else None
+        if kind is not None:
+            self._closing[entry.bot_id] = kind
+
+    def _alert_on_closed(self, entry: BotStatusEntry) -> None:
+        """`BOT-190`: the stop that began as an exit has ended; the run's books now hold what it
+        realized. A stop the owner asked for was never remembered, so it says nothing."""
+        if entry.state == "STOPPING":
+            return
+        kind = self._closing.pop(entry.bot_id, None)
+        if kind is None or entry.state != "STOPPED":
+            return
+        detail = closed_detail(kind, entry.earnings)
+        self._publish(AlertKind.EXIT_CLOSED, subject_of(entry), detail, reason="closed")
+
     def _alert_on_exit(self, entry: BotStatusEntry) -> None:
         kind = EXIT_ON_STOP.get(entry.reason) if entry.state == "STOPPING" else None
         if kind is None:
             return
+        self._closing[entry.bot_id] = kind
         detail = (
-            f"{_EXIT_SENTENCES[kind]} ({entry.reason_detail or 'no detail recorded'}). "
+            f"{EXIT_SENTENCES[kind]} ({entry.reason_detail or 'no detail recorded'}). "
             "The bot is closing its position at market and stopping."
         )
         alert = self._alert(kind, subject_of(entry), detail)
