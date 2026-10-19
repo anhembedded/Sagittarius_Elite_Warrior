@@ -16,6 +16,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
+from fake_exchange.history_log import exchange_clock_skewed_by
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     GetPlannerMarketQuery,
     PlannerMarket,
@@ -91,3 +92,22 @@ def test_a_maintenance_page_is_named_not_left_unclassified(
 
         assert isinstance(answer, ConnectFailure), answer
         assert answer.kind is ConnectionFailureKind.MAINTENANCE
+
+
+def test_a_machine_clock_far_from_the_exchanges_reaches_the_connect_snapshot(
+    exchange: FakeExchange, tmp_path: Path
+) -> None:
+    """`BOT-182` — the skew the account check measures rides on the snapshot the
+    Connect step reads, so the Bots screen can tell the owner; the read itself
+    still succeeds, the offset keeps signed requests valid."""
+    with (
+        exchange_clock_skewed_by(-127_000),
+        composed_on_spot_testnet(spot_testnet_config(tmp_path)) as app,
+    ):
+        answer = app.engine.dispatch(
+            GetVenueConnectionQuery, GetVenueConnectionQuery(SPOT, SYMBOL)
+        )
+
+    assert isinstance(answer, VenueAccountSnapshot), answer
+    assert answer.server_time_skew_ms is not None
+    assert abs(answer.server_time_skew_ms) > 100_000

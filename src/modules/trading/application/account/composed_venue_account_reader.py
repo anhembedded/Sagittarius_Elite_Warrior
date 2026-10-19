@@ -129,6 +129,7 @@ class ComposedVenueAccountReader(IVenueAccountReader):
             can_trade=status.can_trade,
             rules=rules,
             price=book.ask_price if book.has_ask else book.bid_price,
+            server_time_skew_ms=status.server_time_skew_ms,
         )
 
     def _commission(self, symbol: str) -> CommissionRate | ConnectFailure:

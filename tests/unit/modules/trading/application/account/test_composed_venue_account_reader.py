@@ -265,3 +265,11 @@ def test_a_flag_the_exchange_did_not_send_stays_unknown() -> None:
 
 def _boom_commission() -> CommissionRateUnavailableError:
     return CommissionRateUnavailableError("down")
+
+
+def test_the_measured_clock_skew_rides_on_the_snapshot() -> None:
+    """`BOT-182` — the Connect step's notice reads it from the snapshot."""
+    snapshot = _reader(_status(server_time_skew_ms=-127_211)).read(_SYMBOL)
+
+    assert isinstance(snapshot, VenueAccountSnapshot)
+    assert snapshot.server_time_skew_ms == -127_211

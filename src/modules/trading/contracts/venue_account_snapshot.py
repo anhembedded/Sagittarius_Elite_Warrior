@@ -54,6 +54,9 @@ class VenueAccountSnapshot:
     rules: SymbolOrderMetadata
     #: The symbol's price on the book when it was read.
     price: Decimal
+    #: This machine's clock minus the exchange's, in ms, as the account check
+    #: measured it (`BOT-182`); `None` when that read carried none.
+    server_time_skew_ms: int | None = None
 
     def free_of(self, asset: str) -> Decimal:
         """What the account holds free of `asset`; zero when it holds none."""
