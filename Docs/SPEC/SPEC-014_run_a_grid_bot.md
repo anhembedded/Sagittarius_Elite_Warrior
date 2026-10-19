@@ -60,6 +60,11 @@ sound, I start it, and I watch what it does."*
    Details…); the strip, the chart's place and the Plan's Connect item say only the short state, "Not
    connected: key refused" (`BUG-181`). A read of the same venue that the exchange refuses for the
    same reason (the bot's fills, with the key refused) joins that bar and raises none of its own.
+   Each read also measures this computer's clock against the exchange's; above 1 s, ahead or behind,
+   one more bar says how far ("This computer's clock is 127 s ahead of Spot Testnet's…"), because
+   the times shown and logged come from that clock (`BOT-182`). It is told once and goes when the
+   skew is back under 1 s or the account cannot be read; it refuses nothing, and the headless
+   pre-flight keeps its own 500 ms warning and 1000 ms failure.
    **Venue.** While the bot is a Draft that never ran, the Plan's Venue field offers every Spot
    venue, and choosing another moves the bot there at once: Connect reads the new venue's account,
    the chart switches to that venue's market, and readiness is judged again; parameters not yet

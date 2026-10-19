@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_readiness_fsm
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
     BOTS_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.clock_skew_notice import (
+    ClockSkewNotice,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.connect_view import (
     ConnectView,
     connected_view,
@@ -104,6 +107,7 @@ class ConnectStep(QObject):
         super().__init__(parent)
         self._notifier = notifier
         self._cause = ""
+        self._skew = ClockSkewNotice(notifier)
         self._dispatcher = dispatcher
         self._reads = FencedReads(threads, {ReadKind.CONNECT: ActionOwnershipTracker()})
         self._now = now
@@ -121,6 +125,9 @@ class ConnectStep(QObject):
     def select(self, bot: BotSnapshot | None) -> None:
         """Starts the step afresh on `bot`; `None` ends it."""
         self._bot = bot
+        self._skew.keep_only(
+            None if bot is None else AccountSource.for_venue(bot.venue)
+        )
         if bot is None:
             self._timer.stop()
             self._recovered()
@@ -131,6 +138,7 @@ class ConnectStep(QObject):
         shared = self._shared(source, bot.symbol)
         if shared is not None:
             logger.debug("Connect %s: %s shares a fresh read", source.value, bot.name)
+            self._skew.observe(source, shared.server_time_skew_ms)
             self._transition(ReadinessEvent.SELECTED, connecting_view(source), None)
             self._transition(ReadinessEvent.READ_OK, connected_view(shared), shared)
             return
@@ -195,6 +203,7 @@ class ConnectStep(QObject):
             return
         if isinstance(answer, VenueAccountSnapshot):
             self._snapshots[(answer.source, answer.symbol)] = answer
+            self._skew.observe(answer.source, answer.server_time_skew_ms)
             self._recovered()
             self._transition(ReadinessEvent.READ_OK, connected_view(answer), answer)
         elif isinstance(answer, ConnectFailure):
@@ -237,7 +246,9 @@ class ConnectStep(QObject):
 
     def _forget(self, source: AccountSource) -> None:
         """A failed read means the account is not reachable now: no earlier
-        read of its symbols may be shared as if it were (PR #417 review)."""
+        read of its symbols may be shared as if it were (PR #417 review). Its
+        clock skew is unknown too (`BOT-182`)."""
+        self._skew.forget(source)
         for key in [key for key in self._snapshots if key[0] is source]:
             del self._snapshots[key]
 

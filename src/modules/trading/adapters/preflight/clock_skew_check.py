@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.preflight.venue_chec
     PerVenueCheck,
     cause_of,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.clock_skew_limit import (
+    CLOCK_SKEW_LIMIT_MS,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
@@ -34,7 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_context impor
 )
 
 WARN_ABOVE_MS = 500
-FAIL_AT_MS = 1000
+FAIL_AT_MS = CLOCK_SKEW_LIMIT_MS
 
 SYNC_THE_CLOCK = (
     "Sync the clock: on Linux read `timedatectl status` (System clock synchronized: yes) "
