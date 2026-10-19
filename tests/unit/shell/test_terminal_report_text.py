@@ -3,8 +3,10 @@ reader gets the plain bytes, and `--json` is another renderer altogether."""
 
 from __future__ import annotations
 
+import argparse
+import contextlib
+import io
 import re
-from datetime import UTC, datetime
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_report_renderer import (
@@ -23,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.shell.rich_text_report_renderer import (
     RichTextReportRenderer,
 )
 from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import (
+    ReportTooWideError,
     TerminalAwareTextRenderer,
     TerminalState,
 )
@@ -33,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.support.cli_host.adapters.text_report_rendere
     TextReportRenderer,
 )
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
+from Sagittarius_Elite_Warrior.src.support.cli_host.report_output import emit_report
 from Sagittarius_Elite_Warrior.tests.unit.presentation.cli.golden_cases import (
     EXCHANGE_STATUS_CASES,
 )
@@ -73,6 +77,7 @@ def _list_report() -> Report:
                         "a00003", "SOL grid", "STOPPED", "0.00", "0.00", widths=widths
                     ),
                 ),
+                has_header=True,
             ),
         ),
     )
@@ -182,7 +187,7 @@ def test_a_label_and_value_block_colours_state_and_loss_only():
 
 def test_without_rich_the_plain_bytes_are_printed():
     def missing(columns: int) -> IReportRenderer:
-        raise ImportError("No module named 'rich'")
+        raise ModuleNotFoundError("No module named 'rich'", name="rich")
 
     renderer = TerminalAwareTextRenderer(
         TextReportRenderer(), lambda: _state(), missing
@@ -193,20 +198,66 @@ def test_without_rich_the_plain_bytes_are_printed():
     )
 
 
-def test_json_is_the_same_bytes_at_a_terminal_and_not():
-    def render(state: TerminalState) -> str:
-        def never(columns: int) -> IReportRenderer:
-            raise AssertionError("rich was asked for on the JSON path")
+def test_a_broken_rich_install_or_a_defect_is_not_hidden_behind_plain_text():
+    def broken(columns: int) -> IReportRenderer:
+        raise ModuleNotFoundError("No module named 'rich._x'", name="markdown_it")
 
+    def defect(columns: int) -> IReportRenderer:
+        raise ValueError("a defect in the renderer")
+
+    for factory, error in ((broken, ModuleNotFoundError), (defect, ValueError)):
+        renderer = TerminalAwareTextRenderer(
+            TextReportRenderer(), lambda: _state(), factory
+        )
+        with pytest.raises(error):
+            renderer.render(_list_report())
+
+
+def test_a_table_with_no_header_is_not_given_one_because_its_words_are_upper_case():
+    report = Report(
+        "demo",
+        1,
+        {},
+        (
+            ReportSection(
+                None,
+                (
+                    _row("BTCUSDT", "LONG", "RUNNING"),
+                    _row("ETHUSDT", "SHORT", "HALTED"),
+                ),
+            ),
+        ),
+    )
+
+    text = _renderer(_state()).render(report)
+
+    assert "\u2500" not in text
+    assert "\x1b[1m" not in text
+    assert [line.split()[0] for line in _ANSI.sub("", text).splitlines()] == [
+        "BTCUSDT",
+        "ETHUSDT",
+    ]
+
+
+def test_json_is_the_same_bytes_at_a_terminal_and_not():
+    def never(columns: int) -> IReportRenderer:
+        raise AssertionError("rich was asked for on the JSON path")
+
+    def render(state: TerminalState) -> str:
         text = TerminalAwareTextRenderer(TextReportRenderer(), lambda: state, never)
         formats = ReportFormats.default(text)
         json_renderer = formats.get("json")
         assert isinstance(json_renderer, JsonReportRenderer)
-        return JsonReportRenderer(lambda: datetime(2026, 10, 19, tzinfo=UTC)).render(
-            _list_report()
-        )
+        args = argparse.Namespace(json=True, format=None)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            assert emit_report(_list_report(), args, formats) is None
+        return out.getvalue()
 
-    assert render(_state()) == render(_state(tty=False))
+    at_a_terminal = render(_state())
+    assert at_a_terminal == render(_state(tty=False))
+    assert '"schema": "sew.bot-list/1"' in at_a_terminal
+    assert _ESCAPE not in at_a_terminal
 
 
 def test_the_default_registry_still_has_the_plain_text_renderer():
@@ -214,5 +265,5 @@ def test_the_default_registry_still_has_the_plain_text_renderer():
 
 
 def test_a_table_wider_than_the_terminal_is_refused_not_shortened():
-    with pytest.raises(ValueError, match="columns needed"):
+    with pytest.raises(ReportTooWideError, match="columns needed"):
         RichTextReportRenderer(columns=20).render(_list_report())

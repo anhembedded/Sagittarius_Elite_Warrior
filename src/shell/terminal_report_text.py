@@ -10,6 +10,7 @@ the plain renderer. `--json` never comes here: it is another renderer.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import sys
@@ -23,6 +24,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_report_renderer import (
 from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
 
 _DEFAULT_COLUMNS = 80
+_log = logging.getLogger("App.CliReport")
+
+
+class ReportTooWideError(ValueError):
+    """The table is wider than the terminal; the plain text is the answer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +83,14 @@ class TerminalAwareTextRenderer(IReportRenderer):
         if not state.wants_colour:
             return self._plain.render(report)
         try:
-            return self._rich_for(state.columns).render(report)
-        except (ImportError, ValueError):
+            text = self._rich_for(state.columns).render(report)
+        except ReportTooWideError as refused:
+            _log.info("[cli-report] plain text: %s", refused)
             return self._plain.render(report)
+        except ModuleNotFoundError as missing:
+            if missing.name is None or missing.name.partition(".")[0] != "rich":
+                raise
+            _log.info("[cli-report] plain text: rich is not installed")
+            return self._plain.render(report)
+        _log.debug("[cli-report] rich table, %d columns", state.columns)
+        return text

@@ -59,6 +59,10 @@ class ReportSection:
 
     title: str | None
     rows: tuple[ReportRow, ...]
+    #: The first row names the columns of the rows after it (`bot list`), so a renderer
+    #: that draws a table may style it as a header; a text row of upper-case words is
+    #: not enough to say so. Only a renderer for people reads it (`BOT-195`).
+    has_header: bool = False
 
 
 @dataclass(frozen=True, slots=True)

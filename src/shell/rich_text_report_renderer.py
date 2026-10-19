@@ -1,10 +1,9 @@
 """A report as a `rich` table for a person at a terminal (`BOT-195`, `PRO-017`).
 
 The layout is the one every report command already describes: sections of rows
-of cells. A section whose rows all have the same three or more cells is a table
-(its first row is the header when every cell of it is upper case, as `bot list`
-writes it); a section of label and value rows is an aligned block; anything else
-is lines. Colour comes from the one meaning table below, applied to a state word
+of cells. Consecutive rows of three or more cells are a table (the first row is its header
+only when the report's section says `has_header`); rows of label and value are an
+aligned block; anything else is lines. Colour comes from the one meaning table below, applied to a state word
 or to the sign of a profit figure, and the word or the sign is always printed:
 colour is never the only signal (`ui-presentation-rule.md` §1 holds for the
 desktop; the same rule is kept here).
@@ -32,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     ReportRow,
     ReportSection,
 )
+from Sagittarius_Elite_Warrior.src.shell.terminal_report_text import ReportTooWideError
 
 #: The meaning table of the command line: a state word and a sign, each to one style.
 _STATE_STYLES = {
@@ -48,14 +48,10 @@ _STATE_HEADS = frozenset({"STATE"})
 _STATE_LABELS = frozenset({"state"})
 _MONEY_HEADS = frozenset({"GRID PROFIT", "TOTAL PNL"})
 _MONEY_LABELS = frozenset({"grid profit", "total pnl"})
-_FIGURE = re.compile(r"^-?\d[\d,]*(\.\d+)?")
+_FIGURE = re.compile(r"^[+-]?\d[\d,]*(\.\d+)?")
 _MINIMUM_TABLE_CELLS = 3
 _LABEL_AND_VALUE = 2
 _MEASURING_WIDTH = 10_000
-
-
-class ReportTooWideError(ValueError):
-    """The table is wider than the terminal; the plain text is the answer."""
 
 
 def _figure_style(text: str) -> str | None:
@@ -79,24 +75,7 @@ def _style_of(
     return None
 
 
-def _is_header(row: ReportRow) -> bool:
-    texts = [cell.text for cell in row.cells]
-    return all(
-        text == text.upper() and any(c.isalpha() for c in text)
-        for text in texts
-        if text
-    )
-
-
-def _uniform_table(rows: tuple[ReportRow, ...]) -> bool:
-    width = len(rows[0].cells)
-    return width >= _MINIMUM_TABLE_CELLS and all(
-        len(row.cells) == width for row in rows
-    )
-
-
-def _table(rows: tuple[ReportRow, ...]) -> Table:
-    header = _is_header(rows[0])
+def _table(rows: tuple[ReportRow, ...], header: bool) -> Table:
     body = rows[1:] if header else rows
     heads = [cell.text.strip() for cell in rows[0].cells] if header else []
     table = Table(
@@ -145,25 +124,26 @@ def _lines(rows: tuple[ReportRow, ...]) -> Text:
 
 
 def _section(section: ReportSection) -> list[RenderableType]:
+    """Runs of rows of one shape: three cells or more a table (the section's first run
+    has a header row when the report says so), two a block, one a line."""
     parts: list[RenderableType] = []
     if section.title is not None:
         parts.append(Text(section.title, style="bold"))
-    rows = section.rows
-    if not rows:
-        return parts
-    if _uniform_table(rows):
-        parts.append(_table(rows))
-        return parts
-    for is_block, run in groupby(
-        rows, key=lambda row: len(row.cells) == _LABEL_AND_VALUE
+    for index, (width, run) in enumerate(
+        groupby(section.rows, key=lambda r: len(r.cells))
     ):
-        run_rows = tuple(run)
-        parts.append(_block(run_rows) if is_block else _lines(run_rows))
+        rows = tuple(run)
+        if width >= _MINIMUM_TABLE_CELLS:
+            parts.append(_table(rows, header=section.has_header and index == 0))
+        elif width == _LABEL_AND_VALUE:
+            parts.append(_block(rows))
+        else:
+            parts.append(_lines(rows))
     return parts
 
 
-def _capture(parts: list[RenderableType], width: int, colour: bool) -> str:
-    console = Console(
+def _console(width: int, colour: bool) -> Console:
+    return Console(
         file=StringIO(),
         width=width,
         force_terminal=colour,
@@ -171,9 +151,23 @@ def _capture(parts: list[RenderableType], width: int, colour: bool) -> str:
         legacy_windows=False,
         highlight=False,
     )
+
+
+def _natural_width(parts: list[RenderableType]) -> int:
+    """The widest line the report needs, drawn with room to spare and no colour."""
+    console = _console(_MEASURING_WIDTH, colour=False)
     for part in parts:
         console.print(part)
-    return console.file.getvalue()  # type: ignore[attr-defined,no-any-return]
+    text: str = console.file.getvalue()  # type: ignore[attr-defined]
+    return max((cell_len(line) for line in text.splitlines()), default=0)
+
+
+def _draw(parts: list[RenderableType], width: int) -> str:
+    console = _console(width, colour=True)
+    for part in parts:
+        console.print(part)
+    text: str = console.file.getvalue()  # type: ignore[attr-defined]
+    return text.rstrip("\n")
 
 
 class RichTextReportRenderer(IReportRenderer):
@@ -184,15 +178,9 @@ class RichTextReportRenderer(IReportRenderer):
 
     def render(self, report: Report) -> str:
         parts = [part for section in report.layout for part in _section(section)]
-        natural = max(
-            (
-                cell_len(line)
-                for line in _capture(parts, _MEASURING_WIDTH, colour=False).splitlines()
-            ),
-            default=0,
-        )
+        natural = _natural_width(parts)
         if natural > self._columns:
             raise ReportTooWideError(
                 f"{natural} columns needed, {self._columns} available"
             )
-        return _capture(parts, self._columns, colour=True).rstrip("\n")
+        return _draw(parts, self._columns)
