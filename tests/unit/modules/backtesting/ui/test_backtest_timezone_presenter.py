@@ -1,6 +1,10 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
+    BacktestResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
@@ -13,6 +17,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_trade_logs_pa
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
+    BacktestRunConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.session_run_history import (
+    make_run_snapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.trade_table_model import (
     TradeTableModel,
@@ -65,8 +75,7 @@ def test_view_model_timezone_properties_and_signals(qtbot) -> None:
     assert vm.time_range.displayTimezoneLabel == "Asia/Ho_Chi_Minh"
 
 
-def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
-    view = MagicMock()
+def _build_presenter(view: MagicMock) -> BackTestPresenter:
     container = MagicMock()
 
     strategy_registry = MagicMock()
@@ -95,6 +104,12 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
         view=view,
         container=container,
     )
+    return presenter
+
+
+def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
+    view = MagicMock()
+    presenter = _build_presenter(view)
 
     initial_fsm_state = presenter.fsm.current_state
 
@@ -132,3 +147,93 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     # Invariant: FSM state must NOT have transitioned to CONFIG_DIRTY or RUNNING
     assert presenter.fsm.current_state == initial_fsm_state
     assert not presenter._view_model.isConfigDirty
+
+
+_VIETNAM = "Asia/Ho_Chi_Minh"
+
+
+def _ranged_config(start: datetime, end: datetime | None) -> BacktestRunConfig:
+    return BacktestRunConfig(
+        strategy_key="ema_crossover",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=10_000.0,
+        start_time=start,
+        end_time=end,
+    )
+
+
+def test_the_config_diff_follows_the_screens_display_time_zone(qapp) -> None:
+    """`BOT-162`: the presenter hands the diff the zone the person chose (a dropped argument would
+    revert it to UTC with every writer's own test still green)."""
+    presenter = _build_presenter(MagicMock())
+    presenter._view_model.setDisplayTimezone(_VIETNAM)
+    presenter._last_run_config = _ranged_config(datetime(2026, 1, 1, tzinfo=UTC), None)
+    presenter._get_current_config = lambda: _ranged_config(  # type: ignore[method-assign]
+        datetime(2026, 1, 2, tzinfo=UTC), None
+    )
+
+    presenter._on_config_input_changed()
+
+    assert presenter._view_model.configDiffSummary == (
+        "Time range (2026-01-01 07:00:00..Now → 2026-01-02 07:00:00..Now) in "
+        f"{_VIETNAM}"
+    )
+
+
+def test_the_no_data_message_follows_the_screens_display_time_zone(qapp) -> None:
+    presenter = _build_presenter(MagicMock())
+    presenter._view_model.setDisplayTimezone(_VIETNAM)
+    presenter._is_current_pending_action = lambda *_a: True  # type: ignore[method-assign]
+    presenter._finish_action = lambda *_a: None  # type: ignore[method-assign]
+    coverage = MagicMock()
+    coverage.missing_open_times = (datetime(2026, 8, 15, 9, 30, tzinfo=UTC),)
+
+    presenter._on_backtest_coverage_missing_for_action(1, MagicMock(), coverage, False)
+
+    assert presenter._view_model.run_result.dataCoverageMessage == (
+        f"Missing candles from 2026-08-15 16:30:00 {_VIETNAM}."
+    )
+
+
+def test_the_run_history_rows_follow_the_screens_display_time_zone(qapp) -> None:
+    presenter = _build_presenter(MagicMock())
+    presenter._view_model.setDisplayTimezone(_VIETNAM)
+    config = _ranged_config(datetime(2026, 1, 1, tzinfo=UTC), None)
+    result = BacktestResult.compute(
+        symbol=config.symbol,
+        initial_balance=config.initial_balance,
+        final_balance=config.initial_balance,
+        trades=[],
+        equity_curve=[],
+    )
+    presenter._run_history.push(
+        make_run_snapshot(
+            form_data={},
+            run_config=config,
+            result=result,
+            klines=[],
+            volume=[],
+            now=datetime(2026, 1, 1, 15, 20, 5, tzinfo=UTC),
+        )
+    )
+
+    presenter._refresh_session_run_history_view_model()
+
+    [row] = presenter._view_model.sessionRunHistory
+    assert row["label"].startswith(f"2026-01-01 22:20:05 {_VIETNAM} — ")
+
+
+def test_the_coordinators_read_the_zone_from_the_screens_view_model(qapp) -> None:
+    """`BOT-162`: the sync worker's provider and the chart preview's coverage message are wired
+    to the same view model, and answer in the zone it holds now."""
+    presenter = _build_presenter(MagicMock())
+    coverage = MagicMock()
+    coverage.missing_open_times = (datetime(2026, 8, 15, 9, 30, tzinfo=UTC),)
+
+    assert presenter._data_sync._time_zone() == "UTC"
+    presenter._view_model.setDisplayTimezone(_VIETNAM)
+
+    assert presenter._data_sync._time_zone() == _VIETNAM
+    assert presenter._chart_preview._format_coverage_message(coverage) == (
+        f"Missing candles from 2026-08-15 16:30:00 {_VIETNAM}."
+    )

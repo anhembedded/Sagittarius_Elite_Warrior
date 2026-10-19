@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.session_run_history import (
     SessionRunHistoryCache,
     make_run_snapshot,
+    run_history_rows,
 )
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -83,7 +84,7 @@ def test_snapshot_label_writes_time_config_and_pnl_as_the_application_does():
     now = datetime(2026, 1, 1, 15, 20, 5, tzinfo=UTC)
     snapshot = _snapshot(now, net_profit_percent=28.4)
 
-    label = snapshot.label
+    label = snapshot.label()
 
     # The one timestamp format, the run's own summary, the one percent format.
     assert label.startswith("2026-01-01 15:20:05 — ETHUSDT | ")
@@ -93,8 +94,8 @@ def test_snapshot_label_writes_time_config_and_pnl_as_the_application_does():
 def test_snapshot_label_marks_a_loss_by_its_minus_only():
     snapshot = _snapshot(datetime(2026, 1, 1, tzinfo=UTC), net_profit_percent=-9.1)
 
-    assert snapshot.label.endswith(" — -9.10%")
-    assert "+" not in snapshot.label
+    assert snapshot.label().endswith(" — -9.10%")
+    assert "+" not in snapshot.label()
 
 
 def test_cache_get_all_returns_newest_first():
@@ -149,3 +150,24 @@ def test_cache_clear_empties_the_history():
     cache.clear()
 
     assert cache.get_all() == ()
+
+
+_VIETNAM = "Asia/Ho_Chi_Minh"
+
+
+def test_snapshot_label_is_written_in_the_display_time_zone_and_names_it():
+    """`BOT-162`: the same moment the trades table writes in the chosen zone; UTC reads as before."""
+    snapshot = _snapshot(datetime(2026, 1, 1, 15, 20, 5, tzinfo=UTC))
+
+    assert snapshot.label(_VIETNAM).startswith(
+        f"2026-01-01 22:20:05 {_VIETNAM} — ETHUSDT | "
+    )
+    assert snapshot.label("UTC") == snapshot.label()
+
+
+def test_the_history_rows_are_labelled_in_the_display_time_zone():
+    snapshot = _snapshot(datetime(2026, 1, 1, 15, 20, 5, tzinfo=UTC))
+
+    [row] = run_history_rows((snapshot,), _VIETNAM)
+
+    assert row == {"run_id": snapshot.run_id, "label": snapshot.label(_VIETNAM)}

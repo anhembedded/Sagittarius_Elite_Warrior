@@ -19,8 +19,11 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
     BacktestExecutionMode,
     BacktestRunConfig,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
-from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
+
+from .run_texts import zoned_moment_text
 
 #: Same join convention `performance_metrics_view.build_result_warning_text()`
 #: already uses for a multi-note single-line warning.
@@ -44,7 +47,9 @@ _MARKET_NOT_RECORDED_NOTE = (
 )
 
 
-def build_imported_report_banner_text(path: str, report: BacktestReport) -> str:
+def build_imported_report_banner_text(
+    path: str, report: BacktestReport, time_zone: str = DEFAULT_TIMEZONE
+) -> str:
     """The `VIEWING_IMPORTED_REPORT` banner's own text — naming the source
     file (basename only, never the full path) and when the run behind it
     happened. Kept alongside the other path/I-O helpers here rather than
@@ -52,7 +57,7 @@ def build_imported_report_banner_text(path: str, report: BacktestReport) -> str:
     `suggest_report_filename()`."""
     return (
         f"Viewing imported report — {os.path.basename(path)}, run on "
-        f"{write_value(ColumnKind.TIMESTAMP, report.provenance.created_at)}."
+        f"{zoned_moment_text(report.provenance.created_at, time_zone)}."
     )
 
 

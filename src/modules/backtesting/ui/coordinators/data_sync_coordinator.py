@@ -22,10 +22,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverag
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from ..logic.run_texts import zoned_moment_text
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 logger = logging.getLogger("App.BackTestPresenter")
@@ -56,6 +60,7 @@ class DataSyncCoordinator:
         emit_succeeded: Callable[[int], None],
         emit_failed: Callable[[int, str], None],
         emit_cancelled: Callable[[int], None],
+        time_zone: Callable[[], str],
     ) -> None:
         self._market_data_sync = market_data_sync
         self._range_coverage = range_coverage
@@ -68,6 +73,8 @@ class DataSyncCoordinator:
         self._emit_succeeded = emit_succeeded
         self._emit_failed = emit_failed
         self._emit_cancelled = emit_cancelled
+        #: The display time zone a message about a time is written in (`BOT-162`).
+        self._time_zone = time_zone
         # BOT-122 (was (symbol, interval) matching under BOT-121 — a
         # business-key coincidence, not an identity: two different actions
         # can legitimately target the same symbol+interval): the
@@ -83,12 +90,14 @@ class DataSyncCoordinator:
     # ---------------------------------------------------------------- #
 
     @staticmethod
-    def format_coverage_message(coverage: BacktestRangeCoverage) -> str:
+    def format_coverage_message(
+        coverage: BacktestRangeCoverage, time_zone: str = DEFAULT_TIMEZONE
+    ) -> str:
         if coverage.missing_open_times:
-            first_missing = write_value(
-                ColumnKind.TIMESTAMP, coverage.missing_open_times[0]
+            first_missing = zoned_moment_text(
+                coverage.missing_open_times[0], time_zone, name_utc=True
             )
-            return f"Missing candles from {first_missing} UTC."
+            return f"Missing candles from {first_missing}."
         if coverage.duplicate_candles:
             duplicates = write_value(ColumnKind.QUANTITY, coverage.duplicate_candles)
             return f"Data has {duplicates} duplicate-timestamp candles."
@@ -218,7 +227,7 @@ class DataSyncCoordinator:
         if not coverage.is_fully_covered:
             message = (
                 "Sync is not sufficient to run the backtest: "
-                f"{self.format_coverage_message(coverage)}"
+                f"{self.format_coverage_message(coverage, self._time_zone())}"
             )
             self._log_dev_trace(
                 "sync_coverage_incomplete",

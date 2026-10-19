@@ -115,6 +115,7 @@ def build_coordinators(presenter) -> Coordinators:
         emit_succeeded=presenter._syncSucceededSignal.emit,
         emit_failed=presenter._syncFailedSignal.emit,
         emit_cancelled=presenter._syncCancelledSignal.emit,
+        time_zone=lambda: presenter._view_model.time_range.displayTimezone,
     )
     _chart_render = ChartRenderCoordinator(
         view=presenter.view,
@@ -146,7 +147,11 @@ def build_coordinators(presenter) -> Coordinators:
         thread_manager=presenter._thread_manager,
         log_dev_trace=presenter._log_dev_trace,
         failures=presenter._failures,
-        format_coverage_message=DataSyncCoordinator.format_coverage_message,
+        format_coverage_message=lambda coverage: (
+            DataSyncCoordinator.format_coverage_message(
+                coverage, presenter._view_model.time_range.displayTimezone
+            )
+        ),
         get_current_config=presenter._get_current_config,
         is_busy=presenter._is_busy_for_preview,
         next_preview_id=presenter._claim_preview_id,

@@ -15,14 +15,13 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
     IStrategyCatalog,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
-from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
 from ..logic.pre_backtest_assertions import (
     PreBacktestAssertionPipeline,
     PreBacktestInput,
 )
+from ..logic.run_texts import zoned_moment_text
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 #: Capital that failed to parse. Verification still runs on it — a blank or
@@ -247,11 +246,15 @@ class StrategyConfigCoordinator:
             return
 
         if metadata.is_stale():
-            fetched = write_value(ColumnKind.TIMESTAMP, metadata.fetched_at)
+            fetched = zoned_moment_text(
+                metadata.fetched_at,
+                self._view_model.time_range.displayTimezone,
+                name_utc=True,
+            )
             self._view_model.set_market_rule_verification(
                 MetadataVerificationStatus.UNVERIFIED_STALE.value,
                 "Not verified against exchange rules "
-                f"(metadata is stale, fetched at {fetched} UTC).",
+                f"(metadata is stale, fetched at {fetched}).",
             )
             return
 

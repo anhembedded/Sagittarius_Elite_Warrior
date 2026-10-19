@@ -122,6 +122,7 @@ def _build(coverage=None, action_id=7, sync=None, symbol_metadata=None):
         effective_data_interval=lambda _c: TimeFrame.ONE_MINUTE,
         resolve_action_id=lambda: action_id,
         log_dev_trace=lambda *a, **k: None,
+        time_zone=lambda: "UTC",
         emit_progress=lambda *a: events.append(("progress", *a)),
         emit_succeeded=lambda *a: events.append(("succeeded", *a)),
         emit_failed=lambda *a: events.append(("failed", *a)),
@@ -346,3 +347,15 @@ def test_a_failed_sync_does_not_reach_the_warm() -> None:
 
     assert metadata.fetch_count == 0
     assert any(name == "failed" for name, *_ in events)
+
+
+def test_coverage_message_writes_the_missing_candle_in_the_display_time_zone() -> None:
+    """`BOT-162`: the sentence says which zone it is in; in UTC it still says "UTC"."""
+    coverage = _coverage(missing=[datetime(2026, 8, 15, 9, 30, tzinfo=UTC)])
+
+    assert DataSyncCoordinator.format_coverage_message(
+        coverage, "Asia/Ho_Chi_Minh"
+    ) == ("Missing candles from 2026-08-15 16:30:00 Asia/Ho_Chi_Minh.")
+    assert DataSyncCoordinator.format_coverage_message(coverage, "UTC") == (
+        "Missing candles from 2026-08-15 09:30:00 UTC."
+    )

@@ -172,6 +172,27 @@ def test_imported_report_banner_names_the_files_basename_not_the_full_path(tmp_p
     assert "2024-01-01" in text
 
 
+def test_imported_report_banner_writes_its_time_in_the_display_time_zone(tmp_path):
+    """`BOT-162`: 2024-01-01 00:00 UTC is 07:00 in Ho Chi Minh, and the banner says which zone."""
+    config = _run_config()
+    result = BacktestResult.compute(
+        symbol=config.symbol,
+        initial_balance=config.initial_balance,
+        final_balance=config.initial_balance,
+        trades=[],
+        equity_curve=[],
+    )
+    report = build_backtest_report(
+        config, result, app_version="1.0.0", engine_version="2.4.0", created_at=_T0
+    )
+
+    text = build_imported_report_banner_text(
+        "run.sagi-report.json", report, "Asia/Ho_Chi_Minh"
+    )
+
+    assert text.endswith("run on 2024-01-01 07:00:00 Asia/Ho_Chi_Minh.")
+
+
 # ---------------------------------------------------------------------------
 # build_report_provenance_warning_text
 # ---------------------------------------------------------------------------

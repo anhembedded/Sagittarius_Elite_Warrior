@@ -21,7 +21,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
 )
 
-from .run_texts import moment_text, money_text
+from .run_texts import DEFAULT_TIMEZONE, money_text, time_range_diff_text
 
 _BALANCE_COMPARISON_TOLERANCE = 1e-6
 
@@ -316,7 +316,9 @@ class BacktestRunConfig:
         default_factory=BrokerSimulationConfig
     )
 
-    def compute_diff_summary(self, other: BacktestRunConfig) -> str:
+    def compute_diff_summary(
+        self, other: BacktestRunConfig, time_zone: str = DEFAULT_TIMEZONE
+    ) -> str:
         """
         @brief Compute a human-readable description of changed fields.
         """
@@ -352,13 +354,7 @@ class BacktestRunConfig:
             diffs.append(f"Currency ({self.currency.value} → {other.currency.value})")
 
         if self.start_time != other.start_time or self.end_time != other.end_time:
-            self_start = moment_text(self.start_time, "Start")
-            self_end = moment_text(self.end_time, "Now")
-            other_start = moment_text(other.start_time, "Start")
-            other_end = moment_text(other.end_time, "Now")
-            diffs.append(
-                f"Time range ({self_start}..{self_end} → {other_start}..{other_end})"
-            )
+            diffs.append(time_range_diff_text(self, other, time_zone))
 
         if self.strategy_params != other.strategy_params:
             diffs.append("Strategy Parameters")

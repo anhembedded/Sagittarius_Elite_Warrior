@@ -30,11 +30,15 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateData
 from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 from .backtest_fsm_matrix import BacktestRunConfig
+from .run_texts import zoned_moment_text
 
 
 @dataclass(frozen=True)
@@ -50,16 +54,26 @@ class BacktestRunSnapshot:
     klines: list = field(default_factory=list)
     volume: list = field(default_factory=list)
 
-    @property
-    def label(self) -> str:
+    def label(self, time_zone: str = DEFAULT_TIMEZONE) -> str:
         """A short, timestamped line for the history dropdown, e.g.
-        `2026-10-05 15:20:00 — ETHUSDT | 5m | ema_strategy | 28.40%`."""
+        `2026-10-05 15:20:00 — ETHUSDT | 5m | ema_strategy | 28.40%`; in the display time zone
+        the person chose (`BOT-162`), which it names unless that is UTC."""
         pnl = self.result.metrics.net_profit_percent if self.result.metrics else 0.0
         return (
-            f"{write_value(ColumnKind.TIMESTAMP, self.timestamp)} — "
+            f"{zoned_moment_text(self.timestamp, time_zone)} — "
             f"{self.run_config.to_summary_label()} — "
             f"{write_value(ColumnKind.PERCENT, pnl)}"
         )
+
+
+def run_history_rows(
+    snapshots: tuple[BacktestRunSnapshot, ...], time_zone: str
+) -> list[dict[str, str]]:
+    """The history dropdown's rows, each labelled in the display time zone (`BOT-162`)."""
+    return [
+        {"run_id": snapshot.run_id, "label": snapshot.label(time_zone)}
+        for snapshot in snapshots
+    ]
 
 
 def make_run_snapshot(

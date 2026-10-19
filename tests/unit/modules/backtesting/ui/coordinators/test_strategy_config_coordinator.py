@@ -228,3 +228,26 @@ def test_stale_metadata_says_when_it_was_fetched_as_every_timestamp_is_written(
         "Not verified against exchange rules "
         "(metadata is stale, fetched at 2020-01-02 03:04:05 UTC)."
     )
+
+
+def test_stale_metadata_is_dated_in_the_display_time_zone(qtbot) -> None:
+    """`BOT-162`: fetched 03:04:05 UTC reads 10:04:05 in Ho Chi Minh, and the sentence says so."""
+    stale = SymbolMarketMetadata(
+        symbol="BTCUSDT",
+        status="TRADING",
+        base_asset="BTC",
+        quote_asset="USDT",
+        price_filter=PriceFilter(0.01, 100000.0, 0.01),
+        lot_size_filter=LotSizeFilter(0.0001, 1000.0, 0.0001),
+        notional_filter=NotionalFilter(5.0, apply_to_market=True),
+        fetched_at=datetime(2020, 1, 2, 3, 4, 5, tzinfo=UTC),
+    )
+    coordinator, view_model, _state, _logger = _build(state=_State(metadata=stale))
+    view_model.time_range.set_display_timezone("Asia/Ho_Chi_Minh")
+
+    coordinator.refresh_market_rule_verification()
+
+    assert view_model.marketRuleExplanation == (
+        "Not verified against exchange rules "
+        "(metadata is stale, fetched at 2020-01-02 10:04:05 Asia/Ho_Chi_Minh)."
+    )

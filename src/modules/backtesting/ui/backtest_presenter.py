@@ -180,6 +180,7 @@ from .logic.session_run_history import (
     BacktestRunSnapshot,
     SessionRunHistoryCache,
     make_run_snapshot,
+    run_history_rows,
 )
 from .logic.time_range_preset import TimeRangePreset
 from .ports.i_backtest_view import IBacktestView
@@ -810,7 +811,9 @@ class BackTestPresenter(CommandPresenter):
             if self.fsm.can_dispatch(BacktestUiEvent.CONFIG_RESTORED):
                 self.fsm.dispatch(BacktestUiEvent.CONFIG_RESTORED)
         else:
-            diff_msg = self._last_run_config.compute_diff_summary(current_config)
+            diff_msg = self._last_run_config.compute_diff_summary(
+                current_config, self._view_model.time_range.displayTimezone
+            )
             self._view_model.configDiffSummary = diff_msg
             if self.fsm.can_dispatch(BacktestUiEvent.CONFIG_CHANGED):
                 self.fsm.dispatch(BacktestUiEvent.CONFIG_CHANGED)
@@ -935,7 +938,9 @@ class BackTestPresenter(CommandPresenter):
                 "coverage_missing", action_id, BacktestActionKind.BACKTEST
             )
             return
-        message = self._format_coverage_message(coverage)
+        message = DataSyncCoordinator.format_coverage_message(
+            coverage, self._view_model.time_range.displayTimezone
+        )
         self._last_no_data_config = config
         self._last_no_data_coverage = coverage
         self._view_model.run_result.set_data_coverage(False, message)
@@ -957,10 +962,6 @@ class BackTestPresenter(CommandPresenter):
             return
         self._view_model.run_result.set_data_coverage(True, "")
         self._view_model.run_result.set_needs_data_sync(False)
-
-    @staticmethod
-    def _format_coverage_message(coverage: BacktestRangeCoverage) -> str:
-        return DataSyncCoordinator.format_coverage_message(coverage)
 
     @Slot()
     @safe_ui_action
@@ -1412,10 +1413,9 @@ class BackTestPresenter(CommandPresenter):
 
     def _refresh_session_run_history_view_model(self) -> None:
         self._view_model.set_session_run_history(
-            [
-                {"run_id": snapshot.run_id, "label": snapshot.label}
-                for snapshot in self._run_history.get_all()
-            ]
+            run_history_rows(
+                self._run_history.get_all(), self._view_model.time_range.displayTimezone
+            )
         )
 
     @Slot(str)
@@ -2043,7 +2043,7 @@ class BackTestPresenter(CommandPresenter):
         self._view_model.lastRunSummary = run_config.to_summary_label()
         self._view_model.configDiffSummary = ""
         self._view_model.importedReportBannerText = build_imported_report_banner_text(
-            path, report
+            path, report, self._view_model.time_range.displayTimezone
         )
         # Klines are never embedded in a report (`backtest_report.py`'s own
         # docstring) — the OHLC/candlestick view has nothing real to draw,
