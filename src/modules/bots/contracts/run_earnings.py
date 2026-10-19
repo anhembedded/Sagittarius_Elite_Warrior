@@ -3,8 +3,8 @@
 The Bots tab (`bot_facts.py`) and the `bot list` / `bot show` commands show the same figures in the
 same words, so both build them here from the run's account (`BotProgress`). Qt-free on purpose: a
 headless host installs no Qt, and the tab's formatter (`write_value`) lives behind it. The tab hands
-`earnings_text` its own money writer; the commands use `plain_money`, the formatter's money rule
-(`test_plain_money_writes_what_the_tabs_formatter_writes` locks the two together).
+the texts its own money writer; the commands use `plain_money` and `plain_price`, which call the same rules
+(`core/vo/number_text.py`) as the tab's formatter.
 
 A figure the run cannot give is unknown, never zero: `NO_VALUE` when there is no account to read,
 `NO_PRICE_YET` when the total waits for a price the bot has not heard.
@@ -16,6 +16,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.vo.number_text import (
+    money_text,
+    price_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotProgress,
 )
@@ -30,28 +34,13 @@ type PriceWriter = Callable[[Decimal], str]
 
 
 def plain_money(value: Decimal) -> str:
-    """Two decimals, thousands grouped, a value that rounds to zero unsigned: the formatter's
-    money rule without its Qt import."""
-    text = f"{float(value):,.2f}"
-    return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
+    """The Bots tab's money, written without Qt."""
+    return money_text(float(value))
 
 
 def plain_price(value: Decimal) -> str:
-    """The formatter's price rule without its Qt import: two decimals from 1 000, four from 1,
-    else up to eight with trailing zeros dropped."""
-    number = float(value)
-    if abs(round(number, 4)) >= _LARGE_PRICE:
-        text = f"{number:,.2f}"
-    elif abs(round(number, _MAX_DECIMALS)) >= 1:
-        text = f"{number:,.4f}"
-    else:
-        text = f"{number:,.{_MAX_DECIMALS}f}"
-        text = text.rstrip("0").rstrip(".") if "." in text else text
-    return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
-
-
-_LARGE_PRICE = 1_000
-_MAX_DECIMALS = 8
+    """The Bots tab's price, written without Qt."""
+    return price_text(float(value))
 
 
 @dataclass(frozen=True, slots=True)

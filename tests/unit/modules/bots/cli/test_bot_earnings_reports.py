@@ -126,6 +126,7 @@ def test_a_total_that_waits_for_a_price_says_so_and_is_not_zero(
         "completed_cycles": 1,
         "total_pnl": None,
         "unpriced_fees": 0,
+        "holds_base": True,
         "unrealised": None,
         "mark_price": None,
     }
@@ -158,6 +159,7 @@ def test_bot_list_has_a_column_for_each_figure_and_json_carries_exact_decimals(
         "completed_cycles": 7,
         "total_pnl": "1230.25",
         "unpriced_fees": 0,
+        "holds_base": False,
         "unrealised": "0",
         "mark_price": None,
     }

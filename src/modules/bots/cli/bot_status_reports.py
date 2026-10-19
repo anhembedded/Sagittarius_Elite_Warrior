@@ -78,7 +78,7 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     if status.is_empty:
         return (ReportSection(None, (ReportRow.of("No bots."),)),)
     rows = [
-        _row("ID", "NAME", "STATE", "VENUE", "SYMBOL", _EARNINGS_HEADS, "REASON"),
+        _row(("ID", "NAME", "STATE", "VENUE", "SYMBOL"), _EARNINGS_HEADS, "REASON"),
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
@@ -96,14 +96,13 @@ def _show_layout(
 
 
 def _row(
-    bot_id: str,
-    name: str,
-    state: str,
-    venue: str,
-    symbol: str,
+    leading: tuple[str, str, str, str, str],
     earnings: tuple[str, str, str],
     reason: str,
 ) -> ReportRow:
+    """One line of the list: id, name, state, venue, symbol; then the run's earnings; then why."""
+    bot_id, name, state, venue, symbol = leading
+    grid_profit, cycles, total = earnings
     return ReportRow(
         (
             ReportCell(bot_id, 6),
@@ -111,7 +110,9 @@ def _row(
             ReportCell(state, _STATE_WIDTH),
             ReportCell(venue, 14),
             ReportCell(symbol, 10),
-            *(ReportCell(text, 14) for text in earnings),
+            ReportCell(grid_profit, 14),
+            ReportCell(cycles, 8),
+            ReportCell(total, 14),
             ReportCell(reason),
         )
     )
@@ -119,11 +120,7 @@ def _row(
 
 def _bot_row(bot: BotStatusEntry) -> ReportRow:
     return _row(
-        bot.bot_id,
-        bot.name,
-        bot.state,
-        bot.venue,
-        bot.symbol,
+        (bot.bot_id, bot.name, bot.state, bot.venue, bot.symbol),
         (
             grid_profit_text(bot.earnings, plain_money),
             cycles_text(bot.earnings),
@@ -135,11 +132,7 @@ def _bot_row(bot: BotStatusEntry) -> ReportRow:
 
 def _unreadable_row(bot: UnreadableBotEntry) -> ReportRow:
     return _row(
-        bot.bot_id,
-        "-",
-        bot.state,
-        "-",
-        "-",
+        (bot.bot_id, "-", bot.state, "-", "-"),
         ("-", "-", "-"),
         f"{bot.path}: {bot.reason}",
     )

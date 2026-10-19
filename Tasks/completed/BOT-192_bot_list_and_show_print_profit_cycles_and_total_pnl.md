@@ -21,7 +21,7 @@
 - [x] The Bots table has `Grid profit` and `Cycles` columns before `Total PnL`; the panel lists "Profit from completed cycles" first, then cycles, total and "of which unrealised"; `bot show` lists grid profit, cycles, total, unrealised in that order.
 
 ## 3. Design
-`RunEarnings` (a frozen value object built from `BotProgress`) and the three text functions live in `bots/contracts/run_earnings.py`, Qt-free. The tab and the commands both call them; each passes its money writer (the tab's `write_value`, the commands' `plain_money`), and a parity test locks the two writers together (P5: one wording, one place). `BotStatusEntry.earnings` carries it through the existing status query, so `status` and the Bots-tab-backed queries stay one read model (`EPIC-038C`).
+`RunEarnings` (a frozen value object built from `BotProgress`) and the three text functions live in `bots/contracts/run_earnings.py`, Qt-free. The tab and the commands both call them; each passes its money writer (the tab's `write_value`, the commands' `plain_money`), and both writers call the one pair of number rules in `core/vo/number_text.py`, extracted from the formatter (P5: one wording, one place; review round 1, finding 1). `BotStatusEntry.earnings` carries it through the existing status query, so `status` and the Bots-tab-backed queries stay one read model (`EPIC-038C`).
 
 ## 3a. Reuse
 `BotProgress`/`PnlSummary` (used, unchanged), `Report`/`emit_report` machinery (used), `bot_facts` wording (moved, not copied). `capabilities.md`: no row for "write a run's earnings"; `write_value` is Qt-bound, so it is not used by the commands.
@@ -29,7 +29,7 @@
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/modules/bots/contracts/run_earnings.py` | New: `RunEarnings`, texts, `plain_money` |
+| `src/modules/bots/contracts/run_earnings.py`, `src/core/vo/number_text.py` | New: `RunEarnings`, texts, `plain_money`/`plain_price`; the formatter's money and price rules, Qt-free, now called by both |
 | `src/modules/bots/ui/bots_screen/bot_facts.py`, `bot_plan_panel.py`, `bots_table_models.py` | Shared texts; panel order and labels; table columns |
 | `src/modules/bots/contracts/bot_status_report.py`, `.../get_bot_status_report/handler.py` | `earnings` on the entry and its payload |
 | `src/modules/bots/cli/bot_status_reports.py` | Columns and rows |

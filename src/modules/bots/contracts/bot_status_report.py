@@ -9,7 +9,7 @@ those.
 
 Plain, frozen and JSON-ready: a script's `--json` is `payload()` of this report,
 so a field here is a field in the contract with scripts. It holds no account
-balance and no credential (`test_the_status_payloads_hold_no_secret`); the run's
+balance and no credential; the run's
 own earnings (`BOT-192`, `RunEarnings`) are the bot's file's account, never a
 safety input, and are `null` where the file gives none.
 
@@ -231,6 +231,7 @@ def _earnings_payload(earnings: RunEarnings | None) -> dict[str, JsonValue] | No
         "completed_cycles": earnings.completed_cycles,
         "total_pnl": None if earnings.total_pnl is None else str(earnings.total_pnl),
         "unpriced_fees": earnings.unpriced_fees,
+        "holds_base": earnings.holds_base,
         "unrealised": (
             None if earnings.unrealised is None else str(earnings.unrealised)
         ),

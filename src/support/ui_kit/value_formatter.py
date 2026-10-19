@@ -58,6 +58,13 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Final
 
+from Sagittarius_Elite_Warrior.src.core.vo.number_text import (
+    MAX_DECIMALS,
+    money_text,
+    price_text,
+    without_negative_zero,
+    without_trailing_zeros,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
@@ -108,32 +115,6 @@ _TIMEFRAME_CODES: Final = {frame.to_seconds(): frame.value for frame in TimeFram
 #: steps. Money keeps its two decimals, whatever the cell knows.
 _SYMBOL_QUANTIZED: Final = frozenset({ColumnKind.PRICE, ColumnKind.QUANTITY})
 
-_LARGE_PRICE: Final = 1_000
-_UNIT_PRICE: Final = 1
-_MAX_DECIMALS: Final = 8
-
-
-def _without_trailing_zeros(text: str) -> str:
-    return text.rstrip("0").rstrip(".") if "." in text else text
-
-
-def _without_negative_zero(text: str) -> str:
-    """`-0.00` is a value that rounded to zero; it reads as zero, unsigned."""
-    return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
-
-
-def _price_text(value: float) -> str:
-    # A band is chosen by the value as the band below it would print it:
-    # 999.99999 prints 1,000.0000 at four decimals, so it is a 1,000 price
-    # and takes two; 0.99999999 still prints below 1 at eight, so it keeps them.
-    if abs(round(value, 4)) >= _LARGE_PRICE:
-        return _without_negative_zero(f"{value:,.2f}")
-    if abs(round(value, _MAX_DECIMALS)) >= _UNIT_PRICE:
-        return _without_negative_zero(f"{value:,.4f}")
-    return _without_negative_zero(
-        _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
-    )
-
 
 def _quantized_text(value: float, precision: Precision) -> str:
     """`value` in whole quanta, with exactly the quantum's decimals."""
@@ -143,7 +124,7 @@ def _quantized_text(value: float, precision: Precision) -> str:
 def _ratio_text(value: float) -> str:
     if math.isinf(value):
         return _INFINITY if value > 0 else f"-{_INFINITY}"
-    return _without_negative_zero(f"{value:,.{_RATIO_DECIMALS}f}")
+    return without_negative_zero(f"{value:,.{_RATIO_DECIMALS}f}")
 
 
 def _bytes_text(count: float) -> str:
@@ -161,9 +142,7 @@ def _bytes_text(count: float) -> str:
 
 
 def _quantity_text(value: float) -> str:
-    return _without_negative_zero(
-        _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
-    )
+    return without_negative_zero(without_trailing_zeros(f"{value:,.{MAX_DECIMALS}f}"))
 
 
 def _number_text(kind: ColumnKind, number: float, context: FormatContext) -> str | None:
@@ -177,13 +156,13 @@ def _number_text(kind: ColumnKind, number: float, context: FormatContext) -> str
     ):
         return _quantized_text(number, context.precision)
     if kind is ColumnKind.PRICE:
-        return _price_text(number)
+        return price_text(number)
     if kind is ColumnKind.QUANTITY:
         if context.key == BYTES_KEY and math.isfinite(number):
             return _bytes_text(number)
         return _quantity_text(number)
     if kind is ColumnKind.MONEY:
-        return _without_negative_zero(f"{number:,.2f}")
+        return money_text(number)
     return None
 
 
