@@ -15,7 +15,8 @@ Every figure says what it is (`PRO-016` section 2):
   · **estimate** — the profit of one cycle in the quote asset, which depends on the quantity the
     bot sizes at start (exchange lot steps, the opening price), so it is the capital over the
     `grid_count` levels that hold an order (one of the `grid_count + 1` is empty at the price) and
-    says so.
+    says so. (`plan` divides by `grid_count + 1` when the price is outside the range, so there
+    the estimate is up to one level's share high.)
 
 A figure that needs something the record does not hold is `None`, never zero: no price heard, no
 fee rate (the account's maker rate is read from the exchange and is not saved, so the net after

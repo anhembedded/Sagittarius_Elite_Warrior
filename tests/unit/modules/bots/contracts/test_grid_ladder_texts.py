@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     position_texts,
     recorded_average_text,
     signed_percent_of,
+    small_money_text,
     step_text,
     summary_line,
 )
@@ -114,30 +115,24 @@ def test_the_brief_summary_keeps_the_figures_and_drops_the_reasons() -> None:
     brief = brief_summary_line(_summary(), plain_money)
 
     assert brief == (
-        "Arithmetic spacing, 1.43% (top) to 1.67% (bottom); "
-        "about 8.50 before fees (estimate)"
+        "Arithmetic spacing, 1.43% to 1.67%; about 8.50 before fees (estimate)"
     )
     assert FEE_NOT_SAVED not in brief
     assert brief_summary_line(
         _summary(spacing=GridSpacing.GEOMETRIC), plain_money
-    ).startswith("Geometric spacing, 1.43% (every grid)")
+    ).startswith("Geometric spacing, 1.43% each")
 
 
 def test_a_row_says_the_steps_in_a_few_words() -> None:
-    assert step_text(_summary()) == "1.43% (top) to 1.67% (bottom)"
-    assert step_text(_summary(spacing=GridSpacing.GEOMETRIC)) == "1.43% (every grid)"
-    assert (
-        step_text(_summary(largest_step_fraction=Decimal("0.0143")))
-        == "1.43% (every grid)"
-    )
+    assert step_text(_summary()) == "1.43% to 1.67%"
+    assert step_text(_summary(spacing=GridSpacing.GEOMETRIC)) == "1.43% each"
+    assert step_text(_summary(largest_step_fraction=Decimal("0.0143"))) == "1.43% each"
 
 
 def test_a_row_says_the_cycle_profit_before_fees_until_the_fee_is_known() -> None:
-    assert cycle_profit_text(_summary(), plain_money) == (
-        "about 8.50 before fees (estimate)"
-    )
+    assert cycle_profit_text(_summary(), plain_money) == ("about 8.50 before fees")
     assert cycle_profit_text(_summary(maker_fee=Decimal("0.001")), plain_money) == (
-        "about 8.50 after fees (estimate)"
+        "about 8.50 after fees"
     )
     assert (
         cycle_profit_text(_summary(average_cycle_quote=None), plain_money)
@@ -247,3 +242,32 @@ def test_no_text_promises_a_crossing_rate_or_a_profit_per_day() -> None:
     text = " ".join(lines).lower()
     for promise in ("per day", "daily", "/day", "apr", "per hour", "will cross"):
         assert promise not in text
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [
+        ("0.000192", "less than 0.01"),
+        ("0.004", "less than 0.01"),
+        ("-0.004", "more than -0.01"),
+        ("0.005", "0.01"),
+        ("0", "0.00"),
+        ("-0.01", "-0.01"),
+        ("12.5", "12.50"),
+    ],
+)
+def test_a_nonzero_amount_that_rounds_to_zero_is_said_to_be_small(
+    value: str, text: str
+) -> None:
+    assert small_money_text(Decimal(value), plain_money) == text
+
+
+def test_a_sub_cent_cycle_profit_and_average_are_never_written_as_zero() -> None:
+    summary = _summary(average_cycle_quote=Decimal("0.000192"))
+
+    assert "less than 0.01" in summary_line(summary, plain_money)
+    assert cycle_profit_text(summary, plain_money) == "less than 0.01 before fees"
+    assert (
+        recorded_average_text(RecordedCycles(3, Decimal("0.012")), plain_money)
+        == "less than 0.01"
+    )

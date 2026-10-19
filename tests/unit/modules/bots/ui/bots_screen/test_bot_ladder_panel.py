@@ -132,7 +132,7 @@ def test_what_is_not_known_is_a_blank_cell_never_a_zero(open_bots_screen) -> Non
     assert "not saved" in screen.view.ladder.summary.toolTip()
     assert _fact(screen, "last_price") == "no price yet"
     assert _fact(screen, "cycle_average") == "—"
-    assert _fact(screen, "cycle_profit").endswith("before fees (estimate)")
+    assert _fact(screen, "cycle_profit").endswith("before fees")
 
 
 def test_the_columns_say_where_each_figure_comes_from() -> None:
@@ -174,7 +174,7 @@ def test_the_plan_says_where_the_last_price_the_bot_heard_stands(
     assert _fact(screen, "upper_edge") == "70,000.00 (+8.53%)"
     assert _fact(screen, "stop_loss") == "off"
     assert _fact(screen, "take_profit") == "off"
-    assert _fact(screen, "grid_step") == "1.45% (top) to 1.67% (bottom)"
+    assert _fact(screen, "grid_step") == "1.45% to 1.67%"
     assert _fact(screen, "cycle_average").startswith("2.50")
     assert not screen.view.plan.facts.findChild(
         QLabel, "readout::liquidation"

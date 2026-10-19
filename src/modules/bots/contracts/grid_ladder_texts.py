@@ -44,6 +44,23 @@ _HOUR = 3600
 _DAY = 86_400
 
 
+def small_money_text(value: Decimal, money: MoneyWriter) -> str:
+    """`money(value)`, except that a nonzero amount the writer rounds to zero is said to be small:
+    `less than 0.01`, never `0.00` (a figure that exists is not shown as zero)."""
+    text = money(value)
+    if value == 0 or set(text.lstrip("-")) - set("0.,"):
+        return text
+    cent = money(Decimal("0.01"))
+    return f"less than {cent}" if value > 0 else f"more than -{cent}"
+
+
+def _about(amount: str) -> str:
+    """`about 1.55`, but not `about less than 0.01`."""
+    return (
+        amount if amount.startswith(("less than", "more than")) else f"about {amount}"
+    )
+
+
 def percent_of(fraction: Decimal) -> str:
     """`0.0125` as `1.25%`."""
     return percent_text(float(fraction * _HUNDRED))
@@ -71,16 +88,16 @@ def summary_line(summary: LadderSummary, money: MoneyWriter) -> str:
 def brief_summary_line(summary: LadderSummary, money: MoneyWriter) -> str:
     """`summary_line` without its reasons, for a panel with little room: the full line is its tooltip."""
     name = summary.spacing.value.capitalize()
-    return f"{name} spacing, {step_text(summary)}; {cycle_profit_text(summary, money)}"
+    return f"{name} spacing, {step_text(summary)}; {cycle_profit_text(summary, money)} (estimate)"
 
 
 def step_text(summary: LadderSummary) -> str:
-    """The steps in a few words, for a row beside its label: `1.45% (top) to 1.67% (bottom)`."""
+    """The steps in a few words, for a row beside its label: `1.45% to 1.67%` (top to bottom), or `1.20% each`."""
     smallest = percent_of(summary.smallest_step_fraction)
     largest = percent_of(summary.largest_step_fraction)
     if summary.spacing is GridSpacing.GEOMETRIC or smallest == largest:
-        return f"{smallest} (every grid)"
-    return f"{smallest} (top) to {largest} (bottom)"
+        return f"{smallest} each"
+    return f"{smallest} to {largest}"
 
 
 def cycle_profit_text(summary: LadderSummary, money: MoneyWriter) -> str:
@@ -88,14 +105,14 @@ def cycle_profit_text(summary: LadderSummary, money: MoneyWriter) -> str:
     if summary.average_cycle_quote is None:
         return NOT_ESTIMATED
     after = "before fees" if summary.maker_fee is None else "after fees"
-    return f"about {money(summary.average_cycle_quote)} {after} (estimate)"
+    return f"{_about(small_money_text(summary.average_cycle_quote, money))} {after}"
 
 
 def recorded_average_text(recorded: RecordedCycles, money: MoneyWriter) -> str:
     """What a completed cycle booked on average, net of both legs' fees; Futures funding is not
-    in it (the row's label says so). `NO_VALUE` while no cycle has completed."""
+    in it (the docs say so, `headless_runbook.md`). `NO_VALUE` while no cycle has completed."""
     average = recorded.average_profit
-    return NO_VALUE if average is None else money(average)
+    return NO_VALUE if average is None else small_money_text(average, money)
 
 
 def _spacing(summary: LadderSummary) -> str:
@@ -119,7 +136,8 @@ def _average_cycle(summary: LadderSummary, money: MoneyWriter) -> str:
     )
     if summary.average_cycle_quote is None:
         return f"profit per cycle: {NOT_ESTIMATED} ({fee})"
-    return f"about {money(summary.average_cycle_quote)} per cycle {fee} (estimate)"
+    average = small_money_text(summary.average_cycle_quote, money)
+    return f"{_about(average)} per cycle {fee} (estimate)"
 
 
 @dataclass(frozen=True, slots=True)
