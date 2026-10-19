@@ -6,18 +6,80 @@ ceiling, only places them."""
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Protocol
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
-from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
+    DEFAULT_TIMEZONE,
+    resolve_zone_info,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    AppValueFormatter,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    FormatContext,
+)
 
 
 def money_text(amount: float) -> str:
     return write_value(ColumnKind.MONEY, amount)
 
 
-def moment_text(moment: datetime | None, open_end: str) -> str:
-    """A range's end as the application writes a timestamp; an open end by name."""
-    return write_value(ColumnKind.TIMESTAMP, moment) if moment else open_end
+def zone_name(time_zone: str) -> str:
+    """The zone `time_zone` really resolves to, by name ("UTC" when the setting cannot be
+    resolved): a text that names its zone must name the one it was written in."""
+    return resolve_zone_info(time_zone).key
+
+
+def moment_in_zone(moment: datetime, time_zone: str = DEFAULT_TIMEZONE) -> str:
+    """`BOT-162` — a moment as the trades table writes it, in the display time zone the person chose
+    (`ZonedValueFormatter`), with no zone named."""
+    return AppValueFormatter(time_zone).format(
+        ColumnKind.TIMESTAMP, moment, FormatContext(ColumnKind.TIMESTAMP.value)
+    )
+
+
+def zone_suffix(time_zone: str, *, name_utc: bool = False) -> str:
+    """` <zone>` for a text that is not in UTC, else nothing (the text reads as it always did);
+    `name_utc` for a sentence that already said "UTC". A text is not rewritten when the person
+    changes the zone, so one written in another zone must name it to stay true."""
+    zone = zone_name(time_zone)
+    return "" if zone == DEFAULT_TIMEZONE and not name_utc else f" {zone}"
+
+
+def zoned_moment_text(
+    moment: datetime, time_zone: str = DEFAULT_TIMEZONE, *, name_utc: bool = False
+) -> str:
+    return moment_in_zone(moment, time_zone) + zone_suffix(time_zone, name_utc=name_utc)
+
+
+def moment_text(
+    moment: datetime | None, open_end: str, time_zone: str = DEFAULT_TIMEZONE
+) -> str:
+    """A range's end in the display zone, with no zone named; an open end by name."""
+    return moment_in_zone(moment, time_zone) if moment else open_end
+
+
+class _HasRange(Protocol):
+    """A run's configuration, as far as its range is concerned (read-only, so a dataclass fits)."""
+
+    @property
+    def start_time(self) -> datetime | None: ...
+
+    @property
+    def end_time(self) -> datetime | None: ...
+
+
+def time_range_diff_text(before: _HasRange, after: _HasRange, time_zone: str) -> str:
+    """`Time range (a..b → c..d)` for the config diff, in the display time zone, which it
+    names once unless it is UTC (`BOT-162`). An open start reads "Start", an open end "Now"."""
+
+    def written(config: _HasRange) -> str:
+        start = moment_text(config.start_time, "Start", time_zone)
+        return f"{start}..{moment_text(config.end_time, 'Now', time_zone)}"
+
+    return f"Time range ({written(before)} → {written(after)}{zone_suffix(time_zone)})"
 
 
 def signal_text(side: str, symbol: str, price: float) -> str:

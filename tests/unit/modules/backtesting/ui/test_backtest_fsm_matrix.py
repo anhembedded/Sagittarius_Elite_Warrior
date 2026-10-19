@@ -315,3 +315,31 @@ def test_the_diff_summary_writes_money_and_moments_as_the_application_does():
 
 def test_the_summary_label_writes_capital_as_money():
     assert _base_config().to_summary_label().endswith("Capital: 10,000.00 USD")
+
+
+def _ranged(start, end) -> BacktestRunConfig:
+    return BacktestRunConfig(
+        strategy_key="ema_crossover",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=10_000.0,
+        start_time=start,
+        end_time=end,
+    )
+
+
+def test_the_time_range_of_a_config_diff_is_in_the_display_time_zone_and_names_it() -> (
+    None
+):
+    """`BOT-162`: UTC reads as before; another zone shifts both ends and is named once."""
+    before = _ranged(datetime(2026, 1, 1, tzinfo=UTC), None)
+    after = _ranged(
+        datetime(2026, 1, 2, 3, tzinfo=UTC), datetime(2026, 2, 1, tzinfo=UTC)
+    )
+
+    assert before.compute_diff_summary(after) == (
+        "Time range (2026-01-01 00:00:00..Now → 2026-01-02 03:00:00..2026-02-01 00:00:00)"
+    )
+    assert before.compute_diff_summary(after, "Asia/Ho_Chi_Minh") == (
+        "Time range (2026-01-01 07:00:00..Now → "
+        "2026-01-02 10:00:00..2026-02-01 07:00:00 Asia/Ho_Chi_Minh)"
+    )
