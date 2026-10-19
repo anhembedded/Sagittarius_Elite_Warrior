@@ -2,7 +2,7 @@
 
 `scripts/preview-qml.ps1 alerts_options` (`--list` names every preview) renders the
 page headless with no presenter: the view over a view model set to the states the
-owner meets — nothing saved, a saved webhook waiting for a restart, a refused test; this one shows the last two.
+owner meets — nothing saved, a saved webhook waiting for a restart, a refused test; this one shows the last two, with three bots set to each of the three choices (`BOT-191`).
 The URL below is a made-up one; nothing here reads a secret store.
 """
 
@@ -24,6 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_v
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view_model import (
     AlertsSettingsViewModel,
+    BotModeRow,
 )
 
 #: `scripts/preview_qml.py` keys a preview by its parent directory name, `options`,
@@ -48,6 +49,13 @@ def build_preview() -> QWidget:
     )
     sentence, is_error = alerts_words.send_test_words((refused,))
     view_model.set_status(sentence, is_error)
+    view_model.set_bot_rows(
+        (
+            BotModeRow("g3n092", "eth-grid", "on"),
+            BotModeRow("k8d114", "sol-grid", "critical_only"),
+            BotModeRow("m2x077", "btc-neutral", "off"),
+        )
+    )
     view = AlertsSettingsView()
     view.set_view_model(view_model)
     return view

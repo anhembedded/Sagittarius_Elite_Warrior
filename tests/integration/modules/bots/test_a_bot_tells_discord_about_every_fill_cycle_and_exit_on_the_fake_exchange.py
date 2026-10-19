@@ -36,6 +36,12 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.composition.channel_bindings
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_settings_source import (
+    IAlertSettingsSource,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
+    IBotAlertModes,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_outbox import IOutbox
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_webhook_transport import (
     IWebhookTransport,
@@ -45,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_alert
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.testing.fake_webhook_transport import (
     FakeWebhookTransport,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
+    BotAlertMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
@@ -241,6 +250,36 @@ def test_a_stop_loss_and_a_take_profit_are_told_once_and_loud_not_as_fills(
     assert all(
         "flags" not in post.body for post in transport.posts if title in str(post.body)
     )
+
+
+def test_a_bot_set_to_critical_only_sends_no_fill_and_still_sends_its_stop_loss(
+    exchange: FakeExchange,
+) -> None:
+    """`BOT-191`: the owner's choice, kept by the real settings file, reaches the hub."""
+    with _told(exchange) as (app, transport):
+        bot_id = _started(app)
+        modes = app.engine.context.container.resolve(IBotAlertModes)  # type: ignore[type-abstract]
+        modes.set_mode(bot_id, BotAlertMode.CRITICAL_ONLY)
+
+        app.move_price(48700)  # the 48,800 buy fills: a fill message, were it on
+        assert _settled(app, transport) == []
+
+        _tick(app, 39_000.0)
+        messages = _settled(app, transport)
+
+    assert [m for m in messages if "Stop loss hit: grid" in m]
+    assert not [m for m in messages if "Order filled" in m]
+
+
+def test_the_choice_survives_a_restart_of_the_app(exchange: FakeExchange) -> None:
+    with _told(exchange) as (first, _transport):
+        bot_id = _started(first)
+        modes = first.engine.context.container.resolve(IBotAlertModes)  # type: ignore[type-abstract]
+        modes.set_mode(bot_id, BotAlertMode.OFF)
+
+    with _told(exchange) as (second, _transport):
+        settings = second.engine.context.container.resolve(IAlertSettingsSource)  # type: ignore[type-abstract]
+        assert settings.current().mode_of(bot_id) is BotAlertMode.OFF
 
 
 def test_a_price_outside_the_range_is_told_once_while_it_stays_out_and_not_again_on_a_flap(

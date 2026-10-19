@@ -1,6 +1,7 @@
 """`IAlertSettingsSource` held in memory.
 
-`EPIC-036A` ships the defaults of N4 and no persistence: the Options page
+`EPIC-036A` ships the defaults of N4 and no persistence (`BOT-191` added `JsonAlertSettings` for the
+per-bot modes): the Options page
 (`EPIC-036D`) brings the store that survives a restart and replaces this class
 at its binding. `replace` is this adapter's own, not the port's: only the page
 that owns the store edits settings.

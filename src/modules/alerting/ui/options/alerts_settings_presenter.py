@@ -29,10 +29,14 @@ run has only after a restart, and the page says so
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import Slot
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import (
     FailureKind,
     FailureNotice,
@@ -47,12 +51,23 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_to_configured_channels import (
     SendTestToConfiguredChannels,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_bot_alert_modes import (
+    IBotAlertModes,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
+    BotAlertMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options import alerts_words
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_action_relay import (
     AlertsActionRelay,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.ui.options.alerts_settings_view_model import (
     AlertsSettingsViewModel,
+    BotModeRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
+    BotStatusReport,
+    GetBotStatusReportQuery,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -82,12 +97,16 @@ class _Kind(str, Enum):
     SAVE = "save"
     REMOVE = "remove"
     TEST = "test"
+    MODE = "mode"
+    BOTS = "bots"
 
 
 _DOING = {
     _Kind.SAVE: "Saving the webhook",
     _Kind.REMOVE: "Removing the webhook",
     _Kind.TEST: "Sending the test message",
+    _Kind.MODE: "Saving the bot's alert setting",
+    _Kind.BOTS: "Reading the bots",
 }
 
 
@@ -102,6 +121,8 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             SendTestToConfiguredChannels
         )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+        self._modes: IBotAlertModes = container.resolve(IBotAlertModes)
+        self._dispatcher: ICommandDispatcher = container.resolve(ICommandDispatcher)
         self._tracker: ActionOwnershipTracker[_Kind, None, None] = (
             ActionOwnershipTracker()
         )
@@ -109,11 +130,13 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
 
         self._settings_view_model = AlertsSettingsViewModel()
         self._reload()
+        self._begin(_Kind.BOTS, self._list_bots)
 
         view_model = self._settings_view_model
         view_model.save_requested.connect(self._on_save_requested)
         view_model.remove_requested.connect(self._on_remove_requested)
         view_model.send_test_requested.connect(self._on_send_test_requested)
+        view_model.bot_mode_requested.connect(self._on_bot_mode_requested)
         view.set_view_model(view_model)
 
     def shutdown(self) -> None:
@@ -154,7 +177,56 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
             can_test=state.usable,
         )
 
+    def _list_bots(self) -> tuple[BotModeRow, ...]:
+        """`BOT-191`: the bots the page can set, each with what it may tell now. Runs on the
+        pool: the report reads every bot's file."""
+        report = cast(
+            BotStatusReport,
+            self._dispatcher.dispatch(
+                GetBotStatusReportQuery, GetBotStatusReportQuery()
+            ),
+        )
+        modes = self._modes.modes()
+        return tuple(
+            BotModeRow(
+                entry.bot_id,
+                entry.name,
+                modes.get(entry.bot_id, BotAlertMode.ON).value,
+            )
+            for entry in report.bots
+        )
+
+    def _publish_bot_rows(self, rows: tuple[BotModeRow, ...]) -> None:
+        read_only = self._modes.read_only
+        note = (
+            alerts_words.READ_ONLY_NOTE
+            if read_only
+            else ("" if rows else alerts_words.NO_BOTS)
+        )
+        self._settings_view_model.set_bot_rows(rows, note, editable=not read_only)
+
+    def _show_modes_again(self) -> None:
+        """Memory only: the same bots, each with the mode really kept now."""
+        modes = self._modes.modes()
+        self._publish_bot_rows(
+            tuple(
+                replace(row, mode=modes.get(row.bot_id, BotAlertMode.ON).value)
+                for row in self._settings_view_model.bot_rows
+            )
+        )
+
     # -- user requests ------------------------------------------------------
+
+    @Slot(str, str)
+    @safe_ui_action
+    def _on_bot_mode_requested(self, bot_id: str, value: str) -> None:
+        if self._settings_view_model.is_working or self._modes.read_only:
+            return
+        try:
+            mode = BotAlertMode(value)
+        except ValueError:
+            return
+        self._begin(_Kind.MODE, lambda: self._after_mode(bot_id, mode))
 
     @Slot(str)
     @safe_ui_action
@@ -197,6 +269,10 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is told in words, not lost to a pool thread
             self._relay.hand_over((action_id, kind, None, None, type(exc).__name__))
 
+    def _after_mode(self, bot_id: str, mode: BotAlertMode) -> BotAlertMode:
+        self._modes.set_mode(bot_id, mode)
+        return mode
+
     def _on_action_done(self, payload: tuple) -> None:
         """Runs on the UI thread with what the worker reported. The fence
         (`is_current_pending`) is defence in depth: the buttons are off while an
@@ -212,12 +288,20 @@ class AlertsSettingsPresenter(OptionsSectionPresenter[tuple[()]]):
         self._settings_view_model.set_working("")
         if state is not None:
             self._publish_state(state)
-        if failed:
+        if kind is _Kind.MODE:
+            self._show_modes_again()
+        if failed and kind is _Kind.BOTS:
+            self._settings_view_model.set_bot_rows((), alerts_words.BOTS_UNREADABLE)
+        elif failed:
             self._tell_failed(kind, error_type)
+        elif kind is _Kind.BOTS:
+            self._publish_bot_rows(result)
         elif kind is _Kind.SAVE:
             self._on_webhook_saved(result)
         elif kind is _Kind.REMOVE:
             self._on_webhook_removed(result)
+        elif kind is _Kind.MODE:
+            self._settings_view_model.set_status(alerts_words.MODE_SAVED[result], False)
         else:
             sentence, is_error = alerts_words.send_test_words(result)
             self._settings_view_model.set_status(sentence, is_error)

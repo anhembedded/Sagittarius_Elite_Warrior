@@ -1,0 +1,42 @@
+# BOT-191 — The owner mutes the fill messages of one bot
+
+**Status:** ✅ Done (2026-10-19)
+**Priority:** P3
+**Board:** Nothing set a bot's alert mode and alert settings were in memory; the Options page's Alerts section now lists every bot with All messages / Critical only / None, kept in `<data root>/state/alert_settings.json` and applied to the next alert. A missing, older, newer or damaged file is every default (all bots tell everything); a bot set to Critical only sends no fill message and still sends its halts.
+**Source:** `BOT-189` review round 1 (PR #572), recorded as a limit; recommended by the author.
+**Risk:** 🟢 — settings only; the router already honours the mode.
+**Complexity:** M — a store for `AlertSettings` that survives a restart (the Options page of `EPIC-036D`) and a control per bot.
+**Epic (optional):** [EPIC-036](../epics/EPIC-036_alerting_module/README.md)
+**Depends on:** `BOT-189`; `EPIC-036D` (the persistent settings store).
+
+---
+
+## 1. Context and problem
+`InMemoryAlertSettings` holds N4's defaults and no persistence (`adapters/memory_alert_settings.py`); `AlertRouter._bot_allows` already drops a bot's INFO/WARNING under `CRITICAL_ONLY` and everything under `OFF`.
+
+## 2. Acceptance criteria
+- [x] The owner sets a bot to On, Critical only or Off, and it survives a restart.
+- [x] A bot set to Critical only sends no fill message and still sends its halts.
+
+## 3. Design
+One file, one port, one page section.
+- **Store.** `JsonAlertSettings` (adapter) serves both `IAlertSettingsSource` (the hub reads it for every alert, so an edit applies to the next one) and the new `IBotAlertModes` (`modes`, `set_mode`; the page edits through it). The file is `<data root>/state/alert_settings.json`, `{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "<mode>"}}`; only the per-bot modes are persisted, the routes, disabled channels and quiet hours stay N4's defaults until `EPIC-036D` gives them a control. A mode `on` is not written.
+- **What a missing or older file does.** A missing file is every default (all bots `on`) and nothing creates it until the owner sets a mode. A file this build cannot read (not JSON, a schema other than `/1`) is every default, told once in the log (`[alert-settings]`), left untouched, and moved aside to `alert_settings.json.unreadable` on the owner's next save. One entry with a mode this build does not know is skipped and the rest kept. The default is the loud side on purpose: an alert system must fail toward more messages, never fewer.
+- **Page.** A "Bots" group in Tools → Options → Alerts: one row per bot (the bots' status report, the same read the alert sources use), a combo of the three modes; a change runs through the page's existing off-thread action machinery and republishes the rows from what is really kept, so a failed write shows the old value and says so. The rows are rebuilt only when the list of bots changes, so the combo the owner used keeps the keyboard focus.
+- **Read-only copy.** A second instance refuses a change (`set_mode` raises), because its alerting never runs and a choice kept there would reach nothing and only look saved; its page shows the choices disabled with a sentence saying why.
+- **Decision (delegated, 🤖 Agent decision).** The owner delegated the sub-decisions of this task ("cho subsection làm hết", relayed by the coordinator): a missing, older, newer or damaged file is every default, all bots tell everything, the loud side. It is recorded here, not asked. Reversible: the default is one constant of reading, and the file holds no secret. The file is `<data root>/state/alert_settings.json` (`alert_settings_path()` over `data_root()`), and no content of it makes startup raise: not JSON, a member named twice, a schema or mode this build does not know, a list where a mode goes, and 100,000 nested brackets are each tested to come out as defaults.
+
+## 3a. Reuse
+`BotAlertMode`, `AlertSettings.bot_modes`, `IAlertSettingsSource`; `EnumLabels` (`support/ui_kit/enum_labels.py`) for the mode labels and the saved sentences, so a new mode without words fails at import and not at display (review round 1).
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `alerting/contracts/i_bot_alert_modes.py` | the port the page edits through |
+| `alerting/adapters/json_alert_settings.py` | the file store, tolerant of a missing, older, newer or damaged file |
+| `alerting/composition/alerting_bindings.py` | binds it for both ports; `alert_settings_path` |
+| `alerting/ui/options/*` | the Bots group: words, view model rows, view, presenter action, preview |
+| `Docs/MODULES/alerting/04, 05, 08` | the store, the file and its tolerance |
+
+## Implementation notes (written when done)
+Tests: the adapter over real files (absent, round trip, back to On, four foreign shapes, not JSON, an unknown mode, read-only, a failed write), the page over the real file (list, choose, survive a reopen, a refused write, no bots, an unknown value), and on the fake exchange with the real hub and Discord channel a bot set to Critical only sends no fill and still sends its stop loss, and the choice is there after a restart. The mutation that stops the presenter calling `set_mode` turns three tests red. The flaky burst-of-starts test seen on PR #585 is already `BUG-232` (filed on master by the coordinator, #593); this pull request files only `BUG-234`, the system display time zone.

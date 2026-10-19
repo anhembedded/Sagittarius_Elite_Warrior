@@ -16,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.discord_webhook_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.send_test_message import (
     ChannelTestOutcome,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.bot_alert_mode import (
+    BotAlertMode,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 WHERE_TO_COPY_IT = (
     "In Discord: Channel settings → Integrations → Webhooks → Copy Webhook URL."
@@ -80,7 +84,40 @@ WORKING_WORDS = {
     "save": "Saving the webhook…",
     "remove": "Removing the webhook…",
     "test": "Sending a test message to Discord…",
+    "mode": "Saving the bot's alert setting…",
+    "bots": "Reading the bots…",
 }
+
+#: `BOT-191` — what each `BotAlertMode` is called on the page, and what it means.
+BOT_MODE_LABELS = EnumLabels(
+    BotAlertMode,
+    {
+        BotAlertMode.ON: "All messages",
+        BotAlertMode.CRITICAL_ONLY: "Critical only",
+        BotAlertMode.OFF: "None",
+    },
+)
+BOTS_INTRO = (
+    "Choose what each bot may tell you. Critical only silences its fill and cycle "
+    "messages and still tells you when it halts, errors or hits a stop loss; None "
+    "silences it entirely. A choice is kept for the next start."
+)
+NO_BOTS = "No bots yet. Create one in the Bots tab, then set what it may tell you here."
+BOTS_UNREADABLE = "The bots could not be listed, so none can be set here. Try again."
+MODE_SAVED = EnumLabels(
+    BotAlertMode,
+    {
+        BotAlertMode.ON: "Saved: this bot tells you everything.",
+        BotAlertMode.CRITICAL_ONLY: (
+            "Saved: this bot sends only critical messages, such as a halt or a stop loss."
+        ),
+        BotAlertMode.OFF: "Saved: this bot sends no messages. A halt will not reach you.",
+    },
+)
+READ_ONLY_NOTE = (
+    "This copy of the app is read-only, so it cannot keep these choices. Set them in the "
+    "copy that is running."
+)
 
 
 def channel_line(state: DiscordChannelState) -> str:

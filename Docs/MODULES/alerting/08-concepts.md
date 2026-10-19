@@ -31,6 +31,20 @@ fields plus `count` and `last_at`, so a repeat is one row with a counter) and ta
 file written by a newer schema is refused (`sqlite_outbox.py` → `SqliteOutbox._prepare`). The
 records that cross the port are in `alerting/contracts/outbox_records.py`.
 
+## Built: the settings file
+
+What the owner set per bot is one JSON file, `<data root>/state/alert_settings.json`
+(`alerting/composition/alerting_bindings.py` → `alert_settings_path`), shaped
+`{"schema": "sew.alert-settings/1", "bot_modes": {"<bot id>": "critical_only"}}`
+(`alerting/adapters/json_alert_settings.py` → `SETTINGS_SCHEMA`, `JsonAlertSettings`). It holds bot
+ids and modes, no secret. A mode `on` is not written. **A missing file is every default**: nothing
+creates it until the owner sets a mode. **A file this build cannot read** (not JSON, another schema)
+is every default, told once in the log with `[alert-settings]`, and moved aside to
+`alert_settings.json.unreadable` when the owner next sets a mode. **A mode this build does not know**
+is skipped and the rest kept; a file that names a member twice is not trusted. A second unreadable file is kept beside the first (`.unreadable.2`), never over it. Every default means every bot may tell everything: the safe side
+for alerts. Written by write-temp-then-rename with an fsync, the temporary file removed on any failure; a read-only copy of
+the app refuses a change, because its alerting never runs (`JsonAlertSettings.set_mode`).
+
 ## Built: in memory, on purpose
 
 Dedup windows, groups, inhibitors and the held quiet-hours list are in memory and do not survive a
