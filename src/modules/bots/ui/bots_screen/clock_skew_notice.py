@@ -40,7 +40,7 @@ def clock_skew_headline(source: AccountSource, skew_ms: int) -> str:
     side = "ahead of" if skew_ms > 0 else "behind"
     return (
         f"This computer's clock is {size} {side} {source.venue_title}'s. Times shown "
-        "and in the log come from it. Orders are not affected; sync the clock."
+        "and in the log come from it. Orders use the exchange's time; sync the clock."
     )
 
 

@@ -110,4 +110,5 @@ def test_a_machine_clock_far_from_the_exchanges_reaches_the_connect_snapshot(
 
     assert isinstance(answer, VenueAccountSnapshot), answer
     assert answer.server_time_skew_ms is not None
-    assert abs(answer.server_time_skew_ms) > 100_000
+    # Local minus exchange: a fast machine reads positive, which the bar words "ahead of".
+    assert answer.server_time_skew_ms > 100_000
