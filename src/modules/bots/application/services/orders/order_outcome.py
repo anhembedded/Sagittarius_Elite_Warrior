@@ -49,6 +49,10 @@ class OrderOutcomeKind(str, Enum):
     #: or the venue: a RUNNING ladder leaves that rung EMPTY and goes on.
     ORDER_INVALID = "order_invalid"
     KEY_REJECTED = "key_rejected"
+    #: A cancel found no such order: it filled or ended first. Not `DONE` (nothing was
+    #: cancelled, and a protective stop's record tells a cancel from an end), not a fault: a
+    #: ladder's cancel has met its goal, which is that the order no longer rests.
+    GONE = "gone"
     FAULT = "fault"
 
 
@@ -93,6 +97,22 @@ def named_rejection(exc: Exception) -> OrderOutcome | None:
     if kind is None:
         return None
     return OrderOutcome(kind, detail=exc.raw_message)
+
+
+def is_order_gone(exc: Exception) -> bool:
+    """Whether `exc` is the exchange saying it holds no such order: a cancel of an order that
+    already filled or ended is `GONE`, not a fault."""
+    return (
+        isinstance(exc, OrderRejectedByExchangeError)
+        and exc.reason is OrderRejectionReason.UNKNOWN_ORDER
+    )
+
+
+def gone_outcome(client_order_id: str) -> OrderOutcome:
+    """A cancel that found the order gone; its fill, if any, arrives as an event."""
+    return OrderOutcome(
+        OrderOutcomeKind.GONE, client_order_id, "the exchange holds no such order"
+    )
 
 
 def fault_text(exc: Exception) -> str:
