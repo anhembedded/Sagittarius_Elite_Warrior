@@ -19,6 +19,14 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    NO_VALUE,
+    RunEarnings,
+    cycles_text,
+    grid_profit_text,
+    total_pnl_text,
+    unrealised_text,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
     venue_profile_of,
 )
@@ -36,9 +44,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
-#: A figure this bot does not have yet: no fill, no inventory, no run.
-NO_VALUE = "—"
-
 
 def _price(value: Decimal | None) -> str:
     return write_value(ColumnKind.PRICE, value)
@@ -48,8 +53,12 @@ def _quantity(value: Decimal) -> str:
     return write_value(ColumnKind.QUANTITY, value)
 
 
+def _write_money(value: Decimal) -> str:
+    return write_value(ColumnKind.MONEY, float(value))
+
+
 def _money(value: Decimal | None) -> str:
-    return NO_VALUE if value is None else write_value(ColumnKind.MONEY, float(value))
+    return NO_VALUE if value is None else _write_money(value)
 
 
 #: What a RECOVERING bot says first: it waits, and Resume is the action that continues it.
@@ -101,6 +110,8 @@ class BotFacts:
     commissions: str = NO_VALUE
     funding: str = NO_VALUE
     shows_costs: bool = False
+    #: `BOT-192` - completed buy/sell cycles, beside the profit they booked.
+    cycles: str = NO_VALUE
 
 
 def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
@@ -112,7 +123,7 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         venue=bot.venue.display_name,
         symbol=bot.symbol,
         capital=capital or NO_VALUE,
-        grid_profit=_money(progress.realised_profit if progress else None),
+        grid_profit=grid_profit_text(RunEarnings.of(progress), _write_money),
         unrealised=_unrealised(bot),
         inventory=_inventory(bot),
         running_time=_running_time(bot, now),
@@ -122,6 +133,7 @@ def bot_facts(bot: BotSnapshot, now: datetime) -> BotFacts:
         commissions=_cost(bot, "commissions"),
         funding=_cost(bot, "funding"),
         shows_costs=_has_funding(bot),
+        cycles=cycles_text(RunEarnings.of(progress)),
     )
 
 
@@ -142,30 +154,11 @@ def _state_line(bot: BotSnapshot) -> str:
 
 
 def _unrealised(bot: BotSnapshot) -> str:
-    progress = bot.progress
-    if progress is None or progress.inventory <= 0 or progress.average_cost is None:
-        return NO_VALUE
-    pnl = progress.pnl
-    if pnl is None or pnl.unrealised is None or progress.mark_price is None:
-        return "no price yet"
-    return f"{_money(pnl.unrealised)} at {_price(progress.mark_price)}"
+    return unrealised_text(RunEarnings.of(bot.progress), _write_money, _price)
 
 
 def _total(bot: BotSnapshot) -> str:
-    progress = bot.progress
-    if progress is None or progress.pnl is None:
-        return NO_VALUE
-    pnl = progress.pnl
-    if pnl.total is None:
-        return "no price yet"
-    note = (
-        f" ({pnl.unpriced_fees} fees could not be priced)"
-        if pnl.unpriced_fees > 1
-        else " (1 fee could not be priced)"
-        if pnl.unpriced_fees
-        else ""
-    )
-    return f"{_money(pnl.total)}{note}"
+    return total_pnl_text(RunEarnings.of(bot.progress), _write_money)
 
 
 def _has_funding(bot: BotSnapshot) -> bool:

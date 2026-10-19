@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_plan_panel im
     FACT_SPECS,
     BotPlanPanel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_table_models import (
+    BotsTableModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
@@ -43,6 +46,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.grid_runtime_
 
 from .bots_screen_fixtures import NOW, stored
 
+_EARNINGS = {"grid_profit", "cycles", "total_pnl", "unrealised"}
 _HELD = BotProgress(
     realised_profit=Decimal("12.5"),
     completed_cycles=3,
@@ -84,15 +88,16 @@ def test_unrealised_pnl_is_what_the_held_base_gained_at_the_bots_own_price() -> 
     assert bot_facts(_running(lower), NOW).unrealised == "-10.00 at 63,000.00"
 
 
-def test_the_total_is_the_first_figure_with_grid_profit_as_one_part_of_it() -> None:
+def test_grid_profit_comes_first_with_the_total_and_the_unrealised_kept_apart() -> None:
     facts = bot_facts(_running(_PRICED), NOW)
 
     assert facts.total_pnl == "30.00"
     assert facts.grid_profit == "12.50"
     shown = [spec.key for spec in FACT_SPECS]
-    assert shown[shown.index("total_pnl") :][:3] == [
-        "total_pnl",
+    assert [key for key in shown if key in _EARNINGS] == [
         "grid_profit",
+        "cycles",
+        "total_pnl",
         "unrealised",
     ]
 
@@ -244,3 +249,13 @@ def test_the_cost_rows_are_on_screen_for_futures_and_not_for_spot(qtbot) -> None
     assert futures.facts.value_text("funding") == "-0.0317"
     assert not _row_shown(spot, "commissions") and not _row_shown(spot, "funding")
     assert _row_shown(spot, "grid_profit") and _row_shown(futures, "grid_profit")
+
+
+def test_the_bots_table_shows_grid_profit_and_cycles_before_the_total(qtbot) -> None:
+    model = BotsTableModel()
+    model.set_rows([_running(_PRICED)])
+    keys = [spec.key for spec in BotsTableModel.COLUMNS]
+
+    assert keys[-3:] == ["grid_profit", "cycles", "profit"]
+    cells = [model.index(0, keys.index(key)).data() for key in keys[-3:]]
+    assert cells == [Decimal("12.5"), 3, Decimal(30)]

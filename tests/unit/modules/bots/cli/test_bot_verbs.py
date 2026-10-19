@@ -42,7 +42,7 @@ _LIST_KEYS = {"app_running", "bots", "unreadable", "counts"}
 _BOT_KEYS = {
     "bot_id", "name", "kind", "venue", "symbol", "state", "reason",
     "run_started_at", "health", "resting_orders", "recovers_on_restart",
-    "reason_detail", "recovery", "parameters",
+    "reason_detail", "recovery", "parameters", "earnings",
 }  # fmt: skip
 _UNREADABLE_KEYS = {"bot_id", "state", "path", "reason"}
 

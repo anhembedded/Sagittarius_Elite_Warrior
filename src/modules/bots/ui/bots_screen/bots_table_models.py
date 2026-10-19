@@ -62,6 +62,8 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         ColumnSpec("venue", "Venue", ColumnKind.TEXT),
         ColumnSpec("symbol", "Symbol", ColumnKind.TEXT),
         ColumnSpec("state", "State", ColumnKind.STATUS),
+        ColumnSpec("grid_profit", "Grid profit", ColumnKind.MONEY),
+        ColumnSpec("cycles", "Cycles", ColumnKind.QUANTITY),
         ColumnSpec("profit", "Total PnL", ColumnKind.MONEY),
     )
 
@@ -72,12 +74,15 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
         )
 
     def _value(self, row: BotSnapshot, column: int) -> DisplayValue:
+        progress = row.progress
         values: tuple[DisplayValue, ...] = (
             row.name,
             kind_title(row.kind),
             row.venue.display_name,
             row.symbol,
             state_text(row.state),
+            progress.realised_profit if progress else None,
+            progress.completed_cycles if progress else None,
             _total_pnl(row),
         )
         return values[column]

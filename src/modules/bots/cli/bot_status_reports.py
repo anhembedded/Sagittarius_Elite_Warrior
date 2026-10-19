@@ -25,6 +25,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     RecoveryRuleLine,
     UnreadableBotEntry,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    cycles_text,
+    grid_profit_text,
+    plain_money,
+    plain_price,
+    total_pnl_text,
+    unrealised_text,
+)
 
 LIST_COMMAND = "bot-list"
 SHOW_COMMAND = "bot-show"
@@ -32,6 +40,8 @@ SCHEMA_VERSION = 1
 
 _NAME_WIDTH = 24
 _STATE_WIDTH = 10
+#: `BOT-192`: the Bots tab's own figures, as columns of the list.
+_EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", "TOTAL PNL")
 
 
 def _recorded_note(status: BotStatusReport) -> tuple[ReportSection, ...]:
@@ -68,7 +78,7 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     if status.is_empty:
         return (ReportSection(None, (ReportRow.of("No bots."),)),)
     rows = [
-        _row("ID", "NAME", "STATE", "VENUE", "SYMBOL", "REASON"),
+        _row(("ID", "NAME", "STATE", "VENUE", "SYMBOL"), _EARNINGS_HEADS, "REASON"),
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
@@ -86,8 +96,13 @@ def _show_layout(
 
 
 def _row(
-    bot_id: str, name: str, state: str, venue: str, symbol: str, reason: str
+    leading: tuple[str, str, str, str, str],
+    earnings: tuple[str, str, str],
+    reason: str,
 ) -> ReportRow:
+    """One line of the list: id, name, state, venue, symbol; then the run's earnings; then why."""
+    bot_id, name, state, venue, symbol = leading
+    grid_profit, cycles, total = earnings
     return ReportRow(
         (
             ReportCell(bot_id, 6),
@@ -95,17 +110,32 @@ def _row(
             ReportCell(state, _STATE_WIDTH),
             ReportCell(venue, 14),
             ReportCell(symbol, 10),
+            ReportCell(grid_profit, 14),
+            ReportCell(cycles, 8),
+            ReportCell(total, 14),
             ReportCell(reason),
         )
     )
 
 
 def _bot_row(bot: BotStatusEntry) -> ReportRow:
-    return _row(bot.bot_id, bot.name, bot.state, bot.venue, bot.symbol, bot.reason)
+    return _row(
+        (bot.bot_id, bot.name, bot.state, bot.venue, bot.symbol),
+        (
+            grid_profit_text(bot.earnings, plain_money),
+            cycles_text(bot.earnings),
+            total_pnl_text(bot.earnings, plain_money),
+        ),
+        bot.reason,
+    )
 
 
 def _unreadable_row(bot: UnreadableBotEntry) -> ReportRow:
-    return _row(bot.bot_id, "-", bot.state, "-", "-", f"{bot.path}: {bot.reason}")
+    return _row(
+        (bot.bot_id, "-", bot.state, "-", "-"),
+        ("-", "-", "-"),
+        f"{bot.path}: {bot.reason}",
+    )
 
 
 def _field(label: str, value: str) -> ReportRow:
@@ -152,6 +182,13 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
             _field(
                 "Run started",
                 bot.run_started_at.isoformat() if bot.run_started_at else "-",
+            ),
+            _field("Grid profit", grid_profit_text(bot.earnings, plain_money)),
+            _field("Cycles", cycles_text(bot.earnings)),
+            _field("Total PnL", total_pnl_text(bot.earnings, plain_money)),
+            _field(
+                "Unrealised",
+                unrealised_text(bot.earnings, plain_money, plain_price),
             ),
             *_recovery_rows(bot.recovery),
         ),

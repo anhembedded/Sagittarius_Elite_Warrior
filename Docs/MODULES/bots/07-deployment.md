@@ -52,6 +52,10 @@ re-reads the bots' files on its 30 s clock (`bots/ui/bots_screen/presenter_pacin
 `bot show` also prints the bot's effective halt-recovery table, one `Recovery` row per reason with the
 attempts used inside its window, or `no automatic recovery (<layer> layer)` for a Futures bot
 (`bots/application/queries/get_bot_status_report/recovery_table.py` → `recovery_table_of`; `EPIC-042G`).
+`bot list` and `bot show` also print the run's grid profit, completed cycles, total PnL and (show only) unrealised (`BOT-192`; grid
+profit first, net of both legs' fees and without Futures funding): the Bots tab's figures and words, its table's `Grid profit` and `Cycles` columns and its panel's rows, built once in `bots/contracts/run_earnings.py` → `RunEarnings`, `grid_profit_text`, `total_pnl_text`,
+`plain_money`, `plain_price` (Qt-free, because a headless host installs no Qt) from `BotProgress`; `GetBotStatusReportQueryHandler` fills
+`BotStatusEntry.earnings`, `bots/cli/bot_status_reports.py` prints it. Read from the bot's file, no exchange call.
 `bot order <id>` (`BOT-187`) prints the orders the bot's file records, the Bots tab's orders table
 (`BotProgress.orders` through `GetBotQuery`). The verb is `bots/cli/bot_order_verbs.py` → `OrderBotVerb`;
 the report is built in `bots/cli/bot_order_reports.py` → `bot_order_report`. It is stored, not live, and asks the exchange
