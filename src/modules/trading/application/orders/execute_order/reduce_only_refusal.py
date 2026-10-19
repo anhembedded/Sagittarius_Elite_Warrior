@@ -38,15 +38,19 @@ def log_if_reduce_only_refused(
     client: ITradingClient,
     order: Order,
     refusal: OrderRejectedByExchangeError,
+    engine_position: Decimal | None = None,
 ) -> None:
-    """Log `refusal` with its context when it is a reduce-only refusal; do nothing otherwise."""
+    """Log `refusal` with its context when it is a reduce-only refusal; do nothing otherwise.
+    `engine_position` is the signed position the order's owner book holds (a bot's derived one),
+    `None` for an order with no owner: set beside the exchange's, it shows whether the two agree."""
     if refusal.reason is not OrderRejectionReason.REDUCE_ONLY_REJECTED:
         return
     mode, margin = _account_mode(scope)
     logger.warning(
         "Reduce-only order refused on %s: %s %s %s qty=%s price=%s trigger=%s reduceOnly=%s "
         "closePosition=%s positionSide=%s; account position mode=%s margin type=%s; "
-        "position on the symbol=%s; exchange said: %s [reduce-only-refused]",
+        "position on the symbol=%s; owner book position=%s; exchange said: %s "
+        "[reduce-only-refused]",
         scope.venue.value,
         order.symbol,
         order.side.value,
@@ -60,6 +64,7 @@ def log_if_reduce_only_refused(
         mode,
         margin,
         _position(client, order.symbol),
+        "no owner" if engine_position is None else engine_position,
         refusal.raw_message,
     )
 

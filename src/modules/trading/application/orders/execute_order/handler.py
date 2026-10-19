@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection_gate import (
@@ -239,7 +240,11 @@ class ExecuteOrderCommandHandler(
                 submitted_order = trading_client.place_order(preview.order)
             except OrderRejectedByExchangeError as refusal:
                 log_if_reduce_only_refused(
-                    scope, trading_client, preview.order, refusal
+                    scope,
+                    trading_client,
+                    preview.order,
+                    refusal,
+                    _owner_position(context),
                 )
                 raise
             except OrderOutcomeUnknownError as unknown:
@@ -331,3 +336,12 @@ class ExecuteOrderCommandHandler(
         if holder is not None and holder != command.owner_id:
             return ExecuteOrderSafetyGate.SYMBOL_LEASED
         return order_connection_block(scope)
+
+
+def _owner_position(context: TradingLimitContext) -> Decimal | None:
+    """The signed position the order's owner book holds, `None` when it has no owner or no
+    position book (Spot)."""
+    facts = context.owner_budget
+    if facts is None or facts.position is None:
+        return None
+    return facts.position.position.quantity

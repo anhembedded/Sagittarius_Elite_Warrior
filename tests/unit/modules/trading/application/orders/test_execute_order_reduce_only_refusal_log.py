@@ -18,11 +18,18 @@ from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.reduce_only_refusal import (
+    log_if_reduce_only_refused,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    generate_client_order_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
     MarginType,
     PositionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
     OrderPurpose,
 )
@@ -31,6 +38,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
+    OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -108,6 +119,7 @@ def test_a_refused_reduce_only_order_is_logged_with_its_context_and_still_raised
     assert "position mode=one_way" in text
     assert "margin type=isolated" in text
     assert "position on the symbol=0.012" in text
+    assert "owner book position=no owner" in text
     assert "ReduceOnly Order is rejected." in text
 
 
@@ -144,3 +156,29 @@ def test_any_other_refusal_is_not_logged_as_a_reduce_only_one(
         handler.execute(ExecuteOrderCommand(order_request=order_request(), live=True))
 
     assert [r for r in caplog.records if _TAG in r.getMessage()] == []
+
+
+def test_the_owner_books_position_is_logged_beside_the_exchanges(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The engine's own figure and the exchange's, side by side, say whether they agree."""
+    handler, _ = make_handler(raw_client=_refusing(-2022, "x"), status=_status())
+    scope = handler._scopes.get(TradingVenue.FUTURES_TESTNET)
+    client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
+    refusal = OrderRejectedByExchangeError(
+        OrderRejectionReason.REDUCE_ONLY_REJECTED, "ReduceOnly Order is rejected."
+    )
+    order = Order(
+        client_order_id=generate_client_order_id("abc123"),
+        symbol="BTCUSDT",
+        side=OrderSide.SELL,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("0.66"),
+        reduce_only=True,
+    )
+
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        log_if_reduce_only_refused(scope, client, order, refusal, Decimal("3.96"))
+
+    (record,) = [r for r in caplog.records if _TAG in r.getMessage()]
+    assert "owner book position=3.96" in record.getMessage()
