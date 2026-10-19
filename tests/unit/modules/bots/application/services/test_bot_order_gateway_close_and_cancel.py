@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.bot_
     BotOrderGateway,
     OrderOutcomeKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
+    CancelOrderResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
@@ -82,6 +85,18 @@ def test_a_cancel_of_an_order_the_exchange_does_not_hold_is_gone_not_a_fault() -
 
     assert outcome.kind is OrderOutcomeKind.GONE
     assert not outcome.done
+    assert outcome.client_order_id == _ID
+
+
+def test_a_cancel_answered_as_already_gone_is_gone() -> None:
+    """`BUG-226`: trading answers the unknown-order refusal as a value, so it is never logged as a
+    failed command; the gateway reads it as the same `GONE` the raised refusal gives."""
+    submission = FakeOrderSubmission()
+    submission.cancel_answers(CancelOrderResult(None, None, already_gone=True))
+
+    outcome = _gateway(submission).cancel(_ID)
+
+    assert outcome.kind is OrderOutcomeKind.GONE
     assert outcome.client_order_id == _ID
 
 

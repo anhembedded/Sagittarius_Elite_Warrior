@@ -136,6 +136,8 @@ def classify_submit(result: ExecuteOrderResult) -> OrderOutcome:
 def classify_cancel(result: CancelOrderResult, client_order_id: str) -> OrderOutcome:
     if result.blocked_by is not None:
         return _refusal(result.blocked_by, client_order_id)
+    if result.already_gone:
+        return gone_outcome(client_order_id)
     return OrderOutcome(OrderOutcomeKind.DONE, client_order_id)
 
 

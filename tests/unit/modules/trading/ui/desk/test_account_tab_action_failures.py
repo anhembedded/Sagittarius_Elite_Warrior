@@ -144,3 +144,23 @@ def test_a_successful_cancel_tells_no_failure(qtbot) -> None:
     desk.panel.cancelRequested.emit("BTCUSDT", "SEW-btc")
 
     assert desk.notifier.failures == []
+
+
+def test_a_cancel_the_exchange_says_it_holds_no_order_for_is_not_counted_as_cancelled(
+    qtbot,
+) -> None:
+    """`BUG-226`: the unknown-order refusal comes back as a value; the desk reports it as it did
+    when it was raised: not cancelled, with the detail that the order is no longer there, and the
+    row stays until the next refresh says so."""
+    desk = AccountTabsDesk(qtbot)
+    desk.activity.holding_open_orders([order("BTCUSDT", "SEW-btc")])
+    desk.submission.cancel_answers(CancelOrderResult(None, None, already_gone=True))
+    desk.presenter.show_symbol("BTCUSDT")
+
+    desk.panel.cancelRequested.emit("BTCUSDT", "SEW-btc")
+
+    notice = desk.notifier.last
+    assert notice.kind is FailureKind.COMMAND
+    assert "BTCUSDT SEW-btc" in notice.headline
+    assert "no longer on the exchange" in notice.detail
+    assert desk.open_order_ids() == ["SEW-btc"]

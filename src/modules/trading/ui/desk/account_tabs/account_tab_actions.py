@@ -132,6 +132,11 @@ class AccountTabActions(QObject):
             if result.blocked_by is not None:
                 refusal = format_execute_order_block_reason(result.blocked_by)
                 break
+            if result.already_gone:
+                # `BUG-226`: it was a refusal that raised before; it is still not a cancel.
+                unsent.append(f"{symbol} {client_order_id}")
+                details.append(f"{symbol} {client_order_id}: no longer on the exchange")
+                continue
             cancelled += 1
             self._cancelled.emit(client_order_id)
         text = _cancel_text(cancelled, len(orders), unsent, refusal)

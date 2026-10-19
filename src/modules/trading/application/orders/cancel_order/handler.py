@@ -26,6 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
@@ -62,9 +66,20 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
         trading_client = scope.ports.client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
-        cancelled_order = trading_client.cancel_order(
-            command.symbol, command.client_order_id
-        )
+        try:
+            cancelled_order = trading_client.cancel_order(
+                command.symbol, command.client_order_id
+            )
+        except OrderRejectedByExchangeError as refused:
+            if refused.reason is not OrderRejectionReason.UNKNOWN_ORDER:
+                raise
+            logger.info(
+                "Cancel of %s %s on %s: the exchange holds no such order",
+                command.symbol,
+                command.client_order_id,
+                command.venue.value,
+            )
+            return CancelOrderResult(None, None, already_gone=True)
         logger.info(
             "Order cancelled on %s: %s %s",
             command.venue.value,

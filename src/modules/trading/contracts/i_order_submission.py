@@ -114,5 +114,6 @@ class IOrderSubmission(ABC):
         Keyed by the client order id rather than the exchange's, because that
         is the id this app generated and the only one it can be sure of
         (`ClientOrderId`). Answers with `cancelled_order=None` and a named
-        `blocked_by` when a gate refused.
+        `blocked_by` when a gate refused, and with `already_gone` when the exchange
+        holds no such order (`BUG-226`). Any other refusal of the exchange is raised.
         """

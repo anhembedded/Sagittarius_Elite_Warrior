@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
     FuturesTradingClientFactory,
 )
@@ -28,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
@@ -220,3 +224,42 @@ class TestCancellation:
         raw_client.futures_cancel_order.assert_called_once_with(
             symbol="BTCUSDT", origClientOrderId="abc"
         )
+
+
+def _api_refusal(code: int) -> BinanceAPIException:
+    refusal = BinanceAPIException.__new__(BinanceAPIException)
+    refusal.code = code
+    refusal.message = "Unknown order sent." if code == -2011 else "refused"
+    refusal.status_code = 400
+    refusal.response = None
+    refusal.request = None
+    return refusal
+
+
+def _unknown_order() -> BinanceAPIException:
+    return _api_refusal(-2011)
+
+
+def test_a_cancel_of_an_order_the_exchange_does_not_hold_is_a_value_not_an_exception() -> (
+    None
+):
+    """`BUG-226`: raised, the command dispatcher logs it at ERROR as a failed command; it is an
+    expected outcome (a stop that ran, an order that filled), so it comes back as a value."""
+    raw = Mock()
+    raw.futures_cancel_order.side_effect = _unknown_order()
+    raw.futures_cancel_algo_order.side_effect = _unknown_order()
+    handler = _handler(raw_client=raw)
+
+    result = handler.execute(_cancel())
+
+    assert result.already_gone is True
+    assert result.blocked_by is None and result.cancelled_order is None
+
+
+def test_another_refusal_of_a_cancel_still_raises() -> None:
+    raw = Mock()
+    raw.futures_cancel_order.side_effect = _api_refusal(-1021)
+    handler = _handler(raw_client=raw)
+
+    with pytest.raises(OrderRejectedByExchangeError):
+        handler.execute(_cancel())
