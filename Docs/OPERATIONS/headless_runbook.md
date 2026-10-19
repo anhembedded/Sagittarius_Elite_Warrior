@@ -185,6 +185,8 @@ Exit `0` the message was taken (check that it arrived: "sent" means Discord acce
 
 ## 6. Day to day
 
+**How the reports look (`BOT-195`, [`PRO-017`](../../Tasks/proposal/PRO-017.md)).** Typed at a terminal, the text reports (`bot list`, `bot show`, `bot order`, `status`, `exchange-status`, ...) print as a table or an aligned block with a bold header, and a state or a profit figure is coloured (`RUNNING` green, `PAUSED` and `RECOVERING` yellow, `HALTED` and `ERROR` red; a loss red, a profit green). The word or the minus sign is always printed too. **Anything that is not a person at a terminal gets exactly the plain text the report always had**: a pipe or a file, the systemd journal, `ssh host command` without a terminal, `NO_COLOR` set to any value, `TERM=dumb`, a terminal too narrow for the table, and a venv where `rich` is not installed. `--json` is never touched. To turn the tables off on a terminal, set `NO_COLOR=1` (`NO_COLOR=1 main.py bot list`). The logs are not coloured: the journal keeps plain text (§10). The server needs `rich`, which `pip install -r requirements-headless.txt -c requirements.lock` installs (a pure-Python wheel, about 2 MB with its two small dependencies); without it the reports are plain.
+
 | Want | Linux | Windows |
 | :--- | :--- | :--- |
 | Start / stop / restart | `systemctl start\|stop\|restart sew-run` | `nssm start\|stop\|restart sew-run` |
