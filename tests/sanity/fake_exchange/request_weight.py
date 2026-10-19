@@ -80,6 +80,12 @@ class WeightMeter:
         self._lock = threading.Lock()
         self._requests: list[MeteredRequest] = []
 
+    def use_clock(self, clock: Callable[[], float]) -> None:
+        """Count minutes by `clock` from now on (`BUG-232`): a test that states "inside one minute"
+        holds the clock still, so the wall clock's calendar minute cannot roll over mid-test and
+        reset the weight the app's gate reads, as Binance's own window does at its edge."""
+        self._clock = clock
+
     def charge(self, method: str, path: str, params: dict[str, str]) -> int:
         """Record one request; @return the weight used in the current minute, itself included."""
         minute = int(self._clock() // _SECONDS_PER_MINUTE)
