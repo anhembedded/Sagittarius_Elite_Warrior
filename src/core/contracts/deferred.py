@@ -70,4 +70,5 @@ class Deferred[R]:
         return cast("R", factory(*self._leading, *args))
 
     def __repr__(self) -> str:
-        return f"Deferred({self.target!r})"
+        bound = "".join(f", {arg!r}" for arg in self._leading)
+        return f"Deferred({self.target!r}{bound})"

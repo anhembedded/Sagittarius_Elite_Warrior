@@ -1,4 +1,4 @@
-# BOT-148 — Every contribution defers its factories through `Deferred`, and the PLC0415 ratchet loses 32 hits
+# BOT-148 — Every contribution defers its factories through `Deferred`, and the PLC0415 ratchet loses its hits (9 in the end: 32 was the count when the task was written)
 
 **Status:** ✅ Done (2026-10-19)
 **Priority:** P3
@@ -14,10 +14,10 @@
 Every lazy contribution defers with function-local imports, one `PLC0415` hit per factory. `tests/unit/architecture/baseline_ruff_debt.json` counts them: `backtest_screen.py` 4, `database_screen.py` 3, `market_data/ui/settings_contribution.py` 2, `watchlist_screen.py` 3, `dashboard_screen.py` 3, `desk_factories.py` 7, `trading/ui/probes.py` 2, `trading/ui/settings_contribution.py` 2, `shell/settings/settings_screen.py` 3, `shell/welcome/welcome_screen.py` 3. That is 32 hits. `Deferred` (PR #333) replaces the import statement with one `importlib` call in a single file.
 
 ## 2. Acceptance criteria
-- [x] Each file above defers through `Deferred`; its `PLC0415` line leaves `baseline_ruff_debt.json`.
-- [x] `test_deferred_targets_resolve.py` also walks the shell's own screens (`welcome_screen()`, `settings_screen()`), holding each target inside `src/shell/`.
+- [x] Each file above defers through `Deferred`; its `PLC0415` line leaves `baseline_ruff_debt.json`. (Seven had already moved by the time the task started; the three that remained are done.)
+- [x] ~~`test_deferred_targets_resolve.py` also walks the shell's own screens (`welcome_screen()`, `settings_screen()`)~~ Adapted: those screens no longer exist; the guard walks `developer_screen()`, the only shell screen left, holding its targets inside `src/shell/` (see the notes).
 - [x] `test_module_contribution_laziness.py` stays green, including the headless subprocess check.
-- [x] `code/quality.md` §2 drops the clause that counts a laziness-required import among the hits, once none remain.
+- [x] ~~`code/quality.md` §2 drops the clause that counts a laziness-required import among the hits~~ Adapted: reworded, not dropped, because one laziness-required import remains outside a contribution factory (`strategy_chart_overlay_service.py`); it now says every contribution defers through `Deferred`.
 
 ## 3. Design
 - Screens with argument-free factories (`database`, `watchlist`, `settings`, `welcome`, `probes`, the settings contributions) take a `Deferred` per factory, as `bots_screen.py` does.

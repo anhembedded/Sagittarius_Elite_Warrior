@@ -13,10 +13,9 @@ module-level import here would run the instant `strategy`'s `module.py` is
 imported, in every run including a headless `sync`.
 `compute_strategy_trend_zones` reaches `support/charting/chart_card/theme.py`
 for its colour constants, and that package's `__init__.py` imports the real
-`ChartCard` widget — genuinely Qt-heavy, the same shape
-`core/contracts/deferred.py` documents for a `DEV_PROBE` factory: the lazy
-import *is* the mechanism, paid only when a screen actually asks for an
-overlay (`tests/unit/architecture/test_module_contribution_laziness.py`).
+`ChartCard` widget — genuinely Qt-heavy. This is not a contribution factory, so it cannot defer through
+`Deferred` (`core/contracts/deferred.py`, which contributions use since `BOT-148`): the lazy
+import stays, paid only when a screen actually asks for an overlay (`tests/unit/architecture/test_module_contribution_laziness.py`).
 """
 
 from __future__ import annotations

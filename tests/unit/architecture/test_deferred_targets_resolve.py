@@ -137,3 +137,4 @@ def test_a_bound_deferred_passes_its_leading_arguments_first_and_keeps_its_targe
     assert bound(3) == 7
     assert bound.bind(1)() == 9  # sub(10, 1)
     assert Deferred("operator:sub")(10, 3) == 7  # the unbound one is unchanged
+    assert repr(bound) == "Deferred('operator:sub', 10)"  # a bound one says so
