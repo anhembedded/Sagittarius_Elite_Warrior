@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection_gate import (
@@ -18,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.connection
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.reduce_only_refusal import (
+    AfterRelease,
+    RefusedOrder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
@@ -48,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -158,7 +166,10 @@ class ExecuteOrderCommandHandler(
         # dispatches reading `orders_sent_this_session` before either one's
         # order lands is a real race, not a hypothetical one. See
         # `TradingSessionState.live_submission_guard()`'s own docstring.
-        with session_state.live_submission_guard():
+        # Entered before the lock, so it exits after it: a reduce-only refusal is logged, network
+        # reads included, once the venue's lock is free (`reduce_only_refusal`).
+        after_release = AfterRelease()
+        with after_release, session_state.live_submission_guard():
             # `EPIC-025` PR 2.1f — the symbol lease, and it is inside this lock
             # for the reason `Docs/SDD/05` §3 calls claim-then-execute: reading
             # the holder before acquiring the guard would let a strategy arm in
@@ -231,6 +242,17 @@ class ExecuteOrderCommandHandler(
                 )
             try:
                 submitted_order = trading_client.place_order(preview.order)
+            except OrderRejectedByExchangeError as refusal:
+                after_release.note(
+                    RefusedOrder(
+                        scope,
+                        trading_client,
+                        preview.order,
+                        refusal,
+                        _owner_position(context),
+                    )
+                )
+                raise
             except OrderOutcomeUnknownError as unknown:
                 try:
                     submitted_order = resolve_unknown(trading_client, unknown)
@@ -320,3 +342,12 @@ class ExecuteOrderCommandHandler(
         if holder is not None and holder != command.owner_id:
             return ExecuteOrderSafetyGate.SYMBOL_LEASED
         return order_connection_block(scope)
+
+
+def _owner_position(context: TradingLimitContext) -> Decimal | None:
+    """The signed position the order's owner book holds, `None` when it has no owner or no
+    position book (Spot)."""
+    facts = context.owner_budget
+    if facts is None or facts.position is None:
+        return None
+    return facts.position.position.quantity
