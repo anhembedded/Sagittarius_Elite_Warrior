@@ -9,6 +9,7 @@ within a version, never renamed.
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     JsonValue,
@@ -25,7 +26,22 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     RecoveryRuleLine,
     UnreadableBotEntry,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    LadderRow,
+    LadderUnavailable,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
+    FEE_NOT_SAVED,
+    percent_of,
+    position_texts,
+    recorded_average_text,
+    small_money_text,
+    step_text,
+    summary_line,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.run_earnings import (
+    NO_VALUE,
     cycles_text,
     grid_profit_text,
     plain_money,
@@ -42,6 +58,9 @@ _NAME_WIDTH = 24
 _STATE_WIDTH = 10
 #: `BOT-192`: the Bots tab's own figures, as columns of the list.
 _EARNINGS_HEADS = ("GRID PROFIT", "CYCLES", "TOTAL PNL")
+#: `BOT-193`: the ladder's steps, in a word of the Bots tab's Plan row (`Grid step`).
+_STEP_HEAD = "GRID STEP"
+_STEP_WIDTH = 30
 
 
 def _recorded_note(status: BotStatusReport) -> tuple[ReportSection, ...]:
@@ -74,11 +93,36 @@ def bot_show_parameters_report(status: BotStatusReport) -> Report:
     )
 
 
+def bot_show_grids_report(status: BotStatusReport) -> Report:
+    """`bot show --grids` (`BOT-193`): the same report with one row per grid after the bot's rows."""
+    return Report(
+        SHOW_COMMAND,
+        SCHEMA_VERSION,
+        status.payload(),
+        _show_layout(status, _bot_section, _grids_section),
+    )
+
+
+def bot_show_grids_parameters_report(status: BotStatusReport) -> Report:
+    """`bot show --grids --params`: the parameters' rows, then the grids."""
+    return Report(
+        SHOW_COMMAND,
+        SCHEMA_VERSION,
+        status.payload(),
+        _show_layout(status, _bot_section_with_parameters, _grids_section),
+    )
+
+
 def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
     if status.is_empty:
         return (ReportSection(None, (ReportRow.of("No bots."),)),)
     rows = [
-        _row(("ID", "NAME", "STATE", "VENUE", "SYMBOL"), _EARNINGS_HEADS, "REASON"),
+        _row(
+            ("ID", "NAME", "STATE", "VENUE", "SYMBOL"),
+            _EARNINGS_HEADS,
+            _STEP_HEAD,
+            "REASON",
+        ),
         *(_bot_row(bot) for bot in status.bots),
         *(_unreadable_row(bot) for bot in status.unreadable),
     ]
@@ -88,9 +132,14 @@ def _list_layout(status: BotStatusReport) -> tuple[ReportSection, ...]:
 def _show_layout(
     status: BotStatusReport,
     section_of: Callable[[BotStatusEntry], ReportSection] | None = None,
+    after: Callable[[BotStatusEntry], ReportSection] | None = None,
 ) -> tuple[ReportSection, ...]:
     section_of = section_of or _bot_section
-    sections = [section_of(bot) for bot in status.bots]
+    sections: list[ReportSection] = []
+    for bot in status.bots:
+        sections.append(section_of(bot))
+        if after is not None:
+            sections.append(after(bot))
     sections += [_unreadable_section(bot) for bot in status.unreadable]
     return (*_recorded_note(status), *sections)
 
@@ -98,6 +147,7 @@ def _show_layout(
 def _row(
     leading: tuple[str, str, str, str, str],
     earnings: tuple[str, str, str],
+    grid_step: str,
     reason: str,
 ) -> ReportRow:
     """One line of the list: id, name, state, venue, symbol; then the run's earnings; then why."""
@@ -113,6 +163,7 @@ def _row(
             ReportCell(grid_profit, 14),
             ReportCell(cycles, 8),
             ReportCell(total, 14),
+            ReportCell(grid_step, _STEP_WIDTH),
             ReportCell(reason),
         )
     )
@@ -126,14 +177,21 @@ def _bot_row(bot: BotStatusEntry) -> ReportRow:
             cycles_text(bot.earnings),
             total_pnl_text(bot.earnings, plain_money),
         ),
+        _step_cell(bot),
         bot.reason,
     )
+
+
+def _step_cell(bot: BotStatusEntry) -> str:
+    ladder = bot.ladder
+    return step_text(ladder.summary) if isinstance(ladder, GridLadder) else NO_VALUE
 
 
 def _unreadable_row(bot: UnreadableBotEntry) -> ReportRow:
     return _row(
         (bot.bot_id, "-", bot.state, "-", "-"),
         ("-", "-", "-"),
+        "-",
         f"{bot.path}: {bot.reason}",
     )
 
@@ -190,8 +248,106 @@ def _bot_section(bot: BotStatusEntry) -> ReportSection:
                 "Unrealised",
                 unrealised_text(bot.earnings, plain_money, plain_price),
             ),
+            *_ladder_rows(bot),
             *_recovery_rows(bot.recovery),
         ),
+    )
+
+
+def _ladder_rows(bot: BotStatusEntry) -> tuple[ReportRow, ...]:
+    """`BOT-193`: the ladder in one line, what a completed cycle booked on average, and where the
+    last price the bot heard stands; the Bots tab's rows, in its words."""
+    ladder = bot.ladder
+    if ladder is None:
+        return ()
+    if isinstance(ladder, LadderUnavailable):
+        return (_ladder_field("Ladder", ladder.reason),)
+    position = position_texts(ladder.position, plain_price)
+    rows = (
+        _ladder_field("Ladder", summary_line(ladder.summary, plain_money)),
+        _ladder_field(
+            "Average per cycle (net of fees)",
+            recorded_average_text(ladder.recorded, plain_money),
+        ),
+        _ladder_field("Last price heard", position.last_price),
+        _ladder_field("Lower edge", position.lower_edge),
+        _ladder_field("Upper edge", position.upper_edge),
+        _ladder_field("Stop loss", position.stop_loss),
+        _ladder_field("Take profit", position.take_profit),
+    )
+    if position.liquidation is None:
+        return rows
+    return (*rows, _ladder_field("Liquidation price", position.liquidation))
+
+
+#: The ladder's rows carry the Bots tab's own labels, which are longer than the other rows'.
+_LADDER_LABEL_WIDTH = 32
+
+
+def _ladder_field(label: str, value: str) -> ReportRow:
+    return ReportRow((ReportCell(label, _LADDER_LABEL_WIDTH), ReportCell(value)))
+
+
+_GRID_HEADS = (
+    "BUY",
+    "SELL",
+    "STEP",
+    "NET STEP",
+    "PER CYCLE BEFORE FEES",
+    "PER CYCLE AFTER FEES",
+    "NOW",
+)
+_GRID_WIDTHS = (14, 14, 8, 10, 23, 22, 0)
+GRIDS_LEGEND = (
+    "Step and net step are designed (the saved parameters, read now); per cycle is an estimate "
+    "(capital over the levels that hold an order); now is recorded (the saved run)."
+)
+
+
+def _grids_section(bot: BotStatusEntry) -> ReportSection:
+    """`bot show --grids`: one row per grid, buy level and the sell level above it."""
+    ladder = bot.ladder
+    title = f"Grids of bot {bot.bot_id}"
+    if not isinstance(ladder, GridLadder):
+        reason = "No ladder." if ladder is None else ladder.reason
+        return ReportSection(title, (ReportRow.of(reason),))
+    notes = [GRIDS_LEGEND]
+    if ladder.summary.maker_fee is None:
+        notes.append(f"Net figures are blank, per cycle is {FEE_NOT_SAVED}.")
+    if ladder.run_note:
+        notes.append(ladder.run_note)
+    return ReportSection(
+        title,
+        (
+            _grid_row(_GRID_HEADS),
+            *(_grid_row(_grid_cells(row)) for row in ladder.rows),
+            *(ReportRow.of(note) for note in notes),
+        ),
+    )
+
+
+def _grid_row(cells: tuple[str, ...]) -> ReportRow:
+    return ReportRow(
+        tuple(
+            ReportCell(text, width)
+            for text, width in zip(cells, _GRID_WIDTHS, strict=True)
+        )
+    )
+
+
+def _quote_cell(value: Decimal | None) -> str:
+    return NO_VALUE if value is None else small_money_text(value, plain_money)
+
+
+def _grid_cells(row: LadderRow) -> tuple[str, ...]:
+    return (
+        plain_price(row.buy),
+        plain_price(row.sell),
+        percent_of(row.step_fraction),
+        NO_VALUE if row.net_fraction is None else percent_of(row.net_fraction),
+        _quote_cell(row.gross_quote),
+        _quote_cell(row.net_quote),
+        row.state.value,
     )
 
 

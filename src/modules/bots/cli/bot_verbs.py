@@ -31,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.cli_outcome import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.report import Report
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_control_verbs import (
     EditBotVerb,
     PauseBotVerb,
@@ -47,6 +48,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_plan_verbs import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.cli.bot_status_reports import (
     bot_list_report,
+    bot_show_grids_parameters_report,
+    bot_show_grids_report,
     bot_show_parameters_report,
     bot_show_report,
 )
@@ -78,6 +81,18 @@ class ListBotsVerb(IBotVerb):
         )
 
 
+def _show_report(status: BotStatusReport, args: argparse.Namespace) -> Report:
+    """`bot show`, with the parameters (`--params`) and the grids (`--grids`) when asked for."""
+    params = getattr(args, "params", False)
+    if getattr(args, "grids", False):
+        return (
+            bot_show_grids_parameters_report(status)
+            if params
+            else bot_show_grids_report(status)
+        )
+    return bot_show_parameters_report(status) if params else bot_show_report(status)
+
+
 class ShowBotVerb(IBotVerb):
     name = "show"
 
@@ -89,12 +104,7 @@ class ShowBotVerb(IBotVerb):
         status = _status_of(world.dispatcher, args.bot_id)
         if status.is_empty:
             return CliOutcome(ExitCode.USAGE, f"No bot has the id {args.bot_id!r}.")
-        report = (
-            bot_show_parameters_report(status)
-            if getattr(args, "params", False)
-            else bot_show_report(status)
-        )
-        return world.printer.print_report(report, args)
+        return world.printer.print_report(_show_report(status, args), args)
 
 
 BOT_VERBS: tuple[IBotVerb, ...] = (

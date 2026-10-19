@@ -376,7 +376,7 @@
           },
           "show": {
             "modules": ["bots"],
-            "help": "Show one bot. With --params also print every parameter the bot stores (key and value, sorted by key, exactly as stored: the keys bot edit --set changes); the JSON always carries them under parameters. Reads the bot's file, so it works on the read-only copy beside a running host",
+            "help": "Show one bot, with its ladder summary and where the last price it heard stands (the Bots tab's Plan rows). With --grids also print one row per grid. With --params also print every parameter the bot stores (key and value, sorted by key, exactly as stored: the keys bot edit --set changes); the JSON always carries them under parameters. Reads the bot's file, so it works on the read-only copy beside a running host",
             "read_only": true,
             "args": [
               {
@@ -388,6 +388,11 @@
                 "name": "--params",
                 "action": "store_true",
                 "help": "Print every stored parameter of the bot, one row per key, sorted by key, values exactly as stored"
+              },
+              {
+                "name": "--grids",
+                "action": "store_true",
+                "help": "Print one row per grid: the buy and sell level, the step, the net step, what a cycle earns before and after fees (an estimate) and what the saved run says the grid is doing. Read from the bot's file like the Bots tab's Ladder panel; the JSON always carries the ladder under ladder"
               },
               {
           "name": "--json",
