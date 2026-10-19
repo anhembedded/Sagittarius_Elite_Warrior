@@ -118,3 +118,16 @@ def test_minus_2010_has_a_named_reason() -> None:
     )
 
     assert reason is OrderRejectionReason.NEW_ORDER_REJECTED
+
+
+def test_an_order_the_exchange_does_not_hold_has_a_named_reason() -> None:
+    """A cancel or a read of an order that already filled or ended: `-2011` ("Unknown order
+    sent.") and `-2013` ("Order does not exist.") are the same fact."""
+    for code, message in (
+        (-2011, "Unknown order sent."),
+        (-2013, "Order does not exist."),
+    ):
+        assert (
+            translate_binance_error(_exception(code, message))
+            is OrderRejectionReason.UNKNOWN_ORDER
+        )

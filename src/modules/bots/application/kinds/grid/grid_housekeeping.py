@@ -98,10 +98,13 @@ class GridHousekeeping:
         return CancelReport(cancelled=len(orders))
 
     def _ended_meanwhile(self, outcome: OrderOutcome, order: Order) -> bool:
-        """A cancel that raised for an order no longer open: it filled or
-        ended between the read and the cancel (Binance answers -2011, "Unknown
-        order sent."), so there is nothing left to cancel. Its fill, if any,
-        arrives as an event and is booked as the bot's inventory."""
+        """A cancel for an order no longer open: it filled or ended between the read
+        and the cancel (Binance answers -2011, "Unknown order sent."), so there is
+        nothing left to cancel, though the read may still list it. Its fill, if any,
+        arrives as an event and is booked as the bot's inventory. A cancel that
+        raised otherwise is forgiven only when a fresh read no longer lists it."""
+        if outcome.kind is OrderOutcomeKind.GONE:
+            return True
         if outcome.kind is not OrderOutcomeKind.FAULT:
             return False
         still_open = {

@@ -21,6 +21,11 @@ class MatchFaults:
         #: While set, every fill's `ORDER_TRADE_UPDATE` is queued twice (a duplicated
         #: report); the position, the wallet and the trade list are unaffected.
         self.duplicate_reports = False
+        #: While set, the open-orders list lags the exchange: an order cancelled meanwhile
+        #: still shows in it (a cancel the list has not caught up with), though a second
+        #: cancel of it answers `-2011` as for any unknown order. Unset, the list is true.
+        self.stale_open_orders = False
+        self._cancelled: dict[str, dict[str, object]] = {}
         self._rejections: deque[tuple[int, str]] = deque()
 
     def reject_next_order(self, code: int, message: str) -> None:
@@ -33,3 +38,10 @@ class MatchFaults:
             return None
         code, message = self._rejections.popleft()
         return 400, {"code": code, "msg": message}
+
+    def note_cancelled(self, client_order_id: str, order: dict[str, object]) -> None:
+        self._cancelled[client_order_id] = order
+
+    def lagging_orders(self) -> list[dict[str, object]]:
+        """The cancelled orders the open-orders list still shows, while it lags."""
+        return list(self._cancelled.values()) if self.stale_open_orders else []

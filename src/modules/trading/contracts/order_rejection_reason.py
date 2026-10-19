@@ -49,6 +49,10 @@ class OrderRejectionReason(Enum):
     #: `EPIC-035T` — Spot's `-2010` "new order rejected": the exchange read the
     #: order and refused it for its own content (balance, a post-only cross).
     NEW_ORDER_REJECTED = "new_order_rejected"
+    #: The exchange holds no such order (`-2011` "Unknown order sent.", `-2013` "Order does
+    #: not exist."): a cancel or a read named an order that already filled or ended. Not an
+    #: order-content problem; the caller that cancelled finds its goal met.
+    UNKNOWN_ORDER = "unknown_order"
     UNKNOWN = "unknown"
 
 

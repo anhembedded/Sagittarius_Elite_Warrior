@@ -40,6 +40,7 @@ class FakeOrderSubmission(IOrderSubmission):
         self._preview: OrderPreview | None = None
         self._submit: ExecuteOrderResult | None = None
         self._cancel: CancelOrderResult | None = None
+        self._cancel_error: Exception | None = None
         self._validate: Order | None = None
         self._validate_error: Exception | None = None
         self._submit_error: Exception | None = None
@@ -66,6 +67,12 @@ class FakeOrderSubmission(IOrderSubmission):
 
     def cancel_answers(self, result: CancelOrderResult) -> None:
         self._cancel = result
+
+    def cancel_raises(self, error: Exception) -> None:
+        """Makes `cancel()` raise instead of answering: the venue refuses the cancel
+        (`OrderRejectedByExchangeError`, an order it no longer holds among them) or the
+        request fails in transit. The cancel is still recorded."""
+        self._cancel_error = error
 
     def submit_raises(self, error: Exception) -> None:
         """Makes `submit()` raise instead of answering.
@@ -129,6 +136,8 @@ class FakeOrderSubmission(IOrderSubmission):
 
     def cancel(self, symbol: str, client_order_id: str) -> CancelOrderResult:
         self.cancelled.append((symbol, client_order_id))
+        if self._cancel_error is not None:
+            raise self._cancel_error
         if self._cancel is None:
             raise AssertionError(
                 "FakeOrderSubmission.cancel() was called before "

@@ -56,6 +56,10 @@ _UNAMBIGUOUS_CODE_TO_REASON: dict[int, OrderRejectionReason] = {
     # post-only that would cross): the exchange read the order and refused its
     # content. Unverified against a live answer, see the note above.
     -2010: OrderRejectionReason.NEW_ORDER_REJECTED,
+    # "Unknown order sent." / "Order does not exist.": a cancel or a read of an order the
+    # exchange no longer holds. Unverified against a live answer, see the note above.
+    -2011: OrderRejectionReason.UNKNOWN_ORDER,
+    -2013: OrderRejectionReason.UNKNOWN_ORDER,
     -4131: OrderRejectionReason.PRICE_FILTER,  # "The counterparty's best price does not meet the PERCENT_PRICE filter limit."
 }
 

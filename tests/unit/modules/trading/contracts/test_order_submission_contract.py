@@ -173,6 +173,21 @@ class TestTheFakesOwnBookkeeping:
         assert fake.submitted_dry == [request_btc]
         assert fake.submitted_live == [request_btc]
 
+    def test_cancel_raises_still_records_the_attempt(self) -> None:
+        """A cancel the venue refused was still asked for: a caller's test tells "refused" from
+        "never sent" by what was recorded."""
+        fake = FakeOrderSubmission()
+        fake.cancel_raises(
+            OrderRejectedByExchangeError(
+                OrderRejectionReason.UNKNOWN_ORDER, "Unknown order sent."
+            )
+        )
+
+        with pytest.raises(OrderRejectedByExchangeError):
+            fake.cancel("BTCUSDT", "SEW-abc123-0123456789")
+
+        assert fake.cancelled == [("BTCUSDT", "SEW-abc123-0123456789")]
+
     def test_validate_answers_is_what_comes_back_and_is_recorded_apart(
         self, request_btc: OrderRequest
     ) -> None:

@@ -54,6 +54,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.orde
     classify_cancel,
     classify_submit,
     fault_text,
+    gone_outcome,
+    is_order_gone,
     named_rejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.orders.protective_stop_request import (
@@ -76,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_outcome_unknown import (
     OrderNotPlacedError,
     OrderOutcomeUnknownError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
@@ -193,10 +198,16 @@ class BotOrderGateway:
     ) -> OrderOutcome:
         """A market order of `quantity` base on `side` that may only shrink the position:
         the exchange refuses it when it would grow or flip one (`EPIC-039H`), which is what
-        makes a close safe to send twice."""
+        makes a close safe to send twice. Sent as `OrderPurpose.CLOSE`: the owner budget does not
+        count it among the bot's open orders, which a stop has just cancelled."""
         return self._submit(
             self._request(
-                side, OrderType.MARKET, quantity, reference_price, reduce_only=True
+                side,
+                OrderType.MARKET,
+                quantity,
+                reference_price,
+                reduce_only=True,
+                purpose=OrderPurpose.CLOSE,
             )
         )
 
@@ -208,6 +219,11 @@ class BotOrderGateway:
         except ExchangeRateLimitedError as limited:
             return self._rate_limited(limited, client_order_id)
         except Exception as exc:  # converted to a named outcome at this seam
+            if is_order_gone(exc):
+                logger.info(
+                    "Bot %s: %s is gone: %s", self._identity.tag, client_order_id, exc
+                )
+                return gone_outcome(client_order_id)
             named = named_rejection(exc)
             if named is not None and named.kind is OrderOutcomeKind.KEY_REJECTED:
                 logger.warning(
@@ -291,6 +307,7 @@ class BotOrderGateway:
         time_in_force: TimeInForce | None = None,
         *,
         reduce_only: bool = False,
+        purpose: OrderPurpose = OrderPurpose.ENTRY,
     ) -> OrderRequest:
         return OrderRequest(
             symbol=self._identity.symbol,
@@ -299,6 +316,7 @@ class BotOrderGateway:
             quantity=quantity,
             reference_price=price,
             reduce_only=reduce_only,
+            purpose=purpose,
             owner_id=self._identity.owner_id,
             time_in_force=time_in_force,
             client_order_tag=self._identity.tag,

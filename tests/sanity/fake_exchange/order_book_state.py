@@ -204,6 +204,7 @@ class OrderBookState:
         if order is None or order["symbol"] != symbol:
             return None
         del self._orders[match_id]
+        self.faults.note_cancelled(match_id, order)
         self.history.mark_canceled(match_id)
         self._events.publish(
             futures_user_data.order_update(
@@ -219,11 +220,8 @@ class OrderBookState:
             self.cancel(symbol, client_order_id, None)
 
     def open_orders(self, symbol: str | None) -> list[dict[str, Any]]:
-        return [
-            order
-            for order in self._orders.values()
-            if symbol is None or order["symbol"] == symbol
-        ]
+        listed = [*self._orders.values(), *self.faults.lagging_orders()]
+        return [o for o in listed if symbol is None or o["symbol"] == symbol]
 
     # -- account settings ---------------------------------------------------
 

@@ -85,7 +85,13 @@ The use case (`.../stop_bot/handler.py` → `StopBotCommandHandler.execute`) goe
 again, cancels every order carrying the bot's tag, keeps or closes the exposure (the owner's choice;
 a stop loss or take profit forces *close*), and reads the open orders again. Only zero tagged orders
 raise `stop_confirmed`; anything else leaves the bot `STOPPING`, saying why, never reported stopped
-early. The automatic retries wait on `STOP_RETRY_DELAYS` ([`10-quality.md`](10-quality.md)); when
+early. The close is sent as a close purpose (`.../bot_order_gateway.py` →
+`BotOrderGateway.market_reduce_only`), so `trading`'s owner budget does not count it among the bot's
+open orders: the stop's own cancelled orders, which the exchange's open-orders list may still show
+when the budget is registered again, never refuse it. A cancel that finds no such order (`-2011`) is
+`OrderOutcomeKind.GONE` (`.../order_outcome.py` → `OrderOutcomeKind`, `is_order_gone`), which the
+ladder's housekeeping counts as cancelled (`.../grid_housekeeping.py` →
+`GridHousekeeping._ended_meanwhile`), not a fault. The automatic retries wait on `STOP_RETRY_DELAYS` ([`10-quality.md`](10-quality.md)); when
 they are used up the bot publishes `BotStopGaveUpEvent` (`.../grid_stop_retry.py` →
 `GridStopRetry._exhausted`), which `alerting` carries to the owner.
 
