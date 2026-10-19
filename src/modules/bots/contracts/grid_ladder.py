@@ -173,14 +173,12 @@ RUN_DIFFERS_NOTE = (
 )
 
 
-def grid_ladder_of(
-    bot: BotSnapshot, now: datetime, maker_fee: Decimal | None = None
-) -> GridLadder | LadderUnavailable:
+def grid_ladder_of(bot: BotSnapshot, now: datetime) -> GridLadder | LadderUnavailable:
     """The ladder of `bot` as its saved record makes it.
 
-    `maker_fee` is the account's maker rate when the caller knows a better one; without it the rate
-    the run's start recorded (`BotProgress.maker_fee`, `BOT-194`) is used. With a rate the net after
-    fees is filled in, without any the profit is before fees.
+    The maker rate is the one the run's start recorded (`BotProgress.maker_fee`, `BOT-194`), the
+    only source a reader with no exchange has, and it is worded as such. With it the net after fees
+    is filled in, without it (a run from before it was recorded) the profit is before fees.
     """
     if bot.kind != GRID_KIND_ID:
         return LadderUnavailable(NO_LADDER_FOR_KIND)
@@ -190,8 +188,7 @@ def grid_ladder_of(
         return LadderUnavailable(f"The saved parameters make no ladder yet: {exc}.")
     levels = raw_levels(params.lower, params.upper, params.grid_count, params.spacing)
     progress = bot.progress
-    if maker_fee is None and progress is not None:
-        maker_fee = progress.maker_fee
+    maker_fee = progress.maker_fee if progress is not None else None
     states, run_note = _states(levels, progress)
     gross = grid_profits(levels, _ZERO)
     net = grid_profits(levels, maker_fee) if maker_fee is not None else None

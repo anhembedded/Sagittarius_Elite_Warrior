@@ -30,6 +30,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridSpacing,
 )
 
+#: What a net figure says about its rate: the rate of the run's start, not today's (`BOT-194`).
+RATE_SOURCE = "run-start rate"
 #: The account's maker rate is recorded when a run starts; a file an earlier build wrote has none.
 FEE_NOT_SAVED = "before fees: no maker rate is recorded for this run (it is recorded when a run starts)"
 LIQUIDATION_NOT_SAVED = (
@@ -104,7 +106,9 @@ def cycle_profit_text(summary: LadderSummary, money: MoneyWriter) -> str:
     """What one completed cycle earns on average, for a row beside its label."""
     if summary.average_cycle_quote is None:
         return NOT_ESTIMATED
-    after = "before fees" if summary.maker_fee is None else "after fees"
+    after = (
+        "before fees" if summary.maker_fee is None else f"after fees ({RATE_SOURCE})"
+    )
     return f"{_about(small_money_text(summary.average_cycle_quote, money))} {after}"
 
 
@@ -151,6 +155,16 @@ class PositionTexts:
     take_profit: str
     #: `None` on a venue with no liquidation price (Spot).
     liquidation: str | None
+
+
+def net_figures_note(summary: LadderSummary) -> str:
+    """For a table of net figures: which rate they use, or why they are blank."""
+    if summary.maker_fee is None:
+        return f"Net figures are blank, per cycle is {FEE_NOT_SAVED}."
+    return (
+        f"Net figures use the {percent_of(summary.maker_fee)} maker rate recorded when "
+        "this run started, not today's rate."
+    )
 
 
 def position_texts(position: PricePosition, price: PriceWriter) -> PositionTexts:

@@ -32,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
     LadderUnavailable,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
-    FEE_NOT_SAVED,
+    net_figures_note,
     percent_of,
     position_texts,
     recorded_average_text,
@@ -312,8 +312,7 @@ def _grids_section(bot: BotStatusEntry) -> ReportSection:
         reason = "No ladder." if ladder is None else ladder.reason
         return ReportSection(title, (ReportRow.of(reason),))
     notes = [GRIDS_LEGEND]
-    if ladder.summary.maker_fee is None:
-        notes.append(f"Net figures are blank, per cycle is {FEE_NOT_SAVED}.")
+    notes.append(net_figures_note(ladder.summary))
     if ladder.run_note:
         notes.append(ladder.run_note)
     return ReportSection(

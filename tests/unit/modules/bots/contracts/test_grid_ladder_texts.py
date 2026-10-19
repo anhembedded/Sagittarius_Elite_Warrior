@@ -22,9 +22,11 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     FEE_NOT_SAVED,
     LIQUIDATION_NOT_SAVED,
     NOT_ESTIMATED,
+    RATE_SOURCE,
     age_text,
     brief_summary_line,
     cycle_profit_text,
+    net_figures_note,
     percent_of,
     position_texts,
     recorded_average_text,
@@ -132,7 +134,7 @@ def test_a_row_says_the_steps_in_a_few_words() -> None:
 def test_a_row_says_the_cycle_profit_before_fees_until_the_fee_is_known() -> None:
     assert cycle_profit_text(_summary(), plain_money) == ("about 8.50 before fees")
     assert cycle_profit_text(_summary(maker_fee=Decimal("0.001")), plain_money) == (
-        "about 8.50 after fees"
+        "about 8.50 after fees (run-start rate)"
     )
     assert (
         cycle_profit_text(_summary(average_cycle_quote=None), plain_money)
@@ -278,3 +280,22 @@ def test_an_unsized_brief_summary_does_not_call_a_missing_figure_an_estimate() -
 
     assert brief.endswith("not estimated")
     assert "(estimate)" not in brief
+
+
+def test_a_net_figure_says_which_rate_it_uses_wherever_it_is_shown() -> None:
+    """`BOT-194` - the recorded rate is the run's start, never presented as today's."""
+    summary = _summary(maker_fee=Decimal("0.0002"))
+
+    assert RATE_SOURCE in cycle_profit_text(summary, plain_money)
+    assert RATE_SOURCE in brief_summary_line(summary, plain_money)
+    assert "rate recorded at run start" in summary_line(summary, plain_money)
+    note = net_figures_note(summary)
+    assert "0.02% maker rate recorded when this run started, not today's rate" in note
+
+
+def test_without_a_recorded_rate_the_note_says_the_net_is_blank_and_why() -> None:
+    note = net_figures_note(_summary())
+
+    assert note.startswith("Net figures are blank")
+    assert FEE_NOT_SAVED in note
+    assert RATE_SOURCE not in cycle_profit_text(_summary(), plain_money)
