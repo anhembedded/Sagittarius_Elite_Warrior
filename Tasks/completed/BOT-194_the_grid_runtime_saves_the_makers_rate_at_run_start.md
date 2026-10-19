@@ -1,11 +1,11 @@
 # BOT-194 — The Grid runtime saves the account's maker rate when a run starts, so the net after fees shows
 
-**Status:** 🟡 In progress
+**Status:** ✅ Done (2026-10-19)
 **Board:** Save the maker fee rate the start sequence reads in the grid runtime (one optional field), so the Bots tab and `bot show` can fill in the net step and the profit per cycle after fees, labelled "rate recorded at run start".
 **Source:** Found while delivering [BOT-193](BOT-193_a_grid_bot_shows_its_ladder_summary_and_price_position.md): the rate is read from the exchange and not saved, so a read-only copy cannot give the net. 🤖 Agent decision delegated by the user, 2026-10-19: the owner answered "A,B gì thế, tự quyết theo hiến pháp đi" ("decide yourself by the Constitution") and the coordinator chose A; it is not a §7 default decision (the state file is user data) and the owner may veto. The Constitution check is in [PRO-016](../proposal/PRO-016.md) §6.
 **Risk:** 🟡 — touches the start sequence and the runtime codec; no order or bot behaviour changes, and an old file without the field must still load.
 **Complexity:** S — one optional field on `GridRuntime`, its codec lines, two readers.
-**Depends on:** BOT-193 (both pull requests) merged.
+**Depends on:** BOT-193 (both pull requests), merged.
 
 ---
 
@@ -32,7 +32,7 @@ See PRO-016 §6, "Constitution check". The consumers pass `GridRuntime.maker_fee
 Unit: `test_grid_runtime_codec.py` (round trip, old file, damaged value), `test_grid_executor_resume.py` (a resume keeps it), the ladder tests; integration: `test_a_grid_records_the_maker_rate_at_run_start_on_the_fake_exchange.py` (written at start, read by the ladder both consumers build). Mutation checks: the start line and the resume line each turn a test red.
 
 ## 6. Docs touched
-`Docs/MODULES/bots/08-concepts.md` (the runtime's recorded rate). The headless runbook's ladder section arrives with PR #577 and says the rate is now recorded: it is updated after #577 merges, in a follow-up docs commit of this task.
+`Docs/MODULES/bots/08-concepts.md` (the runtime's recorded rate). The headless runbook's ladder section, SPEC-014 and SPEC-015 say the rate is now recorded.
 
 ## Implementation notes (written when done)
-Code and tests delivered in one pull request; the runbook sentence about the fee waits for #577's section. The commit tier and the focused slices are green; the `-Full` run is the full gate.
+One pull request (#578): the start sequence records the rate, a resume keeps it, the codec reads an old file as no rate, and the runbook, SPEC-014, SPEC-015 and the bots module docs say so. The `-Full` run on the PR's head is the full gate.
