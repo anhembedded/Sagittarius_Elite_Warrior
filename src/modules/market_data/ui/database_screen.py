@@ -6,12 +6,16 @@ leaves `AbstractScreenModule`'s ceremony for a plain `ScreenContribution`,
 now owned by the bounded context whose screen it actually is rather than
 carried by the shell as an unnamed strangler-period tenant
 (`shell/legacy_screen_adapter.py`, retired in this same pull request).
+
+Lazy, as every `ScreenContribution` must be: the factories are `Deferred` import paths
+(`BOT-148`), so a headless `sync` run never imports Qt to answer a question it never asks.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadata
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
@@ -19,7 +23,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
-    from sagittarius_engine.interfaces.i_container import IContainer
 
 DATABASE_ROUTE = "data_management"
 
@@ -31,31 +34,13 @@ _NAV = NavMetadata(
 )
 
 
-def _build_database_view() -> BaseView:
-    """Builds the view, importing it only now — the same lazy shape every
-    `ScreenContribution` factory in this codebase uses, so a headless
-    `sync` run never imports Qt to answer a question it never asks."""
-    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
-        DataManagementView,
-    )
-
-    return DataManagementView()
-
-
-def _build_database_presenter(view: BaseView, container: IContainer) -> BasePresenter:
-    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
-        DataManagementPresenter,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
-        DataManagementView,
-    )
-
-    if not isinstance(view, DataManagementView):
-        raise TypeError(
-            f"the Database screen's presenter was handed a {type(view).__name__}, "
-            "not a DataManagementView"
-        )
-    return DataManagementPresenter(view, container)
+_PACKAGE = "Sagittarius_Elite_Warrior.src.modules.market_data.ui"
+_VIEW: Deferred[BaseView] = Deferred(
+    f"{_PACKAGE}.data_management_view:DataManagementView"
+)
+_PRESENTER: Deferred[BasePresenter] = Deferred(
+    f"{_PACKAGE}.data_management_presenter:DataManagementPresenter"
+)
 
 
 def database_screen() -> ScreenContribution:
@@ -63,7 +48,7 @@ def database_screen() -> ScreenContribution:
     return ScreenContribution(
         contributor_id="market_data",
         route=DATABASE_ROUTE,
-        view_factory=_build_database_view,
-        presenter_factory=_build_database_presenter,
+        view_factory=_VIEW,
+        presenter_factory=_PRESENTER,
         nav=_NAV,
     )

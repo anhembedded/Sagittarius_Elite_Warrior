@@ -35,16 +35,24 @@ class Deferred[R]:
     exists and is callable.
     """
 
-    __slots__ = ("target",)
+    __slots__ = ("_leading", "target")
 
-    def __init__(self, target: str) -> None:
-        """@raise ValueError `target` is not `package.module:attribute`."""
+    def __init__(self, target: str, *leading: object) -> None:
+        """@param leading Arguments every call passes first (`bind`).
+        @raise ValueError `target` is not `package.module:attribute`."""
         module, separator, attribute = target.partition(":")
         if not (module and separator and attribute):
             raise ValueError(
                 f"a deferred target is 'package.module:attribute', not {target!r}"
             )
         self.target = target
+        self._leading = leading
+
+    def bind(self, *leading: object) -> Deferred[R]:
+        """The same target with `leading` passed first on every call: a factory that needs a
+        value known at contribution time (the container) stays a `Deferred`, so the guard that
+        resolves every target still sees it (`BOT-148`)."""
+        return Deferred(self.target, *self._leading, *leading)
 
     @property
     def module(self) -> str:
@@ -59,7 +67,7 @@ class Deferred[R]:
         factory = self.resolve()
         if not callable(factory):
             raise TypeError(f"{self.target} is not callable")
-        return cast("R", factory(*args))
+        return cast("R", factory(*self._leading, *args))
 
     def __repr__(self) -> str:
         return f"Deferred({self.target!r})"

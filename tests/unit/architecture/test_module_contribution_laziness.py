@@ -121,7 +121,7 @@ def test_contribute_imports_no_widget_module() -> None:
         "contribute() imported a widget module: "
         f"{sorted(new_widget_modules)}. The descriptor's factory must import "
         "its widget inside itself, so a headless run never pays for a panel "
-        "nobody opened (see `modules/trading/ui/probes.py`)."
+        "nobody opened (see `core/contracts/deferred.py`)."
     )
 
 
@@ -179,7 +179,7 @@ def test_contribute_costs_a_headless_run_no_qt_import_at_all() -> None:
     assert not imported_qt, (
         "contribute() pulled Qt into a headless run: "
         f"{imported_qt}. The descriptor's factory must import its widget "
-        "inside itself (see `modules/trading/ui/probes.py`)."
+        "inside itself (see `core/contracts/deferred.py`)."
     )
 
 
