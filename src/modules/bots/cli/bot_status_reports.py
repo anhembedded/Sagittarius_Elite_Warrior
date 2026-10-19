@@ -9,6 +9,7 @@ within a version, never renamed.
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.report import (
     JsonValue,
@@ -35,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts impo
     percent_of,
     position_texts,
     recorded_average_text,
+    small_money_text,
     step_text,
     summary_line,
 )
@@ -259,20 +261,31 @@ def _ladder_rows(bot: BotStatusEntry) -> tuple[ReportRow, ...]:
     if ladder is None:
         return ()
     if isinstance(ladder, LadderUnavailable):
-        return (_field("Ladder", ladder.reason),)
+        return (_ladder_field("Ladder", ladder.reason),)
     position = position_texts(ladder.position, plain_price)
     rows = (
-        _field("Ladder", summary_line(ladder.summary, plain_money)),
-        _field("Per cycle", recorded_average_text(ladder.recorded, plain_money)),
-        _field("Last price", position.last_price),
-        _field("Lower edge", position.lower_edge),
-        _field("Upper edge", position.upper_edge),
-        _field("Stop loss", position.stop_loss),
-        _field("Take profit", position.take_profit),
+        _ladder_field("Ladder", summary_line(ladder.summary, plain_money)),
+        _ladder_field(
+            "Average per cycle (net of fees)",
+            recorded_average_text(ladder.recorded, plain_money),
+        ),
+        _ladder_field("Last price heard", position.last_price),
+        _ladder_field("Lower edge", position.lower_edge),
+        _ladder_field("Upper edge", position.upper_edge),
+        _ladder_field("Stop loss", position.stop_loss),
+        _ladder_field("Take profit", position.take_profit),
     )
     if position.liquidation is None:
         return rows
-    return (*rows, _field("Liquidation", position.liquidation))
+    return (*rows, _ladder_field("Liquidation price", position.liquidation))
+
+
+#: The ladder's rows carry the Bots tab's own labels, which are longer than the other rows'.
+_LADDER_LABEL_WIDTH = 32
+
+
+def _ladder_field(label: str, value: str) -> ReportRow:
+    return ReportRow((ReportCell(label, _LADDER_LABEL_WIDTH), ReportCell(value)))
 
 
 _GRID_HEADS = (
@@ -322,14 +335,18 @@ def _grid_row(cells: tuple[str, ...]) -> ReportRow:
     )
 
 
+def _quote_cell(value: Decimal | None) -> str:
+    return NO_VALUE if value is None else small_money_text(value, plain_money)
+
+
 def _grid_cells(row: LadderRow) -> tuple[str, ...]:
     return (
         plain_price(row.buy),
         plain_price(row.sell),
         percent_of(row.step_fraction),
         NO_VALUE if row.net_fraction is None else percent_of(row.net_fraction),
-        NO_VALUE if row.gross_quote is None else plain_money(row.gross_quote),
-        NO_VALUE if row.net_quote is None else plain_money(row.net_quote),
+        _quote_cell(row.gross_quote),
+        _quote_cell(row.net_quote),
         row.state.value,
     )
 

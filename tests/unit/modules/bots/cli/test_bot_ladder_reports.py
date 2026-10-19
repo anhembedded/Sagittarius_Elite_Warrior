@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder_texts import (
     FEE_NOT_SAVED,
+    LIQUIDATION_NOT_SAVED,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FAKE_CLOCK_START,
@@ -55,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_ladder_facts 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.shell.report_printer import ReportPrinter
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.cli_host.report_formats import ReportFormats
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.helpers import seed
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.status_world import (
@@ -110,6 +114,14 @@ def _world() -> BotQueryDispatcher:
         _run((4, OrderSide.BUY, "64000"), (6, OrderSide.SELL, "66000")),
     )
     seed(store, "cccccc", S.DRAFT, {"lower": "60000"}, {})
+    seed(
+        store,
+        "ffffff",
+        S.RUNNING,
+        {**_CONFIG, "direction": "LONG", "leverage": "2"},
+        _run(),
+        TradingVenue.FUTURES_TESTNET,
+    )
     return BotQueryDispatcher(store, HeldProbe(False))
 
 
@@ -141,14 +153,14 @@ def test_bot_show_prints_the_position_rows_the_bots_tab_shows(
     tab = _tab_rows("aaaaaa")
     assert tab["last_price"] == "64,500.00, 5 min ago"
     for label, key in (
-        ("Last price", "last_price"),
+        ("Last price heard", "last_price"),
         ("Lower edge", "lower_edge"),
         ("Upper edge", "upper_edge"),
         ("Stop loss", "stop_loss"),
         ("Take profit", "take_profit"),
-        ("Per cycle", "cycle_average"),
+        ("Average per cycle (net of fees)", "cycle_average"),
     ):
-        assert f"{label:<12} {tab[key]}" in out, label
+        assert f"{label:<32} {tab[key]}" in out, label
     assert tab["lower_edge"] == "60,000.00 (-6.98%)"
 
 
@@ -241,7 +253,81 @@ def test_bot_list_has_a_grid_step_column_and_no_ladder_is_a_dash(
     head = next(line for line in out.splitlines() if line.startswith("ID"))
     assert "GRID STEP" in head
     row = next(line for line in out.splitlines() if line.startswith("aaaaaa"))
-    assert "1.45% (top) to 1.67% (bottom)" in row
+    assert "1.45% to 1.67%" in row
     draft = next(line for line in out.splitlines() if line.startswith("cccccc"))
     assert "1.45%" not in draft
     assert "—" in draft
+
+
+def test_a_futures_bot_prints_the_liquidation_row_the_tab_shows(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    out = _text(ShowBotVerb(), capsys, bot_id="ffffff")
+    [bot] = _json(ShowBotVerb(), capsys, bot_id="ffffff")
+    spot = _text(ShowBotVerb(), capsys, bot_id="aaaaaa")
+
+    tab = _tab_rows("ffffff")
+    assert tab["liquidation"] == LIQUIDATION_NOT_SAVED
+    assert f"{'Liquidation price':<32} {tab['liquidation']}" in out
+    assert bot["ladder"]["position"]["has_liquidation_price"] is True
+    assert "Liquidation price" not in spot
+
+
+def test_a_listing_carries_the_ladders_summary_but_not_its_rows(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    listed = {bot["bot_id"]: bot for bot in _json(ListBotsVerb(), capsys)}
+    [shown] = _json(ShowBotVerb(), capsys, bot_id="aaaaaa")
+
+    assert listed["aaaaaa"]["ladder"]["rows"] == []
+    assert (
+        listed["aaaaaa"]["ladder"]["smallest_step_fraction"]
+        == (shown["ladder"]["smallest_step_fraction"])
+    )
+    assert listed["aaaaaa"]["ladder"]["position"] == shown["ladder"]["position"]
+    assert len(shown["ladder"]["rows"]) == 10
+
+
+_LADDER_KEYS = {
+    "available", "reason", "spacing", "smallest_step_fraction",
+    "largest_step_fraction", "maker_fee", "average_cycle_quote", "recorded",
+    "position", "run_note", "rows",
+}  # fmt: skip
+_RECORDED_KEYS = {"completed_cycles", "grid_profit", "average_profit"}
+_POSITION_KEYS = {
+    "last_price", "age_seconds", "lower", "upper", "stop_loss", "take_profit",
+    "has_liquidation_price",
+}  # fmt: skip
+_MARK_KEYS = {"price", "distance_fraction"}
+_ROW_KEYS = {
+    "buy", "sell", "step_fraction", "net_fraction", "gross_quote", "net_quote", "state",
+}  # fmt: skip
+
+
+def test_the_ladder_payload_keys_are_pinned(capsys: pytest.CaptureFixture[str]) -> None:
+    [bot] = _json(ShowBotVerb(), capsys, bot_id="aaaaaa")
+    [draft] = _json(ShowBotVerb(), capsys, bot_id="cccccc")
+
+    ladder = bot["ladder"]
+    assert set(ladder) == _LADDER_KEYS
+    assert set(ladder["recorded"]) == _RECORDED_KEYS
+    assert set(ladder["position"]) == _POSITION_KEYS
+    assert set(ladder["position"]["lower"]) == _MARK_KEYS
+    assert set(ladder["position"]["stop_loss"]) == _MARK_KEYS
+    assert all(set(row) == _ROW_KEYS for row in ladder["rows"])
+    assert set(draft["ladder"]) == {"available", "reason"}
+
+
+def test_a_sub_cent_cycle_is_never_a_zero_in_the_grid_table(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    store = FakeBotStore()
+    seed(store, "tiny00", S.RUNNING, {**_CONFIG, "capital_quote": "0.5"}, _run())
+
+    ShowBotVerb().run(
+        _args(json=False, bot_id="tiny00", grids=True),
+        verb_world(BotQueryDispatcher(store, HeldProbe(False)), _PRINTER),
+    )
+    out = capsys.readouterr().out
+
+    assert "less than 0.01" in out

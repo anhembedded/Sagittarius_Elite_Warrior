@@ -43,6 +43,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     UnreadableBotEntry,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
     grid_ladder_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
@@ -129,7 +130,7 @@ class GetBotStatusReportQueryHandler(
 
     def _report_of(self, listing: BotList) -> BotStatusReport:
         return BotStatusReport(
-            bots=tuple(self._entry_of(bot) for bot in listing.bots),
+            bots=tuple(self._listed(bot) for bot in listing.bots),
             unreadable=self._unreadable(listing.refused),
         )
 
@@ -147,6 +148,13 @@ class GetBotStatusReportQueryHandler(
 
     def _entry_of(self, bot: BotSnapshot) -> BotStatusEntry:
         return _entry_at(bot, self._clock.now())
+
+    def _listed(self, bot: BotSnapshot) -> BotStatusEntry:
+        """A listing stays small: the ladder's summary and price position, not its rows."""
+        entry = self._entry_of(bot)
+        if isinstance(entry.ladder, GridLadder):
+            return replace(entry, ladder=replace(entry.ladder, rows=()))
+        return entry
 
 
 def _entry_at(bot: BotSnapshot, now: datetime) -> BotStatusEntry:

@@ -2,7 +2,8 @@
 
 Exact decimals as text (never a float), `null` where the record cannot give a figure, so a script
 tells "unknown" from zero as a person does. Keys are added within a version, never renamed
-(`test_the_bot_report_payload_keys_are_pinned`). A bot with no ladder says why under `reason`.
+(`test_the_ladder_payload_keys_are_pinned`). A bot with no ladder says why under `reason`. `rows`
+is empty in a listing and holds one object per grid in the one-bot read (`bot show`).
 """
 
 from __future__ import annotations

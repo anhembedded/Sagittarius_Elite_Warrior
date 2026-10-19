@@ -143,7 +143,8 @@ class BotStatusEntry:
     #: `None` when the file holds no readable run account (never shown as zero).
     earnings: RunEarnings | None = None
     #: `BOT-193` - the ladder the bot's saved parameters make with what its saved run records, read
-    #: like the Bots tab reads it; `None` when it was not asked for.
+    #: like the Bots tab reads it; a listing carries its summary and price position without the
+    #: rows (`rows` is empty), the one-bot read carries every grid.
     ladder: GridLadder | LadderUnavailable | None = None
 
     def __post_init__(self) -> None:
