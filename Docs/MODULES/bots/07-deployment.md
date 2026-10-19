@@ -46,6 +46,9 @@ any bot or subscribing to fills (`bots/module.py` → `BotsModule.boot`; the wri
 import it, `PRO-014`), because a restart rule run
 there would rewrite the first copy's running bots, and the store and the runner are the read-only
 wrappers. `bot list`, `bot show` and `status` read through the same queries the Bots tab reads through.
+A read-only Bots tab hears no `BotChangedEvent` (the writer publishes on its own process's bus), so it
+re-reads the bots' files on its 30 s clock (`bots/ui/bots_screen/presenter_pacing.py` → `BotsClock`;
+`BUG-227`); the writing copy does not.
 `bot show` also prints the bot's effective halt-recovery table, one `Recovery` row per reason with the
 attempts used inside its window, or `no automatic recovery (<layer> layer)` for a Futures bot
 (`bots/application/queries/get_bot_status_report/recovery_table.py` → `recovery_table_of`; `EPIC-042G`).

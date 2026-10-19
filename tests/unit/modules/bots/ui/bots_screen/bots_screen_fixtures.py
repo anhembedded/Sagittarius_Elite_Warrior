@@ -272,6 +272,7 @@ def open_screen(
     bots: Sequence[StoredBot] = (),
     answers: Answers | None = None,
     venue_enabled: bool = True,
+    instance: IInstanceAccess | None = None,
 ) -> BotsScreen:
     pool = HeldPool()
     bus = MemoryEventBus()
@@ -323,7 +324,7 @@ def open_screen(
     market_sources = register_market_data(container, VENUE.market_data_venue)
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())
-    container.singleton(IInstanceAccess, InstanceAccess.unguarded())
+    container.singleton(IInstanceAccess, instance or InstanceAccess.unguarded())
     strategy = VenueArming(VENUE)
     container.singleton(
         IVenueStrategyControls,

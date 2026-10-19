@@ -15,7 +15,6 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
     BotFills,
 )
@@ -79,7 +78,7 @@ from .kind_command_binding import KindCommands
 from .new_bot_symbols import new_bot_symbols
 from .plan_export_flow import PlanExport
 from .planner_recovery import PlannerRecovery
-from .presenter_pacing import ACTION, CLOCK_MS, COALESCE_MS, REJUDGE_MS, utc_now
+from .presenter_pacing import ACTION, COALESCE_MS, REJUDGE_MS, BotsClock, utc_now
 from .selected_bot import SelectedBot
 
 if TYPE_CHECKING:
@@ -168,8 +167,9 @@ class BotsPresenter(CommandPresenter):
         self._closed = False
         self._reread = single_shot_timer(self, COALESCE_MS, self._queries.bots)
         self._rejudge = single_shot_timer(self, REJUDGE_MS, self._refresh_detail)
-        self._clock = QTimer(self)
-        self._clock.setInterval(CLOCK_MS)
+        self._clock = BotsClock(
+            self, deps.instance, self._queries.bots, self._refresh_detail
+        )
         ask, status = self._dialogs.ask_arm_strategy, self._model.set_status
         self.strategies = strategies_for(container, view.strategies, ask, status)
         for event_type, handler in self.strategies.subscriptions:
@@ -197,7 +197,6 @@ class BotsPresenter(CommandPresenter):
         self._commands.finished.connect(self._on_finished)
         self._changes.changed.connect(self._on_bot_changed)
         self._log.line.connect(model.append_log_line)
-        self._clock.timeout.connect(self._refresh_detail)
 
     # -- reads ------------------------------------------------------------- #
 

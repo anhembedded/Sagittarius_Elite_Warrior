@@ -17,6 +17,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_notifier import INotifier
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.readiness.bot_run_facts import (
     BotRunFactsReader,
@@ -95,6 +98,8 @@ class BotsDependencies:
     #: The one question that names real money, asked before a mainnet venue's
     #: first Start or Arm of the session (`EPIC-034` D3, D11).
     consent: IRealMoneyConsent
+    #: Whether this copy writes the bots' files or only reads them (`BUG-227`).
+    instance: IInstanceAccess
 
 
 def bots_dependencies_for(container: IContainer) -> BotsDependencies:
@@ -125,6 +130,7 @@ def bots_dependencies_for(container: IContainer) -> BotsDependencies:
         ),
         notifier=notifier,
         consent=container.resolve(IRealMoneyConsent),
+        instance=container.resolve(IInstanceAccess),
     )
 
 

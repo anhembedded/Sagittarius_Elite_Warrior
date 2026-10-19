@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_instance_access import (
+    IInstanceAccess,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 
 from .bots_screen_fixtures import Answers, BotsScreen, open_screen
@@ -24,8 +27,9 @@ def open_bots_screen(tmp_path: Path, qtbot: Any) -> Iterator[OpenBotsScreen]:
         bots: Sequence[StoredBot] = (),
         answers: Answers | None = None,
         venue_enabled: bool = True,
+        instance: IInstanceAccess | None = None,
     ) -> BotsScreen:
-        screen = open_screen(tmp_path, qtbot, bots, answers, venue_enabled)
+        screen = open_screen(tmp_path, qtbot, bots, answers, venue_enabled, instance)
         opened.append(screen)
         return screen
 
