@@ -122,6 +122,7 @@ def _build(coverage=None, action_id=7, sync=None, symbol_metadata=None):
         effective_data_interval=lambda _c: TimeFrame.ONE_MINUTE,
         resolve_action_id=lambda: action_id,
         log_dev_trace=lambda *a, **k: None,
+        time_zone=lambda: "UTC",
         emit_progress=lambda *a: events.append(("progress", *a)),
         emit_succeeded=lambda *a: events.append(("succeeded", *a)),
         emit_failed=lambda *a: events.append(("failed", *a)),

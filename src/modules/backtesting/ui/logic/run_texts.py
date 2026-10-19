@@ -6,7 +6,7 @@ ceiling, only places them."""
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
@@ -20,6 +20,9 @@ from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
     FormatContext,
 )
+
+if TYPE_CHECKING:
+    from .backtest_fsm_matrix import BacktestRunConfig
 
 
 def money_text(amount: float) -> str:
@@ -61,25 +64,19 @@ def moment_text(
     return moment_in_zone(moment, time_zone) if moment else open_end
 
 
-class _HasRange(Protocol):
-    """A run's configuration, as far as its range is concerned (read-only, so a dataclass fits)."""
-
-    @property
-    def start_time(self) -> datetime | None: ...
-
-    @property
-    def end_time(self) -> datetime | None: ...
-
-
-def time_range_diff_text(before: _HasRange, after: _HasRange, time_zone: str) -> str:
+def time_range_diff_text(
+    before: BacktestRunConfig, after: BacktestRunConfig, time_zone: str
+) -> str:
     """`Time range (a..b → c..d)` for the config diff, in the display time zone, which it
-    names once unless it is UTC (`BOT-162`). An open start reads "Start", an open end "Now"."""
+    names once, after the range, unless it is UTC (`BOT-162`). An open start reads "Start", an open end "Now"."""
 
-    def written(config: _HasRange) -> str:
+    def written(config: BacktestRunConfig) -> str:
         start = moment_text(config.start_time, "Start", time_zone)
         return f"{start}..{moment_text(config.end_time, 'Now', time_zone)}"
 
-    return f"Time range ({written(before)} → {written(after)}{zone_suffix(time_zone)})"
+    suffix = zone_suffix(time_zone)
+    named = f" in{suffix}" if suffix else ""
+    return f"Time range ({written(before)} → {written(after)}){named}"
 
 
 def signal_text(side: str, symbol: str, price: float) -> str:

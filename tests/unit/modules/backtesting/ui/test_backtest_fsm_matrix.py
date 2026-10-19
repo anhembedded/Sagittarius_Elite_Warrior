@@ -341,5 +341,5 @@ def test_the_time_range_of_a_config_diff_is_in_the_display_time_zone_and_names_i
     )
     assert before.compute_diff_summary(after, "Asia/Ho_Chi_Minh") == (
         "Time range (2026-01-01 07:00:00..Now → "
-        "2026-01-02 10:00:00..2026-02-01 07:00:00 Asia/Ho_Chi_Minh)"
+        "2026-01-02 10:00:00..2026-02-01 07:00:00) in Asia/Ho_Chi_Minh"
     )

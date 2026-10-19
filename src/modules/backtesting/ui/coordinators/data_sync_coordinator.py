@@ -60,7 +60,7 @@ class DataSyncCoordinator:
         emit_succeeded: Callable[[int], None],
         emit_failed: Callable[[int, str], None],
         emit_cancelled: Callable[[int], None],
-        time_zone: Callable[[], str] = lambda: DEFAULT_TIMEZONE,
+        time_zone: Callable[[], str],
     ) -> None:
         self._market_data_sync = market_data_sync
         self._range_coverage = range_coverage
