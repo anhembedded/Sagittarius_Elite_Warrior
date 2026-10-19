@@ -9,6 +9,7 @@ the bot may own orders, and its file is the only record of them.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -40,6 +41,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report impo
     BotStatusReport,
     GetBotStatusReportQuery,
     UnreadableBotEntry,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    GridLadder,
+    grid_ladder_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
@@ -107,7 +112,7 @@ class GetBotStatusReportQueryHandler(
         if snapshot is not None:
             # The one-bot read carries the recovery table and the parameters; a listing stays small.
             entry = replace(
-                _entry_of(snapshot),
+                self._entry_of(snapshot),
                 recovery=recovery_table_of(snapshot, self._kinds, self._clock.now()),
                 parameters=dict(snapshot.config),
             )
@@ -125,7 +130,7 @@ class GetBotStatusReportQueryHandler(
 
     def _report_of(self, listing: BotList) -> BotStatusReport:
         return BotStatusReport(
-            bots=tuple(_entry_of(bot) for bot in listing.bots),
+            bots=tuple(self._listed(bot) for bot in listing.bots),
             unreadable=self._unreadable(listing.refused),
         )
 
@@ -141,8 +146,18 @@ class GetBotStatusReportQueryHandler(
             for file in refused
         )
 
+    def _entry_of(self, bot: BotSnapshot) -> BotStatusEntry:
+        return _entry_at(bot, self._clock.now())
 
-def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
+    def _listed(self, bot: BotSnapshot) -> BotStatusEntry:
+        """A listing stays small: the ladder's summary and price position, not its rows."""
+        entry = self._entry_of(bot)
+        if isinstance(entry.ladder, GridLadder):
+            return replace(entry, ladder=replace(entry.ladder, rows=()))
+        return entry
+
+
+def _entry_at(bot: BotSnapshot, now: datetime) -> BotStatusEntry:
     return BotStatusEntry(
         bot_id=bot.bot_id,
         name=bot.name,
@@ -156,4 +171,5 @@ def _entry_of(bot: BotSnapshot) -> BotStatusEntry:
         recovers_on_restart=restarts_into_recovering(bot.state),
         reason_detail=bot.progress.reason_detail if bot.progress is not None else "",
         earnings=RunEarnings.of(bot.progress),
+        ladder=grid_ladder_of(bot, now),
     )
