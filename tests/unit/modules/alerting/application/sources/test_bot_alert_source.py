@@ -5,14 +5,10 @@ nothing; a return to RUNNING clears the condition."""
 from __future__ import annotations
 
 import threading
-from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
 import pytest
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     ALERT_ON_ENTRY,
     CLEARED_ON_ENTRY,
@@ -35,7 +31,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.stop.grid
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
-    BotStatusReport,
     GetBotStatusReportQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recovered_event import (
@@ -53,47 +48,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_stop_gave_u
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.application.sources.bot_source_world import (
+    BOT,
+    Bots,
+    entry,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.alerting.world import build_rig
 
-BOT = "g3n092"
 
-
-class _Bots(ICommandDispatcher):
-    """The bots' status report over a dict: the one query the source asks."""
-
-    def __init__(self, *entries: BotStatusEntry) -> None:
-        self.entries = {entry.bot_id: entry for entry in entries}
-
-    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
-        if handler_class is not GetBotStatusReportQuery or not isinstance(
-            input_dto, GetBotStatusReportQuery
-        ):
-            raise AssertionError(f"the source asked for {handler_class!r}")
-        if input_dto.bot_id is None:
-            return BotStatusReport(bots=tuple(self.entries.values()))
-        entry = self.entries.get(input_dto.bot_id)
-        return BotStatusReport(bots=() if entry is None else (entry,))
-
-    def move(self, state: str, reason: str = "", detail: str = "") -> None:
-        self.entries[BOT] = replace(
-            self.entries[BOT], state=state, reason=reason, reason_detail=detail
-        )
-
-
-def _entry(state: str = "RUNNING", reason: str = "") -> BotStatusEntry:
-    return BotStatusEntry(
-        bot_id=BOT,
-        name="eth-grid",
-        kind="grid",
-        venue="spot_mainnet",
-        symbol="ETHUSDT",
-        state=state,
-        reason=reason,
-        run_started_at=None,
-    )
-
-
-def _source(bots: _Bots) -> tuple[BotAlertSource, RecordingAlertPublisher]:
+def _source(bots: Bots) -> tuple[BotAlertSource, RecordingAlertPublisher]:
     published = RecordingAlertPublisher()
     source = BotAlertSource(bots, published, FakeAlertClock())
     source.seed()
@@ -110,7 +73,7 @@ def _key(kind: AlertKind) -> str:
 
 
 def test_entering_halted_publishes_one_critical_alert() -> None:
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
 
     bots.move("HALTED", "price feed silent for 64 s")
@@ -129,7 +92,7 @@ def test_entering_halted_publishes_one_critical_alert() -> None:
 
 
 def test_entering_error_publishes_bot_error() -> None:
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
 
     bots.move("ERROR", "unexpected fault")
@@ -139,7 +102,7 @@ def test_entering_error_publishes_bot_error() -> None:
 
 
 def test_a_rewrite_of_a_halted_bot_publishes_nothing() -> None:
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
     bots.move("HALTED")
     source.on_bot_changed(_changed())
@@ -151,7 +114,7 @@ def test_a_rewrite_of_a_halted_bot_publishes_nothing() -> None:
 
 def test_seeding_at_boot_publishes_nothing() -> None:
     """A bot already HALTED when the app starts was alerted by the run that halted it."""
-    bots = _Bots(_entry("HALTED", "earlier run"))
+    bots = Bots(entry("HALTED", "earlier run"))
     source, published = _source(bots)
 
     source.on_bot_changed(_changed())
@@ -161,7 +124,7 @@ def test_seeding_at_boot_publishes_nothing() -> None:
 
 
 def test_a_return_to_running_clears_the_condition() -> None:
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
     bots.move("HALTED")
     source.on_bot_changed(_changed())
@@ -178,7 +141,7 @@ def test_a_return_to_running_clears_the_condition() -> None:
 
 
 def test_a_stop_that_gave_up_publishes_stop_failed() -> None:
-    bots = _Bots(_entry("STOPPING", "4 order(s) still open"))
+    bots = Bots(entry("STOPPING", "4 order(s) still open"))
     source, published = _source(bots)
 
     source.on_stop_gave_up(BotStopGaveUpEvent(bot_id=BOT, retries=5))
@@ -193,7 +156,7 @@ def test_a_stop_that_gave_up_publishes_stop_failed() -> None:
 def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_none() -> (
     None
 ):
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
 
     bots.move("AWAITING_RECOVERY", "price_feed_stale")
@@ -212,7 +175,7 @@ def test_a_stalled_wait_publishes_one_warning_and_entering_the_wait_publishes_no
 
 
 def test_each_automatic_recovery_is_its_own_alert_with_the_budget_it_leaves() -> None:
-    source, published = _source(_Bots(_entry("RUNNING")))
+    source, published = _source(Bots(entry("RUNNING")))
 
     source.on_auto_recovered(BotAutoRecoveredEvent(BOT, "price_feed_stale", 1, 3))
     source.on_auto_recovered(BotAutoRecoveredEvent(BOT, "price_feed_stale", 2, 3))
@@ -230,7 +193,7 @@ def test_each_automatic_recovery_is_its_own_alert_with_the_budget_it_leaves() ->
 
 
 def test_a_halt_whose_recoveries_are_used_up_says_so_in_its_reason_line() -> None:
-    bots = _Bots(_entry("RUNNING"))
+    bots = Bots(entry("RUNNING"))
     source, published = _source(bots)
 
     bots.move(
@@ -248,7 +211,7 @@ def test_a_halt_whose_recoveries_are_used_up_says_so_in_its_reason_line() -> Non
 
 @pytest.mark.parametrize("after", ["RUNNING", "HALTED", "ERROR", "STOPPED"])
 def test_a_bot_that_leaves_the_wait_ends_the_stalled_condition(after: str) -> None:
-    bots = _Bots(_entry("AWAITING_RECOVERY"))
+    bots = Bots(entry("AWAITING_RECOVERY"))
     source, published = _source(bots)
 
     bots.move(after)
@@ -259,7 +222,7 @@ def test_a_bot_that_leaves_the_wait_ends_the_stalled_condition(after: str) -> No
 
 def test_a_stop_that_gave_up_still_alerts_when_the_bot_cannot_be_read() -> None:
     """The alert that money may be on the exchange is not lost to a failed read."""
-    source, published = _source(_Bots())
+    source, published = _source(Bots())
 
     source.on_stop_gave_up(BotStopGaveUpEvent(bot_id=BOT, retries=5))
 
@@ -267,7 +230,7 @@ def test_a_stop_that_gave_up_still_alerts_when_the_bot_cannot_be_read() -> None:
 
 
 def test_a_stopped_bot_clears_its_stop_failed() -> None:
-    bots = _Bots(_entry("STOPPING"))
+    bots = Bots(entry("STOPPING"))
     source, published = _source(bots)
 
     bots.move("STOPPED")
@@ -280,7 +243,7 @@ def test_a_stopped_bot_clears_its_stop_failed() -> None:
 
 
 def test_a_removed_bot_is_forgotten() -> None:
-    bots = _Bots(_entry("HALTED"))
+    bots = Bots(entry("HALTED"))
     source, published = _source(bots)
 
     source.on_bot_changed(BotChangedEvent(bot_id=BOT, removed=True))
@@ -297,7 +260,7 @@ def test_every_state_the_source_names_is_a_lifecycle_state(state: str) -> None:
     assert BotLifecycleState(state).value == state
 
 
-class _InterleavingBots(_Bots):
+class _InterleavingBots(Bots):
     """A second writer's event arrives while the first one's read is under way:
     the store moves to `then` and that writer's handler runs, before the first
     read returns what it saw."""
@@ -335,7 +298,7 @@ def test_a_second_writer_never_leaves_a_stale_remembered_state() -> None:
     """Review finding (PR #537): the read of the bot and the record of its state
     are one step, so a writer whose event comes second is judged on the state it
     leaves, not overtaken by the first writer's older read."""
-    bots = _InterleavingBots(_entry("RUNNING"), then="RUNNING")
+    bots = _InterleavingBots(entry("RUNNING"), then="RUNNING")
     source, published = _source(bots)
     bots.move("HALTED")
     bots._interleaved = False  # the seed's read is not the one under test
@@ -369,7 +332,7 @@ def test_a_second_round_that_gives_up_is_told_again_through_the_real_hub(
     """Review question (PR #537): the hub's CRITICAL dedup window is one minute and
     a round of stop retries lasts longer, so the owner hears the second give-up."""
     rig = build_rig(tmp_path)
-    source = BotAlertSource(_Bots(_entry("STOPPING")), rig.hub, rig.clock)
+    source = BotAlertSource(Bots(entry("STOPPING")), rig.hub, rig.clock)
     source.seed()
 
     source.on_stop_gave_up(BotStopGaveUpEvent(bot_id=BOT, retries=5))

@@ -22,6 +22,12 @@ one bot and call `publish`, under one lock (`bot_alert_source.py` →
 slow Discord never holds a bot; one POST waits at most `REQUEST_TIMEOUT_S`
 (`alerting/adapters/urllib_webhook_transport.py` → `REQUEST_TIMEOUT_S`).
 
+The fill source's handler runs on the bot's worker thread, like the others, and reads one bot through
+the status query before it calls `publish` (`bot_fill_alert_source.py` →
+`BotFillAlertSource.on_order_filled`); a grid that fills fast therefore pays one local read per fill on
+its own worker, never a channel call. The fill bound runs on the publishing thread, inside the hub's
+lock, and on the housekeeping thread for the skipped-messages line (`fill_backlog.py` → `FillBacklog`).
+
 The Options page's actions (`EPIC-036D1`) run on the application's thread pool (`IThreadManager`), one at
 a time, and their answers return to the UI thread through a queued signal
 (`alerting/ui/options/alerts_action_relay.py`). They add no thread of their own and touch no lane: a

@@ -49,11 +49,15 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Mapping
+from dataclasses import replace
 from types import MappingProxyType
 from typing import cast
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_subject import (
+    subject_of,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.i_alert_clock import (
     IAlertClock,
@@ -69,6 +73,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import Ale
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_subject import (
     AlertSubject,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.severity import Severity
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_status_report import (
     BotStatusEntry,
     BotStatusReport,
@@ -79,6 +84,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recove
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_stop_event import (
+    BotProtectiveStopEvent,
+    ProtectiveStopChange,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_changed_event import (
+    BotRangeChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
@@ -94,6 +106,29 @@ logger = logging.getLogger("App.Alerting")
 ALERT_ON_ENTRY: Mapping[str, AlertKind] = MappingProxyType(
     {"HALTED": AlertKind.BOT_HALTED, "ERROR": AlertKind.BOT_ERROR}
 )
+
+#: `BOT-189`: a stop that began with one of these reasons (`GridReason.value`) is an exit the owner
+#: must hear at once; the entry into STOPPING carries it, and the bot is closing its position.
+EXIT_ON_STOP: Mapping[str, AlertKind] = MappingProxyType(
+    {
+        "stop_loss": AlertKind.STOP_LOSS_HIT,
+        "take_profit": AlertKind.TAKE_PROFIT_HIT,
+        "range_exit": AlertKind.RANGE_EXIT,
+    }
+)
+
+#: What the owner reads about each exit, before the bot's own detail.
+_EXIT_SENTENCES: Mapping[AlertKind, str] = MappingProxyType(
+    {
+        AlertKind.STOP_LOSS_HIT: "The stop loss was reached",
+        AlertKind.TAKE_PROFIT_HIT: "The take profit was reached in the app",
+        AlertKind.RANGE_EXIT: "The price left the range and the bot closes there",
+    }
+)
+
+#: `RangePosition.value`s, as the range event spells them (alerting reads contracts, not `bots.domain`).
+_INSIDE = "INSIDE"
+_BELOW = "BELOW"
 
 #: A state whose entry ends these conditions.
 CLEARED_ON_ENTRY: Mapping[str, tuple[AlertKind, ...]] = MappingProxyType(
@@ -153,12 +188,13 @@ class BotAlertSource:
             if previous == entry.state:
                 return
             self._alert_on_entry(entry, previous)
+            self._alert_on_exit(entry)
             self._clear_on_entry(entry)
 
     def on_stop_gave_up(self, event: BotStopGaveUpEvent) -> None:
         entry = self._entry(event.bot_id)
         subject = (
-            _subject_of(entry)
+            subject_of(entry)
             if entry is not None
             else AlertSubject.bot(event.bot_id, "", "", "", "")
         )
@@ -174,7 +210,7 @@ class BotAlertSource:
         """`EPIC-042` D11: a bot that waits to recover is silent on entry; this is its one alert."""
         entry = self._entry(event.bot_id)
         subject = (
-            _subject_of(entry)
+            subject_of(entry)
             if entry is not None
             else AlertSubject.bot(event.bot_id, "", "", "", "")
         )
@@ -194,7 +230,7 @@ class BotAlertSource:
         """
         entry = self._entry(event.bot_id)
         subject = (
-            _subject_of(entry)
+            subject_of(entry)
             if entry is not None
             else AlertSubject.bot(event.bot_id, "", "", "", "")
         )
@@ -212,6 +248,53 @@ class BotAlertSource:
             reason=f"attempt-{event.attempt}",
         )
 
+    def on_range_changed(self, event: BotRangeChangedEvent) -> None:
+        """`BOT-189`: the price left the range of a bot that holds its orders (a bot that closes
+        there is told by its stop, `EPIC-036B`'s `RANGE_EXIT`); its return is not told."""
+        entry = self._entry(event.bot_id)
+        subject = _subject_or_bare(entry, event.bot_id)
+        if event.position.value == _INSIDE:
+            # No "Recovered": a price that oscillates around a bound would send a pair for each
+            # crossing, unbounded. The hub's window (15 min for a WARNING) keeps it to one message
+            # per side in that time (locked by `test_a_price_that_flaps_at_the_edge_...`).
+            return
+        if event.closes:
+            return
+        word = "below" if event.position.value == _BELOW else "above"
+        detail = (
+            f"The price {event.price} is {word} the range {event.lower}-{event.upper}. "
+            "The bot keeps its orders and waits; it trades again if the price returns."
+        )
+        self._publish(
+            AlertKind.RANGE_EXIT, subject, detail, reason=event.position.value
+        )
+
+    def on_protective_stop(self, event: BotProtectiveStopEvent) -> None:
+        """`BOT-189`: the stop standing on the exchange ran, so the position is closed."""
+        if event.change is not ProtectiveStopChange.TRIGGERED:
+            return
+        subject = _subject_or_bare(self._entry(event.bot_id), event.bot_id)
+        detail = (
+            "The stop standing on the exchange ran and closed the position; "
+            f"the bot stops.\n{event.detail}"
+        )
+        self._publish(AlertKind.STOP_LOSS_HIT, subject, detail, reason="exchange")
+
+    def _alert_on_exit(self, entry: BotStatusEntry) -> None:
+        kind = EXIT_ON_STOP.get(entry.reason) if entry.state == "STOPPING" else None
+        if kind is None:
+            return
+        detail = (
+            f"{_EXIT_SENTENCES[kind]} ({entry.reason_detail or 'no detail recorded'}). "
+            "The bot is closing its position at market and stopping."
+        )
+        alert = self._alert(kind, subject_of(entry), detail)
+        if kind is AlertKind.RANGE_EXIT:
+            # A bot closing its position is an exit the owner must hear (`PRO-015`); one that only
+            # holds keeps the catalog's WARNING, which the owner may route loud.
+            alert = replace(alert, severity=Severity.CRITICAL)
+        self._send(alert)
+
     def _alert_on_entry(self, entry: BotStatusEntry, previous: str | None) -> None:
         kind = ALERT_ON_ENTRY.get(entry.state)
         if kind is None:
@@ -220,10 +303,10 @@ class BotAlertSource:
             f"Was {previous or 'not yet seen'}.\n"
             f"{_reason_line(entry.reason, entry.reason_detail)}"
         )
-        self._publish(kind, _subject_of(entry), detail)
+        self._publish(kind, subject_of(entry), detail)
 
     def _clear_on_entry(self, entry: BotStatusEntry) -> None:
-        subject = _subject_of(entry)
+        subject = subject_of(entry)
         now = self._clock.now()
         for kind in CLEARED_ON_ENTRY.get(entry.state, ()):
             self._publisher.condition_cleared(Alert.condition_key(kind, subject), now)
@@ -231,8 +314,13 @@ class BotAlertSource:
     def _publish(
         self, kind: AlertKind, subject: AlertSubject, detail: str, reason: str = ""
     ) -> None:
+        self._send(self._alert(kind, subject, detail, reason))
+
+    def _alert(
+        self, kind: AlertKind, subject: AlertSubject, detail: str, reason: str = ""
+    ) -> Alert:
         name = subject.bot_name or subject.bot_id
-        alert = Alert.raised(
+        return Alert.raised(
             kind,
             subject,
             f"{label_of(kind)}: {name}",
@@ -240,8 +328,12 @@ class BotAlertSource:
             self._clock.now(),
             reason,
         )
+
+    def _send(self, alert: Alert) -> None:
         self._publisher.publish(alert)
-        logger.info("[alert-source] bot %s: %s published", subject.bot_id, kind.name)
+        logger.info(
+            "[alert-source] bot %s: %s published", alert.subject.bot_id, alert.kind.name
+        )
 
     def _entry(self, bot_id: str) -> BotStatusEntry | None:
         bots = self._report(GetBotStatusReportQuery(bot_id)).bots
@@ -253,10 +345,11 @@ class BotAlertSource:
         )
 
 
-def _subject_of(entry: BotStatusEntry) -> AlertSubject:
-    return AlertSubject.bot(
-        entry.bot_id, entry.name, entry.kind, entry.venue, entry.symbol
-    )
+def _subject_or_bare(entry: BotStatusEntry | None, bot_id: str) -> AlertSubject:
+    """The bot's subject, or a bare one when the report no longer lists the bot."""
+    if entry is not None:
+        return subject_of(entry)
+    return AlertSubject.bot(bot_id, "", "", "", "")
 
 
 def _reason_line(reason: str, detail: str = "") -> str:

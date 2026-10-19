@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.condition_book i
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.delivery_admission import (
     DeliveryAdmission,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.fill_backlog import (
+    FillBacklog,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.quiet_hours_hold import (
     QuietHoursHold,
 )
@@ -101,6 +104,7 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
         self._book = ConditionBook(noise)
         self._hold = QuietHoursHold()
         self._admission = DeliveryAdmission(outbox, delivery)
+        self._fills = FillBacklog(outbox, delivery)
         self._next_purge: datetime | None = None
 
     # -- IAlertPublisher ------------------------------------------------------
@@ -148,6 +152,9 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
             summary = self._hold.release(self._settings.current(), now)
             if summary is not None:
                 self._dispatch(summary, now, frozenset())
+            skipped = self._fills.take_summary(now)
+            if skipped is not None:
+                self._accept(skipped, now, frozenset())
             self._purge_when_due(now)
 
     def suppressed_count(self, inhibitor_key: str) -> int:
@@ -233,6 +240,7 @@ class AlertHub(IAlertPublisher, IDeliveryFollowUp):
         )
         admitted = self._admission.admit(targets, alert.severity)
         alert_id = self._outbox.enqueue(alert, admitted, now)
+        self._fills.trim(alert, admitted)
         if not alert.recovery:  # a recovery exists because a condition was open
             self._dedup.remember(alert, now, alert_id)
         self._book.open(alert, now)

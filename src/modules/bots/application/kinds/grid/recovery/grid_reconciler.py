@@ -56,6 +56,9 @@ from dataclasses import replace
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_budget import (
     bot_owner_id,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
+    GridFillAnnouncer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_housekeeping import (
     GridHousekeeping,
     refusal_text,
@@ -125,6 +128,7 @@ class GridReconciler:
         self._exposure = exposure
         self._housekeeping = GridHousekeeping(context)
         self._missed_fills = GridMissedFills(context)
+        self._fills = GridFillAnnouncer(context)
 
     def run(self) -> None:
         state = self._context.state
@@ -142,6 +146,7 @@ class GridReconciler:
                 # The boot report was a read; this reconcile is the answer.
                 outcome = replace(outcome, reason=None, reason_detail="")
             state.update(outcome)
+            self.announce_kept_fills()
             if (
                 state.bot.lifecycle.recovering_from is BotLifecycleState.PAUSED
                 and outcome.reason is None
@@ -153,6 +158,12 @@ class GridReconciler:
                 )
             else:
                 state.transition(BotLifecycleEvent.RECONCILE_OK)
+
+    def announce_kept_fills(self) -> None:
+        """Tell the app of the orders `compare_with_exchange` filled from history, once its
+        runtime is saved: the caller that keeps the outcome calls this, one that drops it does not
+        (`BOT-189`)."""
+        self._fills.announce(self._missed_fills.take_filled())
 
     def compare_with_exchange(self) -> GridRuntime | ReconcileMismatch | ReconcileWait:
         """Steps 2–6 of the module docstring: the saved ladder brought level

@@ -17,6 +17,7 @@ are their values?* The scenarios the walking skeleton must hold, and the tests t
 | A CRITICAL fails over when the channel asks to wait longer than | 5 min | `alerting/domain/alert_policies.py` → `DeliveryPolicy.failover_after` |
 | An alert older than this expires instead of being sent | 24 h | `alerting/domain/alert_policies.py` → `DeliveryPolicy.expiry` |
 | Queue per channel (CRITICAL is admitted beyond it) | 200 | `alerting/domain/alert_policies.py` → `DeliveryPolicy.capacity` |
+| Fill messages (`ORDER_FILLED`) waiting on one channel before the oldest are dropped (chosen, not measured) | 25 | `alerting/domain/alert_policies.py` → `DeliveryPolicy.fill_backlog` |
 | Finished alerts are kept for; purged every | 30 days; 1 h | `alerting/domain/alert_policies.py` → `DeliveryPolicy.retention` · `alerting/application/alert_hub.py` → `PURGE_EVERY` |
 | A lane looks at the outbox unprompted every; housekeeping runs every | 5 s; 1 s | `alerting/composition/alerting_bindings.py` → `LANE_POLL_SECONDS`, `HOUSEKEEPING_SECONDS` |
 | One webhook POST counts as no answer after | 10 s | `alerting/adapters/urllib_webhook_transport.py` → `REQUEST_TIMEOUT_S` |

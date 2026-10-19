@@ -30,7 +30,8 @@ bots module, and through what?*) and [`diagrams/03-context-out.puml`](diagrams/0
   `BotChangedEvent`), `BotStopGaveUpEvent` (`bots/contracts/events/bot_stop_gave_up_event.py` →
   `BotStopGaveUpEvent`), `BotRecoveryStalledEvent` (`bots/contracts/events/bot_recovery_stalled_event.py` →
   `BotRecoveryStalledEvent`), `BotAutoRecoveredEvent` (`bots/contracts/events/bot_auto_recovered_event.py` →
-  `BotAutoRecoveredEvent`) and the status report (`EPIC-036G`;
+  `BotAutoRecoveredEvent`), `BotOrderFilledEvent` (`bots/contracts/events/bot_order_filled_event.py` →
+  `BotOrderFilledEvent`, one per order that filled whole, `BOT-189`) and the status report (`EPIC-036G`;
   [`../alerting/03-context.md`](../alerting/03-context.md)).
 - **The command line** has `bot list`, `show`, `apply` and `export` of a plan
   (`bots/cli/bot_verbs.py` → `BOT_VERBS`), declared by `bots/module.py` → `BotsModule.declare_cli`.

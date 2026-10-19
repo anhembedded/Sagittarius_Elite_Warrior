@@ -249,7 +249,11 @@ class FakeExchange:
 
 @contextmanager
 def booted(
-    exchange: FakeExchange, *, open_session: bool = True, stream_up: bool = True
+    exchange: FakeExchange,
+    *,
+    open_session: bool = True,
+    stream_up: bool = True,
+    prepare: Callable[[IContainer], None] | None = None,
 ) -> Iterator[BootedApp]:
     """The app with Spot Testnet on; its bots on the serial queue.
 
@@ -259,6 +263,8 @@ def booted(
     @param stream_up False is a user data stream that is down: the pacer
     delivers nothing, so the exchange's reports reach the app only when a test
     calls `BootedApp.deliver` (the stream coming back late).
+    @param prepare Rebinds a container entry before the boot, as a journey must for a part the
+    boot starts (a delivery lane reads its transport at boot, `BOT-189`).
     """
     engine = create_app(app_config(exchange.tmp_path))
     container = engine.context.container
@@ -293,6 +299,8 @@ def booted(
     )
     container.singleton(IBotTicker, ticker)
     container.singleton(IMonotonicClock, monotonic)
+    if prepare is not None:
+        prepare(container)
     engine.boot()
     scope = container.resolve(VenueTradingScopes).get(SPOT)
     stream = scope.ports.user_data_stream

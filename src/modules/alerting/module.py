@@ -16,7 +16,10 @@ What it holds (`EPIC-036A`, `EPIC-036G`; the design is `Docs/MODULES/alerting/`)
     fail-over for CRITICAL, `CHANNEL_FAILING` when a channel gives up;
   - a health section: how many alerts wait and how long the oldest has;
   - the bot source: a bot entering HALTED or ERROR, or whose stop gave up, is one
-    CRITICAL alert;
+    CRITICAL alert, and so are a stop loss or take profit that ran and a bot closing at a range
+    exit (a price outside the range of a bot that holds is a WARNING);
+  - the fill source (`BOT-189`): one INFO, silent message for every order that filled whole, the
+    cycle's profit on the fill that closes a cycle, bounded per channel by `FillBacklog`;
   - one channel, Discord, configured when its webhook is stored
     (`composition/channel_bindings.py` is where a channel is added);
   - `alert test`, the command-line Send test;
@@ -65,6 +68,9 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.application.alerting_health_
 from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_alert_source import (
     BotAlertSource,
 )
+from Sagittarius_Elite_Warrior.src.modules.alerting.application.sources.bot_fill_alert_source import (
+    BotFillAlertSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.alerting.cli.alert_cli_handler import (
     AlertCliHandler,
 )
@@ -80,6 +86,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_auto_recove
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
     BotChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_order_filled_event import (
+    BotOrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_protective_stop_event import (
+    BotProtectiveStopEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_range_changed_event import (
+    BotRangeChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_recovery_stalled_event import (
     BotRecoveryStalledEvent,
@@ -157,6 +172,11 @@ class AlertingModule(BoundedContextModule):
         bus.on(BotStopGaveUpEvent, source.on_stop_gave_up)
         bus.on(BotRecoveryStalledEvent, source.on_recovery_stalled)
         bus.on(BotAutoRecoveredEvent, source.on_auto_recovered)
+        bus.on(BotRangeChangedEvent, source.on_range_changed)
+        bus.on(BotProtectiveStopEvent, source.on_protective_stop)
+        bus.on(
+            BotOrderFilledEvent, container.resolve(BotFillAlertSource).on_order_filled
+        )
         source.seed()
 
     def shutdown(self, context: IEngineContext) -> None:

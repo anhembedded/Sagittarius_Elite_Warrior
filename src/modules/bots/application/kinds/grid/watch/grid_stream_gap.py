@@ -103,6 +103,7 @@ class GridStreamGap:
         else:
             self._unconfirmed = None
             state.update(outcome)
+            self._reconciler.announce_kept_fills()
             if state.state is BotLifecycleState.RUNNING:
                 self._release_held()
             level = logging.INFO if state.runtime != before else logging.DEBUG

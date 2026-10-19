@@ -59,7 +59,10 @@ The router (`.../bot_event_router.py` → `BotEventRouter.on_fill`) gives the fi
 which ignores one already counted and books the rest on the bot's worker (`.../grid_facts.py` →
 `GridFacts.on_fill`, `GridFacts._apply_fill`). A filled level lays its counter order one level away
 and returns to `EMPTY` (`settled`, the level machine in [`state-machines.md`](state-machines.md)), and
-the bot's run state saves the new runtime.
+the bot's run state saves the new runtime. Once it is saved, one `BotOrderFilledEvent` is published for
+each order the fact filled whole (`bots/domain/grid/grid_reactions.py` → `Reaction.filled`;
+`bots/application/kinds/grid/grid_fill_announcer.py` → `GridFillAnnouncer.announce`; BOT-189): a partial fill and a trade already counted publish nothing, and
+the `alerting` module words the rest.
 
 The stream hands over fills in the order it chooses, not always the order the exchange made them
 (`BUG-225`). A counter order whose level the ledger still shows occupied is therefore not yet a

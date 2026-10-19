@@ -16,13 +16,18 @@ published once per wait by `grid_halt_recovery.py` → `GridHaltRecovery._tell_i
 `BotAutoRecoveredEvent`, published after each automatic recovery by `grid_halt_recovery.py` →
 `GridHaltRecovery._after`) and the one-bot read
 `GetBotStatusReportQuery(bot_id)` (`src/modules/bots/contracts/bot_status_report.py` →
-`GetBotStatusReportQuery`, `BotStatusEntry`) — and no context imports its insides, so a new kind of
+`GetBotStatusReportQuery`, `BotStatusEntry`) — and, since `BOT-189`, `BotOrderFilledEvent`
+(`src/modules/bots/contracts/events/bot_order_filled_event.py` → `BotOrderFilledEvent`, published once
+per order that filled whole by `grid_fill_announcer.py` → `GridFillAnnouncer.announce`),
+`BotRangeChangedEvent` (`src/modules/bots/contracts/events/bot_range_changed_event.py` →
+`BotRangeChangedEvent`) and `BotProtectiveStopEvent`
+(`src/modules/bots/contracts/events/bot_protective_stop_event.py` → `BotProtectiveStopEvent`) — and no context imports its insides, so a new kind of
 bot changes nothing here (N1). The shell lists `AlertingModule` with the other modules
 (`src/shell/modules.py` → `MODULES`). What crosses its edge:
 
 - in: `IAlertPublisher` (`publish`, `condition_cleared`, `alerting/contracts/i_alert_publisher.py` →
-  `IAlertPublisher`), called by the module's own bot source today and by every source `EPIC-036B`
-  adds;
+  `IAlertPublisher`), called by the module's own bot sources (`BotAlertSource`, `BotFillAlertSource`)
+  and by every source `EPIC-036B` adds;
 - out: one `IAlertChannel.deliver(alert, loudness) -> DeliveryResult` per configured channel
   (`alerting/contracts/i_alert_channel.py` → `IAlertChannel.deliver`); the one channel is Discord,
   over `IWebhookTransport` (`alerting/contracts/i_webhook_transport.py` → `IWebhookTransport`), with

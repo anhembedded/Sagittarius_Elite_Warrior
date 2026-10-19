@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fact
     GridFactParts,
     GridFacts,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_fill_announcer import (
+    GridFillAnnouncer,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.kinds.grid.grid_ladder_placer import (
     GridLadderPlacer,
 )
@@ -210,6 +213,7 @@ class GridExecutor(IBotExecutor):
                 GridKeyProbe(context),
                 GridTermsWatch(context),
                 GridBlockedCounter(context),
+                GridFillAnnouncer(context),
                 exposure.risk_watch,
                 GridMarkExit(exposure.exit_marks, self._prices, self.bot_id)
                 if exposure.exit_marks is not None

@@ -37,3 +37,7 @@ class BotRangeChangedEvent(BaseEvent):
     price: Decimal
     lower: Decimal
     upper: Decimal
+    #: `BOT-189` - what the bot does about it: `True` when it closes its position at the mark
+    #: price outside the range (`RangeExit.CLOSE`, which publishes its own stop), `False` when it
+    #: holds its orders and waits. The alert says which.
+    closes: bool = False

@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.alerting.contracts.outbox_records imp
     OutboxBacklog,
 )
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert import Alert
+from Sagittarius_Elite_Warrior.src.modules.alerting.domain.alert_kind import AlertKind
 from Sagittarius_Elite_Warrior.src.modules.alerting.domain.delivery_state import (
     DeliveryState,
 )
@@ -268,6 +269,18 @@ class SqliteOutbox(IOutbox):
                 (row[0],),
             )
         return True
+
+    def shed_surplus(self, channel_id: str, kind: AlertKind, keep: int) -> int:
+        with self._transaction() as db:
+            cursor = db.execute(
+                "UPDATE deliveries SET state = 'dropped', reason = 'no room for fill messages' "
+                "WHERE delivery_id IN (SELECT d.delivery_id FROM deliveries d "
+                "JOIN alerts a ON a.alert_id = d.alert_id "
+                "WHERE d.channel_id = ? AND d.state IN ('pending', 'retrying') "
+                "AND a.kind = ? ORDER BY d.delivery_id DESC LIMIT -1 OFFSET ?)",
+                (channel_id, kind.value, keep),
+            )
+        return cursor.rowcount
 
     def purge_finished_before(self, cutoff: datetime) -> int:
         with self._transaction() as db:
