@@ -10,6 +10,7 @@ a read-only copy of the data root sends nothing.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -116,11 +117,13 @@ def _settled(app: BootedApp, transport: FakeWebhookTransport) -> list[str]:
     thread, so what is queued by now is all there will be."""
     outbox = app.engine.context.container.resolve(IOutbox)  # type: ignore[type-abstract]
     clock = app.engine.context.container.resolve(IAlertClock)  # type: ignore[type-abstract]
+    deadline = time.monotonic() + WAIT_S
     while outbox.backlog(clock.now()).depth > 0:
+        assert time.monotonic() < deadline, "the outbox never emptied"
+        # Cleared after the wait and the depth read again: a post between a check and a clear
+        # must not be a lost wake-up.
+        transport.posted.wait(0.05)
         transport.posted.clear()
-        if outbox.backlog(clock.now()).depth == 0:
-            break
-        assert transport.posted.wait(WAIT_S), "the outbox never emptied"
     return [str(post.body["content"]) for post in transport.posts]
 
 
