@@ -8,6 +8,7 @@ a safety input (ADR D6): the exchange's evidence is what trading acts on.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_pnl import PnlSummary
@@ -55,3 +56,6 @@ class BotProgress:
     cost: Decimal = Decimal(0)
     #: What the run has earned: the total, its parts and the HODL benchmark.
     pnl: PnlSummary | None = None
+    #: When the bot heard `mark_price` (its own clock); `None` before it heard one, and for a
+    #: record an earlier build wrote (`BOT-193`).
+    mark_price_at: datetime | None = None

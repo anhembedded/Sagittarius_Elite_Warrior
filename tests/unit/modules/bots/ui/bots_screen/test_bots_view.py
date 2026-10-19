@@ -99,6 +99,7 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(view) -> Non
         "Strategies": _AREA.LeftDockWidgetArea,
         "Plan": _AREA.RightDockWidgetArea,
         "Orders": _AREA.BottomDockWidgetArea,
+        "Ladder": _AREA.BottomDockWidgetArea,
         "Fills": _AREA.BottomDockWidgetArea,
         "Log": _AREA.BottomDockWidgetArea,
         "Backtest": _AREA.BottomDockWidgetArea,
@@ -113,7 +114,7 @@ def test_the_bottom_panels_are_tabbed(view) -> None:
 
     tabbed = {dock.windowTitle() for dock in surface.tabifiedDockWidgets(orders)}
 
-    assert tabbed == {"Fills", "Log", "Backtest"}
+    assert tabbed == {"Ladder", "Fills", "Log", "Backtest"}
 
 
 def test_without_a_chart_the_centre_says_how_to_get_one(view) -> None:

@@ -31,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.venue_profile import (
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     RUN_STARTING_STATES,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_ladder_facts import (
+    LADDER_ROWS,
+    ladder_facts,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
     BotsViewModel,
 )
@@ -63,6 +67,10 @@ EMPTY_TEXT = "Select a bot in Bots, or create one with Bots → New bot…."
 #: duration the formatter writes itself.
 #: The rows only a venue with funding shows (`EPIC-039J`): costs apart from the profit.
 COST_KEYS = ("commissions", "funding")
+#: The row only a position venue shows (`BOT-193`): its liquidation price is the exchange's, not the record's.
+LIQUIDATION_KEY = "liquidation"
+#: The rows that come from the bot's ladder (`bot_ladder_facts.LADDER_ROWS`), not from `BotFacts`.
+_LADDER_KEYS = frozenset(LADDER_ROWS)
 FACT_SPECS = (
     *(
         ColumnSpec(key, title, ColumnKind.TEXT)
@@ -72,6 +80,7 @@ FACT_SPECS = (
             ("capital", "Capital"),
             ("grid_profit", "Profit from completed cycles"),
             ("cycles", "Completed cycles"),
+            ("cycle_average", "Average per cycle, net of fees"),
             ("total_pnl", "Total PnL"),
             ("unrealised", "of which unrealised"),
             ("hodl", "HODL benchmark"),
@@ -79,6 +88,16 @@ FACT_SPECS = (
             ("earlier_runs", "Left from earlier runs"),
             ("commissions", "Commissions paid"),
             ("funding", "Funding (earned +, paid −)"),
+            # `BOT-193`: the ladder the saved parameters make (designed), what a cycle there
+            # earns (estimate) and where the last price the bot heard stands (recorded).
+            ("grid_step", "Grid step (designed)"),
+            ("cycle_profit", "Profit per cycle (estimate)"),
+            ("last_price", "Last price heard"),
+            ("lower_edge", "Lower edge"),
+            ("upper_edge", "Upper edge"),
+            ("stop_loss", "Stop loss"),
+            ("take_profit", "Take profit"),
+            ("liquidation", "Liquidation price"),
         )
     ),
     ColumnSpec("running_time", "Running time", ColumnKind.DURATION),
@@ -119,6 +138,7 @@ class BotPlanPanel(QStackedWidget):
         self._build()
         self._connect()
         self._show_costs(False)
+        self._show_ladder()
         self._show_selection()
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
@@ -155,6 +175,7 @@ class BotPlanPanel(QStackedWidget):
         model = self._model
         model.selection_changed.connect(self._show_selection)
         model.facts_changed.connect(self._show_facts)
+        model.ladder_changed.connect(self._show_ladder)
         model.judgement_changed.connect(self._show_judgement)
         model.readiness_changed.connect(self._show_readiness)
         model.facts_changed.connect(self._show_venue_if_changed)
@@ -254,17 +275,30 @@ class BotPlanPanel(QStackedWidget):
         facts = self._model.facts
         self.state.setText(facts.state if facts else "")
         self.facts.set_values(
-            {spec.key: getattr(facts, spec.key) if facts else "" for spec in FACT_SPECS}
+            {
+                spec.key: getattr(facts, spec.key) if facts else ""
+                for spec in FACT_SPECS
+                if spec.key not in _LADDER_KEYS
+            }
         )
         self._show_costs(facts is not None and facts.shows_costs)
 
+    def _show_ladder(self) -> None:
+        """The ladder rows: the grid step, the profit a cycle earns and where the price stands."""
+        ladder = ladder_facts(self._model.ladder)
+        self.facts.set_values(dict(ladder.rows))
+        self._show_rows((LIQUIDATION_KEY,), ladder.shows_liquidation)
+
     def _show_costs(self, shown: bool) -> None:
         """The cost rows belong to a venue with funding; Spot's figures keep their rows."""
+        self._show_rows(COST_KEYS, shown)
+
+    def _show_rows(self, keys: tuple[str, ...], shown: bool) -> None:
         form = self.facts.layout()
         if not isinstance(form, QFormLayout):
             raise TypeError(f"the figures lay out as a form, not {type(form).__name__}")
         for spec_index, spec in enumerate(FACT_SPECS):
-            if spec.key in COST_KEYS:
+            if spec.key in keys:
                 form.setRowVisible(spec_index, shown)
 
     def _show_readiness(self) -> None:

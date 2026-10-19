@@ -50,6 +50,7 @@ class DetailEffects:
     def refresh(self) -> None:
         detail = self._selected.detail()
         self._model.set_facts(detail.facts if detail else None)
+        self._model.set_ladder(detail.ladder if detail else None)
         self._model.set_judgement(detail.verdict_lines if detail else ())
         readiness = detail.readiness if detail else None
         self._step.assessed(readiness)

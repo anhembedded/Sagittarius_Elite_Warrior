@@ -91,7 +91,7 @@ class GridDerived:
 def derive(
     params: GridParams, terms: ExchangeTerms, grid_plan: GridPlan
 ) -> GridDerived:
-    grids = _grids(grid_plan.prices, terms.maker_fee)
+    grids = grid_profits(grid_plan.prices, terms.maker_fee)
     cycle_profit = sum(
         (grid_plan.capital_per_level * grid.net_fraction for grid in grids), Decimal(0)
     ) / len(grids)
@@ -117,7 +117,12 @@ def derive(
     )
 
 
-def _grids(prices: tuple[Decimal, ...], maker_fee: Decimal) -> tuple[GridProfit, ...]:
+def grid_profits(
+    prices: tuple[Decimal, ...], maker_fee: Decimal
+) -> tuple[GridProfit, ...]:
+    """One `GridProfit` per pair of neighbouring `prices`, lowest first: the arithmetic of the
+    report's per-grid step and net, for `derive` and for a ladder shown without a plan
+    (`grid_ladder.py`, `BOT-193`)."""
     grids: list[GridProfit] = []
     for buy, sell in pairwise(prices):
         step_fraction = (sell - buy) / buy

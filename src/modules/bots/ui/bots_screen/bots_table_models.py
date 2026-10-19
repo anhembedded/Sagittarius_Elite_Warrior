@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.grid_ladder import (
+    LadderRow,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -156,5 +159,48 @@ class BotFillsTableModel(SelectedBotRows[BotFill]):
             row.price,
             row.quantity,
             row.client_order_id,
+        )
+        return values[column]
+
+
+_HUNDRED = Decimal(100)
+
+
+def _percent(fraction: Decimal | None) -> DisplayValue:
+    return None if fraction is None else float(fraction * _HUNDRED)
+
+
+def _money_or_none(value: Decimal | None) -> DisplayValue:
+    return None if value is None else float(value)
+
+
+class BotLadderTableModel(SelectedBotRows[LadderRow]):
+    """`BOT-193` - one row per grid. The header says what each figure is: designed (the saved
+    parameters), estimate (a cycle's profit, sized by capital over the levels) or recorded (the
+    saved run). A figure the record cannot give is a blank cell, never zero; the panel's lines
+    say why."""
+
+    SYMBOL_QUOTED: ClassVar[frozenset[str]] = frozenset({"buy", "sell"})
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("buy", "Buy at", ColumnKind.PRICE),
+        ColumnSpec("sell", "Sell at", ColumnKind.PRICE),
+        ColumnSpec("step", "Step (designed)", ColumnKind.PERCENT),
+        ColumnSpec("net", "Net step (designed)", ColumnKind.PERCENT),
+        ColumnSpec(
+            "gross_quote", "Per cycle, before fees (estimate)", ColumnKind.MONEY
+        ),
+        ColumnSpec("net_quote", "Per cycle, after fees (estimate)", ColumnKind.MONEY),
+        ColumnSpec("state", "Now (recorded)", ColumnKind.TEXT, stretch=True),
+    )
+
+    def _value(self, row: LadderRow, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
+            row.buy,
+            row.sell,
+            _percent(row.step_fraction),
+            _percent(row.net_fraction),
+            _money_or_none(row.gross_quote),
+            _money_or_none(row.net_quote),
+            row.state.value.capitalize(),
         )
         return values[column]
