@@ -2,8 +2,8 @@
 
 - **Reported:** 2026-10-09 (the owner, Spot Mainnet, bot `vce9z8`, resume confirmed 10:45:57, via the coordinator session)
 - **Severity:** 🟡 P2 — the resume halts again; the base stays held and unsold
-- **Status:** Open
-- **Board:** A confirmed resume placed its BUY and the exchange then refused the first SELL for insufficient balance although trading derived 0.0082917 ETH as held; cause not established.
+- **Status:** ✅ Closed, mitigated (2026-10-19): not reproducible; reopen if it recurs
+- **Board:** A confirmed resume placed its BUY and the exchange then refused the first SELL for insufficient balance although trading derived 0.0082917 ETH as held. Cause never established (the owner's balances and open orders at the time were not kept); closed as mitigated by BOT-174, which refuses such a Resume before anything is queued. Reopen if it recurs.
 - **Context:** SPEC-014 (run a grid bot) → `src/modules/bots/application/kinds/grid/recovery/grid_resume_sequence.py`, `grid_start_sequence.place_ladder`
 - **Environment:** as BUG-194.
 
@@ -40,3 +40,12 @@ Not run.
 ## Suggested next steps
 1. Get the owner's ETH free/locked and open orders for the time of the refusal.
 2. If the candidate is confirmed, compare `BotOrderGateway.holding` (free + locked today) with the derived inventory before the ladder, and read free separately from locked.
+
+## Closure (2026-10-19)
+🤖 Agent decision delegated by the owner (relayed by the coordinator session; the owner delegated the batch with "cho subsession làm hết cho tui đi" and asked for decisions by the Constitution; the owner may veto, which reopens this report).
+
+- **Why closed without a root cause:** the only fact that decides between the candidates is the account's ETH free and locked and its open orders at 2026-10-09 10:45:57. It was never captured and cannot be obtained now. Re-deriving a cause from the code alone would be inventing one (`create-bug-report-rule.md` §2: "Do not invent a cause").
+- **Evidence it is mitigated:** `BOT-174` (merged, `b04bd61`) reads the exchange's facts (free base, base locked by other orders) before a Resume is queued and refuses it, naming both numbers, when the free base plus the base locked in the bot's own resting SELLs is below the SELLs the ladder lays: `src/modules/bots/application/services/readiness/resume_readiness.py`, `src/modules/bots/application/services/venue/exchange_rules.py`. The shortfall the candidates describe is therefore named before any order is placed, not discovered as a bare `-2010` after the BUY.
+- **What the mitigation does not cover (stated, not hidden):** `resume_readiness.py` sizes the check to the bot's own record of its inventory; the proposal that follows derives the inventory again from the exchange, and a disagreement between the two is outside the check (its docstring says so). If the derived inventory exceeds the free base while the record does not, the SELL can still be refused. A check inside the resume sequence itself (free base read at confirm against the SELLs the proposal lays) would close it; it is not built because nothing shows that case happened, and it would add an exchange read to every confirm.
+- **What stays unknown:** which candidate happened on 2026-10-09. If it recurs the mitigation's refusal names the numbers that decide it; reopen this report with them.
+- **Constitution check (agent decision):** reversible (move the file back); no code, dependency, setting, Engine, user data or secret touched; no real-money behaviour added. P1/P2/P4: the claim above rests on the cited files, and no fix is claimed. P8: no test, baseline or threshold changed.
