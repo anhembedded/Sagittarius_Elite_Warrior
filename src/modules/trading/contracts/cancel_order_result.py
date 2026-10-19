@@ -20,6 +20,10 @@ class CancelOrderResult:
 
     blocked_by: ExecuteOrderSafetyGate | None
     cancelled_order: Order | None
+    #: The exchange holds no such order (unknown-order refusal): it filled, ended or was cancelled
+    #: already. A value, not an exception, so the command dispatcher does not log an expected
+    #: outcome as a failed command (`BUG-226`). `cancelled_order` is `None` with it.
+    already_gone: bool = False
 
     @property
     def blocked(self) -> bool:

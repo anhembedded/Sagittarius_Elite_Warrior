@@ -89,7 +89,7 @@ early. The close is sent as a close purpose (`.../bot_order_gateway.py` →
 `BotOrderGateway.market_reduce_only`), so `trading`'s owner budget does not count it among the bot's
 open orders: the stop's own cancelled orders, which the exchange's open-orders list may still show
 when the budget is registered again, never refuse it. A cancel that finds no such order (`-2011`) is
-`OrderOutcomeKind.GONE` (`.../order_outcome.py` → `OrderOutcomeKind`, `is_order_gone`), which the
+`OrderOutcomeKind.GONE` (`.../order_outcome.py` → `OrderOutcomeKind`, `is_order_gone`, `classify_cancel`; `trading` answers the refusal as a value, `src/modules/trading/contracts/cancel_order_result.py` → `CancelOrderResult`, so the command dispatcher does not log it as a failed command, `BUG-226`), which the
 ladder's housekeeping counts as cancelled (`.../grid_housekeeping.py` →
 `GridHousekeeping._ended_meanwhile`), not a fault. The automatic retries wait on `STOP_RETRY_DELAYS` ([`10-quality.md`](10-quality.md)); when
 they are used up the bot publishes `BotStopGaveUpEvent` (`.../grid_stop_retry.py` →
